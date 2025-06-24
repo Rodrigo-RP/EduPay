@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Sidebar from "@/components/layout/sidebar";
 import KPICard from "@/components/kpi-card";
+import SaaSInfo from "@/components/saas-info";
 import { useAuth } from "@/hooks/use-auth";
 import { 
   BarChart3, 

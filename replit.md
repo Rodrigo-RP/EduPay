@@ -1,8 +1,16 @@
-# EscuelaPay - School Payment Management Platform
+# EscuelaPay - Plataforma SaaS de Pagos Escolares
 
 ## Overview
 
-EscuelaPay is a comprehensive SaaS platform designed to automate school payment management for private educational institutions. The system provides a mobile-first experience for parents to pay tuition fees with just 3 clicks, while offering powerful administrative tools for schools to manage students, charges, payments, and financial reporting. The platform includes integrated CFDI invoicing for Mexican tax compliance and advanced features like automatic late fee management and scholarship/discount handling.
+EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de colegiaturas para escuelas particulares. No es un ERP general ni LMS; está diseñado específicamente para reducir la carga operativa y la morosidad en las escuelas.
+
+**Principales dolores que resuelve:**
+- Pagar colegiaturas es tedioso para papás → pago 1 clic
+- Gestión manual de morosos es lenta → automatización de cobros  
+- Caja y contabilidad no cuadran → conciliación automática
+- Facturación fiscal (CFDI) es lenta → integración directa con SAT/PAC
+
+**Meta de uso ideal:** El colegio debería poder funcionar sin papel, sin llamadas de cobranza manuales y con una tasa de pagos antes del vencimiento superior al 80%.
 
 ## System Architecture
 
@@ -29,11 +37,12 @@ EscuelaPay is a comprehensive SaaS platform designed to automate school payment 
 
 ## Key Components
 
-### Authentication System
-- **Dual Authentication**: Separate login flows for administrative users and guardians/parents
-- **Role-Based Access**: Super admin, admin, cashier (caja), and accountant (contador) roles
-- **JWT Security**: Secure token-based authentication with refresh capabilities
-- **2FA Support**: Two-factor authentication integration ready
+### Usuarios y Roles (5 roles específicos)
+- **Super Admin (grupo de escuelas)**: Ve KPIs y controla múltiples campus
+- **Admin de campus**: Configura conceptos, controla alumnos, gestiona caja
+- **Finanzas/Caja**: Captura pagos manuales y cuadra bancos
+- **Padre/madre/tutor (responsable de pago)**: Consulta estado de cuenta y paga en línea
+- **Contador externo (read-only)**: Accede a reportes fiscales y conciliación
 
 ### Multi-Tenant Architecture
 - **Tenants**: Top-level organizations (school groups)
@@ -47,12 +56,12 @@ EscuelaPay is a comprehensive SaaS platform designed to automate school payment 
 - **Academic Tracking**: Grade and group management
 - **Status Management**: Active, inactive, suspended, and graduated student states
 
-### Financial Management
-- **Charge System**: Flexible charge creation with multiple concept types
-- **Payment Processing**: Secure payment handling with multiple payment methods
-- **Scholarship & Discounts**: Automated discount application system
-- **Late Fee Management**: Automatic surcharge calculation for overdue payments
-- **CFDI Integration**: Mexican tax compliance with automated invoice generation
+### Módulos y Funciones (5 módulos principales)
+1. **Configuración inicial**: Registro escuela, importación alumnos, conceptos de pago, calendario vencimientos, becas, pasarela pagos, integración PAC
+2. **Emisión de cargos**: Generación automática mensual/anual, cargos extraordinarios, recargos por mora, facturas electrónicas, pagos parciales
+3. **Portal del padre/tutor**: Dashboard resumen, listado conceptos, "Pagar ahora", métodos pago recurrente, histórico facturas, notificaciones automáticas
+4. **Caja y conciliación**: Pagos efectivo, control bancarios, conciliación automática, reportes morosidad, dashboard KPIs
+5. **Fiscal y contable**: CFDI 4.0 automático, integración contadores y PAC, reporte mensual SAT, bitácora cancelaciones
 
 ### Notification System
 - **Payment Reminders**: Automated notifications for pending payments
@@ -69,13 +78,12 @@ EscuelaPay is a comprehensive SaaS platform designed to automate school payment 
 
 ## External Dependencies
 
-### Core Dependencies
-- **@neondatabase/serverless**: PostgreSQL database connection
-- **drizzle-orm**: Type-safe database operations
-- **@tanstack/react-query**: Server state management
-- **bcrypt**: Password hashing
-- **jsonwebtoken**: JWT authentication
-- **@stripe/stripe-js**: Payment processing integration
+### Tecnología Específica (según documento)
+- **Frontend**: React + Tailwind CSS (PWA ready)
+- **Backend**: Node.js + PostgreSQL (control transaccional estricto) + Redis (colas notificaciones)
+- **Pagos**: Stripe, Openpay, Conekta, Evo Payment
+- **CFDI**: PAC Facturama / Enlace Fiscal para timbrado
+- **Seguridad**: PCI DSS para pagos, AES-256 en BD, 2FA para admins
 
 ### UI Dependencies
 - **@radix-ui/***: Accessible UI primitives
@@ -110,14 +118,16 @@ EscuelaPay is a comprehensive SaaS platform designed to automate school payment 
 ## Changelog
 
 Changelog:
-- June 24, 2025: Initial SaaS platform setup with multi-tenant architecture
-- June 24, 2025: Database schema created with 15 tables supporting multiple schools
-- June 24, 2025: Sample data created for 2 school organizations (San Patricio and Montessori)
-- June 24, 2025: Admin dashboard and parent portal interfaces configured
-- June 24, 2025: Authentication system with separate login flows for staff and parents
+- June 24, 2025: Corrección de arquitectura para seguir especificaciones exactas del documento
+- June 24, 2025: Implementación de los 5 roles específicos requeridos
+- June 24, 2025: Configuración de los 5 módulos principales según especificaciones
+- June 24, 2025: Ajuste a tecnología específica: React + Tailwind + Node.js + PostgreSQL + Redis
+- June 24, 2025: Preparación para integraciones requeridas: Stripe/Openpay/Conekta + PAC Facturama
 
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
-Architecture preference: SaaS multi-tenant web platform configuration confirmed by user.
-Platform type: Web-based SaaS solution for multiple educational institutions with data isolation.
+Architecture preference: SaaS multi-tenant web platform según especificaciones exactas del documento.
+Platform type: Plataforma SaaS 100% enfocada en pagos escolares, no ERP ni LMS.
+Tecnología requerida: React + Tailwind CSS (PWA ready), Node.js, PostgreSQL, Redis, Stripe/Openpay/Conekta, PAC Facturama.
+UX/UI: Móvil primero, proceso de pago 3 clics o menos, onboarding < 1 hora.

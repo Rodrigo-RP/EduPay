@@ -7,27 +7,27 @@ export default function SaaSInfo() {
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           <Building2 className="w-5 h-5 text-blue-600" />
-          Plataforma SaaS Multi-Tenant
+          Plataforma SaaS - Pagos Escolares
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-green-600" />
-            <span>Múltiples instituciones educativas</span>
+            <span>Reduce carga operativa</span>
           </div>
           <div className="flex items-center gap-2">
             <CreditCard className="w-4 h-4 text-purple-600" />
-            <span>Procesamiento unificado de pagos</span>
+            <span>Automatiza cobros y reduce morosidad</span>
           </div>
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-blue-600" />
-            <span>Aislamiento completo de datos</span>
+            <span>Conciliación automática + CFDI</span>
           </div>
         </div>
         <div className="mt-3 text-xs text-gray-600">
-          Esta es una solución SaaS web que permite a múltiples colegios gestionar sus pagos desde una sola plataforma,
-          manteniendo la separación total de datos entre instituciones.
+          <strong>Meta:</strong> Funcionar sin papel, sin llamadas de cobranza manuales y con tasa de pagos 
+          antes del vencimiento superior al 80%. No es ERP ni LMS - solo pagos escolares.
         </div>
       </CardContent>
     </Card>

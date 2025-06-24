@@ -71,10 +71,10 @@ export default function AdminDashboard() {
     <div className="flex h-screen bg-slate-50">
       <div className="w-full">
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 text-center">
-          <h1 className="text-xl font-bold">EscuelaPay SaaS - Plataforma Multi-Tenant</h1>
-          <p className="text-blue-100 text-sm">Sistema web unificado para múltiples instituciones educativas</p>
+          <h1 className="text-xl font-bold">EscuelaPay - Plataforma SaaS de Pagos Escolares</h1>
+          <p className="text-blue-100 text-sm">100% enfocada en automatizar pagos de colegiaturas</p>
           <div className="mt-2 text-xs bg-white/20 rounded px-3 py-1 inline-block">
-            Campus: {campusId} | Usuario: {user?.email} | Rol: {user?.role}
+            Meta: 80% pagos antes del vencimiento | Campus: {campusId} | {user?.role}
           </div>
         </div>
         

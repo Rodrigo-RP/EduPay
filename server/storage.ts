@@ -243,9 +243,6 @@ export class DatabaseStorage implements IStorage {
         student: row.students
       }
     })) as any;
-      .innerJoin(students, eq(charges.student_id, students.id))
-      .where(eq(payments.guardian_id, guardianId))
-      .orderBy(desc(payments.fecha_pago));
   }
 
   async getPaymentMethodsByGuardian(guardianId: number): Promise<PaymentMethod[]> {

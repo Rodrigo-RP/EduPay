@@ -90,23 +90,23 @@ export default function AdminDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-900">Dashboard Administrativo</h2>
-              <p className="text-slate-600">Colegio San Patricio - Campus Norte</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button className="bg-primary-600 text-white hover:bg-primary-700">
-                <i className="fas fa-plus mr-2"></i>
-                Generar Cargos
-              </Button>
-              <div className="flex items-center space-x-2 text-sm text-slate-600">
-                <i className="fas fa-calendar"></i>
-                <span>{new Date().toLocaleDateString('es-MX', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}</span>
+                  <p className="text-slate-600">Colegio San Patricio - Campus Norte</p>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <Button className="bg-primary-600 text-white hover:bg-primary-700">
+                    <i className="fas fa-plus mr-2"></i>
+                    Generar Cargos
+                  </Button>
+                  <div className="flex items-center space-x-2 text-sm text-slate-600">
+                    <i className="fas fa-calendar"></i>
+                    <span>{new Date().toLocaleDateString('es-MX', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}</span>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        </header>
+            </header>
 
-        {/* Dashboard Content */}
-        <div className="p-6">
+            {/* Dashboard Content */}
+            <div className="p-6">
           {/* KPI Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <KPICard
@@ -304,8 +304,10 @@ export default function AdminDashboard() {
               </div>
             </CardContent>
           </Card>
+          </div>
+        </main>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

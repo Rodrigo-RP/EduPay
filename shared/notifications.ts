@@ -1,12 +1,15 @@
-// Notification system según especificaciones - SMS, WhatsApp, Email
+// Notification system - Módulo 3: Notificaciones automáticas (email, WhatsApp, SMS)
+import { pgTable, serial, integer, varchar, text, boolean, timestamp } from "drizzle-orm/pg-core";
+
 export const notification_templates = pgTable("notification_templates", {
   id: serial("id").primaryKey(),
-  campus_id: integer("campus_id").references(() => campuses.id),
-  tipo: varchar("tipo", { length: 50 }).notNull(), // CARGO_EMITIDO, RECORDATORIO, MORA
+  campus_id: integer("campus_id"),
+  tipo: varchar("tipo", { length: 50 }).notNull(), // CARGO_EMITIDO, RECORDATORIO_VENCIMIENTO, AVISO_MORA
   canal: varchar("canal", { length: 20 }).notNull(), // EMAIL, SMS, WHATSAPP
   asunto: varchar("asunto", { length: 255 }),
   mensaje: text("mensaje").notNull(),
-  variables_disponibles: text("variables_disponibles"), // JSON con variables
+  variables_disponibles: text("variables_disponibles"), // JSON: {alumno}, {monto}, {fecha_vencimiento}
+  dias_antes_vencimiento: integer("dias_antes_vencimiento"), // Para recordatorios
   activo: boolean("activo").default(true),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),

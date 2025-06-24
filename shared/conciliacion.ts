@@ -1,12 +1,16 @@
-// Sistema de conciliación bancaria según especificaciones
+// Sistema de conciliación bancaria - Módulo 4: Caja y conciliación
+import { pgTable, serial, integer, varchar, text, boolean, timestamp, date, bigint, decimal } from "drizzle-orm/pg-core";
+
 export const bank_accounts = pgTable("bank_accounts", {
   id: serial("id").primaryKey(),
-  campus_id: integer("campus_id").references(() => campuses.id),
+  campus_id: integer("campus_id"),
   banco: varchar("banco", { length: 100 }).notNull(),
   numero_cuenta: varchar("numero_cuenta", { length: 50 }).notNull(),
   clabe: varchar("clabe", { length: 18 }),
+  tipo_cuenta: varchar("tipo_cuenta", { length: 50 }).default("CORRIENTE"), // CORRIENTE, AHORRO
   moneda: varchar("moneda", { length: 3 }).default("MXN"),
   saldo_inicial_centavos: bigint("saldo_inicial_centavos", { mode: "number" }).default(0),
+  conciliacion_automatica: boolean("conciliacion_automatica").default(true),
   activa: boolean("activa").default(true),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),

@@ -65,7 +65,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const token = jwt.sign(
-        { id: user.id, email: user.email, role: user.role, type: 'user' },
+        { id: user.id, email: user.email, role: user.role, campus_id: user.campus_id, type: 'user' },
         JWT_SECRET,
         { expiresIn: '24h' }
       );

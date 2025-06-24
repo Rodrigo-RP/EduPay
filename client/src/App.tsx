@@ -25,12 +25,21 @@ function AuthenticatedRoutes() {
     return <Login />;
   }
 
+  // SaaS routing - different interfaces based on user type
+  if (guardian) {
+    return (
+      <Switch>
+        <Route path="/" component={ParentPortal} />
+        <Route path="/parent" component={ParentPortal} />
+        <Route component={NotFound} />
+      </Switch>
+    );
+  }
+
   return (
     <Switch>
-      <Route path="/" component={() => guardian ? <ParentPortal /> : <AdminDashboard />} />
+      <Route path="/" component={AdminDashboard} />
       <Route path="/admin" component={AdminDashboard} />
-      <Route path="/parent" component={ParentPortal} />
-      <Route path="/checkout" component={() => <div>Checkout disponible pronto</div>} />
       <Route component={NotFound} />
     </Switch>
   );

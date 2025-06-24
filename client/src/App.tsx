@@ -30,7 +30,7 @@ function AuthenticatedRoutes() {
       <Route path="/" component={() => guardian ? <ParentPortal /> : <AdminDashboard />} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/parent" component={ParentPortal} />
-      <Route path="/checkout" component={Checkout} />
+      <Route path="/checkout" component={() => <div>Checkout disponible pronto</div>} />
       <Route component={NotFound} />
     </Switch>
   );

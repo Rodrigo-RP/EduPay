@@ -227,38 +227,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPaymentsByGuardian(guardianId: number): Promise<(Payment & { charge: Charge & { concept: Concept; student: Student } })[]> {
-    return await db
-      .select({
-        id: payments.id,
-        charge_id: payments.charge_id,
-        guardian_id: payments.guardian_id,
-        metodo: payments.metodo,
-        referencia_pasarela: payments.referencia_pasarela,
-        monto_centavos: payments.monto_centavos,
-        fecha_pago: payments.fecha_pago,
-        estado: payments.estado,
-        created_at: payments.created_at,
-        updated_at: payments.updated_at,
-        charge: {
-          id: charges.id,
-          student_id: charges.student_id,
-          concept_id: charges.concept_id,
-          ciclo_escolar: charges.ciclo_escolar,
-          fecha_emision: charges.fecha_emision,
-          fecha_vencimiento: charges.fecha_vencimiento,
-          monto_base_centavos: charges.monto_base_centavos,
-          beca_aplicada: charges.beca_aplicada,
-          recargo_aplicado_centavos: charges.recargo_aplicado_centavos,
-          estado: charges.estado,
-          created_at: charges.created_at,
-          updated_at: charges.updated_at,
-          concept: concepts,
-          student: students,
-        },
-      })
+    const results = await db
+      .select()
       .from(payments)
       .innerJoin(charges, eq(payments.charge_id, charges.id))
       .innerJoin(concepts, eq(charges.concept_id, concepts.id))
+      .innerJoin(students, eq(charges.student_id, students.id))
+      .where(eq(payments.guardian_id, guardianId));
+
+    return results.map((row: any) => ({
+      ...row.payments,
+      charge: {
+        ...row.charges,
+        concept: row.concepts,
+        student: row.students
+      }
+    })) as any;
       .innerJoin(students, eq(charges.student_id, students.id))
       .where(eq(payments.guardian_id, guardianId))
       .orderBy(desc(payments.fecha_pago));

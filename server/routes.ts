@@ -107,7 +107,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get guardian's students and their pending charges
   app.get("/api/guardian/dashboard", authenticateGuardian, async (req, res) => {
     try {
-      const guardianId = req.guardian.id;
+      const guardianId = (req as any).guardian?.id;
       
       const students = await storage.getStudentsByGuardian(guardianId);
       const pendingCharges = await storage.getPendingChargesByGuardian(guardianId);
@@ -118,7 +118,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalPending = pendingCharges.reduce((sum, charge) => {
         const baseAmount = charge.monto_base_centavos;
         const discount = baseAmount * (Number(charge.beca_aplicada) / 100);
-        const finalAmount = baseAmount - discount + charge.recargo_aplicado_centavos;
+        const finalAmount = baseAmount - discount + (charge.recargo_aplicado_centavos || 0);
         return sum + finalAmount;
       }, 0);
 
@@ -126,7 +126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         students,
         pendingCharges: pendingCharges.map(charge => ({
           ...charge,
-          total_amount_centavos: charge.monto_base_centavos - (charge.monto_base_centavos * Number(charge.beca_aplicada) / 100) + charge.recargo_aplicado_centavos,
+          total_amount_centavos: charge.monto_base_centavos - (charge.monto_base_centavos * Number(charge.beca_aplicada) / 100) + (charge.recargo_aplicado_centavos || 0),
         })),
         totalPendingBalance: totalPending / 100, // Convert to pesos
         paymentHistory,
@@ -263,7 +263,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/payments/process", authenticateGuardian, async (req, res) => {
     try {
       const { charge_id, payment_method, amount_centavos } = req.body;
-      const guardianId = req.guardian.id;
+      const guardianId = (req as any).guardian?.id;
 
       // Create payment record
       const payment = await storage.createPayment({

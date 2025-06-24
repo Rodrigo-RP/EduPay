@@ -119,3 +119,5 @@ Changelog:
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
+Architecture preference: SaaS multi-tenant web platform configuration confirmed by user.
+Platform type: Web-based SaaS solution for multiple educational institutions with data isolation.

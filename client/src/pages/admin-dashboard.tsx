@@ -69,15 +69,27 @@ export default function AdminDashboard() {
 
   return (
     <div className="flex h-screen bg-slate-50">
-      <Sidebar />
-      
-      {/* Main Content */}
-      <main className="flex-1 overflow-auto">
-        {/* Header */}
-        <header className="bg-white border-b border-slate-200 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900">Dashboard</h2>
+      <div className="w-full">
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 text-center">
+          <h1 className="text-xl font-bold">EscuelaPay SaaS - Plataforma Multi-Tenant</h1>
+          <p className="text-blue-100 text-sm">Sistema web unificado para múltiples instituciones educativas</p>
+          <div className="mt-2 text-xs bg-white/20 rounded px-3 py-1 inline-block">
+            Campus: {campusId} | Usuario: {user?.email} | Rol: {user?.role}
+          </div>
+        </div>
+        
+        <div className="flex">
+          <Sidebar />
+          
+          {/* Main Content */}
+          <main className="flex-1 overflow-auto">
+            <SaaSInfo />
+            
+            {/* Header */}
+            <header className="bg-white border-b border-slate-200 px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900">Dashboard Administrativo</h2>
               <p className="text-slate-600">Colegio San Patricio - Campus Norte</p>
             </div>
             <div className="flex items-center space-x-4">

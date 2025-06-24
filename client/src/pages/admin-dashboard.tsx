@@ -31,7 +31,9 @@ interface Student {
 
 export default function AdminDashboard() {
   const { user } = useAuth();
-  const campusId = 1; // This would come from user context in a real app
+  
+  // In a real SaaS, this would come from user's campus assignment
+  const campusId = user?.campus_id || 1;
 
   const { data: kpiData, isLoading: kpiLoading } = useQuery<KPIData>({
     queryKey: [`/api/admin/dashboard/${campusId}`],

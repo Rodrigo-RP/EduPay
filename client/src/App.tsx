@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { AcademicFilterProvider } from "@/hooks/use-academic-filter";
+import { InstitutionProvider } from "@/hooks/use-institution";
 import Header from "@/components/layout/header";
 import Sidebar from "@/components/layout/sidebar";
 import ParentPortal from "@/pages/parent-portal";
@@ -99,12 +100,14 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <AcademicFilterProvider>
-          <TooltipProvider>
-            <Toaster />
-            <AuthenticatedRoutes />
-          </TooltipProvider>
-        </AcademicFilterProvider>
+        <InstitutionProvider>
+          <AcademicFilterProvider>
+            <TooltipProvider>
+              <Toaster />
+              <AuthenticatedRoutes />
+            </TooltipProvider>
+          </AcademicFilterProvider>
+        </InstitutionProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

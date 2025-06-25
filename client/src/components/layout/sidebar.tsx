@@ -1,9 +1,11 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
+import { useInstitution } from "@/hooks/use-institution";
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
   const [location, setLocation] = useLocation();
+  const { institutionName, campusName, logoUrl } = useInstitution();
 
   const menuItems = [
     { 
@@ -110,12 +112,16 @@ export default function Sidebar() {
     <aside className="w-64 bg-white border-r border-slate-200 flex flex-col">
       <div className="p-6">
         <div className="flex items-center space-x-3">
-          <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-            <i className="fas fa-university text-white text-lg"></i>
+          <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
+            {logoUrl ? (
+              <img src={logoUrl} alt="Logo institucional" className="w-full h-full object-cover" />
+            ) : (
+              <i className="fas fa-university text-white text-lg"></i>
+            )}
           </div>
           <div className="flex-1">
-            <h1 className="text-lg font-bold text-slate-900 leading-tight">Colegio San Patricio</h1>
-            <p className="text-xs text-slate-500">Campus Principal</p>
+            <h1 className="text-lg font-bold text-slate-900 leading-tight">{institutionName}</h1>
+            <p className="text-xs text-slate-500">{campusName}</p>
           </div>
         </div>
       </div>

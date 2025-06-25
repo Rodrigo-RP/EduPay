@@ -25,14 +25,7 @@ export default function Header() {
 
   return (
     <header className="bg-white border-b border-slate-200 h-16 flex-shrink-0">
-      <div className="px-6 py-3 flex items-center justify-between h-full">
-        <div className="flex items-center gap-4">
-          <div>
-            <h2 className="font-semibold text-slate-900">Colegio San Patricio</h2>
-            <p className="text-sm text-slate-600">Campus Principal • SaaS Multi-tenant</p>
-          </div>
-        </div>
-        
+      <div className="px-6 py-3 flex items-center justify-end h-full">
         <div className="flex items-center gap-4">
           {/* Selector de Ciclo Escolar */}
           <div className="flex items-center gap-2">

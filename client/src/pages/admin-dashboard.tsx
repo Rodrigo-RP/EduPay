@@ -50,9 +50,9 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div>
+    <div className="min-h-screen">
       {/* SaaS Info Banner */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 text-center mb-6 -mx-6 -mt-6">
+      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 text-center">
         <h1 className="text-xl font-bold">EscuelaPay - Plataforma SaaS de Pagos Escolares</h1>
         <p className="text-blue-100 text-sm">100% enfocada en automatizar pagos de colegiaturas</p>
         <div className="mt-2 text-xs bg-white/20 rounded px-3 py-1 inline-block">
@@ -60,12 +60,13 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Panel de Control - Campus Principal</h1>
-          <p className="text-slate-600">Resumen ejecutivo de operaciones y finanzas</p>
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Panel de Control - Campus Principal</h1>
+            <p className="text-slate-600">Resumen ejecutivo de operaciones y finanzas</p>
+          </div>
         </div>
-      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <Card className="lg:col-span-2">
@@ -204,6 +205,7 @@ export default function AdminDashboard() {
             </div>
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   );

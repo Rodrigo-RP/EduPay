@@ -116,6 +116,18 @@ export default function CatalogoProductos() {
       clave_sat: "80101500",
       activo: true,
       seccion_academica: "BACHILLERATO"
+    },
+    {
+      id: 9,
+      codigo: "REINS-2025",
+      nombre: "Reinscripción Anual",
+      descripcion: "Pago de reinscripción para estudiantes ya registrados en ciclos anteriores",
+      precio_unitario_centavos: 350000, // $3,500 MXN
+      categoria: "INSCRIPCIONES",
+      unidad_medida: "SERVICIO",
+      clave_sat: "80101500",
+      activo: true,
+      seccion_academica: "GENERAL"
     }
   ];
 
@@ -127,7 +139,7 @@ export default function CatalogoProductos() {
     totalProductos: productos.length,
     productosActivos: productos.filter(p => p.activo).length,
     colegiaturas: productos.filter(p => p.categoria === "COLEGIATURAS").length,
-    libros: productos.filter(p => p.categoria === "LIBROS").length
+    inscripciones: productos.filter(p => p.categoria === "INSCRIPCIONES").length
   };
 
   const getCategoryBadge = (categoria: string) => {
@@ -291,8 +303,8 @@ export default function CatalogoProductos() {
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold">{estadisticas.libros}</div>
-                <div className="text-sm text-slate-600">Libros</div>
+                <div className="text-2xl font-bold">{estadisticas.inscripciones}</div>
+                <div className="text-sm text-slate-600">Inscripciones</div>
               </CardContent>
             </Card>
           </div>

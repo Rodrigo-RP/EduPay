@@ -73,6 +73,78 @@ export default function Estudiantes() {
       telefono: "5554567890",
       saldo_pendiente: 455000,
       fecha_inscripcion: "2024-08-17"
+    },
+    {
+      id: 4,
+      nombre_completo: "Sofía Hernández Castro",
+      curp: "HECS060920MDFRZS04",
+      grado: "1ro Sec",
+      grupo: "A",
+      status: "activo",
+      responsable: "Roberto Hernández",
+      telefono: "5553456789",
+      saldo_pendiente: 620000,
+      fecha_inscripcion: "2024-08-18"
+    },
+    {
+      id: 5,
+      nombre_completo: "Miguel Torres Vega",
+      curp: "TOVM040715HDFGLR08",
+      grado: "2do Sec",
+      grupo: "B",
+      status: "activo",
+      responsable: "Carmen Vega",
+      telefono: "5558765432",
+      saldo_pendiente: 640000,
+      fecha_inscripcion: "2024-08-19"
+    },
+    {
+      id: 6,
+      nombre_completo: "Valeria López Cruz",
+      curp: "LOCV030822MDFPRL02",
+      grado: "3ro Sec",
+      grupo: "C",
+      status: "activo",
+      responsable: "Eduardo López",
+      telefono: "5557654321",
+      saldo_pendiente: 660000,
+      fecha_inscripcion: "2024-08-20"
+    },
+    {
+      id: 7,
+      nombre_completo: "Diego Ramírez Silva",
+      curp: "RASD010305HDFMLG06",
+      grado: "1ro Bach",
+      grupo: "A",
+      status: "activo",
+      responsable: "Patricia Silva",
+      telefono: "5556543210",
+      saldo_pendiente: 780000,
+      fecha_inscripcion: "2024-08-21"
+    },
+    {
+      id: 8,
+      nombre_completo: "Isabella Morales Ruiz",
+      curp: "MORI000412MDFRRZ09",
+      grado: "2do Bach",
+      grupo: "B",
+      status: "activo",
+      responsable: "Fernando Morales",
+      telefono: "5555432109",
+      saldo_pendiente: 800000,
+      fecha_inscripcion: "2024-08-22"
+    },
+    {
+      id: 9,
+      nombre_completo: "Alejandro Castillo Mendoza",
+      curp: "CAMA990528HDFSNL01",
+      grado: "3ro Bach",
+      grupo: "A",
+      status: "activo",
+      responsable: "Gabriela Mendoza",
+      telefono: "5554321098",
+      saldo_pendiente: 820000,
+      fecha_inscripcion: "2024-08-23"
     }
   ]);
 
@@ -316,6 +388,12 @@ export default function Estudiantes() {
                   <SelectItem value="4to">4to Primaria</SelectItem>
                   <SelectItem value="5to">5to Primaria</SelectItem>
                   <SelectItem value="6to">6to Primaria</SelectItem>
+                  <SelectItem value="1ro Sec">1ro Secundaria</SelectItem>
+                  <SelectItem value="2do Sec">2do Secundaria</SelectItem>
+                  <SelectItem value="3ro Sec">3ro Secundaria</SelectItem>
+                  <SelectItem value="1ro Bach">1ro Bachillerato</SelectItem>
+                  <SelectItem value="2do Bach">2do Bachillerato</SelectItem>
+                  <SelectItem value="3ro Bach">3ro Bachillerato</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -439,6 +517,12 @@ export default function Estudiantes() {
                       <SelectItem value="4to">4to Primaria</SelectItem>
                       <SelectItem value="5to">5to Primaria</SelectItem>
                       <SelectItem value="6to">6to Primaria</SelectItem>
+                      <SelectItem value="1ro Sec">1ro Secundaria</SelectItem>
+                      <SelectItem value="2do Sec">2do Secundaria</SelectItem>
+                      <SelectItem value="3ro Sec">3ro Secundaria</SelectItem>
+                      <SelectItem value="1ro Bach">1ro Bachillerato</SelectItem>
+                      <SelectItem value="2do Bach">2do Bachillerato</SelectItem>
+                      <SelectItem value="3ro Bach">3ro Bachillerato</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

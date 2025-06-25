@@ -350,7 +350,7 @@ export async function seedDemoData() {
 }
 
 // Ejecutar si se llama directamente
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   seedDemoData()
     .then(() => process.exit(0))
     .catch((error) => {

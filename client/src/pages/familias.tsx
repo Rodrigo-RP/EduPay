@@ -17,6 +17,8 @@ export default function Familias() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedFamily, setSelectedFamily] = useState<any>(null);
   const [showLinkModal, setShowLinkModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingFamily, setEditingFamily] = useState<any>(null);
   
   const [formData, setFormData] = useState({
     // Datos Generales
@@ -183,6 +185,43 @@ export default function Familias() {
     });
   };
 
+  const loadFamilyForEdit = (familia: any) => {
+    setFormData({
+      numero_familia: familia.numero_familia,
+      apellido_paterno: familia.apellido_paterno,
+      apellido_materno: familia.apellido_materno || "",
+      padre_nombre: familia.padre_nombre,
+      padre_telefono: familia.padre_telefono,
+      padre_email: familia.padre_email || "",
+      padre_ocupacion: familia.padre_ocupacion || "",
+      padre_empresa: familia.padre_empresa || "",
+      madre_nombre: familia.madre_nombre || "",
+      madre_telefono: familia.madre_telefono || "",
+      madre_email: familia.madre_email || "",
+      madre_ocupacion: familia.madre_ocupacion || "",
+      madre_empresa: familia.madre_empresa || "",
+      direccion: familia.direccion || "",
+      colonia: familia.colonia || "",
+      ciudad: familia.ciudad || "",
+      estado: familia.estado || "Ciudad de México",
+      codigo_postal: familia.codigo_postal || "",
+      razon_social: familia.razon_social || "",
+      rfc: familia.rfc || "",
+      email_facturacion: familia.email_facturacion || "",
+      direccion_fiscal: familia.direccion_fiscal || "",
+      uso_cfdi: familia.uso_cfdi || "G03",
+      metodo_pago: familia.metodo_pago || "PUE",
+      forma_pago: familia.forma_pago || "03",
+      contacto_emergencia_nombre: familia.contacto_emergencia_nombre || "",
+      contacto_emergencia_telefono: familia.contacto_emergencia_telefono || "",
+      contacto_emergencia_relacion: familia.contacto_emergencia_relacion || "",
+      observaciones: familia.observaciones || "",
+      estatus: familia.estatus || "activo"
+    });
+    setEditingFamily(familia);
+    setShowEditModal(true);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -206,42 +245,91 @@ export default function Familias() {
       return;
     }
 
-    // Generar nuevo ID y número de familia
-    const newId = Math.max(...familias.map(f => f.id)) + 1;
-    const numeroFamilia = `FAM${String(newId).padStart(3, '0')}`;
-    
-    // Crear nueva familia
-    const newFamily = {
-      id: newId,
-      numero_familia: numeroFamilia,
-      apellido_paterno: formData.apellido_paterno,
-      apellido_materno: formData.apellido_materno,
-      padre_nombre: formData.padre_nombre,
-      padre_telefono: formData.padre_telefono,
-      padre_email: formData.padre_email,
-      madre_nombre: formData.madre_nombre,
-      madre_telefono: formData.madre_telefono,
-      madre_email: formData.madre_email,
-      direccion: formData.direccion,
-      ciudad: formData.ciudad,
-      codigo_postal: formData.codigo_postal,
-      razon_social: formData.razon_social || formData.padre_nombre,
-      rfc: formData.rfc,
-      estatus: formData.estatus,
-      estudiantes_vinculados: [],
-      saldo_total: 0,
-      fecha_registro: new Date().toISOString().split('T')[0]
-    };
+    if (editingFamily) {
+      // Actualizar familia existente
+      const updatedFamily = {
+        ...editingFamily,
+        apellido_paterno: formData.apellido_paterno,
+        apellido_materno: formData.apellido_materno,
+        padre_nombre: formData.padre_nombre,
+        padre_telefono: formData.padre_telefono,
+        padre_email: formData.padre_email,
+        madre_nombre: formData.madre_nombre,
+        madre_telefono: formData.madre_telefono,
+        madre_email: formData.madre_email,
+        direccion: formData.direccion,
+        ciudad: formData.ciudad,
+        codigo_postal: formData.codigo_postal,
+        razon_social: formData.razon_social || formData.padre_nombre,
+        rfc: formData.rfc,
+        estatus: formData.estatus
+      };
 
-    setFamilias(prev => [...prev, newFamily]);
-    
+      setFamilias(prev => prev.map(f => f.id === editingFamily.id ? updatedFamily : f));
+      
+      toast({
+        title: "Familia actualizada",
+        description: `Los datos de la familia ${formData.apellido_paterno} han sido actualizados exitosamente.`
+      });
+
+      resetForm();
+      setEditingFamily(null);
+      setShowEditModal(false);
+    } else {
+      // Crear nueva familia
+      const newId = Math.max(...familias.map(f => f.id)) + 1;
+      const numeroFamilia = `FAM${String(newId).padStart(3, '0')}`;
+      
+      const newFamily = {
+        id: newId,
+        numero_familia: numeroFamilia,
+        apellido_paterno: formData.apellido_paterno,
+        apellido_materno: formData.apellido_materno,
+        padre_nombre: formData.padre_nombre,
+        padre_telefono: formData.padre_telefono,
+        padre_email: formData.padre_email,
+        madre_nombre: formData.madre_nombre,
+        madre_telefono: formData.madre_telefono,
+        madre_email: formData.madre_email,
+        direccion: formData.direccion,
+        ciudad: formData.ciudad,
+        codigo_postal: formData.codigo_postal,
+        razon_social: formData.razon_social || formData.padre_nombre,
+        rfc: formData.rfc,
+        estatus: formData.estatus,
+        estudiantes_vinculados: [],
+        saldo_total: 0,
+        fecha_registro: new Date().toISOString().split('T')[0]
+      };
+
+      setFamilias(prev => [...prev, newFamily]);
+      
+      toast({
+        title: "Familia registrada",
+        description: `La familia ${formData.apellido_paterno} ha sido registrada exitosamente con número ${numeroFamilia}.`
+      });
+
+      resetForm();
+      setShowAddModal(false);
+    }
+  };
+
+  const handleDelete = (familiaId: number) => {
+    const familia = familias.find(f => f.id === familiaId);
+    if (familia && familia.estudiantes_vinculados.length > 0) {
+      toast({
+        title: "No se puede eliminar",
+        description: "Esta familia tiene estudiantes vinculados. Primero desvincule los estudiantes.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setFamilias(prev => prev.filter(f => f.id !== familiaId));
     toast({
-      title: "Familia registrada",
-      description: `La familia ${formData.apellido_paterno} ha sido registrada exitosamente con número ${numeroFamilia}.`
+      title: "Familia eliminada",
+      description: "La familia ha sido eliminada exitosamente."
     });
-
-    resetForm();
-    setShowAddModal(false);
   };
 
   // Filtrar familias según criterios de búsqueda
@@ -433,13 +521,14 @@ export default function Familias() {
                       <Button size="sm" variant="outline" onClick={() => {
                         setSelectedFamily(familia);
                         setShowLinkModal(true);
-                      }}>
+                      }} title="Vincular estudiantes">
                         <Link2 className="w-4 h-4" />
                       </Button>
-                      <Button size="sm" variant="outline">
+                      <Button size="sm" variant="outline" onClick={() => loadFamilyForEdit(familia)} title="Editar familia">
                         <Edit className="w-4 h-4" />
                       </Button>
-                      <Button size="sm" variant="outline">
+                      <Button size="sm" variant="outline" onClick={() => handleDelete(familia.id)} title="Eliminar familia"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50">
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
@@ -451,11 +540,18 @@ export default function Familias() {
         </CardContent>
       </Card>
 
-      {/* Modal para agregar familia */}
-      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+      {/* Modal para agregar/editar familia */}
+      <Dialog open={showAddModal || showEditModal} onOpenChange={(open) => {
+        if (!open) {
+          setShowAddModal(false);
+          setShowEditModal(false);
+          setEditingFamily(null);
+          resetForm();
+        }
+      }}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Agregar Nueva Familia</DialogTitle>
+            <DialogTitle>{editingFamily ? 'Editar Familia' : 'Agregar Nueva Familia'}</DialogTitle>
           </DialogHeader>
           
           <form onSubmit={handleSubmit}>
@@ -798,12 +894,23 @@ export default function Familias() {
               <Button type="button" variant="outline" onClick={() => {
                 resetForm();
                 setShowAddModal(false);
+                setShowEditModal(false);
+                setEditingFamily(null);
               }}>
                 Cancelar
               </Button>
               <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="w-4 h-4 mr-2" />
-                Registrar Familia
+                {editingFamily ? (
+                  <>
+                    <Edit className="w-4 h-4 mr-2" />
+                    Actualizar Familia
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Registrar Familia
+                  </>
+                )}
               </Button>
             </div>
           </form>

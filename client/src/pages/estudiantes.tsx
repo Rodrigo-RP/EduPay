@@ -15,6 +15,8 @@ export default function Estudiantes() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedGrado, setSelectedGrado] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<any>(null);
   const [formData, setFormData] = useState({
     nombre_completo: "",
     curp: "",
@@ -103,6 +105,30 @@ export default function Estudiantes() {
     });
   };
 
+  const loadStudentForEdit = (student: any) => {
+    setFormData({
+      nombre_completo: student.nombre_completo,
+      curp: student.curp,
+      fecha_nacimiento: student.fecha_nacimiento || "",
+      grado: student.grado,
+      grupo: student.grupo,
+      status: student.status,
+      responsable_nombre: student.responsable,
+      responsable_telefono: student.telefono,
+      responsable_email: student.responsable_email || "",
+      direccion: student.direccion || "",
+      codigo_postal: student.codigo_postal || "",
+      ciudad: student.ciudad || "",
+      estado: student.estado || "",
+      alergias: student.alergias || "",
+      medicamentos: student.medicamentos || "",
+      contacto_emergencia: student.contacto_emergencia || "",
+      telefono_emergencia: student.telefono_emergencia || ""
+    });
+    setEditingStudent(student);
+    setShowEditModal(true);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -126,32 +152,74 @@ export default function Estudiantes() {
       return;
     }
 
-    // Generar nuevo ID
-    const newId = Math.max(...estudiantes.map(e => e.id)) + 1;
-    
-    // Crear nuevo estudiante
-    const newStudent = {
-      id: newId,
-      nombre_completo: formData.nombre_completo,
-      curp: formData.curp,
-      grado: formData.grado,
-      grupo: formData.grupo,
-      status: formData.status,
-      responsable: formData.responsable_nombre,
-      telefono: formData.responsable_telefono,
-      saldo_pendiente: 0,
-      fecha_inscripcion: new Date().toISOString().split('T')[0]
-    };
+    if (editingStudent) {
+      // Actualizar estudiante existente
+      const updatedStudent = {
+        ...editingStudent,
+        nombre_completo: formData.nombre_completo,
+        curp: formData.curp,
+        grado: formData.grado,
+        grupo: formData.grupo,
+        status: formData.status,
+        responsable: formData.responsable_nombre,
+        telefono: formData.responsable_telefono
+      };
 
-    setEstudiantes(prev => [...prev, newStudent]);
-    
+      setEstudiantes(prev => prev.map(s => s.id === editingStudent.id ? updatedStudent : s));
+      
+      toast({
+        title: "Estudiante actualizado",
+        description: `Los datos de ${formData.nombre_completo} han sido actualizados exitosamente.`
+      });
+
+      resetForm();
+      setEditingStudent(null);
+      setShowEditModal(false);
+    } else {
+      // Crear nuevo estudiante
+      const newId = Math.max(...estudiantes.map(e => e.id)) + 1;
+      
+      const newStudent = {
+        id: newId,
+        nombre_completo: formData.nombre_completo,
+        curp: formData.curp,
+        grado: formData.grado,
+        grupo: formData.grupo,
+        status: formData.status,
+        responsable: formData.responsable_nombre,
+        telefono: formData.responsable_telefono,
+        saldo_pendiente: 0,
+        fecha_inscripcion: new Date().toISOString().split('T')[0]
+      };
+
+      setEstudiantes(prev => [...prev, newStudent]);
+      
+      toast({
+        title: "Estudiante agregado",
+        description: `${formData.nombre_completo} ha sido registrado exitosamente.`
+      });
+
+      resetForm();
+      setShowAddModal(false);
+    }
+  };
+
+  const handleDelete = (studentId: number) => {
+    const student = estudiantes.find(s => s.id === studentId);
+    if (student && student.saldo_pendiente > 0) {
+      toast({
+        title: "No se puede eliminar",
+        description: "Este estudiante tiene saldo pendiente. Primero liquide las deudas.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setEstudiantes(prev => prev.filter(s => s.id !== studentId));
     toast({
-      title: "Estudiante agregado",
-      description: `${formData.nombre_completo} ha sido registrado exitosamente.`
+      title: "Estudiante eliminado",
+      description: "El estudiante ha sido eliminado exitosamente."
     });
-
-    resetForm();
-    setShowAddModal(false);
   };
 
   // Filtrar estudiantes según criterios de búsqueda
@@ -293,10 +361,11 @@ export default function Estudiantes() {
                     {student.status}
                   </Badge>
                   <div className="flex space-x-1">
-                    <Button size="sm" variant="outline">
+                    <Button size="sm" variant="outline" onClick={() => loadStudentForEdit(student)} title="Editar estudiante">
                       <Edit className="w-4 h-4" />
                     </Button>
-                    <Button size="sm" variant="outline">
+                    <Button size="sm" variant="outline" onClick={() => handleDelete(student.id)} title="Eliminar estudiante"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50">
                       <UserX className="w-4 h-4" />
                     </Button>
                   </div>

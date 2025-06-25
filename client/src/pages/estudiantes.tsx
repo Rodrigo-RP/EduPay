@@ -14,6 +14,10 @@ export default function Estudiantes() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedGrado, setSelectedGrado] = useState("all");
+  const [selectedGrupo, setSelectedGrupo] = useState("all");
+  const [gruposPersonalizados, setGruposPersonalizados] = useState(["A", "B", "C", "D", "E", "F", "G", "H"]);
+  const [editandoGrupos, setEditandoGrupos] = useState(false);
+  const [nuevoGrupo, setNuevoGrupo] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState<any>(null);
@@ -330,13 +334,39 @@ export default function Estudiantes() {
     });
   };
 
+  // Funciones para manejar grupos personalizados
+  const agregarGrupo = () => {
+    if (nuevoGrupo.trim() && !gruposPersonalizados.includes(nuevoGrupo.trim())) {
+      setGruposPersonalizados([...gruposPersonalizados, nuevoGrupo.trim()]);
+      setNuevoGrupo("");
+      toast({
+        title: "Grupo agregado",
+        description: `Se agregó el grupo "${nuevoGrupo.trim()}" exitosamente.`,
+      });
+    }
+  };
+
+  const eliminarGrupo = (grupo: string) => {
+    if (gruposPersonalizados.length > 1) {
+      setGruposPersonalizados(gruposPersonalizados.filter(g => g !== grupo));
+      if (selectedGrupo === grupo) {
+        setSelectedGrupo("all");
+      }
+      toast({
+        title: "Grupo eliminado",
+        description: `Se eliminó el grupo "${grupo}" exitosamente.`,
+      });
+    }
+  };
+
   // Filtrar estudiantes según criterios de búsqueda
   const filteredStudents = estudiantes.filter(student => {
     const matchesSearch = student.nombre_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          student.curp.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          student.responsable.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesGrado = selectedGrado === "all" || student.grado === selectedGrado;
-    return matchesSearch && matchesGrado;
+    const matchesGrupo = selectedGrupo === "all" || student.grupo === selectedGrupo;
+    return matchesSearch && matchesGrado && matchesGrupo;
   });
 
   const estadisticas = {
@@ -395,7 +425,7 @@ export default function Estudiantes() {
           <CardTitle>Filtros y búsqueda</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <Label htmlFor="search">Buscar estudiante</Label>
               <div className="relative">
@@ -435,12 +465,34 @@ export default function Estudiantes() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-end">
+            <div>
+              <Label>Filtrar por grupo</Label>
+              <Select value={selectedGrupo} onValueChange={setSelectedGrupo}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los grupos</SelectItem>
+                  {gruposPersonalizados.map(grupo => (
+                    <SelectItem key={grupo} value={grupo}>{grupo}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end space-x-2">
               <Button variant="outline" onClick={() => {
                 setSearchTerm("");
                 setSelectedGrado("all");
+                setSelectedGrupo("all");
               }}>
                 Limpiar filtros
+              </Button>
+              <Button 
+                onClick={() => setEditandoGrupos(true)} 
+                variant="outline"
+                size="sm"
+              >
+                <Edit className="w-4 h-4" />
               </Button>
             </div>
           </div>
@@ -573,10 +625,9 @@ export default function Estudiantes() {
                       <SelectValue placeholder="Seleccionar grupo" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="A">A</SelectItem>
-                      <SelectItem value="B">B</SelectItem>
-                      <SelectItem value="C">C</SelectItem>
-                      <SelectItem value="D">D</SelectItem>
+                      {gruposPersonalizados.map(grupo => (
+                        <SelectItem key={grupo} value={grupo}>{grupo}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -739,6 +790,59 @@ export default function Estudiantes() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para editar grupos */}
+      <Dialog open={editandoGrupos} onOpenChange={setEditandoGrupos}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Personalizar grupos</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Grupos actuales</Label>
+              <div className="space-y-2 mt-2">
+                {gruposPersonalizados.map((grupo, index) => (
+                  <div key={grupo} className="flex items-center justify-between p-2 bg-slate-50 rounded">
+                    <span>{grupo}</span>
+                    {gruposPersonalizados.length > 1 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => eliminarGrupo(grupo)}
+                        className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div>
+              <Label htmlFor="nuevoGrupo">Agregar nuevo grupo</Label>
+              <div className="flex space-x-2 mt-1">
+                <Input
+                  id="nuevoGrupo"
+                  value={nuevoGrupo}
+                  onChange={(e) => setNuevoGrupo(e.target.value)}
+                  placeholder="Ej: I, II, Alpha, etc."
+                  onKeyPress={(e) => e.key === 'Enter' && agregarGrupo()}
+                />
+                <Button onClick={agregarGrupo} disabled={!nuevoGrupo.trim()}>
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button variant="outline" onClick={() => setEditandoGrupos(false)}>
+                Cerrar
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -110,12 +110,12 @@ export default function Sidebar() {
     <aside className="w-64 bg-white border-r border-slate-200 flex flex-col">
       <div className="p-6">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center">
-            <i className="fas fa-graduation-cap text-white"></i>
+          <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+            <i className="fas fa-university text-white text-lg"></i>
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">EscuelaPay</h1>
-            <p className="text-sm text-slate-500">Admin Portal</p>
+          <div className="flex-1">
+            <h1 className="text-lg font-bold text-slate-900 leading-tight">Colegio San Patricio</h1>
+            <p className="text-xs text-slate-500">Campus Principal</p>
           </div>
         </div>
       </div>

@@ -1,9 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import Sidebar from "@/components/layout/sidebar";
 import KPICard from "@/components/kpi-card";
-import SaaSInfo from "@/components/saas-info";
 import { useAuth } from "@/hooks/use-auth";
 import { 
   BarChart3, 
@@ -32,9 +29,7 @@ interface Student {
 
 export default function AdminDashboard() {
   const { user } = useAuth();
-  
-  // In a real SaaS, this would come from user's campus assignment
-  const campusId = user?.campus_id || 1;
+  const campusId = 1;
 
   const { data: kpiData, isLoading: kpiLoading } = useQuery<KPIData>({
     queryKey: [`/api/admin/dashboard/${campusId}`],
@@ -54,19 +49,6 @@ export default function AdminDashboard() {
     );
   }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'MXN',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  const formatPercentage = (value: number) => {
-    return `${value.toFixed(1)}%`;
-  };
-
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -75,6 +57,7 @@ export default function AdminDashboard() {
           <p className="text-slate-600">Resumen ejecutivo de operaciones y finanzas</p>
         </div>
       </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <Card className="lg:col-span-2">
           <CardHeader>
@@ -196,7 +179,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {students?.slice(0, 5).map((student: any) => (
+              {students?.slice(0, 5).map((student) => (
                 <div key={student.id} className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-slate-900">{student.nombre_completo}</p>

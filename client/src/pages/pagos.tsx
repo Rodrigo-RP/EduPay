@@ -7,8 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import Sidebar from "@/components/layout/sidebar";
-import SaaSInfo from "@/components/saas-info";
 import { CreditCard, Banknote, Smartphone, Receipt, Download, Eye, DollarSign } from "lucide-react";
 
 export default function Pagos() {

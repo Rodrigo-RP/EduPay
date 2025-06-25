@@ -9,8 +9,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import Sidebar from "@/components/layout/sidebar";
-import SaaSInfo from "@/components/saas-info";
 import { Users, Plus, Phone, Mail, Calendar, TrendingUp, UserCheck, Clock, AlertTriangle } from "lucide-react";
 
 export default function CRMEscolar() {

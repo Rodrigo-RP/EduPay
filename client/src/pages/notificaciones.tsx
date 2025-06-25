@@ -7,8 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import Sidebar from "@/components/layout/sidebar";
-import SaaSInfo from "@/components/saas-info";
 import { Bell, Mail, MessageSquare, Smartphone, Send, Clock, CheckCircle, AlertTriangle } from "lucide-react";
 
 export default function Notificaciones() {

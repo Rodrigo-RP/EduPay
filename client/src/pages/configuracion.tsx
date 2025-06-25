@@ -14,22 +14,17 @@ export default function Configuracion() {
   const [autoGenerationEnabled, setAutoGenerationEnabled] = useState(true);
 
   return (
-    <div className="flex h-screen bg-slate-50">
-      <Sidebar />
-      <div className="flex-1 overflow-auto">
-        <SaaSInfo />
-        
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900">Configuración del Sistema</h1>
-              <p className="text-slate-600">Administra la configuración general de EscuelaPay</p>
-            </div>
-            <Button className="bg-blue-600 hover:bg-blue-700">
-              <Settings className="w-4 h-4 mr-2" />
-              Guardar Cambios
-            </Button>
-          </div>
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Configuración del Sistema</h1>
+          <p className="text-slate-600">Administra la configuración general de EscuelaPay</p>
+        </div>
+        <Button className="bg-blue-600 hover:bg-blue-700">
+          <Settings className="w-4 h-4 mr-2" />
+          Guardar Cambios
+        </Button>
+      </div>
 
           <Tabs defaultValue="general" className="space-y-6">
             <TabsList className="grid w-full grid-cols-6">
@@ -518,8 +513,6 @@ export default function Configuracion() {
               </Card>
             </TabsContent>
           </Tabs>
-        </div>
-      </div>
     </div>
   );
 }

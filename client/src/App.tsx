@@ -66,6 +66,7 @@ function AuthenticatedRoutes() {
       <Sidebar />
       <div className="ml-64 pt-16">
         <div className="p-6">
+          <SaaSInfo />
 
           <Switch>
             <Route path="/" component={AdminDashboard} />

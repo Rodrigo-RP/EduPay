@@ -313,97 +313,87 @@ export default function CuentasPorCobrar() {
             </div>
           </div>
 
-          {/* KPIs de cobranza */}
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-8">
-            <Card>
-              <CardContent className="p-4 text-center">
-                <Users className="w-6 h-6 text-blue-600 mx-auto mb-2" />
-                <div className="text-xl font-bold">{estadisticas.totalCuentas}</div>
-                <div className="text-xs text-slate-600">Total cuentas</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <DollarSign className="w-6 h-6 text-green-600 mx-auto mb-2" />
-                <div className="text-xl font-bold">${(estadisticas.montoPendienteTotal / 100).toLocaleString()}</div>
-                <div className="text-xs text-slate-600">Monto por cobrar</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <Clock className="w-6 h-6 text-yellow-600 mx-auto mb-2" />
-                <div className="text-xl font-bold">{estadisticas.cuentasVencidas}</div>
-                <div className="text-xs text-slate-600">Cuentas vencidas</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <AlertTriangle className="w-6 h-6 text-red-600 mx-auto mb-2" />
-                <div className="text-xl font-bold">{estadisticas.cuentasMorosas}</div>
-                <div className="text-xs text-slate-600">Cuentas morosas</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <Ban className="w-6 h-6 text-red-800 mx-auto mb-2" />
-                <div className="text-xl font-bold">{estadisticas.cuentasDeshabilitadas}</div>
-                <div className="text-xs text-slate-600">Deshabilitadas</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <div className="text-xl font-bold">{estadisticas.promedioTiempoVencimiento.toFixed(0)}</div>
-                <div className="text-xs text-slate-600">Días prom. venc.</div>
-              </CardContent>
-            </Card>
-          </div>
+          {/* KPIs de cobranza compactos */}
+          <Card className="mb-6">
+            <CardContent className="p-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div className="text-center">
+                  <Users className="w-5 h-5 text-blue-600 mx-auto mb-1" />
+                  <div className="text-lg font-bold">{estadisticas.totalCuentas}</div>
+                  <div className="text-xs text-slate-600">Total</div>
+                </div>
+                <div className="text-center">
+                  <DollarSign className="w-5 h-5 text-green-600 mx-auto mb-1" />
+                  <div className="text-lg font-bold">${(estadisticas.montoPendienteTotal / 100000).toFixed(0)}K</div>
+                  <div className="text-xs text-slate-600">Por cobrar</div>
+                </div>
+                <div className="text-center">
+                  <Clock className="w-5 h-5 text-yellow-600 mx-auto mb-1" />
+                  <div className="text-lg font-bold">{estadisticas.cuentasVencidas}</div>
+                  <div className="text-xs text-slate-600">Vencidas</div>
+                </div>
+                <div className="text-center">
+                  <AlertTriangle className="w-5 h-5 text-red-600 mx-auto mb-1" />
+                  <div className="text-lg font-bold">{estadisticas.cuentasMorosas}</div>
+                  <div className="text-xs text-slate-600">Morosas</div>
+                </div>
+                <div className="text-center">
+                  <Ban className="w-5 h-5 text-red-800 mx-auto mb-1" />
+                  <div className="text-lg font-bold">{estadisticas.cuentasDeshabilitadas}</div>
+                  <div className="text-xs text-slate-600">Deshabilitadas</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold">{estadisticas.promedioTiempoVencimiento.toFixed(0)}</div>
+                  <div className="text-xs text-slate-600">Días prom.</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-          <Tabs defaultValue="lista" className="space-y-6">
+          <Tabs defaultValue="lista" className="space-y-4">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="lista">Lista de cuentas</TabsTrigger>
-              <TabsTrigger value="seguimiento">Seguimiento de cobranza</TabsTrigger>
-              <TabsTrigger value="reportes">Reportes de cartera</TabsTrigger>
+              <TabsTrigger value="seguimiento">Seguimiento</TabsTrigger>
+              <TabsTrigger value="reportes">Reportes</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="lista">
-              {/* Filtros expandidos */}
-              <Card className="mb-6">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Filter className="w-5 h-5" />
-                    Filtros avanzados de búsqueda
+            <TabsContent value="lista" className="space-y-4">
+              {/* Filtros compactos */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Filter className="w-4 h-4" />
+                    Filtros de búsqueda
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                <CardContent className="pt-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
                     <div>
-                      <Label>Buscar estudiante</Label>
                       <div className="relative">
-                        <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                         <Input
-                          placeholder="Nombre del estudiante..."
+                          placeholder="Buscar estudiante..."
                           value={selectedEstudiante === "all" ? "" : selectedEstudiante}
                           onChange={(e) => setSelectedEstudiante(e.target.value || "all")}
-                          className="pl-10"
+                          className="pl-10 h-9"
                         />
                       </div>
                     </div>
                     <div>
-                      <Label>Concepto</Label>
                       <Input
                         placeholder="Buscar concepto..."
                         value={selectedConcepto === "all" ? "" : selectedConcepto}
                         onChange={(e) => setSelectedConcepto(e.target.value || "all")}
+                        className="h-9"
                       />
                     </div>
                     <div>
-                      <Label>Nivel escolar</Label>
                       <Select value={selectedNivel} onValueChange={setSelectedNivel}>
-                        <SelectTrigger>
-                          <SelectValue />
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Nivel escolar" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">Todos los niveles</SelectItem>
+                          <SelectItem value="all">Todos</SelectItem>
                           <SelectItem value="KINDER">Kinder</SelectItem>
                           <SelectItem value="PRIMARIA">Primaria</SelectItem>
                           <SelectItem value="SECUNDARIA">Secundaria</SelectItem>
@@ -412,127 +402,131 @@ export default function CuentasPorCobrar() {
                       </Select>
                     </div>
                     <div>
-                      <Label>Estado de cobranza</Label>
                       <Select value={selectedEstado} onValueChange={setSelectedEstado}>
-                        <SelectTrigger>
-                          <SelectValue />
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Estado" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">Todos los estados</SelectItem>
-                          <SelectItem value="CORRIENTE">Al corriente</SelectItem>
+                          <SelectItem value="all">Todos</SelectItem>
+                          <SelectItem value="CORRIENTE">Corriente</SelectItem>
                           <SelectItem value="PAGADO">Pagado</SelectItem>
-                          <SelectItem value="PARCIAL">Pago parcial</SelectItem>
+                          <SelectItem value="PARCIAL">Parcial</SelectItem>
                           <SelectItem value="VENCIDO">Vencido</SelectItem>
                           <SelectItem value="MOROSO">Moroso</SelectItem>
-                          <SelectItem value="INCOBRABLE">Incobrable</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
+                    <div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="h-9 w-full"
+                        onClick={() => {
+                          setSelectedEstado("all");
+                          setSelectedConcepto("all");
+                          setSelectedNivel("all");
+                          setSelectedEstudiante("all");
+                          setFechaInicio("");
+                          setFechaFin("");
+                        }}
+                      >
+                        Limpiar
+                      </Button>
+                    </div>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                      <Label>Fecha desde</Label>
                       <Input
                         type="date"
                         value={fechaInicio}
                         onChange={(e) => setFechaInicio(e.target.value)}
+                        className="h-9"
+                        placeholder="Fecha desde"
                       />
                     </div>
                     <div>
-                      <Label>Fecha hasta</Label>
                       <Input
                         type="date"
                         value={fechaFin}
                         onChange={(e) => setFechaFin(e.target.value)}
+                        className="h-9"
+                        placeholder="Fecha hasta"
                       />
-                    </div>
-                    <div className="flex items-end">
-                      <Button variant="outline" onClick={() => {
-                        setSelectedEstado("all");
-                        setSelectedDiasVencido("all");
-                        setSelectedConcepto("all");
-                        setSelectedNivel("all");
-                        setSelectedEstudiante("all");
-                        setFechaInicio("");
-                        setFechaFin("");
-                      }}>
-                        Limpiar todos los filtros
-                      </Button>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader>
-                  <CardTitle>Cuentas por cobrar ({filteredCuentas.length})</CardTitle>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Cuentas por cobrar ({filteredCuentas.length})</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-0">
                   <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
+                    <table className="w-full border-collapse text-sm">
                       <thead>
                         <tr className="border-b bg-slate-50">
-                          <th className="text-left p-3 font-medium">Estudiante</th>
-                          <th className="text-left p-3 font-medium">Concepto</th>
-                          <th className="text-right p-3 font-medium">Monto Inicial</th>
-                          <th className="text-right p-3 font-medium">Descuentos</th>
-                          <th className="text-right p-3 font-medium">Recargos</th>
-                          <th className="text-right p-3 font-medium">Total Pagado</th>
-                          <th className="text-right p-3 font-medium">Pendiente</th>
-                          <th className="text-center p-3 font-medium">Estado</th>
-                          <th className="text-center p-3 font-medium">Acciones</th>
+                          <th className="text-left p-2 font-medium min-w-[200px]">Estudiante</th>
+                          <th className="text-left p-2 font-medium min-w-[180px]">Concepto</th>
+                          <th className="text-right p-2 font-medium min-w-[90px]">Inicial</th>
+                          <th className="text-right p-2 font-medium min-w-[80px]">Desc.</th>
+                          <th className="text-right p-2 font-medium min-w-[80px]">Rec.</th>
+                          <th className="text-right p-2 font-medium min-w-[90px]">Pagado</th>
+                          <th className="text-right p-2 font-medium min-w-[90px]">Pendiente</th>
+                          <th className="text-center p-2 font-medium min-w-[100px]">Estado</th>
+                          <th className="text-center p-2 font-medium min-w-[100px]">Acciones</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredCuentas.map((cuenta) => (
                           <tr key={cuenta.id} className={`border-b hover:bg-slate-50 ${getPrioridadColor(cuenta.dias_vencido, cuenta.estado_cobranza, cuenta.cuenta_habilitada)}`}>
-                            <td className="p-3">
+                            <td className="p-2">
                               <div>
-                                <div className="font-medium">{cuenta.estudiante}</div>
-                                <div className="text-xs text-slate-500">{cuenta.grado} • {cuenta.nivel_escolar}</div>
+                                <div className="font-medium text-sm">{cuenta.estudiante}</div>
+                                <div className="text-xs text-slate-500">{cuenta.grado}</div>
                                 <div className="text-xs text-slate-500">{cuenta.responsable}</div>
                               </div>
                             </td>
-                            <td className="p-3">
+                            <td className="p-2">
                               <div>
-                                <div className="font-medium">{cuenta.concepto}</div>
-                                <div className="text-xs text-slate-500">Cargo: {cuenta.fecha_cargo}</div>
+                                <div className="font-medium text-sm">{cuenta.concepto}</div>
                                 <div className="text-xs text-slate-500">Vence: {cuenta.fecha_vencimiento}</div>
                                 {cuenta.fecha_compromiso && (
                                   <div className="text-xs text-blue-600">Compromiso: {cuenta.fecha_compromiso}</div>
                                 )}
                               </div>
                             </td>
-                            <td className="p-3 text-right font-medium">
+                            <td className="p-2 text-right font-medium">
                               ${(cuenta.monto_inicial_centavos / 100).toLocaleString()}
                             </td>
-                            <td className="p-3 text-right text-green-600">
+                            <td className="p-2 text-right text-green-600 text-sm">
                               -${(cuenta.descuentos_centavos / 100).toLocaleString()}
                             </td>
-                            <td className="p-3 text-right text-red-600">
+                            <td className="p-2 text-right text-red-600 text-sm">
                               +${(cuenta.recargos_centavos / 100).toLocaleString()}
                             </td>
-                            <td className="p-3 text-right text-blue-600">
+                            <td className="p-2 text-right text-blue-600 font-medium">
                               ${(cuenta.total_pagado_centavos / 100).toLocaleString()}
                             </td>
-                            <td className="p-3 text-right font-bold text-red-600">
+                            <td className="p-2 text-right font-bold text-red-600">
                               ${(cuenta.pendiente_pagar_centavos / 100).toLocaleString()}
                             </td>
-                            <td className="p-3 text-center">
+                            <td className="p-2 text-center">
                               {getEstadoBadge(cuenta.estado_cobranza, cuenta.dias_vencido, cuenta.cuenta_habilitada)}
                             </td>
-                            <td className="p-3 text-center">
+                            <td className="p-2 text-center">
                               <div className="flex gap-1 justify-center">
-                                <Button size="sm" variant="outline" title="Llamar">
+                                <Button size="sm" variant="outline" className="h-7 w-7 p-0" title="Llamar">
                                   <Phone className="w-3 h-3" />
                                 </Button>
-                                <Button size="sm" variant="outline" title="Email">
+                                <Button size="sm" variant="outline" className="h-7 w-7 p-0" title="Email">
                                   <Mail className="w-3 h-3" />
                                 </Button>
                                 <Button 
                                   size="sm" 
-                                  variant="outline" 
+                                  variant="outline"
+                                  className="h-7 w-7 p-0"
                                   title="Fecha compromiso"
                                   onClick={() => handleSetCompromise(cuenta)}
                                 >
@@ -609,14 +603,14 @@ export default function CuentasPorCobrar() {
               </Card>
             </TabsContent>
 
-            <TabsContent value="reportes">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <TabsContent value="reportes" className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Reporte de antigüedad de saldos</CardTitle>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">Reporte de antigüedad de saldos</CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
+                  <CardContent className="pt-0">
+                    <div className="space-y-3 text-sm">
                       <div className="flex justify-between">
                         <span>Corriente (0 días):</span>
                         <span className="font-semibold">$5,600</span>
@@ -643,21 +637,21 @@ export default function CuentasPorCobrar() {
                 </Card>
 
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Acciones recomendadas</CardTitle>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">Acciones recomendadas</CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <Button className="w-full bg-orange-600 hover:bg-orange-700">
+                  <CardContent className="pt-0">
+                    <div className="space-y-2">
+                      <Button className="w-full h-9 bg-orange-600 hover:bg-orange-700">
                         Generar reporte de morosidad
                       </Button>
-                      <Button className="w-full" variant="outline">
+                      <Button className="w-full h-9" variant="outline">
                         Exportar cartera vencida
                       </Button>
-                      <Button className="w-full" variant="outline">
-                        Programar recordatorios masivos
+                      <Button className="w-full h-9" variant="outline">
+                        Recordatorios masivos
                       </Button>
-                      <Button className="w-full" variant="outline">
+                      <Button className="w-full h-9" variant="outline">
                         Análisis de riesgo crediticio
                       </Button>
                     </div>
@@ -667,60 +661,63 @@ export default function CuentasPorCobrar() {
             </TabsContent>
           </Tabs>
 
-          {/* Modal para establecer fecha compromiso */}
+          {/* Modal para establecer fecha compromiso - optimizado para pantalla */}
           <Dialog open={showCompromiseModal} onOpenChange={setShowCompromiseModal}>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Establecer fecha de pago compromiso</DialogTitle>
+                <DialogTitle className="text-lg">Fecha de pago compromiso</DialogTitle>
               </DialogHeader>
               <div className="py-4">
                 {selectedCuenta && (
                   <div className="space-y-4">
                     <div className="p-3 bg-slate-50 rounded">
-                      <div className="font-medium">{selectedCuenta.estudiante}</div>
+                      <div className="font-medium text-sm">{selectedCuenta.estudiante}</div>
                       <div className="text-sm text-slate-600">{selectedCuenta.concepto}</div>
                       <div className="text-sm text-red-600">
                         Pendiente: ${(selectedCuenta.pendiente_pagar_centavos / 100).toLocaleString()}
                       </div>
                     </div>
                     
-                    <div>
-                      <Label>Fecha compromiso de pago</Label>
-                      <Input type="date" defaultValue={selectedCuenta.fecha_compromiso || ""} />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm">Fecha compromiso de pago</Label>
+                        <Input type="date" defaultValue={selectedCuenta.fecha_compromiso || ""} className="h-9" />
+                      </div>
+                      
+                      <div>
+                        <Label className="text-sm">Nuevo monto (opcional)</Label>
+                        <Input 
+                          type="number" 
+                          placeholder={(selectedCuenta.pendiente_pagar_centavos / 100).toString()}
+                          className="h-9"
+                        />
+                      </div>
                     </div>
                     
                     <div>
-                      <Label>Nuevo monto (opcional)</Label>
-                      <Input 
-                        type="number" 
-                        placeholder={(selectedCuenta.pendiente_pagar_centavos / 100).toString()}
-                      />
+                      <Label className="text-sm">Descuento adicional (opcional)</Label>
+                      <Input type="number" placeholder="0" className="h-9" />
                     </div>
                     
                     <div>
-                      <Label>Descuento adicional (opcional)</Label>
-                      <Input type="number" placeholder="0" />
-                    </div>
-                    
-                    <div>
-                      <Label>Observaciones</Label>
-                      <Textarea placeholder="Observaciones sobre el acuerdo de pago..." />
+                      <Label className="text-sm">Observaciones</Label>
+                      <Textarea placeholder="Observaciones sobre el acuerdo de pago..." className="h-20" />
                     </div>
                     
                     <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
-                      <div className="text-sm text-yellow-800">
-                        <strong>Advertencia:</strong> Si el usuario no cumple con la fecha compromiso, 
-                        su cuenta será deshabilitada automáticamente y deberá establecer una nueva fecha.
+                      <div className="text-xs text-yellow-800">
+                        <strong>Advertencia:</strong> Si no cumple la fecha compromiso, 
+                        la cuenta será deshabilitada automáticamente.
                       </div>
                     </div>
                   </div>
                 )}
               </div>
               <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setShowCompromiseModal(false)}>
+                <Button variant="outline" size="sm" onClick={() => setShowCompromiseModal(false)}>
                   Cancelar
                 </Button>
-                <Button className="bg-blue-600 hover:bg-blue-700">
+                <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
                   Establecer compromiso
                 </Button>
               </div>

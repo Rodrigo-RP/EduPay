@@ -24,8 +24,8 @@ export default function Header() {
   ];
 
   return (
-    <div className="fixed top-0 left-0 right-0 bg-white border-b border-slate-200 px-6 py-3 z-10">
-      <div className="flex items-center justify-between">
+    <header className="fixed top-0 left-64 right-0 bg-white border-b border-slate-200 z-40 h-16">
+      <div className="px-6 py-3 flex items-center justify-between h-full">
         <div className="flex items-center gap-4">
           <div>
             <h2 className="font-semibold text-slate-900">Colegio San Patricio</h2>
@@ -80,6 +80,6 @@ export default function Header() {
           </div>
         </div>
       </div>
-    </div>
+    </header>
   );
 }

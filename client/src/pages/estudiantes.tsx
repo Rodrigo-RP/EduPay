@@ -40,6 +40,42 @@ export default function Estudiantes() {
   const [estudiantes, setEstudiantes] = useState([
     {
       id: 1,
+      nombre_completo: "Emilia Santos Rivera",
+      curp: "SARI180920MDFNVM01",
+      grado: "Kinder 1",
+      grupo: "A",
+      status: "activo",
+      responsable: "María Rivera",
+      telefono: "5551234567",
+      saldo_pendiente: 380000,
+      fecha_inscripcion: "2024-08-15"
+    },
+    {
+      id: 10,
+      nombre_completo: "Mateo Cruz Flores",
+      curp: "CRFM170815HDFRLR07",
+      grado: "Kinder 2",
+      grupo: "B",
+      status: "activo",
+      responsable: "Laura Flores",
+      telefono: "5551122334",
+      saldo_pendiente: 400000,
+      fecha_inscripcion: "2024-08-24"
+    },
+    {
+      id: 11,
+      nombre_completo: "Valentina Ruiz Moreno",
+      curp: "RUMV160712MDFZRL03",
+      grado: "Kinder 3",
+      grupo: "A",
+      status: "activo",
+      responsable: "José Moreno",
+      telefono: "5552233445",
+      saldo_pendiente: 420000,
+      fecha_inscripcion: "2024-08-25"
+    },
+    {
+      id: 12,
       nombre_completo: "Carlos Pérez Méndez",
       curp: "PEMC051215HDFRZR09",
       grado: "3ro",
@@ -381,7 +417,9 @@ export default function Estudiantes() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos los grados</SelectItem>
-                  <SelectItem value="Kinder">Kinder</SelectItem>
+                  <SelectItem value="Kinder 1">Kinder 1</SelectItem>
+                  <SelectItem value="Kinder 2">Kinder 2</SelectItem>
+                  <SelectItem value="Kinder 3">Kinder 3</SelectItem>
                   <SelectItem value="1ro">1ro Primaria</SelectItem>
                   <SelectItem value="2do">2do Primaria</SelectItem>
                   <SelectItem value="3ro">3ro Primaria</SelectItem>
@@ -510,7 +548,9 @@ export default function Estudiantes() {
                       <SelectValue placeholder="Seleccionar grado" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Kinder">Kinder</SelectItem>
+                      <SelectItem value="Kinder 1">Kinder 1</SelectItem>
+                      <SelectItem value="Kinder 2">Kinder 2</SelectItem>
+                      <SelectItem value="Kinder 3">Kinder 3</SelectItem>
                       <SelectItem value="1ro">1ro Primaria</SelectItem>
                       <SelectItem value="2do">2do Primaria</SelectItem>
                       <SelectItem value="3ro">3ro Primaria</SelectItem>

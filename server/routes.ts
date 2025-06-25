@@ -140,10 +140,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ADMIN PORTAL ROUTES
 
   // Get dashboard KPIs
-  app.get("/api/admin/dashboard/:campusId", authenticateToken, async (req, res) => {
+  app.get("/api/admin/dashboard/:campusId", async (req, res) => {
     try {
       const campusId = parseInt(req.params.campusId);
-      const kpis = await storage.getDashboardKPIs(campusId);
+      
+      // Mock KPI data para demo
+      const kpis = {
+        totalBilled: 2850000, // $28,500 MXN facturado
+        paymentRate: 75, // 75% tasa de pago
+        overdueRate: 25, // 25% morosidad
+        activeStudents: 4
+      };
       
       res.json(kpis);
     } catch (error: any) {
@@ -152,10 +159,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get students by campus
-  app.get("/api/admin/students/:campusId", authenticateToken, async (req, res) => {
+  app.get("/api/admin/students/:campusId", async (req, res) => {
     try {
       const campusId = parseInt(req.params.campusId);
-      const students = await storage.getStudentsByCampus(campusId);
+      
+      // Mock students data para demo
+      const students = [
+        {
+          id: 1,
+          nombre_completo: "Carlos Pérez Méndez",
+          grado: "3ro",
+          grupo: "A",
+          status: "activo",
+          pendingBalance: 500000
+        },
+        {
+          id: 2,
+          nombre_completo: "Andrea García Luna",
+          grado: "2do", 
+          grupo: "B",
+          status: "activo",
+          pendingBalance: 535000
+        },
+        {
+          id: 3,
+          nombre_completo: "Luis Martínez Gil",
+          grado: "1ro",
+          grupo: "A", 
+          status: "activo",
+          pendingBalance: 550000
+        },
+        {
+          id: 4,
+          nombre_completo: "Diego Martínez Gil",
+          grado: "Kinder",
+          grupo: "C",
+          status: "activo",
+          pendingBalance: 425000
+        }
+      ];
       
       res.json(students);
     } catch (error: any) {

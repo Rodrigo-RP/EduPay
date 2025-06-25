@@ -220,7 +220,9 @@ export async function seedDemoData() {
       { student_id: student4.id, guardian_id: guardian3.id } // Luis tiene 2 hijos
     ]);
 
-    // 8. Crear cargos pendientes (para probar pagos)
+    // 8. Crear MUCHOS cargos pendientes y pagados (para alimentar todas las funciones)
+    
+    // CARGOS PENDIENTES
     const [cargo1] = await db.insert(charges).values({
       student_id: student1.id,
       concept_id: colegiaturaMensual.id,
@@ -250,22 +252,22 @@ export async function seedDemoData() {
       tipo_generacion: "MANUAL"
     }).returning();
 
-    // Cargo vencido (para mostrar mora)
-    await db.insert(charges).values({
+    // Cargo vencido (para mostrar mora y recargos)
+    const [cargoVencido] = await db.insert(charges).values({
       student_id: student3.id,
       concept_id: colegiaturaMensual.id,
       ciclo_escolar: "2024-2025",
       fecha_emision: new Date("2024-12-01"),
-      fecha_vencimiento: new Date("2024-12-15"), // Vencido
+      fecha_vencimiento: new Date("2024-12-15"), // Vencido hace más de 1 mes
       monto_base_centavos: 500000,
       beca_aplicada: "0",
       recargo_aplicado_centavos: 50000, // $500 recargo por mora
       total_amount_centavos: 550000,
       estado: "pendiente",
       tipo_generacion: "AUTOMATICA"
-    });
+    }).returning();
 
-    // Cargos para hermanos (mismo responsable)
+    // Cargos para hermanos (mismo responsable - Luis Martínez)
     await db.insert(charges).values({
       student_id: student4.id,
       concept_id: colegiaturaMensual.id,
@@ -279,6 +281,85 @@ export async function seedDemoData() {
       estado: "pendiente",
       tipo_generacion: "AUTOMATICA"
     });
+
+    // Más cargos pendientes para demo completo
+    await db.insert(charges).values([
+      {
+        student_id: student1.id,
+        concept_id: inscripcionAnual.id,
+        ciclo_escolar: "2024-2025",
+        fecha_emision: new Date("2024-08-01"),
+        fecha_vencimiento: new Date("2024-08-15"),
+        monto_base_centavos: 300000,
+        beca_aplicada: "0",
+        recargo_aplicado_centavos: 30000, // Recargo por pago tardío
+        total_amount_centavos: 330000,
+        estado: "pendiente",
+        tipo_generacion: "AUTOMATICA"
+      },
+      {
+        student_id: student2.id,
+        concept_id: colegiaturaMensual.id,
+        ciclo_escolar: "2024-2025",
+        fecha_emision: new Date("2025-01-01"),
+        fecha_vencimiento: new Date("2025-01-15"),
+        monto_base_centavos: 500000,
+        beca_aplicada: "20", // 20% beca socioeconómica
+        recargo_aplicado_centavos: 0,
+        total_amount_centavos: 400000,
+        estado: "pendiente",
+        tipo_generacion: "AUTOMATICA"
+      }
+    ]);
+
+    // CARGOS PAGADOS (histórico para dashboard)
+    const chargesPagados = await db.insert(charges).values([
+      {
+        student_id: student1.id,
+        concept_id: colegiaturaMensual.id,
+        ciclo_escolar: "2024-2025",
+        fecha_emision: new Date("2024-12-01"),
+        fecha_vencimiento: new Date("2024-12-15"),
+        monto_base_centavos: 500000,
+        beca_aplicada: "0",
+        recargo_aplicado_centavos: 0,
+        total_amount_centavos: 500000,
+        estado: "pagado",
+        tipo_generacion: "AUTOMATICA",
+        monto_pagado_centavos: 500000,
+        fecha_ultimo_pago: new Date("2024-12-10")
+      },
+      {
+        student_id: student2.id,
+        concept_id: colegiaturaMensual.id,
+        ciclo_escolar: "2024-2025",
+        fecha_emision: new Date("2024-11-01"),
+        fecha_vencimiento: new Date("2024-11-15"),
+        monto_base_centavos: 500000,
+        beca_aplicada: "10",
+        recargo_aplicado_centavos: 0,
+        total_amount_centavos: 450000,
+        estado: "pagado",
+        tipo_generacion: "AUTOMATICA",
+        monto_pagado_centavos: 450000,
+        fecha_ultimo_pago: new Date("2024-11-12")
+      },
+      {
+        student_id: student3.id,
+        concept_id: colegiaturaMensual.id,
+        ciclo_escolar: "2024-2025",
+        fecha_emision: new Date("2024-10-01"),
+        fecha_vencimiento: new Date("2024-10-15"),
+        monto_base_centavos: 500000,
+        beca_aplicada: "0",
+        recargo_aplicado_centavos: 0,
+        total_amount_centavos: 500000,
+        estado: "pagado",
+        tipo_generacion: "AUTOMATICA",
+        monto_pagado_centavos: 500000,
+        fecha_ultimo_pago: new Date("2024-10-08")
+      }
+    ]).returning();
 
     // 9. Crear métodos de pago guardados
     await db.insert(payment_methods).values([
@@ -313,35 +394,107 @@ export async function seedDemoData() {
       }
     ]);
 
-    // 10. Crear algunos pagos completados (histórico)
+    // 10. Crear MUCHOS pagos completados (histórico para reportes y dashboard)
     await db.insert(payments).values([
+      // Pagos recientes
       {
-        charge_id: cargo1.id,
+        charge_id: chargesPagados[0].id,
         guardian_id: guardian1.id,
         metodo: "TARJETA",
-        referencia_pasarela: "pi_demo_12345",
+        referencia_pasarela: "pi_1234567890",
         monto_centavos: 500000,
         es_pago_parcial: false,
         estado: "completado",
-        cfdi_uuid: "12345-ABCDE-67890-DEMO",
-        cfdi_xml_url: "https://demo.facturama.mx/cfdi/12345.xml",
-        cfdi_pdf_url: "https://demo.facturama.mx/cfdi/12345.pdf",
+        cfdi_uuid: "A001-12345-ABCDE-67890",
+        cfdi_xml_url: "https://facturama.mx/cfdi/A001.xml",
+        cfdi_pdf_url: "https://facturama.mx/cfdi/A001.pdf",
         origen_pago: "PORTAL",
-        fecha_pago: new Date("2024-12-01")
+        fecha_pago: new Date("2024-12-10")
+      },
+      {
+        charge_id: chargesPagados[1].id,
+        guardian_id: guardian2.id,
+        metodo: "SPEI",
+        referencia_pasarela: "SPEI789012345",
+        monto_centavos: 450000,
+        es_pago_parcial: false,
+        estado: "completado",
+        cfdi_uuid: "A002-23456-BCDEF-78901",
+        cfdi_xml_url: "https://facturama.mx/cfdi/A002.xml",
+        cfdi_pdf_url: "https://facturama.mx/cfdi/A002.pdf",
+        origen_pago: "PORTAL",
+        fecha_pago: new Date("2024-11-12")
+      },
+      {
+        charge_id: chargesPagados[2].id,
+        guardian_id: guardian3.id,
+        metodo: "EFECTIVO",
+        referencia_pasarela: "CASH001",
+        monto_centavos: 500000,
+        es_pago_parcial: false,
+        estado: "completado",
+        cfdi_uuid: "A003-34567-CDEFG-89012",
+        cfdi_xml_url: "https://facturama.mx/cfdi/A003.xml",
+        cfdi_pdf_url: "https://facturama.mx/cfdi/A003.pdf",
+        origen_pago: "CAJA_FISICA",
+        usuario_captura: 3, // Usuario caja
+        observaciones: "Pago en efectivo - billetes de $500",
+        fecha_pago: new Date("2024-10-08")
+      },
+      // Pagos históricos para estadísticas
+      {
+        charge_id: cargo1.id,
+        guardian_id: guardian1.id,
+        metodo: "PAYPAL",
+        referencia_pasarela: "PAYPAL456789",
+        monto_centavos: 250000, // Pago parcial
+        es_pago_parcial: true,
+        monto_pendiente_centavos: 250000,
+        estado: "completado",
+        cfdi_uuid: "A004-45678-DEFGH-90123",
+        cfdi_xml_url: "https://facturama.mx/cfdi/A004.xml",
+        cfdi_pdf_url: "https://facturama.mx/cfdi/A004.pdf",
+        origen_pago: "PORTAL",
+        fecha_pago: new Date("2024-09-15")
+      },
+      {
+        charge_id: cargo2.id,
+        guardian_id: guardian2.id,
+        metodo: "OXXOPAY",
+        referencia_pasarela: "OXXO987654321",
+        monto_centavos: 135000,
+        es_pago_parcial: false,
+        estado: "completado",
+        cfdi_uuid: "A005-56789-EFGHI-01234",
+        cfdi_xml_url: "https://facturama.mx/cfdi/A005.xml",
+        cfdi_pdf_url: "https://facturama.mx/cfdi/A005.pdf",
+        origen_pago: "PORTAL",
+        fecha_pago: new Date("2024-08-20")
       }
     ]);
 
-    console.log("✅ Datos demo creados exitosamente!");
+    console.log("✅ DATOS DEMO COMPLETOS CREADOS EXITOSAMENTE!");
     console.log("\n📧 USUARIOS DEMO CREADOS:");
     console.log("🔧 Super Admin: superadmin@escuelapay.com / demo123");
     console.log("🏫 Admin Campus: admin@sanpatricio.edu.mx / demo123");
     console.log("💰 Caja: caja@sanpatricio.edu.mx / demo123");
     console.log("📊 Contador: contador@contabilidad.com / demo123");
     console.log("👨‍👩‍👧‍👦 PADRES DE FAMILIA:");
-    console.log("👨 Carlos Pérez: carlos.perez@gmail.com / demo123");
-    console.log("👩 Ana García: ana.garcia@yahoo.com / demo123");
+    console.log("👨 Carlos Pérez: carlos.perez@gmail.com / demo123 (1 hijo)");
+    console.log("👩 Ana García: ana.garcia@yahoo.com / demo123 (1 hija)");
     console.log("👨 Luis Martínez: luis.martinez@hotmail.com / demo123 (2 hijos)");
-    console.log("\n🎯 Meta EscuelaPay: 80% pagos antes del vencimiento");
+    
+    console.log("\n💰 DATOS FINANCIEROS DEMO:");
+    console.log("- Cargos pendientes: 6 (incluye recargos por mora)");
+    console.log("- Cargos pagados: 3 (histórico)");
+    console.log("- Pagos procesados: 5 (TARJETA, SPEI, EFECTIVO, PAYPAL, OXXO)");
+    console.log("- Becas aplicadas: 10%, 15%, 20%");
+    console.log("- Recargos por mora: $500, $300");
+    console.log("- Métodos de pago guardados: 3");
+    console.log("- Facturas CFDI: 5 generadas");
+    
+    console.log("\n🎯 META ESCUELAPAY: 80% pagos antes del vencimiento");
+    console.log("📊 DASHBOARD TENDRÁ DATOS COMPLETOS PARA PRUEBAS");
 
   } catch (error) {
     console.error("❌ Error creando datos demo:", error);

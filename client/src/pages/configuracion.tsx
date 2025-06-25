@@ -94,6 +94,80 @@ export default function Configuracion() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
+                      <Calendar className="w-5 h-5" />
+                      Configuración Académica
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label>Ciclo escolar actual</Label>
+                          <Select defaultValue="2024-2025">
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="2024-2025">2024-2025</SelectItem>
+                              <SelectItem value="2025-2026">2025-2026</SelectItem>
+                              <SelectItem value="2023-2024">2023-2024</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>Estado del ciclo</Label>
+                          <Select defaultValue="activo">
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="activo">Activo</SelectItem>
+                              <SelectItem value="proximo">Próximo</SelectItem>
+                              <SelectItem value="cerrado">Cerrado</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label>Fecha inicio ciclo</Label>
+                          <Input type="date" defaultValue="2024-08-15" />
+                        </div>
+                        <div>
+                          <Label>Fecha fin ciclo</Label>
+                          <Input type="date" defaultValue="2025-06-30" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label>Niveles académicos disponibles</Label>
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          <div className="flex items-center space-x-2">
+                            <input type="checkbox" id="kinder" defaultChecked className="rounded" />
+                            <label htmlFor="kinder" className="text-sm">Kinder (3-6 años)</label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <input type="checkbox" id="primaria" defaultChecked className="rounded" />
+                            <label htmlFor="primaria" className="text-sm">Primaria (6-12 años)</label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <input type="checkbox" id="secundaria" defaultChecked className="rounded" />
+                            <label htmlFor="secundaria" className="text-sm">Secundaria (12-15 años)</label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <input type="checkbox" id="bachillerato" defaultChecked className="rounded" />
+                            <label htmlFor="bachillerato" className="text-sm">Bachillerato (15-18 años)</label>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
                       <Bell className="w-5 h-5" />
                       Notificaciones
                     </CardTitle>

@@ -43,12 +43,32 @@ function AuthenticatedRoutes() {
       <Switch>
         <Route path="/" component={ParentPortal} />
         <Route path="/parent" component={ParentPortal} />
+        <Route path="/checkout" component={Checkout} />
         <Route component={NotFound} />
       </Switch>
     );
   }
 
-
+  // Admin/staff routes
+  return (
+    <Switch>
+      <Route path="/" component={AdminDashboard} />
+      <Route path="/admin" component={AdminDashboard} />
+      <Route path="/estudiantes" component={Estudiantes} />
+      <Route path="/cargos" component={Cargos} />
+      <Route path="/pagos" component={Pagos} />
+      <Route path="/becas" component={Becas} />
+      <Route path="/notificaciones" component={Notificaciones} />
+      <Route path="/reportes" component={Reportes} />
+      <Route path="/configuracion" component={Configuracion} />
+      <Route path="/configuracion-inicial" component={ConfiguracionInicial} />
+      <Route path="/emision-cargos" component={EmisionCargos} />
+      <Route path="/caja-conciliacion" component={CajaConciliacion} />
+      <Route path="/fiscal-contable" component={FiscalContable} />
+      <Route path="/portal-3clics" component={PortalPadres3Clics} />
+      <Route component={NotFound} />
+    </Switch>
+  );
 }
 
 function App() {

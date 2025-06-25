@@ -53,7 +53,7 @@ function AuthenticatedRoutes() {
       <Switch>
         <Route path="/" component={ParentPortal} />
         <Route path="/parent" component={ParentPortal} />
-        <Route path="/checkout" component={Checkout} />
+        <Route path="/checkout" component={ParentPortal} />
         <Route component={NotFound} />
       </Switch>
     );

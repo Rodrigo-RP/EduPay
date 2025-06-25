@@ -86,7 +86,7 @@ export default function Estudiantes() {
 
   return (
     <div>
-          <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-3xl font-bold text-slate-900">Gestión de Estudiantes</h1>
               <p className="text-slate-600">Administra alumnos, responsables y información académica</p>

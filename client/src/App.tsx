@@ -65,7 +65,6 @@ function AuthenticatedRoutes() {
       <Header />
       <Sidebar />
       <div className="ml-64 pt-16">
-        <SaaSInfo />
         <div className="p-6">
 
           <Switch>

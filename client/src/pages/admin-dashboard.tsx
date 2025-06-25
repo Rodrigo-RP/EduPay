@@ -51,6 +51,15 @@ export default function AdminDashboard() {
 
   return (
     <div>
+      {/* SaaS Info Banner */}
+      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 text-center mb-6 -mx-6 -mt-6">
+        <h1 className="text-xl font-bold">EscuelaPay - Plataforma SaaS de Pagos Escolares</h1>
+        <p className="text-blue-100 text-sm">100% enfocada en automatizar pagos de colegiaturas</p>
+        <div className="mt-2 text-xs bg-white/20 rounded px-3 py-1 inline-block">
+          Meta: 80% pagos antes del vencimiento | Reduce carga operativa | Automatiza cobros y conciliación
+        </div>
+      </div>
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Panel de Control - Campus Principal</h1>

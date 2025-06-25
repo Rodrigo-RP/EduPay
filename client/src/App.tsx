@@ -20,6 +20,9 @@ import Cargos from "@/pages/cargos";
 import Pagos from "@/pages/pagos";
 import CuentasPorCobrar from "@/pages/cuentas-por-cobrar";
 import CatalogoProductos from "@/pages/catalogo-productos";
+import Proveedores from "@/pages/proveedores";
+import ExAlumnos from "@/pages/exalumnos";
+import CRMEscolar from "@/pages/crm-escolar";
 import Becas from "@/pages/becas";
 import Notificaciones from "@/pages/notificaciones";
 import Reportes from "@/pages/reportes";
@@ -63,6 +66,9 @@ function AuthenticatedRoutes() {
       <Route path="/pagos" component={Pagos} />
       <Route path="/cuentas-por-cobrar" component={CuentasPorCobrar} />
       <Route path="/catalogo-productos" component={CatalogoProductos} />
+      <Route path="/proveedores" component={Proveedores} />
+      <Route path="/exalumnos" component={ExAlumnos} />
+      <Route path="/crm-escolar" component={CRMEscolar} />
       <Route path="/becas" component={Becas} />
       <Route path="/notificaciones" component={Notificaciones} />
       <Route path="/reportes" component={Reportes} />

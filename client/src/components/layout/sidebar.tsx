@@ -6,17 +6,104 @@ export default function Sidebar() {
   const [location, setLocation] = useLocation();
 
   const menuItems = [
-    { icon: "fas fa-chart-line", label: "Dashboard", href: "/admin", active: location === "/" || location === "/admin" },
-    { icon: "fas fa-users", label: "Estudiantes", href: "/estudiantes", active: location === "/estudiantes" },
-    { icon: "fas fa-user-cog", label: "Usuarios", href: "/usuarios", active: location === "/usuarios" },
-    { icon: "fas fa-file-invoice-dollar", label: "Cargos", href: "/cargos", active: location === "/cargos" },
-    { icon: "fas fa-credit-card", label: "Pagos", href: "/pagos", active: location === "/pagos" },
-    { icon: "fas fa-exclamation-triangle", label: "Cuentas por Cobrar", href: "/cuentas-por-cobrar", active: location === "/cuentas-por-cobrar" },
-    { icon: "fas fa-box", label: "Catálogo Productos", href: "/catalogo-productos", active: location === "/catalogo-productos" },
-    { icon: "fas fa-percent", label: "Becas y Descuentos", href: "/becas", active: location === "/becas" },
-    { icon: "fas fa-bell", label: "Notificaciones", href: "/notificaciones", active: location === "/notificaciones" },
-    { icon: "fas fa-chart-bar", label: "Reportes", href: "/reportes", active: location === "/reportes" },
-    { icon: "fas fa-cog", label: "Configuración", href: "/configuracion", active: location === "/configuracion" },
+    { 
+      icon: "fas fa-chart-line", 
+      label: "Dashboard", 
+      href: "/admin", 
+      active: location === "/" || location === "/admin",
+      category: "principal"
+    },
+    { 
+      icon: "fas fa-users", 
+      label: "Estudiantes", 
+      href: "/estudiantes", 
+      active: location === "/estudiantes",
+      category: "academico"
+    },
+    { 
+      icon: "fas fa-graduation-cap", 
+      label: "Ex-Alumnos", 
+      href: "/exalumnos", 
+      active: location === "/exalumnos",
+      category: "academico"
+    },
+    { 
+      icon: "fas fa-user-friends", 
+      label: "CRM Escolar", 
+      href: "/crm-escolar", 
+      active: location === "/crm-escolar",
+      category: "academico"
+    },
+    { 
+      icon: "fas fa-user-cog", 
+      label: "Usuarios", 
+      href: "/usuarios", 
+      active: location === "/usuarios",
+      category: "administrativo"
+    },
+    { 
+      icon: "fas fa-file-invoice-dollar", 
+      label: "Cargos", 
+      href: "/cargos", 
+      active: location === "/cargos",
+      category: "financiero"
+    },
+    { 
+      icon: "fas fa-credit-card", 
+      label: "Pagos", 
+      href: "/pagos", 
+      active: location === "/pagos",
+      category: "financiero"
+    },
+    { 
+      icon: "fas fa-exclamation-triangle", 
+      label: "Cuentas por Cobrar", 
+      href: "/cuentas-por-cobrar", 
+      active: location === "/cuentas-por-cobrar",
+      category: "financiero"
+    },
+    { 
+      icon: "fas fa-box", 
+      label: "Catálogo Productos", 
+      href: "/catalogo-productos", 
+      active: location === "/catalogo-productos",
+      category: "financiero"
+    },
+    { 
+      icon: "fas fa-building", 
+      label: "Proveedores", 
+      href: "/proveedores", 
+      active: location === "/proveedores",
+      category: "administrativo"
+    },
+    { 
+      icon: "fas fa-percent", 
+      label: "Becas y Descuentos", 
+      href: "/becas", 
+      active: location === "/becas",
+      category: "financiero"
+    },
+    { 
+      icon: "fas fa-bell", 
+      label: "Notificaciones", 
+      href: "/notificaciones", 
+      active: location === "/notificaciones",
+      category: "sistema"
+    },
+    { 
+      icon: "fas fa-chart-bar", 
+      label: "Reportes", 
+      href: "/reportes", 
+      active: location === "/reportes",
+      category: "sistema"
+    },
+    { 
+      icon: "fas fa-cog", 
+      label: "Configuración", 
+      href: "/configuracion", 
+      active: location === "/configuracion",
+      category: "sistema"
+    },
   ];
 
   return (
@@ -33,26 +120,132 @@ export default function Sidebar() {
         </div>
       </div>
 
-      <nav className="flex-1 px-4 pb-6">
-        <div className="space-y-1">
-          {menuItems.map((item, index) => (
-            <a
-              key={index}
-              href={item.href}
-              onClick={(e) => {
-                e.preventDefault();
-                setLocation(item.href);
-              }}
-              className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
-                item.active
-                  ? "bg-primary-50 text-primary-700"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-              }`}
-            >
-              <i className={`${item.icon} mr-3 text-sm`}></i>
-              {item.label}
-            </a>
-          ))}
+      <nav className="flex-1 px-4 pb-6 overflow-y-auto">
+        <div className="space-y-4">
+          {/* Sección Principal */}
+          <div>
+            <h3 className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Principal</h3>
+            <div className="mt-2 space-y-1">
+              {menuItems.filter(item => item.category === "principal").map((item, index) => (
+                <a
+                  key={index}
+                  href={item.href}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setLocation(item.href);
+                  }}
+                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+                    item.active
+                      ? "bg-primary-50 text-primary-700"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  <i className={`${item.icon} mr-3 text-sm`}></i>
+                  {item.label}
+                </a>
+              ))}
+            </div>
+          </div>
+
+          {/* Sección Académica */}
+          <div>
+            <h3 className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Académico</h3>
+            <div className="mt-2 space-y-1">
+              {menuItems.filter(item => item.category === "academico").map((item, index) => (
+                <a
+                  key={index}
+                  href={item.href}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setLocation(item.href);
+                  }}
+                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+                    item.active
+                      ? "bg-primary-50 text-primary-700"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  <i className={`${item.icon} mr-3 text-sm`}></i>
+                  {item.label}
+                </a>
+              ))}
+            </div>
+          </div>
+
+          {/* Sección Financiera */}
+          <div>
+            <h3 className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Financiero</h3>
+            <div className="mt-2 space-y-1">
+              {menuItems.filter(item => item.category === "financiero").map((item, index) => (
+                <a
+                  key={index}
+                  href={item.href}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setLocation(item.href);
+                  }}
+                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+                    item.active
+                      ? "bg-primary-50 text-primary-700"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  <i className={`${item.icon} mr-3 text-sm`}></i>
+                  {item.label}
+                </a>
+              ))}
+            </div>
+          </div>
+
+          {/* Sección Administrativa */}
+          <div>
+            <h3 className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Administrativo</h3>
+            <div className="mt-2 space-y-1">
+              {menuItems.filter(item => item.category === "administrativo").map((item, index) => (
+                <a
+                  key={index}
+                  href={item.href}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setLocation(item.href);
+                  }}
+                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+                    item.active
+                      ? "bg-primary-50 text-primary-700"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  <i className={`${item.icon} mr-3 text-sm`}></i>
+                  {item.label}
+                </a>
+              ))}
+            </div>
+          </div>
+
+          {/* Sección Sistema */}
+          <div>
+            <h3 className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Sistema</h3>
+            <div className="mt-2 space-y-1">
+              {menuItems.filter(item => item.category === "sistema").map((item, index) => (
+                <a
+                  key={index}
+                  href={item.href}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setLocation(item.href);
+                  }}
+                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+                    item.active
+                      ? "bg-primary-50 text-primary-700"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  <i className={`${item.icon} mr-3 text-sm`}></i>
+                  {item.label}
+                </a>
+              ))}
+            </div>
+          </div>
         </div>
       </nav>
 

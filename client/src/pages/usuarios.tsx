@@ -282,19 +282,32 @@ export default function Usuarios() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
               <div>
                     <Label>Nombre completo</Label>
-                    <Input placeholder="Juan Pérez García" />
+                    <Input 
+                      placeholder="Juan Pérez García" 
+                      value={formData.nombre_completo}
+                      onChange={(e) => handleInputChange("nombre_completo", e.target.value)}
+                    />
                   </div>
               <div>
                     <Label>Email</Label>
-                    <Input type="email" placeholder="usuario@sanpatricio.edu.mx" />
+                    <Input 
+                      type="email" 
+                      placeholder="usuario@sanpatricio.edu.mx"
+                      value={formData.email}
+                      onChange={(e) => handleInputChange("email", e.target.value)}
+                    />
                   </div>
               <div>
                     <Label>Teléfono</Label>
-                    <Input placeholder="55-1234-5678" />
+                    <Input 
+                      placeholder="55-1234-5678"
+                      value={formData.telefono}
+                      onChange={(e) => handleInputChange("telefono", e.target.value)}
+                    />
                   </div>
               <div>
                     <Label>Rol del sistema</Label>
-                    <Select>
+                    <Select value={formData.role} onValueChange={(value) => handleInputChange("role", value)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar rol..." />
                       </SelectTrigger>
@@ -306,19 +319,26 @@ export default function Usuarios() {
                     </Select>
                   </div>
               <div>
-                    <Label>Contraseña temporal</Label>
-                    <Input type="password" placeholder="••••••••" />
+                    <Label>Campus</Label>
+                    <Input 
+                      placeholder="Campus Principal"
+                      value={formData.campus}
+                      onChange={(e) => handleInputChange("campus", e.target.value)}
+                    />
                   </div>
               <div className="flex items-center space-x-2">
-                    <Switch id="active" defaultChecked />
-                    <Label htmlFor="active">Usuario activo</Label>
+                    <Switch 
+                      checked={formData.activo}
+                      onCheckedChange={(checked) => handleInputChange("activo", checked)}
+                    />
+                    <Label>Usuario activo</Label>
                   </div>
                 </div>
             <div className="flex justify-end space-x-2">
               <Button variant="outline" onClick={() => setShowAddModal(false)}>
                     Cancelar
                   </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700">
+              <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleAdd}>
                     Crear Usuario
                   </Button>
                 </div>
@@ -442,6 +462,75 @@ export default function Usuarios() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Modal de Edición de Usuario */}
+          <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Editar usuario</DialogTitle>
+              </DialogHeader>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                <div>
+                  <Label>Nombre completo</Label>
+                  <Input 
+                    value={formData.nombre_completo}
+                    onChange={(e) => handleInputChange("nombre_completo", e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>Email</Label>
+                  <Input 
+                    type="email" 
+                    value={formData.email}
+                    onChange={(e) => handleInputChange("email", e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>Teléfono</Label>
+                  <Input 
+                    value={formData.telefono}
+                    onChange={(e) => handleInputChange("telefono", e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>Rol del sistema</Label>
+                  <Select value={formData.role} onValueChange={(value) => handleInputChange("role", value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
+                      <SelectItem value="ADMIN_CAMPUS">Administrador Campus</SelectItem>
+                      <SelectItem value="CAJA">Personal de Caja</SelectItem>
+                      <SelectItem value="CONTADOR">Contador Externo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Campus</Label>
+                  <Input 
+                    value={formData.campus}
+                    onChange={(e) => handleInputChange("campus", e.target.value)}
+                  />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch 
+                    checked={formData.activo}
+                    onCheckedChange={(checked) => handleInputChange("activo", checked)}
+                  />
+                  <Label>Usuario activo</Label>
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button variant="outline" onClick={() => setShowEditModal(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleSaveEdit}>
+                  Guardar cambios
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </div>

@@ -9,6 +9,11 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import Login from "@/pages/login";
 import Checkout from "@/pages/checkout";
 import NotFound from "@/pages/not-found";
+import ConfiguracionInicial from "@/pages/configuracion-inicial";
+import EmisionCargos from "@/pages/emision-cargos";
+import PortalPadres3Clics from "@/pages/portal-padres-3clics";
+import CajaConciliacion from "@/pages/caja-conciliacion";
+import FiscalContable from "@/pages/fiscal-contable";
 
 function AuthenticatedRoutes() {
   const { user, guardian, isLoading } = useAuth();
@@ -40,6 +45,11 @@ function AuthenticatedRoutes() {
     <Switch>
       <Route path="/" component={AdminDashboard} />
       <Route path="/admin" component={AdminDashboard} />
+      <Route path="/configuracion-inicial" component={ConfiguracionInicial} />
+      <Route path="/emision-cargos" component={EmisionCargos} />
+      <Route path="/caja-conciliacion" component={CajaConciliacion} />
+      <Route path="/fiscal-contable" component={FiscalContable} />
+      <Route path="/portal-3clics" component={PortalPadres3Clics} />
       <Route component={NotFound} />
     </Switch>
   );

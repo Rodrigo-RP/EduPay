@@ -1,5 +1,5 @@
 // Módulo 1: Configuración inicial - Onboarding guiado (< 1 hora)
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -408,7 +408,7 @@ export default function ConfiguracionInicial() {
                     isActive ? 'bg-blue-500 border-blue-500 text-white' :
                     'bg-white border-gray-300 text-gray-400'
                   }`}>
-                    {isCompleted ? <CheckCircle className="w-6 h-6" /> : <Icon className="w-6 h-6" />}
+                    {isCompleted ? <CheckCircle className="w-6 h-6" /> : React.createElement(Icon, { className: "w-6 h-6" })}
                   </div>
                   <span className={`text-sm text-center ${isActive ? 'font-semibold' : ''}`}>
                     {step.title}
@@ -425,7 +425,7 @@ export default function ConfiguracionInicial() {
             <CardTitle className="flex items-center gap-2">
               {steps[currentStep] && (
                 <>
-                  {steps[currentStep].icon && <steps[currentStep].icon className="w-5 h-5" />}
+                  {React.createElement(steps[currentStep].icon, { className: "w-5 h-5" })}
                   {steps[currentStep].title}
                 </>
               )}

@@ -1,0 +1,339 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import Sidebar from "@/components/layout/sidebar";
+import SaaSInfo from "@/components/saas-info";
+import { Users, Plus, Edit, Trash2, UserCheck, UserX, Shield, Mail } from "lucide-react";
+
+export default function Usuarios() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<any>(null);
+  const [selectedRole, setSelectedRole] = useState("all");
+
+  // Datos demo de usuarios del sistema
+  const usuarios = [
+    {
+      id: 1,
+      email: "admin@sanpatricio.edu.mx",
+      nombre_completo: "María Elena Rodríguez",
+      role: "SUPER_ADMIN",
+      telefono: "55-1234-5678",
+      activo: true,
+      campus: "Campus Principal",
+      ultimo_acceso: "2025-01-20 08:30",
+      created_at: "2024-08-01"
+    },
+    {
+      id: 2,
+      email: "direccion@sanpatricio.edu.mx", 
+      nombre_completo: "Carlos Alberto Méndez",
+      role: "ADMIN_CAMPUS",
+      telefono: "55-2345-6789",
+      activo: true,
+      campus: "Campus Principal",
+      ultimo_acceso: "2025-01-20 09:15",
+      created_at: "2024-08-15"
+    },
+    {
+      id: 3,
+      email: "caja1@sanpatricio.edu.mx",
+      nombre_completo: "Ana Patricia López",
+      role: "CAJA",
+      telefono: "55-3456-7890",
+      activo: true,
+      campus: "Campus Principal",
+      ultimo_acceso: "2025-01-20 10:45",
+      created_at: "2024-09-01"
+    },
+    {
+      id: 4,
+      email: "contador@sanpatricio.edu.mx",
+      nombre_completo: "Jorge Luis Herrera",
+      role: "CONTADOR",
+      telefono: "55-4567-8901",
+      activo: true,
+      campus: "Campus Principal",
+      ultimo_acceso: "2025-01-19 16:30",
+      created_at: "2024-09-15"
+    },
+    {
+      id: 5,
+      email: "caja2@sanpatricio.edu.mx",
+      nombre_completo: "Laura Beatriz Silva",
+      role: "CAJA",
+      telefono: "55-5678-9012",
+      activo: false,
+      campus: "Campus Principal",
+      ultimo_acceso: "2025-01-10 14:20",
+      created_at: "2024-10-01"
+    }
+  ];
+
+  const filteredUsuarios = selectedRole === "all" 
+    ? usuarios 
+    : usuarios.filter(user => user.role === selectedRole);
+
+  const estadisticas = {
+    totalUsuarios: usuarios.length,
+    usuariosActivos: usuarios.filter(u => u.activo).length,
+    adminsCampus: usuarios.filter(u => u.role === "ADMIN_CAMPUS").length,
+    usuariosCaja: usuarios.filter(u => u.role === "CAJA").length
+  };
+
+  const getRoleBadge = (role: string) => {
+    const colors = {
+      SUPER_ADMIN: "bg-red-100 text-red-800",
+      ADMIN_CAMPUS: "bg-blue-100 text-blue-800", 
+      CAJA: "bg-green-100 text-green-800",
+      CONTADOR: "bg-purple-100 text-purple-800"
+    };
+    
+    const names = {
+      SUPER_ADMIN: "Super Admin",
+      ADMIN_CAMPUS: "Admin Campus",
+      CAJA: "Caja",
+      CONTADOR: "Contador"
+    };
+    
+    return (
+      <Badge className={colors[role as keyof typeof colors] || "bg-gray-100 text-gray-800"}>
+        <Shield className="w-3 h-3 mr-1" />
+        {names[role as keyof typeof names] || role}
+      </Badge>
+    );
+  };
+
+  const handleToggleActive = async (userId: number, currentStatus: boolean) => {
+    try {
+      // Simular API call
+      toast({
+        title: currentStatus ? "Usuario deshabilitado" : "Usuario habilitado",
+        description: `El usuario ha sido ${currentStatus ? "deshabilitado" : "habilitado"} correctamente.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el estado del usuario.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteUser = async (userId: number) => {
+    try {
+      // Simular API call
+      toast({
+        title: "Usuario eliminado",
+        description: "El usuario ha sido eliminado del sistema.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error", 
+        description: "No se pudo eliminar el usuario.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-slate-50">
+      <Sidebar />
+      <div className="flex-1 overflow-auto">
+        <SaaSInfo />
+        
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900">Gestión de Usuarios</h1>
+              <p className="text-slate-600">Administra usuarios del sistema, roles y permisos</p>
+            </div>
+            <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+              <DialogTrigger asChild>
+                <Button className="bg-blue-600 hover:bg-blue-700">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Agregar Usuario
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Crear nuevo usuario</DialogTitle>
+                </DialogHeader>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                  <div>
+                    <Label>Nombre completo</Label>
+                    <Input placeholder="Juan Pérez García" />
+                  </div>
+                  <div>
+                    <Label>Email</Label>
+                    <Input type="email" placeholder="usuario@sanpatricio.edu.mx" />
+                  </div>
+                  <div>
+                    <Label>Teléfono</Label>
+                    <Input placeholder="55-1234-5678" />
+                  </div>
+                  <div>
+                    <Label>Rol del sistema</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar rol..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ADMIN_CAMPUS">Administrador Campus</SelectItem>
+                        <SelectItem value="CAJA">Personal de Caja</SelectItem>
+                        <SelectItem value="CONTADOR">Contador Externo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Contraseña temporal</Label>
+                    <Input type="password" placeholder="••••••••" />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch id="active" defaultChecked />
+                    <Label htmlFor="active">Usuario activo</Label>
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button variant="outline" onClick={() => setShowAddModal(false)}>
+                    Cancelar
+                  </Button>
+                  <Button className="bg-blue-600 hover:bg-blue-700">
+                    Crear Usuario
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {/* Estadísticas */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <Card>
+              <CardContent className="p-4 text-center">
+                <Users className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+                <div className="text-2xl font-bold">{estadisticas.totalUsuarios}</div>
+                <div className="text-sm text-slate-600">Total usuarios</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <UserCheck className="w-8 h-8 text-green-600 mx-auto mb-2" />
+                <div className="text-2xl font-bold">{estadisticas.usuariosActivos}</div>
+                <div className="text-sm text-slate-600">Usuarios activos</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <Shield className="w-8 h-8 text-purple-600 mx-auto mb-2" />
+                <div className="text-2xl font-bold">{estadisticas.adminsCampus}</div>
+                <div className="text-sm text-slate-600">Admins Campus</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold">{estadisticas.usuariosCaja}</div>
+                <div className="text-sm text-slate-600">Personal Caja</div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Filtros */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Filtros de usuarios</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-4">
+                <Select value={selectedRole} onValueChange={setSelectedRole}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los roles</SelectItem>
+                    <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
+                    <SelectItem value="ADMIN_CAMPUS">Admin Campus</SelectItem>
+                    <SelectItem value="CAJA">Personal Caja</SelectItem>
+                    <SelectItem value="CONTADOR">Contador</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" onClick={() => setSelectedRole("all")}>
+                  Limpiar filtros
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Lista de usuarios */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Lista de usuarios ({filteredUsuarios.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {filteredUsuarios.map((usuario) => (
+                  <div key={usuario.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                        <span className="text-blue-600 font-semibold">
+                          {usuario.nombre_completo.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                        </span>
+                      </div>
+                      <div>
+                        <h3 className="font-medium">{usuario.nombre_completo}</h3>
+                        <p className="text-sm text-slate-600 flex items-center gap-1">
+                          <Mail className="w-3 h-3" />
+                          {usuario.email}
+                        </p>
+                        <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
+                          <span>Tel: {usuario.telefono}</span>
+                          <span>Último acceso: {usuario.ultimo_acceso}</span>
+                          <span>Campus: {usuario.campus}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <div className="text-right">
+                        {getRoleBadge(usuario.role)}
+                        <div className="mt-1">
+                          <Badge variant={usuario.activo ? "default" : "secondary"}>
+                            {usuario.activo ? "Activo" : "Inactivo"}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Switch 
+                          checked={usuario.activo}
+                          onCheckedChange={() => handleToggleActive(usuario.id, usuario.activo)}
+                        />
+                        <Button size="sm" variant="outline" onClick={() => setEditingUser(usuario)}>
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleDeleteUser(usuario.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -118,6 +118,13 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- June 25, 2025: FUNCIONALIDADES ADICIONALES IMPLEMENTADAS según requisitos específicos del usuario
+- June 25, 2025: Gestión completa de usuarios: crear, modificar, habilitar/deshabilitar, alta/baja del sistema
+- June 25, 2025: Catálogo de productos completo: colegiaturas, inscripciones, seguro escolar, libros, otros
+- June 25, 2025: Cuentas por cobrar: seguimiento de cartera vencida, gestión de morosidad, reportes de antigüedad
+- June 25, 2025: Secciones académicas: separación por Kinder, Primaria, Secundaria, Bachillerato
+- June 25, 2025: Gestión de ciclos escolares y configuración por niveles académicos
+- June 25, 2025: Schema actualizado con nuevas tablas: bank_movements, product_catalog, accounts_receivable
 - June 24, 2025: TODOS LOS 5 MÓDULOS IMPLEMENTADOS según especificaciones exactas del documento
 - June 24, 2025: Módulo 1: Configuración inicial - Onboarding guiado < 1 hora
 - June 24, 2025: Módulo 2: Emisión de cargos - Generación automática/manual, extraordinarios, recargos por mora

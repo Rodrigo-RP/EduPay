@@ -8,8 +8,11 @@ export default function Sidebar() {
   const menuItems = [
     { icon: "fas fa-chart-line", label: "Dashboard", href: "/admin", active: location === "/" || location === "/admin" },
     { icon: "fas fa-users", label: "Estudiantes", href: "/estudiantes", active: location === "/estudiantes" },
+    { icon: "fas fa-user-cog", label: "Usuarios", href: "/usuarios", active: location === "/usuarios" },
     { icon: "fas fa-file-invoice-dollar", label: "Cargos", href: "/cargos", active: location === "/cargos" },
     { icon: "fas fa-credit-card", label: "Pagos", href: "/pagos", active: location === "/pagos" },
+    { icon: "fas fa-exclamation-triangle", label: "Cuentas por Cobrar", href: "/cuentas-por-cobrar", active: location === "/cuentas-por-cobrar" },
+    { icon: "fas fa-box", label: "Catálogo Productos", href: "/catalogo-productos", active: location === "/catalogo-productos" },
     { icon: "fas fa-percent", label: "Becas y Descuentos", href: "/becas", active: location === "/becas" },
     { icon: "fas fa-bell", label: "Notificaciones", href: "/notificaciones", active: location === "/notificaciones" },
     { icon: "fas fa-chart-bar", label: "Reportes", href: "/reportes", active: location === "/reportes" },

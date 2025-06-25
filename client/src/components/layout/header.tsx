@@ -24,7 +24,7 @@ export default function Header() {
   ];
 
   return (
-    <header className="fixed top-0 left-64 right-0 bg-white border-b border-slate-200 z-40 h-16">
+    <header className="bg-white border-b border-slate-200 h-16 flex-shrink-0">
       <div className="px-6 py-3 flex items-center justify-between h-full">
         <div className="flex items-center gap-4">
           <div>

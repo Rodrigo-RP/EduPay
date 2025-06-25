@@ -61,11 +61,11 @@ function AuthenticatedRoutes() {
 
   // Admin/staff routes
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Header />
+    <div className="min-h-screen bg-slate-50 flex">
       <Sidebar />
-      <div className="ml-64 pt-16 min-h-screen bg-slate-50">
-        <div className="p-6">
+      <div className="flex-1 flex flex-col">
+        <Header />
+        <main className="flex-1 p-6 bg-slate-50">
           <Switch>
             <Route path="/" component={AdminDashboard} />
             <Route path="/admin" component={AdminDashboard} />
@@ -89,7 +89,7 @@ function AuthenticatedRoutes() {
             <Route path="/portal-3clics" component={PortalPadres3Clics} />
             <Route component={NotFound} />
           </Switch>
-        </div>
+        </main>
       </div>
     </div>
   );

@@ -18,6 +18,8 @@ export default function Estudiantes() {
   const [gruposPersonalizados, setGruposPersonalizados] = useState(["A", "B", "C", "D", "E", "F", "G", "H"]);
   const [editandoGrupos, setEditandoGrupos] = useState(false);
   const [nuevoGrupo, setNuevoGrupo] = useState("");
+  const [editandoGrupoIndex, setEditandoGrupoIndex] = useState<number | null>(null);
+  const [nombreGrupoEditando, setNombreGrupoEditando] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState<any>(null);
@@ -357,6 +359,36 @@ export default function Estudiantes() {
         description: `Se eliminó el grupo "${grupo}" exitosamente.`,
       });
     }
+  };
+
+  const iniciarEdicionGrupo = (index: number) => {
+    setEditandoGrupoIndex(index);
+    setNombreGrupoEditando(gruposPersonalizados[index]);
+  };
+
+  const guardarEdicionGrupo = () => {
+    if (nombreGrupoEditando.trim() && !gruposPersonalizados.includes(nombreGrupoEditando.trim())) {
+      const nuevosGrupos = [...gruposPersonalizados];
+      const grupoAnterior = nuevosGrupos[editandoGrupoIndex!];
+      nuevosGrupos[editandoGrupoIndex!] = nombreGrupoEditando.trim();
+      setGruposPersonalizados(nuevosGrupos);
+      
+      // Actualizar filtro si estaba seleccionado el grupo editado
+      if (selectedGrupo === grupoAnterior) {
+        setSelectedGrupo(nombreGrupoEditando.trim());
+      }
+      
+      toast({
+        title: "Grupo actualizado",
+        description: `Se cambió el nombre de "${grupoAnterior}" a "${nombreGrupoEditando.trim()}".`,
+      });
+    }
+    cancelarEdicionGrupo();
+  };
+
+  const cancelarEdicionGrupo = () => {
+    setEditandoGrupoIndex(null);
+    setNombreGrupoEditando("");
   };
 
   // Filtrar estudiantes según criterios de búsqueda
@@ -805,16 +837,60 @@ export default function Estudiantes() {
               <div className="space-y-2 mt-2">
                 {gruposPersonalizados.map((grupo, index) => (
                   <div key={grupo} className="flex items-center justify-between p-2 bg-slate-50 rounded">
-                    <span>{grupo}</span>
-                    {gruposPersonalizados.length > 1 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => eliminarGrupo(grupo)}
-                        className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
+                    {editandoGrupoIndex === index ? (
+                      <div className="flex items-center space-x-2 flex-1">
+                        <Input
+                          value={nombreGrupoEditando}
+                          onChange={(e) => setNombreGrupoEditando(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') guardarEdicionGrupo();
+                            if (e.key === 'Escape') cancelarEdicionGrupo();
+                          }}
+                          className="h-7"
+                          autoFocus
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={guardarEdicionGrupo}
+                          className="h-6 w-6 p-0 text-green-600 hover:text-green-700"
+                          disabled={!nombreGrupoEditando.trim() || gruposPersonalizados.includes(nombreGrupoEditando.trim())}
+                        >
+                          <UserCheck className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={cancelarEdicionGrupo}
+                          className="h-6 w-6 p-0 text-gray-600 hover:text-gray-700"
+                        >
+                          <UserX className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <span>{grupo}</span>
+                        <div className="flex space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => iniciarEdicionGrupo(index)}
+                            className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700"
+                          >
+                            <Edit className="w-3 h-3" />
+                          </Button>
+                          {gruposPersonalizados.length > 1 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => eliminarGrupo(grupo)}
+                              className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </>
                     )}
                   </div>
                 ))}

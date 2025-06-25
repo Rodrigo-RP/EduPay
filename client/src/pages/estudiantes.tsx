@@ -1,25 +1,41 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-
-import { Users, Plus, Search, Edit, Trash2, UserCheck, UserX } from "lucide-react";
+import { Users, Plus, Search, Edit, Trash2, UserCheck, UserX, Phone, Mail, MapPin } from "lucide-react";
 
 export default function Estudiantes() {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedGrado, setSelectedGrado] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [formData, setFormData] = useState({
+    nombre_completo: "",
+    curp: "",
+    fecha_nacimiento: "",
+    grado: "",
+    grupo: "",
+    status: "activo",
+    responsable_nombre: "",
+    responsable_telefono: "",
+    responsable_email: "",
+    direccion: "",
+    codigo_postal: "",
+    ciudad: "",
+    estado: "Ciudad de México",
+    alergias: "",
+    medicamentos: "",
+    contacto_emergencia: "",
+    telefono_emergencia: ""
+  });
 
-  // Datos demo de estudiantes
-  const estudiantes = [
+  const [estudiantes, setEstudiantes] = useState([
     {
       id: 1,
       nombre_completo: "Carlos Pérez Méndez",
@@ -49,30 +65,100 @@ export default function Estudiantes() {
       nombre_completo: "Luis Martínez Gil",
       curp: "MAGL070118HDFRNR05",
       grado: "1ro",
-      grupo: "A",
-      status: "activo",
-      responsable: "Luis Martínez",
-      telefono: "5555678901",
-      saldo_pendiente: 550000,
-      fecha_inscripcion: "2024-08-17"
-    },
-    {
-      id: 4,
-      nombre_completo: "Diego Martínez Gil",
-      curp: "MAGL090320HDFRNR06",
-      grado: "Kinder",
       grupo: "C",
       status: "activo",
-      responsable: "Luis Martínez",
-      telefono: "5555678901",
-      saldo_pendiente: 425000,
+      responsable: "María Martínez",
+      telefono: "5554567890",
+      saldo_pendiente: 455000,
       fecha_inscripcion: "2024-08-17"
     }
-  ];
+  ]);
 
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const resetForm = () => {
+    setFormData({
+      nombre_completo: "",
+      curp: "",
+      fecha_nacimiento: "",
+      grado: "",
+      grupo: "",
+      status: "activo",
+      responsable_nombre: "",
+      responsable_telefono: "",
+      responsable_email: "",
+      direccion: "",
+      codigo_postal: "",
+      ciudad: "",
+      estado: "Ciudad de México",
+      alergias: "",
+      medicamentos: "",
+      contacto_emergencia: "",
+      telefono_emergencia: ""
+    });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validaciones básicas
+    if (!formData.nombre_completo || !formData.curp || !formData.grado || !formData.responsable_nombre) {
+      toast({
+        title: "Error",
+        description: "Por favor complete todos los campos obligatorios.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validar formato CURP (18 caracteres)
+    if (formData.curp.length !== 18) {
+      toast({
+        title: "Error",
+        description: "El CURP debe tener 18 caracteres.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Generar nuevo ID
+    const newId = Math.max(...estudiantes.map(e => e.id)) + 1;
+    
+    // Crear nuevo estudiante
+    const newStudent = {
+      id: newId,
+      nombre_completo: formData.nombre_completo,
+      curp: formData.curp,
+      grado: formData.grado,
+      grupo: formData.grupo,
+      status: formData.status,
+      responsable: formData.responsable_nombre,
+      telefono: formData.responsable_telefono,
+      saldo_pendiente: 0,
+      fecha_inscripcion: new Date().toISOString().split('T')[0]
+    };
+
+    setEstudiantes(prev => [...prev, newStudent]);
+    
+    toast({
+      title: "Estudiante agregado",
+      description: `${formData.nombre_completo} ha sido registrado exitosamente.`
+    });
+
+    resetForm();
+    setShowAddModal(false);
+  };
+
+  // Filtrar estudiantes según criterios de búsqueda
   const filteredStudents = estudiantes.filter(student => {
     const matchesSearch = student.nombre_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         student.curp.toLowerCase().includes(searchTerm.toLowerCase());
+                         student.curp.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         student.responsable.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesGrado = selectedGrado === "all" || student.grado === selectedGrado;
     return matchesSearch && matchesGrado;
   });
@@ -91,132 +177,359 @@ export default function Estudiantes() {
           <h1 className="text-3xl font-bold text-slate-900">Gestión de Estudiantes</h1>
           <p className="text-slate-600">Administra alumnos, responsables y información académica</p>
         </div>
-          <Button onClick={() => setShowAddModal(true)} className="bg-blue-600 hover:bg-blue-700">
-            <Plus className="w-4 h-4 mr-2" />
-              Agregar Estudiante
-            </Button>
-          </div>
+        <Button onClick={() => setShowAddModal(true)} className="bg-blue-600 hover:bg-blue-700">
+          <Plus className="w-4 h-4 mr-2" />
+          Agregar Estudiante
+        </Button>
+      </div>
 
-          {/* Estadísticas */}
+      {/* Estadísticas */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <Card>
-              <CardContent className="p-4 text-center">
-                <Users className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+        <Card>
+          <CardContent className="p-4 text-center">
+            <Users className="w-8 h-8 text-blue-600 mx-auto mb-2" />
             <div className="text-2xl font-bold">{estadisticas.total}</div>
             <div className="text-sm text-slate-600">Total estudiantes</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <UserCheck className="w-8 h-8 text-green-600 mx-auto mb-2" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <UserCheck className="w-8 h-8 text-green-600 mx-auto mb-2" />
             <div className="text-2xl font-bold">{estadisticas.activos}</div>
             <div className="text-sm text-slate-600">Estudiantes activos</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold">${(estadisticas.saldoPendiente / 100).toLocaleString()}</div>
             <div className="text-sm text-slate-600">Saldo pendiente total</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold">${(estadisticas.promedioSaldo / 100).toLocaleString()}</div>
             <div className="text-sm text-slate-600">Promedio por estudiante</div>
-              </CardContent>
-            </Card>
-          </div>
+          </CardContent>
+        </Card>
+      </div>
 
-          {/* Filtros */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>Filtros y búsqueda</CardTitle>
-            </CardHeader>
-            <CardContent>
+      {/* Filtros */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Filtros y búsqueda</CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-                  <Label htmlFor="search">Buscar estudiante</Label>
+              <Label htmlFor="search">Buscar estudiante</Label>
               <div className="relative">
-                    <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                    <Input
-                      id="search"
-                      placeholder="Nombre o CURP..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-            <div>
-                  <Label>Filtrar por grado</Label>
-                  <Select value={selectedGrado} onValueChange={setSelectedGrado}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos los grados</SelectItem>
-                      <SelectItem value="Kinder">Kinder</SelectItem>
-                      <SelectItem value="1ro">1ro</SelectItem>
-                      <SelectItem value="2do">2do</SelectItem>
-                      <SelectItem value="3ro">3ro</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-            <div className="flex items-end">
-            <Button variant="outline" onClick={() => {
-                    setSearchTerm("");
-                    setSelectedGrado("all");
-                  }}>
-                    Limpiar filtros
-                  </Button>
-                </div>
+                <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                <Input
+                  id="search"
+                  placeholder="Nombre, CURP o responsable..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div>
+              <Label>Filtrar por grado</Label>
+              <Select value={selectedGrado} onValueChange={setSelectedGrado}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los grados</SelectItem>
+                  <SelectItem value="Kinder">Kinder</SelectItem>
+                  <SelectItem value="1ro">1ro Primaria</SelectItem>
+                  <SelectItem value="2do">2do Primaria</SelectItem>
+                  <SelectItem value="3ro">3ro Primaria</SelectItem>
+                  <SelectItem value="4to">4to Primaria</SelectItem>
+                  <SelectItem value="5to">5to Primaria</SelectItem>
+                  <SelectItem value="6to">6to Primaria</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <Button variant="outline" onClick={() => {
+                setSearchTerm("");
+                setSelectedGrado("all");
+              }}>
+                Limpiar filtros
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-          {/* Lista de estudiantes */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Lista de estudiantes ({filteredStudents.length})</CardTitle>
-            </CardHeader>
-            <CardContent>
+      {/* Lista de estudiantes */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Lista de estudiantes ({filteredStudents.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="space-y-4">
-                {filteredStudents.map((student) => (
+            {filteredStudents.map((student) => (
               <div key={student.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50">
                 <div className="flex items-center space-x-4">
                   <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-blue-600 font-semibold">
-                          {student.nombre_completo.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                        </span>
-                      </div>
+                    <span className="text-blue-600 font-semibold">
+                      {student.nombre_completo.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                    </span>
+                  </div>
                   <div>
-                        <h3 className="font-medium">{student.nombre_completo}</h3>
+                    <h3 className="font-medium">{student.nombre_completo}</h3>
                     <p className="text-sm text-slate-600">{student.grado} {student.grupo} • CURP: {student.curp}</p>
                     <p className="text-xs text-slate-500">Responsable: {student.responsable} • {student.telefono}</p>
-                      </div>
-                    </div>
+                  </div>
+                </div>
                 <div className="flex items-center space-x-3">
                   <div className="text-right">
                     <div className="font-semibold">${(student.saldo_pendiente / 100).toLocaleString()}</div>
                     <div className="text-xs text-slate-500">Saldo pendiente</div>
-                      </div>
-                      <Badge variant={student.status === 'activo' ? 'default' : 'secondary'}>
-                        {student.status}
-                      </Badge>
-                  <div className="flex space-x-1">
-                  <Button size="sm" variant="outline">
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                  <Button size="sm" variant="outline">
-                          <UserX className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
                   </div>
-                ))}
+                  <Badge variant={student.status === 'activo' ? 'default' : 'secondary'}>
+                    {student.status}
+                  </Badge>
+                  <div className="flex space-x-1">
+                    <Button size="sm" variant="outline">
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button size="sm" variant="outline">
+                      <UserX className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
               </div>
-            </CardContent>
-        </Card>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Modal para agregar estudiante */}
+      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Agregar Nuevo Estudiante</DialogTitle>
+          </DialogHeader>
+          
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Información del Estudiante */}
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-4">Información del Estudiante</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="nombre_completo">Nombre Completo *</Label>
+                  <Input
+                    id="nombre_completo"
+                    value={formData.nombre_completo}
+                    onChange={(e) => handleInputChange("nombre_completo", e.target.value)}
+                    placeholder="Nombre y apellidos del estudiante"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="curp">CURP *</Label>
+                  <Input
+                    id="curp"
+                    value={formData.curp}
+                    onChange={(e) => handleInputChange("curp", e.target.value.toUpperCase())}
+                    placeholder="18 caracteres del CURP"
+                    maxLength={18}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="fecha_nacimiento">Fecha de Nacimiento</Label>
+                  <Input
+                    id="fecha_nacimiento"
+                    type="date"
+                    value={formData.fecha_nacimiento}
+                    onChange={(e) => handleInputChange("fecha_nacimiento", e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="grado">Grado *</Label>
+                  <Select value={formData.grado} onValueChange={(value) => handleInputChange("grado", value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar grado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Kinder">Kinder</SelectItem>
+                      <SelectItem value="1ro">1ro Primaria</SelectItem>
+                      <SelectItem value="2do">2do Primaria</SelectItem>
+                      <SelectItem value="3ro">3ro Primaria</SelectItem>
+                      <SelectItem value="4to">4to Primaria</SelectItem>
+                      <SelectItem value="5to">5to Primaria</SelectItem>
+                      <SelectItem value="6to">6to Primaria</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="grupo">Grupo</Label>
+                  <Select value={formData.grupo} onValueChange={(value) => handleInputChange("grupo", value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar grupo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="A">A</SelectItem>
+                      <SelectItem value="B">B</SelectItem>
+                      <SelectItem value="C">C</SelectItem>
+                      <SelectItem value="D">D</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="status">Estado</Label>
+                  <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="activo">Activo</SelectItem>
+                      <SelectItem value="inactivo">Inactivo</SelectItem>
+                      <SelectItem value="suspendido">Suspendido</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            {/* Información del Responsable */}
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-4">Información del Responsable</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="responsable_nombre">Nombre del Responsable *</Label>
+                  <Input
+                    id="responsable_nombre"
+                    value={formData.responsable_nombre}
+                    onChange={(e) => handleInputChange("responsable_nombre", e.target.value)}
+                    placeholder="Padre, madre o tutor"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="responsable_telefono">Teléfono *</Label>
+                  <Input
+                    id="responsable_telefono"
+                    value={formData.responsable_telefono}
+                    onChange={(e) => handleInputChange("responsable_telefono", e.target.value)}
+                    placeholder="10 dígitos"
+                    maxLength={10}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label htmlFor="responsable_email">Correo Electrónico</Label>
+                  <Input
+                    id="responsable_email"
+                    type="email"
+                    value={formData.responsable_email}
+                    onChange={(e) => handleInputChange("responsable_email", e.target.value)}
+                    placeholder="correo@ejemplo.com"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Dirección */}
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-4">Dirección</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <Label htmlFor="direccion">Dirección Completa</Label>
+                  <Input
+                    id="direccion"
+                    value={formData.direccion}
+                    onChange={(e) => handleInputChange("direccion", e.target.value)}
+                    placeholder="Calle, número, colonia"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="codigo_postal">Código Postal</Label>
+                  <Input
+                    id="codigo_postal"
+                    value={formData.codigo_postal}
+                    onChange={(e) => handleInputChange("codigo_postal", e.target.value)}
+                    placeholder="5 dígitos"
+                    maxLength={5}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="ciudad">Ciudad</Label>
+                  <Input
+                    id="ciudad"
+                    value={formData.ciudad}
+                    onChange={(e) => handleInputChange("ciudad", e.target.value)}
+                    placeholder="Ciudad"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Información Médica y Emergencias */}
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-4">Información Médica y Emergencias</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="alergias">Alergias</Label>
+                  <Textarea
+                    id="alergias"
+                    value={formData.alergias}
+                    onChange={(e) => handleInputChange("alergias", e.target.value)}
+                    placeholder="Alergias conocidas del estudiante"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="medicamentos">Medicamentos</Label>
+                  <Textarea
+                    id="medicamentos"
+                    value={formData.medicamentos}
+                    onChange={(e) => handleInputChange("medicamentos", e.target.value)}
+                    placeholder="Medicamentos que toma regularmente"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="contacto_emergencia">Contacto de Emergencia</Label>
+                  <Input
+                    id="contacto_emergencia"
+                    value={formData.contacto_emergencia}
+                    onChange={(e) => handleInputChange("contacto_emergencia", e.target.value)}
+                    placeholder="Nombre del contacto de emergencia"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="telefono_emergencia">Teléfono de Emergencia</Label>
+                  <Input
+                    id="telefono_emergencia"
+                    value={formData.telefono_emergencia}
+                    onChange={(e) => handleInputChange("telefono_emergencia", e.target.value)}
+                    placeholder="Teléfono del contacto de emergencia"
+                    maxLength={10}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Botones */}
+            <div className="flex justify-end space-x-4 pt-4 border-t">
+              <Button type="button" variant="outline" onClick={() => {
+                resetForm();
+                setShowAddModal(false);
+              }}>
+                Cancelar
+              </Button>
+              <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="w-4 h-4 mr-2" />
+                Agregar Estudiante
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -191,8 +191,8 @@ export default function AdminDashboard() {
               {students?.slice(0, 5).map((student) => (
             <div key={student.id} className="flex items-center justify-between">
               <div>
-                    <p className="font-medium text-slate-900">{student.nombre_completo}</p>
-                    <p className="text-sm text-slate-500">{student.grado} • {student.grupo}</p>
+                <p className="font-medium text-slate-900">{student.nombre_completo}</p>
+                <p className="text-sm text-slate-500">{student.grado} • {student.grupo}</p>
                   </div>
                   <span className={`px-2 py-1 rounded text-xs ${
                     student.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
@@ -204,6 +204,7 @@ export default function AdminDashboard() {
             </div>
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   );

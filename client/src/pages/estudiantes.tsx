@@ -91,8 +91,8 @@ export default function Estudiantes() {
           <h1 className="text-3xl font-bold text-slate-900">Gestión de Estudiantes</h1>
           <p className="text-slate-600">Administra alumnos, responsables y información académica</p>
         </div>
-            <Button onClick={() => setShowAddModal(true)} className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="w-4 h-4 mr-2" />
+          <Button onClick={() => setShowAddModal(true)} className="bg-blue-600 hover:bg-blue-700">
+            <Plus className="w-4 h-4 mr-2" />
               Agregar Estudiante
             </Button>
           </div>
@@ -163,7 +163,7 @@ export default function Estudiantes() {
                   </Select>
                 </div>
             <div className="flex items-end">
-                  <Button variant="outline" onClick={() => {
+            <Button variant="outline" onClick={() => {
                     setSearchTerm("");
                     setSelectedGrado("all");
                   }}>
@@ -191,8 +191,8 @@ export default function Estudiantes() {
                       </div>
                   <div>
                         <h3 className="font-medium">{student.nombre_completo}</h3>
-                        <p className="text-sm text-slate-600">{student.grado} {student.grupo} • CURP: {student.curp}</p>
-                        <p className="text-xs text-slate-500">Responsable: {student.responsable} • {student.telefono}</p>
+                    <p className="text-sm text-slate-600">{student.grado} {student.grupo} • CURP: {student.curp}</p>
+                    <p className="text-xs text-slate-500">Responsable: {student.responsable} • {student.telefono}</p>
                       </div>
                     </div>
                 <div className="flex items-center space-x-3">
@@ -204,10 +204,10 @@ export default function Estudiantes() {
                         {student.status}
                       </Badge>
                   <div className="flex space-x-1">
-                        <Button size="sm" variant="outline">
+                  <Button size="sm" variant="outline">
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button size="sm" variant="outline">
+                  <Button size="sm" variant="outline">
                           <UserX className="w-4 h-4" />
                         </Button>
                       </div>

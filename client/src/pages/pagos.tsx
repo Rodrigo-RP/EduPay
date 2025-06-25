@@ -130,15 +130,15 @@ export default function Pagos() {
         <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-              <h1 className="text-3xl font-bold text-slate-900">Gestión de Pagos</h1>
-              <p className="text-slate-600">Administra pagos recibidos, métodos y conciliación</p>
+          <h1 className="text-3xl font-bold text-slate-900">Gestión de Pagos</h1>
+          <p className="text-slate-600">Administra pagos recibidos, métodos y conciliación</p>
             </div>
         <div className="flex gap-2">
-              <Button className="bg-green-600 hover:bg-green-700">
+          <Button className="bg-green-600 hover:bg-green-700">
                 <Banknote className="w-4 h-4 mr-2" />
                 Registrar Pago Efectivo
               </Button>
-              <Button variant="outline">
+          <Button variant="outline">
                 <Download className="w-4 h-4 mr-2" />
                 Exportar
               </Button>
@@ -236,7 +236,7 @@ export default function Pagos() {
                                 {pago.origen}
                               </Badge>
                             </div>
-                            <p className="text-sm text-slate-600">{pago.concepto}</p>
+                        <p className="text-sm text-slate-600">{pago.concepto}</p>
                         <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
                               <span>Fecha: {pago.fecha}</span>
                               <span>Ref: {pago.referencia}</span>
@@ -251,10 +251,10 @@ export default function Pagos() {
                               </Badge>
                             </div>
                         <div className="flex gap-1">
-                              <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline">
                                 <Eye className="w-4 h-4" />
                               </Button>
-                              <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline">
                                 <Download className="w-4 h-4" />
                               </Button>
                             </div>
@@ -317,7 +317,7 @@ export default function Pagos() {
                       placeholder="Observaciones adicionales..."
                     />
                   </div>
-                  <Button className="mt-4 bg-green-600 hover:bg-green-700">
+              <Button className="mt-4 bg-green-600 hover:bg-green-700">
                     <Banknote className="w-4 h-4 mr-2" />
                     Registrar pago y emitir recibo
                   </Button>
@@ -347,13 +347,13 @@ export default function Pagos() {
                       </div>
                     </div>
                 <div className="flex gap-4">
-                      <Button className="bg-blue-600 hover:bg-blue-700">
+                  <Button className="bg-blue-600 hover:bg-blue-700">
                         Ejecutar conciliación automática
                       </Button>
-                      <Button variant="outline">
+                  <Button variant="outline">
                         Importar estado de cuenta
                       </Button>
-                      <Button variant="outline">
+                  <Button variant="outline">
                         Exportar reporte
                       </Button>
                     </div>

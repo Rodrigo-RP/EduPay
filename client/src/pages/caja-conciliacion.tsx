@@ -374,7 +374,7 @@ export default function CajaConciliacion() {
             </p>
             
         <div className="flex gap-2">
-              <Button 
+          <Button 
                 onClick={() => ejecutarConciliacion.mutate()}
                 disabled={ejecutarConciliacion.isPending}
                 className="flex-1"
@@ -382,7 +382,7 @@ export default function CajaConciliacion() {
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Ejecutar conciliación
               </Button>
-              <Button variant="outline" className="flex-1">
+          <Button variant="outline" className="flex-1">
                 <Upload className="w-4 h-4 mr-2" />
                 Importar estado de cuenta
               </Button>
@@ -411,7 +411,7 @@ export default function CajaConciliacion() {
             </div>
 
         <div className="flex gap-2">
-              <Button 
+          <Button 
                 onClick={() => cerrarCaja.mutate({})}
                 disabled={cerrarCaja.isPending}
                 variant="destructive"
@@ -420,7 +420,7 @@ export default function CajaConciliacion() {
                 <Calculator className="w-4 h-4 mr-2" />
                 Cerrar caja del día
               </Button>
-              <Button variant="outline" className="flex-1">
+          <Button variant="outline" className="flex-1">
                 <Download className="w-4 h-4 mr-2" />
                 Generar reporte
               </Button>

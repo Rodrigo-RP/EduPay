@@ -258,12 +258,12 @@ export default function CRMEscolar() {
         <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-              <h1 className="text-3xl font-bold text-slate-900">CRM Escolar</h1>
-              <p className="text-slate-600">Gestión de prospectos y familias interesadas</p>
+          <h1 className="text-3xl font-bold text-slate-900">CRM Escolar</h1>
+          <p className="text-slate-600">Gestión de prospectos y familias interesadas</p>
             </div>
             <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
               <DialogTrigger asChild>
-                <Button className="bg-blue-600 hover:bg-blue-700">
+            <Button className="bg-blue-600 hover:bg-blue-700">
                   <Plus className="w-4 h-4 mr-2" />
                   Nuevo Prospecto
                 </Button>
@@ -343,10 +343,10 @@ export default function CRMEscolar() {
                   </div>
                 </div>
             <div className="flex justify-end space-x-2">
-                  <Button variant="outline" onClick={() => setShowAddModal(false)}>
+              <Button variant="outline" onClick={() => setShowAddModal(false)}>
                     Cancelar
                   </Button>
-                  <Button className="bg-blue-600 hover:bg-blue-700">
+              <Button className="bg-blue-600 hover:bg-blue-700">
                     Registrar Prospecto
                   </Button>
                 </div>
@@ -432,7 +432,7 @@ export default function CRMEscolar() {
                       </Select>
                     </div>
                 <div className="flex items-end">
-                      <Button variant="outline" onClick={() => {
+                  <Button variant="outline" onClick={() => {
                         setSelectedEstado("all");
                         setSelectedOrigen("all");
                       }}>
@@ -478,7 +478,7 @@ export default function CRMEscolar() {
                               <span>Contactos: {prospecto.contactos.length}</span>
                             </div>
                             {prospecto.observaciones && (
-                              <p className="text-sm text-slate-600 mt-2 bg-slate-100 p-2 rounded">
+                          <p className="text-sm text-slate-600 mt-2 bg-slate-100 p-2 rounded">
                                 {prospecto.observaciones}
                               </p>
                             )}
@@ -489,13 +489,13 @@ export default function CRMEscolar() {
                             </div>
                         <div className="text-xs text-slate-500">Probabilidad</div>
                         <div className="flex gap-1 mt-2">
-                              <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline">
                                 <Phone className="w-3 h-3" />
                               </Button>
-                              <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline">
                                 <Mail className="w-3 h-3" />
                               </Button>
-                              <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline">
                                 <Calendar className="w-3 h-3" />
                               </Button>
                             </div>
@@ -557,7 +557,7 @@ export default function CRMEscolar() {
                       <Textarea placeholder="¿Qué se espera lograr con este contacto?" />
                     </div>
                   </div>
-                  <Button className="mt-4 bg-blue-600 hover:bg-blue-700">
+              <Button className="mt-4 bg-blue-600 hover:bg-blue-700">
                     <Calendar className="w-4 h-4 mr-2" />
                     Programar seguimiento
                   </Button>
@@ -604,16 +604,16 @@ export default function CRMEscolar() {
                   </CardHeader>
                   <CardContent>
                 <div className="space-y-3">
-                      <Button className="w-full" variant="outline">
+                  <Button className="w-full" variant="outline">
                         Generar reporte de prospección
                       </Button>
-                      <Button className="w-full" variant="outline">
+                  <Button className="w-full" variant="outline">
                         Exportar base de prospectos
                       </Button>
-                      <Button className="w-full" variant="outline">
+                  <Button className="w-full" variant="outline">
                         Analizar fuentes de contacto
                       </Button>
-                      <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700">
                         Programar campaña masiva
                       </Button>
                     </div>

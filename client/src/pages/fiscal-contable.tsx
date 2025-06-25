@@ -159,10 +159,10 @@ export default function FiscalContable() {
                       {factura.estado}
                     </Badge>
                 <div className="flex gap-1">
-                      <Button size="sm" variant="outline">
+                  <Button size="sm" variant="outline">
                         <Eye className="w-4 h-4" />
                       </Button>
-                      <Button size="sm" variant="outline">
+                  <Button size="sm" variant="outline">
                         <Download className="w-4 h-4" />
                       </Button>
                     </div>
@@ -266,7 +266,7 @@ export default function FiscalContable() {
                 <div className="font-medium">{reporte.nombre}</div>
                 <div className="text-sm text-slate-600">{reporte.fecha} • {reporte.tamaño} • {reporte.tipo}</div>
                   </div>
-                  <Button size="sm" variant="outline">
+              <Button size="sm" variant="outline">
                     <Download className="w-4 h-4 mr-2" />
                     Descargar
                   </Button>

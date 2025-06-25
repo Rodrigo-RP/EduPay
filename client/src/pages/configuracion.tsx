@@ -238,7 +238,7 @@ export default function Configuracion() {
                 <div className="md:col-span-2">
                       <Label>Logo de la institución</Label>
                   <div className="mt-2 border-2 border-dashed border-slate-300 rounded-lg p-6 text-center">
-                        <p className="text-sm text-slate-500">Arrastra tu logo aquí o haz clic para seleccionar</p>
+                    <p className="text-sm text-slate-500">Arrastra tu logo aquí o haz clic para seleccionar</p>
                       </div>
                     </div>
                   </div>

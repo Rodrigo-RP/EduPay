@@ -140,8 +140,8 @@ export default function ParentPortal() {
               </span>
             </div>
         <div className="flex-1">
-              <p className="font-medium text-slate-900">{currentStudent?.nombre_completo}</p>
-              <p className="text-sm text-slate-500">{currentStudent?.grado} - {currentStudent?.grupo}</p>
+          <p className="font-medium text-slate-900">{currentStudent?.nombre_completo}</p>
+          <p className="text-sm text-slate-500">{currentStudent?.grado} - {currentStudent?.grupo}</p>
             </div>
             <Button 
               variant="ghost" 
@@ -180,7 +180,7 @@ export default function ParentPortal() {
               </div>
 
           <div className="grid grid-cols-2 gap-3">
-                <Button 
+            <Button 
                   className="bg-primary-600 text-white hover:bg-primary-700 p-3"
                   onClick={handlePayNow}
                   disabled={studentCharges.length === 0}
@@ -188,7 +188,7 @@ export default function ParentPortal() {
                   <i className="fas fa-credit-card mb-1 block text-sm"></i>
                   Pagar Ahora
                 </Button>
-                <Button 
+            <Button 
                   variant="secondary"
                   className="bg-slate-100 text-slate-700 hover:bg-slate-200 p-3"
                 >
@@ -209,7 +209,7 @@ export default function ParentPortal() {
           <Card className="shadow-sm border border-slate-200">
             <CardContent className="p-6 text-center">
               <i className="fas fa-check-circle text-green-500 text-3xl mb-2"></i>
-              <p className="text-slate-600">No hay cargos pendientes</p>
+          <p className="text-slate-600">No hay cargos pendientes</p>
             </CardContent>
           </Card>
         ) : (
@@ -223,7 +223,7 @@ export default function ParentPortal() {
               <div className="flex items-start justify-between mb-2">
                 <div className="flex-1">
                       <h4 className="font-semibold text-slate-900">{charge.concept.nombre}</h4>
-                      <p className="text-sm text-slate-500">
+                  <p className="text-sm text-slate-500">
                         Vence: {formatDate(charge.fecha_vencimiento)}
                       </p>
                     </div>
@@ -235,22 +235,22 @@ export default function ParentPortal() {
               <div className="flex items-center justify-between mb-3">
                 <div className="text-right">
                       {hasDiscount && (
-                        <p className="text-sm text-slate-500 line-through">
+                    <p className="text-sm text-slate-500 line-through">
                           {formatCurrency(charge.monto_base_centavos)}
                         </p>
                       )}
-                      <p className="text-lg font-bold text-slate-900">
+                  <p className="text-lg font-bold text-slate-900">
                         {formatCurrency(charge.total_amount_centavos)}
                       </p>
                       {hasDiscount && (
-                        <p className="text-xs text-green-600">
+                    <p className="text-xs text-green-600">
                           Descuento beca: {charge.beca_aplicada}%
                         </p>
                       )}
                     </div>
                   </div>
                   
-                  <Button 
+              <Button 
                     className="w-full bg-primary-600 text-white hover:bg-primary-700"
                     onClick={() => handlePayCharge(charge)}
                   >
@@ -272,8 +272,8 @@ export default function ParentPortal() {
             <div key={method.id} className="flex items-center p-3 border border-slate-200 rounded-lg">
                   <i className="fas fa-credit-card text-slate-400 mr-3"></i>
               <div className="flex-1">
-                    <p className="font-medium text-slate-900">•••• •••• •••• {method.last4}</p>
-                    <p className="text-sm text-slate-500">
+                <p className="font-medium text-slate-900">•••• •••• •••• {method.last4}</p>
+                <p className="text-sm text-slate-500">
                       {method.tipo.charAt(0).toUpperCase() + method.tipo.slice(1)} terminada en {method.last4}
                     </p>
                   </div>
@@ -283,7 +283,7 @@ export default function ParentPortal() {
                 </div>
               ))}
               
-              <Button 
+          <Button 
                 variant="outline"
                 className="w-full p-3 border-2 border-dashed border-slate-300 hover:border-primary-300 hover:text-primary-600"
               >

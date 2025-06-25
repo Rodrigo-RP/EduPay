@@ -66,8 +66,8 @@ export default function Reportes() {
         <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-              <h1 className="text-3xl font-bold text-slate-900">Reportes y Análisis</h1>
-              <p className="text-slate-600">Genera reportes financieros, de cobranza y análisis de desempeño</p>
+          <h1 className="text-3xl font-bold text-slate-900">Reportes y Análisis</h1>
+          <p className="text-slate-600">Genera reportes financieros, de cobranza y análisis de desempeño</p>
             </div>
             <Button className="bg-green-600 hover:bg-green-700">
               <FileText className="w-4 h-4 mr-2" />
@@ -159,7 +159,7 @@ export default function Reportes() {
                           </div>
                       <div>
                             <h3 className="font-medium">{reporte.nombre}</h3>
-                            <p className="text-sm text-slate-600">{reporte.descripcion}</p>
+                        <p className="text-sm text-slate-600">{reporte.descripcion}</p>
                         <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
                               <span>Generado: {reporte.fecha_generacion}</span>
                               <span>Formato: {reporte.formato}</span>
@@ -167,7 +167,7 @@ export default function Reportes() {
                             </div>
                           </div>
                         </div>
-                        <Button size="sm" variant="outline">
+                    <Button size="sm" variant="outline">
                           <Download className="w-4 h-4 mr-2" />
                           Descargar
                         </Button>
@@ -204,15 +204,15 @@ export default function Reportes() {
                         </Select>
                       </div>
                   <div className="space-y-2">
-                        <Button className="w-full" variant="outline">
+                    <Button className="w-full" variant="outline">
                           <BarChart3 className="w-4 h-4 mr-2" />
                           Reporte de Ingresos por Concepto
                         </Button>
-                        <Button className="w-full" variant="outline">
+                    <Button className="w-full" variant="outline">
                           <TrendingUp className="w-4 h-4 mr-2" />
                           Análisis de Tendencias de Pago
                         </Button>
-                        <Button className="w-full" variant="outline">
+                    <Button className="w-full" variant="outline">
                           <PieChart className="w-4 h-4 mr-2" />
                           Distribución por Método de Pago
                         </Button>
@@ -245,13 +245,13 @@ export default function Reportes() {
                         </Select>
                       </div>
                   <div className="space-y-2">
-                        <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                    <Button className="w-full bg-blue-600 hover:bg-blue-700">
                           Generar Reporte CFDI
                         </Button>
-                        <Button className="w-full" variant="outline">
+                    <Button className="w-full" variant="outline">
                           Exportar para Contador
                         </Button>
-                        <Button className="w-full" variant="outline">
+                    <Button className="w-full" variant="outline">
                           Reporte Cumplimiento SAT
                         </Button>
                       </div>
@@ -269,16 +269,16 @@ export default function Reportes() {
                   </CardHeader>
                   <CardContent>
                 <div className="space-y-3">
-                      <Button className="w-full" variant="outline">
+                  <Button className="w-full" variant="outline">
                         Reporte de Morosidad Detallado
                       </Button>
-                      <Button className="w-full" variant="outline">
+                  <Button className="w-full" variant="outline">
                         Análisis de Cartera Vencida
                       </Button>
-                      <Button className="w-full" variant="outline">
+                  <Button className="w-full" variant="outline">
                         Eficacia de Recordatorios
                       </Button>
-                      <Button className="w-full" variant="outline">
+                  <Button className="w-full" variant="outline">
                         Proyección de Cobranza
                       </Button>
                     </div>
@@ -291,16 +291,16 @@ export default function Reportes() {
                   </CardHeader>
                   <CardContent>
                 <div className="space-y-3">
-                      <Button className="w-full" variant="outline">
+                  <Button className="w-full" variant="outline">
                         Listado de Estudiantes por Status
                       </Button>
-                      <Button className="w-full" variant="outline">
+                  <Button className="w-full" variant="outline">
                         Reporte de Becas Otorgadas
                       </Button>
-                      <Button className="w-full" variant="outline">
+                  <Button className="w-full" variant="outline">
                         Análisis de Descuentos
                       </Button>
-                      <Button className="w-full" variant="outline">
+                  <Button className="w-full" variant="outline">
                         Estadísticas por Campus
                       </Button>
                     </div>
@@ -392,7 +392,7 @@ export default function Reportes() {
                       </label>
                     </div>
                   </div>
-                  <Button className="mt-6 bg-purple-600 hover:bg-purple-700">
+              <Button className="mt-6 bg-purple-600 hover:bg-purple-700">
                     Generar reporte personalizado
                   </Button>
                 </CardContent>

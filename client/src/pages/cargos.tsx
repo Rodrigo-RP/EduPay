@@ -117,15 +117,15 @@ export default function Cargos() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-              <h1 className="text-3xl font-bold text-slate-900">Gestión de Cargos</h1>
-              <p className="text-slate-600">Administra cargos automáticos, manuales y extraordinarios</p>
-            </div>
+          <h1 className="text-3xl font-bold text-slate-900">Gestión de Cargos</h1>
+          <p className="text-slate-600">Administra cargos automáticos, manuales y extraordinarios</p>
+        </div>
         <div className="flex gap-2">
-              <Button className="bg-green-600 hover:bg-green-700">
-                <Plus className="w-4 h-4 mr-2" />
+        <Button className="bg-green-600 hover:bg-green-700">
+              <Plus className="w-4 h-4 mr-2" />
                 Generar Cargos
               </Button>
-              <Button variant="outline">
+        <Button variant="outline">
                 <FileText className="w-4 h-4 mr-2" />
                 Exportar
               </Button>
@@ -209,7 +209,7 @@ export default function Cargos() {
                                 {cargo.tipo}
                               </Badge>
                             </div>
-                            <p className="text-sm text-slate-600">{cargo.concepto}</p>
+                        <p className="text-sm text-slate-600">{cargo.concepto}</p>
                         <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
                               <span>Emitido: {cargo.fecha_emision}</span>
                               <span>Vence: {cargo.fecha_vencimiento}</span>
@@ -272,10 +272,10 @@ export default function Cargos() {
                       </div>
                     </div>
                 <div className="flex gap-4">
-                      <Button className="bg-blue-600 hover:bg-blue-700">
+                <Button className="bg-blue-600 hover:bg-blue-700">
                         Previsualizar generación
                       </Button>
-                      <Button className="bg-green-600 hover:bg-green-700">
+                <Button className="bg-green-600 hover:bg-green-700">
                         Generar cargos
                       </Button>
                     </div>
@@ -326,7 +326,7 @@ export default function Cargos() {
                       placeholder="Detalles del cargo extraordinario..."
                     />
                   </div>
-                  <Button className="mt-4 bg-purple-600 hover:bg-purple-700">
+            <Button className="mt-4 bg-purple-600 hover:bg-purple-700">
                     Crear cargo extraordinario
                   </Button>
                 </CardContent>

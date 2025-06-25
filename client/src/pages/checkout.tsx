@@ -141,8 +141,8 @@ export default function Checkout({ charge, paymentMethods = [], onClose, onSucce
                     <Label htmlFor="saved-card" className="flex items-center flex-1 cursor-pointer">
                       <i className="fas fa-credit-card text-slate-400 mr-3"></i>
                   <div>
-                        <p className="font-medium text-slate-900">•••• •••• •••• {paymentMethods[0]?.last4}</p>
-                        <p className="text-sm text-slate-500">
+                    <p className="font-medium text-slate-900">•••• •••• •••• {paymentMethods[0]?.last4}</p>
+                    <p className="text-sm text-slate-500">
                           {paymentMethods[0]?.tipo.charAt(0).toUpperCase() + paymentMethods[0]?.tipo.slice(1)} terminada en {paymentMethods[0]?.last4}
                         </p>
                       </div>
@@ -213,7 +213,7 @@ export default function Checkout({ charge, paymentMethods = [], onClose, onSucce
 
             {/* Action Buttons */}
         <div className="flex space-x-3 pt-4">
-              <Button 
+          <Button 
                 type="button"
                 variant="secondary"
                 onClick={onClose}
@@ -222,7 +222,7 @@ export default function Checkout({ charge, paymentMethods = [], onClose, onSucce
               >
                 Cancelar
               </Button>
-              <Button 
+          <Button 
                 type="submit"
                 className="flex-1 bg-primary-600 hover:bg-primary-700"
                 disabled={processPaymentMutation.isPending}

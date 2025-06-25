@@ -85,8 +85,8 @@ export default function Becas() {
         <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-              <h1 className="text-3xl font-bold text-slate-900">Becas y Descuentos</h1>
-              <p className="text-slate-600">Gestiona apoyos económicos y descuentos para estudiantes</p>
+          <h1 className="text-3xl font-bold text-slate-900">Becas y Descuentos</h1>
+          <p className="text-slate-600">Gestiona apoyos económicos y descuentos para estudiantes</p>
             </div>
             <Button onClick={() => setShowAddModal(true)} className="bg-purple-600 hover:bg-purple-700">
               <Plus className="w-4 h-4 mr-2" />
@@ -152,7 +152,7 @@ export default function Becas() {
                                 <Badge variant="secondary">Inactiva</Badge>
                               )}
                             </div>
-                            <p className="text-sm text-slate-600">{beca.criterios}</p>
+                        <p className="text-sm text-slate-600">{beca.criterios}</p>
                         <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
                               <span>Vigencia: {beca.vigencia}</span>
                               <span>{beca.estudiantesAplicados} estudiantes beneficiados</span>
@@ -165,10 +165,10 @@ export default function Becas() {
                             </div>
                         <div className="flex items-center gap-2">
                               <Switch checked={beca.activa} />
-                              <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline">
                                 <Edit className="w-4 h-4" />
                               </Button>
-                              <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline">
                                 <Trash2 className="w-4 h-4" />
                               </Button>
                             </div>
@@ -243,7 +243,7 @@ export default function Becas() {
                       placeholder="Motivo o criterios para la asignación de esta beca/descuento..."
                     />
                   </div>
-                  <Button className="mt-4 bg-purple-600 hover:bg-purple-700">
+              <Button className="mt-4 bg-purple-600 hover:bg-purple-700">
                     Asignar beca/descuento
                   </Button>
                 </CardContent>
@@ -284,16 +284,16 @@ export default function Becas() {
                   </CardHeader>
                   <CardContent>
                 <div className="space-y-3">
-                      <Button className="w-full" variant="outline">
+                  <Button className="w-full" variant="outline">
                         Exportar lista de beneficiarios
                       </Button>
-                      <Button className="w-full" variant="outline">
+                  <Button className="w-full" variant="outline">
                         Generar reporte de impacto económico
                       </Button>
-                      <Button className="w-full" variant="outline">
+                  <Button className="w-full" variant="outline">
                         Revisar criterios de elegibilidad
                       </Button>
-                      <Button className="w-full bg-purple-600 hover:bg-purple-700">
+                  <Button className="w-full bg-purple-600 hover:bg-purple-700">
                         Crear nueva campaña de becas
                       </Button>
                     </div>

@@ -291,15 +291,15 @@ export default function CuentasPorCobrar() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-              <h1 className="text-3xl font-bold text-slate-900">Cuentas por Cobrar</h1>
-              <p className="text-slate-600">Gestión de cartera vencida y seguimiento de cobranza</p>
-            </div>
+          <h1 className="text-3xl font-bold text-slate-900">Cuentas por Cobrar</h1>
+          <p className="text-slate-600">Gestión de cartera vencida y seguimiento de cobranza</p>
+        </div>
         <div className="flex gap-2">
-              <Button className="bg-orange-600 hover:bg-orange-700">
+        <Button className="bg-orange-600 hover:bg-orange-700">
                 <Phone className="w-4 h-4 mr-2" />
                 Iniciar Cobranza
               </Button>
-              <Button variant="outline">
+        <Button variant="outline">
                 <Mail className="w-4 h-4 mr-2" />
                 Enviar Recordatorios
               </Button>
@@ -410,7 +410,7 @@ export default function CuentasPorCobrar() {
                       </Select>
                     </div>
                 <div>
-                      <Button 
+                <Button 
                         variant="outline" 
                         size="sm"
                         className="h-9 w-full"
@@ -510,13 +510,13 @@ export default function CuentasPorCobrar() {
                             </td>
                             <td className="p-2 text-center">
                           <div className="flex gap-1 justify-center">
-                                <Button size="sm" variant="outline" className="h-7 w-7 p-0" title="Llamar">
+                          <Button size="sm" variant="outline" className="h-7 w-7 p-0" title="Llamar">
                                   <Phone className="w-3 h-3" />
                                 </Button>
-                                <Button size="sm" variant="outline" className="h-7 w-7 p-0" title="Email">
+                          <Button size="sm" variant="outline" className="h-7 w-7 p-0" title="Email">
                                   <Mail className="w-3 h-3" />
                                 </Button>
-                                <Button 
+                          <Button 
                                   size="sm" 
                                   variant="outline"
                                   className="h-7 w-7 p-0"
@@ -589,7 +589,7 @@ export default function CuentasPorCobrar() {
                       />
                     </div>
                   </div>
-                  <Button className="mt-4 bg-orange-600 hover:bg-orange-700">
+            <Button className="mt-4 bg-orange-600 hover:bg-orange-700">
                     Programar seguimiento
                   </Button>
                 </CardContent>
@@ -635,16 +635,16 @@ export default function CuentasPorCobrar() {
                   </CardHeader>
                   <CardContent className="pt-0">
                 <div className="space-y-2">
-                      <Button className="w-full h-9 bg-orange-600 hover:bg-orange-700">
+                <Button className="w-full h-9 bg-orange-600 hover:bg-orange-700">
                         Generar reporte de morosidad
                       </Button>
-                      <Button className="w-full h-9" variant="outline">
+                <Button className="w-full h-9" variant="outline">
                         Exportar cartera vencida
                       </Button>
-                      <Button className="w-full h-9" variant="outline">
+                <Button className="w-full h-9" variant="outline">
                         Recordatorios masivos
                       </Button>
-                      <Button className="w-full h-9" variant="outline">
+                <Button className="w-full h-9" variant="outline">
                         Análisis de riesgo crediticio
                       </Button>
                     </div>
@@ -707,10 +707,10 @@ export default function CuentasPorCobrar() {
                 )}
               </div>
           <div className="flex justify-end space-x-2">
-                <Button variant="outline" size="sm" onClick={() => setShowCompromiseModal(false)}>
+          <Button variant="outline" size="sm" onClick={() => setShowCompromiseModal(false)}>
                   Cancelar
                 </Button>
-                <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+          <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
                   Establecer compromiso
                 </Button>
               </div>

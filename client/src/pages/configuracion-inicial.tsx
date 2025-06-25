@@ -184,7 +184,7 @@ export default function ConfiguracionInicial() {
         <div>
               <Label>Archivo de alumnos</Label>
               <Input type="file" accept=".csv,.xlsx" />
-              <p className="text-sm text-gray-600 mt-1">
+          <p className="text-sm text-gray-600 mt-1">
                 Formato: Nombre, CURP, Grado, Grupo, Email_responsable, Nombre_responsable, Teléfono
               </p>
             </div>

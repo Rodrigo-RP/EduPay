@@ -81,7 +81,7 @@ export default function EmisionCargos() {
               </div>
 
           <div className="flex gap-2">
-                <Button 
+            <Button 
                   onClick={() => generarCargosMensuales.mutate({ periodo: selectedPeriod, tipo: "COLEGIATURA" })}
                   disabled={generarCargosMensuales.isPending}
                   className="flex-1"
@@ -89,7 +89,7 @@ export default function EmisionCargos() {
                   <Calendar className="w-4 h-4 mr-2" />
                   Generar colegiaturas
                 </Button>
-                <Button 
+            <Button 
                   variant="outline"
                   onClick={() => generarCargosMensuales.mutate({ periodo: selectedPeriod, tipo: "TODOS" })}
                   disabled={generarCargosMensuales.isPending}
@@ -325,7 +325,7 @@ export default function EmisionCargos() {
             </div>
 
         <div className="flex gap-2">
-              <Button 
+          <Button 
                 onClick={() => aplicarRecargos.mutate()}
                 disabled={aplicarRecargos.isPending}
                 variant="destructive"
@@ -334,7 +334,7 @@ export default function EmisionCargos() {
                 <AlertTriangle className="w-4 h-4 mr-2" />
                 Aplicar recargos por mora
               </Button>
-              <Button variant="outline" className="flex-1">
+          <Button variant="outline" className="flex-1">
                 <Clock className="w-4 h-4 mr-2" />
                 Configurar recordatorios
               </Button>

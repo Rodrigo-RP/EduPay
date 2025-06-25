@@ -151,12 +151,12 @@ export default function Usuarios() {
         <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-              <h1 className="text-3xl font-bold text-slate-900">Gestión de Usuarios</h1>
-              <p className="text-slate-600">Administra usuarios del sistema, roles y permisos</p>
+          <h1 className="text-3xl font-bold text-slate-900">Gestión de Usuarios</h1>
+          <p className="text-slate-600">Administra usuarios del sistema, roles y permisos</p>
             </div>
             <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
               <DialogTrigger asChild>
-                <Button className="bg-blue-600 hover:bg-blue-700">
+            <Button className="bg-blue-600 hover:bg-blue-700">
                   <Plus className="w-4 h-4 mr-2" />
                   Agregar Usuario
                 </Button>
@@ -201,10 +201,10 @@ export default function Usuarios() {
                   </div>
                 </div>
             <div className="flex justify-end space-x-2">
-                  <Button variant="outline" onClick={() => setShowAddModal(false)}>
+              <Button variant="outline" onClick={() => setShowAddModal(false)}>
                     Cancelar
                   </Button>
-                  <Button className="bg-blue-600 hover:bg-blue-700">
+              <Button className="bg-blue-600 hover:bg-blue-700">
                     Crear Usuario
                   </Button>
                 </div>
@@ -262,7 +262,7 @@ export default function Usuarios() {
                     <SelectItem value="CONTADOR">Contador</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button variant="outline" onClick={() => setSelectedRole("all")}>
+            <Button variant="outline" onClick={() => setSelectedRole("all")}>
                   Limpiar filtros
                 </Button>
               </div>
@@ -286,7 +286,7 @@ export default function Usuarios() {
                       </div>
                   <div>
                         <h3 className="font-medium">{usuario.nombre_completo}</h3>
-                        <p className="text-sm text-slate-600 flex items-center gap-1">
+                    <p className="text-sm text-slate-600 flex items-center gap-1">
                           <Mail className="w-3 h-3" />
                           {usuario.email}
                         </p>
@@ -311,10 +311,10 @@ export default function Usuarios() {
                           checked={usuario.activo}
                           onCheckedChange={() => handleToggleActive(usuario.id, usuario.activo)}
                         />
-                        <Button size="sm" variant="outline" onClick={() => setEditingUser(usuario)}>
+                    <Button size="sm" variant="outline" onClick={() => setEditingUser(usuario)}>
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button 
+                    <Button 
                           size="sm" 
                           variant="outline"
                           onClick={() => handleDeleteUser(usuario.id)}

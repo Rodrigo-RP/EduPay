@@ -178,12 +178,12 @@ export default function CatalogoProductos() {
         <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-              <h1 className="text-3xl font-bold text-slate-900">Catálogo de Productos</h1>
-              <p className="text-slate-600">Gestiona colegiaturas, inscripciones, seguros, libros y otros productos</p>
+          <h1 className="text-3xl font-bold text-slate-900">Catálogo de Productos</h1>
+          <p className="text-slate-600">Gestiona colegiaturas, inscripciones, seguros, libros y otros productos</p>
             </div>
             <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
               <DialogTrigger asChild>
-                <Button className="bg-blue-600 hover:bg-blue-700">
+            <Button className="bg-blue-600 hover:bg-blue-700">
                   <Plus className="w-4 h-4 mr-2" />
                   Agregar Producto
                 </Button>
@@ -263,10 +263,10 @@ export default function CatalogoProductos() {
                   </div>
                 </div>
             <div className="flex justify-end space-x-2">
-                  <Button variant="outline" onClick={() => setShowAddModal(false)}>
+              <Button variant="outline" onClick={() => setShowAddModal(false)}>
                     Cancelar
                   </Button>
-                  <Button className="bg-blue-600 hover:bg-blue-700">
+              <Button className="bg-blue-600 hover:bg-blue-700">
                     Crear Producto
                   </Button>
                 </div>
@@ -325,7 +325,7 @@ export default function CatalogoProductos() {
                     <SelectItem value="OTROS">Otros</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button variant="outline" onClick={() => setSelectedCategory("all")}>
+            <Button variant="outline" onClick={() => setSelectedCategory("all")}>
                   Limpiar filtros
                 </Button>
               </div>
@@ -353,7 +353,7 @@ export default function CatalogoProductos() {
                             {producto.seccion_academica}
                           </Badge>
                         </div>
-                        <p className="text-sm text-slate-600">{producto.descripcion}</p>
+                    <p className="text-sm text-slate-600">{producto.descripcion}</p>
                     <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
                           <span>Código: {producto.codigo}</span>
                           <span>Unidad: {producto.unidad_medida}</span>
@@ -373,10 +373,10 @@ export default function CatalogoProductos() {
                           checked={producto.activo}
                           onCheckedChange={() => handleToggleActive(producto.id, producto.activo)}
                         />
-                        <Button size="sm" variant="outline" onClick={() => setEditingProduct(producto)}>
+                    <Button size="sm" variant="outline" onClick={() => setEditingProduct(producto)}>
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button size="sm" variant="outline">
+                    <Button size="sm" variant="outline">
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>

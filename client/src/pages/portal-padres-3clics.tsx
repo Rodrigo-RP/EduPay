@@ -84,7 +84,7 @@ export default function PortalPadres3Clics() {
                 </div>
             <div className="text-sm text-green-600">Saldo total pendiente</div>
               </div>
-              <Button 
+          <Button 
                 onClick={pagarTodo}
                 className="bg-green-600 hover:bg-green-700 text-white"
                 size="lg"
@@ -161,7 +161,7 @@ export default function PortalPadres3Clics() {
                     ${(totalSeleccionado / 100).toLocaleString()} MXN
                   </div>
                 </div>
-                <Button 
+            <Button 
                   onClick={pagarSeleccionados}
                   className="bg-blue-600 hover:bg-blue-700"
                   size="lg"

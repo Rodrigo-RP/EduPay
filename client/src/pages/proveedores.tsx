@@ -180,12 +180,12 @@ export default function Proveedores() {
         <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-              <h1 className="text-3xl font-bold text-slate-900">Gestión de Proveedores</h1>
-              <p className="text-slate-600">Administra proveedores, contactos y historial de facturas</p>
+          <h1 className="text-3xl font-bold text-slate-900">Gestión de Proveedores</h1>
+          <p className="text-slate-600">Administra proveedores, contactos y historial de facturas</p>
             </div>
             <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
               <DialogTrigger asChild>
-                <Button className="bg-blue-600 hover:bg-blue-700">
+            <Button className="bg-blue-600 hover:bg-blue-700">
                   <Plus className="w-4 h-4 mr-2" />
                   Agregar Proveedor
                 </Button>
@@ -243,10 +243,10 @@ export default function Proveedores() {
                   </div>
                 </div>
             <div className="flex justify-end space-x-2">
-                  <Button variant="outline" onClick={() => setShowAddModal(false)}>
+              <Button variant="outline" onClick={() => setShowAddModal(false)}>
                     Cancelar
                   </Button>
-                  <Button className="bg-blue-600 hover:bg-blue-700">
+              <Button className="bg-blue-600 hover:bg-blue-700">
                     Registrar Proveedor
                   </Button>
                 </div>
@@ -311,7 +311,7 @@ export default function Proveedores() {
                         <SelectItem value="TECNOLOGIA">Tecnología</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Button variant="outline" onClick={() => setSelectedCategory("all")}>
+                <Button variant="outline" onClick={() => setSelectedCategory("all")}>
                       Limpiar filtros
                     </Button>
                   </div>
@@ -338,7 +338,7 @@ export default function Proveedores() {
                                 {proveedor.activo ? "Activo" : "Inactivo"}
                               </Badge>
                             </div>
-                            <p className="text-sm text-slate-600">Contacto: {proveedor.contacto}</p>
+                        <p className="text-sm text-slate-600">Contacto: {proveedor.contacto}</p>
                         <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
                               <span className="flex items-center gap-1">
                                 <Phone className="w-3 h-3" />
@@ -363,13 +363,13 @@ export default function Proveedores() {
                             </div>
                           )}
                       <div className="flex gap-1 mt-2">
-                            <Button size="sm" variant="outline">
+                        <Button size="sm" variant="outline">
                               <Edit className="w-3 h-3" />
                             </Button>
-                            <Button size="sm" variant="outline">
+                        <Button size="sm" variant="outline">
                               <Phone className="w-3 h-3" />
                             </Button>
-                            <Button size="sm" variant="outline">
+                        <Button size="sm" variant="outline">
                               <Mail className="w-3 h-3" />
                             </Button>
                           </div>
@@ -395,8 +395,8 @@ export default function Proveedores() {
                             <h3 className="font-medium">{factura.folio}</h3>
                             {getEstadoFacturaBadge(factura.estado)}
                           </div>
-                          <p className="text-sm text-slate-600">{factura.proveedor}</p>
-                          <p className="text-sm text-slate-500">{factura.descripcion}</p>
+                      <p className="text-sm text-slate-600">{factura.proveedor}</p>
+                      <p className="text-sm text-slate-500">{factura.descripcion}</p>
                       <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
                             <span>Emisión: {factura.fecha_emision}</span>
                             <span>Vencimiento: {factura.fecha_vencimiento}</span>
@@ -408,10 +408,10 @@ export default function Proveedores() {
                             Subtotal: ${factura.monto.toLocaleString()} + IVA: ${factura.iva.toLocaleString()}
                           </div>
                       <div className="flex gap-1 mt-2">
-                            <Button size="sm" variant="outline">
+                        <Button size="sm" variant="outline">
                               <Eye className="w-3 h-3" />
                             </Button>
-                            <Button size="sm" variant="outline">
+                        <Button size="sm" variant="outline">
                               <FileText className="w-3 h-3" />
                             </Button>
                           </div>

@@ -130,8 +130,8 @@ export default function Notificaciones() {
         <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-              <h1 className="text-3xl font-bold text-slate-900">Notificaciones Automáticas</h1>
-              <p className="text-slate-600">Gestiona comunicación automática: emails, SMS y WhatsApp</p>
+          <h1 className="text-3xl font-bold text-slate-900">Notificaciones Automáticas</h1>
+          <p className="text-slate-600">Gestiona comunicación automática: emails, SMS y WhatsApp</p>
             </div>
             <Button className="bg-blue-600 hover:bg-blue-700">
               <Send className="w-4 h-4 mr-2" />
@@ -207,9 +207,9 @@ export default function Notificaciones() {
                               {getStatusBadge(notif.estado)}
                             </div>
                             {notif.asunto && (
-                              <p className="text-sm font-medium text-slate-700 mb-1">{notif.asunto}</p>
+                          <p className="text-sm font-medium text-slate-700 mb-1">{notif.asunto}</p>
                             )}
-                            <p className="text-sm text-slate-600 mb-2">{notif.mensaje}</p>
+                        <p className="text-sm text-slate-600 mb-2">{notif.mensaje}</p>
                         <div className="flex items-center gap-4 text-xs text-slate-500">
                               <span>Destinatario: {notif.destinatario}</span>
                               <span>Enviado: {notif.fecha_envio}</span>
@@ -240,7 +240,7 @@ export default function Notificaciones() {
                           </CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <p className="text-sm text-slate-600 mb-4">
+                      <p className="text-sm text-slate-600 mb-4">
                             Notifica cuando se genera un nuevo cargo
                           </p>
                       <div className="flex items-center justify-between mb-2">
@@ -266,7 +266,7 @@ export default function Notificaciones() {
                           </CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <p className="text-sm text-slate-600 mb-4">
+                      <p className="text-sm text-slate-600 mb-4">
                             Recuerda pagos próximos a vencer
                           </p>
                       <div className="mb-4">
@@ -292,7 +292,7 @@ export default function Notificaciones() {
                           </CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <p className="text-sm text-slate-600 mb-4">
+                      <p className="text-sm text-slate-600 mb-4">
                             Notifica pagos vencidos y recargos
                           </p>
                       <div className="mb-4">
@@ -375,7 +375,7 @@ export default function Notificaciones() {
                           <Input type="time" defaultValue="20:00" />
                         </div>
                       </div>
-                      <Button className="w-full">
+                  <Button className="w-full">
                         Guardar configuración
                       </Button>
                     </div>

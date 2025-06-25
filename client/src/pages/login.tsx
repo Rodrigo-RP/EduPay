@@ -108,7 +108,7 @@ export default function Login() {
                       required
                     />
                   </div>
-                  <Button 
+              <Button 
                     type="submit" 
                     className="w-full bg-primary-600 hover:bg-primary-700"
                     disabled={isLoading}
@@ -126,9 +126,9 @@ export default function Login() {
                 
                 {/* Demo credentials hint */}
             <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <p className="text-xs text-blue-700 font-medium mb-1">Credenciales de demo:</p>
-                  <p className="text-xs text-blue-600">Email: padre@demo.com</p>
-                  <p className="text-xs text-blue-600">Contraseña: demo123</p>
+              <p className="text-xs text-blue-700 font-medium mb-1">Credenciales de demo:</p>
+              <p className="text-xs text-blue-600">Email: padre@demo.com</p>
+              <p className="text-xs text-blue-600">Contraseña: demo123</p>
                 </div>
               </TabsContent>
               
@@ -156,7 +156,7 @@ export default function Login() {
                       required
                     />
                   </div>
-                  <Button 
+              <Button 
                     type="submit" 
                     className="w-full bg-primary-600 hover:bg-primary-700"
                     disabled={isLoading}
@@ -174,9 +174,9 @@ export default function Login() {
                 
                 {/* Demo credentials hint */}
             <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <p className="text-xs text-blue-700 font-medium mb-1">Credenciales de demo:</p>
-                  <p className="text-xs text-blue-600">Email: admin@demo.com</p>
-                  <p className="text-xs text-blue-600">Contraseña: admin123</p>
+              <p className="text-xs text-blue-700 font-medium mb-1">Credenciales de demo:</p>
+              <p className="text-xs text-blue-600">Email: admin@demo.com</p>
+              <p className="text-xs text-blue-600">Contraseña: admin123</p>
                 </div>
               </TabsContent>
             </Tabs>

@@ -360,9 +360,9 @@ export default function CuentasPorCobrar() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
-                    <div>
-                      <div className="relative">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
+                <div>
+                  <div className="relative">
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                         <Input
                           placeholder="Buscar estudiante..."
@@ -372,7 +372,7 @@ export default function CuentasPorCobrar() {
                         />
                       </div>
                     </div>
-                    <div>
+                <div>
                       <Input
                         placeholder="Buscar concepto..."
                         value={selectedConcepto === "all" ? "" : selectedConcepto}
@@ -380,7 +380,7 @@ export default function CuentasPorCobrar() {
                         className="h-9"
                       />
                     </div>
-                    <div>
+                <div>
                       <Select value={selectedNivel} onValueChange={setSelectedNivel}>
                         <SelectTrigger className="h-9">
                           <SelectValue placeholder="Nivel escolar" />
@@ -394,7 +394,7 @@ export default function CuentasPorCobrar() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                <div>
                       <Select value={selectedEstado} onValueChange={setSelectedEstado}>
                         <SelectTrigger className="h-9">
                           <SelectValue placeholder="Estado" />
@@ -716,7 +716,7 @@ export default function CuentasPorCobrar() {
               </div>
             </DialogContent>
           </Dialog>
-      </Tabs>
+      </div>
     </div>
   );
 }

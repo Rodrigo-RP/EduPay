@@ -16,8 +16,17 @@ export default function Usuarios() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
   const [selectedRole, setSelectedRole] = useState("all");
+  const [formData, setFormData] = useState({
+    nombre_completo: "",
+    email: "",
+    telefono: "",
+    role: "",
+    campus: "",
+    activo: true
+  });
 
   // Datos demo de usuarios del sistema
   const usuarios = [
@@ -199,6 +208,56 @@ export default function Usuarios() {
     }
   };
 
+  const handleInputChange = (field: string, value: string | boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const resetForm = () => {
+    setFormData({
+      nombre_completo: "",
+      email: "",
+      telefono: "",
+      role: "",
+      campus: "",
+      activo: true
+    });
+  };
+
+  const handleEdit = (usuario: any) => {
+    setEditingUser(usuario);
+    setFormData({
+      nombre_completo: usuario.nombre_completo,
+      email: usuario.email,
+      telefono: usuario.telefono,
+      role: usuario.role,
+      campus: usuario.campus,
+      activo: usuario.activo
+    });
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = () => {
+    toast({
+      title: "Usuario actualizado",
+      description: `${formData.nombre_completo} ha sido actualizado exitosamente.`,
+    });
+    setShowEditModal(false);
+    resetForm();
+    setEditingUser(null);
+  };
+
+  const handleAdd = () => {
+    toast({
+      title: "Usuario creado",
+      description: `${formData.nombre_completo} ha sido agregado al sistema.`,
+    });
+    setShowAddModal(false);
+    resetForm();
+  };
+
   return (
     <div >
       <div >
@@ -366,7 +425,7 @@ export default function Usuarios() {
                           checked={usuario.activo}
                           onCheckedChange={() => handleToggleActive(usuario.id, usuario.activo)}
                         />
-                    <Button size="sm" variant="outline" onClick={() => setEditingUser(usuario)}>
+                    <Button size="sm" variant="outline" onClick={() => handleEdit(usuario)}>
                           <Edit className="w-4 h-4" />
                         </Button>
                     <Button 

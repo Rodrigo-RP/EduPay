@@ -117,7 +117,91 @@ export default function CatalogoProductos() {
     },
     {
       id: 9,
-      codigo: "REINS-2025",
+      codigo: "REINS-BACH-2025",
+      nombre: "Reinscripción Bachillerato",
+      descripcion: "Proceso de reinscripción anual para bachillerato",
+      precio_unitario_centavos: 350000, // $3,500 MXN
+      categoria: "INSCRIPCIONES",
+      unidad_medida: "SERVICIO",
+      clave_sat: "80101500",
+      activo: true,
+      seccion_academica: "BACHILLERATO"
+    },
+    {
+      id: 10,
+      codigo: "MAT-LAB-2025",
+      nombre: "Material de Laboratorio",
+      descripcion: "Materiales para prácticas de laboratorio de ciencias",
+      precio_unitario_centavos: 180000, // $1,800 MXN
+      categoria: "OTROS",
+      unidad_medida: "LOTE",
+      clave_sat: "49122000",
+      activo: true,
+      seccion_academica: "SECUNDARIA"
+    },
+    {
+      id: 11,
+      codigo: "UNI-DEPORTIVO",
+      nombre: "Uniforme Deportivo",
+      descripcion: "Uniforme completo para educación física y deportes",
+      precio_unitario_centavos: 85000, // $850 MXN
+      categoria: "OTROS",
+      unidad_medida: "PIEZA",
+      clave_sat: "53101800",
+      activo: true,
+      seccion_academica: "GENERAL"
+    },
+    {
+      id: 12,
+      codigo: "GRAD-PRIM-2025",
+      nombre: "Graduación Primaria",
+      descripcion: "Ceremonia de graduación y certificados para primaria",
+      precio_unitario_centavos: 250000, // $2,500 MXN
+      categoria: "OTROS",
+      unidad_medida: "SERVICIO",
+      clave_sat: "80101500",
+      activo: true,
+      seccion_academica: "PRIMARIA"
+    },
+    {
+      id: 13,
+      codigo: "EXAM-ADM-2025",
+      nombre: "Examen de Admisión",
+      descripcion: "Evaluación de ingreso para nuevos estudiantes",
+      precio_unitario_centavos: 120000, // $1,200 MXN
+      categoria: "OTROS",
+      unidad_medida: "SERVICIO",
+      clave_sat: "80101500",
+      activo: true,
+      seccion_academica: "GENERAL"
+    },
+    {
+      id: 14,
+      codigo: "MOCH-ESC-2025",
+      nombre: "Mochila Escolar",
+      descripcion: "Mochila oficial de la institución con logo",
+      precio_unitario_centavos: 45000, // $450 MXN
+      categoria: "OTROS",
+      unidad_medida: "PIEZA",
+      clave_sat: "53101600",
+      activo: true,
+      seccion_academica: "GENERAL"
+    },
+    {
+      id: 15,
+      codigo: "TRANS-ESC-2025",
+      nombre: "Transporte Escolar",
+      descripcion: "Servicio de transporte mensual casa-escuela-casa",
+      precio_unitario_centavos: 180000, // $1,800 MXN
+      categoria: "OTROS",
+      unidad_medida: "SERVICIO",
+      clave_sat: "48000000",
+      activo: true,
+      seccion_academica: "GENERAL"
+    },
+    {
+      id: 16,
+      codigo: "REINS-GRAL-2025",
       nombre: "Reinscripción Anual",
       descripcion: "Pago de reinscripción para estudiantes ya registrados en ciclos anteriores",
       precio_unitario_centavos: 350000, // $3,500 MXN

@@ -15,9 +15,15 @@ export default function Configuracion() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [autoGenerationEnabled, setAutoGenerationEnabled] = useState(true);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  const [institutionName, setInstitutionName] = useState("Colegio San Patricio");
-  const [campusName, setCampusName] = useState("Campus Principal");
   const { toast } = useToast();
+  const { 
+    institutionName, 
+    campusName, 
+    logoUrl, 
+    setInstitutionName, 
+    setCampusName, 
+    setLogoUrl 
+  } = useInstitution();
 
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -43,13 +49,15 @@ export default function Configuracion() {
       return;
     }
 
-    // Crear vista previa
+    // Crear vista previa y actualizar inmediatamente el sidebar
     const reader = new FileReader();
     reader.onload = (e) => {
-      setLogoPreview(e.target?.result as string);
+      const logoDataUrl = e.target?.result as string;
+      setLogoPreview(logoDataUrl);
+      setLogoUrl(logoDataUrl); // Actualizar inmediatamente el sidebar
       toast({
-        title: "Logo cargado",
-        description: "El logo se ha cargado correctamente. Recuerda guardar los cambios.",
+        title: "Logo actualizado",
+        description: "El logo se ha actualizado en el sidebar. Los cambios se guardarán automáticamente.",
       });
     };
     reader.readAsDataURL(file);
@@ -57,16 +65,17 @@ export default function Configuracion() {
 
   const handleRemoveLogo = () => {
     setLogoPreview(null);
+    setLogoUrl(null); // Remover inmediatamente del sidebar
     const fileInput = document.getElementById('logo-upload') as HTMLInputElement;
     if (fileInput) fileInput.value = '';
     toast({
       title: "Logo eliminado",
-      description: "El logo ha sido eliminado. Recuerda guardar los cambios.",
+      description: "El logo ha sido eliminado del sidebar.",
     });
   };
 
   const handleSaveChanges = () => {
-    // Aquí se enviarían los datos al backend
+    // Los cambios ya se aplican en tiempo real, solo mostrar confirmación
     toast({
       title: "Cambios guardados",
       description: "La configuración de la institución se ha actualizado correctamente.",
@@ -321,8 +330,8 @@ export default function Configuracion() {
                         <Label className="text-sm font-medium text-slate-700">Vista previa actual</Label>
                         <div className="mt-2 flex items-center space-x-3">
                           <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
-                            {logoPreview ? (
-                              <img src={logoPreview} alt="Logo preview" className="w-full h-full object-cover" />
+                            {logoUrl || logoPreview ? (
+                              <img src={logoUrl || logoPreview || ""} alt="Logo preview" className="w-full h-full object-cover" />
                             ) : (
                               <i className="fas fa-university text-white text-lg"></i>
                             )}

@@ -196,7 +196,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {studentsQuery.data?.slice(0, 5).map((student) => (
+              {studentsQuery.data?.slice(0, 5).map((student: any) => (
                 <div key={student.id} className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-slate-900">{student.nombre_completo}</p>

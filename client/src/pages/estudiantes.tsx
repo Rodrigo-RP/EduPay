@@ -88,9 +88,9 @@ export default function Estudiantes() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-              <h1 className="text-3xl font-bold text-slate-900">Gestión de Estudiantes</h1>
-              <p className="text-slate-600">Administra alumnos, responsables y información académica</p>
-            </div>
+          <h1 className="text-3xl font-bold text-slate-900">Gestión de Estudiantes</h1>
+          <p className="text-slate-600">Administra alumnos, responsables y información académica</p>
+        </div>
             <Button onClick={() => setShowAddModal(true)} className="bg-blue-600 hover:bg-blue-700">
               <Plus className="w-4 h-4 mr-2" />
               Agregar Estudiante
@@ -216,7 +216,7 @@ export default function Estudiantes() {
                 ))}
               </div>
             </CardContent>
-          </Card>
+        </Card>
     </div>
   );
 }

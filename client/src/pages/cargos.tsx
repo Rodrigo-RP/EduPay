@@ -334,7 +334,6 @@ export default function Cargos() {
             </TabsContent>
           </Tabs>
         </div>
-      </div>
     </div>
   );
 }

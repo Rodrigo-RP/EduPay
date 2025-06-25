@@ -6,15 +6,24 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import Sidebar from "@/components/layout/sidebar";
 import SaaSInfo from "@/components/saas-info";
-import { AlertTriangle, TrendingDown, Clock, DollarSign, Users, Phone, Mail } from "lucide-react";
+import { AlertTriangle, TrendingDown, Clock, DollarSign, Users, Phone, Mail, Calendar, Search, Filter, Ban } from "lucide-react";
 
 export default function CuentasPorCobrar() {
   const [selectedEstado, setSelectedEstado] = useState("all");
   const [selectedDiasVencido, setSelectedDiasVencido] = useState("all");
+  const [selectedConcepto, setSelectedConcepto] = useState("all");
+  const [selectedNivel, setSelectedNivel] = useState("all");
+  const [selectedEstudiante, setSelectedEstudiante] = useState("all");
+  const [fechaInicio, setFechaInicio] = useState("");
+  const [fechaFin, setFechaFin] = useState("");
+  const [showCompromiseModal, setShowCompromiseModal] = useState(false);
+  const [selectedCuenta, setSelectedCuenta] = useState<any>(null);
 
-  // Datos demo de cuentas por cobrar
+  // Datos demo expandidos de cuentas por cobrar con todos los conceptos
   const cuentasPorCobrar = [
     {
       id: 1,
@@ -22,12 +31,20 @@ export default function CuentasPorCobrar() {
       responsable: "Carlos Pérez",
       telefono: "5551234567",
       email: "carlos.perez@gmail.com",
+      nivel_escolar: "PRIMARIA",
+      grado: "3ro Primaria",
       concepto: "Colegiatura Enero 2025",
-      monto_original_centavos: 500000,
-      monto_pendiente_centavos: 500000,
+      fecha_cargo: "2025-01-01",
+      monto_inicial_centavos: 500000,
+      descuentos_centavos: 0,
+      recargos_centavos: 25000,
+      total_pagado_centavos: 0,
+      pendiente_pagar_centavos: 525000,
       dias_vencido: 5,
       estado_cobranza: "VENCIDO",
       fecha_vencimiento: "2025-01-15",
+      fecha_compromiso: null,
+      cuenta_habilitada: true,
       fecha_ultimo_seguimiento: "2025-01-18",
       observaciones_cobranza: "Padre confirmó pago para el 25 de enero"
     },
@@ -37,14 +54,22 @@ export default function CuentasPorCobrar() {
       responsable: "Ana García",
       telefono: "5559876543",
       email: "ana.garcia@yahoo.com",
-      concepto: "Materiales Didácticos",
-      monto_original_centavos: 150000,
-      monto_pendiente_centavos: 135000,
+      nivel_escolar: "SECUNDARIA",
+      grado: "2do Secundaria",
+      concepto: "Reinscripción 2025-2026",
+      fecha_cargo: "2025-01-10",
+      monto_inicial_centavos: 350000,
+      descuentos_centavos: 35000,
+      recargos_centavos: 0,
+      total_pagado_centavos: 0,
+      pendiente_pagar_centavos: 315000,
       dias_vencido: 0,
       estado_cobranza: "CORRIENTE",
-      fecha_vencimiento: "2025-01-25",
+      fecha_vencimiento: "2025-02-10",
+      fecha_compromiso: "2025-01-30",
+      cuenta_habilitada: true,
       fecha_ultimo_seguimiento: null,
-      observaciones_cobranza: null
+      observaciones_cobranza: "Solicitó prórroga hasta fin de mes"
     },
     {
       id: 3,
@@ -52,14 +77,22 @@ export default function CuentasPorCobrar() {
       responsable: "Luis Martínez",
       telefono: "5555678901",
       email: "luis.martinez@hotmail.com",
-      concepto: "Colegiatura Diciembre 2024",
-      monto_original_centavos: 500000,
-      monto_pendiente_centavos: 550000,
+      nivel_escolar: "BACHILLERATO",
+      grado: "1ro Bachillerato",
+      concepto: "Colegiatura Bachillerato",
+      fecha_cargo: "2024-12-01",
+      monto_inicial_centavos: 700000,
+      descuentos_centavos: 70000,
+      recargos_centavos: 70000,
+      total_pagado_centavos: 350000,
+      pendiente_pagar_centavos: 350000,
       dias_vencido: 35,
       estado_cobranza: "MOROSO",
       fecha_vencimiento: "2024-12-15",
+      fecha_compromiso: "2025-01-25",
+      cuenta_habilitada: false,
       fecha_ultimo_seguimiento: "2025-01-15",
-      observaciones_cobranza: "Prometió pago parcial. Aplicar plan de pagos."
+      observaciones_cobranza: "Incumplió fecha compromiso. Cuenta deshabilitada."
     },
     {
       id: 4,
@@ -67,12 +100,20 @@ export default function CuentasPorCobrar() {
       responsable: "Luis Martínez",
       telefono: "5555678901",
       email: "luis.martinez@hotmail.com",
-      concepto: "Colegiatura Enero 2025",
-      monto_original_centavos: 500000,
-      monto_pendiente_centavos: 425000,
+      nivel_escolar: "PRIMARIA",
+      grado: "5to Primaria",
+      concepto: "Paquete de Libros Primaria",
+      fecha_cargo: "2024-08-15",
+      monto_inicial_centavos: 150000,
+      descuentos_centavos: 15000,
+      recargos_centavos: 0,
+      total_pagado_centavos: 135000,
+      pendiente_pagar_centavos: 0,
       dias_vencido: 0,
-      estado_cobranza: "CORRIENTE",
-      fecha_vencimiento: "2025-01-15",
+      estado_cobranza: "PAGADO",
+      fecha_vencimiento: "2024-09-15",
+      fecha_compromiso: null,
+      cuenta_habilitada: true,
       fecha_ultimo_seguimiento: null,
       observaciones_cobranza: null
     },
@@ -82,14 +123,22 @@ export default function CuentasPorCobrar() {
       responsable: "María López",
       telefono: "5554567890",
       email: "maria.lopez@gmail.com",
-      concepto: "Inscripción 2024-2025",
-      monto_original_centavos: 300000,
-      monto_pendiente_centavos: 300000,
+      nivel_escolar: "KINDER",
+      grado: "Kinder 3",
+      concepto: "Inscripción Anual",
+      fecha_cargo: "2024-08-01",
+      monto_inicial_centavos: 300000,
+      descuentos_centavos: 0,
+      recargos_centavos: 15000,
+      total_pagado_centavos: 0,
+      pendiente_pagar_centavos: 315000,
       dias_vencido: 15,
       estado_cobranza: "VENCIDO",
       fecha_vencimiento: "2025-01-05",
+      fecha_compromiso: "2025-01-28",
+      cuenta_habilitada: true,
       fecha_ultimo_seguimiento: "2025-01-10",
-      observaciones_cobranza: "No contesta llamadas. Enviar notificación por WhatsApp."
+      observaciones_cobranza: "Solicitó plan de pagos"
     },
     {
       id: 6,
@@ -97,14 +146,68 @@ export default function CuentasPorCobrar() {
       responsable: "Carmen Silva",
       telefono: "5553456789",
       email: "carmen.silva@outlook.com",
+      nivel_escolar: "SECUNDARIA",
+      grado: "3ro Secundaria",
       concepto: "Seguro Escolar",
-      monto_original_centavos: 80000,
-      monto_pendiente_centavos: 80000,
+      fecha_cargo: "2024-09-01",
+      monto_inicial_centavos: 80000,
+      descuentos_centavos: 8000,
+      recargos_centavos: 16000,
+      total_pagado_centavos: 0,
+      pendiente_pagar_centavos: 88000,
       dias_vencido: 60,
       estado_cobranza: "MOROSO",
       fecha_vencimiento: "2024-11-20",
+      fecha_compromiso: null,
+      cuenta_habilitada: true,
       fecha_ultimo_seguimiento: "2024-12-15",
-      observaciones_cobranza: "Situación económica difícil. Evaluar beca socioeconómica."
+      observaciones_cobranza: "Evaluando beca socioeconómica"
+    },
+    {
+      id: 7,
+      estudiante: "Valeria Castillo Jiménez",
+      responsable: "Arturo Castillo",
+      telefono: "5551112222",
+      email: "arturo.castillo@bank.mx",
+      nivel_escolar: "KINDER",
+      grado: "Kinder 2",
+      concepto: "Uniforme Kinder",
+      fecha_cargo: "2025-01-05",
+      monto_inicial_centavos: 120000,
+      descuentos_centavos: 12000,
+      recargos_centavos: 0,
+      total_pagado_centavos: 108000,
+      pendiente_pagar_centavos: 0,
+      dias_vencido: 0,
+      estado_cobranza: "PAGADO",
+      fecha_vencimiento: "2025-02-05",
+      fecha_compromiso: null,
+      cuenta_habilitada: true,
+      fecha_ultimo_seguimiento: null,
+      observaciones_cobranza: null
+    },
+    {
+      id: 8,
+      estudiante: "Ana Patricia Mendoza",
+      responsable: "Roberto Mendoza",
+      telefono: "5512345678",
+      email: "roberto.mendoza@empresa.com",
+      nivel_escolar: "PRIMARIA",
+      grado: "1ro Primaria",
+      concepto: "Excursión Educativa",
+      fecha_cargo: "2025-01-12",
+      monto_inicial_centavos: 100000,
+      descuentos_centavos: 0,
+      recargos_centavos: 0,
+      total_pagado_centavos: 50000,
+      pendiente_pagar_centavos: 50000,
+      dias_vencido: 0,
+      estado_cobranza: "PARCIAL",
+      fecha_vencimiento: "2025-02-12",
+      fecha_compromiso: "2025-01-30",
+      cuenta_habilitada: true,
+      fecha_ultimo_seguimiento: "2025-01-15",
+      observaciones_cobranza: "Pago parcial recibido, pendiente saldo"
     }
   ];
 
@@ -114,21 +217,45 @@ export default function CuentasPorCobrar() {
       (selectedDiasVencido === "0-7" && cuenta.dias_vencido >= 0 && cuenta.dias_vencido <= 7) ||
       (selectedDiasVencido === "8-30" && cuenta.dias_vencido >= 8 && cuenta.dias_vencido <= 30) ||
       (selectedDiasVencido === "31+" && cuenta.dias_vencido > 30);
-    return matchesEstado && matchesDias;
+    const matchesConcepto = selectedConcepto === "all" || cuenta.concepto.toLowerCase().includes(selectedConcepto.toLowerCase());
+    const matchesNivel = selectedNivel === "all" || cuenta.nivel_escolar === selectedNivel;
+    const matchesEstudiante = selectedEstudiante === "all" || cuenta.estudiante.toLowerCase().includes(selectedEstudiante.toLowerCase());
+    
+    let matchesFecha = true;
+    if (fechaInicio && fechaFin) {
+      const fechaCargo = new Date(cuenta.fecha_cargo);
+      const inicio = new Date(fechaInicio);
+      const fin = new Date(fechaFin);
+      matchesFecha = fechaCargo >= inicio && fechaCargo <= fin;
+    }
+    
+    return matchesEstado && matchesDias && matchesConcepto && matchesNivel && matchesEstudiante && matchesFecha;
   });
 
   const estadisticas = {
     totalCuentas: cuentasPorCobrar.length,
-    montoPendienteTotal: cuentasPorCobrar.reduce((sum, c) => sum + c.monto_pendiente_centavos, 0),
+    montoPendienteTotal: cuentasPorCobrar.reduce((sum, c) => sum + c.pendiente_pagar_centavos, 0),
     cuentasVencidas: cuentasPorCobrar.filter(c => c.estado_cobranza === "VENCIDO").length,
     cuentasMorosas: cuentasPorCobrar.filter(c => c.estado_cobranza === "MOROSO").length,
+    cuentasDeshabilitadas: cuentasPorCobrar.filter(c => !c.cuenta_habilitada).length,
     promedioTiempoVencimiento: cuentasPorCobrar.filter(c => c.dias_vencido > 0).reduce((sum, c) => sum + c.dias_vencido, 0) / cuentasPorCobrar.filter(c => c.dias_vencido > 0).length || 0
   };
 
-  const getEstadoBadge = (estado: string, diasVencido: number) => {
+  const getEstadoBadge = (estado: string, diasVencido: number, cuentaHabilitada: boolean) => {
+    if (!cuentaHabilitada) {
+      return <Badge className="bg-red-100 text-red-800">
+        <Ban className="w-3 h-3 mr-1" />
+        Cuenta Deshabilitada
+      </Badge>;
+    }
+    
     switch (estado) {
       case "CORRIENTE":
         return <Badge className="bg-green-100 text-green-800">Al corriente</Badge>;
+      case "PAGADO":
+        return <Badge className="bg-blue-100 text-blue-800">Pagado</Badge>;
+      case "PARCIAL":
+        return <Badge className="bg-orange-100 text-orange-800">Pago parcial</Badge>;
       case "VENCIDO":
         return <Badge className="bg-yellow-100 text-yellow-800">
           <Clock className="w-3 h-3 mr-1" />
@@ -149,10 +276,17 @@ export default function CuentasPorCobrar() {
     }
   };
 
-  const getPrioridadColor = (diasVencido: number, estado: string) => {
+  const getPrioridadColor = (diasVencido: number, estado: string, cuentaHabilitada: boolean) => {
+    if (!cuentaHabilitada) return "border-red-300 bg-red-100";
     if (estado === "MOROSO" || diasVencido > 30) return "border-red-200 bg-red-50";
     if (estado === "VENCIDO" || diasVencido > 0) return "border-yellow-200 bg-yellow-50";
+    if (estado === "PAGADO") return "border-green-200 bg-green-50";
     return "border-slate-200";
+  };
+
+  const handleSetCompromise = (cuenta: any) => {
+    setSelectedCuenta(cuenta);
+    setShowCompromiseModal(true);
   };
 
   return (
@@ -180,39 +314,46 @@ export default function CuentasPorCobrar() {
           </div>
 
           {/* KPIs de cobranza */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-8">
             <Card>
               <CardContent className="p-4 text-center">
-                <Users className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.totalCuentas}</div>
-                <div className="text-sm text-slate-600">Total cuentas</div>
+                <Users className="w-6 h-6 text-blue-600 mx-auto mb-2" />
+                <div className="text-xl font-bold">{estadisticas.totalCuentas}</div>
+                <div className="text-xs text-slate-600">Total cuentas</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
-                <DollarSign className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">${(estadisticas.montoPendienteTotal / 100).toLocaleString()}</div>
-                <div className="text-sm text-slate-600">Monto por cobrar</div>
+                <DollarSign className="w-6 h-6 text-green-600 mx-auto mb-2" />
+                <div className="text-xl font-bold">${(estadisticas.montoPendienteTotal / 100).toLocaleString()}</div>
+                <div className="text-xs text-slate-600">Monto por cobrar</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
-                <Clock className="w-8 h-8 text-yellow-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.cuentasVencidas}</div>
-                <div className="text-sm text-slate-600">Cuentas vencidas</div>
+                <Clock className="w-6 h-6 text-yellow-600 mx-auto mb-2" />
+                <div className="text-xl font-bold">{estadisticas.cuentasVencidas}</div>
+                <div className="text-xs text-slate-600">Cuentas vencidas</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
-                <AlertTriangle className="w-8 h-8 text-red-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.cuentasMorosas}</div>
-                <div className="text-sm text-slate-600">Cuentas morosas</div>
+                <AlertTriangle className="w-6 h-6 text-red-600 mx-auto mb-2" />
+                <div className="text-xl font-bold">{estadisticas.cuentasMorosas}</div>
+                <div className="text-xs text-slate-600">Cuentas morosas</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold">{estadisticas.promedioTiempoVencimiento.toFixed(0)}</div>
-                <div className="text-sm text-slate-600">Días promedio vencimiento</div>
+                <Ban className="w-6 h-6 text-red-800 mx-auto mb-2" />
+                <div className="text-xl font-bold">{estadisticas.cuentasDeshabilitadas}</div>
+                <div className="text-xs text-slate-600">Deshabilitadas</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-xl font-bold">{estadisticas.promedioTiempoVencimiento.toFixed(0)}</div>
+                <div className="text-xs text-slate-600">Días prom. venc.</div>
               </CardContent>
             </Card>
           </div>
@@ -225,13 +366,51 @@ export default function CuentasPorCobrar() {
             </TabsList>
 
             <TabsContent value="lista">
-              {/* Filtros */}
+              {/* Filtros expandidos */}
               <Card className="mb-6">
                 <CardHeader>
-                  <CardTitle>Filtros de búsqueda</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Filter className="w-5 h-5" />
+                    Filtros avanzados de búsqueda
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                    <div>
+                      <Label>Buscar estudiante</Label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                        <Input
+                          placeholder="Nombre del estudiante..."
+                          value={selectedEstudiante === "all" ? "" : selectedEstudiante}
+                          onChange={(e) => setSelectedEstudiante(e.target.value || "all")}
+                          className="pl-10"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Concepto</Label>
+                      <Input
+                        placeholder="Buscar concepto..."
+                        value={selectedConcepto === "all" ? "" : selectedConcepto}
+                        onChange={(e) => setSelectedConcepto(e.target.value || "all")}
+                      />
+                    </div>
+                    <div>
+                      <Label>Nivel escolar</Label>
+                      <Select value={selectedNivel} onValueChange={setSelectedNivel}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos los niveles</SelectItem>
+                          <SelectItem value="KINDER">Kinder</SelectItem>
+                          <SelectItem value="PRIMARIA">Primaria</SelectItem>
+                          <SelectItem value="SECUNDARIA">Secundaria</SelectItem>
+                          <SelectItem value="BACHILLERATO">Bachillerato</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <div>
                       <Label>Estado de cobranza</Label>
                       <Select value={selectedEstado} onValueChange={setSelectedEstado}>
@@ -241,32 +420,44 @@ export default function CuentasPorCobrar() {
                         <SelectContent>
                           <SelectItem value="all">Todos los estados</SelectItem>
                           <SelectItem value="CORRIENTE">Al corriente</SelectItem>
+                          <SelectItem value="PAGADO">Pagado</SelectItem>
+                          <SelectItem value="PARCIAL">Pago parcial</SelectItem>
                           <SelectItem value="VENCIDO">Vencido</SelectItem>
                           <SelectItem value="MOROSO">Moroso</SelectItem>
                           <SelectItem value="INCOBRABLE">Incobrable</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <Label>Días vencido</Label>
-                      <Select value={selectedDiasVencido} onValueChange={setSelectedDiasVencido}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos</SelectItem>
-                          <SelectItem value="0-7">0-7 días</SelectItem>
-                          <SelectItem value="8-30">8-30 días</SelectItem>
-                          <SelectItem value="31+">Más de 30 días</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Label>Fecha desde</Label>
+                      <Input
+                        type="date"
+                        value={fechaInicio}
+                        onChange={(e) => setFechaInicio(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label>Fecha hasta</Label>
+                      <Input
+                        type="date"
+                        value={fechaFin}
+                        onChange={(e) => setFechaFin(e.target.value)}
+                      />
                     </div>
                     <div className="flex items-end">
                       <Button variant="outline" onClick={() => {
                         setSelectedEstado("all");
                         setSelectedDiasVencido("all");
+                        setSelectedConcepto("all");
+                        setSelectedNivel("all");
+                        setSelectedEstudiante("all");
+                        setFechaInicio("");
+                        setFechaFin("");
                       }}>
-                        Limpiar filtros
+                        Limpiar todos los filtros
                       </Button>
                     </div>
                   </div>
@@ -278,47 +469,81 @@ export default function CuentasPorCobrar() {
                   <CardTitle>Cuentas por cobrar ({filteredCuentas.length})</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {filteredCuentas.map((cuenta) => (
-                      <div key={cuenta.id} className={`p-4 border rounded-lg ${getPrioridadColor(cuenta.dias_vencido, cuenta.estado_cobranza)}`}>
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-medium">{cuenta.estudiante}</h3>
-                              {getEstadoBadge(cuenta.estado_cobranza, cuenta.dias_vencido)}
-                            </div>
-                            <p className="text-sm text-slate-600">{cuenta.concepto}</p>
-                            <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
-                              <span>Responsable: {cuenta.responsable}</span>
-                              <span>Tel: {cuenta.telefono}</span>
-                              <span>Email: {cuenta.email}</span>
-                              <span>Vencimiento: {cuenta.fecha_vencimiento}</span>
-                            </div>
-                            {cuenta.observaciones_cobranza && (
-                              <div className="mt-2 p-2 bg-slate-100 rounded text-xs">
-                                <strong>Observaciones:</strong> {cuenta.observaciones_cobranza}
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="border-b bg-slate-50">
+                          <th className="text-left p-3 font-medium">Estudiante</th>
+                          <th className="text-left p-3 font-medium">Concepto</th>
+                          <th className="text-right p-3 font-medium">Monto Inicial</th>
+                          <th className="text-right p-3 font-medium">Descuentos</th>
+                          <th className="text-right p-3 font-medium">Recargos</th>
+                          <th className="text-right p-3 font-medium">Total Pagado</th>
+                          <th className="text-right p-3 font-medium">Pendiente</th>
+                          <th className="text-center p-3 font-medium">Estado</th>
+                          <th className="text-center p-3 font-medium">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredCuentas.map((cuenta) => (
+                          <tr key={cuenta.id} className={`border-b hover:bg-slate-50 ${getPrioridadColor(cuenta.dias_vencido, cuenta.estado_cobranza, cuenta.cuenta_habilitada)}`}>
+                            <td className="p-3">
+                              <div>
+                                <div className="font-medium">{cuenta.estudiante}</div>
+                                <div className="text-xs text-slate-500">{cuenta.grado} • {cuenta.nivel_escolar}</div>
+                                <div className="text-xs text-slate-500">{cuenta.responsable}</div>
                               </div>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <div className="text-lg font-bold text-red-600">
-                              ${(cuenta.monto_pendiente_centavos / 100).toLocaleString()}
-                            </div>
-                            <div className="text-xs text-slate-500">
-                              Original: ${(cuenta.monto_original_centavos / 100).toLocaleString()}
-                            </div>
-                            <div className="flex gap-1 mt-2">
-                              <Button size="sm" className="bg-orange-600 hover:bg-orange-700">
-                                <Phone className="w-3 h-3" />
-                              </Button>
-                              <Button size="sm" variant="outline">
-                                <Mail className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                            </td>
+                            <td className="p-3">
+                              <div>
+                                <div className="font-medium">{cuenta.concepto}</div>
+                                <div className="text-xs text-slate-500">Cargo: {cuenta.fecha_cargo}</div>
+                                <div className="text-xs text-slate-500">Vence: {cuenta.fecha_vencimiento}</div>
+                                {cuenta.fecha_compromiso && (
+                                  <div className="text-xs text-blue-600">Compromiso: {cuenta.fecha_compromiso}</div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-3 text-right font-medium">
+                              ${(cuenta.monto_inicial_centavos / 100).toLocaleString()}
+                            </td>
+                            <td className="p-3 text-right text-green-600">
+                              -${(cuenta.descuentos_centavos / 100).toLocaleString()}
+                            </td>
+                            <td className="p-3 text-right text-red-600">
+                              +${(cuenta.recargos_centavos / 100).toLocaleString()}
+                            </td>
+                            <td className="p-3 text-right text-blue-600">
+                              ${(cuenta.total_pagado_centavos / 100).toLocaleString()}
+                            </td>
+                            <td className="p-3 text-right font-bold text-red-600">
+                              ${(cuenta.pendiente_pagar_centavos / 100).toLocaleString()}
+                            </td>
+                            <td className="p-3 text-center">
+                              {getEstadoBadge(cuenta.estado_cobranza, cuenta.dias_vencido, cuenta.cuenta_habilitada)}
+                            </td>
+                            <td className="p-3 text-center">
+                              <div className="flex gap-1 justify-center">
+                                <Button size="sm" variant="outline" title="Llamar">
+                                  <Phone className="w-3 h-3" />
+                                </Button>
+                                <Button size="sm" variant="outline" title="Email">
+                                  <Mail className="w-3 h-3" />
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  title="Fecha compromiso"
+                                  onClick={() => handleSetCompromise(cuenta)}
+                                >
+                                  <Calendar className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </CardContent>
               </Card>
@@ -441,6 +666,66 @@ export default function CuentasPorCobrar() {
               </div>
             </TabsContent>
           </Tabs>
+
+          {/* Modal para establecer fecha compromiso */}
+          <Dialog open={showCompromiseModal} onOpenChange={setShowCompromiseModal}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Establecer fecha de pago compromiso</DialogTitle>
+              </DialogHeader>
+              <div className="py-4">
+                {selectedCuenta && (
+                  <div className="space-y-4">
+                    <div className="p-3 bg-slate-50 rounded">
+                      <div className="font-medium">{selectedCuenta.estudiante}</div>
+                      <div className="text-sm text-slate-600">{selectedCuenta.concepto}</div>
+                      <div className="text-sm text-red-600">
+                        Pendiente: ${(selectedCuenta.pendiente_pagar_centavos / 100).toLocaleString()}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label>Fecha compromiso de pago</Label>
+                      <Input type="date" defaultValue={selectedCuenta.fecha_compromiso || ""} />
+                    </div>
+                    
+                    <div>
+                      <Label>Nuevo monto (opcional)</Label>
+                      <Input 
+                        type="number" 
+                        placeholder={(selectedCuenta.pendiente_pagar_centavos / 100).toString()}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label>Descuento adicional (opcional)</Label>
+                      <Input type="number" placeholder="0" />
+                    </div>
+                    
+                    <div>
+                      <Label>Observaciones</Label>
+                      <Textarea placeholder="Observaciones sobre el acuerdo de pago..." />
+                    </div>
+                    
+                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                      <div className="text-sm text-yellow-800">
+                        <strong>Advertencia:</strong> Si el usuario no cumple con la fecha compromiso, 
+                        su cuenta será deshabilitada automáticamente y deberá establecer una nueva fecha.
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setShowCompromiseModal(false)}>
+                  Cancelar
+                </Button>
+                <Button className="bg-blue-600 hover:bg-blue-700">
+                  Establecer compromiso
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </div>

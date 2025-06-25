@@ -716,7 +716,7 @@ export default function CuentasPorCobrar() {
               </div>
             </DialogContent>
           </Dialog>
-        </div>
+      </div>
     </div>
   );
 }

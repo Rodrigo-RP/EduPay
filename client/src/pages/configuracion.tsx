@@ -6,12 +6,71 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Bell, Key, Mail, Settings, Shield, School, CreditCard, Database, Palette, Globe, Users, FileText } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Calendar, Bell, Key, Mail, Settings, Shield, School, CreditCard, Database, Palette, Globe, Users, FileText, Upload } from "lucide-react";
 
 export default function Configuracion() {
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [autoGenerationEnabled, setAutoGenerationEnabled] = useState(true);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [institutionName, setInstitutionName] = useState("Colegio San Patricio");
+  const [campusName, setCampusName] = useState("Campus Principal");
+  const { toast } = useToast();
+
+  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validar tamaño (2MB max)
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: "Error",
+        description: "El archivo es demasiado grande. Máximo 2MB.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validar tipo de archivo
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Error",
+        description: "Solo se permiten archivos de imagen (PNG, JPG, SVG).",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Crear vista previa
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setLogoPreview(e.target?.result as string);
+      toast({
+        title: "Logo cargado",
+        description: "El logo se ha cargado correctamente. Recuerda guardar los cambios.",
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoPreview(null);
+    const fileInput = document.getElementById('logo-upload') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
+    toast({
+      title: "Logo eliminado",
+      description: "El logo ha sido eliminado. Recuerda guardar los cambios.",
+    });
+  };
+
+  const handleSaveChanges = () => {
+    // Aquí se enviarían los datos al backend
+    toast({
+      title: "Cambios guardados",
+      description: "La configuración de la institución se ha actualizado correctamente.",
+    });
+  };
 
   return (
     <div>
@@ -20,7 +79,7 @@ export default function Configuracion() {
           <h1 className="text-3xl font-bold text-slate-900">Configuración del Sistema</h1>
           <p className="text-slate-600">Administra la configuración general de EscuelaPay</p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700">
+        <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleSaveChanges}>
           <Settings className="w-4 h-4 mr-2" />
           Guardar Cambios
         </Button>
@@ -205,7 +264,11 @@ export default function Configuracion() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                       <Label>Nombre legal de la institución</Label>
-                      <Input defaultValue="Colegio San Patricio A.C." />
+                      <Input 
+                        value={institutionName} 
+                        onChange={(e) => setInstitutionName(e.target.value)}
+                        placeholder="Nombre de la institución"
+                      />
                     </div>
                 <div>
                       <Label>RFC</Label>
@@ -237,8 +300,49 @@ export default function Configuracion() {
                     </div>
                 <div className="md:col-span-2">
                       <Label>Logo de la institución</Label>
-                  <div className="mt-2 border-2 border-dashed border-slate-300 rounded-lg p-6 text-center">
-                    <p className="text-sm text-slate-500">Arrastra tu logo aquí o haz clic para seleccionar</p>
+                      <p className="text-xs text-slate-500 mb-2">Este logo aparecerá en el sidebar y será visible para todos los usuarios</p>
+                  <div className="mt-2 border-2 border-dashed border-slate-300 rounded-lg p-6 hover:border-blue-400 transition-colors cursor-pointer">
+                        <input type="file" accept="image/*" className="hidden" id="logo-upload" onChange={handleLogoUpload} />
+                        <label htmlFor="logo-upload" className="cursor-pointer">
+                          <div className="text-center">
+                            <div className="w-16 h-16 mx-auto mb-4 bg-slate-100 rounded-lg flex items-center justify-center">
+                              <i className="fas fa-university text-slate-400 text-2xl"></i>
+                            </div>
+                            <p className="text-sm font-medium text-slate-700">Subir logo de la institución</p>
+                            <p className="text-xs text-slate-500 mt-1">PNG, JPG o SVG (máximo 2MB)</p>
+                            <p className="text-xs text-slate-500">Recomendado: 200x200px</p>
+                          </div>
+                        </label>
+                      </div>
+                      
+                      {/* Vista previa del logo actual */}
+                      <div className="mt-4 p-4 bg-slate-50 rounded-lg">
+                        <Label className="text-sm font-medium text-slate-700">Vista previa actual</Label>
+                        <div className="mt-2 flex items-center space-x-3">
+                          <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
+                            {logoPreview ? (
+                              <img src={logoPreview} alt="Logo preview" className="w-full h-full object-cover" />
+                            ) : (
+                              <i className="fas fa-university text-white text-lg"></i>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-slate-900">{institutionName}</p>
+                            <p className="text-xs text-slate-500">Como aparece en el sidebar</p>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex gap-2">
+                          <Button size="sm" variant="outline" onClick={handleSaveChanges}>
+                            <i className="fas fa-save w-4 h-4 mr-2"></i>
+                            Guardar cambios
+                          </Button>
+                          {logoPreview && (
+                            <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={handleRemoveLogo}>
+                              <i className="fas fa-trash w-4 h-4 mr-2"></i>
+                              Eliminar logo
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

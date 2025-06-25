@@ -376,11 +376,18 @@ export default function Estudiantes() {
         </CardContent>
       </Card>
 
-      {/* Modal para agregar estudiante */}
-      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+      {/* Modal para agregar/editar estudiante */}
+      <Dialog open={showAddModal || showEditModal} onOpenChange={(open) => {
+        if (!open) {
+          setShowAddModal(false);
+          setShowEditModal(false);
+          setEditingStudent(null);
+          resetForm();
+        }
+      }}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Agregar Nuevo Estudiante</DialogTitle>
+            <DialogTitle>{editingStudent ? 'Editar Estudiante' : 'Agregar Nuevo Estudiante'}</DialogTitle>
           </DialogHeader>
           
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -588,12 +595,23 @@ export default function Estudiantes() {
               <Button type="button" variant="outline" onClick={() => {
                 resetForm();
                 setShowAddModal(false);
+                setShowEditModal(false);
+                setEditingStudent(null);
               }}>
                 Cancelar
               </Button>
               <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="w-4 h-4 mr-2" />
-                Agregar Estudiante
+                {editingStudent ? (
+                  <>
+                    <Edit className="w-4 h-4 mr-2" />
+                    Actualizar Estudiante
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Agregar Estudiante
+                  </>
+                )}
               </Button>
             </div>
           </form>

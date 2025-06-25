@@ -14,6 +14,13 @@ import EmisionCargos from "@/pages/emision-cargos";
 import PortalPadres3Clics from "@/pages/portal-padres-3clics";
 import CajaConciliacion from "@/pages/caja-conciliacion";
 import FiscalContable from "@/pages/fiscal-contable";
+import Estudiantes from "@/pages/estudiantes";
+import Cargos from "@/pages/cargos";
+import Pagos from "@/pages/pagos";
+import Becas from "@/pages/becas";
+import Notificaciones from "@/pages/notificaciones";
+import Reportes from "@/pages/reportes";
+import Configuracion from "@/pages/configuracion";
 
 function AuthenticatedRoutes() {
   const { user, guardian, isLoading } = useAuth();

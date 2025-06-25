@@ -91,7 +91,7 @@ export default function Cargos() {
 
   const estadisticas = {
     total: cargos.length,
-    pendientes: cargos.filter(c => c.state === "pendiente").length,
+    pendientes: cargos.filter(c => c.estado === "pendiente").length,
     vencidos: cargos.filter(c => c.estado === "vencido").length,
     pagados: cargos.filter(c => c.estado === "pagado").length,
     montoTotal: cargos.filter(c => c.estado !== "pagado").reduce((sum, c) => sum + c.total, 0)

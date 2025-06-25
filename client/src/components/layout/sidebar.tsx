@@ -35,8 +35,12 @@ export default function Sidebar() {
           {menuItems.map((item, index) => (
             <a
               key={index}
-              href="#"
-              className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+              href={item.href}
+              onClick={(e) => {
+                e.preventDefault();
+                setLocation(item.href);
+              }}
+              className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
                 item.active
                   ? "bg-primary-50 text-primary-700"
                   : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"

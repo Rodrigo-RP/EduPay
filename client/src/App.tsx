@@ -64,8 +64,9 @@ function AuthenticatedRoutes() {
     <div className="min-h-screen bg-slate-50">
       <Header />
       <Sidebar />
-      <div className="ml-64 pt-16 min-h-screen">
-        <Switch>
+      <div className="ml-64 pt-16 min-h-screen bg-slate-50">
+        <div className="p-6">
+          <Switch>
             <Route path="/" component={AdminDashboard} />
             <Route path="/admin" component={AdminDashboard} />
             <Route path="/estudiantes" component={Estudiantes} />
@@ -88,6 +89,7 @@ function AuthenticatedRoutes() {
             <Route path="/portal-3clics" component={PortalPadres3Clics} />
             <Route component={NotFound} />
           </Switch>
+        </div>
       </div>
     </div>
   );

@@ -23,6 +23,13 @@ export default function Sidebar() {
       category: "academico"
     },
     { 
+      icon: "fas fa-home", 
+      label: "Familias", 
+      href: "/familias", 
+      active: location === "/familias",
+      category: "academico"
+    },
+    { 
       icon: "fas fa-graduation-cap", 
       label: "Ex-Alumnos", 
       href: "/exalumnos", 

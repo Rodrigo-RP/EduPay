@@ -19,6 +19,7 @@ import PortalPadres3Clics from "@/pages/portal-padres-3clics";
 import CajaConciliacion from "@/pages/caja-conciliacion";
 import FiscalContable from "@/pages/fiscal-contable";
 import Estudiantes from "@/pages/estudiantes";
+import Familias from "@/pages/familias";
 import Usuarios from "@/pages/usuarios";
 import Cargos from "@/pages/cargos";
 import Pagos from "@/pages/pagos";
@@ -71,6 +72,7 @@ function AuthenticatedRoutes() {
             <Route path="/" component={AdminDashboard} />
             <Route path="/admin" component={AdminDashboard} />
             <Route path="/estudiantes" component={Estudiantes} />
+            <Route path="/familias" component={Familias} />
             <Route path="/usuarios" component={Usuarios} />
             <Route path="/cargos" component={Cargos} />
             <Route path="/pagos" component={Pagos} />

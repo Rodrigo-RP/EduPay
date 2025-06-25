@@ -85,12 +85,7 @@ export default function Estudiantes() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50">
-      <Sidebar />
-      <div className="flex-1 overflow-auto">
-        <SaaSInfo />
-        
-        <div className="p-6">
+    <div>
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-3xl font-bold text-slate-900">Gestión de Estudiantes</h1>
@@ -222,8 +217,6 @@ export default function Estudiantes() {
               </div>
             </CardContent>
           </Card>
-        </div>
-      </div>
     </div>
   );
 }

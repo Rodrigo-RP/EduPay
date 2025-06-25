@@ -61,9 +61,7 @@ export default function Reportes() {
 
   return (
     <div className="flex h-screen bg-slate-50">
-      <Sidebar />
       <div className="flex-1 overflow-auto">
-        <SaaSInfo />
         
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">

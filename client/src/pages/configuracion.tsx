@@ -6,9 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import Sidebar from "@/components/layout/sidebar";
-import SaaSInfo from "@/components/saas-info";
-import { Settings, School, CreditCard, Shield, Bell, Users, FileText } from "lucide-react";
+import { Calendar, Bell, Key, Mail, Settings, Shield, School, CreditCard, Database, Palette, Globe, Users, FileText } from "lucide-react";
 
 export default function Configuracion() {
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);

@@ -30,6 +30,7 @@ import Becas from "@/pages/becas";
 import Notificaciones from "@/pages/notificaciones";
 import Reportes from "@/pages/reportes";
 import Configuracion from "@/pages/configuracion";
+import SaaSInfo from "@/components/saas-info";
 
 function AuthenticatedRoutes() {
   const { user, guardian, isLoading } = useAuth();
@@ -60,29 +61,38 @@ function AuthenticatedRoutes() {
 
   // Admin/staff routes
   return (
-    <Switch>
-      <Route path="/" component={AdminDashboard} />
-      <Route path="/admin" component={AdminDashboard} />
-      <Route path="/estudiantes" component={Estudiantes} />
-      <Route path="/usuarios" component={Usuarios} />
-      <Route path="/cargos" component={Cargos} />
-      <Route path="/pagos" component={Pagos} />
-      <Route path="/cuentas-por-cobrar" component={CuentasPorCobrar} />
-      <Route path="/catalogo-productos" component={CatalogoProductos} />
-      <Route path="/proveedores" component={Proveedores} />
-      <Route path="/exalumnos" component={ExAlumnos} />
-      <Route path="/crm-escolar" component={CRMEscolar} />
-      <Route path="/becas" component={Becas} />
-      <Route path="/notificaciones" component={Notificaciones} />
-      <Route path="/reportes" component={Reportes} />
-      <Route path="/configuracion" component={Configuracion} />
-      <Route path="/configuracion-inicial" component={ConfiguracionInicial} />
-      <Route path="/emision-cargos" component={EmisionCargos} />
-      <Route path="/caja-conciliacion" component={CajaConciliacion} />
-      <Route path="/fiscal-contable" component={FiscalContable} />
-      <Route path="/portal-3clics" component={PortalPadres3Clics} />
-      <Route component={NotFound} />
-    </Switch>
+    <div className="min-h-screen bg-slate-50">
+      <Header />
+      <Sidebar />
+      <div className="ml-64 pt-16">
+        <div className="p-6">
+
+          <Switch>
+            <Route path="/" component={AdminDashboard} />
+            <Route path="/admin" component={AdminDashboard} />
+            <Route path="/estudiantes" component={Estudiantes} />
+            <Route path="/usuarios" component={Usuarios} />
+            <Route path="/cargos" component={Cargos} />
+            <Route path="/pagos" component={Pagos} />
+            <Route path="/cuentas-por-cobrar" component={CuentasPorCobrar} />
+            <Route path="/catalogo-productos" component={CatalogoProductos} />
+            <Route path="/proveedores" component={Proveedores} />
+            <Route path="/exalumnos" component={ExAlumnos} />
+            <Route path="/crm-escolar" component={CRMEscolar} />
+            <Route path="/becas" component={Becas} />
+            <Route path="/notificaciones" component={Notificaciones} />
+            <Route path="/reportes" component={Reportes} />
+            <Route path="/configuracion" component={Configuracion} />
+            <Route path="/configuracion-inicial" component={ConfiguracionInicial} />
+            <Route path="/emision-cargos" component={EmisionCargos} />
+            <Route path="/caja-conciliacion" component={CajaConciliacion} />
+            <Route path="/fiscal-contable" component={FiscalContable} />
+            <Route path="/portal-3clics" component={PortalPadres3Clics} />
+            <Route component={NotFound} />
+          </Switch>
+        </div>
+      </div>
+    </div>
   );
 }
 

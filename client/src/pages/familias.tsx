@@ -125,11 +125,173 @@ export default function Familias() {
       rfc: "SMA201015ABC",
       estatus: "activo",
       estudiantes_vinculados: [
-        { id: 3, nombre: "Luis Martínez Gil", grado: "1ro C" },
-        { id: 4, nombre: "Diego Martínez Gil", grado: "Kinder C" }
+        { id: 11, nombre: "Luis Martínez Gil", grado: "3ro C" }
       ],
-      saldo_total: 880000,
+      saldo_total: 620000,
       fecha_registro: "2024-08-17"
+    },
+    {
+      id: 4,
+      numero_familia: "FAM004",
+      apellido_paterno: "Santos",
+      apellido_materno: "Rivera",
+      padre_nombre: "José Santos Morales",
+      padre_telefono: "5551234567",
+      padre_email: "jose.santos@gmail.com",
+      madre_nombre: "María Rivera Santos",
+      madre_telefono: "5551234568",
+      madre_email: "maria.rivera@gmail.com",
+      direccion: "Av. Universidad 1234, Col. Del Valle",
+      ciudad: "Ciudad de México",
+      codigo_postal: "03100",
+      razon_social: "José Santos Morales",
+      rfc: "SAMJ850215ABC",
+      estatus: "activo",
+      estudiantes_vinculados: [
+        { id: 1, nombre: "Emilia Santos Rivera", grado: "Kinder 1 A" }
+      ],
+      saldo_total: 480000,
+      fecha_registro: "2024-08-15"
+    },
+    {
+      id: 5,
+      numero_familia: "FAM005",
+      apellido_paterno: "Hernández",
+      apellido_materno: "Castro",
+      padre_nombre: "Roberto Hernández Villa",
+      padre_telefono: "5557788990",
+      padre_email: "roberto.hernandez@gmail.com",
+      madre_nombre: "Silvia Castro Mendoza",
+      madre_telefono: "5557788991",
+      madre_email: "silvia.castro@outlook.com",
+      direccion: "Av. Universidad 901, Col. Narvarte",
+      ciudad: "Ciudad de México",
+      codigo_postal: "03020",
+      razon_social: "Roberto Hernández Villa",
+      rfc: "HEVR870806ZAB",
+      estatus: "activo",
+      estudiantes_vinculados: [
+        { id: 19, nombre: "Sofía Hernández Castro", grado: "1ro Sec A" }
+      ],
+      saldo_total: 720000,
+      fecha_registro: "2024-08-24"
+    },
+    {
+      id: 6,
+      numero_familia: "FAM006",
+      apellido_paterno: "Morales",
+      apellido_materno: "Ruiz",
+      padre_nombre: "Fernando Morales Castro",
+      padre_telefono: "5555566778",
+      padre_email: "fernando.morales@outlook.com",
+      madre_nombre: "Carmen Ruiz Herrera",
+      madre_telefono: "5555566779",
+      madre_email: "carmen.ruiz@gmail.com",
+      direccion: "Calle Tlalpan 567, Col. Doctores",
+      ciudad: "Ciudad de México",
+      codigo_postal: "06720",
+      razon_social: "Fernando Morales Castro",
+      rfc: "MOCF790320XYZ",
+      estatus: "activo",
+      estudiantes_vinculados: [
+        { id: 27, nombre: "Isabella Morales Ruiz", grado: "2do Bach B" }
+      ],
+      saldo_total: 870000,
+      fecha_registro: "2024-08-28"
+    },
+    {
+      id: 7,
+      numero_familia: "FAM007",
+      apellido_paterno: "Castillo",
+      apellido_materno: "Mendoza",
+      padre_nombre: "Alejandro Castillo Vega",
+      padre_telefono: "5557788990",
+      padre_email: "alejandro.castillo@gmail.com",
+      madre_nombre: "Gabriela Mendoza Castillo",
+      madre_telefono: "5557788991",
+      madre_email: "gabriela.mendoza@yahoo.com",
+      direccion: "Calle Miramontes 678, Col. Coapa",
+      ciudad: "Ciudad de México",
+      codigo_postal: "14300",
+      razon_social: "Alejandro Castillo Vega",
+      rfc: "CAVA851015MNO",
+      estatus: "activo",
+      estudiantes_vinculados: [
+        { id: 29, nombre: "Alejandro Castillo Mendoza", grado: "3ro Bach A" }
+      ],
+      saldo_total: 890000,
+      fecha_registro: "2024-08-29"
+    },
+    {
+      id: 8,
+      numero_familia: "FAM008",
+      apellido_paterno: "Ramírez",
+      apellido_materno: "Silva",
+      padre_nombre: "Jorge Ramírez Salinas",
+      padre_telefono: "5553344556",
+      padre_email: "jorge.ramirez@hotmail.com",
+      madre_nombre: "Patricia Silva Ramírez",
+      madre_telefono: "5553344557",
+      madre_email: "patricia.silva@gmail.com",
+      direccion: "Calle Niños Héroes 123, Col. Doctores",
+      ciudad: "Ciudad de México",
+      codigo_postal: "06720",
+      razon_social: "Jorge Ramírez Salinas",
+      rfc: "RASJ851220EFG",
+      estatus: "activo",
+      estudiantes_vinculados: [
+        { id: 25, nombre: "Diego Ramírez Silva", grado: "1ro Bach A" },
+        { id: 12, nombre: "Isabella Ramírez Cordova", grado: "3ro A" }
+      ],
+      saldo_total: 1320000,
+      fecha_registro: "2024-08-20"
+    },
+    {
+      id: 9,
+      numero_familia: "FAM009",
+      apellido_paterno: "Torres",
+      apellido_materno: "Vega",
+      padre_nombre: "Roberto Torres Medina",
+      padre_telefono: "5559900112",
+      padre_email: "roberto.torres@outlook.com",
+      madre_nombre: "Carmen Vega Torres",
+      madre_telefono: "5559900113",
+      madre_email: "carmen.vega@gmail.com",
+      direccion: "Calle Zapata 789, Col. Portales",
+      ciudad: "Ciudad de México",
+      codigo_postal: "03300",
+      razon_social: "Roberto Torres Medina",
+      rfc: "TOMR880306YZA",
+      estatus: "activo",
+      estudiantes_vinculados: [
+        { id: 21, nombre: "Miguel Torres Vega", grado: "2do Sec B" },
+        { id: 10, nombre: "Matías Torres Silva", grado: "2do A" }
+      ],
+      saldo_total: 1340000,
+      fecha_registro: "2024-08-19"
+    },
+    {
+      id: 10,
+      numero_familia: "FAM010",
+      apellido_paterno: "López",
+      apellido_materno: "Cruz",
+      padre_nombre: "Eduardo López Mendoza",
+      padre_telefono: "5551122334",
+      padre_email: "eduardo.lopez@gmail.com",
+      madre_nombre: "Sandra Cruz Morales",
+      madre_telefono: "5551122335",
+      madre_email: "sandra.cruz@hotmail.com",
+      direccion: "Av. Insurgentes Sur 567, Col. Roma Sur",
+      ciudad: "Ciudad de México",
+      codigo_postal: "06760",
+      razon_social: "Eduardo López Mendoza",
+      rfc: "LOME851230TUV",
+      estatus: "activo",
+      estudiantes_vinculados: [
+        { id: 23, nombre: "Valeria López Cruz", grado: "3ro Sec C" }
+      ],
+      saldo_total: 760000,
+      fecha_registro: "2024-08-26"
     }
   ]);
 

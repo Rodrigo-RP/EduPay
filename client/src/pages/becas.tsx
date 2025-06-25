@@ -63,6 +63,56 @@ export default function Becas() {
       estudiantesAplicados: 4,
       activa: false,
       vigencia: "2024-2025"
+    },
+    {
+      id: 6,
+      nombre: "Beca Trabajo Social",
+      tipo: "BECA",
+      porcentaje: 40,
+      criterios: "100 horas de servicio social comunitario",
+      estudiantesAplicados: 3,
+      activa: true,
+      vigencia: "2024-2025"
+    },
+    {
+      id: 7,
+      nombre: "Descuento Ex-Alumno",
+      tipo: "DESCUENTO",
+      porcentaje: 10,
+      criterios: "Padre/madre egresado de la institución",
+      estudiantesAplicados: 7,
+      activa: true,
+      vigencia: "2024-2025"
+    },
+    {
+      id: 8,
+      nombre: "Beca Cultural",
+      tipo: "BECA",
+      porcentaje: 20,
+      criterios: "Participación en coro, banda o teatro",
+      estudiantesAplicados: 9,
+      activa: true,
+      vigencia: "2024-2025"
+    },
+    {
+      id: 9,
+      nombre: "Descuento Empleado",
+      tipo: "DESCUENTO",
+      porcentaje: 25,
+      criterios: "Hijo de empleado de la institución",
+      estudiantesAplicados: 5,
+      activa: true,
+      vigencia: "2024-2025"
+    },
+    {
+      id: 10,
+      nombre: "Beca Liderazgo",
+      tipo: "BECA",
+      porcentaje: 35,
+      criterios: "Presidente de sociedad de alumnos",
+      estudiantesAplicados: 2,
+      activa: true,
+      vigencia: "2024-2025"
     }
   ];
 

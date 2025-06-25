@@ -75,6 +75,61 @@ export default function Usuarios() {
       campus: "Campus Principal",
       ultimo_acceso: "2025-01-10 14:20",
       created_at: "2024-10-01"
+    },
+    {
+      id: 6,
+      email: "finanzas@sanpatricio.edu.mx",
+      nombre_completo: "Roberto Carlos Vega",
+      role: "ADMIN_CAMPUS",
+      telefono: "55-6789-0123",
+      activo: true,
+      campus: "Campus Norte",
+      ultimo_acceso: "2025-01-20 11:30",
+      created_at: "2024-08-20"
+    },
+    {
+      id: 7,
+      email: "secretaria@sanpatricio.edu.mx",
+      nombre_completo: "Carmen Rosa Martínez",
+      role: "CAJA",
+      telefono: "55-7890-1234",
+      activo: true,
+      campus: "Campus Principal",
+      ultimo_acceso: "2025-01-20 13:15",
+      created_at: "2024-09-10"
+    },
+    {
+      id: 8,
+      email: "sistemas@sanpatricio.edu.mx",
+      nombre_completo: "Daniel Eduardo Torres",
+      role: "SUPER_ADMIN",
+      telefono: "55-8901-2345",
+      activo: true,
+      campus: "Soporte Técnico",
+      ultimo_acceso: "2025-01-20 07:45",
+      created_at: "2024-07-15"
+    },
+    {
+      id: 9,
+      email: "coord.kinder@sanpatricio.edu.mx",
+      nombre_completo: "Mónica Patricia Ruiz",
+      role: "ADMIN_CAMPUS",
+      telefono: "55-9012-3456",
+      activo: true,
+      campus: "Campus Principal",
+      ultimo_acceso: "2025-01-19 15:20",
+      created_at: "2024-09-05"
+    },
+    {
+      id: 10,
+      email: "tesoreria@sanpatricio.edu.mx",
+      nombre_completo: "Francisco Javier Morales",
+      role: "CONTADOR",
+      telefono: "55-0123-4567",
+      activo: true,
+      campus: "Campus Principal",
+      ultimo_acceso: "2025-01-18 17:30",
+      created_at: "2024-08-30"
     }
   ];
 

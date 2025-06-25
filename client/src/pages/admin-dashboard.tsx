@@ -68,140 +68,124 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50">
-      <div className="w-full">
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 text-center">
-          <h1 className="text-xl font-bold">EscuelaPay - Plataforma SaaS de Pagos Escolares</h1>
-          <p className="text-blue-100 text-sm">100% enfocada en automatizar pagos de colegiaturas</p>
-          <div className="mt-2 text-xs bg-white/20 rounded px-3 py-1 inline-block">
-            Meta: 80% pagos antes del vencimiento | Campus: {campusId} | {user?.role}
-          </div>
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Panel de Control - Campus Principal</h1>
+          <p className="text-slate-600">Resumen ejecutivo de operaciones y finanzas</p>
         </div>
-        
-        <div className="flex">
-          <Sidebar />
-          
-          {/* Main Content */}
-          <main className="flex-1 overflow-auto">
-            <SaaSInfo />
-            
-            {/* Header */}
-            <header className="bg-white border-b border-slate-200 px-6 py-4">
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5" />
+              KPIs Financieros - Ciclo 2024-2025
+            </CardTitle>
+            <div className="text-sm text-slate-600">
+              Datos filtrados por nivel académico seleccionado
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <KPICard
+                icon={DollarSign}
+                label="Total Facturado"
+                value={`$${(kpiData.totalBilled / 100).toLocaleString()}`}
+                change="+12.5%"
+                changeType="positive"
+              />
+              <KPICard
+                icon={CheckCircle}
+                label="Tasa de Pago"
+                value={`${kpiData.paymentRate.toFixed(1)}%`}
+                change="+2.3%"
+                changeType="positive"
+              />
+              <KPICard
+                icon={AlertTriangle}
+                label="Morosidad"
+                value={`${kpiData.overdueRate.toFixed(1)}%`}
+                change="-1.2%"
+                changeType="positive"
+              />
+              <KPICard
+                icon={Users2}
+                label="Estudiantes Activos"
+                value={kpiData.activeStudents.toString()}
+                change="+5"
+                changeType="positive"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5" />
+              Status del Sistema
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-900">Dashboard Administrativo</h2>
-                  <p className="text-slate-600">Colegio San Patricio - Campus Norte</p>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <Button className="bg-primary-600 text-white hover:bg-primary-700">
-                    <i className="fas fa-plus mr-2"></i>
-                    Generar Cargos
-                  </Button>
-                  <div className="flex items-center space-x-2 text-sm text-slate-600">
-                    <i className="fas fa-calendar"></i>
-                    <span>{new Date().toLocaleDateString('es-MX', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}</span>
-                  </div>
-                </div>
+                <span className="text-sm text-slate-600">Plataforma SaaS</span>
+                <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Activo</span>
               </div>
-            </header>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-600">Pagos en línea</span>
+                <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Activo</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-600">CFDI Automático</span>
+                <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Activo</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-600">Notificaciones</span>
+                <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Activo</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-            {/* Dashboard Content */}
-            <div className="p-6">
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <KPICard
-              icon={DollarSign}
-              label="Total Facturado"
-              value={kpiData ? formatCurrency(kpiData.totalBilled) : "$0"}
-              change="12% vs mes anterior"
-              changeType="positive"
-            />
-            <KPICard
-              icon={CheckCircle}
-              label="Pagos Completados"
-              value={kpiData ? formatPercentage(kpiData.paymentRate) : "0%"}
-              change="5% vs mes anterior"
-              changeType="positive"
-            />
-            <KPICard
-              icon={AlertTriangle}
-              label="Morosidad"
-              value={kpiData ? formatPercentage(kpiData.overdueRate) : "0%"}
-              change="3% vs mes anterior"
-              changeType="negative"
-            />
-            <KPICard
-              icon={Users2}
-              label="Estudiantes Activos"
-              value={kpiData ? kpiData.activeStudents.toLocaleString() : "0"}
-              change="Total inscritos"
-              changeType="neutral"
-            />
-          </div>
-
-          {/* Charts and Tables Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            {/* Payment Trends Chart */}
-            <Card className="shadow-sm border border-slate-200">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-semibold text-slate-900">
-                    Tendencia de Pagos
-                  </CardTitle>
-                  <select className="text-sm border border-slate-300 rounded-lg px-3 py-1">
-                    <option>Últimos 6 meses</option>
-                    <option>Último año</option>
-                  </select>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="h-64 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400">
-                  <div className="text-center">
-                    <BarChart3 size={48} className="mx-auto mb-2" />
-                    <p>Gráfico de Tendencias</p>
-                    <p className="text-sm">En desarrollo</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5" />
+              Métodos de Pago Más Utilizados
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {[
+                { method: "Tarjeta de crédito", percentage: 45, color: "bg-blue-500" },
+                { method: "Transferencia", percentage: 30, color: "bg-green-500" },
+                { method: "Domiciliado", percentage: 15, color: "bg-purple-500" },
+                { method: "OXXO Pay", percentage: 8, color: "bg-orange-500" },
+                { method: "Efectivo", percentage: 2, color: "bg-gray-500" },
+              ].map((item) => (
+                <div key={item.method} className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-3 h-3 rounded-full ${item.color}`}></div>
+                    <span className="text-slate-700">{item.method}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-semibold text-slate-900">{item.percentage}%</span>
+                    <div className="w-16 bg-gray-200 rounded-full h-2 mt-1">
+                      <div 
+                        className={`h-2 rounded-full ${item.color}`}
+                        style={{ width: `${item.percentage}%` }}
+                      ></div>
+                    </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Payment Methods Distribution */}
-            <Card className="shadow-sm border border-slate-200">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold text-slate-900">
-                  Métodos de Pago
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {[
-                    { method: "Tarjeta de Crédito", percentage: 67, color: "bg-blue-500", icon: "fas fa-credit-card", iconColor: "text-blue-600" },
-                    { method: "SPEI/Transferencia", percentage: 23, color: "bg-green-500", icon: "fas fa-university", iconColor: "text-green-600" },
-                    { method: "OXXO Pay", percentage: 8, color: "bg-orange-500", icon: "fas fa-store", iconColor: "text-orange-600" },
-                    { method: "Efectivo", percentage: 2, color: "bg-gray-500", icon: "fas fa-money-bill", iconColor: "text-gray-600" },
-                  ].map((item) => (
-                    <div key={item.method} className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                          <i className={`${item.icon} ${item.iconColor} text-sm`}></i>
-                        </div>
-                        <span className="text-slate-700">{item.method}</span>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-slate-900">{item.percentage}%</p>
-                        <div className="w-20 bg-slate-200 rounded-full h-2 mt-1">
-                          <div 
-                            className={`${item.color} h-2 rounded-full`} 
-                            style={{ width: `${item.percentage}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
           {/* Recent Transactions Table */}
           <Card className="shadow-sm border border-slate-200">
@@ -304,8 +288,6 @@ export default function AdminDashboard() {
               </div>
             </CardContent>
           </Card>
-          </div>
-        </main>
         </div>
       </div>
     </div>

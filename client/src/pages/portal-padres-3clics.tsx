@@ -77,12 +77,12 @@ export default function PortalPadres3Clics() {
         {/* Resumen móvil-first */}
         <Card className="border-green-200 bg-green-50">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-bold text-green-700">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-2xl font-bold text-green-700">
                   ${((dashboardData?.totalPendingBalance || 0) / 100).toLocaleString()}
                 </div>
-                <div className="text-sm text-green-600">Saldo total pendiente</div>
+            <div className="text-sm text-green-600">Saldo total pendiente</div>
               </div>
               <Button 
                 onClick={pagarTodo}
@@ -112,14 +112,14 @@ export default function PortalPadres3Clics() {
                 onClick={() => toggleCharge(charge.id)}
               >
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <div className="font-semibold">{charge.concept.nombre}</div>
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <div className="font-semibold">{charge.concept.nombre}</div>
                         {isVencido && <AlertCircle className="w-4 h-4 text-red-500" />}
                       </div>
-                      <div className="text-sm text-slate-600">{charge.student.nombre_completo}</div>
-                      <div className="text-sm text-slate-500">
+                  <div className="text-sm text-slate-600">{charge.student.nombre_completo}</div>
+                  <div className="text-sm text-slate-500">
                         Vence: {new Date(charge.fecha_vencimiento).toLocaleDateString('es-MX')}
                       </div>
                       {charge.beca_aplicada && parseFloat(charge.beca_aplicada) > 0 && (
@@ -128,16 +128,16 @@ export default function PortalPadres3Clics() {
                         </Badge>
                       )}
                     </div>
-                    <div className="text-right">
-                      <div className="text-xl font-bold text-slate-900">
+                <div className="text-right">
+                  <div className="text-xl font-bold text-slate-900">
                         ${(charge.total_amount_centavos / 100).toLocaleString()}
                       </div>
                       {charge.recargo_aplicado_centavos > 0 && (
-                        <div className="text-sm text-red-600">
+                    <div className="text-sm text-red-600">
                           +${(charge.recargo_aplicado_centavos / 100).toLocaleString()} recargo
                         </div>
                       )}
-                      <div className="w-6 h-6 border-2 rounded border-slate-300 flex items-center justify-center mt-2">
+                  <div className="w-6 h-6 border-2 rounded border-slate-300 flex items-center justify-center mt-2">
                         {isSelected && <CheckCircle className="w-4 h-4 text-blue-500" />}
                       </div>
                     </div>
@@ -152,12 +152,12 @@ export default function PortalPadres3Clics() {
         {selectedCharges.length > 0 && (
           <Card className="border-blue-200 bg-blue-50">
             <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-semibold">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-semibold">
                     {selectedCharges.length} concepto{selectedCharges.length > 1 ? 's' : ''} seleccionado{selectedCharges.length > 1 ? 's' : ''}
                   </div>
-                  <div className="text-2xl font-bold text-blue-700">
+              <div className="text-2xl font-bold text-blue-700">
                     ${(totalSeleccionado / 100).toLocaleString()} MXN
                   </div>
                 </div>
@@ -198,7 +198,7 @@ export default function PortalPadres3Clics() {
       <div className="space-y-4">
         <div className="text-center mb-6">
           <h2 className="text-2xl font-bold text-slate-900">Método de pago</h2>
-          <div className="text-3xl font-bold text-green-600 mt-2">
+      <div className="text-3xl font-bold text-green-600 mt-2">
             ${(selectedCharges.reduce((total, chargeId) => {
               const charge = dashboardData?.pendingCharges?.find((c: any) => c.id === chargeId);
               return total + (charge?.total_amount_centavos || 0);
@@ -220,17 +220,17 @@ export default function PortalPadres3Clics() {
                 onClick={() => setSelectedMethod(metodo.id)}
               >
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
                       <Icon className="w-6 h-6 text-slate-600" />
-                      <div>
-                        <div className="font-semibold">{metodo.name}</div>
+                  <div>
+                    <div className="font-semibold">{metodo.name}</div>
                         {metodo.primary && (
                           <Badge variant="secondary" className="text-xs">Predeterminada</Badge>
                         )}
                       </div>
                     </div>
-                    <div className="w-6 h-6 border-2 rounded-full border-slate-300 flex items-center justify-center">
+                <div className="w-6 h-6 border-2 rounded-full border-slate-300 flex items-center justify-center">
                       {isSelected && <div className="w-3 h-3 bg-blue-500 rounded-full" />}
                     </div>
                   </div>
@@ -301,7 +301,7 @@ export default function PortalPadres3Clics() {
         <div className="text-center">
           <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-slate-900">Confirmar pago</h2>
-          <div className="text-3xl font-bold text-green-600 mt-2">
+      <div className="text-3xl font-bold text-green-600 mt-2">
             ${(selectedCharges.reduce((total, chargeId) => {
               const charge = dashboardData?.pendingCharges?.find((c: any) => c.id === chargeId);
               return total + (charge?.total_amount_centavos || 0);
@@ -320,12 +320,12 @@ export default function PortalPadres3Clics() {
               if (!charge) return null;
               
               return (
-                <div key={charge.id} className="flex justify-between items-center py-2 border-b last:border-b-0">
-                  <div>
-                    <div className="font-medium">{charge.concept.nombre}</div>
-                    <div className="text-sm text-slate-600">{charge.student.nombre_completo}</div>
+            <div key={charge.id} className="flex justify-between items-center py-2 border-b last:border-b-0">
+              <div>
+                <div className="font-medium">{charge.concept.nombre}</div>
+                <div className="text-sm text-slate-600">{charge.student.nombre_completo}</div>
                   </div>
-                  <div className="font-semibold">
+              <div className="font-semibold">
                     ${(charge.total_amount_centavos / 100).toLocaleString()}
                   </div>
                 </div>
@@ -335,11 +335,11 @@ export default function PortalPadres3Clics() {
         </Card>
 
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-start gap-3">
+      <div className="flex items-start gap-3">
             <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
-            <div className="text-sm text-green-800">
-              <div className="font-semibold mb-1">Se generará factura CFDI automáticamente</div>
-              <div>El comprobante fiscal será enviado a su email registrado.</div>
+        <div className="text-sm text-green-800">
+          <div className="font-semibold mb-1">Se generará factura CFDI automáticamente</div>
+          <div>El comprobante fiscal será enviado a su email registrado.</div>
             </div>
           </div>
         </div>
@@ -360,8 +360,8 @@ export default function PortalPadres3Clics() {
             size="lg"
           >
             {processing ? (
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 Procesando...
               </div>
             ) : (
@@ -392,23 +392,23 @@ export default function PortalPadres3Clics() {
       <div className="max-w-md mx-auto p-4">
         {/* Indicador de pasos */}
         <div className="flex items-center justify-center gap-2 mb-6 pt-4">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
             step === "select" ? "bg-green-500 text-white" : "bg-green-100 text-green-600"
           }`}>
             1
           </div>
-          <div className="w-8 h-1 bg-slate-200">
-            <div className={`h-full transition-all ${step !== "select" ? "bg-green-500" : ""}`} />
+      <div className="w-8 h-1 bg-slate-200">
+        <div className={`h-full transition-all ${step !== "select" ? "bg-green-500" : ""}`} />
           </div>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
             step === "pay" ? "bg-green-500 text-white" : step === "confirm" ? "bg-green-100 text-green-600" : "bg-slate-200 text-slate-400"
           }`}>
             2
           </div>
-          <div className="w-8 h-1 bg-slate-200">
-            <div className={`h-full transition-all ${step === "confirm" ? "bg-green-500" : ""}`} />
+      <div className="w-8 h-1 bg-slate-200">
+        <div className={`h-full transition-all ${step === "confirm" ? "bg-green-500" : ""}`} />
           </div>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
             step === "confirm" ? "bg-green-500 text-white" : "bg-slate-200 text-slate-400"
           }`}>
             3

@@ -87,7 +87,7 @@ export default function Estudiantes() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-            <div>
+        <div>
               <h1 className="text-3xl font-bold text-slate-900">Gestión de Estudiantes</h1>
               <p className="text-slate-600">Administra alumnos, responsables y información académica</p>
             </div>
@@ -98,31 +98,31 @@ export default function Estudiantes() {
           </div>
 
           {/* Estadísticas */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <Card>
               <CardContent className="p-4 text-center">
                 <Users className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.total}</div>
-                <div className="text-sm text-slate-600">Total estudiantes</div>
+            <div className="text-2xl font-bold">{estadisticas.total}</div>
+            <div className="text-sm text-slate-600">Total estudiantes</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <UserCheck className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.activos}</div>
-                <div className="text-sm text-slate-600">Estudiantes activos</div>
+            <div className="text-2xl font-bold">{estadisticas.activos}</div>
+            <div className="text-sm text-slate-600">Estudiantes activos</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold">${(estadisticas.saldoPendiente / 100).toLocaleString()}</div>
-                <div className="text-sm text-slate-600">Saldo pendiente total</div>
+            <div className="text-2xl font-bold">${(estadisticas.saldoPendiente / 100).toLocaleString()}</div>
+            <div className="text-sm text-slate-600">Saldo pendiente total</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold">${(estadisticas.promedioSaldo / 100).toLocaleString()}</div>
-                <div className="text-sm text-slate-600">Promedio por estudiante</div>
+            <div className="text-2xl font-bold">${(estadisticas.promedioSaldo / 100).toLocaleString()}</div>
+            <div className="text-sm text-slate-600">Promedio por estudiante</div>
               </CardContent>
             </Card>
           </div>
@@ -133,10 +133,10 @@ export default function Estudiantes() {
               <CardTitle>Filtros y búsqueda</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
                   <Label htmlFor="search">Buscar estudiante</Label>
-                  <div className="relative">
+              <div className="relative">
                     <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                     <Input
                       id="search"
@@ -147,7 +147,7 @@ export default function Estudiantes() {
                     />
                   </div>
                 </div>
-                <div>
+            <div>
                   <Label>Filtrar por grado</Label>
                   <Select value={selectedGrado} onValueChange={setSelectedGrado}>
                     <SelectTrigger>
@@ -162,7 +162,7 @@ export default function Estudiantes() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-end">
+            <div className="flex items-end">
                   <Button variant="outline" onClick={() => {
                     setSearchTerm("");
                     setSelectedGrado("all");
@@ -180,30 +180,30 @@ export default function Estudiantes() {
               <CardTitle>Lista de estudiantes ({filteredStudents.length})</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+          <div className="space-y-4">
                 {filteredStudents.map((student) => (
-                  <div key={student.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+              <div key={student.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50">
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                         <span className="text-blue-600 font-semibold">
                           {student.nombre_completo.split(' ').map(n => n[0]).join('').substring(0, 2)}
                         </span>
                       </div>
-                      <div>
+                  <div>
                         <h3 className="font-medium">{student.nombre_completo}</h3>
                         <p className="text-sm text-slate-600">{student.grado} {student.grupo} • CURP: {student.curp}</p>
                         <p className="text-xs text-slate-500">Responsable: {student.responsable} • {student.telefono}</p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="text-right">
-                        <div className="font-semibold">${(student.saldo_pendiente / 100).toLocaleString()}</div>
-                        <div className="text-xs text-slate-500">Saldo pendiente</div>
+                <div className="flex items-center space-x-3">
+                  <div className="text-right">
+                    <div className="font-semibold">${(student.saldo_pendiente / 100).toLocaleString()}</div>
+                    <div className="text-xs text-slate-500">Saldo pendiente</div>
                       </div>
                       <Badge variant={student.status === 'activo' ? 'default' : 'secondary'}>
                         {student.status}
                       </Badge>
-                      <div className="flex space-x-1">
+                  <div className="flex space-x-1">
                         <Button size="sm" variant="outline">
                           <Edit className="w-4 h-4" />
                         </Button>

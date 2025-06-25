@@ -172,12 +172,12 @@ export default function CatalogoProductos() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50">
-      <div className="flex-1 overflow-auto">
+    <div >
+      <div >
         
         <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
               <h1 className="text-3xl font-bold text-slate-900">Catálogo de Productos</h1>
               <p className="text-slate-600">Gestiona colegiaturas, inscripciones, seguros, libros y otros productos</p>
             </div>
@@ -192,24 +192,24 @@ export default function CatalogoProductos() {
                 <DialogHeader>
                   <DialogTitle>Crear nuevo producto</DialogTitle>
                 </DialogHeader>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-                  <div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+              <div>
                     <Label>Código del producto</Label>
                     <Input placeholder="PROD-2025" />
                   </div>
-                  <div>
+              <div>
                     <Label>Nombre del producto</Label>
                     <Input placeholder="Nombre descriptivo" />
                   </div>
-                  <div className="md:col-span-2">
+              <div className="md:col-span-2">
                     <Label>Descripción</Label>
                     <Textarea placeholder="Descripción detallada del producto..." />
                   </div>
-                  <div>
+              <div>
                     <Label>Precio unitario (MXN)</Label>
                     <Input type="number" placeholder="5000" />
                   </div>
-                  <div>
+              <div>
                     <Label>Categoría</Label>
                     <Select>
                       <SelectTrigger>
@@ -224,7 +224,7 @@ export default function CatalogoProductos() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
+              <div>
                     <Label>Unidad de medida</Label>
                     <Select>
                       <SelectTrigger>
@@ -238,11 +238,11 @@ export default function CatalogoProductos() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
+              <div>
                     <Label>Clave SAT</Label>
                     <Input placeholder="80101500" />
                   </div>
-                  <div>
+              <div>
                     <Label>Sección académica</Label>
                     <Select>
                       <SelectTrigger>
@@ -257,12 +257,12 @@ export default function CatalogoProductos() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2">
                     <Switch id="active" defaultChecked />
                     <Label htmlFor="active">Producto activo</Label>
                   </div>
                 </div>
-                <div className="flex justify-end space-x-2">
+            <div className="flex justify-end space-x-2">
                   <Button variant="outline" onClick={() => setShowAddModal(false)}>
                     Cancelar
                   </Button>
@@ -275,32 +275,32 @@ export default function CatalogoProductos() {
           </div>
 
           {/* Estadísticas */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <Card>
               <CardContent className="p-4 text-center">
                 <Package className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.totalProductos}</div>
-                <div className="text-sm text-slate-600">Total productos</div>
+            <div className="text-2xl font-bold">{estadisticas.totalProductos}</div>
+            <div className="text-sm text-slate-600">Total productos</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <ShoppingCart className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.productosActivos}</div>
-                <div className="text-sm text-slate-600">Productos activos</div>
+            <div className="text-2xl font-bold">{estadisticas.productosActivos}</div>
+            <div className="text-sm text-slate-600">Productos activos</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <DollarSign className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.colegiaturas}</div>
-                <div className="text-sm text-slate-600">Colegiaturas</div>
+            <div className="text-2xl font-bold">{estadisticas.colegiaturas}</div>
+            <div className="text-sm text-slate-600">Colegiaturas</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold">{estadisticas.inscripciones}</div>
-                <div className="text-sm text-slate-600">Inscripciones</div>
+            <div className="text-2xl font-bold">{estadisticas.inscripciones}</div>
+            <div className="text-sm text-slate-600">Inscripciones</div>
               </CardContent>
             </Card>
           </div>
@@ -311,7 +311,7 @@ export default function CatalogoProductos() {
               <CardTitle>Filtros de productos</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-4">
+          <div className="flex gap-4">
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                   <SelectTrigger className="w-48">
                     <SelectValue />
@@ -338,15 +338,15 @@ export default function CatalogoProductos() {
               <CardTitle>Catálogo de productos ({filteredProductos.length})</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+          <div className="space-y-4">
                 {filteredProductos.map((producto) => (
-                  <div key={producto.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+              <div key={producto.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50">
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                         <Package className="w-6 h-6 text-blue-600" />
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-medium">{producto.nombre}</h3>
                           {getCategoryBadge(producto.categoria)}
                           <Badge variant="outline" className="text-xs">
@@ -354,21 +354,21 @@ export default function CatalogoProductos() {
                           </Badge>
                         </div>
                         <p className="text-sm text-slate-600">{producto.descripcion}</p>
-                        <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
+                    <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
                           <span>Código: {producto.codigo}</span>
                           <span>Unidad: {producto.unidad_medida}</span>
                           <span>Clave SAT: {producto.clave_sat}</span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="text-right">
-                        <div className="text-lg font-bold">${(producto.precio_unitario_centavos / 100).toLocaleString()}</div>
+                <div className="flex items-center space-x-3">
+                  <div className="text-right">
+                    <div className="text-lg font-bold">${(producto.precio_unitario_centavos / 100).toLocaleString()}</div>
                         <Badge variant={producto.activo ? "default" : "secondary"}>
                           {producto.activo ? "Activo" : "Inactivo"}
                         </Badge>
                       </div>
-                      <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2">
                         <Switch 
                           checked={producto.activo}
                           onCheckedChange={() => handleToggleActive(producto.id, producto.activo)}

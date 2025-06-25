@@ -64,7 +64,7 @@ export default function Login() {
       <div className="w-full max-w-md">
         {/* Logo and Brand */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-primary-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+      <div className="w-16 h-16 bg-primary-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <i className="fas fa-graduation-cap text-white text-2xl"></i>
           </div>
           <h1 className="text-3xl font-bold text-slate-900">EscuelaPay</h1>
@@ -86,7 +86,7 @@ export default function Login() {
               
               <TabsContent value="guardian" className="mt-6">
                 <form onSubmit={handleGuardianLogin} className="space-y-4">
-                  <div className="space-y-2">
+              <div className="space-y-2">
                     <Label htmlFor="guardian-email">Correo electrónico</Label>
                     <Input
                       id="guardian-email"
@@ -97,7 +97,7 @@ export default function Login() {
                       required
                     />
                   </div>
-                  <div className="space-y-2">
+              <div className="space-y-2">
                     <Label htmlFor="guardian-password">Contraseña</Label>
                     <Input
                       id="guardian-password"
@@ -114,8 +114,8 @@ export default function Login() {
                     disabled={isLoading}
                   >
                     {isLoading ? (
-                      <div className="flex items-center">
-                        <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                  <div className="flex items-center">
+                    <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
                         Iniciando sesión...
                       </div>
                     ) : (
@@ -125,7 +125,7 @@ export default function Login() {
                 </form>
                 
                 {/* Demo credentials hint */}
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <p className="text-xs text-blue-700 font-medium mb-1">Credenciales de demo:</p>
                   <p className="text-xs text-blue-600">Email: padre@demo.com</p>
                   <p className="text-xs text-blue-600">Contraseña: demo123</p>
@@ -134,7 +134,7 @@ export default function Login() {
               
               <TabsContent value="admin" className="mt-6">
                 <form onSubmit={handleAdminLogin} className="space-y-4">
-                  <div className="space-y-2">
+              <div className="space-y-2">
                     <Label htmlFor="admin-email">Correo electrónico</Label>
                     <Input
                       id="admin-email"
@@ -145,7 +145,7 @@ export default function Login() {
                       required
                     />
                   </div>
-                  <div className="space-y-2">
+              <div className="space-y-2">
                     <Label htmlFor="admin-password">Contraseña</Label>
                     <Input
                       id="admin-password"
@@ -162,8 +162,8 @@ export default function Login() {
                     disabled={isLoading}
                   >
                     {isLoading ? (
-                      <div className="flex items-center">
-                        <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                  <div className="flex items-center">
+                    <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
                         Iniciando sesión...
                       </div>
                     ) : (
@@ -173,7 +173,7 @@ export default function Login() {
                 </form>
                 
                 {/* Demo credentials hint */}
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <p className="text-xs text-blue-700 font-medium mb-1">Credenciales de demo:</p>
                   <p className="text-xs text-blue-600">Email: admin@demo.com</p>
                   <p className="text-xs text-blue-600">Contraseña: admin123</p>

@@ -65,8 +65,8 @@ export default function CajaConciliacion() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
                 <Label htmlFor="estudiante">Estudiante</Label>
                 <Select value={pagoForm.estudiante_id} onValueChange={(value) => setPagoForm({...pagoForm, estudiante_id: value})}>
                   <SelectTrigger>
@@ -80,7 +80,7 @@ export default function CajaConciliacion() {
                 </Select>
               </div>
 
-              <div>
+          <div>
                 <Label htmlFor="concepto">Concepto a pagar</Label>
                 <Select value={pagoForm.concepto_id} onValueChange={(value) => setPagoForm({...pagoForm, concepto_id: value})}>
                   <SelectTrigger>
@@ -94,7 +94,7 @@ export default function CajaConciliacion() {
                 </Select>
               </div>
 
-              <div>
+          <div>
                 <Label htmlFor="monto">Monto recibido (MXN)</Label>
                 <Input
                   id="monto"
@@ -105,7 +105,7 @@ export default function CajaConciliacion() {
                 />
               </div>
 
-              <div>
+          <div>
                 <Label htmlFor="recibido_por">Recibido por</Label>
                 <Input
                   id="recibido_por"
@@ -116,7 +116,7 @@ export default function CajaConciliacion() {
               </div>
             </div>
 
-            <div className="mt-4">
+        <div className="mt-4">
               <Label htmlFor="observaciones">Observaciones</Label>
               <textarea 
                 id="observaciones"
@@ -145,20 +145,20 @@ export default function CajaConciliacion() {
             <CardTitle>Pagos en efectivo del día</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+        <div className="space-y-3">
               {[
                 { hora: "09:30", estudiante: "Carlos Pérez", concepto: "Colegiatura Enero", monto: 500000, cajero: "Ana López" },
                 { hora: "10:15", estudiante: "María García", concepto: "Materiales", monto: 150000, cajero: "Ana López" },
                 { hora: "11:00", estudiante: "Luis Hernández", concepto: "Inscripción", monto: 300000, cajero: "Ana López" }
               ].map((pago, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded">
-                  <div>
-                    <div className="font-medium">{pago.estudiante}</div>
-                    <div className="text-sm text-slate-600">{pago.hora} • {pago.concepto}</div>
-                    <div className="text-xs text-slate-500">Cajero: {pago.cajero}</div>
+            <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded">
+              <div>
+                <div className="font-medium">{pago.estudiante}</div>
+                <div className="text-sm text-slate-600">{pago.hora} • {pago.concepto}</div>
+                <div className="text-xs text-slate-500">Cajero: {pago.cajero}</div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-semibold">${(pago.monto / 100).toLocaleString()}</div>
+              <div className="text-right">
+                <div className="font-semibold">${(pago.monto / 100).toLocaleString()}</div>
                     <Badge variant="secondary">Registrado</Badge>
                   </div>
                 </div>
@@ -205,8 +205,8 @@ export default function CajaConciliacion() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
                 <Label htmlFor="referencia">Referencia bancaria</Label>
                 <Input
                   id="referencia"
@@ -216,7 +216,7 @@ export default function CajaConciliacion() {
                 />
               </div>
 
-              <div>
+          <div>
                 <Label htmlFor="monto_banco">Monto transferido</Label>
                 <Input
                   id="monto_banco"
@@ -227,7 +227,7 @@ export default function CajaConciliacion() {
                 />
               </div>
 
-              <div>
+          <div>
                 <Label htmlFor="fecha_transferencia">Fecha de transferencia</Label>
                 <Input
                   id="fecha_transferencia"
@@ -237,7 +237,7 @@ export default function CajaConciliacion() {
                 />
               </div>
 
-              <div>
+          <div>
                 <Label htmlFor="estudiante_transferencia">Estudiante</Label>
                 <Select value={transferenciasForm.estudiante_id} onValueChange={(value) => setTransferenciasForm({...transferenciasForm, estudiante_id: value})}>
                   <SelectTrigger>
@@ -267,20 +267,20 @@ export default function CajaConciliacion() {
             <CardTitle>Movimientos bancarios recientes</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+        <div className="space-y-2">
               {[
                 { fecha: "2025-01-20", referencia: "REF001", monto: 500000, concepto: "Transferencia SPEI", estado: "Conciliado" },
                 { fecha: "2025-01-20", referencia: "REF002", monto: 150000, concepto: "Transferencia SPEI", estado: "Pendiente" },
                 { fecha: "2025-01-19", referencia: "REF003", monto: 300000, concepto: "Transferencia SPEI", estado: "Conciliado" }
               ].map((movimiento, index) => (
-                <div key={index} className="flex items-center justify-between p-3 border rounded">
-                  <div>
-                    <div className="font-medium">{movimiento.referencia}</div>
-                    <div className="text-sm text-slate-600">{movimiento.fecha} • {movimiento.concepto}</div>
+            <div key={index} className="flex items-center justify-between p-3 border rounded">
+              <div>
+                <div className="font-medium">{movimiento.referencia}</div>
+                <div className="text-sm text-slate-600">{movimiento.fecha} • {movimiento.concepto}</div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <div className="font-semibold">${(movimiento.monto / 100).toLocaleString()}</div>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <div className="font-semibold">${(movimiento.monto / 100).toLocaleString()}</div>
                     </div>
                     <Badge variant={movimiento.estado === "Conciliado" ? "default" : "secondary"}>
                       {movimiento.estado}
@@ -329,32 +329,32 @@ export default function CajaConciliacion() {
           <Card>
             <CardContent className="p-4 text-center">
               <DollarSign className="w-8 h-8 text-green-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold">${((estadisticasConciliacion?.ingresos_dia || 0) / 100).toLocaleString()}</div>
-              <div className="text-sm text-slate-600">Ingresos del día</div>
+          <div className="text-2xl font-bold">${((estadisticasConciliacion?.ingresos_dia || 0) / 100).toLocaleString()}</div>
+          <div className="text-sm text-slate-600">Ingresos del día</div>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="p-4 text-center">
               <CheckCircle className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold">{estadisticasConciliacion?.movimientos_conciliados || 0}</div>
-              <div className="text-sm text-slate-600">Conciliados</div>
+          <div className="text-2xl font-bold">{estadisticasConciliacion?.movimientos_conciliados || 0}</div>
+          <div className="text-sm text-slate-600">Conciliados</div>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="p-4 text-center">
               <Clock className="w-8 h-8 text-orange-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold">{estadisticasConciliacion?.movimientos_pendientes || 0}</div>
-              <div className="text-sm text-slate-600">Pendientes</div>
+          <div className="text-2xl font-bold">{estadisticasConciliacion?.movimientos_pendientes || 0}</div>
+          <div className="text-sm text-slate-600">Pendientes</div>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="p-4 text-center">
               <AlertTriangle className="w-8 h-8 text-red-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold">{estadisticasConciliacion?.diferencias || 0}</div>
-              <div className="text-sm text-slate-600">Diferencias</div>
+          <div className="text-2xl font-bold">{estadisticasConciliacion?.diferencias || 0}</div>
+          <div className="text-sm text-slate-600">Diferencias</div>
             </CardContent>
           </Card>
         </div>
@@ -373,7 +373,7 @@ export default function CajaConciliacion() {
               en el sistema para detectar diferencias y facilitar el cierre diario.
             </p>
             
-            <div className="flex gap-2">
+        <div className="flex gap-2">
               <Button 
                 onClick={() => ejecutarConciliacion.mutate()}
                 disabled={ejecutarConciliacion.isPending}
@@ -399,18 +399,18 @@ export default function CajaConciliacion() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div>
                 <Label>Efectivo en caja</Label>
                 <Input type="number" placeholder="Total efectivo" />
               </div>
-              <div>
+          <div>
                 <Label>Ingresos bancarios</Label>
                 <Input type="number" placeholder="Total transferencias" readOnly />
               </div>
             </div>
 
-            <div className="flex gap-2">
+        <div className="flex gap-2">
               <Button 
                 onClick={() => cerrarCaja.mutate({})}
                 disabled={cerrarCaja.isPending}

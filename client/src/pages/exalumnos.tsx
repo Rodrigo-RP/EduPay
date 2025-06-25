@@ -152,12 +152,12 @@ export default function ExAlumnos() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50">
-      <div className="flex-1 overflow-auto">
+    <div >
+      <div >
         
         <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
               <h1 className="text-3xl font-bold text-slate-900">Ex-Alumnos</h1>
               <p className="text-slate-600">Gestión de egresados y archivo de documentos académicos</p>
             </div>
@@ -172,24 +172,24 @@ export default function ExAlumnos() {
                 <DialogHeader>
                   <DialogTitle>Registrar ex-alumno</DialogTitle>
                 </DialogHeader>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-                  <div className="md:col-span-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+              <div className="md:col-span-2">
                     <Label>Nombre completo</Label>
                     <Input placeholder="Nombre completo del ex-alumno" />
                   </div>
-                  <div>
+              <div>
                     <Label>CURP</Label>
                     <Input placeholder="CURP del ex-alumno" />
                   </div>
-                  <div>
+              <div>
                     <Label>Fecha de nacimiento</Label>
                     <Input type="date" />
                   </div>
-                  <div>
+              <div>
                     <Label>Grado de egreso</Label>
                     <Input placeholder="3ro Bachillerato" />
                   </div>
-                  <div>
+              <div>
                     <Label>Sección académica</Label>
                     <Select>
                       <SelectTrigger>
@@ -203,36 +203,36 @@ export default function ExAlumnos() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
+              <div>
                     <Label>Ciclo de egreso</Label>
                     <Input placeholder="2023-2024" />
                   </div>
-                  <div>
+              <div>
                     <Label>Fecha de egreso</Label>
                     <Input type="date" />
                   </div>
-                  <div>
+              <div>
                     <Label>Correo electrónico</Label>
                     <Input type="email" placeholder="correo@ejemplo.com" />
                   </div>
-                  <div>
+              <div>
                     <Label>Teléfono</Label>
                     <Input placeholder="55-1234-5678" />
                   </div>
-                  <div>
+              <div>
                     <Label>Ocupación actual</Label>
                     <Input placeholder="Profesión o trabajo actual" />
                   </div>
-                  <div>
+              <div>
                     <Label>Empresa actual</Label>
                     <Input placeholder="Nombre de la empresa" />
                   </div>
-                  <div className="md:col-span-2">
+              <div className="md:col-span-2">
                     <Label>Dirección actual</Label>
                     <Input placeholder="Dirección completa actual" />
                   </div>
                 </div>
-                <div className="flex justify-end space-x-2">
+            <div className="flex justify-end space-x-2">
                   <Button variant="outline" onClick={() => setShowAddModal(false)}>
                     Cancelar
                   </Button>
@@ -245,31 +245,31 @@ export default function ExAlumnos() {
           </div>
 
           {/* Estadísticas */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <Card>
               <CardContent className="p-4 text-center">
                 <GraduationCap className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.totalExAlumnos}</div>
-                <div className="text-sm text-slate-600">Total ex-alumnos</div>
+            <div className="text-2xl font-bold">{estadisticas.totalExAlumnos}</div>
+            <div className="text-sm text-slate-600">Total ex-alumnos</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-purple-600">{estadisticas.egresadosBachillerato}</div>
-                <div className="text-sm text-slate-600">Egresados Bachillerato</div>
+            <div className="text-2xl font-bold text-purple-600">{estadisticas.egresadosBachillerato}</div>
+            <div className="text-sm text-slate-600">Egresados Bachillerato</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-green-600">{estadisticas.egresadosSecundaria}</div>
-                <div className="text-sm text-slate-600">Egresados Secundaria</div>
+            <div className="text-2xl font-bold text-green-600">{estadisticas.egresadosSecundaria}</div>
+            <div className="text-sm text-slate-600">Egresados Secundaria</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <FileText className="w-8 h-8 text-orange-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.documentosDigitales}</div>
-                <div className="text-sm text-slate-600">Documentos digitales</div>
+            <div className="text-2xl font-bold">{estadisticas.documentosDigitales}</div>
+            <div className="text-sm text-slate-600">Documentos digitales</div>
               </CardContent>
             </Card>
           </div>
@@ -287,10 +287,10 @@ export default function ExAlumnos() {
                   <CardTitle>Filtros y búsqueda</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
                       <Label htmlFor="search">Buscar ex-alumno</Label>
-                      <div className="relative">
+                  <div className="relative">
                         <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                         <Input
                           id="search"
@@ -301,7 +301,7 @@ export default function ExAlumnos() {
                         />
                       </div>
                     </div>
-                    <div>
+                <div>
                       <Label>Sección académica</Label>
                       <Select value={selectedSeccion} onValueChange={setSelectedSeccion}>
                         <SelectTrigger>
@@ -316,7 +316,7 @@ export default function ExAlumnos() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                <div>
                       <Label>Ciclo de egreso</Label>
                       <Select value={selectedCiclo} onValueChange={setSelectedCiclo}>
                         <SelectTrigger>
@@ -331,7 +331,7 @@ export default function ExAlumnos() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="flex items-end">
+                <div className="flex items-end">
                       <Button variant="outline" onClick={() => {
                         setSearchTerm("");
                         setSelectedSeccion("all");
@@ -349,17 +349,17 @@ export default function ExAlumnos() {
                   <CardTitle>Ex-alumnos registrados ({filteredExAlumnos.length})</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
+              <div className="space-y-4">
                     {filteredExAlumnos.map((alumno) => (
-                      <div key={alumno.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50">
-                        <div className="flex items-center space-x-4">
-                          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                  <div key={alumno.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                             <span className="text-blue-600 font-semibold">
                               {alumno.nombre_completo.split(' ').map(n => n[0]).join('').substring(0, 2)}
                             </span>
                           </div>
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
                               <h3 className="font-medium">{alumno.nombre_completo}</h3>
                               {getSeccionBadge(alumno.seccion_academica)}
                             </div>
@@ -367,7 +367,7 @@ export default function ExAlumnos() {
                             <p className="text-sm text-slate-500">
                               {alumno.ocupacion_actual} en {alumno.empresa_actual}
                             </p>
-                            <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
+                        <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
                               <span className="flex items-center gap-1">
                                 <Mail className="w-3 h-3" />
                                 {alumno.correo}
@@ -380,10 +380,10 @@ export default function ExAlumnos() {
                             </div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="flex flex-wrap gap-1 mb-2">
+                    <div className="text-right">
+                      <div className="flex flex-wrap gap-1 mb-2">
                             {alumno.documentos.slice(0, 2).map((doc, index) => (
-                              <div key={index}>
+                          <div key={index}>
                                 {getDocumentoBadge(doc.tipo)}
                               </div>
                             ))}
@@ -391,7 +391,7 @@ export default function ExAlumnos() {
                               <Badge variant="outline">+{alumno.documentos.length - 2}</Badge>
                             )}
                           </div>
-                          <div className="flex gap-1">
+                      <div className="flex gap-1">
                             <Button size="sm" variant="outline">
                               <Eye className="w-3 h-3" />
                             </Button>
@@ -416,8 +416,8 @@ export default function ExAlumnos() {
                   <CardTitle>Gestión de documentos académicos</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
                       <Label>Seleccionar ex-alumno</Label>
                       <Select>
                         <SelectTrigger>
@@ -432,7 +432,7 @@ export default function ExAlumnos() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                <div>
                       <Label>Tipo de documento</Label>
                       <Select>
                         <SelectTrigger>
@@ -446,23 +446,23 @@ export default function ExAlumnos() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                <div>
                       <Label>Grado/Período</Label>
                       <Input placeholder="1ro Primaria, 2024-2025, etc." />
                     </div>
-                    <div>
+                <div>
                       <Label>Fecha de emisión</Label>
                       <Input type="date" />
                     </div>
-                    <div className="md:col-span-2">
+                <div className="md:col-span-2">
                       <Label>Subir documento</Label>
-                      <div className="mt-2 border-2 border-dashed border-slate-300 rounded-lg p-6 text-center">
+                  <div className="mt-2 border-2 border-dashed border-slate-300 rounded-lg p-6 text-center">
                         <FileText className="w-8 h-8 text-slate-400 mx-auto mb-2" />
                         <p className="text-sm text-slate-500">Arrastra el archivo aquí o haz clic para seleccionar</p>
                         <p className="text-xs text-slate-400">PDF, DOC, JPG hasta 10MB</p>
                       </div>
                     </div>
-                    <div className="md:col-span-2">
+                <div className="md:col-span-2">
                       <Label>Observaciones</Label>
                       <textarea 
                         className="w-full p-2 border rounded"

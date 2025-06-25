@@ -60,12 +60,12 @@ export default function Reportes() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50">
-      <div className="flex-1 overflow-auto">
+    <div >
+      <div >
         
         <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
               <h1 className="text-3xl font-bold text-slate-900">Reportes y Análisis</h1>
               <p className="text-slate-600">Genera reportes financieros, de cobranza y análisis de desempeño</p>
             </div>
@@ -76,22 +76,22 @@ export default function Reportes() {
           </div>
 
           {/* KPIs del período */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <Card className="border-blue-200 bg-blue-50">
               <CardHeader>
                 <CardTitle className="text-lg text-blue-800">Resumen Financiero</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
+            <div className="space-y-3">
+              <div className="flex justify-between">
                     <span className="text-sm">Total facturado:</span>
                     <span className="font-semibold">${(kpisReporte.totalFacturado / 100).toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between">
+              <div className="flex justify-between">
                     <span className="text-sm">Total cobrado:</span>
                     <span className="font-semibold text-green-600">${(kpisReporte.totalCobrado / 100).toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between">
+              <div className="flex justify-between">
                     <span className="text-sm">Tasa de cobranza:</span>
                     <span className="font-semibold">{kpisReporte.tasaCobranza}%</span>
                   </div>
@@ -104,16 +104,16 @@ export default function Reportes() {
                 <CardTitle className="text-lg text-orange-800">Morosidad</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
+            <div className="space-y-3">
+              <div className="flex justify-between">
                     <span className="text-sm">Cargos vencidos:</span>
                     <span className="font-semibold text-red-600">{kpisReporte.cargosVencidos}</span>
                   </div>
-                  <div className="flex justify-between">
+              <div className="flex justify-between">
                     <span className="text-sm">Tasa de morosidad:</span>
                     <span className="font-semibold">{100 - kpisReporte.tasaCobranza}%</span>
                   </div>
-                  <div className="flex justify-between">
+              <div className="flex justify-between">
                     <span className="text-sm">Promedio días pago:</span>
                     <span className="font-semibold">{kpisReporte.promedioTiempoPago} días</span>
                   </div>
@@ -126,11 +126,11 @@ export default function Reportes() {
                 <CardTitle className="text-lg text-green-800">Meta EscuelaPay</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-green-600 mb-1">80%</div>
-                  <div className="text-sm text-green-700 mb-2">Meta pagos antes vencimiento</div>
-                  <div className="text-xl font-bold text-blue-600">{kpisReporte.tasaCobranza}%</div>
-                  <div className="text-xs text-slate-500">Actual</div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-green-600 mb-1">80%</div>
+              <div className="text-sm text-green-700 mb-2">Meta pagos antes vencimiento</div>
+              <div className="text-xl font-bold text-blue-600">{kpisReporte.tasaCobranza}%</div>
+              <div className="text-xs text-slate-500">Actual</div>
                 </div>
               </CardContent>
             </Card>
@@ -150,17 +150,17 @@ export default function Reportes() {
                   <CardTitle>Reportes disponibles para descarga</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
+              <div className="space-y-4">
                     {reportesDisponibles.map((reporte) => (
-                      <div key={reporte.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50">
-                        <div className="flex items-center space-x-4">
-                          <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <div key={reporte.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                             <FileText className="w-6 h-6 text-blue-600" />
                           </div>
-                          <div>
+                      <div>
                             <h3 className="font-medium">{reporte.nombre}</h3>
                             <p className="text-sm text-slate-600">{reporte.descripcion}</p>
-                            <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
+                        <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
                               <span>Generado: {reporte.fecha_generacion}</span>
                               <span>Formato: {reporte.formato}</span>
                               <span>Tamaño: {reporte.tamaño}</span>
@@ -179,7 +179,7 @@ export default function Reportes() {
             </TabsContent>
 
             <TabsContent value="financieros">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -188,8 +188,8 @@ export default function Reportes() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      <div>
+                <div className="space-y-4">
+                  <div>
                         <Label>Período</Label>
                         <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
                           <SelectTrigger>
@@ -203,7 +203,7 @@ export default function Reportes() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="space-y-2">
+                  <div className="space-y-2">
                         <Button className="w-full" variant="outline">
                           <BarChart3 className="w-4 h-4 mr-2" />
                           Reporte de Ingresos por Concepto
@@ -229,8 +229,8 @@ export default function Reportes() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      <div>
+                <div className="space-y-4">
+                  <div>
                         <Label>Tipo de reporte fiscal</Label>
                         <Select defaultValue="cfdi">
                           <SelectTrigger>
@@ -244,7 +244,7 @@ export default function Reportes() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="space-y-2">
+                  <div className="space-y-2">
                         <Button className="w-full bg-blue-600 hover:bg-blue-700">
                           Generar Reporte CFDI
                         </Button>
@@ -262,13 +262,13 @@ export default function Reportes() {
             </TabsContent>
 
             <TabsContent value="operativos">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>
                     <CardTitle>Reportes de Cobranza</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3">
+                <div className="space-y-3">
                       <Button className="w-full" variant="outline">
                         Reporte de Morosidad Detallado
                       </Button>
@@ -290,7 +290,7 @@ export default function Reportes() {
                     <CardTitle>Reportes Académicos</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3">
+                <div className="space-y-3">
                       <Button className="w-full" variant="outline">
                         Listado de Estudiantes por Status
                       </Button>
@@ -315,12 +315,12 @@ export default function Reportes() {
                   <CardTitle>Crear reporte personalizado</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
                       <Label>Nombre del reporte</Label>
                       <Input placeholder="Mi reporte personalizado" />
                     </div>
-                    <div>
+                <div>
                       <Label>Formato de salida</Label>
                       <Select defaultValue="excel">
                         <SelectTrigger>
@@ -333,14 +333,14 @@ export default function Reportes() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                <div>
                       <Label>Rango de fechas</Label>
-                      <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                         <Input type="date" />
                         <Input type="date" />
                       </div>
                     </div>
-                    <div>
+                <div>
                       <Label>Filtros</Label>
                       <Select>
                         <SelectTrigger>
@@ -355,9 +355,9 @@ export default function Reportes() {
                       </Select>
                     </div>
                   </div>
-                  <div className="mt-6">
+              <div className="mt-6">
                     <Label>Campos a incluir</Label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
                       <label className="flex items-center space-x-2">
                         <input type="checkbox" defaultChecked />
                         <span className="text-sm">Estudiante</span>

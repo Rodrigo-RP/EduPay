@@ -180,8 +180,8 @@ export default function ConfiguracionInicial() {
         </div>
 
         {importMethod === "csv" ? (
-          <div className="space-y-4">
-            <div>
+      <div className="space-y-4">
+        <div>
               <Label>Archivo de alumnos</Label>
               <Input type="file" accept=".csv,.xlsx" />
               <p className="text-sm text-gray-600 mt-1">
@@ -193,7 +193,7 @@ export default function ConfiguracionInicial() {
             </Button>
           </div>
         ) : (
-          <div className="text-center py-8">
+      <div className="text-center py-8">
             <p className="text-gray-600 mb-4">
               Para el onboarding rápido, recomendamos usar la importación masiva CSV.
             </p>
@@ -220,12 +220,12 @@ export default function ConfiguracionInicial() {
         {conceptos.map((concepto, index) => (
           <Card key={index}>
             <CardContent className="p-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
                   <Label>Nombre del concepto</Label>
                   <Input value={concepto.nombre} readOnly />
                 </div>
-                <div>
+            <div>
                   <Label>Monto (MXN)</Label>
                   <Input 
                     type="number" 
@@ -262,7 +262,7 @@ export default function ConfiguracionInicial() {
       <div className="space-y-4">
         <h3 className="font-semibold">Configuración de calendario de pagos</h3>
         <div className="grid grid-cols-2 gap-4">
-          <div>
+      <div>
             <Label>Día de corte mensual</Label>
             <Input 
               type="number" 
@@ -271,7 +271,7 @@ export default function ConfiguracionInicial() {
               min="1" max="28"
             />
           </div>
-          <div>
+      <div>
             <Label>Día de vencimiento</Label>
             <Input 
               type="number" 
@@ -280,7 +280,7 @@ export default function ConfiguracionInicial() {
               min="1" max="28"
             />
           </div>
-          <div>
+      <div>
             <Label>Descuento por pronto pago (%)</Label>
             <Input 
               type="number" 
@@ -289,7 +289,7 @@ export default function ConfiguracionInicial() {
               min="0" max="50"
             />
           </div>
-          <div>
+      <div>
             <Label>Días para pronto pago</Label>
             <Input 
               type="number" 
@@ -337,10 +337,10 @@ export default function ConfiguracionInicial() {
         {becas.map((beca, index) => (
           <Card key={index}>
             <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
                   <Input value={beca.nombre} readOnly className="mb-2" />
-                  <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
                     <Label>Porcentaje:</Label>
                     <Input 
                       type="number" 
@@ -395,15 +395,15 @@ export default function ConfiguracionInicial() {
 
         {/* Progress Steps */}
         <div className="mb-8">
-          <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between">
             {steps.map((step, index) => {
               const Icon = step.icon;
               const isActive = index === currentStep;
               const isCompleted = index < currentStep;
               
               return (
-                <div key={step.id} className="flex flex-col items-center">
-                  <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center mb-2 ${
+            <div key={step.id} className="flex flex-col items-center">
+              <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center mb-2 ${
                     isCompleted ? 'bg-green-500 border-green-500 text-white' :
                     isActive ? 'bg-blue-500 border-blue-500 text-white' :
                     'bg-white border-gray-300 text-gray-400'

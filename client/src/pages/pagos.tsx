@@ -124,16 +124,16 @@ export default function Pagos() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50">
-      <div className="flex-1 overflow-auto">
+    <div >
+      <div >
         
         <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
               <h1 className="text-3xl font-bold text-slate-900">Gestión de Pagos</h1>
               <p className="text-slate-600">Administra pagos recibidos, métodos y conciliación</p>
             </div>
-            <div className="flex gap-2">
+        <div className="flex gap-2">
               <Button className="bg-green-600 hover:bg-green-700">
                 <Banknote className="w-4 h-4 mr-2" />
                 Registrar Pago Efectivo
@@ -146,39 +146,39 @@ export default function Pagos() {
           </div>
 
           {/* Estadísticas */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
             <Card>
               <CardContent className="p-4 text-center">
                 <Receipt className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.totalPagos}</div>
-                <div className="text-sm text-slate-600">Total pagos</div>
+            <div className="text-2xl font-bold">{estadisticas.totalPagos}</div>
+            <div className="text-sm text-slate-600">Total pagos</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <DollarSign className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">${(estadisticas.montoTotal / 100).toLocaleString()}</div>
-                <div className="text-sm text-slate-600">Monto total</div>
+            <div className="text-2xl font-bold">${(estadisticas.montoTotal / 100).toLocaleString()}</div>
+            <div className="text-sm text-slate-600">Monto total</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <CreditCard className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.pagosTarjeta}</div>
-                <div className="text-sm text-slate-600">Pagos tarjeta</div>
+            <div className="text-2xl font-bold">{estadisticas.pagosTarjeta}</div>
+            <div className="text-sm text-slate-600">Pagos tarjeta</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <Banknote className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.pagosEfectivo}</div>
-                <div className="text-sm text-slate-600">Pagos efectivo</div>
+            <div className="text-2xl font-bold">{estadisticas.pagosEfectivo}</div>
+            <div className="text-sm text-slate-600">Pagos efectivo</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold">${(estadisticas.promedioPago / 100).toLocaleString()}</div>
-                <div className="text-sm text-slate-600">Promedio por pago</div>
+            <div className="text-2xl font-bold">${(estadisticas.promedioPago / 100).toLocaleString()}</div>
+            <div className="text-sm text-slate-600">Promedio por pago</div>
               </CardContent>
             </Card>
           </div>
@@ -193,9 +193,9 @@ export default function Pagos() {
             <TabsContent value="lista">
               <Card>
                 <CardHeader>
-                  <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between">
                     <CardTitle>Historial de pagos</CardTitle>
-                    <div className="flex gap-4">
+                <div className="flex gap-4">
                       <Select value={selectedMethod} onValueChange={setSelectedMethod}>
                         <SelectTrigger className="w-40">
                           <SelectValue placeholder="Método" />
@@ -224,12 +224,12 @@ export default function Pagos() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
+              <div className="space-y-4">
                     {filteredPagos.map((pago) => (
-                      <div key={pago.id} className="p-4 border rounded-lg hover:bg-slate-50">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
+                  <div key={pago.id} className="p-4 border rounded-lg hover:bg-slate-50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
                               <h3 className="font-medium">{pago.estudiante}</h3>
                               {getMetodoBadge(pago.metodo)}
                               <Badge variant="outline" className="text-xs">
@@ -237,20 +237,20 @@ export default function Pagos() {
                               </Badge>
                             </div>
                             <p className="text-sm text-slate-600">{pago.concepto}</p>
-                            <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
+                        <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
                               <span>Fecha: {pago.fecha}</span>
                               <span>Ref: {pago.referencia}</span>
                               <span>CFDI: {pago.cfdi}</span>
                             </div>
                           </div>
-                          <div className="flex items-center gap-4">
-                            <div className="text-right">
-                              <div className="text-lg font-bold">${(pago.monto / 100).toLocaleString()}</div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <div className="text-lg font-bold">${(pago.monto / 100).toLocaleString()}</div>
                               <Badge className="bg-green-100 text-green-800">
                                 {pago.estado}
                               </Badge>
                             </div>
-                            <div className="flex gap-1">
+                        <div className="flex gap-1">
                               <Button size="sm" variant="outline">
                                 <Eye className="w-4 h-4" />
                               </Button>
@@ -273,8 +273,8 @@ export default function Pagos() {
                   <CardTitle>Registrar pago en efectivo</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
                       <Label>Estudiante</Label>
                       <Select>
                         <SelectTrigger>
@@ -287,7 +287,7 @@ export default function Pagos() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                <div>
                       <Label>Concepto a pagar</Label>
                       <Select>
                         <SelectTrigger>
@@ -300,16 +300,16 @@ export default function Pagos() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                <div>
                       <Label>Monto recibido (MXN)</Label>
                       <Input type="number" placeholder="5000" />
                     </div>
-                    <div>
+                <div>
                       <Label>Recibido por</Label>
                       <Input placeholder="Nombre del cajero" />
                     </div>
                   </div>
-                  <div className="mt-4">
+              <div className="mt-4">
                     <Label>Observaciones</Label>
                     <textarea 
                       className="w-full p-2 border rounded"
@@ -331,22 +331,22 @@ export default function Pagos() {
                   <CardTitle>Conciliación bancaria</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-green-600">15</div>
-                        <div className="text-sm text-slate-600">Movimientos conciliados</div>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">15</div>
+                    <div className="text-sm text-slate-600">Movimientos conciliados</div>
                       </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-orange-600">3</div>
-                        <div className="text-sm text-slate-600">Pendientes de conciliar</div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-orange-600">3</div>
+                    <div className="text-sm text-slate-600">Pendientes de conciliar</div>
                       </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-red-600">1</div>
-                        <div className="text-sm text-slate-600">Diferencias encontradas</div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-red-600">1</div>
+                    <div className="text-sm text-slate-600">Diferencias encontradas</div>
                       </div>
                     </div>
-                    <div className="flex gap-4">
+                <div className="flex gap-4">
                       <Button className="bg-blue-600 hover:bg-blue-700">
                         Ejecutar conciliación automática
                       </Button>

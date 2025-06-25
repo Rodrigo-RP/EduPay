@@ -288,16 +288,13 @@ export default function CuentasPorCobrar() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50">
-      <div className="flex-1 overflow-auto">
-        
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
               <h1 className="text-3xl font-bold text-slate-900">Cuentas por Cobrar</h1>
               <p className="text-slate-600">Gestión de cartera vencida y seguimiento de cobranza</p>
             </div>
-            <div className="flex gap-2">
+        <div className="flex gap-2">
               <Button className="bg-orange-600 hover:bg-orange-700">
                 <Phone className="w-4 h-4 mr-2" />
                 Iniciar Cobranza
@@ -312,35 +309,35 @@ export default function CuentasPorCobrar() {
           {/* KPIs de cobranza compactos */}
           <Card className="mb-6">
             <CardContent className="p-4">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                <div className="text-center">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="text-center">
                   <Users className="w-5 h-5 text-blue-600 mx-auto mb-1" />
-                  <div className="text-lg font-bold">{estadisticas.totalCuentas}</div>
-                  <div className="text-xs text-slate-600">Total</div>
+              <div className="text-lg font-bold">{estadisticas.totalCuentas}</div>
+              <div className="text-xs text-slate-600">Total</div>
                 </div>
-                <div className="text-center">
+            <div className="text-center">
                   <DollarSign className="w-5 h-5 text-green-600 mx-auto mb-1" />
-                  <div className="text-lg font-bold">${(estadisticas.montoPendienteTotal / 100000).toFixed(0)}K</div>
-                  <div className="text-xs text-slate-600">Por cobrar</div>
+              <div className="text-lg font-bold">${(estadisticas.montoPendienteTotal / 100000).toFixed(0)}K</div>
+              <div className="text-xs text-slate-600">Por cobrar</div>
                 </div>
-                <div className="text-center">
+            <div className="text-center">
                   <Clock className="w-5 h-5 text-yellow-600 mx-auto mb-1" />
-                  <div className="text-lg font-bold">{estadisticas.cuentasVencidas}</div>
-                  <div className="text-xs text-slate-600">Vencidas</div>
+              <div className="text-lg font-bold">{estadisticas.cuentasVencidas}</div>
+              <div className="text-xs text-slate-600">Vencidas</div>
                 </div>
-                <div className="text-center">
+            <div className="text-center">
                   <AlertTriangle className="w-5 h-5 text-red-600 mx-auto mb-1" />
-                  <div className="text-lg font-bold">{estadisticas.cuentasMorosas}</div>
-                  <div className="text-xs text-slate-600">Morosas</div>
+              <div className="text-lg font-bold">{estadisticas.cuentasMorosas}</div>
+              <div className="text-xs text-slate-600">Morosas</div>
                 </div>
-                <div className="text-center">
+            <div className="text-center">
                   <Ban className="w-5 h-5 text-red-800 mx-auto mb-1" />
-                  <div className="text-lg font-bold">{estadisticas.cuentasDeshabilitadas}</div>
-                  <div className="text-xs text-slate-600">Deshabilitadas</div>
+              <div className="text-lg font-bold">{estadisticas.cuentasDeshabilitadas}</div>
+              <div className="text-xs text-slate-600">Deshabilitadas</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold">{estadisticas.promedioTiempoVencimiento.toFixed(0)}</div>
-                  <div className="text-xs text-slate-600">Días prom.</div>
+            <div className="text-center">
+              <div className="text-lg font-bold">{estadisticas.promedioTiempoVencimiento.toFixed(0)}</div>
+              <div className="text-xs text-slate-600">Días prom.</div>
                 </div>
               </div>
             </CardContent>
@@ -363,9 +360,9 @@ export default function CuentasPorCobrar() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
-                    <div>
-                      <div className="relative">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
+                <div>
+                  <div className="relative">
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                         <Input
                           placeholder="Buscar estudiante..."
@@ -375,7 +372,7 @@ export default function CuentasPorCobrar() {
                         />
                       </div>
                     </div>
-                    <div>
+                <div>
                       <Input
                         placeholder="Buscar concepto..."
                         value={selectedConcepto === "all" ? "" : selectedConcepto}
@@ -383,7 +380,7 @@ export default function CuentasPorCobrar() {
                         className="h-9"
                       />
                     </div>
-                    <div>
+                <div>
                       <Select value={selectedNivel} onValueChange={setSelectedNivel}>
                         <SelectTrigger className="h-9">
                           <SelectValue placeholder="Nivel escolar" />
@@ -397,7 +394,7 @@ export default function CuentasPorCobrar() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                <div>
                       <Select value={selectedEstado} onValueChange={setSelectedEstado}>
                         <SelectTrigger className="h-9">
                           <SelectValue placeholder="Estado" />
@@ -412,7 +409,7 @@ export default function CuentasPorCobrar() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                <div>
                       <Button 
                         variant="outline" 
                         size="sm"
@@ -431,8 +428,8 @@ export default function CuentasPorCobrar() {
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
                       <Input
                         type="date"
                         value={fechaInicio}
@@ -441,7 +438,7 @@ export default function CuentasPorCobrar() {
                         placeholder="Fecha desde"
                       />
                     </div>
-                    <div>
+                <div>
                       <Input
                         type="date"
                         value={fechaFin}
@@ -459,7 +456,7 @@ export default function CuentasPorCobrar() {
                   <CardTitle className="text-lg">Cuentas por cobrar ({filteredCuentas.length})</CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <div className="overflow-x-auto">
+              <div className="overflow-x-auto">
                     <table className="w-full border-collapse text-sm">
                       <thead>
                         <tr className="border-b bg-slate-50">
@@ -478,18 +475,18 @@ export default function CuentasPorCobrar() {
                         {filteredCuentas.map((cuenta) => (
                           <tr key={cuenta.id} className={`border-b hover:bg-slate-50 ${getPrioridadColor(cuenta.dias_vencido, cuenta.estado_cobranza, cuenta.cuenta_habilitada)}`}>
                             <td className="p-2">
-                              <div>
-                                <div className="font-medium text-sm">{cuenta.estudiante}</div>
-                                <div className="text-xs text-slate-500">{cuenta.grado}</div>
-                                <div className="text-xs text-slate-500">{cuenta.responsable}</div>
+                          <div>
+                            <div className="font-medium text-sm">{cuenta.estudiante}</div>
+                            <div className="text-xs text-slate-500">{cuenta.grado}</div>
+                            <div className="text-xs text-slate-500">{cuenta.responsable}</div>
                               </div>
                             </td>
                             <td className="p-2">
-                              <div>
-                                <div className="font-medium text-sm">{cuenta.concepto}</div>
-                                <div className="text-xs text-slate-500">Vence: {cuenta.fecha_vencimiento}</div>
+                          <div>
+                            <div className="font-medium text-sm">{cuenta.concepto}</div>
+                            <div className="text-xs text-slate-500">Vence: {cuenta.fecha_vencimiento}</div>
                                 {cuenta.fecha_compromiso && (
-                                  <div className="text-xs text-blue-600">Compromiso: {cuenta.fecha_compromiso}</div>
+                              <div className="text-xs text-blue-600">Compromiso: {cuenta.fecha_compromiso}</div>
                                 )}
                               </div>
                             </td>
@@ -512,7 +509,7 @@ export default function CuentasPorCobrar() {
                               {getEstadoBadge(cuenta.estado_cobranza, cuenta.dias_vencido, cuenta.cuenta_habilitada)}
                             </td>
                             <td className="p-2 text-center">
-                              <div className="flex gap-1 justify-center">
+                          <div className="flex gap-1 justify-center">
                                 <Button size="sm" variant="outline" className="h-7 w-7 p-0" title="Llamar">
                                   <Phone className="w-3 h-3" />
                                 </Button>
@@ -545,8 +542,8 @@ export default function CuentasPorCobrar() {
                   <CardTitle>Programar seguimiento de cobranza</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
                       <Label>Seleccionar cuenta</Label>
                       <Select>
                         <SelectTrigger>
@@ -555,13 +552,13 @@ export default function CuentasPorCobrar() {
                         <SelectContent>
                           {cuentasPorCobrar.filter(c => c.estado_cobranza !== "CORRIENTE").map(cuenta => (
                             <SelectItem key={cuenta.id} value={cuenta.id.toString()}>
-                              {cuenta.estudiante} - ${(cuenta.monto_pendiente_centavos / 100).toLocaleString()}
+                              {cuenta.estudiante} - ${(cuenta.monto_inicial_centavos / 100).toLocaleString()}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                <div>
                       <Label>Tipo de seguimiento</Label>
                       <Select>
                         <SelectTrigger>
@@ -575,15 +572,15 @@ export default function CuentasPorCobrar() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                <div>
                       <Label>Fecha programada</Label>
                       <Input type="date" />
                     </div>
-                    <div>
+                <div>
                       <Label>Responsable del seguimiento</Label>
                       <Input placeholder="Nombre del responsable" />
                     </div>
-                    <div className="md:col-span-2">
+                <div className="md:col-span-2">
                       <Label>Observaciones</Label>
                       <textarea 
                         className="w-full p-2 border rounded"
@@ -600,31 +597,31 @@ export default function CuentasPorCobrar() {
             </TabsContent>
 
             <TabsContent value="reportes" className="space-y-4">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg">Reporte de antigüedad de saldos</CardTitle>
                   </CardHeader>
                   <CardContent className="pt-0">
-                    <div className="space-y-3 text-sm">
-                      <div className="flex justify-between">
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
                         <span>Corriente (0 días):</span>
                         <span className="font-semibold">$5,600</span>
                       </div>
-                      <div className="flex justify-between">
+                  <div className="flex justify-between">
                         <span>1-30 días vencido:</span>
                         <span className="font-semibold text-yellow-600">$8,000</span>
                       </div>
-                      <div className="flex justify-between">
+                  <div className="flex justify-between">
                         <span>31-60 días vencido:</span>
                         <span className="font-semibold text-orange-600">$3,800</span>
                       </div>
-                      <div className="flex justify-between">
+                  <div className="flex justify-between">
                         <span>Más de 60 días:</span>
                         <span className="font-semibold text-red-600">$2,600</span>
                       </div>
                       <hr />
-                      <div className="flex justify-between font-bold">
+                  <div className="flex justify-between font-bold">
                         <span>Total cartera:</span>
                         <span>$20,000</span>
                       </div>
@@ -637,7 +634,7 @@ export default function CuentasPorCobrar() {
                     <CardTitle className="text-lg">Acciones recomendadas</CardTitle>
                   </CardHeader>
                   <CardContent className="pt-0">
-                    <div className="space-y-2">
+                <div className="space-y-2">
                       <Button className="w-full h-9 bg-orange-600 hover:bg-orange-700">
                         Generar reporte de morosidad
                       </Button>
@@ -663,24 +660,24 @@ export default function CuentasPorCobrar() {
               <DialogHeader>
                 <DialogTitle className="text-lg">Fecha de pago compromiso</DialogTitle>
               </DialogHeader>
-              <div className="py-4">
+          <div className="py-4">
                 {selectedCuenta && (
-                  <div className="space-y-4">
-                    <div className="p-3 bg-slate-50 rounded">
-                      <div className="font-medium text-sm">{selectedCuenta.estudiante}</div>
-                      <div className="text-sm text-slate-600">{selectedCuenta.concepto}</div>
-                      <div className="text-sm text-red-600">
+              <div className="space-y-4">
+                <div className="p-3 bg-slate-50 rounded">
+                  <div className="font-medium text-sm">{selectedCuenta.estudiante}</div>
+                  <div className="text-sm text-slate-600">{selectedCuenta.concepto}</div>
+                  <div className="text-sm text-red-600">
                         Pendiente: ${(selectedCuenta.pendiente_pagar_centavos / 100).toLocaleString()}
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
                         <Label className="text-sm">Fecha compromiso de pago</Label>
                         <Input type="date" defaultValue={selectedCuenta.fecha_compromiso || ""} className="h-9" />
                       </div>
                       
-                      <div>
+                  <div>
                         <Label className="text-sm">Nuevo monto (opcional)</Label>
                         <Input 
                           type="number" 
@@ -690,18 +687,18 @@ export default function CuentasPorCobrar() {
                       </div>
                     </div>
                     
-                    <div>
+                <div>
                       <Label className="text-sm">Descuento adicional (opcional)</Label>
                       <Input type="number" placeholder="0" className="h-9" />
                     </div>
                     
-                    <div>
+                <div>
                       <Label className="text-sm">Observaciones</Label>
                       <Textarea placeholder="Observaciones sobre el acuerdo de pago..." className="h-20" />
                     </div>
                     
-                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
-                      <div className="text-xs text-yellow-800">
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                  <div className="text-xs text-yellow-800">
                         <strong>Advertencia:</strong> Si no cumple la fecha compromiso, 
                         la cuenta será deshabilitada automáticamente.
                       </div>
@@ -709,7 +706,7 @@ export default function CuentasPorCobrar() {
                   </div>
                 )}
               </div>
-              <div className="flex justify-end space-x-2">
+          <div className="flex justify-end space-x-2">
                 <Button variant="outline" size="sm" onClick={() => setShowCompromiseModal(false)}>
                   Cancelar
                 </Button>

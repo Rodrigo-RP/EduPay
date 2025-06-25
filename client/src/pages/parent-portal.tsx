@@ -133,13 +133,13 @@ export default function ParentPortal() {
       {/* Student Selector */}
       {dashboardData.students.length > 1 && (
         <div className="px-4 py-3 bg-white border-b border-slate-100">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+      <div className="flex items-center space-x-3">
+        <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
               <span className="text-primary-600 font-semibold text-sm">
                 {currentStudent?.nombre_completo.split(' ').map(n => n[0]).join('').substring(0, 2)}
               </span>
             </div>
-            <div className="flex-1">
+        <div className="flex-1">
               <p className="font-medium text-slate-900">{currentStudent?.nombre_completo}</p>
               <p className="text-sm text-slate-500">{currentStudent?.grado} - {currentStudent?.grupo}</p>
             </div>
@@ -162,16 +162,16 @@ export default function ParentPortal() {
       <div className="p-4">
         <Card className="shadow-sm border border-slate-200">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-slate-900">Estado de Cuenta</h2>
               <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full font-medium">
                 {studentCharges.length} pendiente{studentCharges.length !== 1 ? 's' : ''}
               </span>
             </div>
             
-            <div className="space-y-3">
-              <div className="bg-slate-50 rounded-lg p-3">
-                <div className="flex justify-between items-center">
+        <div className="space-y-3">
+          <div className="bg-slate-50 rounded-lg p-3">
+            <div className="flex justify-between items-center">
                   <span className="text-sm text-slate-600">Saldo pendiente</span>
                   <span className="text-xl font-bold text-slate-900">
                     {formatCurrency(studentCharges.reduce((sum, charge) => sum + charge.total_amount_centavos, 0))}
@@ -179,7 +179,7 @@ export default function ParentPortal() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
                 <Button 
                   className="bg-primary-600 text-white hover:bg-primary-700 p-3"
                   onClick={handlePayNow}
@@ -220,8 +220,8 @@ export default function ParentPortal() {
             return (
               <Card key={charge.id} className="shadow-sm border border-slate-200 mb-3">
                 <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex-1">
                       <h4 className="font-semibold text-slate-900">{charge.concept.nombre}</h4>
                       <p className="text-sm text-slate-500">
                         Vence: {formatDate(charge.fecha_vencimiento)}
@@ -232,8 +232,8 @@ export default function ParentPortal() {
                     </span>
                   </div>
                   
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-right">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-right">
                       {hasDiscount && (
                         <p className="text-sm text-slate-500 line-through">
                           {formatCurrency(charge.monto_base_centavos)}
@@ -267,11 +267,11 @@ export default function ParentPortal() {
           <CardContent className="p-4">
             <h4 className="font-semibold text-slate-900 mb-3">Métodos de Pago</h4>
             
-            <div className="space-y-2">
+        <div className="space-y-2">
               {dashboardData.paymentMethods.map((method) => (
-                <div key={method.id} className="flex items-center p-3 border border-slate-200 rounded-lg">
+            <div key={method.id} className="flex items-center p-3 border border-slate-200 rounded-lg">
                   <i className="fas fa-credit-card text-slate-400 mr-3"></i>
-                  <div className="flex-1">
+              <div className="flex-1">
                     <p className="font-medium text-slate-900">•••• •••• •••• {method.last4}</p>
                     <p className="text-sm text-slate-500">
                       {method.tipo.charAt(0).toUpperCase() + method.tipo.slice(1)} terminada en {method.last4}

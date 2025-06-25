@@ -94,7 +94,7 @@ export default function Checkout({ charge, paymentMethods = [], onClose, onSucce
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto">
         <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between">
             <CardTitle className="text-lg font-semibold text-slate-900">
               Confirmar Pago
             </CardTitle>
@@ -112,16 +112,16 @@ export default function Checkout({ charge, paymentMethods = [], onClose, onSucce
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Payment Details */}
-            <div className="bg-slate-50 rounded-lg p-4 space-y-2">
-              <div className="flex justify-between items-center">
+        <div className="bg-slate-50 rounded-lg p-4 space-y-2">
+          <div className="flex justify-between items-center">
                 <span className="text-sm text-slate-600">Concepto:</span>
                 <span className="font-medium text-slate-900">{charge.concept.nombre}</span>
               </div>
-              <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center">
                 <span className="text-sm text-slate-600">Estudiante:</span>
                 <span className="font-medium text-slate-900">{charge.student.nombre_completo}</span>
               </div>
-              <div className="flex justify-between items-center pt-2 border-t border-slate-200">
+          <div className="flex justify-between items-center pt-2 border-t border-slate-200">
                 <span className="text-sm text-slate-600">Total a pagar:</span>
                 <span className="text-xl font-bold text-primary-600">
                   {formatCurrency(charge.total_amount_centavos)}
@@ -130,17 +130,17 @@ export default function Checkout({ charge, paymentMethods = [], onClose, onSucce
             </div>
 
             {/* Payment Method Selection */}
-            <div>
+        <div>
               <Label className="text-sm font-medium text-slate-900 mb-3 block">
                 Método de pago
               </Label>
               <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
                 {paymentMethods.length > 0 && (
-                  <div className="flex items-center space-x-3 p-3 border border-slate-200 rounded-lg">
+              <div className="flex items-center space-x-3 p-3 border border-slate-200 rounded-lg">
                     <RadioGroupItem value="saved-card" id="saved-card" />
                     <Label htmlFor="saved-card" className="flex items-center flex-1 cursor-pointer">
                       <i className="fas fa-credit-card text-slate-400 mr-3"></i>
-                      <div>
+                  <div>
                         <p className="font-medium text-slate-900">•••• •••• •••• {paymentMethods[0]?.last4}</p>
                         <p className="text-sm text-slate-500">
                           {paymentMethods[0]?.tipo.charAt(0).toUpperCase() + paymentMethods[0]?.tipo.slice(1)} terminada en {paymentMethods[0]?.last4}
@@ -150,7 +150,7 @@ export default function Checkout({ charge, paymentMethods = [], onClose, onSucce
                   </div>
                 )}
                 
-                <div className="flex items-center space-x-3 p-3 border border-slate-200 rounded-lg">
+            <div className="flex items-center space-x-3 p-3 border border-slate-200 rounded-lg">
                   <RadioGroupItem value="new-card" id="new-card" />
                   <Label htmlFor="new-card" className="flex items-center cursor-pointer">
                     <i className="fas fa-plus text-slate-400 mr-3"></i>
@@ -162,8 +162,8 @@ export default function Checkout({ charge, paymentMethods = [], onClose, onSucce
 
             {/* New Card Form */}
             {paymentMethod === "new-card" && (
-              <div className="space-y-4 p-4 bg-slate-50 rounded-lg">
-                <div>
+          <div className="space-y-4 p-4 bg-slate-50 rounded-lg">
+            <div>
                   <Label htmlFor="card-name" className="text-sm">Nombre en la tarjeta</Label>
                   <Input
                     id="card-name"
@@ -173,7 +173,7 @@ export default function Checkout({ charge, paymentMethods = [], onClose, onSucce
                     required
                   />
                 </div>
-                <div>
+            <div>
                   <Label htmlFor="card-number" className="text-sm">Número de tarjeta</Label>
                   <Input
                     id="card-number"
@@ -184,8 +184,8 @@ export default function Checkout({ charge, paymentMethods = [], onClose, onSucce
                     required
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
                     <Label htmlFor="expiry" className="text-sm">MM/AA</Label>
                     <Input
                       id="expiry"
@@ -196,7 +196,7 @@ export default function Checkout({ charge, paymentMethods = [], onClose, onSucce
                       required
                     />
                   </div>
-                  <div>
+              <div>
                     <Label htmlFor="cvv" className="text-sm">CVV</Label>
                     <Input
                       id="cvv"
@@ -212,7 +212,7 @@ export default function Checkout({ charge, paymentMethods = [], onClose, onSucce
             )}
 
             {/* Action Buttons */}
-            <div className="flex space-x-3 pt-4">
+        <div className="flex space-x-3 pt-4">
               <Button 
                 type="button"
                 variant="secondary"
@@ -228,8 +228,8 @@ export default function Checkout({ charge, paymentMethods = [], onClose, onSucce
                 disabled={processPaymentMutation.isPending}
               >
                 {processPaymentMutation.isPending ? (
-                  <div className="flex items-center">
-                    <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+              <div className="flex items-center">
+                <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
                     Procesando...
                   </div>
                 ) : (

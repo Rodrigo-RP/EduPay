@@ -124,12 +124,12 @@ export default function Notificaciones() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50">
-      <div className="flex-1 overflow-auto">
+    <div >
+      <div >
         
         <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
               <h1 className="text-3xl font-bold text-slate-900">Notificaciones Automáticas</h1>
               <p className="text-slate-600">Gestiona comunicación automática: emails, SMS y WhatsApp</p>
             </div>
@@ -140,32 +140,32 @@ export default function Notificaciones() {
           </div>
 
           {/* Estadísticas */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <Card>
               <CardContent className="p-4 text-center">
                 <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.totalEnviadas}</div>
-                <div className="text-sm text-slate-600">Enviadas exitosamente</div>
+            <div className="text-2xl font-bold">{estadisticas.totalEnviadas}</div>
+            <div className="text-sm text-slate-600">Enviadas exitosamente</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <Clock className="w-8 h-8 text-yellow-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.pendientes}</div>
-                <div className="text-sm text-slate-600">Pendientes de envío</div>
+            <div className="text-2xl font-bold">{estadisticas.pendientes}</div>
+            <div className="text-sm text-slate-600">Pendientes de envío</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <AlertTriangle className="w-8 h-8 text-red-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.errores}</div>
-                <div className="text-sm text-slate-600">Errores de envío</div>
+            <div className="text-2xl font-bold">{estadisticas.errores}</div>
+            <div className="text-sm text-slate-600">Errores de envío</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold">{estadisticas.tasaEntrega.toFixed(1)}%</div>
-                <div className="text-sm text-slate-600">Tasa de entrega</div>
+            <div className="text-2xl font-bold">{estadisticas.tasaEntrega.toFixed(1)}%</div>
+            <div className="text-sm text-slate-600">Tasa de entrega</div>
               </CardContent>
             </Card>
           </div>
@@ -180,7 +180,7 @@ export default function Notificaciones() {
             <TabsContent value="historial">
               <Card>
                 <CardHeader>
-                  <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between">
                     <CardTitle>Historial de notificaciones</CardTitle>
                     <Select value={selectedChannel} onValueChange={setSelectedChannel}>
                       <SelectTrigger className="w-40">
@@ -196,12 +196,12 @@ export default function Notificaciones() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
+              <div className="space-y-4">
                     {filteredNotificaciones.map((notif) => (
-                      <div key={notif.id} className="p-4 border rounded-lg hover:bg-slate-50">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
+                  <div key={notif.id} className="p-4 border rounded-lg hover:bg-slate-50">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
                               <h3 className="font-medium">{notif.tipo.replace('_', ' ')}</h3>
                               {getChannelBadge(notif.canal)}
                               {getStatusBadge(notif.estado)}
@@ -210,7 +210,7 @@ export default function Notificaciones() {
                               <p className="text-sm font-medium text-slate-700 mb-1">{notif.asunto}</p>
                             )}
                             <p className="text-sm text-slate-600 mb-2">{notif.mensaje}</p>
-                            <div className="flex items-center gap-4 text-xs text-slate-500">
+                        <div className="flex items-center gap-4 text-xs text-slate-500">
                               <span>Destinatario: {notif.destinatario}</span>
                               <span>Enviado: {notif.fecha_envio}</span>
                               <span>Intentos: {notif.intentos}</span>
@@ -230,8 +230,8 @@ export default function Notificaciones() {
                   <CardTitle>Plantillas de notificación</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <Card className="border-blue-200">
                         <CardHeader>
                           <CardTitle className="text-lg flex items-center gap-2">
@@ -243,15 +243,15 @@ export default function Notificaciones() {
                           <p className="text-sm text-slate-600 mb-4">
                             Notifica cuando se genera un nuevo cargo
                           </p>
-                          <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center justify-between mb-2">
                             <span className="text-sm">Email</span>
                             <Switch defaultChecked />
                           </div>
-                          <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center justify-between mb-2">
                             <span className="text-sm">SMS</span>
                             <Switch />
                           </div>
-                          <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between">
                             <span className="text-sm">WhatsApp</span>
                             <Switch defaultChecked />
                           </div>
@@ -269,15 +269,15 @@ export default function Notificaciones() {
                           <p className="text-sm text-slate-600 mb-4">
                             Recuerda pagos próximos a vencer
                           </p>
-                          <div className="mb-4">
+                      <div className="mb-4">
                             <Label className="text-xs">Días antes del vencimiento</Label>
                             <Input type="number" defaultValue="3" className="mt-1" />
                           </div>
-                          <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center justify-between mb-2">
                             <span className="text-sm">Email</span>
                             <Switch defaultChecked />
                           </div>
-                          <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between">
                             <span className="text-sm">SMS</span>
                             <Switch defaultChecked />
                           </div>
@@ -295,15 +295,15 @@ export default function Notificaciones() {
                           <p className="text-sm text-slate-600 mb-4">
                             Notifica pagos vencidos y recargos
                           </p>
-                          <div className="mb-4">
+                      <div className="mb-4">
                             <Label className="text-xs">Días después del vencimiento</Label>
                             <Input type="number" defaultValue="1" className="mt-1" />
                           </div>
-                          <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center justify-between mb-2">
                             <span className="text-sm">Email</span>
                             <Switch defaultChecked />
                           </div>
-                          <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between">
                             <span className="text-sm">WhatsApp</span>
                             <Switch defaultChecked />
                           </div>
@@ -316,32 +316,32 @@ export default function Notificaciones() {
             </TabsContent>
 
             <TabsContent value="configuracion">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>
                     <CardTitle>Configuración de canales</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-6">
-                      <div>
+                <div className="space-y-6">
+                  <div>
                         <Label className="text-sm font-semibold">Configuración Email (SMTP)</Label>
-                        <div className="grid grid-cols-2 gap-4 mt-2">
+                    <div className="grid grid-cols-2 gap-4 mt-2">
                           <Input placeholder="smtp.servidor.com" />
                           <Input placeholder="Puerto (587)" />
                           <Input placeholder="usuario@dominio.com" />
                           <Input type="password" placeholder="Contraseña" />
                         </div>
                       </div>
-                      <div>
+                  <div>
                         <Label className="text-sm font-semibold">Configuración SMS</Label>
-                        <div className="grid grid-cols-2 gap-4 mt-2">
+                    <div className="grid grid-cols-2 gap-4 mt-2">
                           <Input placeholder="API Key SMS" />
                           <Input placeholder="Sender ID" />
                         </div>
                       </div>
-                      <div>
+                  <div>
                         <Label className="text-sm font-semibold">Configuración WhatsApp</Label>
-                        <div className="grid grid-cols-2 gap-4 mt-2">
+                    <div className="grid grid-cols-2 gap-4 mt-2">
                           <Input placeholder="WhatsApp Business API Token" />
                           <Input placeholder="Número verificado" />
                         </div>
@@ -355,22 +355,22 @@ export default function Notificaciones() {
                     <CardTitle>Configuración general</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
                         <Label>Notificaciones automáticas activas</Label>
                         <Switch defaultChecked />
                       </div>
-                      <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between">
                         <Label>Limitar intentos de reenvío</Label>
                         <Switch defaultChecked />
                       </div>
-                      <div>
+                  <div>
                         <Label>Máximo de intentos</Label>
                         <Input type="number" defaultValue="3" className="mt-1" />
                       </div>
-                      <div>
+                  <div>
                         <Label>Horario de envío</Label>
-                        <div className="grid grid-cols-2 gap-2 mt-1">
+                    <div className="grid grid-cols-2 gap-2 mt-1">
                           <Input type="time" defaultValue="08:00" />
                           <Input type="time" defaultValue="20:00" />
                         </div>

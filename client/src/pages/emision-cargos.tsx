@@ -44,29 +44,29 @@ export default function EmisionCargos() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-blue-600">
                   {estadisticas?.alumnos_activos || 0}
                 </div>
-                <div className="text-sm text-blue-700">Alumnos activos</div>
+            <div className="text-sm text-blue-700">Alumnos activos</div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-green-600">
                   {estadisticas?.conceptos_configurados || 0}
                 </div>
-                <div className="text-sm text-green-700">Conceptos configurados</div>
+            <div className="text-sm text-green-700">Conceptos configurados</div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-purple-600">
                   ${((estadisticas?.monto_estimado || 0) / 100).toLocaleString()}
                 </div>
-                <div className="text-sm text-purple-700">Monto estimado MXN</div>
+            <div className="text-sm text-purple-700">Monto estimado MXN</div>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div>
+        <div className="space-y-4">
+          <div>
                 <Label>Período a generar</Label>
                 <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
                   <SelectTrigger>
@@ -80,7 +80,7 @@ export default function EmisionCargos() {
                 </Select>
               </div>
 
-              <div className="flex gap-2">
+          <div className="flex gap-2">
                 <Button 
                   onClick={() => generarCargosMensuales.mutate({ periodo: selectedPeriod, tipo: "COLEGIATURA" })}
                   disabled={generarCargosMensuales.isPending}
@@ -108,19 +108,19 @@ export default function EmisionCargos() {
             <CardTitle>Últimos cargos generados</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+        <div className="space-y-2">
               {[
                 { fecha: "2025-01-15", concepto: "Colegiatura Enero", alumnos: 156, monto: 780000 },
                 { fecha: "2025-01-10", concepto: "Materiales", alumnos: 156, monto: 234000 },
                 { fecha: "2025-01-05", concepto: "Inscripción Anual", alumnos: 12, monto: 36000 }
               ].map((cargo, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded">
-                  <div>
-                    <div className="font-medium">{cargo.concepto}</div>
-                    <div className="text-sm text-slate-600">{cargo.fecha} • {cargo.alumnos} alumnos</div>
+            <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded">
+              <div>
+                <div className="font-medium">{cargo.concepto}</div>
+                <div className="text-sm text-slate-600">{cargo.fecha} • {cargo.alumnos} alumnos</div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-semibold">${(cargo.monto / 100).toLocaleString()} MXN</div>
+              <div className="text-right">
+                <div className="font-semibold">${(cargo.monto / 100).toLocaleString()} MXN</div>
                     <Badge variant="secondary">Generado</Badge>
                   </div>
                 </div>
@@ -175,8 +175,8 @@ export default function EmisionCargos() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
                 <Label htmlFor="concepto">Concepto</Label>
                 <Input
                   id="concepto"
@@ -185,7 +185,7 @@ export default function EmisionCargos() {
                   placeholder="Excursión, Material especial, etc."
                 />
               </div>
-              <div>
+          <div>
                 <Label htmlFor="monto">Monto (MXN)</Label>
                 <Input
                   id="monto"
@@ -195,7 +195,7 @@ export default function EmisionCargos() {
                   placeholder="500"
                 />
               </div>
-              <div>
+          <div>
                 <Label>Aplicar a</Label>
                 <Select value={nuevoCargoForm.aplicar_a} onValueChange={(value) => setNuevoCargoForm({...nuevoCargoForm, aplicar_a: value})}>
                   <SelectTrigger>
@@ -209,7 +209,7 @@ export default function EmisionCargos() {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
+          <div>
                 <Label htmlFor="fecha_vencimiento">Fecha de vencimiento</Label>
                 <Input
                   id="fecha_vencimiento"
@@ -220,7 +220,7 @@ export default function EmisionCargos() {
               </div>
             </div>
 
-            <div className="mt-4">
+        <div className="mt-4">
               <Label htmlFor="descripcion">Descripción</Label>
               <textarea 
                 id="descripcion"
@@ -248,20 +248,20 @@ export default function EmisionCargos() {
             <CardTitle>Cargos extraordinarios recientes</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+        <div className="space-y-3">
               {[
                 { concepto: "Excursión 3ro A", fecha: "2025-01-20", alumnos: 25, monto: 50000, estado: "Activo" },
                 { concepto: "Material deportivo", fecha: "2025-01-18", alumnos: 156, monto: 78000, estado: "Activo" },
                 { concepto: "Ceremonia graduación", fecha: "2025-01-15", alumnos: 30, monto: 90000, estado: "Pagado" }
               ].map((cargo, index) => (
-                <div key={index} className="flex items-center justify-between p-3 border rounded">
-                  <div>
-                    <div className="font-medium">{cargo.concepto}</div>
-                    <div className="text-sm text-slate-600">{cargo.fecha} • {cargo.alumnos} alumnos</div>
+            <div key={index} className="flex items-center justify-between p-3 border rounded">
+              <div>
+                <div className="font-medium">{cargo.concepto}</div>
+                <div className="text-sm text-slate-600">{cargo.fecha} • {cargo.alumnos} alumnos</div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <div className="font-semibold">${(cargo.monto / 100).toLocaleString()} MXN</div>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <div className="font-semibold">${(cargo.monto / 100).toLocaleString()} MXN</div>
                     </div>
                     <Badge variant={cargo.estado === "Pagado" ? "default" : "secondary"}>
                       {cargo.estado}
@@ -303,28 +303,28 @@ export default function EmisionCargos() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-red-600">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-red-600">
                   {morosos?.total_morosos || 0}
                 </div>
-                <div className="text-sm text-red-700">Alumnos morosos</div>
+            <div className="text-sm text-red-700">Alumnos morosos</div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-orange-600">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-orange-600">
                   ${((morosos?.monto_vencido || 0) / 100).toLocaleString()}
                 </div>
-                <div className="text-sm text-orange-700">Monto vencido MXN</div>
+            <div className="text-sm text-orange-700">Monto vencido MXN</div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-purple-600">
                   {morosos?.dias_promedio_mora || 0}
                 </div>
-                <div className="text-sm text-purple-700">Días promedio mora</div>
+            <div className="text-sm text-purple-700">Días promedio mora</div>
               </div>
             </div>
 
-            <div className="flex gap-2">
+        <div className="flex gap-2">
               <Button 
                 onClick={() => aplicarRecargos.mutate()}
                 disabled={aplicarRecargos.isPending}
@@ -348,21 +348,21 @@ export default function EmisionCargos() {
             <CardTitle>Pagos vencidos</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+        <div className="space-y-2">
               {[
                 { estudiante: "Carlos Pérez", concepto: "Colegiatura Diciembre", vencimiento: "2024-12-15", monto: 500000, dias_mora: 15 },
                 { estudiante: "Ana García", concepto: "Materiales", vencimiento: "2024-12-20", monto: 150000, dias_mora: 10 },
                 { estudiante: "Luis Martínez", concepto: "Colegiatura Enero", vencimiento: "2025-01-15", monto: 500000, dias_mora: 5 }
               ].map((moroso, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded">
-                  <div>
-                    <div className="font-medium text-red-800">{moroso.estudiante}</div>
-                    <div className="text-sm text-red-600">{moroso.concepto} • Vencía: {moroso.vencimiento}</div>
+            <div key={index} className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded">
+              <div>
+                <div className="font-medium text-red-800">{moroso.estudiante}</div>
+                <div className="text-sm text-red-600">{moroso.concepto} • Vencía: {moroso.vencimiento}</div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <div className="font-semibold">${(moroso.monto / 100).toLocaleString()} MXN</div>
-                      <div className="text-sm text-red-600">{moroso.dias_mora} días de mora</div>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <div className="font-semibold">${(moroso.monto / 100).toLocaleString()} MXN</div>
+                  <div className="text-sm text-red-600">{moroso.dias_mora} días de mora</div>
                     </div>
                     <Badge variant="destructive">Vencido</Badge>
                   </div>

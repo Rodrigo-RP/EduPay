@@ -37,7 +37,7 @@ export default function Configuracion() {
             </TabsList>
 
             <TabsContent value="general">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -46,12 +46,12 @@ export default function Configuracion() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      <div>
+                <div className="space-y-4">
+                  <div>
                         <Label>Nombre del sistema</Label>
                         <Input defaultValue="EscuelaPay - Plataforma SaaS" />
                       </div>
-                      <div>
+                  <div>
                         <Label>Zona horaria</Label>
                         <Select defaultValue="america/mexico">
                           <SelectTrigger>
@@ -64,7 +64,7 @@ export default function Configuracion() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div>
+                  <div>
                         <Label>Moneda predeterminada</Label>
                         <Select defaultValue="MXN">
                           <SelectTrigger>
@@ -76,7 +76,7 @@ export default function Configuracion() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between">
                         <Label>Modo de mantenimiento</Label>
                         <Switch />
                       </div>
@@ -92,9 +92,9 @@ export default function Configuracion() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
                           <Label>Ciclo escolar actual</Label>
                           <Select defaultValue="2024-2025">
                             <SelectTrigger>
@@ -107,7 +107,7 @@ export default function Configuracion() {
                             </SelectContent>
                           </Select>
                         </div>
-                        <div>
+                    <div>
                           <Label>Estado del ciclo</Label>
                           <Select defaultValue="activo">
                             <SelectTrigger>
@@ -122,33 +122,33 @@ export default function Configuracion() {
                         </div>
                       </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
                           <Label>Fecha inicio ciclo</Label>
                           <Input type="date" defaultValue="2024-08-15" />
                         </div>
-                        <div>
+                    <div>
                           <Label>Fecha fin ciclo</Label>
                           <Input type="date" defaultValue="2025-06-30" />
                         </div>
                       </div>
 
-                      <div>
+                  <div>
                         <Label>Niveles académicos disponibles</Label>
-                        <div className="grid grid-cols-2 gap-2 mt-2">
-                          <div className="flex items-center space-x-2">
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <div className="flex items-center space-x-2">
                             <input type="checkbox" id="kinder" defaultChecked className="rounded" />
                             <label htmlFor="kinder" className="text-sm">Kinder (3-6 años)</label>
                           </div>
-                          <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2">
                             <input type="checkbox" id="primaria" defaultChecked className="rounded" />
                             <label htmlFor="primaria" className="text-sm">Primaria (6-12 años)</label>
                           </div>
-                          <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2">
                             <input type="checkbox" id="secundaria" defaultChecked className="rounded" />
                             <label htmlFor="secundaria" className="text-sm">Secundaria (12-15 años)</label>
                           </div>
-                          <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2">
                             <input type="checkbox" id="bachillerato" defaultChecked className="rounded" />
                             <label htmlFor="bachillerato" className="text-sm">Bachillerato (15-18 años)</label>
                           </div>
@@ -166,24 +166,24 @@ export default function Configuracion() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
                         <Label>Notificaciones automáticas</Label>
                         <Switch checked={notificationsEnabled} onCheckedChange={setNotificationsEnabled} />
                       </div>
-                      <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between">
                         <Label>Recordatorios de vencimiento</Label>
                         <Switch defaultChecked />
                       </div>
-                      <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between">
                         <Label>Avisos de mora</Label>
                         <Switch defaultChecked />
                       </div>
-                      <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between">
                         <Label>Confirmaciones de pago</Label>
                         <Switch defaultChecked />
                       </div>
-                      <div>
+                  <div>
                         <Label>Días de recordatorio antes del vencimiento</Label>
                         <Input type="number" defaultValue="3" />
                       </div>
@@ -202,42 +202,42 @@ export default function Configuracion() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
                       <Label>Nombre legal de la institución</Label>
                       <Input defaultValue="Colegio San Patricio A.C." />
                     </div>
-                    <div>
+                <div>
                       <Label>RFC</Label>
                       <Input defaultValue="CSP123456789" />
                     </div>
-                    <div>
+                <div>
                       <Label>Dirección fiscal</Label>
                       <Input defaultValue="Av. Reforma 123, Col. Centro" />
                     </div>
-                    <div>
+                <div>
                       <Label>Ciudad</Label>
                       <Input defaultValue="Ciudad de México" />
                     </div>
-                    <div>
+                <div>
                       <Label>Código postal</Label>
                       <Input defaultValue="06000" />
                     </div>
-                    <div>
+                <div>
                       <Label>Teléfono principal</Label>
                       <Input defaultValue="55-1234-5678" />
                     </div>
-                    <div>
+                <div>
                       <Label>Email institucional</Label>
                       <Input defaultValue="admin@sanpatricio.edu.mx" />
                     </div>
-                    <div>
+                <div>
                       <Label>Sitio web</Label>
                       <Input defaultValue="www.sanpatricio.edu.mx" />
                     </div>
-                    <div className="md:col-span-2">
+                <div className="md:col-span-2">
                       <Label>Logo de la institución</Label>
-                      <div className="mt-2 border-2 border-dashed border-slate-300 rounded-lg p-6 text-center">
+                  <div className="mt-2 border-2 border-dashed border-slate-300 rounded-lg p-6 text-center">
                         <p className="text-sm text-slate-500">Arrastra tu logo aquí o haz clic para seleccionar</p>
                       </div>
                     </div>
@@ -247,7 +247,7 @@ export default function Configuracion() {
             </TabsContent>
 
             <TabsContent value="pagos">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -256,8 +256,8 @@ export default function Configuracion() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      <div>
+                <div className="space-y-4">
+                  <div>
                         <Label>Pasarela de pagos principal</Label>
                         <Select defaultValue="stripe">
                           <SelectTrigger>
@@ -271,23 +271,23 @@ export default function Configuracion() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between">
                         <Label>Permitir pagos parciales</Label>
                         <Switch defaultChecked />
                       </div>
-                      <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between">
                         <Label>Generación automática de cargos</Label>
                         <Switch checked={autoGenerationEnabled} onCheckedChange={setAutoGenerationEnabled} />
                       </div>
-                      <div>
+                  <div>
                         <Label>Recargo por mora (%)</Label>
                         <Input type="number" defaultValue="10" />
                       </div>
-                      <div>
+                  <div>
                         <Label>Descuento por pronto pago (%)</Label>
                         <Input type="number" defaultValue="5" />
                       </div>
-                      <div>
+                  <div>
                         <Label>Días para pronto pago</Label>
                         <Input type="number" defaultValue="5" />
                       </div>
@@ -300,28 +300,28 @@ export default function Configuracion() {
                     <CardTitle>Métodos de pago habilitados</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
                         <Label>Tarjetas de crédito/débito</Label>
                         <Switch defaultChecked />
                       </div>
-                      <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between">
                         <Label>Transferencias SPEI</Label>
                         <Switch defaultChecked />
                       </div>
-                      <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between">
                         <Label>PayPal</Label>
                         <Switch defaultChecked />
                       </div>
-                      <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between">
                         <Label>OXXO Pay</Label>
                         <Switch defaultChecked />
                       </div>
-                      <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between">
                         <Label>Pagos en efectivo (caja física)</Label>
                         <Switch defaultChecked />
                       </div>
-                      <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between">
                         <Label>Domiciliación bancaria</Label>
                         <Switch />
                       </div>
@@ -340,8 +340,8 @@ export default function Configuracion() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
                       <Label>Proveedor PAC</Label>
                       <Select defaultValue="facturama">
                         <SelectTrigger>
@@ -354,19 +354,19 @@ export default function Configuracion() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                <div>
                       <Label>Certificado SAT (archivo .cer)</Label>
                       <Input type="file" accept=".cer" />
                     </div>
-                    <div>
+                <div>
                       <Label>Llave privada (archivo .key)</Label>
                       <Input type="file" accept=".key" />
                     </div>
-                    <div>
+                <div>
                       <Label>Contraseña de llave privada</Label>
                       <Input type="password" placeholder="••••••••" />
                     </div>
-                    <div>
+                <div>
                       <Label>Régimen fiscal</Label>
                       <Select defaultValue="601">
                         <SelectTrigger>
@@ -379,15 +379,15 @@ export default function Configuracion() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                <div>
                       <Label>Lugar de expedición (CP)</Label>
                       <Input defaultValue="06000" />
                     </div>
-                    <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between">
                       <Label>Generar CFDI automáticamente</Label>
                       <Switch defaultChecked />
                     </div>
-                    <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between">
                       <Label>Enviar CFDI por email</Label>
                       <Switch defaultChecked />
                     </div>
@@ -405,36 +405,36 @@ export default function Configuracion() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
                       <Label>Tiempo de sesión (minutos)</Label>
                       <Input type="number" defaultValue="60" />
                     </div>
-                    <div>
+                <div>
                       <Label>Intentos de login antes de bloqueo</Label>
                       <Input type="number" defaultValue="3" />
                     </div>
-                    <div>
+                <div>
                       <Label>Longitud mínima de contraseña</Label>
                       <Input type="number" defaultValue="8" />
                     </div>
-                    <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between">
                       <Label>Requerir autenticación de dos factores</Label>
                       <Switch checked={twoFactorEnabled} onCheckedChange={setTwoFactorEnabled} />
                     </div>
-                    <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between">
                       <Label>Requerir contraseñas complejas</Label>
                       <Switch defaultChecked />
                     </div>
-                    <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between">
                       <Label>Forzar cambio de contraseña</Label>
                       <Switch />
                     </div>
-                    <div>
+                <div>
                       <Label>Días para cambio de contraseña</Label>
                       <Input type="number" defaultValue="90" />
                     </div>
-                    <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between">
                       <Label>Registro de auditoría detallado</Label>
                       <Switch defaultChecked />
                     </div>
@@ -452,9 +452,9 @@ export default function Configuracion() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
                         <Label>Rol predeterminado para nuevos usuarios</Label>
                         <Select defaultValue="caja">
                           <SelectTrigger>
@@ -467,44 +467,44 @@ export default function Configuracion() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between">
                         <Label>Auto-aprobación de nuevos usuarios</Label>
                         <Switch />
                       </div>
                     </div>
 
-                    <div>
+                <div>
                       <Label className="text-lg font-semibold">Permisos por rol</Label>
-                      <div className="mt-4 space-y-4">
-                        <div className="grid grid-cols-4 gap-4 p-4 border rounded-lg">
-                          <div className="font-medium">Función</div>
-                          <div className="text-center font-medium">Admin</div>
-                          <div className="text-center font-medium">Caja</div>
-                          <div className="text-center font-medium">Contador</div>
+                  <div className="mt-4 space-y-4">
+                    <div className="grid grid-cols-4 gap-4 p-4 border rounded-lg">
+                      <div className="font-medium">Función</div>
+                      <div className="text-center font-medium">Admin</div>
+                      <div className="text-center font-medium">Caja</div>
+                      <div className="text-center font-medium">Contador</div>
                         </div>
-                        <div className="grid grid-cols-4 gap-4 p-4 border rounded-lg">
-                          <div>Gestión de estudiantes</div>
-                          <div className="text-center">✓</div>
-                          <div className="text-center">✓</div>
-                          <div className="text-center">-</div>
+                    <div className="grid grid-cols-4 gap-4 p-4 border rounded-lg">
+                      <div>Gestión de estudiantes</div>
+                      <div className="text-center">✓</div>
+                      <div className="text-center">✓</div>
+                      <div className="text-center">-</div>
                         </div>
-                        <div className="grid grid-cols-4 gap-4 p-4 border rounded-lg">
-                          <div>Registro de pagos</div>
-                          <div className="text-center">✓</div>
-                          <div className="text-center">✓</div>
-                          <div className="text-center">-</div>
+                    <div className="grid grid-cols-4 gap-4 p-4 border rounded-lg">
+                      <div>Registro de pagos</div>
+                      <div className="text-center">✓</div>
+                      <div className="text-center">✓</div>
+                      <div className="text-center">-</div>
                         </div>
-                        <div className="grid grid-cols-4 gap-4 p-4 border rounded-lg">
-                          <div>Reportes fiscales</div>
-                          <div className="text-center">✓</div>
-                          <div className="text-center">-</div>
-                          <div className="text-center">✓</div>
+                    <div className="grid grid-cols-4 gap-4 p-4 border rounded-lg">
+                      <div>Reportes fiscales</div>
+                      <div className="text-center">✓</div>
+                      <div className="text-center">-</div>
+                      <div className="text-center">✓</div>
                         </div>
-                        <div className="grid grid-cols-4 gap-4 p-4 border rounded-lg">
-                          <div>Configuración del sistema</div>
-                          <div className="text-center">✓</div>
-                          <div className="text-center">-</div>
-                          <div className="text-center">-</div>
+                    <div className="grid grid-cols-4 gap-4 p-4 border rounded-lg">
+                      <div>Configuración del sistema</div>
+                      <div className="text-center">✓</div>
+                      <div className="text-center">-</div>
+                      <div className="text-center">-</div>
                         </div>
                       </div>
                     </div>

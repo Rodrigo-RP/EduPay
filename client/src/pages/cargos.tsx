@@ -114,16 +114,13 @@ export default function Cargos() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50">
-      <div className="flex-1 overflow-auto">
-        
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
               <h1 className="text-3xl font-bold text-slate-900">Gestión de Cargos</h1>
               <p className="text-slate-600">Administra cargos automáticos, manuales y extraordinarios</p>
             </div>
-            <div className="flex gap-2">
+        <div className="flex gap-2">
               <Button className="bg-green-600 hover:bg-green-700">
                 <Plus className="w-4 h-4 mr-2" />
                 Generar Cargos
@@ -136,40 +133,40 @@ export default function Cargos() {
           </div>
 
           {/* Estadísticas */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
             <Card>
               <CardContent className="p-4 text-center">
                 <FileText className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.total}</div>
-                <div className="text-sm text-slate-600">Total cargos</div>
+            <div className="text-2xl font-bold">{estadisticas.total}</div>
+            <div className="text-sm text-slate-600">Total cargos</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <Clock className="w-8 h-8 text-yellow-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.pendientes}</div>
-                <div className="text-sm text-slate-600">Pendientes</div>
+            <div className="text-2xl font-bold">{estadisticas.pendientes}</div>
+            <div className="text-sm text-slate-600">Pendientes</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <AlertTriangle className="w-8 h-8 text-red-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.vencidos}</div>
-                <div className="text-sm text-slate-600">Vencidos</div>
+            <div className="text-2xl font-bold">{estadisticas.vencidos}</div>
+            <div className="text-sm text-slate-600">Vencidos</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.pagados}</div>
-                <div className="text-sm text-slate-600">Pagados</div>
+            <div className="text-2xl font-bold">{estadisticas.pagados}</div>
+            <div className="text-sm text-slate-600">Pagados</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <DollarSign className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">${(estadisticas.montoTotal / 100).toLocaleString()}</div>
-                <div className="text-sm text-slate-600">Monto pendiente</div>
+            <div className="text-2xl font-bold">${(estadisticas.montoTotal / 100).toLocaleString()}</div>
+            <div className="text-sm text-slate-600">Monto pendiente</div>
               </CardContent>
             </Card>
           </div>
@@ -184,7 +181,7 @@ export default function Cargos() {
             <TabsContent value="lista">
               <Card>
                 <CardHeader>
-                  <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between">
                     <CardTitle>Lista de cargos</CardTitle>
                     <Select value={selectedStatus} onValueChange={setSelectedStatus}>
                       <SelectTrigger className="w-40">
@@ -200,12 +197,12 @@ export default function Cargos() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
+              <div className="space-y-4">
                     {filteredCargos.map((cargo) => (
-                      <div key={cargo.id} className={`p-4 border rounded-lg ${isVencido(cargo.fecha_vencimiento) && cargo.estado === 'pendiente' ? 'border-red-200 bg-red-50' : 'border-slate-200'}`}>
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
+                  <div key={cargo.id} className={`p-4 border rounded-lg ${isVencido(cargo.fecha_vencimiento) && cargo.estado === 'pendiente' ? 'border-red-200 bg-red-50' : 'border-slate-200'}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
                               <h3 className="font-medium">{cargo.estudiante}</h3>
                               {getStatusBadge(cargo.estado)}
                               <Badge variant="outline" className="text-xs">
@@ -213,7 +210,7 @@ export default function Cargos() {
                               </Badge>
                             </div>
                             <p className="text-sm text-slate-600">{cargo.concepto}</p>
-                            <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
+                        <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
                               <span>Emitido: {cargo.fecha_emision}</span>
                               <span>Vence: {cargo.fecha_vencimiento}</span>
                               {cargo.beca_aplicada > 0 && (
@@ -224,10 +221,10 @@ export default function Cargos() {
                               )}
                             </div>
                           </div>
-                          <div className="text-right">
-                            <div className="text-lg font-bold">${(cargo.total / 100).toLocaleString()}</div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold">${(cargo.total / 100).toLocaleString()}</div>
                             {cargo.monto_base !== cargo.total && (
-                              <div className="text-sm text-slate-500 line-through">
+                          <div className="text-sm text-slate-500 line-through">
                                 ${(cargo.monto_base / 100).toLocaleString()}
                               </div>
                             )}
@@ -246,9 +243,9 @@ export default function Cargos() {
                   <CardTitle>Generación automática de cargos</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
                         <Label>Período a generar</Label>
                         <Select defaultValue="2025-02">
                           <SelectTrigger>
@@ -261,7 +258,7 @@ export default function Cargos() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div>
+                  <div>
                         <Label>Conceptos a generar</Label>
                         <Select defaultValue="colegiaturas">
                           <SelectTrigger>
@@ -274,7 +271,7 @@ export default function Cargos() {
                         </Select>
                       </div>
                     </div>
-                    <div className="flex gap-4">
+                <div className="flex gap-4">
                       <Button className="bg-blue-600 hover:bg-blue-700">
                         Previsualizar generación
                       </Button>
@@ -293,16 +290,16 @@ export default function Cargos() {
                   <CardTitle>Crear cargo extraordinario</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
                       <Label>Concepto</Label>
                       <Input placeholder="Excursión, Material especial, etc." />
                     </div>
-                    <div>
+                <div>
                       <Label>Monto (MXN)</Label>
                       <Input type="number" placeholder="500" />
                     </div>
-                    <div>
+                <div>
                       <Label>Aplicar a</Label>
                       <Select defaultValue="todos">
                         <SelectTrigger>
@@ -316,12 +313,12 @@ export default function Cargos() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                <div>
                       <Label>Fecha de vencimiento</Label>
                       <Input type="date" />
                     </div>
                   </div>
-                  <div className="mt-4">
+              <div className="mt-4">
                     <Label>Descripción</Label>
                     <textarea 
                       className="w-full p-2 border rounded"

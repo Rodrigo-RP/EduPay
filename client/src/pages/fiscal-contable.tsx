@@ -63,32 +63,32 @@ export default function FiscalContable() {
           <Card>
             <CardContent className="p-4 text-center">
               <FileText className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold">{estadisticasCFDI?.total_emitidos || 0}</div>
-              <div className="text-sm text-slate-600">CFDI emitidos</div>
+          <div className="text-2xl font-bold">{estadisticasCFDI?.total_emitidos || 0}</div>
+          <div className="text-sm text-slate-600">CFDI emitidos</div>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="p-4 text-center">
               <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold">{estadisticasCFDI?.validados || 0}</div>
-              <div className="text-sm text-slate-600">Validados SAT</div>
+          <div className="text-2xl font-bold">{estadisticasCFDI?.validados || 0}</div>
+          <div className="text-sm text-slate-600">Validados SAT</div>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="p-4 text-center">
               <AlertCircle className="w-8 h-8 text-red-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold">{estadisticasCFDI?.cancelados || 0}</div>
-              <div className="text-sm text-slate-600">Cancelados</div>
+          <div className="text-2xl font-bold">{estadisticasCFDI?.cancelados || 0}</div>
+          <div className="text-sm text-slate-600">Cancelados</div>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="p-4 text-center">
               <Receipt className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold">${((estadisticasCFDI?.monto_total || 0) / 100).toLocaleString()}</div>
-              <div className="text-sm text-slate-600">Monto facturado</div>
+          <div className="text-2xl font-bold">${((estadisticasCFDI?.monto_total || 0) / 100).toLocaleString()}</div>
+          <div className="text-sm text-slate-600">Monto facturado</div>
             </CardContent>
           </Card>
         </div>
@@ -102,8 +102,8 @@ export default function FiscalContable() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
                 <Label>Proveedor PAC</Label>
                 <Select defaultValue="FACTURAMA">
                   <SelectTrigger>
@@ -116,14 +116,14 @@ export default function FiscalContable() {
                 </Select>
               </div>
               
-              <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
                 <CheckCircle className="w-5 h-5 text-green-600" />
                 <span className="text-sm text-green-700">Conexión PAC activa</span>
               </div>
             </div>
 
-            <div className="mt-4 p-3 bg-white rounded border">
-              <div className="text-sm">
+        <div className="mt-4 p-3 bg-white rounded border">
+          <div className="text-sm">
                 <strong>Estado del servicio:</strong> Operativo
                 <br />
                 <strong>Última sincronización:</strong> Hace 5 minutos
@@ -140,25 +140,25 @@ export default function FiscalContable() {
             <CardTitle>Facturas CFDI recientes</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+        <div className="space-y-3">
               {[
                 { folio: "A001", uuid: "12345-ABCDE-67890", estudiante: "Carlos Pérez", monto: 500000, fecha: "2025-01-20", estado: "Vigente" },
                 { folio: "A002", uuid: "12346-ABCDF-67891", estudiante: "Ana García", monto: 150000, fecha: "2025-01-20", estado: "Vigente" },
                 { folio: "A003", uuid: "12347-ABCDG-67892", estudiante: "Luis Martínez", monto: 300000, fecha: "2025-01-19", estado: "Cancelado" }
               ].map((factura, index) => (
-                <div key={index} className="flex items-center justify-between p-3 border rounded">
-                  <div>
-                    <div className="font-medium">Folio {factura.folio} - {factura.estudiante}</div>
-                    <div className="text-sm text-slate-600">{factura.fecha} • UUID: {factura.uuid}</div>
+            <div key={index} className="flex items-center justify-between p-3 border rounded">
+              <div>
+                <div className="font-medium">Folio {factura.folio} - {factura.estudiante}</div>
+                <div className="text-sm text-slate-600">{factura.fecha} • UUID: {factura.uuid}</div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <div className="font-semibold">${(factura.monto / 100).toLocaleString()}</div>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <div className="font-semibold">${(factura.monto / 100).toLocaleString()}</div>
                     </div>
                     <Badge variant={factura.estado === "Vigente" ? "default" : "destructive"}>
                       {factura.estado}
                     </Badge>
-                    <div className="flex gap-1">
+                <div className="flex gap-1">
                       <Button size="sm" variant="outline">
                         <Eye className="w-4 h-4" />
                       </Button>
@@ -207,8 +207,8 @@ export default function FiscalContable() {
               a datos fiscales y de conciliación.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
                 <Label>Período del reporte</Label>
                 <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
                   <SelectTrigger>
@@ -222,7 +222,7 @@ export default function FiscalContable() {
                 </Select>
               </div>
 
-              <div>
+          <div>
                 <Label>Tipo de reporte</Label>
                 <Select defaultValue="COMPLETO">
                   <SelectTrigger>
@@ -255,16 +255,16 @@ export default function FiscalContable() {
             <CardTitle>Reportes contables disponibles</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+        <div className="space-y-3">
               {[
                 { nombre: "Reporte Enero 2025 - Completo", fecha: "2025-01-31", tamaño: "2.5 MB", tipo: "Excel" },
                 { nombre: "Conciliación Bancaria Enero 2025", fecha: "2025-01-31", tamaño: "1.2 MB", tipo: "PDF" },
                 { nombre: "CFDI Emitidos Enero 2025", fecha: "2025-01-31", tamaño: "856 KB", tipo: "Excel" }
               ].map((reporte, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded">
-                  <div>
-                    <div className="font-medium">{reporte.nombre}</div>
-                    <div className="text-sm text-slate-600">{reporte.fecha} • {reporte.tamaño} • {reporte.tipo}</div>
+            <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded">
+              <div>
+                <div className="font-medium">{reporte.nombre}</div>
+                <div className="text-sm text-slate-600">{reporte.fecha} • {reporte.tamaño} • {reporte.tipo}</div>
                   </div>
                   <Button size="sm" variant="outline">
                     <Download className="w-4 h-4 mr-2" />
@@ -302,24 +302,24 @@ export default function FiscalContable() {
           <Card>
             <CardContent className="p-4 text-center">
               <FileText className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold">{estadisticasSAT?.facturas_emitidas || 0}</div>
-              <div className="text-sm text-slate-600">Facturas emitidas</div>
+          <div className="text-2xl font-bold">{estadisticasSAT?.facturas_emitidas || 0}</div>
+          <div className="text-sm text-slate-600">Facturas emitidas</div>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="p-4 text-center">
               <AlertCircle className="w-8 h-8 text-orange-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold">{estadisticasSAT?.facturas_canceladas || 0}</div>
-              <div className="text-sm text-slate-600">Facturas canceladas</div>
+          <div className="text-2xl font-bold">{estadisticasSAT?.facturas_canceladas || 0}</div>
+          <div className="text-sm text-slate-600">Facturas canceladas</div>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="p-4 text-center">
               <Receipt className="w-8 h-8 text-green-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold">${((estadisticasSAT?.ingresos_declarados || 0) / 100).toLocaleString()}</div>
-              <div className="text-sm text-slate-600">Ingresos declarados</div>
+          <div className="text-2xl font-bold">${((estadisticasSAT?.ingresos_declarados || 0) / 100).toLocaleString()}</div>
+          <div className="text-sm text-slate-600">Ingresos declarados</div>
             </CardContent>
           </Card>
         </div>
@@ -338,8 +338,8 @@ export default function FiscalContable() {
               para cumplimiento ante el SAT.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
                 <Label>Mes a reportar</Label>
                 <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
                   <SelectTrigger>
@@ -353,7 +353,7 @@ export default function FiscalContable() {
                 </Select>
               </div>
 
-              <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
                 <CheckCircle className="w-5 h-5 text-green-600" />
                 <span className="text-sm text-green-700">Datos validados y completos</span>
               </div>
@@ -376,19 +376,19 @@ export default function FiscalContable() {
             <CardTitle>Bitácora de cancelaciones CFDI</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+        <div className="space-y-3">
               {[
                 { folio: "A125", uuid: "12345-CANCEL-67890", motivo: "Error en datos", fecha: "2025-01-18", usuario: "Admin Campus" },
                 { folio: "A098", uuid: "12346-CANCEL-67891", motivo: "Devolución", fecha: "2025-01-15", usuario: "Caja Principal" },
                 { folio: "A067", uuid: "12347-CANCEL-67892", motivo: "Corrección", fecha: "2025-01-10", usuario: "Admin Campus" }
               ].map((cancelacion, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded">
-                  <div>
-                    <div className="font-medium text-red-800">Folio {cancelacion.folio}</div>
-                    <div className="text-sm text-red-600">
+            <div key={index} className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded">
+              <div>
+                <div className="font-medium text-red-800">Folio {cancelacion.folio}</div>
+                <div className="text-sm text-red-600">
                       {cancelacion.fecha} • {cancelacion.motivo} • Por: {cancelacion.usuario}
                     </div>
-                    <div className="text-xs text-red-500">UUID: {cancelacion.uuid}</div>
+                <div className="text-xs text-red-500">UUID: {cancelacion.uuid}</div>
                   </div>
                   <Badge variant="destructive">Cancelado</Badge>
                 </div>

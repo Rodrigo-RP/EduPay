@@ -174,12 +174,12 @@ export default function Proveedores() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50">
-      <div className="flex-1 overflow-auto">
+    <div >
+      <div >
         
         <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
               <h1 className="text-3xl font-bold text-slate-900">Gestión de Proveedores</h1>
               <p className="text-slate-600">Administra proveedores, contactos y historial de facturas</p>
             </div>
@@ -194,16 +194,16 @@ export default function Proveedores() {
                 <DialogHeader>
                   <DialogTitle>Registrar nuevo proveedor</DialogTitle>
                 </DialogHeader>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-                  <div className="md:col-span-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+              <div className="md:col-span-2">
                     <Label>Nombre de la empresa</Label>
                     <Input placeholder="Empresa Proveedora S.A. de C.V." />
                   </div>
-                  <div>
+              <div>
                     <Label>RFC</Label>
                     <Input placeholder="ABC123456XYZ" />
                   </div>
-                  <div>
+              <div>
                     <Label>Categoría</Label>
                     <Select>
                       <SelectTrigger>
@@ -217,32 +217,32 @@ export default function Proveedores() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
+              <div>
                     <Label>Teléfono</Label>
                     <Input placeholder="55-1234-5678" />
                   </div>
-                  <div>
+              <div>
                     <Label>WhatsApp</Label>
                     <Input placeholder="55-1234-5678" />
                   </div>
-                  <div>
+              <div>
                     <Label>Contacto principal</Label>
                     <Input placeholder="Lic. Juan Pérez" />
                   </div>
-                  <div>
+              <div>
                     <Label>Correo electrónico</Label>
                     <Input type="email" placeholder="contacto@empresa.com" />
                   </div>
-                  <div className="md:col-span-2">
+              <div className="md:col-span-2">
                     <Label>Dirección</Label>
                     <Input placeholder="Calle Principal 123, Col. Centro, Ciudad, CP 12345" />
                   </div>
-                  <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2">
                     <Switch id="active" defaultChecked />
                     <Label htmlFor="active">Proveedor activo</Label>
                   </div>
                 </div>
-                <div className="flex justify-end space-x-2">
+            <div className="flex justify-end space-x-2">
                   <Button variant="outline" onClick={() => setShowAddModal(false)}>
                     Cancelar
                   </Button>
@@ -255,32 +255,32 @@ export default function Proveedores() {
           </div>
 
           {/* Estadísticas */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <Card>
               <CardContent className="p-4 text-center">
                 <Building className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.totalProveedores}</div>
-                <div className="text-sm text-slate-600">Total proveedores</div>
+            <div className="text-2xl font-bold">{estadisticas.totalProveedores}</div>
+            <div className="text-sm text-slate-600">Total proveedores</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-green-600">{estadisticas.proveedoresActivos}</div>
-                <div className="text-sm text-slate-600">Proveedores activos</div>
+            <div className="text-2xl font-bold text-green-600">{estadisticas.proveedoresActivos}</div>
+            <div className="text-sm text-slate-600">Proveedores activos</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <FileText className="w-8 h-8 text-orange-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.facturasPendientes}</div>
-                <div className="text-sm text-slate-600">Facturas pendientes</div>
+            <div className="text-2xl font-bold">{estadisticas.facturasPendientes}</div>
+            <div className="text-sm text-slate-600">Facturas pendientes</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <DollarSign className="w-8 h-8 text-red-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">${estadisticas.montoPendiente.toLocaleString()}</div>
-                <div className="text-sm text-slate-600">Monto pendiente</div>
+            <div className="text-2xl font-bold">${estadisticas.montoPendiente.toLocaleString()}</div>
+            <div className="text-sm text-slate-600">Monto pendiente</div>
               </CardContent>
             </Card>
           </div>
@@ -298,7 +298,7 @@ export default function Proveedores() {
                   <CardTitle>Filtros de proveedores</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex gap-4">
+              <div className="flex gap-4">
                     <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                       <SelectTrigger className="w-48">
                         <SelectValue />
@@ -323,15 +323,15 @@ export default function Proveedores() {
                   <CardTitle>Proveedores registrados ({filteredProveedores.length})</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
+              <div className="space-y-4">
                     {filteredProveedores.map((proveedor) => (
-                      <div key={proveedor.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50">
-                        <div className="flex items-center space-x-4">
-                          <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <div key={proveedor.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                             <Building className="w-6 h-6 text-blue-600" />
                           </div>
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
                               <h3 className="font-medium">{proveedor.nombre_empresa}</h3>
                               {getCategoryBadge(proveedor.categoria)}
                               <Badge variant={proveedor.activo ? "default" : "secondary"}>
@@ -339,7 +339,7 @@ export default function Proveedores() {
                               </Badge>
                             </div>
                             <p className="text-sm text-slate-600">Contacto: {proveedor.contacto}</p>
-                            <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
+                        <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
                               <span className="flex items-center gap-1">
                                 <Phone className="w-3 h-3" />
                                 {proveedor.telefono}
@@ -355,14 +355,14 @@ export default function Proveedores() {
                             </div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-sm font-medium">{proveedor.total_facturas} facturas</div>
+                    <div className="text-right">
+                      <div className="text-sm font-medium">{proveedor.total_facturas} facturas</div>
                           {proveedor.monto_pendiente > 0 && (
-                            <div className="text-sm text-red-600">
+                        <div className="text-sm text-red-600">
                               Pendiente: ${proveedor.monto_pendiente.toLocaleString()}
                             </div>
                           )}
-                          <div className="flex gap-1 mt-2">
+                      <div className="flex gap-1 mt-2">
                             <Button size="sm" variant="outline">
                               <Edit className="w-3 h-3" />
                             </Button>
@@ -387,27 +387,27 @@ export default function Proveedores() {
                   <CardTitle>Historial de facturas de proveedores</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
+              <div className="space-y-4">
                     {facturas.map((factura) => (
-                      <div key={factura.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
+                  <div key={factura.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
                             <h3 className="font-medium">{factura.folio}</h3>
                             {getEstadoFacturaBadge(factura.estado)}
                           </div>
                           <p className="text-sm text-slate-600">{factura.proveedor}</p>
                           <p className="text-sm text-slate-500">{factura.descripcion}</p>
-                          <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
+                      <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
                             <span>Emisión: {factura.fecha_emision}</span>
                             <span>Vencimiento: {factura.fecha_vencimiento}</span>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold">${factura.total.toLocaleString()}</div>
-                          <div className="text-xs text-slate-500">
+                    <div className="text-right">
+                      <div className="text-lg font-bold">${factura.total.toLocaleString()}</div>
+                      <div className="text-xs text-slate-500">
                             Subtotal: ${factura.monto.toLocaleString()} + IVA: ${factura.iva.toLocaleString()}
                           </div>
-                          <div className="flex gap-1 mt-2">
+                      <div className="flex gap-1 mt-2">
                             <Button size="sm" variant="outline">
                               <Eye className="w-3 h-3" />
                             </Button>

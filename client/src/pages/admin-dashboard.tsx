@@ -74,12 +74,12 @@ export default function AdminDashboard() {
               <BarChart3 className="w-5 h-5" />
               KPIs Financieros - Ciclo 2024-2025
             </CardTitle>
-            <div className="text-sm text-slate-600">
+        <div className="text-sm text-slate-600">
               Datos filtrados por nivel académico seleccionado
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <KPICard
                 icon={DollarSign}
                 label="Total Facturado"
@@ -120,20 +120,20 @@ export default function AdminDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-600">Plataforma SaaS</span>
                 <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Activo</span>
               </div>
-              <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-600">Pagos en línea</span>
                 <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Activo</span>
               </div>
-              <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-600">CFDI Automático</span>
                 <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Activo</span>
               </div>
-              <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-600">Notificaciones</span>
                 <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Activo</span>
               </div>
@@ -151,7 +151,7 @@ export default function AdminDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+        <div className="space-y-4">
               {[
                 { method: "Tarjeta de crédito", percentage: 45, color: "bg-blue-500" },
                 { method: "Transferencia", percentage: 30, color: "bg-green-500" },
@@ -159,15 +159,15 @@ export default function AdminDashboard() {
                 { method: "OXXO Pay", percentage: 8, color: "bg-orange-500" },
                 { method: "Efectivo", percentage: 2, color: "bg-gray-500" },
               ].map((item) => (
-                <div key={item.method} className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-3 h-3 rounded-full ${item.color}`}></div>
+            <div key={item.method} className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className={`w-3 h-3 rounded-full ${item.color}`}></div>
                     <span className="text-slate-700">{item.method}</span>
                   </div>
-                  <div className="text-right">
+              <div className="text-right">
                     <span className="text-sm font-semibold text-slate-900">{item.percentage}%</span>
-                    <div className="w-16 bg-gray-200 rounded-full h-2 mt-1">
-                      <div 
+                <div className="w-16 bg-gray-200 rounded-full h-2 mt-1">
+                  <div 
                         className={`h-2 rounded-full ${item.color}`}
                         style={{ width: `${item.percentage}%` }}
                       ></div>
@@ -187,10 +187,10 @@ export default function AdminDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+        <div className="space-y-3">
               {students?.slice(0, 5).map((student) => (
-                <div key={student.id} className="flex items-center justify-between">
-                  <div>
+            <div key={student.id} className="flex items-center justify-between">
+              <div>
                     <p className="font-medium text-slate-900">{student.nombre_completo}</p>
                     <p className="text-sm text-slate-500">{student.grado} • {student.grupo}</p>
                   </div>

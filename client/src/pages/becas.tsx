@@ -79,12 +79,12 @@ export default function Becas() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50">
-      <div className="flex-1 overflow-auto">
+    <div >
+      <div >
         
         <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
               <h1 className="text-3xl font-bold text-slate-900">Becas y Descuentos</h1>
               <p className="text-slate-600">Gestiona apoyos económicos y descuentos para estudiantes</p>
             </div>
@@ -95,32 +95,32 @@ export default function Becas() {
           </div>
 
           {/* Estadísticas */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <Card>
               <CardContent className="p-4 text-center">
                 <Gift className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.totalBecas}</div>
-                <div className="text-sm text-slate-600">Becas activas</div>
+            <div className="text-2xl font-bold">{estadisticas.totalBecas}</div>
+            <div className="text-sm text-slate-600">Becas activas</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <Percent className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.totalDescuentos}</div>
-                <div className="text-sm text-slate-600">Descuentos activos</div>
+            <div className="text-2xl font-bold">{estadisticas.totalDescuentos}</div>
+            <div className="text-sm text-slate-600">Descuentos activos</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <Users className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.estudiantesBeneficiados}</div>
-                <div className="text-sm text-slate-600">Estudiantes beneficiados</div>
+            <div className="text-2xl font-bold">{estadisticas.estudiantesBeneficiados}</div>
+            <div className="text-sm text-slate-600">Estudiantes beneficiados</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold">{estadisticas.ahorroPorcentual.toFixed(1)}%</div>
-                <div className="text-sm text-slate-600">Ahorro promedio</div>
+            <div className="text-2xl font-bold">{estadisticas.ahorroPorcentual.toFixed(1)}%</div>
+            <div className="text-sm text-slate-600">Ahorro promedio</div>
               </CardContent>
             </Card>
           </div>
@@ -138,12 +138,12 @@ export default function Becas() {
                   <CardTitle>Becas y descuentos configurados</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
+              <div className="space-y-4">
                     {becas.map((beca) => (
-                      <div key={beca.id} className="p-4 border rounded-lg hover:bg-slate-50">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
+                  <div key={beca.id} className="p-4 border rounded-lg hover:bg-slate-50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
                               <h3 className="font-medium">{beca.nombre}</h3>
                               <Badge className={getBadgeColor(beca.tipo, beca.activa)}>
                                 {beca.tipo}
@@ -153,17 +153,17 @@ export default function Becas() {
                               )}
                             </div>
                             <p className="text-sm text-slate-600">{beca.criterios}</p>
-                            <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
+                        <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
                               <span>Vigencia: {beca.vigencia}</span>
                               <span>{beca.estudiantesAplicados} estudiantes beneficiados</span>
                             </div>
                           </div>
-                          <div className="flex items-center gap-4">
-                            <div className="text-right">
-                              <div className="text-2xl font-bold text-purple-600">{beca.porcentaje}%</div>
-                              <div className="text-xs text-slate-500">Descuento</div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-purple-600">{beca.porcentaje}%</div>
+                          <div className="text-xs text-slate-500">Descuento</div>
                             </div>
-                            <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2">
                               <Switch checked={beca.activa} />
                               <Button size="sm" variant="outline">
                                 <Edit className="w-4 h-4" />
@@ -187,8 +187,8 @@ export default function Becas() {
                   <CardTitle>Asignar beca/descuento individual</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
                       <Label>Estudiante</Label>
                       <Select>
                         <SelectTrigger>
@@ -202,7 +202,7 @@ export default function Becas() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                <div>
                       <Label>Beca/Descuento</Label>
                       <Select>
                         <SelectTrigger>
@@ -217,11 +217,11 @@ export default function Becas() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                <div>
                       <Label>Porcentaje personalizado (opcional)</Label>
                       <Input type="number" placeholder="25" min="0" max="100" />
                     </div>
-                    <div>
+                <div>
                       <Label>Vigencia</Label>
                       <Select defaultValue="2024-2025">
                         <SelectTrigger>
@@ -235,7 +235,7 @@ export default function Becas() {
                       </Select>
                     </div>
                   </div>
-                  <div className="mt-4">
+              <div className="mt-4">
                     <Label>Justificación</Label>
                     <textarea 
                       className="w-full p-2 border rounded"
@@ -251,26 +251,26 @@ export default function Becas() {
             </TabsContent>
 
             <TabsContent value="reportes">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>
                     <CardTitle>Reporte de impacto</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex justify-between">
+                <div className="space-y-4">
+                  <div className="flex justify-between">
                         <span>Total de becas otorgadas:</span>
                         <span className="font-semibold">{becas.filter(b => b.tipo === "BECA" && b.activa).length}</span>
                       </div>
-                      <div className="flex justify-between">
+                  <div className="flex justify-between">
                         <span>Total de descuentos aplicados:</span>
                         <span className="font-semibold">{becas.filter(b => b.tipo === "DESCUENTO" && b.activa).length}</span>
                       </div>
-                      <div className="flex justify-between">
+                  <div className="flex justify-between">
                         <span>Estudiantes beneficiados:</span>
                         <span className="font-semibold">{estadisticas.estudiantesBeneficiados}</span>
                       </div>
-                      <div className="flex justify-between">
+                  <div className="flex justify-between">
                         <span>Ahorro total estimado:</span>
                         <span className="font-semibold text-green-600">$45,000 MXN</span>
                       </div>
@@ -283,7 +283,7 @@ export default function Becas() {
                     <CardTitle>Acciones rápidas</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3">
+                <div className="space-y-3">
                       <Button className="w-full" variant="outline">
                         Exportar lista de beneficiarios
                       </Button>

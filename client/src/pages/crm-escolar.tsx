@@ -252,12 +252,12 @@ export default function CRMEscolar() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50">
-      <div className="flex-1 overflow-auto">
+    <div >
+      <div >
         
         <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
               <h1 className="text-3xl font-bold text-slate-900">CRM Escolar</h1>
               <p className="text-slate-600">Gestión de prospectos y familias interesadas</p>
             </div>
@@ -272,32 +272,32 @@ export default function CRMEscolar() {
                 <DialogHeader>
                   <DialogTitle>Registrar nueva familia prospecto</DialogTitle>
                 </DialogHeader>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-                  <div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+              <div>
                     <Label>Nombre del padre</Label>
                     <Input placeholder="Nombre completo del padre" />
                   </div>
-                  <div>
+              <div>
                     <Label>Nombre de la madre</Label>
                     <Input placeholder="Nombre completo de la madre" />
                   </div>
-                  <div>
+              <div>
                     <Label>Teléfono principal</Label>
                     <Input placeholder="55-1234-5678" />
                   </div>
-                  <div>
+              <div>
                     <Label>Teléfono secundario</Label>
                     <Input placeholder="55-8765-4321" />
                   </div>
-                  <div>
+              <div>
                     <Label>Correo principal</Label>
                     <Input type="email" placeholder="correo@ejemplo.com" />
                   </div>
-                  <div>
+              <div>
                     <Label>Correo secundario</Label>
                     <Input type="email" placeholder="correo2@ejemplo.com" />
                   </div>
-                  <div>
+              <div>
                     <Label>Estado económico</Label>
                     <Select>
                       <SelectTrigger>
@@ -310,7 +310,7 @@ export default function CRMEscolar() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
+              <div>
                     <Label>Origen del contacto</Label>
                     <Select>
                       <SelectTrigger>
@@ -325,24 +325,24 @@ export default function CRMEscolar() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
+              <div>
                     <Label>Fecha primer contacto</Label>
                     <Input type="date" />
                   </div>
-                  <div>
+              <div>
                     <Label>Probabilidad de inscripción (%)</Label>
                     <Input type="number" min="0" max="100" placeholder="50" />
                   </div>
-                  <div className="md:col-span-2">
+              <div className="md:col-span-2">
                     <Label>Dirección</Label>
                     <Input placeholder="Dirección completa de la familia" />
                   </div>
-                  <div className="md:col-span-2">
+              <div className="md:col-span-2">
                     <Label>Observaciones</Label>
                     <Textarea placeholder="Observaciones sobre la familia y el seguimiento..." />
                   </div>
                 </div>
-                <div className="flex justify-end space-x-2">
+            <div className="flex justify-end space-x-2">
                   <Button variant="outline" onClick={() => setShowAddModal(false)}>
                     Cancelar
                   </Button>
@@ -355,32 +355,32 @@ export default function CRMEscolar() {
           </div>
 
           {/* Estadísticas del CRM */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <Card>
               <CardContent className="p-4 text-center">
                 <Users className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.totalProspectos}</div>
-                <div className="text-sm text-slate-600">Total prospectos</div>
+            <div className="text-2xl font-bold">{estadisticas.totalProspectos}</div>
+            <div className="text-sm text-slate-600">Total prospectos</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <UserCheck className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.prospectosCerrados}</div>
-                <div className="text-sm text-slate-600">Inscritos</div>
+            <div className="text-2xl font-bold">{estadisticas.prospectosCerrados}</div>
+            <div className="text-sm text-slate-600">Inscritos</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <TrendingUp className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.promedioConversion.toFixed(1)}%</div>
-                <div className="text-sm text-slate-600">Tasa conversión</div>
+            <div className="text-2xl font-bold">{estadisticas.promedioConversion.toFixed(1)}%</div>
+            <div className="text-sm text-slate-600">Tasa conversión</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold">${estadisticas.valorPotencial.toLocaleString()}</div>
-                <div className="text-sm text-slate-600">Valor potencial</div>
+            <div className="text-2xl font-bold">${estadisticas.valorPotencial.toLocaleString()}</div>
+            <div className="text-sm text-slate-600">Valor potencial</div>
               </CardContent>
             </Card>
           </div>
@@ -399,8 +399,8 @@ export default function CRMEscolar() {
                   <CardTitle>Filtros de prospectos</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
                       <Label>Estado del prospecto</Label>
                       <Select value={selectedEstado} onValueChange={setSelectedEstado}>
                         <SelectTrigger>
@@ -416,7 +416,7 @@ export default function CRMEscolar() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                <div>
                       <Label>Origen del contacto</Label>
                       <Select value={selectedOrigen} onValueChange={setSelectedOrigen}>
                         <SelectTrigger>
@@ -431,7 +431,7 @@ export default function CRMEscolar() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="flex items-end">
+                <div className="flex items-end">
                       <Button variant="outline" onClick={() => {
                         setSelectedEstado("all");
                         setSelectedOrigen("all");
@@ -448,24 +448,24 @@ export default function CRMEscolar() {
                   <CardTitle>Familias prospecto ({filteredProspectos.length})</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
+              <div className="space-y-4">
                     {filteredProspectos.map((prospecto) => (
-                      <div key={prospecto.id} className="p-4 border rounded-lg hover:bg-slate-50">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
+                  <div key={prospecto.id} className="p-4 border rounded-lg hover:bg-slate-50">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
                               <h3 className="font-medium">
                                 {prospecto.nombre_padre} & {prospecto.nombre_madre}
                               </h3>
                               {getEstadoBadge(prospecto.estado_prospecto)}
                               {getEstadoEconomicoBadge(prospecto.estado_economico)}
                             </div>
-                            <div className="text-sm text-slate-600 mb-2">
+                        <div className="text-sm text-slate-600 mb-2">
                               <strong>Estudiantes prospecto:</strong> {prospecto.estudiantes_prospecto.map(est => 
                                 `${est.nombre} (${est.grado_interes})`
                               ).join(", ")}
                             </div>
-                            <div className="flex items-center gap-4 text-xs text-slate-500">
+                        <div className="flex items-center gap-4 text-xs text-slate-500">
                               <span className="flex items-center gap-1">
                                 <Phone className="w-3 h-3" />
                                 {prospecto.telefono_principal}
@@ -483,12 +483,12 @@ export default function CRMEscolar() {
                               </p>
                             )}
                           </div>
-                          <div className="text-right">
-                            <div className={`text-2xl font-bold ${getProbabilidadColor(prospecto.probabilidad_inscripcion)}`}>
+                      <div className="text-right">
+                        <div className={`text-2xl font-bold ${getProbabilidadColor(prospecto.probabilidad_inscripcion)}`}>
                               {prospecto.probabilidad_inscripcion}%
                             </div>
-                            <div className="text-xs text-slate-500">Probabilidad</div>
-                            <div className="flex gap-1 mt-2">
+                        <div className="text-xs text-slate-500">Probabilidad</div>
+                        <div className="flex gap-1 mt-2">
                               <Button size="sm" variant="outline">
                                 <Phone className="w-3 h-3" />
                               </Button>
@@ -514,8 +514,8 @@ export default function CRMEscolar() {
                   <CardTitle>Programar seguimiento</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
                       <Label>Seleccionar prospecto</Label>
                       <Select>
                         <SelectTrigger>
@@ -530,7 +530,7 @@ export default function CRMEscolar() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                <div>
                       <Label>Tipo de contacto</Label>
                       <Select>
                         <SelectTrigger>
@@ -544,15 +544,15 @@ export default function CRMEscolar() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                <div>
                       <Label>Fecha programada</Label>
                       <Input type="datetime-local" />
                     </div>
-                    <div>
+                <div>
                       <Label>Responsable</Label>
                       <Input placeholder="Nombre del responsable" />
                     </div>
-                    <div className="md:col-span-2">
+                <div className="md:col-span-2">
                       <Label>Objetivo del contacto</Label>
                       <Textarea placeholder="¿Qué se espera lograr con este contacto?" />
                     </div>
@@ -566,31 +566,31 @@ export default function CRMEscolar() {
             </TabsContent>
 
             <TabsContent value="reportes">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>
                     <CardTitle>Embudo de conversión</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex justify-between">
+                <div className="space-y-4">
+                  <div className="flex justify-between">
                         <span>Nuevos prospectos:</span>
                         <span className="font-semibold">5</span>
                       </div>
-                      <div className="flex justify-between">
+                  <div className="flex justify-between">
                         <span>Contactados:</span>
                         <span className="font-semibold">4</span>
                       </div>
-                      <div className="flex justify-between">
+                  <div className="flex justify-between">
                         <span>Interesados:</span>
                         <span className="font-semibold">2</span>
                       </div>
-                      <div className="flex justify-between">
+                  <div className="flex justify-between">
                         <span>Inscritos:</span>
                         <span className="font-semibold text-green-600">1</span>
                       </div>
                       <hr />
-                      <div className="flex justify-between font-bold">
+                  <div className="flex justify-between font-bold">
                         <span>Tasa de conversión:</span>
                         <span>20%</span>
                       </div>
@@ -603,7 +603,7 @@ export default function CRMEscolar() {
                     <CardTitle>Próximas acciones</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3">
+                <div className="space-y-3">
                       <Button className="w-full" variant="outline">
                         Generar reporte de prospección
                       </Button>

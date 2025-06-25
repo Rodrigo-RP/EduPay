@@ -145,12 +145,12 @@ export default function Usuarios() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50">
-      <div className="flex-1 overflow-auto">
+    <div >
+      <div >
         
         <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
               <h1 className="text-3xl font-bold text-slate-900">Gestión de Usuarios</h1>
               <p className="text-slate-600">Administra usuarios del sistema, roles y permisos</p>
             </div>
@@ -165,20 +165,20 @@ export default function Usuarios() {
                 <DialogHeader>
                   <DialogTitle>Crear nuevo usuario</DialogTitle>
                 </DialogHeader>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-                  <div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+              <div>
                     <Label>Nombre completo</Label>
                     <Input placeholder="Juan Pérez García" />
                   </div>
-                  <div>
+              <div>
                     <Label>Email</Label>
                     <Input type="email" placeholder="usuario@sanpatricio.edu.mx" />
                   </div>
-                  <div>
+              <div>
                     <Label>Teléfono</Label>
                     <Input placeholder="55-1234-5678" />
                   </div>
-                  <div>
+              <div>
                     <Label>Rol del sistema</Label>
                     <Select>
                       <SelectTrigger>
@@ -191,16 +191,16 @@ export default function Usuarios() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
+              <div>
                     <Label>Contraseña temporal</Label>
                     <Input type="password" placeholder="••••••••" />
                   </div>
-                  <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2">
                     <Switch id="active" defaultChecked />
                     <Label htmlFor="active">Usuario activo</Label>
                   </div>
                 </div>
-                <div className="flex justify-end space-x-2">
+            <div className="flex justify-end space-x-2">
                   <Button variant="outline" onClick={() => setShowAddModal(false)}>
                     Cancelar
                   </Button>
@@ -213,32 +213,32 @@ export default function Usuarios() {
           </div>
 
           {/* Estadísticas */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <Card>
               <CardContent className="p-4 text-center">
                 <Users className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.totalUsuarios}</div>
-                <div className="text-sm text-slate-600">Total usuarios</div>
+            <div className="text-2xl font-bold">{estadisticas.totalUsuarios}</div>
+            <div className="text-sm text-slate-600">Total usuarios</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <UserCheck className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.usuariosActivos}</div>
-                <div className="text-sm text-slate-600">Usuarios activos</div>
+            <div className="text-2xl font-bold">{estadisticas.usuariosActivos}</div>
+            <div className="text-sm text-slate-600">Usuarios activos</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <Shield className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold">{estadisticas.adminsCampus}</div>
-                <div className="text-sm text-slate-600">Admins Campus</div>
+            <div className="text-2xl font-bold">{estadisticas.adminsCampus}</div>
+            <div className="text-sm text-slate-600">Admins Campus</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold">{estadisticas.usuariosCaja}</div>
-                <div className="text-sm text-slate-600">Personal Caja</div>
+            <div className="text-2xl font-bold">{estadisticas.usuariosCaja}</div>
+            <div className="text-sm text-slate-600">Personal Caja</div>
               </CardContent>
             </Card>
           </div>
@@ -249,7 +249,7 @@ export default function Usuarios() {
               <CardTitle>Filtros de usuarios</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-4">
+          <div className="flex gap-4">
                 <Select value={selectedRole} onValueChange={setSelectedRole}>
                   <SelectTrigger className="w-48">
                     <SelectValue />
@@ -275,38 +275,38 @@ export default function Usuarios() {
               <CardTitle>Lista de usuarios ({filteredUsuarios.length})</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+          <div className="space-y-4">
                 {filteredUsuarios.map((usuario) => (
-                  <div key={usuario.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+              <div key={usuario.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50">
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                         <span className="text-blue-600 font-semibold">
                           {usuario.nombre_completo.split(' ').map(n => n[0]).join('').substring(0, 2)}
                         </span>
                       </div>
-                      <div>
+                  <div>
                         <h3 className="font-medium">{usuario.nombre_completo}</h3>
                         <p className="text-sm text-slate-600 flex items-center gap-1">
                           <Mail className="w-3 h-3" />
                           {usuario.email}
                         </p>
-                        <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
+                    <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
                           <span>Tel: {usuario.telefono}</span>
                           <span>Último acceso: {usuario.ultimo_acceso}</span>
                           <span>Campus: {usuario.campus}</span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="text-right">
+                <div className="flex items-center space-x-3">
+                  <div className="text-right">
                         {getRoleBadge(usuario.role)}
-                        <div className="mt-1">
+                    <div className="mt-1">
                           <Badge variant={usuario.activo ? "default" : "secondary"}>
                             {usuario.activo ? "Activo" : "Inactivo"}
                           </Badge>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2">
                         <Switch 
                           checked={usuario.activo}
                           onCheckedChange={() => handleToggleActive(usuario.id, usuario.activo)}

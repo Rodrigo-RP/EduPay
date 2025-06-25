@@ -121,66 +121,66 @@ export default function Cargos() {
           <p className="text-slate-600">Administra cargos automáticos, manuales y extraordinarios</p>
         </div>
         <div className="flex gap-2">
-        <Button className="bg-green-600 hover:bg-green-700">
-              <Plus className="w-4 h-4 mr-2" />
-                Generar Cargos
-              </Button>
-        <Button variant="outline">
-                <FileText className="w-4 h-4 mr-2" />
-                Exportar
-              </Button>
-            </div>
-          </div>
+          <Button className="bg-green-600 hover:bg-green-700">
+            <Plus className="w-4 h-4 mr-2" />
+            Generar Cargos
+          </Button>
+          <Button variant="outline">
+            <FileText className="w-4 h-4 mr-2" />
+            Exportar
+          </Button>
+        </div>
+      </div>
 
-          {/* Estadísticas */}
+      {/* Estadísticas */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
-            <Card>
-              <CardContent className="p-4 text-center">
-                <FileText className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+        <Card>
+          <CardContent className="p-4 text-center">
+            <FileText className="w-8 h-8 text-blue-600 mx-auto mb-2" />
             <div className="text-2xl font-bold">{estadisticas.total}</div>
             <div className="text-sm text-slate-600">Total cargos</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <Clock className="w-8 h-8 text-yellow-600 mx-auto mb-2" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <Clock className="w-8 h-8 text-yellow-600 mx-auto mb-2" />
             <div className="text-2xl font-bold">{estadisticas.pendientes}</div>
             <div className="text-sm text-slate-600">Pendientes</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <AlertTriangle className="w-8 h-8 text-red-600 mx-auto mb-2" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <AlertTriangle className="w-8 h-8 text-red-600 mx-auto mb-2" />
             <div className="text-2xl font-bold">{estadisticas.vencidos}</div>
             <div className="text-sm text-slate-600">Vencidos</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
             <div className="text-2xl font-bold">{estadisticas.pagados}</div>
             <div className="text-sm text-slate-600">Pagados</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <DollarSign className="w-8 h-8 text-purple-600 mx-auto mb-2" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <DollarSign className="w-8 h-8 text-purple-600 mx-auto mb-2" />
             <div className="text-2xl font-bold">${(estadisticas.montoTotal / 100).toLocaleString()}</div>
             <div className="text-sm text-slate-600">Monto pendiente</div>
-              </CardContent>
-            </Card>
-          </div>
+          </CardContent>
+        </Card>
+      </div>
 
-          <Tabs defaultValue="lista" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="lista">Lista de cargos</TabsTrigger>
-              <TabsTrigger value="generacion">Generación automática</TabsTrigger>
-              <TabsTrigger value="extraordinarios">Cargos extraordinarios</TabsTrigger>
-            </TabsList>
+      <Tabs defaultValue="lista" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="lista">Lista de cargos</TabsTrigger>
+          <TabsTrigger value="generacion">Generación automática</TabsTrigger>
+          <TabsTrigger value="extraordinarios">Cargos extraordinarios</TabsTrigger>
+        </TabsList>
 
-            <TabsContent value="lista">
-              <Card>
-                <CardHeader>
+        <TabsContent value="lista">
+          <Card>
+            <CardHeader>
               <div className="flex items-center justify-between">
                     <CardTitle>Lista de cargos</CardTitle>
                     <Select value={selectedStatus} onValueChange={setSelectedStatus}>
@@ -332,8 +332,8 @@ export default function Cargos() {
                 </CardContent>
               </Card>
             </TabsContent>
-          </Tabs>
-        </div>
+        </Tabs>
+      </Tabs>
     </div>
   );
 }

@@ -1,17 +1,19 @@
 import { useAuth } from "@/hooks/use-auth";
+import { useLocation } from "wouter";
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
+  const [location, setLocation] = useLocation();
 
   const menuItems = [
-    { icon: "fas fa-chart-line", label: "Dashboard", active: true },
-    { icon: "fas fa-users", label: "Estudiantes", active: false },
-    { icon: "fas fa-file-invoice-dollar", label: "Cargos", active: false },
-    { icon: "fas fa-credit-card", label: "Pagos", active: false },
-    { icon: "fas fa-percent", label: "Becas y Descuentos", active: false },
-    { icon: "fas fa-bell", label: "Notificaciones", active: false },
-    { icon: "fas fa-chart-bar", label: "Reportes", active: false },
-    { icon: "fas fa-cog", label: "Configuración", active: false },
+    { icon: "fas fa-chart-line", label: "Dashboard", href: "/admin", active: location === "/" || location === "/admin" },
+    { icon: "fas fa-users", label: "Estudiantes", href: "/estudiantes", active: location === "/estudiantes" },
+    { icon: "fas fa-file-invoice-dollar", label: "Cargos", href: "/cargos", active: location === "/cargos" },
+    { icon: "fas fa-credit-card", label: "Pagos", href: "/pagos", active: location === "/pagos" },
+    { icon: "fas fa-percent", label: "Becas y Descuentos", href: "/becas", active: location === "/becas" },
+    { icon: "fas fa-bell", label: "Notificaciones", href: "/notificaciones", active: location === "/notificaciones" },
+    { icon: "fas fa-chart-bar", label: "Reportes", href: "/reportes", active: location === "/reportes" },
+    { icon: "fas fa-cog", label: "Configuración", href: "/configuracion", active: location === "/configuracion" },
   ];
 
   return (

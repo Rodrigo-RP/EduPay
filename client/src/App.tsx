@@ -41,18 +41,7 @@ function AuthenticatedRoutes() {
     );
   }
 
-  return (
-    <Switch>
-      <Route path="/" component={AdminDashboard} />
-      <Route path="/admin" component={AdminDashboard} />
-      <Route path="/configuracion-inicial" component={ConfiguracionInicial} />
-      <Route path="/emision-cargos" component={EmisionCargos} />
-      <Route path="/caja-conciliacion" component={CajaConciliacion} />
-      <Route path="/fiscal-contable" component={FiscalContable} />
-      <Route path="/portal-3clics" component={PortalPadres3Clics} />
-      <Route component={NotFound} />
-    </Switch>
-  );
+
 }
 
 function App() {

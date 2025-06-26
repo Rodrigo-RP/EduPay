@@ -55,7 +55,7 @@ const testData = {
 
 async function testExtremeScenarios() {
   console.log("🔥 INICIANDO TESTING DE CASOS EXTREMOS");
-  console.log("="."repeat(60));
+  console.log("=".repeat(60));
   
   const results = {
     predictive_extreme: { passed: 0, failed: 0, errors: [] },
@@ -237,9 +237,9 @@ async function testExtremeScenarios() {
   }
 
   // Reporte final
-  console.log("\n" + "="."repeat(60));
+  console.log("\n" + "=".repeat(60));
   console.log("📊 REPORTE DE CASOS EXTREMOS");
-  console.log("="."repeat(60));
+  console.log("=".repeat(60));
 
   let totalPassed = 0;
   let totalFailed = 0;

@@ -503,8 +503,8 @@ export default function SuperAdminCEODashboard() {
           </TabsContent>
 
           {/* Analytics Tab */}
-          <TabsContent value="analytics" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
+          <TabsContent value="analytics" className="space-y-8">
+            <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
               <Card>
                 <CardHeader>
                   <CardTitle>Crecimiento de Revenue</CardTitle>
@@ -551,8 +551,8 @@ export default function SuperAdminCEODashboard() {
           </TabsContent>
 
           {/* Security Tab */}
-          <TabsContent value="security" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-3">
+          <TabsContent value="security" className="space-y-8">
+            <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
               <Card>
                 <CardHeader>
                   <CardTitle>Escaneo de Seguridad</CardTitle>

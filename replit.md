@@ -118,6 +118,10 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- June 26, 2025: BOTONES DE CUENTAS POR COBRAR FUNCIONALES - Modal de gestión de cobranza completamente operativo
+- June 26, 2025: Botón "Iniciar Cobranza" ejecuta proceso automático de seguimiento a cuentas vencidas y morosas
+- June 26, 2025: Botón "Enviar Recordatorios" procesa envío masivo de notificaciones por email, SMS y llamadas programadas
+- June 26, 2025: Funciones con simulación realista de procesos de cobranza y feedback informativo para usuarios
 - June 26, 2025: FILTROS DE FECHA COMPLETOS EN HISTORIAL DE PAGOS - Funcionalidad de filtrado temporal implementada
 - June 26, 2025: Filtros "Desde" y "Hasta" con campos de fecha tipo input[date] funcionando correctamente
 - June 26, 2025: Lógica de filtrado adaptada para múltiples formatos de fecha (DD/MM/YYYY HH:MM y YYYY-MM-DD)

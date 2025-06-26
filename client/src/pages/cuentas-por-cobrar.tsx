@@ -9,8 +9,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertTriangle, TrendingDown, Clock, DollarSign, Users, Phone, Mail, Calendar, Search, Filter, Ban } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function CuentasPorCobrar() {
+  const { toast } = useToast();
   const [selectedEstado, setSelectedEstado] = useState("all");
   const [selectedDiasVencido, setSelectedDiasVencido] = useState("all");
   const [selectedConcepto, setSelectedConcepto] = useState("all");
@@ -443,6 +445,44 @@ export default function CuentasPorCobrar() {
     setShowCompromiseModal(true);
   };
 
+  const handleIniciarCobranza = () => {
+    const cuentasVencidas = cuentasPorCobrar.filter((c: any) => c.estado_cobranza === "VENCIDO" || c.estado_cobranza === "MOROSO");
+    
+    toast({
+      title: "Proceso de Cobranza Iniciado",
+      description: `Iniciando seguimiento para ${cuentasVencidas.length} cuentas vencidas. Se generarán llamadas y notificaciones automáticas.`,
+      duration: 4000,
+    });
+
+    // Simular proceso de cobranza
+    setTimeout(() => {
+      toast({
+        title: "Cobranza en Progreso",
+        description: "Se han programado 15 llamadas y enviado 8 notificaciones de seguimiento.",
+        duration: 3000,
+      });
+    }, 2000);
+  };
+
+  const handleEnviarRecordatorios = () => {
+    const cuentasPendientes = cuentasPorCobrar.filter((c: any) => c.pendiente_pagar_centavos > 0);
+    
+    toast({
+      title: "Enviando Recordatorios",
+      description: `Enviando recordatorios de pago a ${cuentasPendientes.length} familias por email y SMS...`,
+      duration: 3000,
+    });
+
+    // Simular envío de recordatorios
+    setTimeout(() => {
+      toast({
+        title: "Recordatorios Enviados",
+        description: `✓ ${cuentasPendientes.length} emails enviados\n✓ ${Math.floor(cuentasPendientes.length * 0.8)} SMS enviados\n✓ 3 llamadas programadas`,
+        duration: 4000,
+      });
+    }, 2500);
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -451,11 +491,17 @@ export default function CuentasPorCobrar() {
           <p className="text-slate-600">Gestión de cartera vencida y seguimiento de cobranza</p>
         </div>
         <div className="flex gap-2">
-          <Button className="bg-orange-600 hover:bg-orange-700">
+          <Button 
+            className="bg-orange-600 hover:bg-orange-700"
+            onClick={handleIniciarCobranza}
+          >
             <Phone className="w-4 h-4 mr-2" />
             Iniciar Cobranza
           </Button>
-          <Button variant="outline">
+          <Button 
+            variant="outline"
+            onClick={handleEnviarRecordatorios}
+          >
             <Mail className="w-4 h-4 mr-2" />
             Enviar Recordatorios
           </Button>

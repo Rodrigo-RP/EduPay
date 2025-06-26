@@ -101,20 +101,28 @@ export default function Pagos() {
     // Filtro por fechas
     let matchesDate = true;
     if (dateFrom || dateTo) {
-      // Convertir fecha del pago (formato: "25/06/2024 14:30") a formato ISO
-      const fechaParts = pago.fecha.split(' ')[0].split('/');
-      const pagoDate = new Date(`${fechaParts[2]}-${fechaParts[1]}-${fechaParts[0]}`);
-      
-      if (dateFrom) {
-        const fromDate = new Date(dateFrom);
-        matchesDate = matchesDate && pagoDate >= fromDate;
-      }
-      
-      if (dateTo) {
-        const toDate = new Date(dateTo);
-        // Agregar un día para incluir toda la fecha "hasta"
-        toDate.setDate(toDate.getDate() + 1);
-        matchesDate = matchesDate && pagoDate < toDate;
+      try {
+        // Convertir fecha del pago (formato: "25/06/2024 14:30") a formato ISO
+        const fechaParts = pago.fecha.split(' ')[0].split('/');
+        // Crear fecha correctamente: año-mes-día
+        const pagoDate = new Date(
+          parseInt(fechaParts[2]), // año
+          parseInt(fechaParts[1]) - 1, // mes (0-indexado)
+          parseInt(fechaParts[0]) // día
+        );
+        
+        if (dateFrom) {
+          const fromDate = new Date(dateFrom);
+          matchesDate = matchesDate && pagoDate >= fromDate;
+        }
+        
+        if (dateTo) {
+          const toDate = new Date(dateTo);
+          matchesDate = matchesDate && pagoDate <= toDate;
+        }
+      } catch (error) {
+        console.error('Error parsing date:', pago.fecha, error);
+        matchesDate = true;
       }
     }
     
@@ -360,45 +368,57 @@ export default function Pagos() {
                 </CardHeader>
                 <CardContent>
               <div className="space-y-4">
-                    {filteredPagos.map((pago) => (
-                  <div key={pago.id} className="p-4 border rounded-lg hover:bg-slate-50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-medium">{pago.estudiante}</h3>
-                              {getMetodoBadge(pago.metodo)}
-                              <Badge variant="outline" className="text-xs">
-                                {pago.origen}
-                              </Badge>
+                    {filteredPagos.length === 0 ? (
+                      <div className="text-center py-8">
+                        <Receipt className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                        <h3 className="text-lg font-medium text-gray-600 mb-2">No se encontraron pagos</h3>
+                        <p className="text-gray-500">
+                          {(dateFrom || dateTo || selectedMethod !== "all" || selectedStatus !== "all") 
+                            ? "Intenta ajustar los filtros para ver más resultados" 
+                            : "No hay pagos registrados en el sistema"}
+                        </p>
+                      </div>
+                    ) : (
+                      filteredPagos.map((pago) => (
+                        <div key={pago.id} className="p-4 border rounded-lg hover:bg-slate-50">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-medium">{pago.estudiante}</h3>
+                                {getMetodoBadge(pago.metodo)}
+                                <Badge variant="outline" className="text-xs">
+                                  {pago.origen}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-slate-600">{pago.concepto}</p>
+                              <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
+                                <span>Fecha: {pago.fecha}</span>
+                                <span>Ref: {pago.referencia}</span>
+                                <span>CFDI: {pago.cfdi}</span>
+                              </div>
                             </div>
-                        <p className="text-sm text-slate-600">{pago.concepto}</p>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
-                              <span>Fecha: {pago.fecha}</span>
-                              <span>Ref: {pago.referencia}</span>
-                              <span>CFDI: {pago.cfdi}</span>
-                            </div>
-                          </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <div className="text-lg font-bold">${(pago.monto / 100).toLocaleString()}</div>
-                              <Badge className="bg-green-100 text-green-800">
-                                {pago.estado}
-                              </Badge>
-                            </div>
-                        <div className="flex gap-1">
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleViewPaymentDetails(pago)}
-                            title="Ver detalles del pago"
-                          >
-                                <Eye className="w-4 h-4" />
-                              </Button>
+                            <div className="flex items-center gap-4">
+                              <div className="text-right">
+                                <div className="text-lg font-bold">${(pago.monto / 100).toLocaleString()}</div>
+                                <Badge className="bg-green-100 text-green-800">
+                                  {pago.estado}
+                                </Badge>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleViewPaymentDetails(pago)}
+                                  title="Ver detalles del pago"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </CardContent>
               </Card>

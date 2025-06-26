@@ -18,6 +18,7 @@ export default function CatalogoProductos() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [productToDelete, setProductToDelete] = useState<any>(null);
+  const [selectedNivel, setSelectedNivel] = useState("TODOS");
 
   // Catálogo de productos demo con precios por nivel académico
   const [productos, setProductos] = useState([
@@ -358,7 +359,7 @@ export default function CatalogoProductos() {
                   </div>
               <div>
                     <Label>Categoría</Label>
-                    <Select defaultValue={editingProduct?.categoria || ""}>
+                    <Select name="categoria" defaultValue={editingProduct?.categoria || ""}>
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar categoría..." />
                       </SelectTrigger>
@@ -374,7 +375,7 @@ export default function CatalogoProductos() {
                   </div>
               <div>
                     <Label>Unidad de medida</Label>
-                    <Select defaultValue={editingProduct?.unidad_medida || ""}>
+                    <Select name="unidad_medida" defaultValue={editingProduct?.unidad_medida || ""}>
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar unidad..." />
                       </SelectTrigger>
@@ -470,7 +471,24 @@ export default function CatalogoProductos() {
                     <SelectItem value="OTROS">Otros</SelectItem>
                   </SelectContent>
                 </Select>
-            <Button variant="outline" onClick={() => setSelectedCategory("all")}>
+                
+                <Select value={selectedNivel} onValueChange={setSelectedNivel}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TODOS">Todos los niveles</SelectItem>
+                    <SelectItem value="KINDER">Solo Kinder</SelectItem>
+                    <SelectItem value="PRIMARIA">Solo Primaria</SelectItem>
+                    <SelectItem value="SECUNDARIA">Solo Secundaria</SelectItem>
+                    <SelectItem value="BACHILLERATO">Solo Bachillerato</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+            <Button variant="outline" onClick={() => {
+              setSelectedCategory("all");
+              setSelectedNivel("TODOS");
+            }}>
                   Limpiar filtros
                 </Button>
               </div>
@@ -506,25 +524,37 @@ export default function CatalogoProductos() {
                     </div>
                 <div className="flex items-center space-x-3">
                   <div className="text-right">
-                    <div className="text-sm font-semibold text-slate-700 mb-1">Precios por nivel:</div>
-                    <div className="space-y-1 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-slate-600">Kinder:</span>
-                        <span className="font-medium">${(producto.precios_por_nivel.KINDER / 100).toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-600">Primaria:</span>
-                        <span className="font-medium">${(producto.precios_por_nivel.PRIMARIA / 100).toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-600">Secundaria:</span>
-                        <span className="font-medium">${(producto.precios_por_nivel.SECUNDARIA / 100).toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-600">Bachillerato:</span>
-                        <span className="font-medium">${(producto.precios_por_nivel.BACHILLERATO / 100).toLocaleString()}</span>
-                      </div>
-                    </div>
+                    {selectedNivel === "TODOS" ? (
+                      <>
+                        <div className="text-sm font-semibold text-slate-700 mb-1">Precios por nivel:</div>
+                        <div className="space-y-1 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Kinder:</span>
+                            <span className="font-medium">${(producto.precios_por_nivel.KINDER / 100).toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Primaria:</span>
+                            <span className="font-medium">${(producto.precios_por_nivel.PRIMARIA / 100).toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Secundaria:</span>
+                            <span className="font-medium">${(producto.precios_por_nivel.SECUNDARIA / 100).toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Bachillerato:</span>
+                            <span className="font-medium">${(producto.precios_por_nivel.BACHILLERATO / 100).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-sm font-semibold text-slate-700 mb-1">Precio para {selectedNivel}:</div>
+                        <div className="text-2xl font-bold text-blue-600">
+                          ${(producto.precios_por_nivel[selectedNivel as keyof typeof producto.precios_por_nivel] / 100).toLocaleString()}
+                        </div>
+                        <div className="text-xs text-slate-500">MXN</div>
+                      </>
+                    )}
                         <Badge variant={producto.activo ? "default" : "secondary"}>
                           {producto.activo ? "Activo" : "Inactivo"}
                         </Badge>

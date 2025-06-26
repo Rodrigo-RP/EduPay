@@ -118,6 +118,12 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- June 26, 2025: PRECIOS DIFERENCIADOS POR NIVEL ACADÉMICO IMPLEMENTADOS EN CATÁLOGO DE PRODUCTOS
+- June 26, 2025: Sistema completo de precios específicos para Kinder, Primaria, Secundaria y Bachillerato
+- June 26, 2025: Formulario de productos actualizado con campos individuales para cada nivel académico
+- June 26, 2025: Filtro de visualización por nivel para ver precios específicos o todos los niveles
+- June 26, 2025: Interfaz adaptativa que muestra precios individuales por nivel o vista completa
+- June 26, 2025: Funcionalidad de guardado y edición de productos con estructura de precios por nivel
 - June 26, 2025: MODALES DE CONFIRMACIÓN ROJOS COMPLETADOS CON ACCESIBILIDAD
 - June 26, 2025: DialogDescription agregado a todos los modales de eliminación para cumplir estándares de accesibilidad
 - June 26, 2025: Modales personalizados rojos reemplazan completamente window.confirm() en toda la plataforma

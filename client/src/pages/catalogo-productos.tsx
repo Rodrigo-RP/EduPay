@@ -352,11 +352,15 @@ export default function CatalogoProductos() {
                   </div>
               <div>
                     <Label>Precio unitario (MXN)</Label>
-                    <Input type="number" placeholder="5000" />
+                    <Input 
+                      type="number" 
+                      placeholder="5000" 
+                      defaultValue={editingProduct ? (editingProduct.precio_unitario_centavos / 100).toString() : ''}
+                    />
                   </div>
               <div>
                     <Label>Categoría</Label>
-                    <Select>
+                    <Select defaultValue={editingProduct?.categoria || ""}>
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar categoría..." />
                       </SelectTrigger>
@@ -372,7 +376,7 @@ export default function CatalogoProductos() {
                   </div>
               <div>
                     <Label>Unidad de medida</Label>
-                    <Select>
+                    <Select defaultValue={editingProduct?.unidad_medida || ""}>
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar unidad..." />
                       </SelectTrigger>
@@ -386,11 +390,14 @@ export default function CatalogoProductos() {
                   </div>
               <div>
                     <Label>Clave SAT</Label>
-                    <Input placeholder="80101500" />
+                    <Input 
+                      placeholder="80101500" 
+                      defaultValue={editingProduct?.clave_sat || ''}
+                    />
                   </div>
               <div>
                     <Label>Sección académica</Label>
-                    <Select>
+                    <Select defaultValue={editingProduct?.seccion_academica || ""}>
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar sección..." />
                       </SelectTrigger>
@@ -404,16 +411,19 @@ export default function CatalogoProductos() {
                     </Select>
                   </div>
               <div className="flex items-center space-x-2">
-                    <Switch id="active" defaultChecked />
+                    <Switch 
+                      id="active" 
+                      defaultChecked={editingProduct ? editingProduct.activo : true} 
+                    />
                     <Label htmlFor="active">Producto activo</Label>
                   </div>
                 </div>
             <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setShowAddModal(false)}>
+              <Button variant="outline" onClick={handleCloseModal}>
                     Cancelar
                   </Button>
               <Button className="bg-blue-600 hover:bg-blue-700">
-                    Crear Producto
+                    {editingProduct ? 'Actualizar Producto' : 'Crear Producto'}
                   </Button>
                 </div>
               </DialogContent>

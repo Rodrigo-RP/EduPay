@@ -19,210 +19,22 @@ export default function CatalogoProductos() {
 
   // Catálogo de productos demo
   const productos = [
-    {
-      id: 1,
-      codigo: "COL-2025",
-      nombre: "Colegiatura Mensual",
-      descripcion: "Pago mensual de colegiatura para servicios educativos",
-      precio_unitario_centavos: 500000, // $5,000 MXN
-      categoria: "COLEGIATURAS",
-      unidad_medida: "SERVICIO",
-      clave_sat: "80101500", // Servicios de educación básica
-      activo: true,
-      seccion_academica: "GENERAL"
-    },
-    {
-      id: 2,
-      codigo: "INS-2025",
-      nombre: "Inscripción Anual",
-      descripcion: "Pago único anual por inscripción al ciclo escolar",
-      precio_unitario_centavos: 300000, // $3,000 MXN
-      categoria: "INSCRIPCIONES",
-      unidad_medida: "SERVICIO",
-      clave_sat: "80101500",
-      activo: true,
-      seccion_academica: "GENERAL"
-    },
-    {
-      id: 3,
-      codigo: "SEG-ESC-2025",
-      nombre: "Seguro Escolar",
-      descripcion: "Seguro contra accidentes escolares para estudiantes",
-      precio_unitario_centavos: 80000, // $800 MXN
-      categoria: "SEGURO_ESCOLAR",
-      unidad_medida: "SERVICIO",
-      clave_sat: "52121600", // Servicios de seguros
-      activo: true,
-      seccion_academica: "GENERAL"
-    },
-    {
-      id: 4,
-      codigo: "LIB-PRIM-2025",
-      nombre: "Paquete de Libros Primaria",
-      descripcion: "Set completo de libros de texto para nivel primaria",
-      precio_unitario_centavos: 150000, // $1,500 MXN
-      categoria: "LIBROS",
-      unidad_medida: "LOTE",
-      clave_sat: "49111500", // Libros escolares
-      activo: true,
-      seccion_academica: "PRIMARIA"
-    },
-    {
-      id: 5,
-      codigo: "LIB-SEC-2025",
-      nombre: "Paquete de Libros Secundaria",
-      descripcion: "Set completo de libros de texto para nivel secundaria",
-      precio_unitario_centavos: 200000, // $2,000 MXN
-      categoria: "LIBROS",
-      unidad_medida: "LOTE",
-      clave_sat: "49111500",
-      activo: true,
-      seccion_academica: "SECUNDARIA"
-    },
-    {
-      id: 6,
-      codigo: "UNI-KINDER",
-      nombre: "Uniforme Kinder",
-      descripcion: "Uniforme completo para estudiantes de kinder",
-      precio_unitario_centavos: 120000, // $1,200 MXN
-      categoria: "OTROS",
-      unidad_medida: "PIEZA",
-      clave_sat: "53101800", // Uniformes escolares
-      activo: true,
-      seccion_academica: "KINDER"
-    },
-    {
-      id: 7,
-      codigo: "EXCUR-2025",
-      nombre: "Excursión Educativa",
-      descripcion: "Viaje educativo y recreativo para estudiantes",
-      precio_unitario_centavos: 100000, // $1,000 MXN
-      categoria: "OTROS",
-      unidad_medida: "SERVICIO",
-      clave_sat: "80101500",
-      activo: true,
-      seccion_academica: "GENERAL"
-    },
-    {
-      id: 8,
-      codigo: "COL-BACH-2025",
-      nombre: "Colegiatura Bachillerato",
-      descripcion: "Pago mensual de colegiatura para nivel bachillerato",
-      precio_unitario_centavos: 700000, // $7,000 MXN
-      categoria: "COLEGIATURAS", 
-      unidad_medida: "SERVICIO",
-      clave_sat: "80101500",
-      activo: true,
-      seccion_academica: "BACHILLERATO"
-    },
-    {
-      id: 9,
-      codigo: "REINS-2025",
-      nombre: "Reinscripción",
-      descripcion: "Proceso de reinscripción para ciclo escolar siguiente",
-      precio_unitario_centavos: 150000, // $1,500 MXN
-      categoria: "REINSCRIPCIONES",
-      unidad_medida: "SERVICIO",
-      clave_sat: "80101500",
-      activo: true,
-      seccion_academica: "GENERAL"
-    },
-    {
-      id: 10,
-      codigo: "REINS-BACH-2025",
-      nombre: "Reinscripción Bachillerato",
-      descripcion: "Proceso de reinscripción anual para bachillerato",
-      precio_unitario_centavos: 350000, // $3,500 MXN
-      categoria: "INSCRIPCIONES",
-      unidad_medida: "SERVICIO",
-      clave_sat: "80101500",
-      activo: true,
-      seccion_academica: "BACHILLERATO"
-    },
-    {
-      id: 11,
-      codigo: "MAT-LAB-2025",
-      nombre: "Material de Laboratorio",
-      descripcion: "Materiales para prácticas de laboratorio de ciencias",
-      precio_unitario_centavos: 180000, // $1,800 MXN
-      categoria: "OTROS",
-      unidad_medida: "LOTE",
-      clave_sat: "49122000",
-      activo: true,
-      seccion_academica: "SECUNDARIA"
-    },
-    {
-      id: 12,
-      codigo: "UNI-DEPORTIVO",
-      nombre: "Uniforme Deportivo",
-      descripcion: "Uniforme completo para educación física y deportes",
-      precio_unitario_centavos: 85000, // $850 MXN
-      categoria: "OTROS",
-      unidad_medida: "PIEZA",
-      clave_sat: "53101800",
-      activo: true,
-      seccion_academica: "GENERAL"
-    },
-    {
-      id: 13,
-      codigo: "GRAD-PRIM-2025",
-      nombre: "Graduación Primaria",
-      descripcion: "Ceremonia de graduación y certificados para primaria",
-      precio_unitario_centavos: 250000, // $2,500 MXN
-      categoria: "OTROS",
-      unidad_medida: "SERVICIO",
-      clave_sat: "80101500",
-      activo: true,
-      seccion_academica: "PRIMARIA"
-    },
-    {
-      id: 14,
-      codigo: "EXAM-ADM-2025",
-      nombre: "Examen de Admisión",
-      descripcion: "Evaluación de ingreso para nuevos estudiantes",
-      precio_unitario_centavos: 120000, // $1,200 MXN
-      categoria: "OTROS",
-      unidad_medida: "SERVICIO",
-      clave_sat: "80101500",
-      activo: true,
-      seccion_academica: "GENERAL"
-    },
-    {
-      id: 15,
-      codigo: "MOCH-ESC-2025",
-      nombre: "Mochila Escolar",
-      descripcion: "Mochila oficial de la institución con logo",
-      precio_unitario_centavos: 45000, // $450 MXN
-      categoria: "OTROS",
-      unidad_medida: "PIEZA",
-      clave_sat: "53101600",
-      activo: true,
-      seccion_academica: "GENERAL"
-    },
-    {
-      id: 15,
-      codigo: "TRANS-ESC-2025",
-      nombre: "Transporte Escolar",
-      descripcion: "Servicio de transporte mensual casa-escuela-casa",
-      precio_unitario_centavos: 180000, // $1,800 MXN
-      categoria: "OTROS",
-      unidad_medida: "SERVICIO",
-      clave_sat: "48000000",
-      activo: true,
-      seccion_academica: "GENERAL"
-    },
-    {
-      id: 16,
-      codigo: "REINS-GRAL-2025",
-      nombre: "Reinscripción Anual",
-      descripcion: "Pago de reinscripción para estudiantes ya registrados en ciclos anteriores",
-      precio_unitario_centavos: 350000, // $3,500 MXN
-      categoria: "INSCRIPCIONES",
-      unidad_medida: "SERVICIO",
-      clave_sat: "80101500",
-      activo: true,
-      seccion_academica: "GENERAL"
-    }
+    { id: 1, codigo: "COL-2025", nombre: "Colegiatura Mensual", descripcion: "Pago mensual de colegiatura para servicios educativos", precio_unitario_centavos: 500000, categoria: "COLEGIATURAS", unidad_medida: "SERVICIO", clave_sat: "80101500", activo: true, seccion_academica: "GENERAL" },
+    { id: 2, codigo: "INS-2025", nombre: "Inscripción Anual", descripcion: "Pago único anual por inscripción al ciclo escolar", precio_unitario_centavos: 300000, categoria: "INSCRIPCIONES", unidad_medida: "SERVICIO", clave_sat: "80101500", activo: true, seccion_academica: "GENERAL" },
+    { id: 3, codigo: "SEG-ESC-2025", nombre: "Seguro Escolar", descripcion: "Seguro contra accidentes escolares para estudiantes", precio_unitario_centavos: 80000, categoria: "SEGURO_ESCOLAR", unidad_medida: "SERVICIO", clave_sat: "52121600", activo: true, seccion_academica: "GENERAL" },
+    { id: 4, codigo: "LIB-PRIM-2025", nombre: "Paquete de Libros Primaria", descripcion: "Set completo de libros de texto para nivel primaria", precio_unitario_centavos: 150000, categoria: "LIBROS", unidad_medida: "LOTE", clave_sat: "49111500", activo: true, seccion_academica: "PRIMARIA" },
+    { id: 5, codigo: "LIB-SEC-2025", nombre: "Paquete de Libros Secundaria", descripcion: "Set completo de libros de texto para nivel secundaria", precio_unitario_centavos: 200000, categoria: "LIBROS", unidad_medida: "LOTE", clave_sat: "49111500", activo: true, seccion_academica: "SECUNDARIA" },
+    { id: 6, codigo: "UNI-KINDER", nombre: "Uniforme Kinder", descripcion: "Uniforme completo para estudiantes de kinder", precio_unitario_centavos: 120000, categoria: "OTROS", unidad_medida: "PIEZA", clave_sat: "53101800", activo: true, seccion_academica: "KINDER" },
+    { id: 7, codigo: "EXCUR-2025", nombre: "Excursión Educativa", descripcion: "Viaje educativo y recreativo para estudiantes", precio_unitario_centavos: 100000, categoria: "OTROS", unidad_medida: "SERVICIO", clave_sat: "80101500", activo: true, seccion_academica: "GENERAL" },
+    { id: 8, codigo: "COL-BACH-2025", nombre: "Colegiatura Bachillerato", descripcion: "Pago mensual de colegiatura para nivel bachillerato", precio_unitario_centavos: 700000, categoria: "COLEGIATURAS", unidad_medida: "SERVICIO", clave_sat: "80101500", activo: true, seccion_academica: "BACHILLERATO" },
+    { id: 9, codigo: "REINS-2025", nombre: "Reinscripción", descripcion: "Proceso de reinscripción para ciclo escolar siguiente", precio_unitario_centavos: 150000, categoria: "REINSCRIPCIONES", unidad_medida: "SERVICIO", clave_sat: "80101500", activo: true, seccion_academica: "GENERAL" },
+    { id: 10, codigo: "REINS-BACH-2025", nombre: "Reinscripción Bachillerato", descripcion: "Proceso de reinscripción anual para bachillerato", precio_unitario_centavos: 350000, categoria: "REINSCRIPCIONES", unidad_medida: "SERVICIO", clave_sat: "80101500", activo: true, seccion_academica: "BACHILLERATO" },
+    { id: 11, codigo: "MAT-LAB-2025", nombre: "Material de Laboratorio", descripcion: "Materiales para prácticas de laboratorio de ciencias", precio_unitario_centavos: 180000, categoria: "OTROS", unidad_medida: "LOTE", clave_sat: "49122000", activo: true, seccion_academica: "SECUNDARIA" },
+    { id: 12, codigo: "UNI-DEPORTIVO", nombre: "Uniforme Deportivo", descripcion: "Uniforme completo para educación física y deportes", precio_unitario_centavos: 85000, categoria: "OTROS", unidad_medida: "PIEZA", clave_sat: "53101800", activo: true, seccion_academica: "GENERAL" },
+    { id: 13, codigo: "GRAD-PRIM-2025", nombre: "Graduación Primaria", descripcion: "Ceremonia de graduación y certificados para primaria", precio_unitario_centavos: 250000, categoria: "OTROS", unidad_medida: "SERVICIO", clave_sat: "80101500", activo: true, seccion_academica: "PRIMARIA" },
+    { id: 14, codigo: "EXAM-ADM-2025", nombre: "Examen de Admisión", descripcion: "Evaluación de ingreso para nuevos estudiantes", precio_unitario_centavos: 120000, categoria: "OTROS", unidad_medida: "SERVICIO", clave_sat: "80101500", activo: true, seccion_academica: "GENERAL" },
+    { id: 15, codigo: "MOCH-ESC-2025", nombre: "Mochila Escolar", descripcion: "Mochila oficial de la institución con logo", precio_unitario_centavos: 45000, categoria: "OTROS", unidad_medida: "PIEZA", clave_sat: "53101600", activo: true, seccion_academica: "GENERAL" },
+    { id: 16, codigo: "TRANS-ESC-2025", nombre: "Transporte Escolar", descripcion: "Servicio de transporte mensual casa-escuela-casa", precio_unitario_centavos: 180000, categoria: "OTROS", unidad_medida: "SERVICIO", clave_sat: "48000000", activo: true, seccion_academica: "GENERAL" }
   ];
 
   const filteredProductos = selectedCategory === "all" 

@@ -551,6 +551,7 @@ export default function Estudiantes() {
 
   const handleDelete = (studentId: number) => {
     const student = estudiantes.find(s => s.id === studentId);
+    
     if (student && student.saldo_pendiente > 0) {
       toast({
         title: "No se puede eliminar",
@@ -560,11 +561,17 @@ export default function Estudiantes() {
       return;
     }
 
-    setEstudiantes(prev => prev.filter(s => s.id !== studentId));
-    toast({
-      title: "Estudiante eliminado",
-      description: "El estudiante ha sido eliminado exitosamente."
-    });
+    const confirmed = window.confirm(
+      `⚠️ ADVERTENCIA DE ELIMINACIÓN\n\n¿Estás completamente seguro de que deseas eliminar al estudiante "${student?.nombre_completo}"?\n\nEsta acción NO se puede deshacer y eliminará:\n• Todos los datos académicos del estudiante\n• Historial de pagos y cargos\n• Información de responsables y contactos\n• Registros de asistencia y calificaciones\n\n¿Continuar con la eliminación?`
+    );
+    
+    if (confirmed) {
+      setEstudiantes(prev => prev.filter(s => s.id !== studentId));
+      toast({
+        title: "Estudiante eliminado",
+        description: `${student?.nombre_completo} ha sido eliminado permanentemente del sistema.`
+      });
+    }
   };
 
   // Funciones para manejar grupos personalizados

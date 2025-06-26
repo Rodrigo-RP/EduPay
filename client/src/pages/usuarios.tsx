@@ -192,19 +192,25 @@ export default function Usuarios() {
     }
   };
 
-  const handleDeleteUser = async (userId: number) => {
-    try {
-      // Simular API call
-      toast({
-        title: "Usuario eliminado",
-        description: "El usuario ha sido eliminado del sistema.",
-      });
-    } catch (error) {
-      toast({
-        title: "Error", 
-        description: "No se pudo eliminar el usuario.",
-        variant: "destructive",
-      });
+  const handleDeleteUser = async (userId: number, userName: string) => {
+    const confirmed = window.confirm(
+      `⚠️ ADVERTENCIA DE ELIMINACIÓN\n\n¿Estás completamente seguro de que deseas eliminar al usuario "${userName}"?\n\nEsta acción NO se puede deshacer y eliminará:\n• Acceso completo al sistema\n• Todos los permisos y configuraciones\n• Historial de actividades del usuario\n\n¿Continuar con la eliminación?`
+    );
+    
+    if (confirmed) {
+      try {
+        // Simular API call
+        toast({
+          title: "Usuario eliminado",
+          description: `El usuario "${userName}" ha sido eliminado permanentemente del sistema.`,
+        });
+      } catch (error) {
+        toast({
+          title: "Error al eliminar", 
+          description: "No se pudo eliminar el usuario. Intenta nuevamente.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -451,7 +457,7 @@ export default function Usuarios() {
                     <Button 
                           size="sm" 
                           variant="outline"
-                          onClick={() => handleDeleteUser(usuario.id)}
+                          onClick={() => handleDeleteUser(usuario.id, usuario.nombre_completo)}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>

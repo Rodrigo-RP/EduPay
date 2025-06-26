@@ -193,7 +193,7 @@ export interface TimbradoConfig {
  */
 export class SATRealTimeValidator {
   
-  private static satCatalog: SATCatalog;
+  public static satCatalog: SATCatalog;
   
   /**
    * Inicializa catálogos SAT (simulado con datos reales)
@@ -466,7 +466,7 @@ export class SATRealTimeValidator {
     const normalizedDesc = description.toLowerCase();
     const scores = new Map<string, number>();
     
-    for (const [key, producto] of this.satCatalog.productos_servicios) {
+    Array.from(this.satCatalog.productos_servicios.entries()).forEach(([key, producto]) => {
       let score = 0;
       
       // Coincidencia exacta en palabras clave
@@ -483,7 +483,7 @@ export class SATRealTimeValidator {
       if (score > 0) {
         scores.set(key, score);
       }
-    }
+    });
     
     const sortedScores = Array.from(scores.entries())
       .sort(([,a], [,b]) => b - a)

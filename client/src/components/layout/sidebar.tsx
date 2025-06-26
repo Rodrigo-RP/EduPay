@@ -79,6 +79,13 @@ export default function Sidebar() {
       category: "financiero"
     },
     { 
+      icon: "fas fa-tags", 
+      label: "Asignación de Precios", 
+      href: "/asignacion-precios", 
+      active: location === "/asignacion-precios",
+      category: "financiero"
+    },
+    { 
       icon: "fas fa-building", 
       label: "Proveedores", 
       href: "/proveedores", 

@@ -31,12 +31,28 @@ export const users = pgTable("users", {
   email: varchar("email", { length: 255 }).notNull().unique(),
   password_hash: varchar("password_hash", { length: 255 }).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
-  role: varchar("role", { length: 50 }).notNull(), // 'super_admin', 'admin', 'caja', 'contador'
+  role: varchar("role", { length: 50 }).notNull(), // 'super_admin', 'admin', 'caja', 'contador', 'support', 'implementation'
   twofa_secret: varchar("twofa_secret", { length: 255 }),
   is_active: boolean("is_active").default(true),
   is_super_admin: boolean("is_super_admin").default(false),
   platform_permissions: text("platform_permissions").array(),
   last_login_at: timestamp("last_login_at"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+// PLATFORM PROFILES (Support and Implementation users)
+export const platform_profiles = pgTable("platform_profiles", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+  profile_type: varchar("profile_type", { length: 50 }).notNull(), // 'support', 'implementation'
+  specialization: varchar("specialization", { length: 100 }), // 'technical_support', 'customer_success', 'onboarding_specialist', 'integration_expert'
+  access_level: varchar("access_level", { length: 50 }).notNull(), // 'read_only', 'read_write', 'full_access'
+  assigned_schools: text("assigned_schools").array(), // Array of tenant IDs
+  permissions: text("permissions").array(), // Specific permissions array
+  support_tier: varchar("support_tier", { length: 20 }), // 'tier1', 'tier2', 'tier3' for support users
+  implementation_phase: varchar("implementation_phase", { length: 50 }), // 'pre_onboarding', 'setup', 'training', 'go_live', 'post_launch'
+  metrics: text("metrics"), // JSON string with performance metrics
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
@@ -545,3 +561,13 @@ export type PlatformSubscription = typeof platform_subscriptions.$inferSelect;
 export type InsertPlatformSubscription = z.infer<typeof insertPlatformSubscriptionSchema>;
 export type SystemHealth = typeof system_health.$inferSelect;
 export type InsertSystemHealth = z.infer<typeof insertSystemHealthSchema>;
+
+// Platform profiles schema and types
+export const insertPlatformProfileSchema = createInsertSchema(platform_profiles).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+});
+
+export type PlatformProfile = typeof platform_profiles.$inferSelect;
+export type InsertPlatformProfile = z.infer<typeof insertPlatformProfileSchema>;

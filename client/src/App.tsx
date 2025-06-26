@@ -40,6 +40,8 @@ import SuperAdminLogin from "@/pages/super-admin-login";
 import SuperAdminDashboard from "@/pages/super-admin-dashboard";
 import SuperAdminCEODashboard from "@/pages/super-admin-ceo-dashboard";
 import SuperAdminSchoolManagement from "@/pages/super-admin-school-management";
+import SupportDashboard from "@/pages/support-dashboard";
+import ImplementationDashboard from "@/pages/implementation-dashboard";
 import SaaSInfo from "@/components/saas-info";
 
 function AuthenticatedRoutes() {
@@ -122,6 +124,8 @@ function App() {
                   <Route path="/super-admin" component={SuperAdminCEODashboard} />
                   <Route path="/super-admin-classic" component={SuperAdminDashboard} />
                   <Route path="/super-admin-schools" component={SuperAdminSchoolManagement} />
+                  <Route path="/support-dashboard" component={SupportDashboard} />
+                  <Route path="/implementation-dashboard" component={ImplementationDashboard} />
                   <Route path="/" component={() => {
                     window.location.href = '/super-admin-login';
                     return null;

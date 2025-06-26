@@ -171,3 +171,4 @@ Architecture preference: SaaS multi-tenant web platform según especificaciones 
 Platform type: Plataforma SaaS 100% enfocada en pagos escolares, no ERP ni LMS.
 Tecnología requerida: React + Tailwind CSS (PWA ready), Node.js, PostgreSQL, Redis, Stripe/Openpay/Conekta, PAC Facturama.
 UX/UI: Móvil primero, proceso de pago 3 clics o menos, onboarding < 1 hora.
+Funcionalidad de redes sociales: Integración real con plataformas oficiales (Facebook Business, Instagram Business, TikTok Ads) usando autenticación OAuth y redirección a sitios oficiales para que cada escuela conecte sus propias cuentas empresariales.

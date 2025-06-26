@@ -1220,8 +1220,18 @@ ${p.nombre_padre} & ${p.nombre_madre}
                       </Button>
                     </div>
 
-                    {/* Demo completa */}
-                    <div className="mt-4 pt-4 border-t border-blue-200">
+                    {/* Demo completa y guía rápida */}
+                    <div className="mt-4 pt-4 border-t border-blue-200 space-y-3">
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                        <h5 className="font-medium text-emerald-800 mb-2">Guía Rápida de Uso</h5>
+                        <ol className="text-sm text-emerald-700 space-y-1">
+                          <li>1. Haz clic en "Demo Completa" para probar todas las funciones</li>
+                          <li>2. O conecta individualmente cada plataforma con tu cuenta real</li>
+                          <li>3. Una vez conectadas, usa "Crear Campaña" para configurar anuncios</li>
+                          <li>4. Revisa el "Estado de Conexiones" para verificar sincronización</li>
+                        </ol>
+                      </div>
+                      
                       <Button 
                         className="w-full bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600"
                         onClick={() => {

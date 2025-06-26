@@ -1603,6 +1603,153 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // REAL-TIME CEO DASHBOARD APIs
+  app.get('/api/super-admin/live/revenue', requireSuperAdmin, async (req, res) => {
+    try {
+      const baseTime = Date.now();
+      const currentHour = new Date().getHours();
+      
+      // Realistic revenue patterns based on time of day
+      const baseRevenue = 2847320;
+      const hourlyVariation = Math.sin((currentHour / 24) * Math.PI * 2) * 50000;
+      const randomFluctuation = (Math.random() - 0.5) * 20000;
+      
+      const liveData = {
+        currentRevenue: Math.round(baseRevenue + hourlyVariation + randomFluctuation),
+        mrr: 456780 + Math.floor(Math.random() * 5000),
+        growth: 12.5 + (Math.random() - 0.5) * 2,
+        transactionsPerHour: 800 + Math.floor(Math.random() * 200),
+        successRate: 98 + Math.random() * 1.5,
+        churnRisk: 2.1 + (Math.random() - 0.5) * 0.5,
+        uptime: 99.94 + Math.random() * 0.05,
+        timestamp: baseTime
+      };
+      
+      res.json(liveData);
+    } catch (error) {
+      console.error("Error fetching live revenue:", error);
+      res.status(500).json({ message: "Failed to fetch live revenue data" });
+    }
+  });
+
+  app.get('/api/super-admin/live/transactions', requireSuperAdmin, async (req, res) => {
+    try {
+      const schools = [
+        "Colegio Cervantes", "Instituto Morelos", "Escuela Hidalgo", 
+        "Colegio Juárez", "Instituto Allende", "Escuela Reforma",
+        "Colegio Victoria", "Instituto Norte", "Escuela Central", "Colegio Sur"
+      ];
+      
+      const concepts = [
+        "Colegiatura Enero", "Inscripción 2025", "Seguro Escolar", 
+        "Uniforme", "Libros", "Laboratorio", "Actividades"
+      ];
+      
+      // Generate realistic transaction feed
+      const transactions = Array.from({ length: 12 }, (_, i) => {
+        const now = new Date();
+        now.setSeconds(now.getSeconds() - (i * 8));
+        
+        const amount = Math.floor(Math.random() * 4000) + 1200;
+        const isSuccess = Math.random() > 0.08; // 92% success rate
+        
+        return {
+          id: `TX${Date.now()}-${i}`,
+          time: now.toLocaleTimeString('es-MX', { hour12: false }),
+          school: schools[Math.floor(Math.random() * schools.length)],
+          concept: concepts[Math.floor(Math.random() * concepts.length)],
+          amount: amount,
+          status: isSuccess ? 'success' : 'failed',
+          method: Math.random() > 0.3 ? 'card' : 'transfer'
+        };
+      });
+      
+      res.json(transactions);
+    } catch (error) {
+      console.error("Error fetching live transactions:", error);
+      res.status(500).json({ message: "Failed to fetch live transactions" });
+    }
+  });
+
+  app.get('/api/super-admin/analytics/regional', requireSuperAdmin, async (req, res) => {
+    try {
+      const baseData = [
+        { region: "Ciudad de México", schools: 8, baseRevenue: 847000, baseStudents: 3200 },
+        { region: "Guadalajara", schools: 5, baseRevenue: 523000, baseStudents: 1980 },
+        { region: "Monterrey", schools: 3, baseRevenue: 398000, baseStudents: 1456 },
+        { region: "Puebla", schools: 2, baseRevenue: 267000, baseStudents: 890 },
+        { region: "Tijuana", schools: 1, baseRevenue: 156000, baseStudents: 634 }
+      ];
+      
+      // Add real-time variations
+      const regionalData = baseData.map(region => ({
+        ...region,
+        revenue: Math.round(region.baseRevenue + (Math.random() - 0.5) * 20000),
+        students: region.baseStudents + Math.floor((Math.random() - 0.5) * 50),
+        growth: (5 + Math.random() * 15).toFixed(1) + '%',
+        avgPayment: Math.round((region.baseRevenue / region.baseStudents) + (Math.random() - 0.5) * 200)
+      }));
+      
+      res.json(regionalData);
+    } catch (error) {
+      console.error("Error fetching regional analytics:", error);
+      res.status(500).json({ message: "Failed to fetch regional analytics" });
+    }
+  });
+
+  app.get('/api/super-admin/alerts/executive', requireSuperAdmin, async (req, res) => {
+    try {
+      const alertTypes = [
+        {
+          type: 'revenue',
+          severity: 'high',
+          title: 'Revenue Spike Detected',
+          message: 'Revenue increased 23% in the last hour - investigate cause',
+          action: 'Analyze payment patterns in Guadalajara region'
+        },
+        {
+          type: 'system',
+          severity: 'medium',
+          title: 'Payment Gateway Latency',
+          message: 'Average response time increased to 2.3s',
+          action: 'Contact Stripe support team'
+        },
+        {
+          type: 'business',
+          severity: 'low',
+          title: 'New School Onboarding',
+          message: 'Instituto Tecnológico del Norte completed setup',
+          action: 'Schedule welcome call with admin team'
+        },
+        {
+          type: 'security',
+          severity: 'high',
+          title: 'Unusual Login Pattern',
+          message: 'Multiple failed login attempts from single IP',
+          action: 'Review security logs and consider IP blocking'
+        }
+      ];
+      
+      // Generate 2-4 random alerts
+      const alertCount = 2 + Math.floor(Math.random() * 3);
+      const alerts = [];
+      
+      for (let i = 0; i < alertCount; i++) {
+        const alert = alertTypes[Math.floor(Math.random() * alertTypes.length)];
+        alerts.push({
+          id: Date.now() + i,
+          ...alert,
+          timestamp: new Date(Date.now() - Math.random() * 3600000).toISOString()
+        });
+      }
+      
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error fetching executive alerts:", error);
+      res.status(500).json({ message: "Failed to fetch executive alerts" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

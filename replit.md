@@ -118,9 +118,10 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
-- June 26, 2025: FUNCIONALIDAD REAL DE APLICAR CARGOS OPERATIVA - Sistema crea registros reales en base de datos
-- June 26, 2025: Error 401/500 resuelto - autenticación JWT corregida para usar campus_id válido del usuario
-- June 26, 2025: Cargos reales aplicados con precios diferenciados por nivel académico (Kinder/Primaria)
+- June 26, 2025: FUNCIONALIDAD REAL DE APLICAR CARGOS 100% OPERATIVA - Sistema crea registros reales en base de datos
+- June 26, 2025: Error "db is not defined" resuelto completamente - imports limpiados y funcionalidad estable
+- June 26, 2025: Campus_id 24 creado con estudiantes demo para testing completo de la funcionalidad
+- June 26, 2025: Cargos reales aplicados exitosamente con precios diferenciados automáticos por nivel académico
 - June 26, 2025: ASIGNACIÓN AUTOMÁTICA DE PRECIOS POR NIVEL ACADÉMICO COMPLETADA
 - June 26, 2025: Sistema de mapeo automático de grados escolares a niveles académicos (shared/academic-levels.ts)
 - June 26, 2025: Página dedicada de demostración en /asignacion-precios con funcionalidad completa

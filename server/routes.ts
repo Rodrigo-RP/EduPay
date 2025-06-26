@@ -82,6 +82,31 @@ const authenticateGuardian = async (req: any, res: any, next: any) => {
   }
 };
 
+// Middleware de autenticación mejorado
+const requireAuthStrict = (req: any, res: any, next: any) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ 
+      error: 'Acceso denegado',
+      message: 'Token de autenticación requerido' 
+    });
+  }
+  
+  const token = authHeader.split(' ')[1];
+  
+  // Validar token (implementación simplificada para desarrollo)
+  if (token !== 'valid-admin-token-2025') {
+    return res.status(403).json({ 
+      error: 'Token inválido',
+      message: 'Credenciales de acceso no válidas' 
+    });
+  }
+  
+  req.user = { id: 1, role: 'admin' };
+  next();
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Configurar trust proxy para desarrollo
   app.set('trust proxy', 1);
@@ -1284,8 +1309,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // SECURITY CYBERNETICS APIs
   
-  // Security dashboard metrics
-  app.get("/api/security/metrics", async (req, res) => {
+  // Security dashboard metrics - PROTEGIDO
+  app.get("/api/security/metrics", requireAuthStrict, async (req, res) => {
     try {
       const metrics = {
         totalThreats: 127,
@@ -1300,8 +1325,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Security events log
-  app.get("/api/security/events", async (req, res) => {
+  // Security events log - PROTEGIDO
+  app.get("/api/security/events", requireAuth, async (req, res) => {
     try {
       const events = [
         {

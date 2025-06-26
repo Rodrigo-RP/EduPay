@@ -118,6 +118,11 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- June 26, 2025: INTERFAZ SUPER ADMIN REORGANIZADA - Eliminada duplicación de controles de seguridad
+- June 26, 2025: Botón "Escaneo de Seguridad" movido del header principal a la pestaña Seguridad
+- June 26, 2025: Pestaña Seguridad reorganizada en 3 columnas: Escaneo, Bloqueo IP, Estado de Protecciones
+- June 26, 2025: Indicadores visuales agregados para estado de defensas activas (WAF, Anti-SQL, Rate Limiting, Encriptación)
+- June 26, 2025: Header Super Admin ahora muestra información de plataforma en lugar de botones duplicados
 - June 26, 2025: PERFIL SUPER ADMINISTRADOR IMPLEMENTADO - Panel de control SaaS completo para propietario del software
 - June 26, 2025: Usuario demo creado: superadmin@escuelapay.com / SuperAdmin123!
 - June 26, 2025: Dashboard de gestión de plataforma con métricas de escuelas, estudiantes y pagos

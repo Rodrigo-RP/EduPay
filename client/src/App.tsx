@@ -33,6 +33,7 @@ import Notificaciones from "@/pages/notificaciones";
 import Reportes from "@/pages/reportes";
 import Configuracion from "@/pages/configuracion";
 import AsignacionPrecios from "@/pages/asignacion-precios";
+import ImportacionDatos from "@/pages/importacion-datos";
 import SaaSInfo from "@/components/saas-info";
 
 function AuthenticatedRoutes() {
@@ -89,6 +90,7 @@ function AuthenticatedRoutes() {
             <Route path="/configuracion-inicial" component={ConfiguracionInicial} />
             <Route path="/emision-cargos" component={EmisionCargos} />
             <Route path="/asignacion-precios" component={AsignacionPrecios} />
+            <Route path="/importacion-datos" component={ImportacionDatos} />
             <Route path="/caja-conciliacion" component={CajaConciliacion} />
             <Route path="/fiscal-contable" component={FiscalContable} />
             <Route path="/portal-3clics" component={PortalPadres3Clics} />

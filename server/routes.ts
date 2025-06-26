@@ -7,8 +7,28 @@ import jwt from "jsonwebtoken";
 import { insertUserSchema, insertGuardianSchema, insertChargeSchema, insertPaymentSchema } from "@shared/schema";
 import { getAcademicLevel } from "@shared/academic-levels";
 import { z } from "zod";
+import multer from "multer";
+import * as XLSX from "xlsx";
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+
+// Configure multer for file uploads
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'application/vnd.ms-excel', // .xls
+      'text/csv' // .csv
+    ];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Solo se permiten archivos Excel (.xlsx, .xls) o CSV (.csv)'));
+    }
+  }
+});
 
 // Authentication middleware
 const authenticateToken = async (req: any, res: any, next: any) => {

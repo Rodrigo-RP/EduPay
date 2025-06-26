@@ -100,6 +100,13 @@ export default function Sidebar() {
       category: "financiero"
     },
     { 
+      icon: "fas fa-file-import", 
+      label: "Importación de Datos", 
+      href: "/importacion-datos", 
+      active: location === "/importacion-datos",
+      category: "sistema"
+    },
+    { 
       icon: "fas fa-bell", 
       label: "Notificaciones", 
       href: "/notificaciones", 

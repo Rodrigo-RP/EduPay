@@ -340,14 +340,6 @@ export default function Pagos() {
                           >
                                 <Eye className="w-4 h-4" />
                               </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleDownloadReceipt(pago)}
-                            title="Descargar comprobante"
-                          >
-                                <Download className="w-4 h-4" />
-                              </Button>
                             </div>
                           </div>
                         </div>
@@ -464,6 +456,9 @@ export default function Pagos() {
               <Receipt className="h-5 w-5" />
               Detalles del Pago
             </DialogTitle>
+            <DialogDescription>
+              Información completa del pago realizado
+            </DialogDescription>
           </DialogHeader>
           
           {selectedPayment && (
@@ -553,7 +548,14 @@ export default function Pagos() {
               </div>
 
               {/* Acciones */}
-              <div className="flex justify-end pt-4 border-t">
+              <div className="flex gap-3 pt-4 border-t">
+                <Button 
+                  onClick={() => handleDownloadReceipt(selectedPayment)}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Descargar Comprobante
+                </Button>
                 <Button 
                   variant="outline"
                   onClick={() => setShowPaymentDetails(false)}

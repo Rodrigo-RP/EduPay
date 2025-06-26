@@ -1,6 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
+import * as schema from "@shared/schema";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { insertUserSchema, insertGuardianSchema, insertChargeSchema, insertPaymentSchema } from "@shared/schema";
@@ -290,18 +292,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Debug logging
       console.log("Request from user:", req.user.email, "Campus ID:", userCampusId);
-      
-      // Verify campus exists in the campuses table
-      const campuses = await storage.getCampusesByTenant(16); // Get any available campus
-      const allCampuses = await db.select().from(schema.campuses);
-      const campusExists = allCampuses.find(c => c.id === userCampusId);
-      
-      if (!campusExists) {
-        console.log("Available campuses:", allCampuses.map(c => ({ id: c.id, name: c.nombre })));
-        return res.status(400).json({ 
-          message: `Campus ${userCampusId} does not exist. Available campuses: ${allCampuses.map(c => c.id).join(', ')}` 
-        });
-      }
 
       
       // Catalog products with differentiated pricing

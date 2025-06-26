@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import MigrationDashboard from "@/components/migration-dashboard";
+import DataValidationReport from "@/components/data-validation-report";
 
 interface TemplateCategory {
   id: string;
@@ -645,7 +646,7 @@ export default function ImportacionDatos() {
 
       {/* Templates por Categoría */}
       <Tabs defaultValue="estudiantes" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           {templateCategories.map((category) => (
             <TabsTrigger key={category.id} value={category.id} className="flex items-center gap-2">
               <category.icon className="h-4 w-4" />
@@ -653,6 +654,10 @@ export default function ImportacionDatos() {
               <Badge variant="secondary">{category.priority}</Badge>
             </TabsTrigger>
           ))}
+          <TabsTrigger value="validacion" className="flex items-center gap-2">
+            <CheckCircle className="h-4 w-4" />
+            Validación de Datos
+          </TabsTrigger>
         </TabsList>
 
         {templateCategories.map((category) => (
@@ -852,6 +857,11 @@ export default function ImportacionDatos() {
             </div>
           </TabsContent>
         ))}
+
+        {/* Validation Tab */}
+        <TabsContent value="validacion">
+          <DataValidationReport />
+        </TabsContent>
       </Tabs>
     </div>
   );

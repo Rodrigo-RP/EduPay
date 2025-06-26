@@ -425,19 +425,19 @@ export class AnomalyDetectionSystem {
     }
     
     // Detectar actividad inusual fuera de horario
-    for (const [hour, txs] of hourlyGroups.entries()) {
+    hourlyGroups.forEach((txs, hour) => {
       if ((hour < 6 || hour > 22) && txs.length > 5) {
         anomalies.push({
           anomaly_id: `TIME-${Date.now()}-${hour}`,
           type: 'SUSPICIOUS_TIMING',
           severity: 'MEDIUM',
           description: `Actividad inusual a las ${hour}:00 hrs con ${txs.length} transacciones`,
-          affected_transactions: txs.map(tx => tx.transaction_id),
+          affected_transactions: txs.map((tx: BankTransaction) => tx.transaction_id),
           recommended_action: "Verificar si es actividad legítima o procesamiento batch",
           auto_resolved: false
         });
       }
-    }
+    });
     
     return anomalies;
   }

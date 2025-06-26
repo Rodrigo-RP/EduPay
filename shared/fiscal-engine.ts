@@ -3,6 +3,42 @@
  * Sistema automatizado para CFDI 4.0 con validación en tiempo real
  */
 
+export interface FormaPago {
+  clave: string;
+  descripcion: string;
+}
+
+export interface MetodoPago {
+  clave: string;
+  descripcion: string;
+}
+
+export interface UsoCFDI {
+  clave: string;
+  descripcion: string;
+}
+
+export interface RegimenFiscal {
+  clave: string;
+  descripcion: string;
+}
+
+export interface TipoComprobante {
+  clave: string;
+  descripcion: string;
+}
+
+export interface TipoRelacion {
+  clave: string;
+  descripcion: string;
+}
+
+export interface InformacionAduanera {
+  numero_pedimento: string;
+  fecha: Date;
+  aduana: string;
+}
+
 export interface SATCatalog {
   productos_servicios: Map<string, ProductoServicio>;
   unidades_medida: Map<string, UnidadMedida>;

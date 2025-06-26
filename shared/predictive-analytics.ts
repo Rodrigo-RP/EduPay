@@ -170,7 +170,7 @@ export class RiskAnalysisEngine {
     const month = currentDate.getMonth() + 1; // 1-12
     
     // Meses tradicionalmente difíciles para pagos escolares
-    const seasonalRisk = {
+    const seasonalRisk: Record<number, number> = {
       1: 15,  // Enero - post navidad
       2: 10,  // Febrero - cuesta de enero
       3: 5,   // Marzo - normalización

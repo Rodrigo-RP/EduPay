@@ -1058,7 +1058,7 @@ export default function Estudiantes() {
 
       {/* Modal para editar grupos */}
       <Dialog open={editandoGrupos} onOpenChange={setEditandoGrupos}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Personalizar grupos</DialogTitle>
           </DialogHeader>

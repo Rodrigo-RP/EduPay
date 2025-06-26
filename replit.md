@@ -118,6 +118,11 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- June 26, 2025: SCROLL SISTEMÁTICO CORREGIDO EN TODA LA PLATAFORMA
+- June 26, 2025: Todos los modales ahora tienen scroll adecuado con max-h-[90vh] overflow-y-auto
+- June 26, 2025: Formulario "Nuevo Prospecto" con campos de alumno completos y scroll funcional
+- June 26, 2025: Modales de usuarios, estudiantes, productos y CRM con scroll optimizado
+- June 26, 2025: Implementación consistente de contenedores scrolleables en toda la aplicación
 - June 26, 2025: CONEXIÓN REAL DE CUENTAS EMPRESARIALES DE REDES SOCIALES
 - June 26, 2025: Sistema de autenticación real con Facebook Business Manager, Instagram Business y TikTok Ads Manager
 - June 26, 2025: Redirección automática a sitios oficiales para autenticación con credenciales propias de cada escuela

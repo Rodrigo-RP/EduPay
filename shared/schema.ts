@@ -85,14 +85,54 @@ export const concepts = pgTable("concepts", {
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
-// SCHOLARSHIPS
+// ADVANCED SCHOLARSHIPS & DISCOUNTS SYSTEM
+export const scholarship_types = pgTable("scholarship_types", {
+  id: serial("id").primaryKey(),
+  campus_id: integer("campus_id").references(() => campuses.id),
+  nombre: varchar("nombre", { length: 100 }).notNull(), // 'Beca Excelencia Académica', 'Descuento Hermanos'
+  categoria: varchar("categoria", { length: 50 }).notNull(), // 'academica', 'socioeconomica', 'deportiva', 'descuento'
+  descripcion: text("descripcion"),
+  algoritmo: varchar("algoritmo", { length: 50 }).notNull(), // 'manual', 'automatico', 'promedio', 'hermanos', 'ingresos'
+  activo: boolean("activo").default(true),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+export const scholarship_criteria = pgTable("scholarship_criteria", {
+  id: serial("id").primaryKey(),
+  scholarship_type_id: integer("scholarship_type_id").references(() => scholarship_types.id, { onDelete: "cascade" }),
+  criterio: varchar("criterio", { length: 100 }).notNull(), // 'promedio_minimo', 'ingreso_familiar_maximo', 'hermanos_min'
+  valor_minimo: numeric("valor_minimo", { precision: 10, scale: 2 }),
+  valor_maximo: numeric("valor_maximo", { precision: 10, scale: 2 }),
+  obligatorio: boolean("obligatorio").default(true),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const scholarship_benefits = pgTable("scholarship_benefits", {
+  id: serial("id").primaryKey(),
+  scholarship_type_id: integer("scholarship_type_id").references(() => scholarship_types.id, { onDelete: "cascade" }),
+  tipo_beneficio: varchar("tipo_beneficio", { length: 50 }).notNull(), // 'porcentaje', 'monto_fijo', 'escala'
+  porcentaje_descuento: integer("porcentaje_descuento"), // 0-100
+  monto_fijo_centavos: bigint("monto_fijo_centavos", { mode: "number" }),
+  aplica_conceptos: text("aplica_conceptos").array().default(["colegiatura"]), // conceptos donde aplica
+  limite_maximo_centavos: bigint("limite_maximo_centavos", { mode: "number" }),
+  vigencia_meses: integer("vigencia_meses").default(12),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
 export const scholarships = pgTable("scholarships", {
   id: serial("id").primaryKey(),
   student_id: integer("student_id").references(() => students.id, { onDelete: "cascade" }),
-  porcentaje: numeric("porcentaje", { precision: 5, scale: 2 }).notNull(),
+  scholarship_type_id: integer("scholarship_type_id").references(() => scholarship_types.id),
+  metodo_asignacion: varchar("metodo_asignacion", { length: 50 }).default("manual"), // 'manual', 'automatico'
+  porcentaje_aplicado: integer("porcentaje_aplicado"),
+  monto_fijo_aplicado_centavos: bigint("monto_fijo_aplicado_centavos", { mode: "number" }),
+  score_evaluacion: numeric("score_evaluacion", { precision: 5, scale: 2 }), // scoring algorithm result
   vigencia_inicio: date("vigencia_inicio").notNull(),
-  vigencia_fin: date("vigencia_fin").notNull(),
-  motivo: varchar("motivo", { length: 255 }),
+  vigencia_fin: date("vigencia_fin"),
+  estado: varchar("estado", { length: 50 }).default("activa"), // 'activa', 'suspendida', 'vencida'
+  observaciones: text("observaciones"),
+  created_by: integer("created_by").references(() => users.id),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });

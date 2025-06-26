@@ -272,12 +272,12 @@ export default function CatalogoProductos() {
                   Agregar Producto
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Crear nuevo producto</DialogTitle>
                 </DialogHeader>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-              <div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                  <div>
                     <Label>Código del producto</Label>
                     <Input placeholder="PROD-2025" />
                   </div>

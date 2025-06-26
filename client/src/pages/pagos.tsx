@@ -111,6 +111,15 @@ export default function Pagos() {
           parseInt(fechaParts[0]) // día
         );
         
+        console.log('Debug filtro fecha:', {
+          pagoFecha: pago.fecha,
+          pagoDate: pagoDate,
+          dateFrom: dateFrom,
+          dateTo: dateTo,
+          fromDate: dateFrom ? new Date(dateFrom) : null,
+          toDate: dateTo ? new Date(dateTo) : null
+        });
+        
         if (dateFrom) {
           const fromDate = new Date(dateFrom);
           matchesDate = matchesDate && pagoDate >= fromDate;
@@ -126,7 +135,17 @@ export default function Pagos() {
       }
     }
     
-    return matchesMethod && matchesStatus && matchesDate;
+    const result = matchesMethod && matchesStatus && matchesDate;
+    console.log('Filtro resultado:', { 
+      estudiante: pago.estudiante,
+      fecha: pago.fecha, 
+      matchesMethod, 
+      matchesStatus, 
+      matchesDate, 
+      result 
+    });
+    
+    return result;
   });
 
   const estadisticas = {

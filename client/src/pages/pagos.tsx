@@ -16,6 +16,8 @@ export default function Pagos() {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const { toast } = useToast();
 
   // Datos demo de pagos
@@ -95,7 +97,28 @@ export default function Pagos() {
   const filteredPagos = pagos.filter(pago => {
     const matchesMethod = selectedMethod === "all" || pago.metodo === selectedMethod;
     const matchesStatus = selectedStatus === "all" || pago.estado === selectedStatus;
-    return matchesMethod && matchesStatus;
+    
+    // Filtro por fechas
+    let matchesDate = true;
+    if (dateFrom || dateTo) {
+      // Convertir fecha del pago (formato: "25/06/2024 14:30") a formato ISO
+      const fechaParts = pago.fecha.split(' ')[0].split('/');
+      const pagoDate = new Date(`${fechaParts[2]}-${fechaParts[1]}-${fechaParts[0]}`);
+      
+      if (dateFrom) {
+        const fromDate = new Date(dateFrom);
+        matchesDate = matchesDate && pagoDate >= fromDate;
+      }
+      
+      if (dateTo) {
+        const toDate = new Date(dateTo);
+        // Agregar un día para incluir toda la fecha "hasta"
+        toDate.setDate(toDate.getDate() + 1);
+        matchesDate = matchesDate && pagoDate < toDate;
+      }
+    }
+    
+    return matchesMethod && matchesStatus && matchesDate;
   });
 
   const estadisticas = {
@@ -276,7 +299,25 @@ export default function Pagos() {
                 <CardHeader>
               <div className="flex items-center justify-between">
                     <CardTitle>Historial de pagos</CardTitle>
-                <div className="flex gap-4">
+                <div className="flex gap-3">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-sm whitespace-nowrap">Desde:</Label>
+                        <Input 
+                          type="date" 
+                          value={dateFrom}
+                          onChange={(e) => setDateFrom(e.target.value)}
+                          className="w-[140px]"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Label className="text-sm whitespace-nowrap">Hasta:</Label>
+                        <Input 
+                          type="date" 
+                          value={dateTo}
+                          onChange={(e) => setDateTo(e.target.value)}
+                          className="w-[140px]"
+                        />
+                      </div>
                       <Select value={selectedMethod} onValueChange={setSelectedMethod}>
                         <SelectTrigger className="w-40">
                           <SelectValue placeholder="Método" />
@@ -301,6 +342,19 @@ export default function Pagos() {
                           <SelectItem value="fallido">Fallidos</SelectItem>
                         </SelectContent>
                       </Select>
+                      {(dateFrom || dateTo) && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            setDateFrom("");
+                            setDateTo("");
+                          }}
+                          className="text-xs"
+                        >
+                          Limpiar fechas
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardHeader>

@@ -23,15 +23,20 @@ export const campuses = pgTable("campuses", {
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
-// USERS (Admin, Caja, Contador)
+// USERS (Super Admin, Admin, Caja, Contador)
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   campus_id: integer("campus_id").references(() => campuses.id, { onDelete: "cascade" }),
+  tenant_id: integer("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
   email: varchar("email", { length: 255 }).notNull().unique(),
   password_hash: varchar("password_hash", { length: 255 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
   role: varchar("role", { length: 50 }).notNull(), // 'super_admin', 'admin', 'caja', 'contador'
   twofa_secret: varchar("twofa_secret", { length: 255 }),
   is_active: boolean("is_active").default(true),
+  is_super_admin: boolean("is_super_admin").default(false),
+  platform_permissions: text("platform_permissions").array(),
+  last_login_at: timestamp("last_login_at"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
@@ -454,3 +459,89 @@ export type PaymentRule = typeof payment_rules.$inferSelect;
 export type InsertPaymentRule = z.infer<typeof insertPaymentRuleSchema>;
 export type LateFeeCalculation = typeof late_fee_calculations.$inferSelect;
 export type InsertLateFeeCalculation = z.infer<typeof insertLateFeeCalculationSchema>;
+
+// ========================================
+// SUPER ADMIN PLATFORM MANAGEMENT TABLES
+// ========================================
+
+// Platform metrics and monitoring
+export const platform_metrics = pgTable("platform_metrics", {
+  id: serial("id").primaryKey(),
+  metric_type: varchar("metric_type", { length: 100 }).notNull(), // 'schools_active', 'total_payments', 'security_events'
+  metric_value: bigint("metric_value", { mode: "number" }).notNull(),
+  metric_date: date("metric_date").notNull(),
+  tenant_id: integer("tenant_id").references(() => tenants.id), // null for platform-wide metrics
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+// Security events for platform monitoring
+export const security_events = pgTable("security_events", {
+  id: serial("id").primaryKey(),
+  event_type: varchar("event_type", { length: 100 }).notNull(), // 'sql_injection', 'brute_force', 'suspicious_login'
+  severity: varchar("severity", { length: 20 }).notNull(), // 'low', 'medium', 'high', 'critical'
+  tenant_id: integer("tenant_id").references(() => tenants.id),
+  campus_id: integer("campus_id").references(() => campuses.id),
+  user_id: integer("user_id").references(() => users.id),
+  ip_address: varchar("ip_address", { length: 45 }),
+  user_agent: text("user_agent"),
+  event_details: text("event_details"), // JSON string with event details
+  is_blocked: boolean("is_blocked").default(false),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+// Platform subscriptions and billing
+export const platform_subscriptions = pgTable("platform_subscriptions", {
+  id: serial("id").primaryKey(),
+  tenant_id: integer("tenant_id").references(() => tenants.id).notNull(),
+  plan_type: varchar("plan_type", { length: 50 }).notNull(), // 'basic', 'premium', 'enterprise'
+  status: varchar("status", { length: 50 }).notNull(), // 'active', 'suspended', 'cancelled'
+  students_limit: integer("students_limit").notNull(),
+  current_students: integer("current_students").default(0),
+  monthly_fee_centavos: integer("monthly_fee_centavos").notNull(),
+  billing_date: date("billing_date").notNull(),
+  next_billing_date: date("next_billing_date").notNull(),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+// System health checks
+export const system_health = pgTable("system_health", {
+  id: serial("id").primaryKey(),
+  service_name: varchar("service_name", { length: 100 }).notNull(), // 'database', 'payment_gateway', 'email_service'
+  status: varchar("status", { length: 20 }).notNull(), // 'healthy', 'warning', 'critical'
+  response_time_ms: integer("response_time_ms"),
+  error_message: text("error_message"),
+  checked_at: timestamp("checked_at").defaultNow(),
+});
+
+// Insert schemas for platform tables
+export const insertPlatformMetricSchema = createInsertSchema(platform_metrics).omit({
+  id: true,
+  created_at: true,
+});
+
+export const insertSecurityEventSchema = createInsertSchema(security_events).omit({
+  id: true,
+  created_at: true,
+});
+
+export const insertPlatformSubscriptionSchema = createInsertSchema(platform_subscriptions).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+});
+
+export const insertSystemHealthSchema = createInsertSchema(system_health).omit({
+  id: true,
+  checked_at: true,
+});
+
+// Types for platform tables
+export type PlatformMetric = typeof platform_metrics.$inferSelect;
+export type InsertPlatformMetric = z.infer<typeof insertPlatformMetricSchema>;
+export type SecurityEvent = typeof security_events.$inferSelect;
+export type InsertSecurityEvent = z.infer<typeof insertSecurityEventSchema>;
+export type PlatformSubscription = typeof platform_subscriptions.$inferSelect;
+export type InsertPlatformSubscription = z.infer<typeof insertPlatformSubscriptionSchema>;
+export type SystemHealth = typeof system_health.$inferSelect;
+export type InsertSystemHealth = z.infer<typeof insertSystemHealthSchema>;

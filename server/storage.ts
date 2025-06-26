@@ -1,11 +1,13 @@
 import { 
   tenants, campuses, users, students, guardians, student_guardian, concepts, 
   charges, payments, payment_methods, invoices, scholarships, discounts,
+  security_events, platform_metrics, system_health,
   type User, type InsertUser, type Guardian, type InsertGuardian, 
   type Student, type InsertStudent, type Charge, type InsertCharge,
   type Payment, type InsertPayment, type Campus, type InsertCampus,
   type Concept, type InsertConcept, type Tenant, type InsertTenant,
-  type PaymentMethod
+  type PaymentMethod, type SecurityEvent, type InsertSecurityEvent, 
+  type SystemHealth
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -16,6 +18,20 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  
+  // Super Admin operations
+  createSuperAdmin(admin: InsertUser): Promise<User>;
+  getPlatformMetrics(): Promise<{
+    totalSchools: number;
+    activeSchools: number;
+    totalStudents: number;
+    totalPayments: number;
+    securityEvents: number;
+  }>;
+  getSecurityEvents(limit?: number): Promise<SecurityEvent[]>;
+  getTenantsList(): Promise<(Tenant & { campusCount: number; studentCount: number; status: string })[]>;
+  getSystemHealth(): Promise<SystemHealth[]>;
+  createSecurityEvent(event: InsertSecurityEvent): Promise<SecurityEvent>;
   
   // Guardian authentication
   getGuardian(id: number): Promise<Guardian | undefined>;
@@ -300,6 +316,113 @@ export class DatabaseStorage implements IStorage {
       overdueRate,
       activeStudents: studentCount.count,
     };
+  }
+
+  // SUPER ADMIN FUNCTIONS
+  async createSuperAdmin(admin: InsertUser): Promise<User> {
+    const hashedPassword = await bcrypt.hash(admin.password_hash, 12);
+    const [newAdmin] = await db.insert(users).values({
+      ...admin,
+      password_hash: hashedPassword,
+      role: 'super_admin',
+      is_super_admin: true,
+      platform_permissions: ['platform_management', 'security_monitoring', 'tenant_management']
+    }).returning();
+    return newAdmin;
+  }
+
+  async getPlatformMetrics(): Promise<{
+    totalSchools: number;
+    activeSchools: number;
+    totalStudents: number;
+    totalPayments: number;
+    securityEvents: number;
+  }> {
+    // Get total schools (tenants)
+    const [schoolCount] = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(tenants);
+
+    // Get active schools (those with recent activity)
+    const [activeSchoolCount] = await db
+      .select({ count: sql<number>`COUNT(DISTINCT ${tenants.id})` })
+      .from(tenants)
+      .innerJoin(campuses, eq(tenants.id, campuses.tenant_id))
+      .innerJoin(students, eq(campuses.id, students.campus_id))
+      .where(eq(students.status, 'activo'));
+
+    // Get total students across all schools
+    const [studentCount] = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(students)
+      .where(eq(students.status, 'activo'));
+
+    // Get total payments
+    const [paymentsCount] = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(payments);
+
+    // Get security events from last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const [securityCount] = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(security_events)
+      .where(sql`${security_events.created_at} >= ${thirtyDaysAgo}`);
+
+    return {
+      totalSchools: schoolCount.count,
+      activeSchools: activeSchoolCount.count,
+      totalStudents: studentCount.count,
+      totalPayments: paymentsCount.count,
+      securityEvents: securityCount.count,
+    };
+  }
+
+  async getSecurityEvents(limit: number = 50): Promise<SecurityEvent[]> {
+    return await db
+      .select()
+      .from(security_events)
+      .orderBy(desc(security_events.created_at))
+      .limit(limit);
+  }
+
+  async getTenantsList(): Promise<(Tenant & { campusCount: number; studentCount: number; status: string })[]> {
+    const tenantsWithStats = await db
+      .select({
+        id: tenants.id,
+        nombre_legal: tenants.nombre_legal,
+        rfc: tenants.rfc,
+        cfdi_pac_id: tenants.cfdi_pac_id,
+        created_at: tenants.created_at,
+        updated_at: tenants.updated_at,
+        campusCount: sql<number>`COUNT(DISTINCT ${campuses.id})`,
+        studentCount: sql<number>`COUNT(DISTINCT ${students.id})`,
+      })
+      .from(tenants)
+      .leftJoin(campuses, eq(tenants.id, campuses.tenant_id))
+      .leftJoin(students, eq(campuses.id, students.campus_id))
+      .groupBy(tenants.id)
+      .orderBy(tenants.created_at);
+
+    return tenantsWithStats.map(tenant => ({
+      ...tenant,
+      status: tenant.studentCount > 0 ? 'active' : 'inactive'
+    }));
+  }
+
+  async getSystemHealth(): Promise<SystemHealth[]> {
+    return await db
+      .select()
+      .from(system_health)
+      .orderBy(desc(system_health.checked_at))
+      .limit(10);
+  }
+
+  async createSecurityEvent(event: InsertSecurityEvent): Promise<SecurityEvent> {
+    const [newEvent] = await db.insert(security_events).values(event).returning();
+    return newEvent;
   }
 }
 

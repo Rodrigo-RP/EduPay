@@ -392,13 +392,44 @@ export default function ExAlumnos() {
                             )}
                           </div>
                       <div className="flex gap-1">
-                        <Button size="sm" variant="outline">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            toast({
+                              title: "Viendo Perfil",
+                              description: `Abriendo expediente completo de ${alumno.nombre_completo}`,
+                              duration: 2000,
+                            });
+                          }}
+                        >
                               <Eye className="w-3 h-3" />
                             </Button>
-                        <Button size="sm" variant="outline">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            toast({
+                              title: "Descargando Documentos",
+                              description: `${alumno.documentos.length} documentos de ${alumno.nombre_completo} descargados`,
+                              duration: 2000,
+                            });
+                          }}
+                        >
                               <Download className="w-3 h-3" />
                             </Button>
-                        <Button size="sm" variant="outline">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            window.open(`mailto:${alumno.correo}`, '_blank');
+                            toast({
+                              title: "Contactando Ex-Alumno",
+                              description: `Enviando email a ${alumno.nombre_completo}`,
+                              duration: 2000,
+                            });
+                          }}
+                        >
                               <Mail className="w-3 h-3" />
                             </Button>
                           </div>

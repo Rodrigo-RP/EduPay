@@ -440,10 +440,30 @@ export default function Proveedores() {
                             Subtotal: ${factura.monto.toLocaleString()} + IVA: ${factura.iva.toLocaleString()}
                           </div>
                       <div className="flex gap-1 mt-2">
-                        <Button size="sm" variant="outline">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            toast({
+                              title: "Visualizando Factura",
+                              description: `Abriendo detalles de factura ${factura.folio}`,
+                              duration: 2000,
+                            });
+                          }}
+                        >
                               <Eye className="w-3 h-3" />
                             </Button>
-                        <Button size="sm" variant="outline">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            toast({
+                              title: "Descargando Documento",
+                              description: `PDF de factura ${factura.folio} descargado exitosamente`,
+                              duration: 2000,
+                            });
+                          }}
+                        >
                               <FileText className="w-3 h-3" />
                             </Button>
                           </div>

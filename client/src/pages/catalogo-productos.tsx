@@ -233,7 +233,8 @@ export default function CatalogoProductos() {
     totalProductos: productos.length,
     productosActivos: productos.filter(p => p.activo).length,
     colegiaturas: productos.filter(p => p.categoria === "COLEGIATURAS").length,
-    inscripciones: productos.filter(p => p.categoria === "INSCRIPCIONES").length
+    inscripciones: productos.filter(p => p.categoria === "INSCRIPCIONES").length,
+    reinscripciones: productos.filter(p => p.categoria === "REINSCRIPCIONES").length
   };
 
   const getCategoryBadge = (categoria: string) => {
@@ -279,6 +280,11 @@ export default function CatalogoProductos() {
     setShowAddModal(true);
   };
 
+  const handleCloseModal = () => {
+    setShowAddModal(false);
+    setEditingProduct(null);
+  };
+
   const handleDeleteProduct = async (productId: number, productName: string) => {
     if (window.confirm(`¿Estás seguro de que deseas eliminar el producto "${productName}"?`)) {
       try {
@@ -311,7 +317,7 @@ export default function CatalogoProductos() {
           <h1 className="text-3xl font-bold text-slate-900">Catálogo de Productos</h1>
           <p className="text-slate-600">Gestiona colegiaturas, inscripciones, seguros, libros y otros productos</p>
             </div>
-            <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+            <Dialog open={showAddModal} onOpenChange={handleCloseModal}>
               <DialogTrigger asChild>
             <Button className="bg-blue-600 hover:bg-blue-700">
                   <Plus className="w-4 h-4 mr-2" />
@@ -320,20 +326,29 @@ export default function CatalogoProductos() {
               </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Crear nuevo producto</DialogTitle>
+                  <DialogTitle>{editingProduct ? 'Editar producto' : 'Crear nuevo producto'}</DialogTitle>
                 </DialogHeader>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
                   <div>
                     <Label>Código del producto</Label>
-                    <Input placeholder="PROD-2025" />
+                    <Input 
+                      placeholder="PROD-2025" 
+                      defaultValue={editingProduct?.codigo || ''}
+                    />
                   </div>
               <div>
                     <Label>Nombre del producto</Label>
-                    <Input placeholder="Nombre descriptivo" />
+                    <Input 
+                      placeholder="Nombre descriptivo" 
+                      defaultValue={editingProduct?.nombre || ''}
+                    />
                   </div>
               <div className="md:col-span-2">
                     <Label>Descripción</Label>
-                    <Textarea placeholder="Descripción detallada del producto..." />
+                    <Textarea 
+                      placeholder="Descripción detallada del producto..." 
+                      defaultValue={editingProduct?.descripcion || ''}
+                    />
                   </div>
               <div>
                     <Label>Precio unitario (MXN)</Label>
@@ -430,8 +445,9 @@ export default function CatalogoProductos() {
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold">{estadisticas.inscripciones}</div>
-            <div className="text-sm text-slate-600">Inscripciones</div>
+                <DollarSign className="w-8 h-8 text-teal-600 mx-auto mb-2" />
+            <div className="text-2xl font-bold">{estadisticas.reinscripciones}</div>
+            <div className="text-sm text-slate-600">Reinscripciones</div>
               </CardContent>
             </Card>
           </div>

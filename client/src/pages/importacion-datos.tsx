@@ -23,7 +23,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import ImportRelationshipGuide from "@/components/import-relationship-guide";
+import MigrationDashboard from "@/components/migration-dashboard";
 
 interface TemplateCategory {
   id: string;

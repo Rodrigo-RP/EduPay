@@ -616,19 +616,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Template no encontrado" });
       }
 
-      // Create Excel workbook
+      // Create Excel workbook with enhanced formatting
       const wb = XLSX.utils.book_new();
-      const wsData = [template.columns, ...template.sampleData.map((row: any) => 
-        template.columns.map((col: string) => row[col] || '')
-      )];
+      
+      // Prepare data with headers and sample rows
+      const wsData = [
+        template.columns, 
+        ...template.sampleData.map((row: any) => 
+          template.columns.map((col: string) => row[col] || '')
+        )
+      ];
+      
       const ws = XLSX.utils.aoa_to_sheet(wsData);
-      XLSX.utils.book_append_sheet(wb, ws, "Datos");
+      
+      // Add formatting to headers
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+      for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+        if (ws[cellRef]) {
+          ws[cellRef].s = {
+            font: { bold: true, color: { rgb: "FFFFFF" } },
+            fill: { fgColor: { rgb: "2563EB" } },
+            alignment: { horizontal: "center" }
+          };
+        }
+      }
+      
+      // Auto-size columns
+      const colWidths = template.columns.map((header: string) => ({ 
+        wch: Math.max(header.length + 2, 15) 
+      }));
+      ws['!cols'] = colWidths;
+      
+      // Add data validation notes for important fields
+      if (category === 'estudiantes' && templateId === 'relaciones') {
+        // Add note for CURP validation
+        const curpCell = 'A2';
+        if (!ws[curpCell]) ws[curpCell] = { t: 's', v: '' };
+        ws[curpCell].c = [{
+          a: 'Sistema',
+          t: 'Debe coincidir exactamente con CURP del archivo de estudiantes'
+        }];
+        
+        // Add note for email validation  
+        const emailCell = 'C2';
+        if (!ws[emailCell]) ws[emailCell] = { t: 's', v: '' };
+        ws[emailCell].c = [{
+          a: 'Sistema',
+          t: 'Debe coincidir exactamente con email del archivo de tutores'
+        }];
+      }
+      
+      XLSX.utils.book_append_sheet(wb, ws, template.name);
 
       // Generate Excel buffer
-      const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+      const excelBuffer = XLSX.write(wb, { 
+        type: 'buffer', 
+        bookType: 'xlsx',
+        cellStyles: true
+      });
 
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename="template_${template.name.toLowerCase().replace(/\s+/g, '_')}.xlsx"`);
+      res.setHeader('Content-Disposition', `attachment; filename="template_${category}_${templateId}.xlsx"`);
       res.send(excelBuffer);
 
     } catch (error: any) {
@@ -823,6 +872,129 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     } catch (error: any) {
       res.status(500).json({ message: "Error generando exportación: " + error.message });
+    }
+  });
+
+  // MIGRATION STATUS TRACKING
+  
+  // In-memory storage for migration progress (in production, use Redis or database)
+  let migrationStatus: any = {
+    estudiantes: {
+      estudiantes: { status: 'pending', recordsProcessed: 0, totalRecords: 0, errors: [] },
+      tutores: { status: 'pending', recordsProcessed: 0, totalRecords: 0, errors: [] },
+      relaciones: { status: 'pending', recordsProcessed: 0, totalRecords: 0, errors: [] }
+    },
+    financiero: {
+      conceptos: { status: 'pending', recordsProcessed: 0, totalRecords: 0, errors: [] },
+      calendario: { status: 'pending', recordsProcessed: 0, totalRecords: 0, errors: [] },
+      cargos_extraordinarios: { status: 'pending', recordsProcessed: 0, totalRecords: 0, errors: [] }
+    },
+    becas: {
+      tipos_becas: { status: 'pending', recordsProcessed: 0, totalRecords: 0, errors: [] },
+      asignaciones_becas: { status: 'pending', recordsProcessed: 0, totalRecords: 0, errors: [] }
+    }
+  };
+
+  // Get migration status
+  app.get("/api/migration/status", authenticateToken, (req, res) => {
+    try {
+      // Calculate overall progress
+      let totalTemplates = 0;
+      let completedTemplates = 0;
+      let totalErrors = 0;
+
+      Object.keys(migrationStatus).forEach(category => {
+        Object.keys(migrationStatus[category]).forEach(template => {
+          totalTemplates++;
+          if (migrationStatus[category][template].status === 'completed') {
+            completedTemplates++;
+          }
+          totalErrors += migrationStatus[category][template].errors.length;
+        });
+      });
+
+      const overallProgress = totalTemplates > 0 ? (completedTemplates / totalTemplates) * 100 : 0;
+
+      // Calculate category progress
+      const categories = {
+        estudiantes: {
+          completed: Object.values(migrationStatus.estudiantes).filter((t: any) => t.status === 'completed').length,
+          total: Object.keys(migrationStatus.estudiantes).length,
+          status: Object.values(migrationStatus.estudiantes).every((t: any) => t.status === 'completed') ? 'completed' : 
+                  Object.values(migrationStatus.estudiantes).some((t: any) => t.status === 'in_progress') ? 'in_progress' : 'pending'
+        },
+        financiero: {
+          completed: Object.values(migrationStatus.financiero).filter((t: any) => t.status === 'completed').length,
+          total: Object.keys(migrationStatus.financiero).length,
+          status: Object.values(migrationStatus.financiero).every((t: any) => t.status === 'completed') ? 'completed' : 
+                  Object.values(migrationStatus.financiero).some((t: any) => t.status === 'in_progress') ? 'in_progress' : 'pending'
+        },
+        becas: {
+          completed: Object.values(migrationStatus.becas).filter((t: any) => t.status === 'completed').length,
+          total: Object.keys(migrationStatus.becas).length,
+          status: Object.values(migrationStatus.becas).every((t: any) => t.status === 'completed') ? 'completed' : 
+                  Object.values(migrationStatus.becas).some((t: any) => t.status === 'in_progress') ? 'in_progress' : 'pending'
+        }
+      };
+
+      res.json({
+        overallProgress,
+        categories,
+        totalTemplates,
+        completedTemplates,
+        totalErrors,
+        detailedStatus: migrationStatus
+      });
+
+    } catch (error: any) {
+      res.status(500).json({ message: "Error getting migration status: " + error.message });
+    }
+  });
+
+  // Update migration status
+  app.post("/api/migration/status", authenticateToken, (req, res) => {
+    try {
+      const { category, templateId, status, recordsProcessed = 0, totalRecords = 0, errors = [] } = req.body;
+
+      if (!migrationStatus[category] || !migrationStatus[category][templateId]) {
+        return res.status(400).json({ message: "Invalid category or template ID" });
+      }
+
+      migrationStatus[category][templateId] = {
+        status,
+        recordsProcessed,
+        totalRecords,
+        errors,
+        lastUpdated: new Date().toISOString()
+      };
+
+      res.json({ success: true, message: "Migration status updated" });
+
+    } catch (error: any) {
+      res.status(500).json({ message: "Error updating migration status: " + error.message });
+    }
+  });
+
+  // Reset migration progress
+  app.post("/api/migration/reset", authenticateToken, (req, res) => {
+    try {
+      // Reset all statuses to pending
+      Object.keys(migrationStatus).forEach(category => {
+        Object.keys(migrationStatus[category]).forEach(template => {
+          migrationStatus[category][template] = {
+            status: 'pending',
+            recordsProcessed: 0,
+            totalRecords: 0,
+            errors: [],
+            lastUpdated: new Date().toISOString()
+          };
+        });
+      });
+
+      res.json({ success: true, message: "Migration progress reset" });
+
+    } catch (error: any) {
+      res.status(500).json({ message: "Error resetting migration progress: " + error.message });
     }
   });
 

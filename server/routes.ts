@@ -340,8 +340,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             campus_id: campus_id || 1,
             nombre: product.nombre,
             tipo: product.categoria.toLowerCase(),
-            monto_centavos: 100000, // Default, will be overridden by academic level
-            activo: true
+            periodicidad: "unica",
+            monto_centavos: 100000 // Default, will be overridden by academic level
           });
         }
       } catch (error) {
@@ -368,8 +368,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             monto_base_centavos: specificPrice,
             beca_aplicada: "0.00",
             recargo_aplicado_centavos: 0,
-            estado: "pendiente",
-            total_amount_centavos: specificPrice
+            estado: "pendiente"
           });
 
           charges.push(charge);

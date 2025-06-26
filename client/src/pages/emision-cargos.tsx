@@ -493,13 +493,21 @@ export default function EmisionCargos() {
 
     const aplicarCargos = useMutation({
       mutationFn: (data: any) => apiRequest("POST", "/api/admin/cargos/desde-catalogo", data),
-      onSuccess: () => {
+      onSuccess: (response: any) => {
         toast({
           title: "Cargos aplicados correctamente",
-          description: "Se generaron los cargos con precios específicos por nivel académico"
+          description: `Se generaron ${response.charges_created} cargos reales con precios específicos por nivel académico`
         });
         setPreview([]);
         setSelectedProduct("");
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/charges"] });
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Error al aplicar cargos",
+          description: error.message || "Ocurrió un error al crear los cargos",
+          variant: "destructive"
+        });
       }
     });
 

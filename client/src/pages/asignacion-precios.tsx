@@ -13,8 +13,10 @@ import { Package, Users, DollarSign, CheckCircle, ArrowRight } from "lucide-reac
 
 export default function AsignacionPrecios() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [selectedProduct, setSelectedProduct] = useState("");
   const [showAssignment, setShowAssignment] = useState(false);
+  const [fechaVencimiento, setFechaVencimiento] = useState("2025-02-15");
 
   // Productos del catálogo completo con precios diferenciados
   const productos = [
@@ -109,12 +111,25 @@ export default function AsignacionPrecios() {
     setShowAssignment(true);
   };
 
-  const applyCharges = () => {
-    toast({
-      title: "Cargos aplicados correctamente",
-      description: `Se generaron ${estudiantes.length} cargos con precios automáticos por nivel académico`
-    });
-  };
+  const applyCharges = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/admin/cargos/desde-catalogo", data),
+    onSuccess: (response: any) => {
+      toast({
+        title: "Cargos aplicados correctamente",
+        description: `Se generaron ${response.charges_created} cargos reales con precios automáticos por nivel académico`
+      });
+      setShowAssignment(false);
+      setSelectedProduct("");
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/charges"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error al aplicar cargos",
+        description: error.message || "Ocurrió un error al crear los cargos",
+        variant: "destructive"
+      });
+    }
+  });
 
   const selectedProductData = productos.find(p => p.id.toString() === selectedProduct);
 
@@ -274,9 +289,23 @@ export default function AsignacionPrecios() {
               </div>
 
               <div className="mt-6 flex justify-center">
-                <Button onClick={applyCharges} className="flex items-center gap-2" size="lg">
+                <Button 
+                  onClick={() => {
+                    applyCharges.mutate({ 
+                      producto_id: selectedProduct, 
+                      fecha_vencimiento: fechaVencimiento,
+                      campus_id: 1
+                    });
+                  }}
+                  disabled={applyCharges.isPending}
+                  className="flex items-center gap-2" 
+                  size="lg"
+                >
                   <CheckCircle className="w-5 h-5" />
-                  Aplicar cargos a {estudiantes.length} estudiantes
+                  {applyCharges.isPending 
+                    ? "Aplicando cargos..." 
+                    : `Aplicar cargos reales a ${estudiantes.length} estudiantes`
+                  }
                 </Button>
               </div>
             </CardContent>

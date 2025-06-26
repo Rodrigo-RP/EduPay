@@ -38,6 +38,7 @@ import SistemasAvanzados from "@/pages/sistemas-avanzados";
 import SeguridadCibernetica from "@/pages/seguridad-cibernetica";
 import SuperAdminLogin from "@/pages/super-admin-login";
 import SuperAdminDashboard from "@/pages/super-admin-dashboard";
+import SuperAdminCEODashboard from "@/pages/super-admin-ceo-dashboard";
 import SaaSInfo from "@/components/saas-info";
 
 function AuthenticatedRoutes() {
@@ -117,7 +118,8 @@ function App() {
               <div className="min-h-screen bg-slate-50">
                 <Switch>
                   <Route path="/super-admin-login" component={SuperAdminLogin} />
-                  <Route path="/super-admin" component={SuperAdminDashboard} />
+                  <Route path="/super-admin" component={SuperAdminCEODashboard} />
+                  <Route path="/super-admin-classic" component={SuperAdminDashboard} />
                   <Route component={AuthenticatedRoutes} />
                 </Switch>
                 <Toaster />

@@ -748,6 +748,53 @@ ${p.nombre_padre} & ${p.nombre_madre}
                     <Label>Dirección</Label>
                     <Input placeholder="Dirección completa de la familia" />
                   </div>
+
+                  {/* Datos del estudiante prospecto */}
+                  <div className="md:col-span-2 mt-4 pt-4 border-t border-gray-200">
+                    <h4 className="font-semibold text-lg mb-3 text-blue-800">Datos del Alumno Prospecto</h4>
+                  </div>
+                  
+                  <div>
+                    <Label>Nombre del alumno</Label>
+                    <Input placeholder="Nombre completo del estudiante" />
+                  </div>
+                  
+                  <div>
+                    <Label>Edad del alumno</Label>
+                    <Input type="number" min="3" max="18" placeholder="6" />
+                  </div>
+                  
+                  <div>
+                    <Label>Grado de interés</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar grado..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="KINDER_1">Kinder 1</SelectItem>
+                        <SelectItem value="KINDER_2">Kinder 2</SelectItem>
+                        <SelectItem value="KINDER_3">Kinder 3</SelectItem>
+                        <SelectItem value="1_PRIMARIA">1ro Primaria</SelectItem>
+                        <SelectItem value="2_PRIMARIA">2do Primaria</SelectItem>
+                        <SelectItem value="3_PRIMARIA">3ro Primaria</SelectItem>
+                        <SelectItem value="4_PRIMARIA">4to Primaria</SelectItem>
+                        <SelectItem value="5_PRIMARIA">5to Primaria</SelectItem>
+                        <SelectItem value="6_PRIMARIA">6to Primaria</SelectItem>
+                        <SelectItem value="1_SECUNDARIA">1ro Secundaria</SelectItem>
+                        <SelectItem value="2_SECUNDARIA">2do Secundaria</SelectItem>
+                        <SelectItem value="3_SECUNDARIA">3ro Secundaria</SelectItem>
+                        <SelectItem value="1_BACHILLERATO">1ro Bachillerato</SelectItem>
+                        <SelectItem value="2_BACHILLERATO">2do Bachillerato</SelectItem>
+                        <SelectItem value="3_BACHILLERATO">3ro Bachillerato</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label>Escuela de procedencia</Label>
+                    <Input placeholder="Escuela actual del alumno" />
+                  </div>
+
               <div className="md:col-span-2">
                     <Label>Observaciones</Label>
                     <Textarea placeholder="Observaciones sobre la familia y el seguimiento..." />

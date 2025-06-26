@@ -14,7 +14,7 @@ import { CreditCard, Banknote, Smartphone, Receipt, Download, Eye, DollarSign, C
 export default function Pagos() {
   const [selectedMethod, setSelectedMethod] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
-  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
   const { toast } = useToast();
 
@@ -553,14 +553,7 @@ export default function Pagos() {
               </div>
 
               {/* Acciones */}
-              <div className="flex gap-3 pt-4 border-t">
-                <Button 
-                  onClick={() => handleDownloadReceipt(selectedPayment)}
-                  className="flex items-center gap-2"
-                >
-                  <Download className="h-4 w-4" />
-                  Descargar Comprobante
-                </Button>
+              <div className="flex justify-end pt-4 border-t">
                 <Button 
                   variant="outline"
                   onClick={() => setShowPaymentDetails(false)}

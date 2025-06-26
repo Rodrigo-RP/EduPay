@@ -229,7 +229,7 @@ export default function Becas() {
   const totalTiposBecas = becasYDescuentos.filter(b => b.activa).length;
   const totalEstudiantesBeneficiados = becasYDescuentos.reduce((sum, b) => sum + b.estudiantes_aplicados, 0);
   const montoTotalDescuentos = becasYDescuentos.reduce((sum, b) => sum + b.monto_total_descuento, 0);
-  const promedioDescuento = becasYDescuentos.reduce((sum, b) => sum + b.porcentaje_max, 0) / becasYDescuentos.length;
+  const promedioDescuento = becasYDescuentos.reduce((sum, b) => sum + (b.porcentaje_max || 0), 0) / becasYDescuentos.length;
 
   // Funciones para manejar acciones de botones
   const handleEditBeca = (beca: any) => {

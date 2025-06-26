@@ -111,9 +111,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Configurar trust proxy para desarrollo
   app.set('trust proxy', 1);
   
-  // Aplicar middlewares de seguridad básicos
+  // Aplicar middlewares de seguridad reforzados
   app.use(secureCors);
   app.use(sanitizeInput);
+  app.use(integrityCheck);
+  
+  // Rate limiting estricto para APIs críticas
+  app.use('/api/security', rateLimits.api);
+  app.use('/api/admin', rateLimits.api);
   // AUTHENTICATION ROUTES
   
   // Admin/Staff login
@@ -205,8 +210,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ADMIN PORTAL ROUTES
 
-  // Get dashboard KPIs
-  app.get("/api/admin/dashboard/:campusId", async (req, res) => {
+  // Get dashboard KPIs - PROTEGIDO
+  app.get("/api/admin/dashboard/:campusId", requireAuthStrict, async (req, res) => {
     try {
       const campusId = parseInt(req.params.campusId);
       
@@ -1326,7 +1331,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Security events log - PROTEGIDO
-  app.get("/api/security/events", requireAuth, async (req, res) => {
+  app.get("/api/security/events", requireAuthStrict, async (req, res) => {
     try {
       const events = [
         {
@@ -1354,8 +1359,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Security scan
-  app.post("/api/security/scan", async (req, res) => {
+  // Security scan - PROTEGIDO
+  app.post("/api/security/scan", requireAuthStrict, async (req, res) => {
     try {
       res.json({ 
         message: "Escaneo de seguridad iniciado",
@@ -1372,8 +1377,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Block IP address
-  app.post("/api/security/block-ip", async (req, res) => {
+  // Block IP address - PROTEGIDO
+  app.post("/api/security/block-ip", requireAuthStrict, async (req, res) => {
     try {
       const { ipAddress } = req.body;
       
@@ -1390,8 +1395,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Enable 2FA globally
-  app.post("/api/security/enable-2fa", async (req, res) => {
+  // Enable 2FA globally - PROTEGIDO
+  app.post("/api/security/enable-2fa", requireAuthStrict, async (req, res) => {
     try {
       res.json({ 
         message: "2FA habilitado globalmente para todos los usuarios admin",
@@ -1402,8 +1407,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate security report
-  app.get("/api/security/report", async (req, res) => {
+  // Generate security report - PROTEGIDO
+  app.get("/api/security/report", requireAuthStrict, async (req, res) => {
     try {
       const report = {
         generatedAt: new Date().toISOString(),

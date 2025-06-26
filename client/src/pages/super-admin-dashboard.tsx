@@ -20,21 +20,53 @@ export default function SuperAdminDashboard() {
   // Platform metrics query
   const { data: platformMetrics, isLoading: metricsLoading } = useQuery({
     queryKey: ["/api/super-admin/platform/metrics"],
+    queryFn: async () => {
+      const response = await fetch("/api/super-admin/platform/metrics", {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      return response.json();
+    },
   });
 
   // Tenants list query
   const { data: tenants, isLoading: tenantsLoading } = useQuery({
     queryKey: ["/api/super-admin/tenants"],
+    queryFn: async () => {
+      const response = await fetch("/api/super-admin/tenants", {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      return response.json();
+    },
   });
 
   // Security events query
   const { data: securityEvents, isLoading: eventsLoading } = useQuery({
     queryKey: ["/api/super-admin/security/events"],
+    queryFn: async () => {
+      const response = await fetch("/api/super-admin/security/events", {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      return response.json();
+    },
   });
 
   // System health query
   const { data: systemHealth, isLoading: healthLoading } = useQuery({
     queryKey: ["/api/super-admin/system/health"],
+    queryFn: async () => {
+      const response = await fetch("/api/super-admin/system/health", {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      return response.json();
+    },
   });
 
   // Security scan mutation
@@ -67,11 +99,17 @@ export default function SuperAdminDashboard() {
 
   // Block IP mutation
   const blockIpMutation = useMutation({
-    mutationFn: (data: { ipAddress: string; reason: string }) => 
-      apiRequest("/api/super-admin/security/block-ip", {
+    mutationFn: async (data: { ipAddress: string; reason: string }) => {
+      const response = await fetch("/api/super-admin/security/block-ip", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token")}`,
+        },
         body: JSON.stringify(data),
-      }),
+      });
+      return response.json();
+    },
     onSuccess: (data: any) => {
       toast({
         title: "IP Bloqueada",
@@ -180,9 +218,9 @@ export default function SuperAdminDashboard() {
                   <School className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{platformMetrics?.totalSchools || 0}</div>
+                  <div className="text-2xl font-bold">{(platformMetrics as any)?.totalSchools || 0}</div>
                   <p className="text-xs text-muted-foreground">
-                    {platformMetrics?.activeSchools || 0} activas
+                    {(platformMetrics as any)?.activeSchools || 0} activas
                   </p>
                 </CardContent>
               </Card>
@@ -193,7 +231,7 @@ export default function SuperAdminDashboard() {
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{platformMetrics?.totalStudents || 0}</div>
+                  <div className="text-2xl font-bold">{(platformMetrics as any)?.totalStudents || 0}</div>
                   <p className="text-xs text-muted-foreground">
                     En plataforma
                   </p>
@@ -206,7 +244,7 @@ export default function SuperAdminDashboard() {
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{platformMetrics?.totalPayments || 0}</div>
+                  <div className="text-2xl font-bold">{(platformMetrics as any)?.totalPayments || 0}</div>
                   <p className="text-xs text-muted-foreground">
                     Transacciones
                   </p>
@@ -219,7 +257,7 @@ export default function SuperAdminDashboard() {
                   <AlertTriangle className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{platformMetrics?.securityEvents || 0}</div>
+                  <div className="text-2xl font-bold">{(platformMetrics as any)?.securityEvents || 0}</div>
                   <p className="text-xs text-muted-foreground">
                     Últimos 30 días
                   </p>
@@ -248,7 +286,7 @@ export default function SuperAdminDashboard() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {securityEvents?.slice(0, 5).map((event: any) => (
+                      {(securityEvents as any)?.slice(0, 5).map((event: any) => (
                         <TableRow key={event.id}>
                           <TableCell className="font-medium">{event.event_type}</TableCell>
                           <TableCell>{getSeverityBadge(event.severity)}</TableCell>
@@ -299,7 +337,7 @@ export default function SuperAdminDashboard() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {tenants?.map((tenant: any) => (
+                      {(tenants as any)?.map((tenant: any) => (
                         <TableRow key={tenant.id}>
                           <TableCell className="font-medium">{tenant.nombre_legal}</TableCell>
                           <TableCell>{tenant.rfc}</TableCell>

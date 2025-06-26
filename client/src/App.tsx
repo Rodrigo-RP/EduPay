@@ -120,6 +120,10 @@ function App() {
                   <Route path="/super-admin-login" component={SuperAdminLogin} />
                   <Route path="/super-admin" component={SuperAdminCEODashboard} />
                   <Route path="/super-admin-classic" component={SuperAdminDashboard} />
+                  <Route path="/" component={() => {
+                    window.location.href = '/super-admin-login';
+                    return null;
+                  }} />
                   <Route component={AuthenticatedRoutes} />
                 </Switch>
                 <Toaster />

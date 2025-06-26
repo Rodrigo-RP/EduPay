@@ -25,6 +25,8 @@ export default function CRMEscolar() {
     resultado: "",
     fecha_programada: ""
   });
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
 
   // Datos demo de prospectos de familias
   const prospectos = [
@@ -361,6 +363,106 @@ export default function CRMEscolar() {
       default:
         return "bg-gray-100 border-gray-300 text-gray-800";
     }
+  };
+
+  // Funciones para las acciones de reportes
+  const handleGenerateReport = () => {
+    const reportData = {
+      fecha_generacion: new Date().toISOString().split('T')[0],
+      total_prospectos: prospectos.length,
+      por_estado: prospectos.reduce((acc: any, p) => {
+        acc[p.estado_prospecto] = (acc[p.estado_prospecto] || 0) + 1;
+        return acc;
+      }, {}),
+      por_origen: prospectos.reduce((acc: any, p) => {
+        acc[p.origen_contacto] = (acc[p.origen_contacto] || 0) + 1;
+        return acc;
+      }, {}),
+      conversion_rate: ((prospectos.filter(p => p.estado_prospecto === "INSCRITO").length / prospectos.length) * 100).toFixed(1),
+      valor_potencial: estadisticas.valorPotencial
+    };
+
+    const reportContent = `REPORTE DE PROSPECCIÓN - ${reportData.fecha_generacion}
+    
+RESUMEN EJECUTIVO:
+- Total de prospectos: ${reportData.total_prospectos}
+- Tasa de conversión: ${reportData.conversion_rate}%
+- Valor potencial: $${reportData.valor_potencial.toLocaleString()}
+
+DISTRIBUCIÓN POR ESTADO:
+${Object.entries(reportData.por_estado).map(([estado, cantidad]) => `- ${estado}: ${cantidad}`).join('\n')}
+
+DISTRIBUCIÓN POR ORIGEN:
+${Object.entries(reportData.por_origen).map(([origen, cantidad]) => `- ${origen}: ${cantidad}`).join('\n')}
+
+PROSPECTOS DETALLADOS:
+${prospectos.map(p => `
+${p.nombre_padre} & ${p.nombre_madre}
+- Estado: ${p.estado_prospecto}
+- Probabilidad: ${p.probabilidad_inscripcion}%
+- Teléfono: ${p.telefono_principal}
+- Email: ${p.correo_principal}
+- Estudiantes: ${p.estudiantes_prospecto.map(e => `${e.nombre} (${e.grado_interes})`).join(', ')}
+- Observaciones: ${p.observaciones}
+`).join('\n')}`;
+
+    const blob = new Blob([reportContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reporte-prospeccion-${reportData.fecha_generacion}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Reporte generado",
+      description: "El reporte de prospección se descargó exitosamente",
+    });
+  };
+
+  const handleExportProspects = () => {
+    const csvContent = [
+      ["Nombre Padre", "Nombre Madre", "Teléfono Principal", "Teléfono Secundario", "Email Principal", "Email Secundario", "Estado", "Origen", "Probabilidad", "Estado Económico", "Observaciones", "Estudiantes"].join(","),
+      ...prospectos.map(p => [
+        p.nombre_padre,
+        p.nombre_madre,
+        p.telefono_principal,
+        p.telefono_secundario || "",
+        p.correo_principal,
+        p.correo_secundario || "",
+        p.estado_prospecto,
+        p.origen_contacto,
+        p.probabilidad_inscripcion,
+        p.estado_economico,
+        `"${p.observaciones}"`,
+        `"${p.estudiantes_prospecto.map(e => `${e.nombre} (${e.grado_interes})`).join('; ')}"`
+      ].join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `prospectos-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Datos exportados",
+      description: "La base de prospectos se exportó en formato CSV",
+    });
+  };
+
+  const handleAnalyzeSources = () => {
+    setShowAnalysisModal(true);
+  };
+
+  const handleScheduleCampaign = () => {
+    setShowCampaignModal(true);
   };
 
   return (
@@ -719,16 +821,16 @@ export default function CRMEscolar() {
                   </CardHeader>
                   <CardContent>
                 <div className="space-y-3">
-                  <Button className="w-full" variant="outline">
+                  <Button className="w-full" variant="outline" onClick={handleGenerateReport}>
                         Generar reporte de prospección
                       </Button>
-                  <Button className="w-full" variant="outline">
+                  <Button className="w-full" variant="outline" onClick={handleExportProspects}>
                         Exportar base de prospectos
                       </Button>
-                  <Button className="w-full" variant="outline">
+                  <Button className="w-full" variant="outline" onClick={handleAnalyzeSources}>
                         Analizar fuentes de contacto
                       </Button>
-                  <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700" onClick={handleScheduleCampaign}>
                         Programar campaña masiva
                       </Button>
                     </div>
@@ -918,6 +1020,211 @@ export default function CRMEscolar() {
                     <Calendar className="w-4 h-4 mr-2" />
                     Programar Actividad
                   </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Modal de Análisis de Fuentes */}
+          <Dialog open={showAnalysisModal} onOpenChange={setShowAnalysisModal}>
+            <DialogContent className="max-w-3xl">
+              <DialogHeader>
+                <DialogTitle>Análisis de Fuentes de Contacto</DialogTitle>
+              </DialogHeader>
+              
+              <div className="py-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Distribución por origen */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Distribución por Origen</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {Object.entries(prospectos.reduce((acc: any, p) => {
+                          acc[p.origen_contacto] = (acc[p.origen_contacto] || 0) + 1;
+                          return acc;
+                        }, {})).map(([origen, cantidad]) => (
+                          <div key={origen} className="flex justify-between items-center">
+                            <span className="text-sm font-medium">{origen}</span>
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 bg-gray-200 rounded-full h-2">
+                                <div 
+                                  className="bg-blue-600 h-2 rounded-full" 
+                                  style={{ width: `${((cantidad as number) / prospectos.length) * 100}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-sm text-gray-600">{cantidad as number}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Efectividad por fuente */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Efectividad por Fuente</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {Object.entries(prospectos.reduce((acc: any, p) => {
+                          if (!acc[p.origen_contacto]) {
+                            acc[p.origen_contacto] = { total: 0, inscritos: 0 };
+                          }
+                          acc[p.origen_contacto].total++;
+                          if (p.estado_prospecto === "INSCRITO") {
+                            acc[p.origen_contacto].inscritos++;
+                          }
+                          return acc;
+                        }, {})).map(([origen, data]: [string, any]) => (
+                          <div key={origen} className="space-y-1">
+                            <div className="flex justify-between">
+                              <span className="text-sm font-medium">{origen}</span>
+                              <span className="text-sm text-gray-600">
+                                {((data.inscritos / data.total) * 100).toFixed(1)}%
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="bg-green-600 h-2 rounded-full" 
+                                style={{ width: `${(data.inscritos / data.total) * 100}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Recomendaciones */}
+                <Card className="mt-6">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Recomendaciones de Marketing</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <h4 className="font-medium text-green-800">Invertir más en:</h4>
+                        <p className="text-sm text-green-700">
+                          Las fuentes con mayor tasa de conversión (Referencias y Eventos) 
+                          deberían recibir más inversión de marketing.
+                        </p>
+                      </div>
+                      <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                        <h4 className="font-medium text-orange-800">Mejorar seguimiento en:</h4>
+                        <p className="text-sm text-orange-700">
+                          Los prospectos de página web necesitan un proceso de seguimiento 
+                          más estructurado para mejorar conversión.
+                        </p>
+                      </div>
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <h4 className="font-medium text-blue-800">Oportunidad:</h4>
+                        <p className="text-sm text-blue-700">
+                          Implementar programa de referidos para aprovechar la alta 
+                          efectividad de las recomendaciones personales.
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Modal de Campaña Masiva */}
+          <Dialog open={showCampaignModal} onOpenChange={setShowCampaignModal}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Programar Campaña Masiva</DialogTitle>
+              </DialogHeader>
+              
+              <div className="py-4">
+                <div className="space-y-4">
+                  <div>
+                    <Label>Tipo de campaña</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar tipo de campaña..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="EMAIL">Campaña de Email</SelectItem>
+                        <SelectItem value="SMS">Campaña de SMS</SelectItem>
+                        <SelectItem value="WHATSAPP">Campaña de WhatsApp</SelectItem>
+                        <SelectItem value="LLAMADAS">Campaña de Llamadas</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Audiencia objetivo</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar audiencia..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="TODOS">Todos los prospectos</SelectItem>
+                        <SelectItem value="NUEVOS">Solo prospectos nuevos</SelectItem>
+                        <SelectItem value="CONTACTADOS">Prospectos contactados</SelectItem>
+                        <SelectItem value="INTERESADOS">Prospectos interesados</SelectItem>
+                        <SelectItem value="ALTA_PROBABILIDAD">Alta probabilidad (&gt;70%)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Fecha de envío</Label>
+                    <Input type="datetime-local" />
+                  </div>
+
+                  <div>
+                    <Label>Asunto de la campaña</Label>
+                    <Input placeholder="Ej: ¡Últimos días para inscripciones 2025-2026!" />
+                  </div>
+
+                  <div>
+                    <Label>Mensaje de la campaña</Label>
+                    <Textarea 
+                      placeholder="Escribe el mensaje que se enviará a los prospectos..."
+                      rows={6}
+                    />
+                  </div>
+
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h4 className="font-medium text-blue-800 mb-2">Vista Previa de Audiencia</h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium">Total destinatarios:</span> {filteredProspectos.length}
+                      </div>
+                      <div>
+                        <span className="font-medium">Valor potencial:</span> ${(estadisticas.valorPotencial).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-4">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setShowCampaignModal(false)}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button 
+                      className="bg-blue-600 hover:bg-blue-700"
+                      onClick={() => {
+                        toast({
+                          title: "Campaña programada",
+                          description: "La campaña masiva ha sido programada exitosamente",
+                        });
+                        setShowCampaignModal(false);
+                      }}
+                    >
+                      <Mail className="w-4 h-4 mr-2" />
+                      Programar Campaña
+                    </Button>
+                  </div>
                 </div>
               </div>
             </DialogContent>

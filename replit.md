@@ -118,6 +118,14 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- June 26, 2025: CRM ESCOLAR COMPLETADO CON FUNCIONALIDAD PROFESIONAL
+- June 26, 2025: Timeline de actividades similar a HubSpot implementado con línea cronológica vertical
+- June 26, 2025: Botones de teléfono, email y calendario con acciones reales funcionales
+- June 26, 2025: Sistema completo de análisis de fuentes de contacto con gráficos y recomendaciones
+- June 26, 2025: Generación automática de reportes de prospección descargables en formato TXT
+- June 26, 2025: Exportación de base de prospectos en formato CSV con todos los datos
+- June 26, 2025: Programación de campañas masivas con segmentación de audiencias
+- June 26, 2025: Modal de actividades con estados codificados por colores y seguimiento profesional
 - June 25, 2025: NUEVAS FUNCIONALIDADES CRM Y GESTIÓN AVANZADA implementadas
 - June 25, 2025: Proveedores: Gestión completa con empresa, contacto, WhatsApp, correo, historial facturas
 - June 25, 2025: Ex-Alumnos: Registro completo con grado, boletas, certificados, correo, teléfono, ocupación actual

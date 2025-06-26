@@ -106,97 +106,6 @@ export default function DataValidationReport() {
   }
 
   const validationResults = validationData.results || [];
-    {
-      category: "Estudiantes y Familias",
-      overallStatus: "warning",
-      summary: "2 advertencias encontradas en vinculación familiar",
-      checks: [
-        {
-          name: "CURPs únicos",
-          status: "pass",
-          message: "Todos los CURPs son únicos y válidos",
-          affectedRecords: 0
-        },
-        {
-          name: "Emails únicos de tutores",
-          status: "pass", 
-          message: "Todos los emails de tutores son únicos",
-          affectedRecords: 0
-        },
-        {
-          name: "Vinculación estudiante-tutor",
-          status: "warning",
-          message: "2 estudiantes tienen múltiples responsables de pago",
-          affectedRecords: 2,
-          details: [
-            "CURP: GOLM051215MDFNPR03 - Tanto Roberto como Carmen marcados como responsables",
-            "CURP: ROMC060810HDFRRL05 - Falta asignar responsable de pago"
-          ]
-        },
-        {
-          name: "Grados académicos válidos",
-          status: "pass",
-          message: "Todos los grados son reconocidos por el sistema",
-          affectedRecords: 0
-        }
-      ]
-    },
-    {
-      category: "Conceptos y Precios",
-      overallStatus: "success",
-      summary: "Todos los conceptos validados correctamente",
-      checks: [
-        {
-          name: "Precios por nivel académico",
-          status: "pass",
-          message: "Precios diferenciados configurados correctamente",
-          affectedRecords: 0
-        },
-        {
-          name: "Conceptos obligatorios",
-          status: "pass",
-          message: "Colegiatura e inscripción presentes",
-          affectedRecords: 0
-        },
-        {
-          name: "Configuración de IVA",
-          status: "pass",
-          message: "IVA configurado según normativa fiscal",
-          affectedRecords: 0
-        }
-      ]
-    },
-    {
-      category: "Becas y Descuentos",
-      overallStatus: "error",
-      summary: "1 error crítico en asignación de becas",
-      checks: [
-        {
-          name: "Tipos de beca válidos",
-          status: "pass",
-          message: "Todos los tipos de beca están registrados",
-          affectedRecords: 0
-        },
-        {
-          name: "Estudiantes existentes",
-          status: "fail",
-          message: "3 becas asignadas a estudiantes inexistentes",
-          affectedRecords: 3,
-          details: [
-            "CURP: INEXISTENTE001 - Beca Excelencia Académica",
-            "CURP: INEXISTENTE002 - Descuento Hermanos", 
-            "CURP: INEXISTENTE003 - Beca USEBEQ"
-          ]
-        },
-        {
-          name: "Rangos de descuento",
-          status: "pass",
-          message: "Todos los porcentajes están entre 0-100%",
-          affectedRecords: 0
-        }
-      ]
-    }
-  ];
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -232,14 +141,11 @@ export default function DataValidationReport() {
   };
 
   const downloadValidationReport = () => {
+    if (!validationData) return;
+    
     const reportData = {
-      timestamp: new Date().toISOString(),
-      summary: {
-        totalCategories: validationResults.length,
-        categoriesWithErrors: validationResults.filter(r => r.overallStatus === 'error').length,
-        categoriesWithWarnings: validationResults.filter(r => r.overallStatus === 'warning').length,
-        categoriesSuccess: validationResults.filter(r => r.overallStatus === 'success').length
-      },
+      timestamp: validationData.timestamp,
+      summary: validationData.summary,
       details: validationResults
     };
 
@@ -252,6 +158,11 @@ export default function DataValidationReport() {
     link.click();
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Reporte Descargado",
+      description: "Reporte de validación guardado exitosamente",
+    });
   };
 
   return (
@@ -268,24 +179,34 @@ export default function DataValidationReport() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 gap-4 text-center">
+          <div className="grid grid-cols-4 gap-4 text-center">
             <div>
               <div className="text-2xl font-bold text-green-600">
-                {validationResults.filter(r => r.overallStatus === 'success').length}
+                {validationData.summary.categoriesSuccess}
               </div>
               <div className="text-sm text-muted-foreground">Sin Errores</div>
             </div>
             <div>
               <div className="text-2xl font-bold text-yellow-600">
-                {validationResults.filter(r => r.overallStatus === 'warning').length}
+                {validationData.summary.categoriesWithWarnings}
               </div>
               <div className="text-sm text-muted-foreground">Con Advertencias</div>
             </div>
             <div>
               <div className="text-2xl font-bold text-red-600">
-                {validationResults.filter(r => r.overallStatus === 'error').length}
+                {validationData.summary.categoriesWithErrors}
               </div>
               <div className="text-sm text-muted-foreground">Con Errores</div>
+            </div>
+            <div>
+              <Button onClick={runValidation} disabled={isFetching} size="sm">
+                {isFetching ? (
+                  <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Play className="h-4 w-4 mr-2" />
+                )}
+                Re-ejecutar
+              </Button>
             </div>
           </div>
         </CardContent>

@@ -1,49 +1,61 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle, AlertCircle, Clock, Users, DollarSign, GraduationCap } from "lucide-react";
-
-interface MigrationStats {
-  category: string;
-  icon: any;
-  total: number;
-  completed: number;
-  errors: number;
-  status: 'pending' | 'in_progress' | 'completed' | 'error';
-}
+import { Button } from "@/components/ui/button";
+import { CheckCircle, AlertCircle, Clock, Users, DollarSign, GraduationCap, RefreshCw, RotateCcw } from "lucide-react";
+import { useMigrationStatus } from "@/hooks/use-migration-status";
 
 export default function MigrationDashboard() {
-  const migrationStats: MigrationStats[] = [
+  const { migrationProgress, isLoading, resetProgress, isResetting } = useMigrationStatus();
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center justify-center">
+            <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+            <span>Cargando estado de migración...</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!migrationProgress) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="text-center text-muted-foreground">
+            No se pudo cargar el estado de migración
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const migrationStats = [
     {
       category: "Estudiantes y Familias",
       icon: Users,
-      total: 3,
-      completed: 2,
-      errors: 0,
-      status: 'in_progress'
+      total: migrationProgress.categories.estudiantes.total,
+      completed: migrationProgress.categories.estudiantes.completed,
+      status: migrationProgress.categories.estudiantes.status
     },
     {
       category: "Conceptos y Precios", 
       icon: DollarSign,
-      total: 3,
-      completed: 0,
-      errors: 0,
-      status: 'pending'
+      total: migrationProgress.categories.financiero.total,
+      completed: migrationProgress.categories.financiero.completed,
+      status: migrationProgress.categories.financiero.status
     },
     {
       category: "Becas y Descuentos",
       icon: GraduationCap,
-      total: 2,
-      completed: 0,
-      errors: 0,
-      status: 'pending'
+      total: migrationProgress.categories.becas.total,
+      completed: migrationProgress.categories.becas.completed,
+      status: migrationProgress.categories.becas.status
     }
   ];
-
-  const totalTemplates = migrationStats.reduce((sum, cat) => sum + cat.total, 0);
-  const completedTemplates = migrationStats.reduce((sum, cat) => sum + cat.completed, 0);
-  const totalErrors = migrationStats.reduce((sum, cat) => sum + cat.errors, 0);
-  const overallProgress = (completedTemplates / totalTemplates) * 100;
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -78,22 +90,37 @@ export default function MigrationDashboard() {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Progreso General de Migración</span>
-            <span className="text-2xl font-bold">{Math.round(overallProgress)}%</span>
+            <div className="flex items-center gap-3">
+              <span className="text-2xl font-bold">{Math.round(migrationProgress.overallProgress)}%</span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => resetProgress()}
+                disabled={isResetting}
+              >
+                {isResetting ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-4 w-4" />
+                )}
+                Reset
+              </Button>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Progress value={overallProgress} className="mb-4" />
+          <Progress value={migrationProgress.overallProgress} className="mb-4" />
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
-              <div className="text-2xl font-bold text-blue-600">{completedTemplates}</div>
+              <div className="text-2xl font-bold text-blue-600">{migrationProgress.completedTemplates}</div>
               <div className="text-sm text-muted-foreground">Templates Completados</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-gray-600">{totalTemplates - completedTemplates}</div>
+              <div className="text-2xl font-bold text-gray-600">{migrationProgress.totalTemplates - migrationProgress.completedTemplates}</div>
               <div className="text-sm text-muted-foreground">Pendientes</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-red-600">{totalErrors}</div>
+              <div className="text-2xl font-bold text-red-600">{migrationProgress.totalErrors}</div>
               <div className="text-sm text-muted-foreground">Errores</div>
             </div>
           </div>
@@ -129,9 +156,7 @@ export default function MigrationDashboard() {
                 
                 <div className="flex justify-between text-sm text-muted-foreground">
                   <span>{Math.round(categoryProgress)}% completado</span>
-                  {stat.errors > 0 && (
-                    <span className="text-red-600">{stat.errors} errores</span>
-                  )}
+                  <span className="text-blue-600">{stat.completed}/{stat.total} templates</span>
                 </div>
               </CardContent>
             </Card>

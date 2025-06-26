@@ -367,10 +367,26 @@ export default function ImportacionDatos() {
     setImportProgress(0);
 
     try {
+      // Actualizar estado a "en progreso"
+      await fetch('/api/migration/status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          category: categoryId,
+          templateId: templateId,
+          status: 'in_progress',
+          recordsProcessed: 0,
+          totalRecords: 0
+        })
+      });
+
       const formData = new FormData();
       formData.append('file', selectedFile);
 
-      // Simular progreso durante la carga
+      // Progreso durante la carga
       const progressInterval = setInterval(() => {
         setImportProgress(prev => Math.min(prev + 10, 90));
       }, 200);
@@ -387,10 +403,42 @@ export default function ImportacionDatos() {
       setImportProgress(100);
 
       if (!response.ok) {
+        // Actualizar estado a "error"
+        await fetch('/api/migration/status', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({
+            category: categoryId,
+            templateId: templateId,
+            status: 'error',
+            errors: ['Error procesando archivo']
+          })
+        });
         throw new Error('Error procesando importación');
       }
 
       const result = await response.json();
+
+      // Actualizar estado final
+      const finalStatus = result.results.errors.length > 0 ? 'error' : 'completed';
+      await fetch('/api/migration/status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          category: categoryId,
+          templateId: templateId,
+          status: finalStatus,
+          recordsProcessed: result.results.successful,
+          totalRecords: result.results.total,
+          errors: result.results.errors.map((e: any) => e.error)
+        })
+      });
 
       toast({
         title: "Importación Completada",
@@ -428,6 +476,9 @@ export default function ImportacionDatos() {
           Actualizar Status
         </Button>
       </div>
+
+      {/* Migration Dashboard */}
+      <MigrationDashboard />
 
       {/* Información sobre vinculación de estudiantes y familias */}
       <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">

@@ -118,6 +118,12 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- June 26, 2025: SISTEMA DE MIGRACIÓN EN TIEMPO REAL COMPLETADO - Dashboard de progreso dinámico y APIs de seguimiento
+- June 26, 2025: Dashboard de migración con estado en tiempo real, progreso por categoría y botón de reset
+- June 26, 2025: APIs de seguimiento /api/migration/status para monitoreo de progreso automático
+- June 26, 2025: Actualización automática de estado durante importación: pending → in_progress → completed/error
+- June 26, 2025: Sistema de vinculación familiar visual con ejemplos prácticos de CURP + email
+- June 26, 2025: Hook personalizado useMigrationStatus con refetch automático cada 5 segundos
 - June 26, 2025: TEMPLATES EXCEL CATEGORIZADOS IMPLEMENTADOS - Sistema completo de importación/exportación de datos
 - June 26, 2025: 3 categorías de templates: Estudiantes y Familias, Conceptos y Precios, Becas y Descuentos
 - June 26, 2025: Descarga automática de templates Excel con datos de ejemplo y validaciones

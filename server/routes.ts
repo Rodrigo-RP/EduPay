@@ -1631,12 +1631,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const newUser = await storage.createUser({
         email,
-        nombre_completo,
+        name: nombre_completo,
         password_hash,
         role,
         campus_id: parseInt(campus_id),
         tenant_id: parseInt(tenant_id),
-        status: 'active',
+        is_active: true,
         is_super_admin: false
       });
 
@@ -1645,7 +1645,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user: {
           id: newUser.id,
           email: newUser.email,
-          nombre_completo: newUser.nombre_completo,
+          name: newUser.name,
           role: newUser.role
         }
       });

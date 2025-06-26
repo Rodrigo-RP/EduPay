@@ -453,7 +453,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateUserStatus(userId: number, status: string): Promise<void> {
     await db.update(users)
-      .set({ status, updated_at: new Date() })
+      .set({ is_active: status === 'active', updated_at: new Date() })
       .where(eq(users.id, userId));
   }
 

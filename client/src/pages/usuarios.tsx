@@ -467,6 +467,7 @@ export default function Usuarios() {
                           size="sm" 
                           variant="outline"
                           onClick={() => handleDeleteUser(usuario.id, usuario.nombre_completo)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 hover:border-red-300"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -542,6 +543,57 @@ export default function Usuarios() {
                 </Button>
                 <Button onClick={handleSaveEdit}>
                   Guardar cambios
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Modal de confirmación de eliminación */}
+          <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-3 text-red-600">
+                  <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                  </div>
+                  Advertencia de Eliminación
+                </DialogTitle>
+              </DialogHeader>
+              
+              <div className="py-4">
+                <p className="text-sm text-slate-600 mb-4">
+                  ¿Estás completamente seguro de que deseas eliminar al usuario{" "}
+                  <strong className="text-slate-900">"{userToDelete?.nombre_completo}"</strong>?
+                </p>
+                
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                  <p className="text-sm font-medium text-red-800 mb-2">
+                    Esta acción NO se puede deshacer y eliminará:
+                  </p>
+                  <ul className="text-sm text-red-700 space-y-1">
+                    <li>• Acceso completo al sistema</li>
+                    <li>• Todos los permisos y configuraciones</li>
+                    <li>• Historial de actividades del usuario</li>
+                  </ul>
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setUserToDelete(null);
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={confirmDeleteUser}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Eliminar Usuario
                 </Button>
               </div>
             </DialogContent>

@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Plus, Search, Edit, Trash2, UserCheck, UserX, Phone, Mail, MapPin } from "lucide-react";
+import { Users, Plus, Search, Edit, Trash2, UserCheck, UserX, Phone, Mail, MapPin, AlertTriangle } from "lucide-react";
 
 export default function Estudiantes() {
   const { toast } = useToast();
@@ -549,6 +549,9 @@ export default function Estudiantes() {
     }
   };
 
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState<any>(null);
+
   const handleDelete = (studentId: number) => {
     const student = estudiantes.find(s => s.id === studentId);
     
@@ -561,17 +564,23 @@ export default function Estudiantes() {
       return;
     }
 
-    const confirmed = window.confirm(
-      `⚠️ ADVERTENCIA DE ELIMINACIÓN\n\n¿Estás completamente seguro de que deseas eliminar al estudiante "${student?.nombre_completo}"?\n\nEsta acción NO se puede deshacer y eliminará:\n• Todos los datos académicos del estudiante\n• Historial de pagos y cargos\n• Información de responsables y contactos\n• Registros de asistencia y calificaciones\n\n¿Continuar con la eliminación?`
-    );
-    
-    if (confirmed) {
-      setEstudiantes(prev => prev.filter(s => s.id !== studentId));
-      toast({
-        title: "Estudiante eliminado",
-        description: `${student?.nombre_completo} ha sido eliminado permanentemente del sistema.`
-      });
+    if (student) {
+      setStudentToDelete(student);
+      setShowDeleteModal(true);
     }
+  };
+
+  const confirmDeleteStudent = () => {
+    if (!studentToDelete) return;
+    
+    setEstudiantes(prev => prev.filter(s => s.id !== studentToDelete.id));
+    toast({
+      title: "Estudiante eliminado",
+      description: `${studentToDelete.nombre_completo} ha sido eliminado permanentemente del sistema.`
+    });
+    
+    setShowDeleteModal(false);
+    setStudentToDelete(null);
   };
 
   // Funciones para manejar grupos personalizados
@@ -1156,6 +1165,58 @@ export default function Estudiantes() {
                 Cerrar
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de confirmación de eliminación */}
+      <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3 text-red-600">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              Advertencia de Eliminación
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <p className="text-sm text-slate-600 mb-4">
+              ¿Estás completamente seguro de que deseas eliminar al estudiante{" "}
+              <strong className="text-slate-900">"{studentToDelete?.nombre_completo}"</strong>?
+            </p>
+            
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+              <p className="text-sm font-medium text-red-800 mb-2">
+                Esta acción NO se puede deshacer y eliminará:
+              </p>
+              <ul className="text-sm text-red-700 space-y-1">
+                <li>• Todos los datos académicos del estudiante</li>
+                <li>• Historial de pagos y cargos</li>
+                <li>• Información de responsables y contactos</li>
+                <li>• Registros de asistencia y calificaciones</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="flex justify-end space-x-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowDeleteModal(false);
+                setStudentToDelete(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={confirmDeleteStudent}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              <UserX className="w-4 h-4 mr-2" />
+              Eliminar Estudiante
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

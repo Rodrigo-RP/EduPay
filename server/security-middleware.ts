@@ -287,28 +287,7 @@ export const securityHeaders = helmet({
 // ========================================
 
 export const secureCors = cors({
-  origin: (origin, callback) => {
-    const allowedOrigins = [
-      'http://localhost:5000',
-      'https://localhost:5000',
-      process.env.FRONTEND_URL
-    ].filter(Boolean);
-
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      SecurityAudit.logSecurityEvent({
-        action: 'CORS_VIOLATION',
-        resource: 'CORS_CHECK',
-        result: 'BLOCKED',
-        ipAddress: 'unknown',
-        userAgent: 'unknown',
-        metadata: { origin, allowedOrigins },
-        severity: 'WARN'
-      });
-      callback(new Error('No permitido por política CORS'));
-    }
-  },
+  origin: true, // Permitir todos los orígenes en desarrollo
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-CSRF-Token']

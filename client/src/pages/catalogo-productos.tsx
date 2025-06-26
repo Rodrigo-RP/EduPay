@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Package, Plus, Edit, Trash2, DollarSign, ShoppingCart, AlertTriangle } from "lucide-react";
@@ -385,6 +385,9 @@ export default function CatalogoProductos() {
                   </div>
                   Advertencia de Eliminación
                 </DialogTitle>
+                <DialogDescription>
+                  Confirma la eliminación permanente del producto del catálogo
+                </DialogDescription>
               </DialogHeader>
               
               <div className="py-4">

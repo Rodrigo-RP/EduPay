@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Users, Plus, Edit, Trash2, UserCheck, UserX, Shield, Mail, AlertTriangle } from "lucide-react";
@@ -558,6 +558,9 @@ export default function Usuarios() {
                   </div>
                   Advertencia de Eliminación
                 </DialogTitle>
+                <DialogDescription>
+                  Confirma la eliminación permanente del usuario del sistema
+                </DialogDescription>
               </DialogHeader>
               
               <div className="py-4">

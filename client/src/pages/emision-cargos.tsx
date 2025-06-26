@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Calendar, Clock, DollarSign, Users, AlertTriangle, CheckCircle, Plus } from "lucide-react";
+import { getAcademicLevel, getPriceForStudent, NIVEL_NAMES } from "@/../../shared/academic-levels";
 
 export default function EmisionCargos() {
   const { toast } = useToast();
@@ -375,6 +376,213 @@ export default function EmisionCargos() {
     );
   };
 
+  // Generación desde catálogo con precios por nivel académico
+  const GeneracionDesdeCatalogo = () => {
+    const [selectedProduct, setSelectedProduct] = useState("");
+    const [selectedGrades, setSelectedGrades] = useState<string[]>([]);
+    const [preview, setPreview] = useState<any[]>([]);
+
+    // Productos del catálogo con precios por nivel
+    const productos = [
+      { 
+        id: 1, 
+        codigo: "COL-2025", 
+        nombre: "Colegiatura Mensual", 
+        categoria: "COLEGIATURAS",
+        precios_por_nivel: {
+          KINDER: 350000,
+          PRIMARIA: 450000,
+          SECUNDARIA: 550000,
+          BACHILLERATO: 650000
+        }
+      },
+      { 
+        id: 2, 
+        codigo: "INS-2025", 
+        nombre: "Inscripción Anual", 
+        categoria: "INSCRIPCIONES",
+        precios_por_nivel: {
+          KINDER: 250000,
+          PRIMARIA: 300000,
+          SECUNDARIA: 350000,
+          BACHILLERATO: 400000
+        }
+      },
+      { 
+        id: 3, 
+        codigo: "SEG-ESC-2025", 
+        nombre: "Seguro Escolar", 
+        categoria: "SEGURO_ESCOLAR",
+        precios_por_nivel: {
+          KINDER: 120000,
+          PRIMARIA: 150000,
+          SECUNDARIA: 180000,
+          BACHILLERATO: 200000
+        }
+      }
+    ];
+
+    // Estudiantes de ejemplo con diferentes grados
+    const estudiantes = [
+      { id: 1, nombre: "Ana García", grado: "K2", grupo: "A" },
+      { id: 2, nombre: "Luis Rodríguez", grado: "3° PRIMARIA", grupo: "B" },
+      { id: 3, nombre: "María López", grado: "1° SECUNDARIA", grupo: "A" },
+      { id: 4, nombre: "Carlos Mendoza", grado: "2° BACHILLERATO", grupo: "C" },
+      { id: 5, nombre: "Sofia Hernández", grado: "5° PRIMARIA", grupo: "A" },
+      { id: 6, nombre: "Diego Morales", grado: "3° SECUNDARIA", grupo: "B" }
+    ];
+
+    const generarPreview = () => {
+      if (!selectedProduct) return;
+      
+      const producto = productos.find(p => p.id.toString() === selectedProduct);
+      if (!producto) return;
+
+      const previewData = estudiantes.map(estudiante => {
+        const nivel = getAcademicLevel(estudiante.grado);
+        const precio = producto.precios_por_nivel[nivel];
+        
+        return {
+          estudiante: estudiante.nombre,
+          grado: estudiante.grado,
+          grupo: estudiante.grupo,
+          nivel_academico: NIVEL_NAMES[nivel],
+          precio: precio,
+          concepto: producto.nombre
+        };
+      });
+
+      setPreview(previewData);
+    };
+
+    const aplicarCargos = useMutation({
+      mutationFn: (data: any) => apiRequest("POST", "/api/admin/cargos/desde-catalogo", data),
+      onSuccess: () => {
+        toast({
+          title: "Cargos aplicados correctamente",
+          description: "Se generaron los cargos con precios específicos por nivel académico"
+        });
+        setPreview([]);
+        setSelectedProduct("");
+      }
+    });
+
+    return (
+      <div className="space-y-6">
+        <Card className="border-green-200 bg-green-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-green-800">
+              <DollarSign className="w-5 h-5" />
+              Generación automática desde catálogo de productos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Producto del catálogo</Label>
+                  <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar producto..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {productos.map(producto => (
+                        <SelectItem key={producto.id} value={producto.id.toString()}>
+                          {producto.codigo} - {producto.nombre}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label>Fecha de vencimiento</Label>
+                  <Input type="date" defaultValue="2025-02-15" />
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button 
+                  onClick={generarPreview}
+                  disabled={!selectedProduct}
+                  variant="outline"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Generar vista previa
+                </Button>
+                
+                {preview.length > 0 && (
+                  <Button 
+                    onClick={() => aplicarCargos.mutate({ 
+                      producto_id: selectedProduct, 
+                      cargos: preview 
+                    })}
+                    disabled={aplicarCargos.isPending}
+                  >
+                    Aplicar cargos ({preview.length} estudiantes)
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Vista previa de cargos */}
+        {preview.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Vista previa - Precios automáticos por nivel académico</CardTitle>
+              <p className="text-sm text-slate-600">
+                Los precios se asignan automáticamente según el grado del estudiante
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {preview.map((item, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div className="flex-1">
+                      <div className="font-medium">{item.estudiante}</div>
+                      <div className="text-sm text-slate-600">
+                        {item.grado} - Grupo {item.grupo} | Nivel: {item.nivel_academico}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-semibold text-green-700">
+                        ${(item.precio / 100).toLocaleString()} MXN
+                      </div>
+                      <Badge variant="secondary">{item.concepto}</Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                <div className="text-sm font-medium text-blue-800">Resumen por nivel académico:</div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+                  {Object.entries(
+                    preview.reduce((acc, item) => {
+                      const nivel = item.nivel_academico;
+                      if (!acc[nivel]) acc[nivel] = { count: 0, total: 0 };
+                      acc[nivel].count++;
+                      acc[nivel].total += item.precio;
+                      return acc;
+                    }, {} as Record<string, {count: number, total: number}>)
+                  ).map(([nivel, data]) => (
+                    <div key={nivel} className="text-center">
+                      <div className="text-xs text-slate-600">{nivel}</div>
+                      <div className="font-medium">{data.count} estudiantes</div>
+                      <div className="text-xs">${(data.total / 100).toLocaleString()}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-6xl mx-auto">
@@ -388,14 +596,19 @@ export default function EmisionCargos() {
         </div>
 
         <Tabs defaultValue="automatica" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="automatica">Generación automática</TabsTrigger>
+            <TabsTrigger value="catalogo">Desde catálogo</TabsTrigger>
             <TabsTrigger value="extraordinarios">Cargos extraordinarios</TabsTrigger>
             <TabsTrigger value="recargos">Recargos y morosidad</TabsTrigger>
           </TabsList>
 
           <TabsContent value="automatica">
             <GeneracionAutomatica />
+          </TabsContent>
+
+          <TabsContent value="catalogo">
+            <GeneracionDesdeCatalogo />
           </TabsContent>
 
           <TabsContent value="extraordinarios">

@@ -179,6 +179,57 @@ export default function CatalogoProductos() {
     setEditingProduct(null);
   };
 
+  const handleSaveProduct = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    
+    const codigo = formData.get('codigo') as string;
+    const nombre = formData.get('nombre') as string;
+    const descripcion = formData.get('descripcion') as string;
+    const categoria = formData.get('categoria') as string;
+    const unidad_medida = formData.get('unidad_medida') as string;
+    const clave_sat = formData.get('clave_sat') as string;
+    const activo = formData.get('activo') === 'on';
+    
+    const precioKinder = parseFloat((document.getElementById('precio-kinder') as HTMLInputElement)?.value || '0') * 100;
+    const precioPrimaria = parseFloat((document.getElementById('precio-primaria') as HTMLInputElement)?.value || '0') * 100;
+    const precioSecundaria = parseFloat((document.getElementById('precio-secundaria') as HTMLInputElement)?.value || '0') * 100;
+    const precioBachillerato = parseFloat((document.getElementById('precio-bachillerato') as HTMLInputElement)?.value || '0') * 100;
+
+    const productData = {
+      id: editingProduct ? editingProduct.id : Date.now(),
+      codigo,
+      nombre,
+      descripcion,
+      categoria,
+      unidad_medida,
+      clave_sat,
+      activo,
+      precios_por_nivel: {
+        KINDER: precioKinder,
+        PRIMARIA: precioPrimaria,
+        SECUNDARIA: precioSecundaria,
+        BACHILLERATO: precioBachillerato
+      }
+    };
+
+    if (editingProduct) {
+      setProductos(prev => prev.map(p => p.id === editingProduct.id ? productData : p));
+      toast({
+        title: "Producto actualizado",
+        description: `${nombre} ha sido actualizado con precios diferenciados por nivel académico.`
+      });
+    } else {
+      setProductos(prev => [...prev, productData]);
+      toast({
+        title: "Producto creado",
+        description: `${nombre} ha sido agregado al catálogo con precios por nivel académico.`
+      });
+    }
+
+    handleCloseModal();
+  };
+
   const handleDeleteProduct = (productId: number, productName: string) => {
     const product = productos.find(p => p.id === productId);
     if (product) {
@@ -233,10 +284,12 @@ export default function CatalogoProductos() {
                 <DialogHeader>
                   <DialogTitle>{editingProduct ? 'Editar producto' : 'Crear nuevo producto'}</DialogTitle>
                 </DialogHeader>
+                <form onSubmit={handleSaveProduct} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
                   <div>
                     <Label>Código del producto</Label>
                     <Input 
+                      name="codigo"
                       placeholder="PROD-2025" 
                       defaultValue={editingProduct?.codigo || ''}
                     />
@@ -244,6 +297,7 @@ export default function CatalogoProductos() {
               <div>
                     <Label>Nombre del producto</Label>
                     <Input 
+                      name="nombre"
                       placeholder="Nombre descriptivo" 
                       defaultValue={editingProduct?.nombre || ''}
                     />
@@ -251,6 +305,7 @@ export default function CatalogoProductos() {
               <div className="md:col-span-2">
                     <Label>Descripción</Label>
                     <Textarea 
+                      name="descripcion"
                       placeholder="Descripción detallada del producto..." 
                       defaultValue={editingProduct?.descripcion || ''}
                     />
@@ -334,6 +389,7 @@ export default function CatalogoProductos() {
               <div>
                     <Label>Clave SAT</Label>
                     <Input 
+                      name="clave_sat"
                       placeholder="80101500" 
                       defaultValue={editingProduct?.clave_sat || ''}
                     />
@@ -341,6 +397,7 @@ export default function CatalogoProductos() {
 
               <div className="flex items-center space-x-2">
                     <Switch 
+                      name="activo"
                       id="active" 
                       defaultChecked={editingProduct ? editingProduct.activo : true} 
                     />
@@ -348,13 +405,14 @@ export default function CatalogoProductos() {
                   </div>
                 </div>
             <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={handleCloseModal}>
+              <Button type="button" variant="outline" onClick={handleCloseModal}>
                     Cancelar
                   </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700">
+              <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
                     {editingProduct ? 'Actualizar Producto' : 'Crear Producto'}
                   </Button>
                 </div>
+                </form>
               </DialogContent>
             </Dialog>
           </div>

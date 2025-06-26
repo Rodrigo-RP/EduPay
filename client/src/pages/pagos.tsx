@@ -455,6 +455,123 @@ export default function Pagos() {
           </Tabs>
         </div>
       </div>
+
+      {/* Modal de Detalles del Pago */}
+      <Dialog open={showPaymentDetails} onOpenChange={setShowPaymentDetails}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="h-5 w-5" />
+              Detalles del Pago
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedPayment && (
+            <div className="space-y-6">
+              {/* Estado del Pago */}
+              <div className="flex items-center justify-center">
+                <div className="flex items-center gap-2 bg-green-50 text-green-800 px-4 py-2 rounded-full">
+                  <CheckCircle className="h-5 w-5" />
+                  <span className="font-semibold">Pago Completado</span>
+                </div>
+              </div>
+
+              {/* Información Principal */}
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Estudiante</label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <User className="h-4 w-4 text-gray-400" />
+                      <span className="font-medium">{selectedPayment.estudiante}</span>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Concepto</label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <FileText className="h-4 w-4 text-gray-400" />
+                      <span>{selectedPayment.concepto}</span>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Monto</label>
+                    <div className="text-2xl font-bold text-green-600">
+                      ${(selectedPayment.monto / 100).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Fecha y Hora</label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Calendar className="h-4 w-4 text-gray-400" />
+                      <span>{selectedPayment.fecha}</span>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Método de Pago</label>
+                    <div className="mt-1">
+                      {getMetodoBadge(selectedPayment.metodo)}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Origen</label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Building2 className="h-4 w-4 text-gray-400" />
+                      <Badge variant="outline">{selectedPayment.origen}</Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Información Técnica */}
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-3">Información Técnica</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-500">Referencia:</span>
+                    <span className="ml-2 font-mono">{selectedPayment.referencia}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">CFDI:</span>
+                    <span className="ml-2 font-mono">{selectedPayment.cfdi}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Estado:</span>
+                    <span className="ml-2">
+                      <Badge className="bg-green-100 text-green-800">
+                        {selectedPayment.estado}
+                      </Badge>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Acciones */}
+              <div className="flex gap-3 pt-4 border-t">
+                <Button 
+                  onClick={() => handleDownloadReceipt(selectedPayment)}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Descargar Comprobante
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => setShowPaymentDetails(false)}
+                >
+                  Cerrar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

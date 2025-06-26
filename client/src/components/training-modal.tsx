@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
 import { 
   BookOpen, 
   Play, 
@@ -181,6 +182,7 @@ const trainingModules: TrainingModule[] = [
 
 export default function TrainingModal({ open, onOpenChange }: TrainingModalProps) {
   const [selectedModule, setSelectedModule] = useState<TrainingModule | null>(null);
+  const { toast } = useToast();
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
@@ -192,35 +194,87 @@ export default function TrainingModal({ open, onOpenChange }: TrainingModalProps
   };
 
   const downloadManual = (filename: string) => {
-    // Generar contenido del manual
+    if (!selectedModule) return;
+    
+    // Generar contenido completo del manual
     const content = `
-# MANUAL DE CAPACITACIÓN - ESCUELAPAY
-## ${selectedModule?.title}
+MANUAL DE CAPACITACIÓN - ESCUELAPAY
+====================================
 
-${selectedModule?.content.map((item, index) => `${item}\n`).join('')}
+MÓDULO: ${selectedModule.title}
+DURACIÓN: ${selectedModule.duration}
+DIFICULTAD: ${selectedModule.difficulty.toUpperCase()}
 
-## TIPS PROFESIONALES
-${selectedModule?.tips.map((tip, index) => `${tip}\n`).join('')}
+DESCRIPCIÓN
+-----------
+${selectedModule.description}
 
-## SOPORTE TÉCNICO
-Para dudas adicionales, contacta:
-- Email: soporte@escuelapay.mx
-- WhatsApp: +52 55 1234 5678
-- Horario: Lunes a Viernes 8:00 - 18:00
+PASOS DETALLADOS
+----------------
+${selectedModule.content.map((item, index) => `${index + 1}. ${item}`).join('\n')}
 
----
-© 2025 EscuelaPay - Plataforma líder en pagos educativos
+TIPS PROFESIONALES
+------------------
+${selectedModule.tips.map((tip, index) => `• ${tip}`).join('\n')}
+
+CHECKLIST DE VERIFICACIÓN
+--------------------------
+□ Completar todos los pasos en orden
+□ Verificar que cada función opere correctamente
+□ Realizar pruebas con datos reales
+□ Capacitar al personal involucrado
+□ Documentar configuraciones específicas
+
+RECURSOS ADICIONALES
+---------------------
+• Video tutorial disponible en plataforma
+• Soporte técnico vía WhatsApp durante implementación
+• Sesión de capacitación en vivo disponible bajo solicitud
+
+SOPORTE TÉCNICO
+---------------
+Email: soporte@escuelapay.mx
+WhatsApp: +52 55 1234 5678
+Horario: Lunes a Viernes 8:00 AM - 6:00 PM
+Tiempo de respuesta: Máximo 4 horas
+
+SIGUIENTES PASOS
+----------------
+1. Completar este módulo
+2. Verificar implementación
+3. Proceder al siguiente módulo según cronograma
+4. Solicitar revisión técnica si es necesario
+
+====================================
+© 2025 EscuelaPay - Plataforma SaaS líder en pagos educativos
+Documento generado: ${new Date().toLocaleDateString('es-MX')}
     `;
 
-    const blob = new Blob([content], { type: 'text/plain' });
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = filename;
+    link.download = filename || `Manual_${selectedModule.title.replace(/\s+/g, '_')}.txt`;
+    
+    // Asegurar que el enlace sea visible temporalmente
+    link.style.display = 'none';
     document.body.appendChild(link);
+    
+    // Forzar la descarga
     link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
+    
+    // Limpiar
+    setTimeout(() => {
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    }, 100);
+    
+    // Notificación visual para el usuario
+    toast({
+      title: "Manual Descargado",
+      description: `${selectedModule.title} - Manual guardado exitosamente`,
+      duration: 3000,
+    });
   };
 
   return (

@@ -368,3 +368,89 @@ export type Charge = typeof charges.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
 export type PaymentMethod = typeof payment_methods.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;
+
+// PAYMENT RULES TABLES
+export const payment_rules = pgTable("payment_rules", {
+  id: serial("id").primaryKey(),
+  campus_id: integer("campus_id").references(() => campuses.id).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  rule_type: text("rule_type").notNull(), // 'percentage', 'fixed_amount', 'progressive', 'compound'
+  is_active: boolean("is_active").default(true).notNull(),
+  
+  // Configuración básica
+  grace_period_days: integer("grace_period_days").default(0).notNull(),
+  grace_period_unit: text("grace_period_unit").default('days').notNull(), // 'days', 'weeks'
+  
+  // Reglas de recargo
+  late_fee_percentage: numeric("late_fee_percentage", { precision: 5, scale: 2 }), // Para tipo 'percentage'
+  late_fee_fixed_amount_centavos: integer("late_fee_fixed_amount_centavos"), // Para tipo 'fixed_amount'
+  
+  // Reglas progresivas (JSON)
+  progressive_rules: text("progressive_rules"), // JSON string de ProgressiveRule[]
+  
+  // Configuración avanzada
+  max_late_fee_centavos: integer("max_late_fee_centavos"), // Límite máximo de recargo
+  min_late_fee_centavos: integer("min_late_fee_centavos"), // Mínimo de recargo
+  compound_daily: boolean("compound_daily").default(false).notNull(), // Si se calcula diariamente
+  applies_to_weekends: boolean("applies_to_weekends").default(false).notNull(), // Si aplica en fines de semana
+  applies_to_holidays: boolean("applies_to_holidays").default(false).notNull(), // Si aplica en días festivos
+  
+  // Configuración de conceptos (JSON array)
+  applies_to_concepts: text("applies_to_concepts"), // JSON string de conceptos
+  
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const late_fee_calculations = pgTable("late_fee_calculations", {
+  id: serial("id").primaryKey(),
+  charge_id: integer("charge_id").references(() => charges.id).notNull(),
+  payment_rule_id: integer("payment_rule_id").references(() => payment_rules.id).notNull(),
+  original_amount_centavos: integer("original_amount_centavos").notNull(),
+  due_date: timestamp("due_date").notNull(),
+  adjusted_due_date: timestamp("adjusted_due_date").notNull(), // Fecha ajustada por días hábiles
+  calculation_date: timestamp("calculation_date").notNull(),
+  days_late: integer("days_late").notNull(),
+  late_fee_amount_centavos: integer("late_fee_amount_centavos").notNull(),
+  calculation_details: text("calculation_details"), // Descripción del cálculo
+  is_applied: boolean("is_applied").default(false).notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Relations for payment rules
+export const paymentRulesRelations = relations(payment_rules, ({ one }) => ({
+  campus: one(campuses, {
+    fields: [payment_rules.campus_id],
+    references: [campuses.id],
+  }),
+}));
+
+export const lateFeeCalculationsRelations = relations(late_fee_calculations, ({ one }) => ({
+  charge: one(charges, {
+    fields: [late_fee_calculations.charge_id],
+    references: [charges.id],
+  }),
+  payment_rule: one(payment_rules, {
+    fields: [late_fee_calculations.payment_rule_id],
+    references: [payment_rules.id],
+  }),
+}));
+
+// Insert schemas for payment rules
+export const insertPaymentRuleSchema = createInsertSchema(payment_rules).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+});
+
+export const insertLateFeeCalculationSchema = createInsertSchema(late_fee_calculations).omit({
+  id: true,
+  created_at: true,
+});
+
+// Types for payment rules
+export type PaymentRule = typeof payment_rules.$inferSelect;
+export type InsertPaymentRule = z.infer<typeof insertPaymentRuleSchema>;
+export type LateFeeCalculation = typeof late_fee_calculations.$inferSelect;
+export type InsertLateFeeCalculation = z.infer<typeof insertLateFeeCalculationSchema>;

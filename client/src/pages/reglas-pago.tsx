@@ -105,10 +105,15 @@ export default function ReglasPage() {
 
   // Create payment rule mutation
   const createRuleMutation = useMutation({
-    mutationFn: (data: any) => apiRequest('/api/payment-rules', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+    mutationFn: async (data: any) => {
+      const response = await fetch('/api/payment-rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Failed to create rule');
+      return response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/payment-rules'] });
       setIsCreateModalOpen(false);
@@ -129,11 +134,16 @@ export default function ReglasPage() {
 
   // Test rule mutation
   const testRuleMutation = useMutation({
-    mutationFn: (data: any) => apiRequest('/api/payment-rules/test', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-    onSuccess: (result) => {
+    mutationFn: async (data: any) => {
+      const response = await fetch('/api/payment-rules/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Failed to test rule');
+      return response.json();
+    },
+    onSuccess: (result: any) => {
       setTestScenarios(result.scenarios);
       setIsTestModalOpen(true);
     }

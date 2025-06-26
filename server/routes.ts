@@ -4,7 +4,7 @@ import { storage } from "./storage";
 
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { insertUserSchema, insertGuardianSchema, insertChargeSchema, insertPaymentSchema, students, guardians, student_guardian } from "@shared/schema";
+import { insertUserSchema, insertGuardianSchema, insertChargeSchema, insertPaymentSchema, students, guardians, student_guardian, payment_rules, late_fee_calculations } from "@shared/schema";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
 import { getAcademicLevel } from "@shared/academic-levels";

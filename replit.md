@@ -118,6 +118,14 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- June 26, 2025: SISTEMA COMPLETO DE REGLAS DE PAGO Y CAPACITACIÓN IMPLEMENTADO - Plataforma lista para lanzamiento al mercado
+- June 26, 2025: Reglas de pago automáticas con integración calendario SEP 2025-2026 oficial
+- June 26, 2025: Sistema inteligente de ajuste de fechas: días no laborables se mueven al siguiente día hábil sin recargos
+- June 26, 2025: 4 tipos de recargos configurables: porcentaje, cantidad fija, progresivo, compuesto diario
+- June 26, 2025: Modal de Capacitación con 6 módulos profesionales para implementación sin conocimiento técnico
+- June 26, 2025: Manuales descargables, videos tutoriales y guía de implementación en 3 semanas
+- June 26, 2025: Sistema de simulación de reglas con escenarios reales de $500 a $5,000 pesos
+- June 26, 2025: Validación cruzada automática completada con reportes detallados y descarga JSON
 - June 26, 2025: SISTEMA DE MIGRACIÓN EN TIEMPO REAL COMPLETADO - Dashboard de progreso dinámico y APIs de seguimiento
 - June 26, 2025: Dashboard de migración con estado en tiempo real, progreso por categoría y botón de reset
 - June 26, 2025: APIs de seguimiento /api/migration/status para monitoreo de progreso automático

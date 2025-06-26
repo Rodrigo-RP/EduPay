@@ -25,6 +25,7 @@ export default function Becas() {
   const [showStudentsModal, setShowStudentsModal] = useState(false);
   const [selectedBeca, setSelectedBeca] = useState<any>(null);
   const [selectedEstudiante, setSelectedEstudiante] = useState<any>(null);
+  const [tipoDescuento, setTipoDescuento] = useState<'porcentaje' | 'cantidad'>('porcentaje');
   const { toast } = useToast();
 
   // Sistema de gestión administrativa de becas y descuentos
@@ -112,6 +113,34 @@ export default function Becas() {
       criterios: "Personal administrativo: 30%, Docentes: 50%, Directivos: 60%",
       vigencia: "2024-2025",
       activa: true
+    },
+    {
+      id: 7,
+      nombre: "Descuento Cantidad Fija - Básico",
+      categoria: "cantidad_fija",
+      tipo: "manual",
+      descripcion: "Descuento de cantidad fija para casos especiales",
+      monto_fijo: 150000, // $1,500 MXN fijos
+      estudiantes_aplicados: 8,
+      monto_total_descuento: 1200000, // $12,000 MXN total (8 × $1,500)
+      asignacion: "Manual por área administrativa",
+      beneficios: "$1,500 pesos fijos descontados mensualmente",
+      vigencia: "2024-2025",
+      activa: true
+    },
+    {
+      id: 8,
+      nombre: "Descuento Cantidad Fija - Premium",
+      categoria: "cantidad_fija",
+      tipo: "manual",
+      descripcion: "Descuento premium de cantidad fija para beneficiarios especiales",
+      monto_fijo: 250000, // $2,500 MXN fijos
+      estudiantes_aplicados: 3,
+      monto_total_descuento: 750000, // $7,500 MXN total (3 × $2,500)
+      asignacion: "Manual por dirección académica",
+      beneficios: "$2,500 pesos fijos descontados mensualmente",
+      vigencia: "2024-2025",
+      activa: true
     }
   ];
 
@@ -168,6 +197,32 @@ export default function Becas() {
       estado: "Pendiente Renovación",
       fecha_asignacion: "2024-08-20",
       observaciones: "Requiere constancia de participación actualizada"
+    },
+    {
+      id: 5,
+      nombre_completo: "Elena Morales Jiménez",
+      grado: "4to Primaria",
+      grupo: "B",
+      hermanos_inscritos: 0,
+      tipo_solicitud: "cantidad_fija",
+      porcentaje_asignado: 0, // No aplica para cantidad fija
+      monto_mensual_descuento: 150000, // $1,500 MXN fijos
+      estado: "Activa",
+      fecha_asignacion: "2024-09-10",
+      observaciones: "Descuento fijo de $1,500 mensuales por situación especial familiar"
+    },
+    {
+      id: 6,
+      nombre_completo: "Roberto García Mendoza",
+      grado: "1ro Bachillerato",
+      grupo: "C",
+      hermanos_inscritos: 1,
+      tipo_solicitud: "cantidad_fija",
+      porcentaje_asignado: 0, // No aplica para cantidad fija
+      monto_mensual_descuento: 250000, // $2,500 MXN fijos
+      estado: "Activa",
+      fecha_asignacion: "2024-08-25",
+      observaciones: "Descuento premium fijo de $2,500 mensuales por excelencia académica sostenida"
     }
   ];
 
@@ -404,11 +459,59 @@ ${b.nombre}:
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="porcentaje">Porcentaje de Descuento (%)</Label>
-                    <Input id="porcentaje" type="number" min="0" max="100" placeholder="50" />
+                {/* Selector de tipo de descuento */}
+                <div>
+                  <Label>Tipo de Descuento</Label>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <Button 
+                      variant={tipoDescuento === 'porcentaje' ? 'default' : 'outline'}
+                      onClick={() => setTipoDescuento('porcentaje')}
+                      className="w-full"
+                    >
+                      <Percent className="h-4 w-4 mr-2" />
+                      Porcentaje (%)
+                    </Button>
+                    <Button 
+                      variant={tipoDescuento === 'cantidad' ? 'default' : 'outline'}
+                      onClick={() => setTipoDescuento('cantidad')}
+                      className="w-full"
+                    >
+                      <DollarSign className="h-4 w-4 mr-2" />
+                      Cantidad Fija ($)
+                    </Button>
                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {tipoDescuento === 'porcentaje' ? (
+                    <div>
+                      <Label htmlFor="porcentaje">Porcentaje de Descuento (%)</Label>
+                      <Input 
+                        id="porcentaje" 
+                        type="number" 
+                        min="0" 
+                        max="100" 
+                        placeholder="50"
+                        className="text-center font-bold text-lg"
+                      />
+                      <div className="text-xs text-gray-500 mt-1">Entre 0% y 100% de descuento</div>
+                    </div>
+                  ) : (
+                    <div>
+                      <Label htmlFor="cantidad">Cantidad Fija de Descuento ($)</Label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input 
+                          id="cantidad" 
+                          type="number" 
+                          min="0" 
+                          placeholder="1500"
+                          className="pl-10 text-center font-bold text-lg"
+                        />
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">Monto fijo en pesos mexicanos</div>
+                    </div>
+                  )}
                   <div>
                     <Label htmlFor="vigencia">Vigencia</Label>
                     <Select>
@@ -424,6 +527,29 @@ ${b.nombre}:
                   </div>
                 </div>
 
+                {/* Vista previa del descuento */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Calculator className="h-4 w-4 text-blue-600" />
+                    <h4 className="font-medium text-blue-900">Vista Previa del Descuento</h4>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {tipoDescuento === 'porcentaje' ? (
+                      <div>
+                        <div>• Tipo: Descuento por porcentaje</div>
+                        <div>• Aplicación: Se calculará sobre el monto total de cada colegiatura</div>
+                        <div>• Ejemplo: Si la colegiatura es $3,000 y el descuento es 50%, se aplicará un descuento de $1,500</div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div>• Tipo: Descuento por cantidad fija</div>
+                        <div>• Aplicación: Se restará la cantidad exacta especificada</div>
+                        <div>• Ejemplo: Si especificas $1,500, siempre se descontará exactamente $1,500 independientemente del monto de la colegiatura</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <div>
                   <Label htmlFor="observaciones">Observaciones</Label>
                   <Textarea id="observaciones" placeholder="Motivo de la beca, documentos adjuntos, condiciones especiales..." />
@@ -433,7 +559,15 @@ ${b.nombre}:
                   <Button variant="outline" onClick={() => setShowAsignarModal(false)}>
                     Cancelar
                   </Button>
-                  <Button onClick={() => setShowAsignarModal(false)}>
+                  <Button onClick={() => {
+                    setShowAsignarModal(false);
+                    toast({
+                      title: `Beca Asignada - ${tipoDescuento === 'porcentaje' ? 'Porcentaje' : 'Cantidad Fija'}`,
+                      description: tipoDescuento === 'porcentaje' ? 
+                        "Descuento por porcentaje asignado exitosamente. Se aplicará sobre el monto total de cada colegiatura." :
+                        "Descuento por cantidad fija asignado exitosamente. Se descontará el monto exacto especificado.",
+                    });
+                  }}>
                     Asignar Beca
                   </Button>
                 </div>
@@ -927,17 +1061,62 @@ ${b.nombre}:
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="edit_porcentaje">Porcentaje de Descuento (%)</Label>
-                <Input 
-                  id="edit_porcentaje" 
-                  type="number" 
-                  min="0" 
-                  max="100" 
-                  defaultValue={selectedBeca?.porcentaje_asignado || selectedBeca?.porcentaje_max} 
-                />
+            {/* Selector de tipo de descuento en edición */}
+            <div>
+              <Label>Tipo de Descuento</Label>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <Button 
+                  variant={tipoDescuento === 'porcentaje' ? 'default' : 'outline'}
+                  onClick={() => setTipoDescuento('porcentaje')}
+                  className="w-full"
+                  size="sm"
+                >
+                  <Percent className="h-4 w-4 mr-2" />
+                  Porcentaje (%)
+                </Button>
+                <Button 
+                  variant={tipoDescuento === 'cantidad' ? 'default' : 'outline'}
+                  onClick={() => setTipoDescuento('cantidad')}
+                  className="w-full"
+                  size="sm"
+                >
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  Cantidad Fija ($)
+                </Button>
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {tipoDescuento === 'porcentaje' ? (
+                <div>
+                  <Label htmlFor="edit_porcentaje">Porcentaje de Descuento (%)</Label>
+                  <Input 
+                    id="edit_porcentaje" 
+                    type="number" 
+                    min="0" 
+                    max="100" 
+                    defaultValue={selectedBeca?.porcentaje_asignado || selectedBeca?.porcentaje_max}
+                    className="text-center font-bold"
+                  />
+                  <div className="text-xs text-gray-500 mt-1">Entre 0% y 100%</div>
+                </div>
+              ) : (
+                <div>
+                  <Label htmlFor="edit_cantidad">Cantidad Fija de Descuento ($)</Label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input 
+                      id="edit_cantidad" 
+                      type="number" 
+                      min="0" 
+                      placeholder="1500"
+                      defaultValue={selectedBeca?.monto_fijo || ''}
+                      className="pl-10 text-center font-bold"
+                    />
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">Monto fijo en pesos</div>
+                </div>
+              )}
               <div>
                 <Label htmlFor="edit_estado">Estado</Label>
                 <Select defaultValue={selectedBeca?.estado || (selectedBeca?.activa ? "Activa" : "Inactiva")}>

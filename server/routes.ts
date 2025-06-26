@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { insertUserSchema, insertGuardianSchema, insertChargeSchema, insertPaymentSchema } from "@shared/schema";
+import { getAcademicLevel } from "@shared/academic-levels";
 import { z } from "zod";
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
@@ -278,6 +279,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       res.status(500).json({ message: "Error creating charges: " + error.message });
+    }
+  });
+
+  // Apply charges from catalog with automatic academic level pricing
+  app.post("/api/admin/cargos/desde-catalogo", authenticateToken, async (req, res) => {
+    try {
+      const { producto_id, fecha_vencimiento, campus_id } = req.body;
+      
+      // Catalog products with differentiated pricing
+      const catalogProducts = {
+        "1": { 
+          nombre: "Colegiatura Mensual", 
+          categoria: "COLEGIATURAS",
+          precios_por_nivel: { KINDER: 350000, PRIMARIA: 450000, SECUNDARIA: 550000, BACHILLERATO: 650000 }
+        },
+        "2": { 
+          nombre: "Inscripción Anual", 
+          categoria: "INSCRIPCIONES",
+          precios_por_nivel: { KINDER: 250000, PRIMARIA: 300000, SECUNDARIA: 350000, BACHILLERATO: 400000 }
+        },
+        "3": { 
+          nombre: "Reinscripción", 
+          categoria: "REINSCRIPCIONES",
+          precios_por_nivel: { KINDER: 150000, PRIMARIA: 180000, SECUNDARIA: 220000, BACHILLERATO: 280000 }
+        },
+        "4": { 
+          nombre: "Seguro Escolar", 
+          categoria: "SEGURO_ESCOLAR",
+          precios_por_nivel: { KINDER: 60000, PRIMARIA: 70000, SECUNDARIA: 80000, BACHILLERATO: 90000 }
+        },
+        "5": { 
+          nombre: "Paquete de Libros", 
+          categoria: "LIBROS",
+          precios_por_nivel: { KINDER: 80000, PRIMARIA: 120000, SECUNDARIA: 180000, BACHILLERATO: 250000 }
+        },
+        "6": { 
+          nombre: "Uniforme Escolar", 
+          categoria: "OTROS",
+          precios_por_nivel: { KINDER: 95000, PRIMARIA: 110000, SECUNDARIA: 125000, BACHILLERATO: 140000 }
+        }
+      };
+
+      const product = catalogProducts[producto_id as keyof typeof catalogProducts];
+      if (!product) {
+        return res.status(404).json({ message: "Product not found in catalog" });
+      }
+
+      // Get students from campus
+      const students = await storage.getStudentsByCampus(campus_id || 1);
+      
+      // Create or get concept for this product
+      let concept;
+      try {
+        const concepts = await storage.getConceptsByCampus(campus_id || 1);
+        concept = concepts.find(c => c.nombre === product.nombre);
+        
+        if (!concept) {
+          concept = await storage.createConcept({
+            campus_id: campus_id || 1,
+            nombre: product.nombre,
+            tipo: product.categoria.toLowerCase(),
+            monto_centavos: 100000, // Default, will be overridden by academic level
+            activo: true
+          });
+        }
+      } catch (error) {
+        console.error("Error managing concept:", error);
+        return res.status(500).json({ message: "Error managing concept" });
+      }
+
+      const charges = [];
+      const chargesSummary = [];
+
+      for (const student of students) {
+        if (student.status === 'activo') {
+          // Determine academic level from student grade
+          const academicLevel = getAcademicLevel(student.grado);
+          const specificPrice = product.precios_por_nivel[academicLevel];
+
+          // Create charge with academic level-specific pricing
+          const charge = await storage.createCharge({
+            student_id: student.id,
+            concept_id: concept.id,
+            ciclo_escolar: "2024-2025",
+            fecha_emision: new Date().toISOString().split('T')[0],
+            fecha_vencimiento: fecha_vencimiento || "2025-02-15",
+            monto_base_centavos: specificPrice,
+            beca_aplicada: "0.00",
+            recargo_aplicado_centavos: 0,
+            estado: "pendiente",
+            total_amount_centavos: specificPrice
+          });
+
+          charges.push(charge);
+          chargesSummary.push({
+            student_name: student.nombre_completo,
+            grade: student.grado,
+            academic_level: academicLevel,
+            amount: specificPrice
+          });
+        }
+      }
+
+      res.status(201).json({ 
+        message: `Applied ${charges.length} charges with automatic academic level pricing`,
+        charges_created: charges.length,
+        product_name: product.nombre,
+        summary: chargesSummary
+      });
+    } catch (error: any) {
+      console.error("Error applying catalog charges:", error);
+      res.status(500).json({ message: "Error applying charges: " + error.message });
     }
   });
 

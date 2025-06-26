@@ -670,38 +670,153 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       // Process based on category and template
-      if (category === 'estudiantes' && templateId === 'estudiantes') {
-        for (let index = 0; index < jsonData.length; index++) {
-          try {
-            const studentData = jsonData[index] as any;
-            
-            // Basic validation
-            if (!studentData.nombre_completo || !studentData.curp) {
+      if (category === 'estudiantes') {
+        if (templateId === 'estudiantes') {
+          // Process students
+          for (let index = 0; index < jsonData.length; index++) {
+            try {
+              const studentData = jsonData[index] as any;
+              
+              // Basic validation
+              if (!studentData.nombre_completo || !studentData.curp) {
+                results.errors.push({
+                  row: index + 2,
+                  error: "Nombre completo y CURP son requeridos",
+                  data: studentData
+                });
+                continue;
+              }
+
+              // Create student
+              await storage.createStudent({
+                campus_id: campusId,
+                nombre_completo: studentData.nombre_completo,
+                curp: studentData.curp,
+                grado: studentData.grado || '',
+                grupo: studentData.grupo || 'A',
+                status: studentData.status || 'activo'
+              });
+              
+              results.successful++;
+            } catch (error: any) {
               results.errors.push({
                 row: index + 2,
-                error: "Nombre completo y CURP son requeridos",
-                data: studentData
+                error: error.message,
+                data: jsonData[index]
               });
-              continue;
             }
+          }
+        } else if (templateId === 'tutores') {
+          // Process guardians/tutors
+          for (let index = 0; index < jsonData.length; index++) {
+            try {
+              const tutorData = jsonData[index] as any;
+              
+              // Basic validation
+              if (!tutorData.nombre_completo || !tutorData.email) {
+                results.errors.push({
+                  row: index + 2,
+                  error: "Nombre completo y email son requeridos",
+                  data: tutorData
+                });
+                continue;
+              }
 
-            // Create student (this would integrate with your actual database)
-            await storage.createStudent({
-              campus_id: campusId,
-              nombre_completo: studentData.nombre_completo,
-              curp: studentData.curp,
-              grado: studentData.grado || '',
-              grupo: studentData.grupo || 'A',
-              status: studentData.status || 'activo'
-            });
-            
-            results.successful++;
-          } catch (error: any) {
-            results.errors.push({
-              row: index + 2,
-              error: error.message,
-              data: jsonData[index]
-            });
+              // Create guardian
+              await storage.createGuardian({
+                nombre_completo: tutorData.nombre_completo,
+                email: tutorData.email,
+                telefono: tutorData.telefono || '',
+                telefono_emergencia: tutorData.telefono_emergencia || '',
+                direccion: tutorData.direccion || '',
+                ocupacion: tutorData.ocupacion || '',
+                empresa: tutorData.empresa || ''
+              });
+              
+              results.successful++;
+            } catch (error: any) {
+              results.errors.push({
+                row: index + 2,
+                error: error.message,
+                data: jsonData[index]
+              });
+            }
+          }
+        } else if (templateId === 'relaciones') {
+          // Process student-guardian relationships
+          for (let index = 0; index < jsonData.length; index++) {
+            try {
+              const relationData = jsonData[index] as any;
+              
+              // Basic validation
+              if (!relationData.curp_estudiante || !relationData.email_tutor) {
+                results.errors.push({
+                  row: index + 2,
+                  error: "CURP estudiante y email tutor son requeridos",
+                  data: relationData
+                });
+                continue;
+              }
+
+              // Find student by CURP
+              const student = await db.select().from(students).where(eq(students.curp, relationData.curp_estudiante)).limit(1);
+              if (student.length === 0) {
+                results.errors.push({
+                  row: index + 2,
+                  error: `Estudiante con CURP ${relationData.curp_estudiante} no encontrado`,
+                  data: relationData
+                });
+                continue;
+              }
+
+              // Find guardian by email
+              const guardian = await db.select().from(guardians).where(eq(guardians.email, relationData.email_tutor)).limit(1);
+              if (guardian.length === 0) {
+                results.errors.push({
+                  row: index + 2,
+                  error: `Tutor con email ${relationData.email_tutor} no encontrado`,
+                  data: relationData
+                });
+                continue;
+              }
+
+              // Check if relationship already exists
+              const existingRelation = await db.select()
+                .from(student_guardian)
+                .where(
+                  and(
+                    eq(student_guardian.student_id, student[0].id),
+                    eq(student_guardian.guardian_id, guardian[0].id)
+                  )
+                ).limit(1);
+
+              if (existingRelation.length > 0) {
+                results.errors.push({
+                  row: index + 2,
+                  error: "Relación ya existe entre este estudiante y tutor",
+                  data: relationData
+                });
+                continue;
+              }
+
+              // Create relationship
+              await db.insert(student_guardian).values({
+                student_id: student[0].id,
+                guardian_id: guardian[0].id,
+                tipo_relacion: relationData.tipo_relacion || 'Tutor',
+                es_responsable_pago: relationData.es_responsable_pago === 'Sí' || relationData.es_responsable_pago === 'SI',
+                autorizacion_recoger: relationData.autorizacion_recoger === 'Sí' || relationData.autorizacion_recoger === 'SI',
+                contacto_emergencia: relationData.contacto_emergencia === 'Sí' || relationData.contacto_emergencia === 'SI'
+              });
+              
+              results.successful++;
+            } catch (error: any) {
+              results.errors.push({
+                row: index + 2,
+                error: error.message,
+                data: jsonData[index]
+              });
+            }
           }
         }
       }

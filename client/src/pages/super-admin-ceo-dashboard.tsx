@@ -168,12 +168,32 @@ export default function SuperAdminCEODashboard() {
         </div>
 
         <Tabs defaultValue="command-center" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="command-center">Centro de Comando</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
-            <TabsTrigger value="security">Seguridad</TabsTrigger>
-            <TabsTrigger value="operations">Operaciones</TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between">
+            <TabsList className="grid grid-cols-4 w-fit">
+              <TabsTrigger value="command-center">Centro de Comando</TabsTrigger>
+              <TabsTrigger value="analytics">Analytics</TabsTrigger>
+              <TabsTrigger value="security">Seguridad</TabsTrigger>
+              <TabsTrigger value="operations">Operaciones</TabsTrigger>
+            </TabsList>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => window.location.href = '/super-admin-schools'}
+                className="flex items-center gap-2"
+              >
+                <School className="h-4 w-4" />
+                Gestión Escuelas
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => window.location.href = '/super-admin-classic'}
+                className="flex items-center gap-2"
+              >
+                <Settings className="h-4 w-4" />
+                Panel Clásico
+              </Button>
+            </div>
+          </div>
 
           {/* Command Center Tab */}
           <TabsContent value="command-center" className="space-y-4">

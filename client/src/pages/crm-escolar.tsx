@@ -679,132 +679,134 @@ ${p.nombre_padre} & ${p.nombre_madre}
                   Nuevo Prospecto
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-3xl">
-                <DialogHeader>
+              <DialogContent className="max-w-4xl max-h-[95vh] flex flex-col">
+                <DialogHeader className="flex-shrink-0">
                   <DialogTitle>Registrar nueva familia prospecto</DialogTitle>
                 </DialogHeader>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-              <div>
-                    <Label>Nombre del padre</Label>
-                    <Input placeholder="Nombre completo del padre" />
-                  </div>
-              <div>
-                    <Label>Nombre de la madre</Label>
-                    <Input placeholder="Nombre completo de la madre" />
-                  </div>
-              <div>
-                    <Label>Teléfono principal</Label>
-                    <Input placeholder="55-1234-5678" />
-                  </div>
-              <div>
-                    <Label>Teléfono secundario</Label>
-                    <Input placeholder="55-8765-4321" />
-                  </div>
-              <div>
-                    <Label>Correo principal</Label>
-                    <Input type="email" placeholder="correo@ejemplo.com" />
-                  </div>
-              <div>
-                    <Label>Correo secundario</Label>
-                    <Input type="email" placeholder="correo2@ejemplo.com" />
-                  </div>
-              <div>
-                    <Label>Estado económico</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar nivel..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ALTO">Alto</SelectItem>
-                        <SelectItem value="MEDIO">Medio</SelectItem>
-                        <SelectItem value="BAJO">Bajo</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-              <div>
-                    <Label>Origen del contacto</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="¿Cómo nos conoció?" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="REFERENCIA">Referencia</SelectItem>
-                        <SelectItem value="WEB">Página web</SelectItem>
-                        <SelectItem value="EVENTO">Evento/Casa abierta</SelectItem>
-                        <SelectItem value="PUBLICIDAD">Publicidad</SelectItem>
-                        <SelectItem value="REDES_SOCIALES">Redes sociales</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-              <div>
-                    <Label>Fecha primer contacto</Label>
-                    <Input type="date" />
-                  </div>
-              <div>
-                    <Label>Probabilidad de inscripción (%)</Label>
-                    <Input type="number" min="0" max="100" placeholder="50" />
-                  </div>
-              <div className="md:col-span-2">
-                    <Label>Dirección</Label>
-                    <Input placeholder="Dirección completa de la familia" />
-                  </div>
+                <div className="flex-1 overflow-y-auto px-1">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                    <div>
+                      <Label>Nombre del padre</Label>
+                      <Input placeholder="Nombre completo del padre" />
+                    </div>
+                    <div>
+                      <Label>Nombre de la madre</Label>
+                      <Input placeholder="Nombre completo de la madre" />
+                    </div>
+                    <div>
+                      <Label>Teléfono principal</Label>
+                      <Input placeholder="55-1234-5678" />
+                    </div>
+                    <div>
+                      <Label>Teléfono secundario</Label>
+                      <Input placeholder="55-8765-4321" />
+                    </div>
+                    <div>
+                      <Label>Correo principal</Label>
+                      <Input type="email" placeholder="correo@ejemplo.com" />
+                    </div>
+                    <div>
+                      <Label>Correo secundario</Label>
+                      <Input type="email" placeholder="correo2@ejemplo.com" />
+                    </div>
+                    <div>
+                      <Label>Estado económico</Label>
+                      <Select>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar nivel..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ALTO">Alto</SelectItem>
+                          <SelectItem value="MEDIO">Medio</SelectItem>
+                          <SelectItem value="BAJO">Bajo</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Origen del contacto</Label>
+                      <Select>
+                        <SelectTrigger>
+                          <SelectValue placeholder="¿Cómo nos conoció?" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="REFERENCIA">Referencia</SelectItem>
+                          <SelectItem value="WEB">Página web</SelectItem>
+                          <SelectItem value="EVENTO">Evento/Casa abierta</SelectItem>
+                          <SelectItem value="PUBLICIDAD">Publicidad</SelectItem>
+                          <SelectItem value="REDES_SOCIALES">Redes sociales</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Fecha primer contacto</Label>
+                      <Input type="date" />
+                    </div>
+                    <div>
+                      <Label>Probabilidad de inscripción (%)</Label>
+                      <Input type="number" min="0" max="100" placeholder="50" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label>Dirección</Label>
+                      <Input placeholder="Dirección completa de la familia" />
+                    </div>
 
-                  {/* Datos del estudiante prospecto */}
-                  <div className="md:col-span-2 mt-4 pt-4 border-t border-gray-200">
-                    <h4 className="font-semibold text-lg mb-3 text-blue-800">Datos del Alumno Prospecto</h4>
-                  </div>
-                  
-                  <div>
-                    <Label>Nombre del alumno</Label>
-                    <Input placeholder="Nombre completo del estudiante" />
-                  </div>
-                  
-                  <div>
-                    <Label>Edad del alumno</Label>
-                    <Input type="number" min="3" max="18" placeholder="6" />
-                  </div>
-                  
-                  <div>
-                    <Label>Grado de interés</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar grado..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="KINDER_1">Kinder 1</SelectItem>
-                        <SelectItem value="KINDER_2">Kinder 2</SelectItem>
-                        <SelectItem value="KINDER_3">Kinder 3</SelectItem>
-                        <SelectItem value="1_PRIMARIA">1ro Primaria</SelectItem>
-                        <SelectItem value="2_PRIMARIA">2do Primaria</SelectItem>
-                        <SelectItem value="3_PRIMARIA">3ro Primaria</SelectItem>
-                        <SelectItem value="4_PRIMARIA">4to Primaria</SelectItem>
-                        <SelectItem value="5_PRIMARIA">5to Primaria</SelectItem>
-                        <SelectItem value="6_PRIMARIA">6to Primaria</SelectItem>
-                        <SelectItem value="1_SECUNDARIA">1ro Secundaria</SelectItem>
-                        <SelectItem value="2_SECUNDARIA">2do Secundaria</SelectItem>
-                        <SelectItem value="3_SECUNDARIA">3ro Secundaria</SelectItem>
-                        <SelectItem value="1_BACHILLERATO">1ro Bachillerato</SelectItem>
-                        <SelectItem value="2_BACHILLERATO">2do Bachillerato</SelectItem>
-                        <SelectItem value="3_BACHILLERATO">3ro Bachillerato</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <Label>Escuela de procedencia</Label>
-                    <Input placeholder="Escuela actual del alumno" />
-                  </div>
+                    {/* Datos del estudiante prospecto */}
+                    <div className="md:col-span-2 mt-4 pt-4 border-t border-gray-200">
+                      <h4 className="font-semibold text-lg mb-3 text-blue-800">Datos del Alumno Prospecto</h4>
+                    </div>
+                    
+                    <div>
+                      <Label>Nombre del alumno</Label>
+                      <Input placeholder="Nombre completo del estudiante" />
+                    </div>
+                    
+                    <div>
+                      <Label>Edad del alumno</Label>
+                      <Input type="number" min="3" max="18" placeholder="6" />
+                    </div>
+                    
+                    <div>
+                      <Label>Grado de interés</Label>
+                      <Select>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar grado..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="KINDER_1">Kinder 1</SelectItem>
+                          <SelectItem value="KINDER_2">Kinder 2</SelectItem>
+                          <SelectItem value="KINDER_3">Kinder 3</SelectItem>
+                          <SelectItem value="1_PRIMARIA">1ro Primaria</SelectItem>
+                          <SelectItem value="2_PRIMARIA">2do Primaria</SelectItem>
+                          <SelectItem value="3_PRIMARIA">3ro Primaria</SelectItem>
+                          <SelectItem value="4_PRIMARIA">4to Primaria</SelectItem>
+                          <SelectItem value="5_PRIMARIA">5to Primaria</SelectItem>
+                          <SelectItem value="6_PRIMARIA">6to Primaria</SelectItem>
+                          <SelectItem value="1_SECUNDARIA">1ro Secundaria</SelectItem>
+                          <SelectItem value="2_SECUNDARIA">2do Secundaria</SelectItem>
+                          <SelectItem value="3_SECUNDARIA">3ro Secundaria</SelectItem>
+                          <SelectItem value="1_BACHILLERATO">1ro Bachillerato</SelectItem>
+                          <SelectItem value="2_BACHILLERATO">2do Bachillerato</SelectItem>
+                          <SelectItem value="3_BACHILLERATO">3ro Bachillerato</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <Label>Escuela de procedencia</Label>
+                      <Input placeholder="Escuela actual del alumno" />
+                    </div>
 
-              <div className="md:col-span-2">
-                    <Label>Observaciones</Label>
-                    <Textarea placeholder="Observaciones sobre la familia y el seguimiento..." />
+                    <div className="md:col-span-2">
+                      <Label>Observaciones</Label>
+                      <Textarea placeholder="Observaciones sobre la familia y el seguimiento..." />
+                    </div>
                   </div>
                 </div>
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setShowAddModal(false)}>
+                <div className="flex justify-end space-x-2 flex-shrink-0 pt-4 border-t bg-white">
+                  <Button variant="outline" onClick={() => setShowAddModal(false)}>
                     Cancelar
                   </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700">
+                  <Button className="bg-blue-600 hover:bg-blue-700">
                     Registrar Prospecto
                   </Button>
                 </div>

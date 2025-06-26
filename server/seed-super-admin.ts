@@ -2,6 +2,7 @@ import { db } from "./db";
 import { 
   users, tenants, campuses, students, security_events, platform_metrics, system_health 
 } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 export async function seedSuperAdminData() {

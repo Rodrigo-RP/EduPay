@@ -484,13 +484,37 @@ ${p.nombre_padre} & ${p.nombre_madre}
     setShowCampaignModal(true);
   };
 
+  // Función de prueba para validar configuración de redes sociales
+  const validateSocialMediaSetup = () => {
+    const issues = [];
+    
+    if (!campaignType) {
+      issues.push("Tipo de campaña no seleccionado");
+    }
+    
+    if (campaignType === "FACEBOOK" || campaignType === "INSTAGRAM" || campaignType === "TIKTOK") {
+      if (!socialMediaCampaign.objective) issues.push("Objetivo no definido");
+      if (!socialMediaCampaign.budget) issues.push("Presupuesto no definido");
+      if (!socialMediaCampaign.duration) issues.push("Duración no definida");
+      if (!socialMediaCampaign.targeting.age_range) issues.push("Rango de edad no definido");
+      if (!socialMediaCampaign.creative.headline) issues.push("Título no definido");
+      if (!socialMediaCampaign.creative.description) issues.push("Descripción no definida");
+      if (!socialMediaCampaign.creative.call_to_action) issues.push("Llamada a la acción no definida");
+    }
+    
+    return issues;
+  };
+
   const handleLaunchSocialMediaCampaign = () => {
     if (campaignType === "FACEBOOK" || campaignType === "INSTAGRAM" || campaignType === "TIKTOK") {
-      // Validar configuración específica de redes sociales
+      // Validar configuración específica de redes sociales con logging para debug
+      console.log("Social Media Campaign Data:", socialMediaCampaign);
+      console.log("Campaign Type:", campaignType);
+      
       if (!socialMediaCampaign.objective || !socialMediaCampaign.budget || !socialMediaCampaign.creative.headline) {
         toast({
           title: "Configuración incompleta",
-          description: "Por favor complete todos los campos requeridos para la campaña",
+          description: "Complete: objetivo, presupuesto y título de la campaña",
           variant: "destructive",
         });
         return;
@@ -952,7 +976,7 @@ ${p.nombre_padre} & ${p.nombre_madre}
 
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <h4 className="font-medium text-blue-800 mb-2">Estado de las Plataformas</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-4">
                       <div>
                         <span className="font-medium">Facebook:</span>
                         <div className="text-blue-600">Presupuesto: $50,000 MXN</div>
@@ -968,6 +992,68 @@ ${p.nombre_padre} & ${p.nombre_madre}
                         <div className="text-gray-600">Presupuesto: $25,000 MXN</div>
                         <div className="text-gray-600">Última campaña: Nueva plataforma</div>
                       </div>
+                    </div>
+                    
+                    {/* Botones de prueba completa */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          // Llenar automáticamente con datos de prueba para Facebook
+                          setCampaignType("FACEBOOK");
+                          setSocialMediaCampaign({
+                            platform: "FACEBOOK",
+                            objective: "LEADS",
+                            budget: "1500",
+                            duration: "30",
+                            targeting: {
+                              age_range: "30-45",
+                              location: "Ciudad de México, Guadalajara",
+                              interests: "Educación privada, colegios, padres de familia",
+                              behavior: "Padres interesados en educación"
+                            },
+                            creative: {
+                              headline: "Inscripciones abiertas 2025-2026",
+                              description: "Descubre la excelencia educativa que tu hijo merece. Formación integral, valores sólidos y preparación para el futuro.",
+                              call_to_action: "LEARN_MORE",
+                              image_url: "https://ejemplo.com/colegio-imagen.jpg"
+                            }
+                          });
+                          setShowCampaignModal(true);
+                          
+                          toast({
+                            title: "Datos de prueba cargados",
+                            description: "Campaña de Facebook configurada con datos de demostración",
+                          });
+                        }}
+                      >
+                        Probar Facebook Ads
+                      </Button>
+                      
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          const validationResults = validateSocialMediaSetup();
+                          const isConfigured = campaignType && (campaignType === "FACEBOOK" || campaignType === "INSTAGRAM" || campaignType === "TIKTOK");
+                          
+                          console.log("Validación completa:", {
+                            campaignType,
+                            socialMediaCampaign,
+                            validationIssues: validationResults,
+                            isConfigured
+                          });
+                          
+                          toast({
+                            title: "Validación completada",
+                            description: `${validationResults.length === 0 && isConfigured ? 'Configuración válida' : `Pendiente: ${validationResults.length} campos`}`,
+                            variant: validationResults.length === 0 && isConfigured ? "default" : "destructive"
+                          });
+                        }}
+                      >
+                        Validar configuración
+                      </Button>
                     </div>
                   </div>
                 </CardContent>

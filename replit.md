@@ -118,11 +118,11 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
-- June 26, 2025: SISTEMA INTELIGENTE DE BECAS Y DESCUENTOS COMPLETADO - Algoritmos automáticos de asignación
-- June 26, 2025: 5 algoritmos implementados: académico, hermanos, socioeconómico, deportivo/cultural, scoring compuesto
-- June 26, 2025: Simulador en tiempo real con estudiantes reales y dashboard de KPIs operativo
-- June 26, 2025: Schema expandido con scholarship_types, criteria, benefits para máxima flexibilidad
-- June 26, 2025: Algoritmos matemáticos en shared/scholarship-algorithms.ts con escalas progresivas
+- June 26, 2025: GESTIÓN ADMINISTRATIVA DE BECAS COMPLETADA - Sistema para asignación manual eficiente
+- June 26, 2025: 6 tipos de becas implementados: socioeconómica, familiar, convenio empresarial, deportiva, cultural, empleados
+- June 26, 2025: Modal de asignación directa estudiante-por-estudiante con porcentajes y vigencias
+- June 26, 2025: Dashboard administrativo con KPIs y control de beneficios otorgados
+- June 26, 2025: Sistema elimina asignación automática por promedio - enfoque en herramienta administrativa
 - June 26, 2025: FUNCIONALIDAD REAL DE APLICAR CARGOS 100% OPERATIVA - Sistema crea registros reales en base de datos
 - June 26, 2025: Error "db is not defined" resuelto completamente - imports limpiados y funcionalidad estable
 - June 26, 2025: Campus_id 24 creado con estudiantes demo para testing completo de la funcionalidad

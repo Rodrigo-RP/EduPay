@@ -11,173 +11,150 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
-import { Gift, Percent, Users, Plus, Edit, Trash2, GraduationCap, DollarSign, Calculator, Zap, Target, Award } from "lucide-react";
+import { Gift, Percent, Users, Plus, Edit, Trash2, GraduationCap, DollarSign, Calculator, Zap, Target, Award, FileText, Building } from "lucide-react";
 
 export default function Becas() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedTab, setSelectedTab] = useState("becas");
-  const [algoritmoSimulacion, setAlgoritmoSimulacion] = useState("promedio");
-  const [criteriosSimulacion, setCriteriosSimulacion] = useState({
-    promedio_minimo: 8.5,
-    ingreso_familiar_maximo: 50000,
-    hermanos_minimos: 2
-  });
+  const [showAsignarModal, setShowAsignarModal] = useState(false);
 
-  // Sistema de becas y descuentos con algoritmos inteligentes
+  // Sistema de gestión administrativa de becas y descuentos
   const becasYDescuentos = [
     {
       id: 1,
-      nombre: "Beca Excelencia Académica",
-      categoria: "academica",
-      algoritmo: "promedio",
-      descripcion: "Beca automática basada en promedio académico con escalas progresivas",
+      nombre: "Beca Socioeconómica",
+      categoria: "socioeconomica",
+      tipo: "manual",
+      descripcion: "Gestión centralizada de becas por necesidad socioeconómica familiar",
       porcentaje_max: 100,
-      estudiantes_elegibles: 45,
-      estudiantes_aplicados: 8,
-      monto_total_descuento: 2850000, // $28,500 MXN
-      criterios: {
-        promedio_minimo: 8.5,
-        escala: "9.8+=100%, 9.5+=75%, 9.2+=50%, 9.0+=25%, 8.5+=10%"
-      },
-      activa: true,
-      vigencia: "2024-2025"
+      estudiantes_aplicados: 15,
+      monto_total_descuento: 3200000, // $32,000 MXN
+      asignacion: "Manual por área académica",
+      documentos_requeridos: ["Estudio socioeconómico", "Comprobante de ingresos", "Carta solicitud"],
+      vigencia: "2024-2025",
+      activa: true
     },
     {
       id: 2,
-      nombre: "Descuento Automático Hermanos",
-      categoria: "descuento",
-      algoritmo: "hermanos",
-      descripcion: "Descuento automático cuando hay múltiples hermanos inscritos",
+      nombre: "Descuento por Hermanos",
+      categoria: "familiar",
+      tipo: "automatico",
+      descripcion: "Descuento automático aplicado cuando hay múltiples hermanos inscritos",
       porcentaje_max: 40,
-      estudiantes_elegibles: 24,
-      estudiantes_aplicados: 18,
+      estudiantes_aplicados: 22,
       monto_total_descuento: 1950000, // $19,500 MXN
-      criterios: {
-        hermanos_minimos: 2,
-        escala: "4+ hermanos=40%, 3 hermanos=30%, 2 hermanos=20%"
-      },
-      activa: true,
-      vigencia: "2024-2025"
+      asignacion: "Automático al detectar hermanos en sistema",
+      criterios: "2 hermanos: 20%, 3 hermanos: 30%, 4+ hermanos: 40%",
+      vigencia: "2024-2025",
+      activa: true
     },
     {
       id: 3,
-      nombre: "Beca Socioeconómica Inteligente",
-      categoria: "socioeconomica",
-      algoritmo: "ingresos",
-      descripcion: "Evaluación automática basada en nivel de ingresos familiares",
-      porcentaje_max: 90,
-      estudiantes_elegibles: 32,
-      estudiantes_aplicados: 12,
-      monto_total_descuento: 3200000, // $32,000 MXN
-      criterios: {
-        ingreso_familiar_maximo: 40000,
-        escala: "≤20% ingreso=90%, ≤40%=70%, ≤60%=50%, ≤80%=30%"
-      },
-      activa: true,
-      vigencia: "2024-2025"
+      nombre: "Beca por Convenio Empresarial",
+      categoria: "convenio",
+      tipo: "manual",
+      descripcion: "Becas otorgadas por convenios con empresas patrocinadoras",
+      porcentaje_max: 75,
+      estudiantes_aplicados: 8,
+      monto_total_descuento: 1800000, // $18,000 MXN
+      asignacion: "Manual según convenio vigente",
+      empresas_convenio: ["Grupo Industrial SA", "Tech Solutions", "Comercial del Norte"],
+      vigencia: "2024-2025",
+      activa: true
     },
     {
       id: 4,
-      nombre: "Beca Deportiva y Cultural",
+      nombre: "Beca por Mérito Deportivo",
       categoria: "deportiva",
-      algoritmo: "automatico",
-      descripcion: "Reconocimiento por participación en actividades extracurriculares",
-      porcentaje_max: 60,
-      estudiantes_elegibles: 28,
-      estudiantes_aplicados: 15,
-      monto_total_descuento: 1200000, // $12,000 MXN
-      criterios: {
-        actividades_requeridas: ["futbol", "basquetbol", "natacion", "teatro", "musica"],
-        escala: "Multiple actividades hasta 60%"
-      },
-      activa: true,
-      vigencia: "2024-2025"
+      tipo: "manual",
+      descripcion: "Reconocimiento a estudiantes destacados en actividades deportivas",
+      porcentaje_max: 50,
+      estudiantes_aplicados: 6,
+      monto_total_descuento: 720000, // $7,200 MXN
+      asignacion: "Manual por coordinación deportiva",
+      documentos_requeridos: ["Constancia participación", "Resultados competencias"],
+      vigencia: "2024-2025",
+      activa: true
     },
     {
       id: 5,
-      nombre: "Evaluación Integral (Scoring)",
-      categoria: "integral",
-      algoritmo: "scoring",
-      descripcion: "Algoritmo compuesto que evalúa múltiples criterios con ponderaciones",
-      porcentaje_max: 80,
-      estudiantes_elegibles: 67,
-      estudiantes_aplicados: 5,
-      monto_total_descuento: 800000, // $8,000 MXN
-      criterios: {
-        ponderaciones: "Académico 40%, Socioeconómico 40%, Extracurricular 20%",
-        escala: "Score ≥90=80%, ≥80=65%, ≥70=50%, ≥60=35%, ≥50=20%"
-      },
-      activa: false, // En desarrollo
-      vigencia: "2024-2025"
+      nombre: "Beca Cultural y Artística",
+      categoria: "cultural",
+      tipo: "manual",
+      descripcion: "Apoyo a estudiantes con talento en actividades culturales y artísticas",
+      porcentaje_max: 45,
+      estudiantes_aplicados: 4,
+      monto_total_descuento: 540000, // $5,400 MXN
+      asignacion: "Manual por área cultural",
+      documentos_requeridos: ["Portfolio artístico", "Carta recomendación"],
+      vigencia: "2024-2025",
+      activa: true
+    },
+    {
+      id: 6,
+      nombre: "Descuento Empleados",
+      categoria: "empleado",
+      tipo: "automatico",
+      descripcion: "Descuento especial para hijos de empleados de la institución",
+      porcentaje_max: 60,
+      estudiantes_aplicados: 12,
+      monto_total_descuento: 2400000, // $24,000 MXN
+      asignacion: "Automático al verificar relación laboral",
+      criterios: "Personal administrativo: 30%, Docentes: 50%, Directivos: 60%",
+      vigencia: "2024-2025",
+      activa: true
     }
   ];
 
-  // Estudiantes demo para simulación
-  const estudiantesDemo = [
+  // Estudiantes para gestión de becas
+  const estudiantesParaBecas = [
     {
       id: 1,
       nombre_completo: "Ana García Pérez",
       grado: "5to Primaria",
-      promedio: 9.7,
       hermanos_inscritos: 1,
-      ingreso_familiar: 35000,
-      actividades_extracurriculares: ["natacion", "musica"],
-      becas_actuales: ["Beca Excelencia Académica"]
+      tipo_solicitud: "Beca Socioeconómica",
+      porcentaje_asignado: 50,
+      estado: "Activa",
+      fecha_asignacion: "2024-08-15",
+      observaciones: "Renovación automática cada semestre"
     },
     {
       id: 2,
-      nombre_completo: "Carlos Mendoza Silva",
+      nombre_completo: "Carlos Mendoza Silva", 
       grado: "3ro Secundaria",
-      promedio: 8.8,
       hermanos_inscritos: 3,
-      ingreso_familiar: 28000,
-      actividades_extracurriculares: ["futbol"],
-      becas_actuales: ["Descuento Automático Hermanos", "Beca Socioeconómica"]
+      tipo_solicitud: "Descuento por Hermanos",
+      porcentaje_asignado: 30,
+      estado: "Automática",
+      fecha_asignacion: "2024-08-01",
+      observaciones: "Aplicado automáticamente por sistema"
     },
     {
       id: 3,
       nombre_completo: "Sofia López Torres",
-      grado: "1ro Bachillerato",
-      promedio: 9.2,
+      grado: "1ro Bachillerato", 
       hermanos_inscritos: 2,
-      ingreso_familiar: 15000,
-      actividades_extracurriculares: ["teatro", "basquetbol"],
-      becas_actuales: ["Beca Excelencia Académica", "Descuento Automático Hermanos", "Beca Socioeconómica"]
+      tipo_solicitud: "Beca por Convenio",
+      porcentaje_asignado: 75,
+      estado: "Activa",
+      fecha_asignacion: "2024-09-01",
+      observaciones: "Convenio con Grupo Industrial SA"
+    },
+    {
+      id: 4,
+      nombre_completo: "Miguel Ramírez Castro",
+      grado: "2do Secundaria",
+      hermanos_inscritos: 0,
+      tipo_solicitud: "Beca Deportiva",
+      porcentaje_asignado: 40,
+      estado: "Pendiente Renovación",
+      fecha_asignacion: "2024-08-20",
+      observaciones: "Requiere constancia de participación actualizada"
     }
   ];
 
-  // Simular algoritmo de becas
-  const simularAlgoritmo = (algoritmo: string, estudiante: any) => {
-    switch (algoritmo) {
-      case "promedio":
-        if (estudiante.promedio >= 9.8) return { elegible: true, porcentaje: 100, razon: "Excelencia académica" };
-        if (estudiante.promedio >= 9.5) return { elegible: true, porcentaje: 75, razon: "Alto rendimiento" };
-        if (estudiante.promedio >= 9.2) return { elegible: true, porcentaje: 50, razon: "Buen rendimiento" };
-        if (estudiante.promedio >= 9.0) return { elegible: true, porcentaje: 25, razon: "Rendimiento satisfactorio" };
-        if (estudiante.promedio >= 8.5) return { elegible: true, porcentaje: 10, razon: "Requisitos mínimos" };
-        return { elegible: false, porcentaje: 0, razon: "Promedio insuficiente" };
-      
-      case "hermanos":
-        if (estudiante.hermanos_inscritos >= 4) return { elegible: true, porcentaje: 40, razon: "Familia numerosa (4+ hermanos)" };
-        if (estudiante.hermanos_inscritos === 3) return { elegible: true, porcentaje: 30, razon: "3 hermanos inscritos" };
-        if (estudiante.hermanos_inscritos === 2) return { elegible: true, porcentaje: 20, razon: "2 hermanos inscritos" };
-        return { elegible: false, porcentaje: 0, razon: "Insuficientes hermanos" };
-      
-      case "ingresos":
-        const porcentajeIngreso = (estudiante.ingreso_familiar / criteriosSimulacion.ingreso_familiar_maximo) * 100;
-        if (porcentajeIngreso <= 20) return { elegible: true, porcentaje: 90, razon: "Situación crítica" };
-        if (porcentajeIngreso <= 40) return { elegible: true, porcentaje: 70, razon: "Situación vulnerable" };
-        if (porcentajeIngreso <= 60) return { elegible: true, porcentaje: 50, razon: "Apoyo moderado" };
-        if (porcentajeIngreso <= 80) return { elegible: true, porcentaje: 30, razon: "Apoyo básico" };
-        if (porcentajeIngreso <= 100) return { elegible: true, porcentaje: 15, razon: "Apoyo mínimo" };
-        return { elegible: false, porcentaje: 0, razon: "Ingresos exceden límite" };
-      
-      default:
-        return { elegible: false, porcentaje: 0, razon: "Algoritmo no disponible" };
-    }
-  };
-
-  const totalBecasActivas = becasYDescuentos.filter(b => b.activa).length;
+  const totalTiposBecas = becasYDescuentos.filter(b => b.activa).length;
   const totalEstudiantesBeneficiados = becasYDescuentos.reduce((sum, b) => sum + b.estudiantes_aplicados, 0);
   const montoTotalDescuentos = becasYDescuentos.reduce((sum, b) => sum + b.monto_total_descuento, 0);
   const promedioDescuento = becasYDescuentos.reduce((sum, b) => sum + b.porcentaje_max, 0) / becasYDescuentos.length;
@@ -186,122 +163,191 @@ export default function Becas() {
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Sistema Inteligente de Becas y Descuentos</h1>
-          <p className="text-muted-foreground">Algoritmos automáticos para asignación de beneficios educativos</p>
+          <h1 className="text-3xl font-bold">Gestión Administrativa de Becas y Descuentos</h1>
+          <p className="text-muted-foreground">Herramienta para asignación manual eficiente y control administrativo</p>
         </div>
-        <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Nueva Beca/Descuento
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Configurar Nueva Beca o Descuento</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="nombre">Nombre de la Beca/Descuento</Label>
-                  <Input id="nombre" placeholder="Ej: Beca Excelencia Académica" />
+        <div className="flex space-x-2">
+          <Dialog open={showAsignarModal} onOpenChange={setShowAsignarModal}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Users className="mr-2 h-4 w-4" />
+                Asignar Beca
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Asignar Beca/Descuento a Estudiante</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="estudiante">Estudiante</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Buscar estudiante..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ana">Ana García Pérez - 5to Primaria</SelectItem>
+                        <SelectItem value="carlos">Carlos Mendoza Silva - 3ro Secundaria</SelectItem>
+                        <SelectItem value="sofia">Sofia López Torres - 1ro Bachillerato</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="tipo_beca">Tipo de Beca</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar beca..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="socioeconomica">Beca Socioeconómica</SelectItem>
+                        <SelectItem value="convenio">Beca por Convenio</SelectItem>
+                        <SelectItem value="deportiva">Beca Deportiva</SelectItem>
+                        <SelectItem value="cultural">Beca Cultural</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="porcentaje">Porcentaje de Descuento (%)</Label>
+                    <Input id="porcentaje" type="number" min="0" max="100" placeholder="50" />
+                  </div>
+                  <div>
+                    <Label htmlFor="vigencia">Vigencia</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar vigencia..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="semestre">Un semestre</SelectItem>
+                        <SelectItem value="anual">Ciclo completo 2024-2025</SelectItem>
+                        <SelectItem value="permanente">Permanente (hasta graduación)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
                 <div>
-                  <Label htmlFor="categoria">Categoría</Label>
+                  <Label htmlFor="observaciones">Observaciones</Label>
+                  <Textarea id="observaciones" placeholder="Motivo de la beca, documentos adjuntos, condiciones especiales..." />
+                </div>
+
+                <div className="flex justify-end space-x-2">
+                  <Button variant="outline" onClick={() => setShowAsignarModal(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={() => setShowAsignarModal(false)}>
+                    Asignar Beca
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Nuevo Tipo de Beca
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Configurar Nuevo Tipo de Beca</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="nombre">Nombre de la Beca/Descuento</Label>
+                    <Input id="nombre" placeholder="Ej: Beca Excelencia Académica" />
+                  </div>
+                  <div>
+                    <Label htmlFor="categoria">Categoría</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar categoría" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="socioeconomica">Socioeconómica</SelectItem>
+                        <SelectItem value="convenio">Por Convenio</SelectItem>
+                        <SelectItem value="deportiva">Deportiva</SelectItem>
+                        <SelectItem value="cultural">Cultural/Artística</SelectItem>
+                        <SelectItem value="familiar">Familiar</SelectItem>
+                        <SelectItem value="empleado">Empleados</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="tipo">Método de Asignación</Label>
                   <Select>
                     <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar categoría" />
+                      <SelectValue placeholder="Seleccionar método" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="academica">Académica</SelectItem>
-                      <SelectItem value="socioeconomica">Socioeconómica</SelectItem>
-                      <SelectItem value="deportiva">Deportiva/Cultural</SelectItem>
-                      <SelectItem value="descuento">Descuento</SelectItem>
-                      <SelectItem value="integral">Evaluación Integral</SelectItem>
+                      <SelectItem value="manual">Manual - Asignación caso por caso</SelectItem>
+                      <SelectItem value="automatico">Automático - Detecta criterios en sistema</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
 
-              <div>
-                <Label htmlFor="algoritmo">Algoritmo de Asignación</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar algoritmo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="manual">Manual - Evaluación caso por caso</SelectItem>
-                    <SelectItem value="promedio">Automático - Por promedio académico</SelectItem>
-                    <SelectItem value="hermanos">Automático - Por hermanos inscritos</SelectItem>
-                    <SelectItem value="ingresos">Automático - Por ingresos familiares</SelectItem>
-                    <SelectItem value="scoring">Inteligente - Evaluación compuesta (scoring)</SelectItem>
-                    <SelectItem value="automatico">Híbrido - Múltiples criterios</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="descripcion">Descripción</Label>
-                <Textarea id="descripcion" placeholder="Describe los criterios y objetivos de esta beca..." />
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <Label htmlFor="porcentaje_max">Porcentaje Máximo (%)</Label>
-                  <Input id="porcentaje_max" type="number" min="0" max="100" placeholder="50" />
+                  <Label htmlFor="descripcion">Descripción</Label>
+                  <Textarea id="descripcion" placeholder="Describe los criterios y objetivos de esta beca..." />
                 </div>
-                <div>
-                  <Label htmlFor="monto_fijo">Monto Fijo (MXN)</Label>
-                  <Input id="monto_fijo" type="number" min="0" placeholder="5000" />
-                </div>
-                <div>
-                  <Label htmlFor="limite_maximo">Límite Máximo (MXN)</Label>
-                  <Input id="limite_maximo" type="number" min="0" placeholder="50000" />
-                </div>
-              </div>
 
-              <div className="space-y-4">
-                <Label>Criterios Específicos</Label>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="promedio_min">Promedio Mínimo</Label>
-                    <Input id="promedio_min" type="number" step="0.1" min="0" max="10" placeholder="8.5" />
+                    <Label htmlFor="porcentaje_max">Porcentaje Máximo (%)</Label>
+                    <Input id="porcentaje_max" type="number" min="0" max="100" placeholder="50" />
                   </div>
                   <div>
-                    <Label htmlFor="ingreso_max">Ingreso Familiar Máximo</Label>
-                    <Input id="ingreso_max" type="number" min="0" placeholder="50000" />
+                    <Label htmlFor="vigencia_default">Vigencia por Defecto</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar vigencia" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="semestre">Un semestre</SelectItem>
+                        <SelectItem value="anual">Ciclo completo</SelectItem>
+                        <SelectItem value="permanente">Permanente</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex items-center space-x-2">
-                <Switch id="activa" />
-                <Label htmlFor="activa">Activar inmediatamente</Label>
-              </div>
+                <div className="flex items-center space-x-2">
+                  <Switch id="activa" />
+                  <Label htmlFor="activa">Activar inmediatamente</Label>
+                </div>
 
-              <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setShowAddModal(false)}>
-                  Cancelar
-                </Button>
-                <Button onClick={() => setShowAddModal(false)}>
-                  Crear Beca/Descuento
-                </Button>
+                <div className="flex justify-end space-x-2">
+                  <Button variant="outline" onClick={() => setShowAddModal(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={() => setShowAddModal(false)}>
+                    Crear Tipo de Beca
+                  </Button>
+                </div>
               </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* KPIs Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Becas Activas</CardTitle>
+            <CardTitle className="text-sm font-medium">Tipos de Becas</CardTitle>
             <Award className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalBecasActivas}</div>
-            <p className="text-xs text-muted-foreground">Algoritmos funcionando</p>
+            <div className="text-2xl font-bold">{totalTiposBecas}</div>
+            <p className="text-xs text-muted-foreground">Activos en el sistema</p>
           </CardContent>
         </Card>
 
@@ -342,9 +388,9 @@ export default function Becas() {
       {/* Main Content */}
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="becas">Gestión de Becas</TabsTrigger>
-          <TabsTrigger value="simulador">Simulador Inteligente</TabsTrigger>
-          <TabsTrigger value="reportes">Reportes y Análisis</TabsTrigger>
+          <TabsTrigger value="becas">Tipos de Becas</TabsTrigger>
+          <TabsTrigger value="estudiantes">Estudiantes con Becas</TabsTrigger>
+          <TabsTrigger value="reportes">Reportes y Control</TabsTrigger>
         </TabsList>
 
         <TabsContent value="becas" className="space-y-4">
@@ -355,11 +401,12 @@ export default function Becas() {
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
                       <CardTitle className="flex items-center gap-2">
-                        {beca.categoria === 'academica' && <GraduationCap className="h-5 w-5 text-blue-500" />}
                         {beca.categoria === 'socioeconomica' && <DollarSign className="h-5 w-5 text-green-500" />}
+                        {beca.categoria === 'familiar' && <Users className="h-5 w-5 text-blue-500" />}
+                        {beca.categoria === 'convenio' && <Building className="h-5 w-5 text-purple-500" />}
                         {beca.categoria === 'deportiva' && <Target className="h-5 w-5 text-orange-500" />}
-                        {beca.categoria === 'descuento' && <Percent className="h-5 w-5 text-purple-500" />}
-                        {beca.categoria === 'integral' && <Calculator className="h-5 w-5 text-red-500" />}
+                        {beca.categoria === 'cultural' && <Award className="h-5 w-5 text-pink-500" />}
+                        {beca.categoria === 'empleado' && <GraduationCap className="h-5 w-5 text-gray-500" />}
                         {beca.nombre}
                       </CardTitle>
                       <p className="text-sm text-muted-foreground">{beca.descripcion}</p>
@@ -370,7 +417,7 @@ export default function Becas() {
                       </Badge>
                       <Badge variant="outline">
                         <Zap className="h-3 w-3 mr-1" />
-                        {beca.algoritmo}
+                        {beca.tipo}
                       </Badge>
                     </div>
                   </div>
@@ -382,12 +429,12 @@ export default function Becas() {
                       <p className="text-2xl font-bold text-green-600">{beca.porcentaje_max}%</p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium">Elegibles</p>
-                      <p className="text-lg font-semibold">{beca.estudiantes_elegibles} estudiantes</p>
+                      <p className="text-sm font-medium">Método Asignación</p>
+                      <p className="text-lg font-semibold">{beca.tipo}</p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium">Aplicados</p>
-                      <p className="text-lg font-semibold text-blue-600">{beca.estudiantes_aplicados} activos</p>
+                      <p className="text-sm font-medium">Estudiantes Activos</p>
+                      <p className="text-lg font-semibold text-blue-600">{beca.estudiantes_aplicados}</p>
                     </div>
                     <div>
                       <p className="text-sm font-medium">Ahorro Total</p>
@@ -400,8 +447,17 @@ export default function Becas() {
                   <Separator className="my-4" />
                   
                   <div className="space-y-2">
-                    <p className="text-sm font-medium">Criterios y Escalas:</p>
-                    <p className="text-sm text-muted-foreground">{beca.criterios.escala}</p>
+                    <p className="text-sm font-medium">Proceso de Asignación:</p>
+                    <p className="text-sm text-muted-foreground">{beca.asignacion}</p>
+                    {beca.criterios && (
+                      <p className="text-sm text-muted-foreground">Criterios: {beca.criterios}</p>
+                    )}
+                    {beca.empresas_convenio && (
+                      <div>
+                        <p className="text-sm font-medium">Empresas con Convenio:</p>
+                        <p className="text-sm text-muted-foreground">{beca.empresas_convenio.join(", ")}</p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex justify-end space-x-2 mt-4">
@@ -410,7 +466,7 @@ export default function Becas() {
                       Editar
                     </Button>
                     <Button variant="outline" size="sm">
-                      Ver Detalles
+                      Ver Estudiantes
                     </Button>
                   </div>
                 </CardContent>
@@ -419,121 +475,84 @@ export default function Becas() {
           </div>
         </TabsContent>
 
-        <TabsContent value="simulador" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calculator className="h-5 w-5" />
-                Simulador de Algoritmos de Becas
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Prueba diferentes algoritmos con estudiantes reales para optimizar criterios
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="algoritmo">Algoritmo a Simular</Label>
-                  <Select value={algoritmoSimulacion} onValueChange={setAlgoritmoSimulacion}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="promedio">Por Promedio Académico</SelectItem>
-                      <SelectItem value="hermanos">Por Hermanos Inscritos</SelectItem>
-                      <SelectItem value="ingresos">Por Ingresos Familiares</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="promedio_min_sim">Promedio Mínimo</Label>
-                  <Input 
-                    id="promedio_min_sim" 
-                    type="number" 
-                    step="0.1" 
-                    value={criteriosSimulacion.promedio_minimo}
-                    onChange={(e) => setCriteriosSimulacion({...criteriosSimulacion, promedio_minimo: Number(e.target.value)})}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="ingreso_max_sim">Ingreso Máximo</Label>
-                  <Input 
-                    id="ingreso_max_sim" 
-                    type="number" 
-                    value={criteriosSimulacion.ingreso_familiar_maximo}
-                    onChange={(e) => setCriteriosSimulacion({...criteriosSimulacion, ingreso_familiar_maximo: Number(e.target.value)})}
-                  />
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-4">
-                <h4 className="font-medium">Resultados de Simulación</h4>
-                {estudiantesDemo.map((estudiante) => {
-                  const resultado = simularAlgoritmo(algoritmoSimulacion, estudiante);
-                  return (
-                    <div key={estudiante.id} className="border rounded-lg p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h5 className="font-medium">{estudiante.nombre_completo}</h5>
-                          <p className="text-sm text-muted-foreground">{estudiante.grado}</p>
-                        </div>
-                        <Badge variant={resultado.elegible ? "default" : "destructive"}>
-                          {resultado.elegible ? `${resultado.porcentaje}% Beca` : "No Elegible"}
-                        </Badge>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <span className="font-medium">Promedio:</span> {estudiante.promedio}
-                        </div>
-                        <div>
-                          <span className="font-medium">Hermanos:</span> {estudiante.hermanos_inscritos}
-                        </div>
-                        <div>
-                          <span className="font-medium">Ingreso:</span> ${estudiante.ingreso_familiar.toLocaleString()}
-                        </div>
-                        <div>
-                          <span className="font-medium">Actividades:</span> {estudiante.actividades_extracurriculares.length}
-                        </div>
-                      </div>
-                      
-                      <div className="bg-muted p-3 rounded">
-                        <p className="text-sm"><span className="font-medium">Evaluación:</span> {resultado.razon}</p>
-                        {resultado.elegible && (
-                          <div className="mt-2">
-                            <Progress value={resultado.porcentaje} className="h-2" />
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Descuento aplicable: {resultado.porcentaje}%
-                            </p>
-                          </div>
-                        )}
-                      </div>
+        <TabsContent value="estudiantes" className="space-y-4">
+          <div className="grid gap-4">
+            {estudiantesParaBecas.map((estudiante) => (
+              <Card key={estudiante.id} className="hover:shadow-md transition-shadow">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>{estudiante.nombre_completo}</CardTitle>
+                      <p className="text-sm text-muted-foreground">{estudiante.grado}</p>
                     </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant={estudiante.estado === "Activa" ? "default" : estudiante.estado === "Automática" ? "secondary" : "destructive"}>
+                        {estudiante.estado}
+                      </Badge>
+                      <Badge variant="outline">
+                        {estudiante.porcentaje_asignado}% descuento
+                      </Badge>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-sm font-medium">Tipo de Beca</p>
+                      <p className="text-sm text-muted-foreground">{estudiante.tipo_solicitud}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Fecha Asignación</p>
+                      <p className="text-sm text-muted-foreground">{estudiante.fecha_asignacion}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Hermanos Inscritos</p>
+                      <p className="text-sm text-muted-foreground">{estudiante.hermanos_inscritos}</p>
+                    </div>
+                  </div>
+                  
+                  <Separator className="my-4" />
+                  
+                  <div>
+                    <p className="text-sm font-medium">Observaciones:</p>
+                    <p className="text-sm text-muted-foreground">{estudiante.observaciones}</p>
+                  </div>
+
+                  <div className="flex justify-end space-x-2 mt-4">
+                    <Button variant="outline" size="sm">
+                      <Edit className="h-4 w-4 mr-2" />
+                      Modificar
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Documentos
+                    </Button>
+                    <Button variant="destructive" size="sm">
+                      Suspender
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </TabsContent>
 
         <TabsContent value="reportes" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Eficiencia por Algoritmo</CardTitle>
+                <CardTitle>Distribución por Tipo de Beca</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {becasYDescuentos.filter(b => b.activa).map((beca) => {
-                  const eficiencia = (beca.estudiantes_aplicados / beca.estudiantes_elegibles) * 100;
+                  const porcentajeDelTotal = (beca.estudiantes_aplicados / totalEstudiantesBeneficiados) * 100;
                   return (
                     <div key={beca.id} className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>{beca.nombre}</span>
-                        <span>{eficiencia.toFixed(1)}%</span>
+                        <span>{beca.estudiantes_aplicados} estudiantes</span>
                       </div>
-                      <Progress value={eficiencia} className="h-2" />
+                      <Progress value={porcentajeDelTotal} className="h-2" />
                     </div>
                   );
                 })}
@@ -542,7 +561,7 @@ export default function Becas() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Distribución de Beneficios</CardTitle>
+                <CardTitle>Distribución de Beneficios ($)</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {becasYDescuentos.filter(b => b.activa).map((beca) => {
@@ -563,28 +582,34 @@ export default function Becas() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Recomendaciones del Sistema</CardTitle>
+              <CardTitle>Controles Administrativos</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Button className="h-20 flex flex-col items-center justify-center">
+                  <FileText className="h-6 w-6 mb-2" />
+                  Generar Reporte Mensual
+                </Button>
+                <Button variant="outline" className="h-20 flex flex-col items-center justify-center">
+                  <Calculator className="h-6 w-6 mb-2" />
+                  Calcular Ahorro Total
+                </Button>
+                <Button variant="outline" className="h-20 flex flex-col items-center justify-center">
+                  <Users className="h-6 w-6 mb-2" />
+                  Auditar Asignaciones
+                </Button>
+              </div>
+
+              <Separator />
+
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                <h4 className="font-medium text-blue-900 mb-2">💡 Optimización Sugerida</h4>
-                <p className="text-sm text-blue-800">
-                  El algoritmo de "Hermanos" tiene 75% de eficiencia. Considera reducir el requisito mínimo de hermanos de 2 a 1 para aumentar cobertura.
-                </p>
-              </div>
-              
-              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                <h4 className="font-medium text-green-900 mb-2">✅ Mejor Rendimiento</h4>
-                <p className="text-sm text-green-800">
-                  La "Beca Socioeconómica" tiene el mayor impacto con $32,000 en descuentos. Mantener criterios actuales.
-                </p>
-              </div>
-              
-              <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-                <h4 className="font-medium text-orange-900 mb-2">⚠️ Atención Requerida</h4>
-                <p className="text-sm text-orange-800">
-                  El sistema integral (scoring) está inactivo. Activarlo podría beneficiar a 62 estudiantes adicionales.
-                </p>
+                <h4 className="font-medium text-blue-900 mb-2">Resumen del Sistema</h4>
+                <div className="text-sm text-blue-800 space-y-1">
+                  <p>• El sistema gestiona {totalTiposBecas} tipos diferentes de becas y descuentos</p>
+                  <p>• Actualmente beneficia a {totalEstudiantesBeneficiados} estudiantes</p>
+                  <p>• Ahorro total generado: ${(montoTotalDescuentos / 100).toLocaleString()} MXN</p>
+                  <p>• Asignación {becasYDescuentos.filter(b => b.tipo === "manual").length} manual + {becasYDescuentos.filter(b => b.tipo === "automatico").length} automática</p>
+                </div>
               </div>
             </CardContent>
           </Card>

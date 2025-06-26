@@ -302,28 +302,50 @@ ${b.nombre}:
   };
 
   const handleActivateAllBecas = () => {
-    // Simular activación de todas las becas inactivas
+    // Contar becas inactivas antes de activar
     const inactiveBecas = becasYDescuentos.filter(b => !b.activa);
     const totalActivated = inactiveBecas.length;
     
-    // Actualizar estado de becas a activas
+    // Activar todas las becas inactivas
     becasYDescuentos.forEach(beca => {
       if (!beca.activa) {
         beca.activa = true;
       }
     });
 
-    // Activar automáticamente descuentos por hermanos detectados
-    const hermanosBeneficiados = estudiantesParaBecas.filter(e => 
-      e.tipo_solicitud === 'familiar'
-    ).length;
+    // Detectar y aplicar automáticamente descuentos por hermanos
+    const estudiantesConHermanos = estudiantesParaBecas.filter(e => e.hermanos_inscritos > 1);
+    const hermanosBeneficiados = estudiantesConHermanos.length;
 
-    // Aplicar becas automáticas configuradas
+    // Activar algoritmos automáticos
     const becasAutomaticas = becasYDescuentos.filter(b => b.tipo === 'automatico');
     
+    // Procesar nuevas asignaciones automáticas
+    estudiantesConHermanos.forEach(estudiante => {
+      if (estudiante.tipo_solicitud !== 'familiar') {
+        // Aplicar descuento por hermanos automáticamente
+        const porcentajeDescuento = estudiante.hermanos_inscritos === 2 ? 20 :
+                                   estudiante.hermanos_inscritos === 3 ? 30 : 40;
+        estudiante.tipo_solicitud = 'familiar';
+        estudiante.porcentaje_asignado = porcentajeDescuento;
+        estudiante.estado = 'Automática';
+        estudiante.observaciones = `Descuento automático por ${estudiante.hermanos_inscritos} hermanos inscritos`;
+      }
+    });
+
+    // Activar becas suspendidas por renovación
+    const becasSuspendidas = estudiantesParaBecas.filter(e => e.estado === 'Pendiente Renovación');
+    becasSuspendidas.forEach(estudiante => {
+      estudiante.estado = 'Activa';
+    });
+
     toast({
-      title: "Sistema de Becas Activado",
-      description: `${totalActivated} tipos de becas activadas. ${hermanosBeneficiados} descuentos por hermanos aplicados automáticamente. ${becasAutomaticas.length} algoritmos automáticos en funcionamiento.`,
+      title: "Sistema de Becas Completamente Activado",
+      description: `✓ ${totalActivated} tipos de becas reactivadas
+✓ ${hermanosBeneficiados} descuentos por hermanos aplicados automáticamente  
+✓ ${becasAutomaticas.length} algoritmos automáticos funcionando
+✓ ${becasSuspendidas.length} becas pendientes reactivadas
+✓ Todos los beneficios se aplicarán en próximos cargos`,
     });
   };
 

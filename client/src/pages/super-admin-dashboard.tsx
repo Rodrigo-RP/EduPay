@@ -39,17 +39,24 @@ export default function SuperAdminDashboard() {
 
   // Security scan mutation
   const securityScanMutation = useMutation({
-    mutationFn: () => apiRequest("/api/super-admin/security/scan", {
-      method: "POST",
-    }),
-    onSuccess: (data) => {
+    mutationFn: async () => {
+      const response = await fetch("/api/super-admin/security/scan", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      return response.json();
+    },
+    onSuccess: (data: any) => {
       toast({
         title: "Escaneo de Seguridad Completado",
-        description: `Score: ${data.securityScore}/100. ${data.recommendations[0]}`,
+        description: `Score: ${data.securityScore}/100. ${data.recommendations?.[0] || 'Escaneo completado'}`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/super-admin/security/events"] });
     },
-    onError: (error) => {
+    onError: () => {
       toast({
         title: "Error",
         description: "No se pudo ejecutar el escaneo de seguridad",
@@ -65,15 +72,15 @@ export default function SuperAdminDashboard() {
         method: "POST",
         body: JSON.stringify(data),
       }),
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       toast({
         title: "IP Bloqueada",
-        description: data.message,
+        description: data.message || "IP bloqueada exitosamente",
       });
       setBlockIpInput("");
       queryClient.invalidateQueries({ queryKey: ["/api/super-admin/security/events"] });
     },
-    onError: (error) => {
+    onError: () => {
       toast({
         title: "Error",
         description: "No se pudo bloquear la IP",

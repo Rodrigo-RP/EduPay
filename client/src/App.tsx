@@ -36,6 +36,8 @@ import AsignacionPrecios from "@/pages/asignacion-precios";
 import ImportacionDatos from "@/pages/importacion-datos";
 import SistemasAvanzados from "@/pages/sistemas-avanzados";
 import SeguridadCibernetica from "@/pages/seguridad-cibernetica";
+import SuperAdminLogin from "@/pages/super-admin-login";
+import SuperAdminDashboard from "@/pages/super-admin-dashboard";
 import SaaSInfo from "@/components/saas-info";
 
 function AuthenticatedRoutes() {
@@ -113,8 +115,15 @@ function App() {
         <InstitutionProvider>
           <AcademicFilterProvider>
             <TooltipProvider>
-              <Toaster />
-              <AuthenticatedRoutes />
+              <div className="min-h-screen bg-slate-50">
+                <Switch>
+                  <Route path="/super-admin-login" component={SuperAdminLogin} />
+                  <Route path="/super-admin" component={SuperAdminDashboard} />
+                  <Route component={AuthenticatedRoutes} />
+                </Switch>
+                <Toaster />
+                <SaaSInfo />
+              </div>
             </TooltipProvider>
           </AcademicFilterProvider>
         </InstitutionProvider>

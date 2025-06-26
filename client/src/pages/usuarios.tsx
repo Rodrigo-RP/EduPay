@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Users, Plus, Edit, Trash2, UserCheck, UserX, Shield, Mail } from "lucide-react";
+import { Users, Plus, Edit, Trash2, UserCheck, UserX, Shield, Mail, AlertTriangle } from "lucide-react";
 
 export default function Usuarios() {
   const { toast } = useToast();
@@ -19,6 +19,8 @@ export default function Usuarios() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
   const [selectedRole, setSelectedRole] = useState("all");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<any>(null);
   const [formData, setFormData] = useState({
     nombre_completo: "",
     email: "",
@@ -192,25 +194,32 @@ export default function Usuarios() {
     }
   };
 
-  const handleDeleteUser = async (userId: number, userName: string) => {
-    const confirmed = window.confirm(
-      `⚠️ ADVERTENCIA DE ELIMINACIÓN\n\n¿Estás completamente seguro de que deseas eliminar al usuario "${userName}"?\n\nEsta acción NO se puede deshacer y eliminará:\n• Acceso completo al sistema\n• Todos los permisos y configuraciones\n• Historial de actividades del usuario\n\n¿Continuar con la eliminación?`
-    );
+  const handleDeleteUser = (userId: number, userName: string) => {
+    const user = usuarios.find(u => u.id === userId);
+    if (user) {
+      setUserToDelete(user);
+      setShowDeleteModal(true);
+    }
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return;
     
-    if (confirmed) {
-      try {
-        // Simular API call
-        toast({
-          title: "Usuario eliminado",
-          description: `El usuario "${userName}" ha sido eliminado permanentemente del sistema.`,
-        });
-      } catch (error) {
-        toast({
-          title: "Error al eliminar", 
-          description: "No se pudo eliminar el usuario. Intenta nuevamente.",
-          variant: "destructive",
-        });
-      }
+    try {
+      // Simular API call
+      toast({
+        title: "Usuario eliminado",
+        description: `El usuario "${userToDelete.nombre_completo}" ha sido eliminado permanentemente del sistema.`,
+      });
+      
+      setShowDeleteModal(false);
+      setUserToDelete(null);
+    } catch (error) {
+      toast({
+        title: "Error al eliminar", 
+        description: "No se pudo eliminar el usuario. Intenta nuevamente.",
+        variant: "destructive",
+      });
     }
   };
 

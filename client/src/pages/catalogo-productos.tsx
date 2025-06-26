@@ -9,13 +9,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Package, Plus, Edit, Trash2, DollarSign, ShoppingCart } from "lucide-react";
+import { Package, Plus, Edit, Trash2, DollarSign, ShoppingCart, AlertTriangle } from "lucide-react";
 
 export default function CatalogoProductos() {
   const { toast } = useToast();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<any>(null);
 
   // Catálogo de productos demo
   const productos = [
@@ -97,29 +99,36 @@ export default function CatalogoProductos() {
     setEditingProduct(null);
   };
 
-  const handleDeleteProduct = async (productId: number, productName: string) => {
-    const confirmed = window.confirm(
-      `⚠️ ADVERTENCIA DE ELIMINACIÓN\n\n¿Estás completamente seguro de que deseas eliminar el producto "${productName}"?\n\nEsta acción NO se puede deshacer y eliminará:\n• El producto del catálogo\n• Todos los registros asociados\n• Historial de ventas relacionado\n\n¿Continuar con la eliminación?`
-    );
+  const handleDeleteProduct = (productId: number, productName: string) => {
+    const product = productos.find(p => p.id === productId);
+    if (product) {
+      setProductToDelete(product);
+      setShowDeleteModal(true);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!productToDelete) return;
     
-    if (confirmed) {
-      try {
-        // Aquí se haría la llamada real a la API
-        // await apiRequest(`/api/products/${productId}`, {
-        //   method: 'DELETE'
-        // });
-        
-        toast({
-          title: "Producto eliminado",
-          description: `El producto "${productName}" ha sido eliminado permanentemente del sistema.`,
-        });
-      } catch (error) {
-        toast({
-          title: "Error al eliminar",
-          description: "No se pudo eliminar el producto. Intenta nuevamente.",
-          variant: "destructive",
-        });
-      }
+    try {
+      // Aquí se haría la llamada real a la API
+      // await apiRequest(`/api/products/${productToDelete.id}`, {
+      //   method: 'DELETE'
+      // });
+      
+      toast({
+        title: "Producto eliminado",
+        description: `El producto "${productToDelete.nombre}" ha sido eliminado permanentemente del sistema.`,
+      });
+      
+      setShowDeleteModal(false);
+      setProductToDelete(null);
+    } catch (error) {
+      toast({
+        title: "Error al eliminar",
+        description: "No se pudo eliminar el producto. Intenta nuevamente.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -350,7 +359,12 @@ export default function CatalogoProductos() {
                     <Button size="sm" variant="outline" onClick={() => handleEditProduct(producto)}>
                           <Edit className="w-4 h-4" />
                         </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleDeleteProduct(producto.id, producto.nombre)}>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => handleDeleteProduct(producto.id, producto.nombre)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 hover:border-red-300"
+                    >
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
@@ -360,6 +374,57 @@ export default function CatalogoProductos() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Modal de confirmación de eliminación */}
+          <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-3 text-red-600">
+                  <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                  </div>
+                  Advertencia de Eliminación
+                </DialogTitle>
+              </DialogHeader>
+              
+              <div className="py-4">
+                <p className="text-sm text-slate-600 mb-4">
+                  ¿Estás completamente seguro de que deseas eliminar el producto{" "}
+                  <strong className="text-slate-900">"{productToDelete?.nombre}"</strong>?
+                </p>
+                
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                  <p className="text-sm font-medium text-red-800 mb-2">
+                    Esta acción NO se puede deshacer y eliminará:
+                  </p>
+                  <ul className="text-sm text-red-700 space-y-1">
+                    <li>• El producto del catálogo</li>
+                    <li>• Todos los registros asociados</li>
+                    <li>• Historial de ventas relacionado</li>
+                  </ul>
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setProductToDelete(null);
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={confirmDelete}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Eliminar Producto
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </div>

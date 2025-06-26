@@ -141,8 +141,8 @@ export default function SuperAdminCEODashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-slate-50 p-4 lg:p-6">
+      <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between">
@@ -167,59 +167,63 @@ export default function SuperAdminCEODashboard() {
           </div>
         </div>
 
+        {/* Navigation Buttons */}
+        <div className="bg-white rounded-lg shadow-sm p-4">
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => window.location.href = '/super-admin-schools'}
+              className="flex items-center gap-2"
+            >
+              <School className="h-4 w-4" />
+              Gestión Escuelas
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => window.location.href = '/platform-login'}
+              className="flex items-center gap-2 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+            >
+              <Users className="h-4 w-4" />
+              Perfiles Especializados
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => window.location.href = '/super-admin-classic'}
+              className="flex items-center gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              Panel Clásico
+            </Button>
+          </div>
+        </div>
+
         <Tabs defaultValue="command-center" className="w-full">
-          <div className="flex items-center justify-between">
-            <TabsList className="grid grid-cols-4 w-fit">
-              <TabsTrigger value="command-center">Centro de Comando</TabsTrigger>
-              <TabsTrigger value="analytics">Analytics</TabsTrigger>
-              <TabsTrigger value="security">Seguridad</TabsTrigger>
-              <TabsTrigger value="operations">Operaciones</TabsTrigger>
+          <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+            <TabsList className="grid grid-cols-4 w-full max-w-md mx-auto">
+              <TabsTrigger value="command-center" className="text-sm">Centro de Comando</TabsTrigger>
+              <TabsTrigger value="analytics" className="text-sm">Analytics</TabsTrigger>
+              <TabsTrigger value="security" className="text-sm">Seguridad</TabsTrigger>
+              <TabsTrigger value="operations" className="text-sm">Operaciones</TabsTrigger>
             </TabsList>
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                onClick={() => window.location.href = '/super-admin-schools'}
-                className="flex items-center gap-2"
-              >
-                <School className="h-4 w-4" />
-                Gestión Escuelas
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => window.location.href = '/platform-login'}
-                className="flex items-center gap-2 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
-              >
-                <Users className="h-4 w-4" />
-                Perfiles Especializados
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => window.location.href = '/super-admin-classic'}
-                className="flex items-center gap-2"
-              >
-                <Settings className="h-4 w-4" />
-                Panel Clásico
-              </Button>
-            </div>
           </div>
 
           {/* Command Center Tab */}
-          <TabsContent value="command-center" className="space-y-4">
+          <TabsContent value="command-center" className="space-y-8">
             {/* Real-time Revenue Ticker */}
             <div className="bg-gradient-to-r from-green-600 to-blue-600 text-white p-6 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-6">
+              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
                   <div className="text-2xl font-bold">Revenue Live</div>
-                  <div className="text-4xl font-mono">
+                  <div className="text-3xl lg:text-4xl font-mono">
                     ${realTimeData.revenue.toLocaleString()} MXN
                   </div>
                   <div className="text-sm bg-green-500 px-3 py-1 rounded-full">
                     +12.5% ↗
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-left lg:text-right">
                   <div className="text-sm opacity-90">MRR Actual</div>
-                  <div className="text-2xl font-bold">
+                  <div className="text-xl lg:text-2xl font-bold">
                     ${realTimeData.mrr.toLocaleString()} MXN
                   </div>
                 </div>
@@ -227,7 +231,7 @@ export default function SuperAdminCEODashboard() {
             </div>
 
             {/* Executive KPIs Grid */}
-            <div className="grid gap-4 md:grid-cols-6">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
               <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm text-blue-700 flex items-center gap-2">
@@ -326,7 +330,7 @@ export default function SuperAdminCEODashboard() {
             </div>
 
             {/* Real-time Command Center */}
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
               {/* Live Transaction Feed */}
               <Card className="bg-black text-green-400 font-mono">
                 <CardHeader>
@@ -443,7 +447,7 @@ export default function SuperAdminCEODashboard() {
             </div>
 
             {/* Bottom Analytics Row */}
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">

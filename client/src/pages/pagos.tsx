@@ -102,23 +102,21 @@ export default function Pagos() {
     let matchesDate = true;
     if (dateFrom || dateTo) {
       try {
-        // Convertir fecha del pago (formato: "25/06/2024 14:30") a formato ISO
-        const fechaParts = pago.fecha.split(' ')[0].split('/');
-        // Crear fecha correctamente: año-mes-día
-        const pagoDate = new Date(
-          parseInt(fechaParts[2]), // año
-          parseInt(fechaParts[1]) - 1, // mes (0-indexado)
-          parseInt(fechaParts[0]) // día
-        );
+        let pagoDate;
         
-        console.log('Debug filtro fecha:', {
-          pagoFecha: pago.fecha,
-          pagoDate: pagoDate,
-          dateFrom: dateFrom,
-          dateTo: dateTo,
-          fromDate: dateFrom ? new Date(dateFrom) : null,
-          toDate: dateTo ? new Date(dateTo) : null
-        });
+        // Detectar formato de fecha y convertir apropiadamente
+        if (pago.fecha.includes('/')) {
+          // Formato: "25/06/2024 14:30" o "25/06/2024"
+          const fechaParts = pago.fecha.split(' ')[0].split('/');
+          pagoDate = new Date(
+            parseInt(fechaParts[2]), // año
+            parseInt(fechaParts[1]) - 1, // mes (0-indexado)
+            parseInt(fechaParts[0]) // día
+          );
+        } else {
+          // Formato: "2024-12-10" (ISO)
+          pagoDate = new Date(pago.fecha);
+        }
         
         if (dateFrom) {
           const fromDate = new Date(dateFrom);
@@ -130,22 +128,11 @@ export default function Pagos() {
           matchesDate = matchesDate && pagoDate <= toDate;
         }
       } catch (error) {
-        console.error('Error parsing date:', pago.fecha, error);
         matchesDate = true;
       }
     }
     
-    const result = matchesMethod && matchesStatus && matchesDate;
-    console.log('Filtro resultado:', { 
-      estudiante: pago.estudiante,
-      fecha: pago.fecha, 
-      matchesMethod, 
-      matchesStatus, 
-      matchesDate, 
-      result 
-    });
-    
-    return result;
+    return matchesMethod && matchesStatus && matchesDate;
   });
 
   const estadisticas = {

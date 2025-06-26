@@ -117,6 +117,18 @@ export default function CatalogoProductos() {
     },
     {
       id: 9,
+      codigo: "REINS-2025",
+      nombre: "Reinscripción",
+      descripcion: "Proceso de reinscripción para ciclo escolar siguiente",
+      precio_unitario_centavos: 150000, // $1,500 MXN
+      categoria: "REINSCRIPCIONES",
+      unidad_medida: "SERVICIO",
+      clave_sat: "80101500",
+      activo: true,
+      seccion_academica: "GENERAL"
+    },
+    {
+      id: 10,
       codigo: "REINS-BACH-2025",
       nombre: "Reinscripción Bachillerato",
       descripcion: "Proceso de reinscripción anual para bachillerato",
@@ -228,6 +240,7 @@ export default function CatalogoProductos() {
     const colors = {
       COLEGIATURAS: "bg-blue-100 text-blue-800",
       INSCRIPCIONES: "bg-green-100 text-green-800",
+      REINSCRIPCIONES: "bg-teal-100 text-teal-800",
       SEGURO_ESCOLAR: "bg-purple-100 text-purple-800",
       LIBROS: "bg-orange-100 text-orange-800",
       OTROS: "bg-gray-100 text-gray-800"
@@ -242,6 +255,12 @@ export default function CatalogoProductos() {
 
   const handleToggleActive = async (productId: number, currentStatus: boolean) => {
     try {
+      // Aquí se haría la llamada real a la API
+      // await apiRequest(`/api/products/${productId}`, {
+      //   method: 'PATCH',
+      //   body: { activo: !currentStatus }
+      // });
+      
       toast({
         title: currentStatus ? "Producto deshabilitado" : "Producto habilitado",
         description: `El producto ha sido ${currentStatus ? "deshabilitado" : "habilitado"} correctamente.`,
@@ -252,6 +271,33 @@ export default function CatalogoProductos() {
         description: "No se pudo actualizar el estado del producto.",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleEditProduct = (product: any) => {
+    setEditingProduct(product);
+    setShowAddModal(true);
+  };
+
+  const handleDeleteProduct = async (productId: number, productName: string) => {
+    if (window.confirm(`¿Estás seguro de que deseas eliminar el producto "${productName}"?`)) {
+      try {
+        // Aquí se haría la llamada real a la API
+        // await apiRequest(`/api/products/${productId}`, {
+        //   method: 'DELETE'
+        // });
+        
+        toast({
+          title: "Producto eliminado",
+          description: "El producto ha sido eliminado correctamente.",
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "No se pudo eliminar el producto.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -302,6 +348,7 @@ export default function CatalogoProductos() {
                       <SelectContent>
                         <SelectItem value="COLEGIATURAS">Colegiaturas</SelectItem>
                         <SelectItem value="INSCRIPCIONES">Inscripciones</SelectItem>
+                        <SelectItem value="REINSCRIPCIONES">Reinscripciones</SelectItem>
                         <SelectItem value="SEGURO_ESCOLAR">Seguro Escolar</SelectItem>
                         <SelectItem value="LIBROS">Libros</SelectItem>
                         <SelectItem value="OTROS">Otros</SelectItem>
@@ -404,6 +451,7 @@ export default function CatalogoProductos() {
                     <SelectItem value="all">Todas las categorías</SelectItem>
                     <SelectItem value="COLEGIATURAS">Colegiaturas</SelectItem>
                     <SelectItem value="INSCRIPCIONES">Inscripciones</SelectItem>
+                    <SelectItem value="REINSCRIPCIONES">Reinscripciones</SelectItem>
                     <SelectItem value="SEGURO_ESCOLAR">Seguro Escolar</SelectItem>
                     <SelectItem value="LIBROS">Libros</SelectItem>
                     <SelectItem value="OTROS">Otros</SelectItem>
@@ -457,10 +505,10 @@ export default function CatalogoProductos() {
                           checked={producto.activo}
                           onCheckedChange={() => handleToggleActive(producto.id, producto.activo)}
                         />
-                    <Button size="sm" variant="outline" onClick={() => setEditingProduct(producto)}>
+                    <Button size="sm" variant="outline" onClick={() => handleEditProduct(producto)}>
                           <Edit className="w-4 h-4" />
                         </Button>
-                    <Button size="sm" variant="outline">
+                    <Button size="sm" variant="outline" onClick={() => handleDeleteProduct(producto.id, producto.nombre)}>
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>

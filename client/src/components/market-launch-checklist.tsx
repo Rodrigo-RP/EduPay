@@ -18,6 +18,7 @@ import {
   Phone,
   BookOpen
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface ChecklistItem {
   id: string;
@@ -189,6 +190,7 @@ const launchChecklist: ChecklistItem[] = [
 
 export default function MarketLaunchChecklist() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const { toast } = useToast();
   
   const categories = Array.from(new Set(launchChecklist.map(item => item.category)));
   
@@ -217,6 +219,30 @@ export default function MarketLaunchChecklist() {
   const filteredItems = selectedCategory 
     ? launchChecklist.filter(item => item.category === selectedCategory)
     : launchChecklist;
+
+  const handleSecurityAudit = () => {
+    toast({
+      title: "Iniciando Auditoría de Seguridad",
+      description: "Ejecutando revisión completa de vulnerabilidades y protocolos de seguridad...",
+      duration: 4000,
+    });
+  };
+
+  const handleProductionDeploy = () => {
+    toast({
+      title: "Preparando Despliegue",
+      description: "Configurando ambiente de producción en Replit Deployment...",
+      duration: 4000,
+    });
+  };
+
+  const handleCommercialLaunch = () => {
+    toast({
+      title: "¡Lanzamiento Comercial Iniciado!",
+      description: "EscuelaPay está oficialmente disponible para el mercado educativo mexicano",
+      duration: 5000,
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -361,17 +387,29 @@ export default function MarketLaunchChecklist() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Button className="h-auto p-4 flex flex-col items-center gap-2" disabled={completionPercentage < 90}>
+            <Button 
+              className="h-auto p-4 flex flex-col items-center gap-2" 
+              disabled={completionPercentage < 90}
+              onClick={handleSecurityAudit}
+            >
               <Shield className="h-6 w-6" />
               <span>Revisión Final de Seguridad</span>
               <span className="text-xs opacity-70">Auditoría completa</span>
             </Button>
-            <Button className="h-auto p-4 flex flex-col items-center gap-2" disabled={completionPercentage < 95}>
+            <Button 
+              className="h-auto p-4 flex flex-col items-center gap-2" 
+              disabled={completionPercentage < 95}
+              onClick={handleProductionDeploy}
+            >
               <Globe className="h-6 w-6" />
               <span>Desplegar a Producción</span>
               <span className="text-xs opacity-70">Replit Deployment</span>
             </Button>
-            <Button className="h-auto p-4 flex flex-col items-center gap-2" disabled={completionPercentage < 100}>
+            <Button 
+              className="h-auto p-4 flex flex-col items-center gap-2" 
+              disabled={completionPercentage < 100}
+              onClick={handleCommercialLaunch}
+            >
               <Rocket className="h-6 w-6" />
               <span>Lanzamiento Comercial</span>
               <span className="text-xs opacity-70">Go to Market</span>

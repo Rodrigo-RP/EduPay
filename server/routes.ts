@@ -215,6 +215,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // PLATFORM LOGIN for Support and Implementation users
+  app.post("/api/auth/platform-login", async (req, res) => {
+    try {
+      const { email, password, profile_type } = req.body;
+
+      if (!email || !password || !profile_type) {
+        return res.status(400).json({ message: "Email, password and profile type are required" });
+      }
+
+      // Demo users for testing
+      const platformUsers = {
+        "ana.soporte@escuelapay.com": {
+          id: 100,
+          email: "ana.soporte@escuelapay.com",
+          name: "Ana García",
+          role: "support",
+          password: "Support123!",
+          profile: {
+            profile_type: "support",
+            specialization: "technical_support",
+            access_level: "read_write",
+            support_tier: "tier2",
+            assigned_schools: ["16", "17", "18"],
+            permissions: ["view_tickets", "respond_tickets", "escalate_tickets", "view_metrics"]
+          }
+        },
+        "carlos.implementacion@escuelapay.com": {
+          id: 101,
+          email: "carlos.implementacion@escuelapay.com",
+          name: "Carlos Ramírez",
+          role: "implementation",
+          password: "Implement123!",
+          profile: {
+            profile_type: "implementation",
+            specialization: "onboarding_specialist",
+            access_level: "full_access",
+            implementation_phase: "all_phases",
+            assigned_schools: ["16", "17", "19"],
+            permissions: ["manage_projects", "configure_systems", "train_users", "go_live_support"]
+          }
+        },
+        "luis.configuracion@escuelapay.com": {
+          id: 102,
+          email: "luis.configuracion@escuelapay.com",
+          name: "Luis Martínez",
+          role: "implementation",
+          password: "Config123!",
+          profile: {
+            profile_type: "implementation",
+            specialization: "integration_expert",
+            access_level: "read_write",
+            implementation_phase: "setup",
+            assigned_schools: ["20", "21"],
+            permissions: ["configure_systems", "data_migration", "integration_setup"]
+          }
+        }
+      };
+
+      const user = platformUsers[email as keyof typeof platformUsers];
+      
+      if (!user || user.password !== password) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      // Verify profile type matches
+      if (user.role !== profile_type) {
+        return res.status(403).json({ message: "Access denied for this profile type" });
+      }
+
+      const token = jwt.sign(
+        { 
+          id: user.id, 
+          email: user.email, 
+          role: user.role,
+          profile_type: user.profile.profile_type
+        },
+        JWT_SECRET,
+        { expiresIn: '8h' }
+      );
+
+      res.json({ 
+        token, 
+        user: { 
+          id: user.id, 
+          email: user.email, 
+          name: user.name, 
+          role: user.role 
+        },
+        profile: user.profile
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: "Platform login failed: " + error.message });
+    }
+  });
+
   // GUARDIAN PORTAL ROUTES
 
   // Get guardian's students and their pending charges

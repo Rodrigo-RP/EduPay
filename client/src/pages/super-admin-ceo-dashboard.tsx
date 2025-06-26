@@ -186,6 +186,14 @@ export default function SuperAdminCEODashboard() {
               </Button>
               <Button 
                 variant="outline" 
+                onClick={() => window.location.href = '/platform-login'}
+                className="flex items-center gap-2 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+              >
+                <Users className="h-4 w-4" />
+                Perfiles Especializados
+              </Button>
+              <Button 
+                variant="outline" 
                 onClick={() => window.location.href = '/super-admin-classic'}
                 className="flex items-center gap-2"
               >

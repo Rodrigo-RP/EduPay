@@ -118,6 +118,13 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- June 26, 2025: PERFILES ESPECIALIZADOS IMPLEMENTADOS - Usuarios de soporte técnico e implementación con dashboards específicos
+- June 26, 2025: Dashboard de Soporte Técnico: gestión de tickets, métricas de satisfacción, herramientas de atención al cliente
+- June 26, 2025: Dashboard de Implementación: gestión de proyectos de onboarding, fases de configuración, seguimiento go-live
+- June 26, 2025: Sistema de autenticación específico por perfil con permisos granulares y especialización por rol
+- June 26, 2025: Usuarios demo: ana.soporte@escuelapay.com / Support123!, carlos.implementacion@escuelapay.com / Implement123!
+- June 26, 2025: Navegación integrada desde dashboard CEO con acceso directo a "Perfiles Especializados"
+- June 26, 2025: Esquema de base de datos expandido con tabla platform_profiles para gestión de perfiles empresariales
 - June 26, 2025: SISTEMA DE GESTIÓN ESCOLAR COMPLETADO - Panel administrativo para intervención directa en escuelas
 - June 26, 2025: Dashboard de selección de escuelas con filtros por nombre y estado (activo/inactivo/suspendido)
 - June 26, 2025: Panel completo por escuela con 5 pestañas: Resumen, Usuarios, Estudiantes, Campus, Finanzas

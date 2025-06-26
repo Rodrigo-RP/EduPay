@@ -48,6 +48,7 @@ export default function ParentPortal() {
   const { guardian } = useAuth();
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
   const [selectedCharge, setSelectedCharge] = useState<PendingCharge | null>(null);
 
   const { data: dashboardData, isLoading } = useQuery<DashboardData>({
@@ -88,6 +89,18 @@ export default function ParentPortal() {
   const handlePayCharge = (charge: PendingCharge) => {
     setSelectedCharge(charge);
     setShowPaymentModal(true);
+  };
+
+  const handleNavigateToPayments = () => {
+    window.location.href = '/pagos';
+  };
+
+  const handleNavigateToInvoices = () => {
+    window.location.href = '/reportes';
+  };
+
+  const handleNavigateToProfile = () => {
+    window.location.href = '/familias';
   };
 
   const formatCurrency = (centavos: number) => {
@@ -286,6 +299,7 @@ export default function ParentPortal() {
           <Button 
                 variant="outline"
                 className="w-full p-3 border-2 border-dashed border-slate-300 hover:border-primary-300 hover:text-primary-600"
+                onClick={() => setShowPaymentMethodModal(true)}
               >
                 <i className="fas fa-plus mr-2"></i>
                 Agregar método de pago
@@ -302,15 +316,24 @@ export default function ParentPortal() {
             <i className="fas fa-home text-lg mb-1"></i>
             <span className="text-xs font-medium">Inicio</span>
           </button>
-          <button className="flex flex-col items-center py-2 text-slate-400">
+          <button 
+            className="flex flex-col items-center py-2 text-slate-400 hover:text-primary-600"
+            onClick={handleNavigateToPayments}
+          >
             <i className="fas fa-credit-card text-lg mb-1"></i>
             <span className="text-xs">Pagos</span>
           </button>
-          <button className="flex flex-col items-center py-2 text-slate-400">
+          <button 
+            className="flex flex-col items-center py-2 text-slate-400 hover:text-primary-600"
+            onClick={handleNavigateToInvoices}
+          >
             <i className="fas fa-file-invoice text-lg mb-1"></i>
             <span className="text-xs">Facturas</span>
           </button>
-          <button className="flex flex-col items-center py-2 text-slate-400">
+          <button 
+            className="flex flex-col items-center py-2 text-slate-400 hover:text-primary-600"
+            onClick={handleNavigateToProfile}
+          >
             <i className="fas fa-user text-lg mb-1"></i>
             <span className="text-xs">Perfil</span>
           </button>

@@ -283,9 +283,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Apply charges from catalog with automatic academic level pricing
-  app.post("/api/admin/cargos/desde-catalogo", authenticateToken, async (req, res) => {
+  app.post("/api/admin/cargos/desde-catalogo", authenticateToken, async (req: any, res: any) => {
     try {
-      const { producto_id, fecha_vencimiento, campus_id } = req.body;
+      const { producto_id, fecha_vencimiento } = req.body;
+      const userCampusId = req.user.campus_id; // Use authenticated user's campus
       
       // Catalog products with differentiated pricing
       const catalogProducts = {
@@ -327,17 +328,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get students from campus
-      const students = await storage.getStudentsByCampus(campus_id || 1);
+      const students = await storage.getStudentsByCampus(userCampusId);
       
       // Create or get concept for this product
       let concept;
       try {
-        const concepts = await storage.getConceptsByCampus(campus_id || 1);
+        const concepts = await storage.getConceptsByCampus(userCampusId);
         concept = concepts.find(c => c.nombre === product.nombre);
         
         if (!concept) {
           concept = await storage.createConcept({
-            campus_id: campus_id || 1,
+            campus_id: userCampusId,
             nombre: product.nombre,
             tipo: product.categoria.toLowerCase(),
             periodicidad: "unica",

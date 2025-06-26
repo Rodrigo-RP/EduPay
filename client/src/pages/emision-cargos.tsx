@@ -559,8 +559,7 @@ export default function EmisionCargos() {
                   <Button 
                     onClick={() => aplicarCargos.mutate({ 
                       producto_id: selectedProduct, 
-                      fecha_vencimiento: "2025-02-15",
-                      campus_id: 1
+                      fecha_vencimiento: "2025-02-15"
                     })}
                     disabled={aplicarCargos.isPending}
                   >

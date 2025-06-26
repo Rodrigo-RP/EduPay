@@ -293,8 +293,7 @@ export default function AsignacionPrecios() {
                   onClick={() => {
                     applyCharges.mutate({ 
                       producto_id: selectedProduct, 
-                      fecha_vencimiento: fechaVencimiento,
-                      campus_id: 1
+                      fecha_vencimiento: fechaVencimiento
                     });
                   }}
                   disabled={applyCharges.isPending}

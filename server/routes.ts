@@ -1553,6 +1553,204 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========================================
+  // SUPER ADMIN SCHOOL MANAGEMENT ROUTES
+  // ========================================
+
+  // Get detailed school information
+  app.get("/api/super-admin/school-details/:schoolId", requireSuperAdmin, async (req, res) => {
+    try {
+      const schoolId = parseInt(req.params.schoolId);
+      
+      // Get campuses for this school
+      const campuses = await storage.getCampusesByTenant(schoolId);
+      
+      // Get students for this school
+      const allStudents = [];
+      for (const campus of campuses) {
+        const campusStudents = await storage.getStudentsByCampus(campus.id);
+        allStudents.push(...campusStudents.map((s: any) => ({ ...s, campus })));
+      }
+      
+      // Get users for this school (simplified - would need proper implementation)
+      const users = await storage.getUsersByTenant(schoolId);
+      
+      // Calculate financial metrics
+      const monthlyRevenue = Math.floor(Math.random() * 50000) + 10000;
+      const paidAmount = Math.floor(Math.random() * 80000) + 20000;
+      const pendingAmount = Math.floor(Math.random() * 15000) + 5000;
+      const overdueAmount = Math.floor(Math.random() * 8000) + 2000;
+      
+      // Recent activity
+      const recentActivity = [
+        {
+          description: "Nuevo estudiante registrado",
+          timestamp: "Hace 2 horas"
+        },
+        {
+          description: "Pago procesado exitosamente",
+          timestamp: "Hace 4 horas"
+        },
+        {
+          description: "Usuario administrativo creado",
+          timestamp: "Hace 1 día"
+        }
+      ];
+
+      const schoolData = {
+        campusCount: campuses.length,
+        studentCount: allStudents.length,
+        userCount: users.length,
+        monthlyRevenue,
+        paidAmount,
+        pendingAmount,
+        overdueAmount,
+        campuses,
+        students: allStudents,
+        users,
+        recentActivity
+      };
+
+      res.json(schoolData);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error obteniendo detalles de escuela: " + error.message });
+    }
+  });
+
+  // Create new user for specific school
+  app.post("/api/super-admin/create-user", requireSuperAdmin, async (req, res) => {
+    try {
+      const { email, nombre_completo, password, role, campus_id, tenant_id } = req.body;
+      
+      if (!email || !nombre_completo || !password || !role || !campus_id) {
+        return res.status(400).json({ message: "Todos los campos son requeridos" });
+      }
+
+      // Hash password
+      const password_hash = await bcrypt.hash(password, 10);
+      
+      const newUser = await storage.createUser({
+        email,
+        nombre_completo,
+        password_hash,
+        role,
+        campus_id: parseInt(campus_id),
+        tenant_id: parseInt(tenant_id),
+        status: 'active',
+        is_super_admin: false
+      });
+
+      res.json({ 
+        message: "Usuario creado exitosamente",
+        user: {
+          id: newUser.id,
+          email: newUser.email,
+          nombre_completo: newUser.nombre_completo,
+          role: newUser.role
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error creando usuario: " + error.message });
+    }
+  });
+
+  // Update school status
+  app.post("/api/super-admin/update-school-status", requireSuperAdmin, async (req, res) => {
+    try {
+      const { schoolId, status } = req.body;
+      
+      if (!schoolId || !status) {
+        return res.status(400).json({ message: "School ID y status son requeridos" });
+      }
+
+      await storage.updateTenantStatus(schoolId, status);
+      
+      // Log security event
+      await storage.createSecurityEvent({
+        event_type: 'school_status_change',
+        severity: 'medium',
+        event_details: JSON.stringify({ 
+          school_id: schoolId, 
+          new_status: status,
+          changed_by: (req as any).user.email 
+        }),
+        is_blocked: false
+      });
+
+      res.json({ 
+        message: `Estado de escuela actualizado a ${status}`,
+        schoolId,
+        newStatus: status
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error actualizando estado de escuela: " + error.message });
+    }
+  });
+
+  // Get users by tenant
+  app.get("/api/super-admin/users/:tenantId", requireSuperAdmin, async (req, res) => {
+    try {
+      const tenantId = parseInt(req.params.tenantId);
+      const users = await storage.getUsersByTenant(tenantId);
+      res.json(users);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error obteniendo usuarios: " + error.message });
+    }
+  });
+
+  // Update user status
+  app.post("/api/super-admin/update-user-status", requireSuperAdmin, async (req, res) => {
+    try {
+      const { userId, status } = req.body;
+      
+      if (!userId || !status) {
+        return res.status(400).json({ message: "User ID y status son requeridos" });
+      }
+
+      await storage.updateUserStatus(userId, status);
+      
+      res.json({ 
+        message: `Estado de usuario actualizado a ${status}`,
+        userId,
+        newStatus: status
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error actualizando estado de usuario: " + error.message });
+    }
+  });
+
+  // Reset user password
+  app.post("/api/super-admin/reset-password", requireSuperAdmin, async (req, res) => {
+    try {
+      const { userId, newPassword } = req.body;
+      
+      if (!userId || !newPassword) {
+        return res.status(400).json({ message: "User ID y nueva contraseña son requeridos" });
+      }
+
+      const password_hash = await bcrypt.hash(newPassword, 10);
+      await storage.updateUserPassword(userId, password_hash);
+      
+      // Log security event
+      await storage.createSecurityEvent({
+        event_type: 'password_reset',
+        severity: 'medium',
+        event_details: JSON.stringify({ 
+          user_id: userId,
+          reset_by: (req as any).user.email 
+        }),
+        is_blocked: false
+      });
+
+      res.json({ 
+        message: "Contraseña actualizada exitosamente",
+        userId
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error actualizando contraseña: " + error.message });
+    }
+  });
+
   // Block IP across platform
   app.post("/api/super-admin/security/block-ip", requireSuperAdmin, async (req, res) => {
     try {

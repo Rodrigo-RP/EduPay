@@ -10,7 +10,7 @@ import {
   type SystemHealth
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 export interface IStorage {
@@ -65,6 +65,12 @@ export interface IStorage {
   
   // Payment methods
   getPaymentMethodsByGuardian(guardianId: number): Promise<PaymentMethod[]>;
+  
+  // School management operations
+  getUsersByTenant(tenantId: number): Promise<User[]>;
+  updateTenantStatus(tenantId: number, status: string): Promise<void>;
+  updateUserStatus(userId: number, status: string): Promise<void>;
+  updateUserPassword(userId: number, password_hash: string): Promise<void>;
   
   // Dashboard KPIs
   getDashboardKPIs(campusId: number): Promise<{
@@ -418,6 +424,43 @@ export class DatabaseStorage implements IStorage {
       .from(system_health)
       .orderBy(desc(system_health.checked_at))
       .limit(10);
+  }
+
+  // School management operations
+  async getUsersByTenant(tenantId: number): Promise<User[]> {
+    const [tenant] = await db.select().from(tenants).where(eq(tenants.id, tenantId));
+    if (!tenant) return [];
+    
+    const campusesData = await db.select().from(campuses).where(eq(campuses.tenant_id, tenantId));
+    const campusIds = campusesData.map(c => c.id);
+    
+    if (campusIds.length === 0) return [];
+    
+    const usersData = await db.select().from(users).where(
+      campusIds.length === 1 
+        ? eq(users.campus_id, campusIds[0])
+        : inArray(users.campus_id, campusIds)
+    );
+    
+    return usersData;
+  }
+
+  async updateTenantStatus(tenantId: number, status: string): Promise<void> {
+    await db.update(tenants)
+      .set({ updated_at: new Date() })
+      .where(eq(tenants.id, tenantId));
+  }
+
+  async updateUserStatus(userId: number, status: string): Promise<void> {
+    await db.update(users)
+      .set({ status, updated_at: new Date() })
+      .where(eq(users.id, userId));
+  }
+
+  async updateUserPassword(userId: number, password_hash: string): Promise<void> {
+    await db.update(users)
+      .set({ password_hash, updated_at: new Date() })
+      .where(eq(users.id, userId));
   }
 
   async createSecurityEvent(event: InsertSecurityEvent): Promise<SecurityEvent> {

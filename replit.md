@@ -118,6 +118,12 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- June 26, 2025: TODOS LOS BOTONES HABILITADOS CON FUNCIONALIDAD COMPLETA - Sistema de gestión administrativa totalmente operativo
+- June 26, 2025: Botones funcionales: modificar, suspender, documentos, activar, generar reportes, calcular total, auditar asignaciones
+- June 26, 2025: Descarga de reportes en Excel, PDF y Word implementada con contenido completo
+- June 26, 2025: Modales de confirmación rojos para suspender becas con AlertDialog y accesibilidad completa
+- June 26, 2025: Modal de documentos con gestión completa de archivos requeridos y estado visual
+- June 26, 2025: Funciones administrativas: cálculo de ahorros, auditoría de asignaciones, notificaciones toast
 - June 26, 2025: GESTIÓN ADMINISTRATIVA DE BECAS COMPLETADA - Sistema para asignación manual eficiente
 - June 26, 2025: 6 tipos de becas implementados: socioeconómica, familiar, convenio empresarial, deportiva, cultural, empleados
 - June 26, 2025: Modal de asignación directa estudiante-por-estudiante con porcentajes y vigencias

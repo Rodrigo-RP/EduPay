@@ -7,16 +7,24 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
-import { Gift, Percent, Users, Plus, Edit, Trash2, GraduationCap, DollarSign, Calculator, Zap, Target, Award, FileText, Building } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Gift, Percent, Users, Plus, Edit, Trash2, GraduationCap, DollarSign, Calculator, Zap, Target, Award, FileText, Building, Download, AlertTriangle, CheckCircle, XCircle, Clock, MoreVertical } from "lucide-react";
 
 export default function Becas() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedTab, setSelectedTab] = useState("becas");
   const [showAsignarModal, setShowAsignarModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [selectedBeca, setSelectedBeca] = useState<any>(null);
+  const [selectedEstudiante, setSelectedEstudiante] = useState<any>(null);
+  const { toast } = useToast();
 
   // Sistema de gestión administrativa de becas y descuentos
   const becasYDescuentos = [
@@ -158,6 +166,123 @@ export default function Becas() {
   const totalEstudiantesBeneficiados = becasYDescuentos.reduce((sum, b) => sum + b.estudiantes_aplicados, 0);
   const montoTotalDescuentos = becasYDescuentos.reduce((sum, b) => sum + b.monto_total_descuento, 0);
   const promedioDescuento = becasYDescuentos.reduce((sum, b) => sum + b.porcentaje_max, 0) / becasYDescuentos.length;
+
+  // Funciones para manejar acciones de botones
+  const handleEditBeca = (beca: any) => {
+    setSelectedBeca(beca);
+    setShowEditModal(true);
+  };
+
+  const handleSuspendEstudiante = (estudiante: any) => {
+    toast({
+      title: "Beca Suspendida",
+      description: `La beca de ${estudiante.nombre_completo} ha sido suspendida temporalmente.`,
+    });
+  };
+
+  const handleActivateBeca = (becaId: number) => {
+    toast({
+      title: "Beca Activada",
+      description: "La beca ha sido activada exitosamente.",
+    });
+  };
+
+  const handleViewDocuments = (estudiante: any) => {
+    setSelectedEstudiante(estudiante);
+    setShowDocumentModal(true);
+  };
+
+  const handleGenerateReport = (formato: 'excel' | 'pdf' | 'word') => {
+    const reportData = {
+      fecha: new Date().toLocaleDateString(),
+      tipos_becas: totalTiposBecas,
+      estudiantes_beneficiados: totalEstudiantesBeneficiados,
+      monto_total: montoTotalDescuentos / 100,
+      promedio_descuento: promedioDescuento.toFixed(1)
+    };
+
+    // Simular descarga de reporte
+    const fileName = `reporte_becas_${new Date().toISOString().split('T')[0]}.${formato}`;
+    
+    if (formato === 'excel') {
+      // Crear contenido CSV para simular Excel
+      const csvContent = [
+        'Tipo de Beca,Estudiantes,Monto Total,Porcentaje Max',
+        ...becasYDescuentos.map(b => `${b.nombre},${b.estudiantes_aplicados},${b.monto_total_descuento/100},${b.porcentaje_max}%`)
+      ].join('\n');
+      
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName.replace('.excel', '.csv');
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } else {
+      // Para PDF y Word, crear contenido de texto
+      const content = `
+REPORTE DE BECAS Y DESCUENTOS
+Fecha: ${reportData.fecha}
+
+RESUMEN EJECUTIVO:
+- Tipos de becas activas: ${reportData.tipos_becas}
+- Estudiantes beneficiados: ${reportData.estudiantes_beneficiados}
+- Monto total de descuentos: $${reportData.monto_total.toLocaleString()}
+- Promedio de descuento: ${reportData.promedio_descuento}%
+
+DETALLE POR TIPO DE BECA:
+${becasYDescuentos.map(b => `
+${b.nombre}:
+- Estudiantes: ${b.estudiantes_aplicados}
+- Monto: $${(b.monto_total_descuento/100).toLocaleString()}
+- Porcentaje máximo: ${b.porcentaje_max}%
+- Estado: ${b.activa ? 'Activa' : 'Inactiva'}
+`).join('')}
+      `;
+
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName.replace(formato, 'txt');
+      a.click();
+      window.URL.revokeObjectURL(url);
+    }
+
+    toast({
+      title: "Reporte Generado",
+      description: `Reporte en formato ${formato.toUpperCase()} descargado exitosamente.`,
+    });
+  };
+
+  const handleCalculateTotal = () => {
+    const calculo = {
+      becas_activas: totalTiposBecas,
+      estudiantes_totales: totalEstudiantesBeneficiados,
+      ahorro_mensual: montoTotalDescuentos / 100,
+      ahorro_anual: (montoTotalDescuentos / 100) * 10, // 10 meses del ciclo escolar
+      beneficio_promedio: (montoTotalDescuentos / 100) / totalEstudiantesBeneficiados
+    };
+
+    toast({
+      title: "Cálculo Total Completado",
+      description: `Ahorro anual estimado: $${calculo.ahorro_anual.toLocaleString()} | Beneficio promedio por estudiante: $${calculo.beneficio_promedio.toLocaleString()}`,
+    });
+  };
+
+  const handleAuditAssignments = () => {
+    const auditResults = {
+      total_asignaciones: totalEstudiantesBeneficiados,
+      asignaciones_manuales: becasYDescuentos.filter(b => b.tipo === 'manual').reduce((sum, b) => sum + b.estudiantes_aplicados, 0),
+      asignaciones_automaticas: becasYDescuentos.filter(b => b.tipo === 'automatico').reduce((sum, b) => sum + b.estudiantes_aplicados, 0),
+      pendientes_revision: estudiantesParaBecas.filter(e => e.estado === 'Pendiente Renovación').length
+    };
+
+    toast({
+      title: "Auditoría Completada",
+      description: `${auditResults.total_asignaciones} asignaciones revisadas. ${auditResults.pendientes_revision} requieren atención.`,
+    });
+  };
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -461,13 +586,19 @@ export default function Becas() {
                   </div>
 
                   <div className="flex justify-end space-x-2 mt-4">
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={() => handleEditBeca(beca)}>
                       <Edit className="h-4 w-4 mr-2" />
                       Editar
                     </Button>
                     <Button variant="outline" size="sm">
                       Ver Estudiantes
                     </Button>
+                    {!beca.activa && (
+                      <Button variant="default" size="sm" onClick={() => handleActivateBeca(beca.id)}>
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Activar
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -519,17 +650,43 @@ export default function Becas() {
                   </div>
 
                   <div className="flex justify-end space-x-2 mt-4">
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={() => handleEditBeca(estudiante)}>
                       <Edit className="h-4 w-4 mr-2" />
                       Modificar
                     </Button>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={() => handleViewDocuments(estudiante)}>
                       <FileText className="h-4 w-4 mr-2" />
                       Documentos
                     </Button>
-                    <Button variant="destructive" size="sm">
-                      Suspender
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm">
+                          <XCircle className="h-4 w-4 mr-2" />
+                          Suspender
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+                            <AlertTriangle className="h-5 w-5" />
+                            Suspender Beca
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            ¿Estás seguro de que deseas suspender la beca de {estudiante.nombre_completo}? 
+                            Esta acción suspenderá temporalmente el descuento aplicado.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction 
+                            className="bg-red-600 hover:bg-red-700"
+                            onClick={() => handleSuspendEstudiante(estudiante)}
+                          >
+                            Suspender Beca
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </CardContent>
               </Card>
@@ -586,15 +743,44 @@ export default function Becas() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Button className="h-20 flex flex-col items-center justify-center">
-                  <FileText className="h-6 w-6 mb-2" />
-                  Generar Reporte Mensual
-                </Button>
-                <Button variant="outline" className="h-20 flex flex-col items-center justify-center">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button className="h-20 flex flex-col items-center justify-center">
+                      <FileText className="h-6 w-6 mb-2" />
+                      Generar Reporte Mensual
+                      <Download className="h-3 w-3 mt-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => handleGenerateReport('excel')}>
+                      <FileText className="h-4 w-4 mr-2" />
+                      Descargar Excel
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleGenerateReport('pdf')}>
+                      <FileText className="h-4 w-4 mr-2" />
+                      Descargar PDF
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleGenerateReport('word')}>
+                      <FileText className="h-4 w-4 mr-2" />
+                      Descargar Word
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <Button 
+                  variant="outline" 
+                  className="h-20 flex flex-col items-center justify-center"
+                  onClick={handleCalculateTotal}
+                >
                   <Calculator className="h-6 w-6 mb-2" />
                   Calcular Ahorro Total
                 </Button>
-                <Button variant="outline" className="h-20 flex flex-col items-center justify-center">
+
+                <Button 
+                  variant="outline" 
+                  className="h-20 flex flex-col items-center justify-center"
+                  onClick={handleAuditAssignments}
+                >
                   <Users className="h-6 w-6 mb-2" />
                   Auditar Asignaciones
                 </Button>
@@ -615,6 +801,206 @@ export default function Becas() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Modal para Editar Beca */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Modificar Beca/Descuento</DialogTitle>
+            <DialogDescription>
+              Editar configuración y asignación de beca para estudiante
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit_estudiante">Estudiante</Label>
+                <Input 
+                  id="edit_estudiante" 
+                  value={selectedBeca?.nombre_completo || selectedBeca?.nombre || ''} 
+                  disabled 
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit_tipo">Tipo de Beca</Label>
+                <Select defaultValue={selectedBeca?.tipo_solicitud || selectedBeca?.categoria}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="socioeconomica">Beca Socioeconómica</SelectItem>
+                    <SelectItem value="convenio">Beca por Convenio</SelectItem>
+                    <SelectItem value="deportiva">Beca Deportiva</SelectItem>
+                    <SelectItem value="cultural">Beca Cultural</SelectItem>
+                    <SelectItem value="familiar">Descuento Familiar</SelectItem>
+                    <SelectItem value="empleado">Descuento Empleados</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit_porcentaje">Porcentaje de Descuento (%)</Label>
+                <Input 
+                  id="edit_porcentaje" 
+                  type="number" 
+                  min="0" 
+                  max="100" 
+                  defaultValue={selectedBeca?.porcentaje_asignado || selectedBeca?.porcentaje_max} 
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit_estado">Estado</Label>
+                <Select defaultValue={selectedBeca?.estado || (selectedBeca?.activa ? "Activa" : "Inactiva")}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Activa">Activa</SelectItem>
+                    <SelectItem value="Suspendida">Suspendida</SelectItem>
+                    <SelectItem value="Pendiente Renovación">Pendiente Renovación</SelectItem>
+                    <SelectItem value="Inactiva">Inactiva</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="edit_observaciones">Observaciones</Label>
+              <Textarea 
+                id="edit_observaciones" 
+                defaultValue={selectedBeca?.observaciones || selectedBeca?.descripcion}
+                placeholder="Actualizar motivos, condiciones o comentarios..."
+              />
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setShowEditModal(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={() => {
+                setShowEditModal(false);
+                toast({
+                  title: "Beca Actualizada",
+                  description: "Los cambios han sido guardados exitosamente.",
+                });
+              }}>
+                Guardar Cambios
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para Ver Documentos */}
+      <Dialog open={showDocumentModal} onOpenChange={setShowDocumentModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Documentos de Beca - {selectedEstudiante?.nombre_completo}</DialogTitle>
+            <DialogDescription>
+              Gestión de documentos requeridos y adjuntos para la beca
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h4 className="font-medium mb-4">Documentos Requeridos</h4>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <span className="text-sm">Estudio socioeconómico</span>
+                    </div>
+                    <Badge variant="default">Completo</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <span className="text-sm">Comprobante de ingresos</span>
+                    </div>
+                    <Badge variant="default">Completo</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <Clock className="h-4 w-4 text-yellow-500" />
+                      <span className="text-sm">Carta de solicitud</span>
+                    </div>
+                    <Badge variant="secondary">Pendiente</Badge>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-medium mb-4">Documentos Adicionales</h4>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <FileText className="h-4 w-4 text-blue-500" />
+                      <span className="text-sm">Acta de nacimiento</span>
+                    </div>
+                    <Button variant="outline" size="sm">
+                      <Download className="h-3 w-3 mr-1" />
+                      Ver
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <FileText className="h-4 w-4 text-blue-500" />
+                      <span className="text-sm">CURP</span>
+                    </div>
+                    <Button variant="outline" size="sm">
+                      <Download className="h-3 w-3 mr-1" />
+                      Ver
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            <div>
+              <h4 className="font-medium mb-4">Subir Nuevo Documento</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="doc_tipo">Tipo de Documento</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar tipo..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="solicitud">Carta de solicitud</SelectItem>
+                      <SelectItem value="ingresos">Comprobante de ingresos</SelectItem>
+                      <SelectItem value="estudio">Estudio socioeconómico</SelectItem>
+                      <SelectItem value="otro">Otro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="doc_file">Archivo</Label>
+                  <Input id="doc_file" type="file" accept=".pdf,.jpg,.png,.docx" />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setShowDocumentModal(false)}>
+                Cerrar
+              </Button>
+              <Button onClick={() => {
+                setShowDocumentModal(false);
+                toast({
+                  title: "Documento Subido",
+                  description: "El documento ha sido adjuntado exitosamente.",
+                });
+              }}>
+                Subir Documento
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

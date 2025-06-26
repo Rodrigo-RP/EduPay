@@ -30,10 +30,10 @@ export default function Becas() {
   const becasYDescuentos = [
     {
       id: 1,
-      nombre: "Beca Socioeconómica",
-      categoria: "socioeconomica",
+      nombre: "Beca USEBEQ",
+      categoria: "usebeq",
       tipo: "manual",
-      descripcion: "Gestión centralizada de becas por necesidad socioeconómica familiar",
+      descripcion: "Beca de la Unidad de Servicios para la Educación Básica en el Estado de Querétaro",
       porcentaje_max: 100,
       estudiantes_aplicados: 15,
       monto_total_descuento: 3200000, // $32,000 MXN
@@ -284,6 +284,38 @@ ${b.nombre}:
     });
   };
 
+  const handleManualAssignment = () => {
+    setShowAsignarModal(true);
+    toast({
+      title: "Asignación Manual Activada",
+      description: "Selecciona estudiantes para asignar becas manualmente.",
+    });
+  };
+
+  const handleActivateAllBecas = () => {
+    const inactiveBecas = becasYDescuentos.filter(b => !b.activa).length;
+    toast({
+      title: "Becas Activadas",
+      description: `${inactiveBecas} becas han sido activadas exitosamente.`,
+    });
+  };
+
+  const handleViewStudents = (beca: any) => {
+    // Mostrar modal con lista de estudiantes de la beca
+    const estudiantesDeLaBeca = estudiantesParaBecas.filter(e => 
+      e.tipo_solicitud === beca.categoria || 
+      (beca.categoria === 'usebeq' && e.tipo_solicitud === 'socioeconomica')
+    );
+    
+    toast({
+      title: `Estudiantes de ${beca.nombre}`,
+      description: `${estudiantesDeLaBeca.length} estudiantes encontrados con esta beca.`,
+    });
+    
+    // Aquí podrías abrir un modal con la lista completa
+    console.log('Estudiantes de la beca:', estudiantesDeLaBeca);
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -325,7 +357,7 @@ ${b.nombre}:
                         <SelectValue placeholder="Seleccionar beca..." />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="socioeconomica">Beca Socioeconómica</SelectItem>
+                        <SelectItem value="usebeq">Beca USEBEQ</SelectItem>
                         <SelectItem value="convenio">Beca por Convenio</SelectItem>
                         <SelectItem value="deportiva">Beca Deportiva</SelectItem>
                         <SelectItem value="cultural">Beca Cultural</SelectItem>
@@ -590,7 +622,7 @@ ${b.nombre}:
                       <Edit className="h-4 w-4 mr-2" />
                       Editar
                     </Button>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={() => handleViewStudents(beca)}>
                       Ver Estudiantes
                     </Button>
                     {!beca.activa && (
@@ -828,7 +860,7 @@ ${b.nombre}:
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="socioeconomica">Beca Socioeconómica</SelectItem>
+                    <SelectItem value="usebeq">Beca USEBEQ</SelectItem>
                     <SelectItem value="convenio">Beca por Convenio</SelectItem>
                     <SelectItem value="deportiva">Beca Deportiva</SelectItem>
                     <SelectItem value="cultural">Beca Cultural</SelectItem>

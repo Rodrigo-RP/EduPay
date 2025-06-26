@@ -140,7 +140,7 @@ export default function CatalogoProductos() {
       seccion_academica: "BACHILLERATO"
     },
     {
-      id: 10,
+      id: 11,
       codigo: "MAT-LAB-2025",
       nombre: "Material de Laboratorio",
       descripcion: "Materiales para prácticas de laboratorio de ciencias",
@@ -152,7 +152,7 @@ export default function CatalogoProductos() {
       seccion_academica: "SECUNDARIA"
     },
     {
-      id: 11,
+      id: 12,
       codigo: "UNI-DEPORTIVO",
       nombre: "Uniforme Deportivo",
       descripcion: "Uniforme completo para educación física y deportes",
@@ -164,7 +164,7 @@ export default function CatalogoProductos() {
       seccion_academica: "GENERAL"
     },
     {
-      id: 12,
+      id: 13,
       codigo: "GRAD-PRIM-2025",
       nombre: "Graduación Primaria",
       descripcion: "Ceremonia de graduación y certificados para primaria",
@@ -176,7 +176,7 @@ export default function CatalogoProductos() {
       seccion_academica: "PRIMARIA"
     },
     {
-      id: 13,
+      id: 14,
       codigo: "EXAM-ADM-2025",
       nombre: "Examen de Admisión",
       descripcion: "Evaluación de ingreso para nuevos estudiantes",
@@ -188,7 +188,7 @@ export default function CatalogoProductos() {
       seccion_academica: "GENERAL"
     },
     {
-      id: 14,
+      id: 15,
       codigo: "MOCH-ESC-2025",
       nombre: "Mochila Escolar",
       descripcion: "Mochila oficial de la institución con logo",
@@ -286,7 +286,11 @@ export default function CatalogoProductos() {
   };
 
   const handleDeleteProduct = async (productId: number, productName: string) => {
-    if (window.confirm(`¿Estás seguro de que deseas eliminar el producto "${productName}"?`)) {
+    const confirmed = window.confirm(
+      `⚠️ ADVERTENCIA DE ELIMINACIÓN\n\n¿Estás completamente seguro de que deseas eliminar el producto "${productName}"?\n\nEsta acción NO se puede deshacer y eliminará:\n• El producto del catálogo\n• Todos los registros asociados\n• Historial de ventas relacionado\n\n¿Continuar con la eliminación?`
+    );
+    
+    if (confirmed) {
       try {
         // Aquí se haría la llamada real a la API
         // await apiRequest(`/api/products/${productId}`, {
@@ -295,12 +299,12 @@ export default function CatalogoProductos() {
         
         toast({
           title: "Producto eliminado",
-          description: "El producto ha sido eliminado correctamente.",
+          description: `El producto "${productName}" ha sido eliminado permanentemente del sistema.`,
         });
       } catch (error) {
         toast({
-          title: "Error",
-          description: "No se pudo eliminar el producto.",
+          title: "Error al eliminar",
+          description: "No se pudo eliminar el producto. Intenta nuevamente.",
           variant: "destructive",
         });
       }

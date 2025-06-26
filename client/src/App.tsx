@@ -35,6 +35,7 @@ import Configuracion from "@/pages/configuracion";
 import AsignacionPrecios from "@/pages/asignacion-precios";
 import ImportacionDatos from "@/pages/importacion-datos";
 import SistemasAvanzados from "@/pages/sistemas-avanzados";
+import SeguridadCibernetica from "@/pages/seguridad-cibernetica";
 import SaaSInfo from "@/components/saas-info";
 
 function AuthenticatedRoutes() {
@@ -93,6 +94,7 @@ function AuthenticatedRoutes() {
             <Route path="/asignacion-precios" component={AsignacionPrecios} />
             <Route path="/importacion-datos" component={ImportacionDatos} />
             <Route path="/sistemas-avanzados" component={SistemasAvanzados} />
+          <Route path="/seguridad-cibernetica" component={SeguridadCibernetica} />
             <Route path="/caja-conciliacion" component={CajaConciliacion} />
             <Route path="/fiscal-contable" component={FiscalContable} />
             <Route path="/portal-3clics" component={PortalPadres3Clics} />

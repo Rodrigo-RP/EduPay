@@ -191,7 +191,7 @@ export const fraudDetection = async (req: Request, res: Response, next: NextFunc
     };
 
     // Obtener historial (en producción desde base de datos)
-    const historicalData = []; // Mock para desarrollo
+    const historicalData: any[] = []; // Tipado explícito para desarrollo
 
     const fraudSignals = FraudDetection.analyzeBehavior(securityEvent, historicalData);
     const riskScore = FraudDetection.calculateRiskScore(fraudSignals);
@@ -273,19 +273,7 @@ function sanitizeObject(obj: any): any {
 // ========================================
 
 export const securityHeaders = helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:"],
-      scriptSrc: ["'self'"],
-      connectSrc: ["'self'", "https://api.stripe.com"],
-      frameSrc: ["'none'"],
-      objectSrc: ["'none'"],
-      upgradeInsecureRequests: [],
-    },
-  },
+  contentSecurityPolicy: false, // Deshabilitado temporalmente para desarrollo
   hsts: {
     maxAge: 31536000,
     includeSubDomains: true,

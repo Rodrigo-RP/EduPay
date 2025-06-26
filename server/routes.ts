@@ -1,6 +1,17 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import securityMiddleware, { 
+  rateLimits, 
+  validateInput, 
+  fraudDetection, 
+  sanitizeInput, 
+  securityHeaders, 
+  secureCors, 
+  securityLogging, 
+  integrityCheck,
+  bruteForce
+} from "./security-middleware";
 
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -72,10 +83,18 @@ const authenticateGuardian = async (req: any, res: any, next: any) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Aplicar middlewares de seguridad globales
+  app.use(securityHeaders);
+  app.use(secureCors);
+  app.use(securityLogging);
+  app.use(rateLimits.general);
+  app.use(integrityCheck);
+  app.use(sanitizeInput);
+  app.use(validateInput);
   // AUTHENTICATION ROUTES
   
-  // Admin/Staff login
-  app.post("/api/auth/login", async (req, res) => {
+  // Admin/Staff login con protección brute force
+  app.post("/api/auth/login", rateLimits.auth, bruteForce.prevent, async (req, res) => {
     try {
       const { email, password } = req.body;
       

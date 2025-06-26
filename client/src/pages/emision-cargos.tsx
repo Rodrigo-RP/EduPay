@@ -382,7 +382,7 @@ export default function EmisionCargos() {
     const [selectedGrades, setSelectedGrades] = useState<string[]>([]);
     const [preview, setPreview] = useState<any[]>([]);
 
-    // Productos del catálogo con precios por nivel
+    // Productos del catálogo completo con precios por nivel
     const productos = [
       { 
         id: 1, 
@@ -410,14 +410,50 @@ export default function EmisionCargos() {
       },
       { 
         id: 3, 
+        codigo: "REINS-2025", 
+        nombre: "Reinscripción", 
+        categoria: "REINSCRIPCIONES",
+        precios_por_nivel: {
+          KINDER: 150000,
+          PRIMARIA: 180000,
+          SECUNDARIA: 220000,
+          BACHILLERATO: 280000
+        }
+      },
+      { 
+        id: 4, 
         codigo: "SEG-ESC-2025", 
         nombre: "Seguro Escolar", 
         categoria: "SEGURO_ESCOLAR",
         precios_por_nivel: {
-          KINDER: 120000,
-          PRIMARIA: 150000,
+          KINDER: 60000,
+          PRIMARIA: 70000,
+          SECUNDARIA: 80000,
+          BACHILLERATO: 90000
+        }
+      },
+      { 
+        id: 5, 
+        codigo: "LIB-2025", 
+        nombre: "Paquete de Libros", 
+        categoria: "LIBROS",
+        precios_por_nivel: {
+          KINDER: 80000,
+          PRIMARIA: 120000,
           SECUNDARIA: 180000,
-          BACHILLERATO: 200000
+          BACHILLERATO: 250000
+        }
+      },
+      { 
+        id: 6, 
+        codigo: "UNI-2025", 
+        nombre: "Uniforme Escolar", 
+        categoria: "OTROS",
+        precios_por_nivel: {
+          KINDER: 95000,
+          PRIMARIA: 110000,
+          SECUNDARIA: 125000,
+          BACHILLERATO: 140000
         }
       }
     ];
@@ -488,7 +524,7 @@ export default function EmisionCargos() {
                     <SelectContent>
                       {productos.map(producto => (
                         <SelectItem key={producto.id} value={producto.id.toString()}>
-                          {producto.codigo} - {producto.nombre}
+                          {producto.codigo} - {producto.nombre} ({producto.categoria.replace('_', ' ')})
                         </SelectItem>
                       ))}
                     </SelectContent>

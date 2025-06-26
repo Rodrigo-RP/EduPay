@@ -12,7 +12,7 @@ export default function AsignacionPrecios() {
   const [selectedProduct, setSelectedProduct] = useState("");
   const [showAssignment, setShowAssignment] = useState(false);
 
-  // Productos del catálogo con precios diferenciados
+  // Productos del catálogo completo con precios diferenciados
   const productos = [
     { 
       id: 1, 
@@ -20,10 +20,10 @@ export default function AsignacionPrecios() {
       nombre: "Colegiatura Mensual", 
       categoria: "COLEGIATURAS",
       precios_por_nivel: {
-        KINDER: 350000,      // $3,500 MXN
-        PRIMARIA: 450000,    // $4,500 MXN
-        SECUNDARIA: 550000,  // $5,500 MXN
-        BACHILLERATO: 650000 // $6,500 MXN
+        KINDER: 350000,
+        PRIMARIA: 450000,
+        SECUNDARIA: 550000,
+        BACHILLERATO: 650000
       }
     },
     { 
@@ -32,10 +32,58 @@ export default function AsignacionPrecios() {
       nombre: "Inscripción Anual", 
       categoria: "INSCRIPCIONES",
       precios_por_nivel: {
-        KINDER: 250000,      // $2,500 MXN
-        PRIMARIA: 300000,    // $3,000 MXN
-        SECUNDARIA: 350000,  // $3,500 MXN
-        BACHILLERATO: 400000 // $4,000 MXN
+        KINDER: 250000,
+        PRIMARIA: 300000,
+        SECUNDARIA: 350000,
+        BACHILLERATO: 400000
+      }
+    },
+    { 
+      id: 3, 
+      codigo: "REINS-2025", 
+      nombre: "Reinscripción", 
+      categoria: "REINSCRIPCIONES",
+      precios_por_nivel: {
+        KINDER: 150000,
+        PRIMARIA: 180000,
+        SECUNDARIA: 220000,
+        BACHILLERATO: 280000
+      }
+    },
+    { 
+      id: 4, 
+      codigo: "SEG-ESC-2025", 
+      nombre: "Seguro Escolar", 
+      categoria: "SEGURO_ESCOLAR",
+      precios_por_nivel: {
+        KINDER: 60000,
+        PRIMARIA: 70000,
+        SECUNDARIA: 80000,
+        BACHILLERATO: 90000
+      }
+    },
+    { 
+      id: 5, 
+      codigo: "LIB-2025", 
+      nombre: "Paquete de Libros", 
+      categoria: "LIBROS",
+      precios_por_nivel: {
+        KINDER: 80000,
+        PRIMARIA: 120000,
+        SECUNDARIA: 180000,
+        BACHILLERATO: 250000
+      }
+    },
+    { 
+      id: 6, 
+      codigo: "UNI-2025", 
+      nombre: "Uniforme Escolar", 
+      categoria: "OTROS",
+      precios_por_nivel: {
+        KINDER: 95000,
+        PRIMARIA: 110000,
+        SECUNDARIA: 125000,
+        BACHILLERATO: 140000
       }
     }
   ];
@@ -96,7 +144,7 @@ export default function AsignacionPrecios() {
                   <SelectContent>
                     {productos.map(producto => (
                       <SelectItem key={producto.id} value={producto.id.toString()}>
-                        {producto.codigo} - {producto.nombre}
+                        {producto.codigo} - {producto.nombre} ({producto.categoria.replace('_', ' ')})
                       </SelectItem>
                     ))}
                   </SelectContent>

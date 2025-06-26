@@ -14,8 +14,17 @@ import { Users, Plus, Phone, Mail, Calendar, TrendingUp, UserCheck, Clock, Alert
 export default function CRMEscolar() {
   const { toast } = useToast();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showTimelineModal, setShowTimelineModal] = useState(false);
+  const [selectedProspecto, setSelectedProspecto] = useState<any>(null);
+  const [showAddActivityModal, setShowAddActivityModal] = useState(false);
   const [selectedEstado, setSelectedEstado] = useState("all");
   const [selectedOrigen, setSelectedOrigen] = useState("all");
+  const [newActivity, setNewActivity] = useState({
+    tipo: "",
+    descripcion: "",
+    resultado: "",
+    fecha_programada: ""
+  });
 
   // Datos demo de prospectos de familias
   const prospectos = [
@@ -249,6 +258,109 @@ export default function CRMEscolar() {
     if (probabilidad >= 80) return "text-green-600";
     if (probabilidad >= 50) return "text-orange-600";
     return "text-red-600";
+  };
+
+  // Funciones para manejar acciones de contacto
+  const handlePhoneCall = (prospecto: any) => {
+    const phone = prospecto.telefono_principal || prospecto.telefono_secundario;
+    if (phone) {
+      window.open(`tel:${phone}`, '_self');
+      toast({
+        title: "Llamada iniciada",
+        description: `Llamando a ${prospecto.nombre_padre} - ${phone}`,
+      });
+    } else {
+      toast({
+        title: "Sin teléfono",
+        description: "No hay número de teléfono registrado",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSendEmail = (prospecto: any) => {
+    const email = prospecto.correo_principal || prospecto.correo_secundario;
+    if (email) {
+      const subject = encodeURIComponent(`Seguimiento - ${prospecto.nombre_padre} ${prospecto.nombre_madre}`);
+      const body = encodeURIComponent(`Estimado/a ${prospecto.nombre_padre},\n\nEsperamos que se encuentre bien. Nos comunicamos para darle seguimiento a su interés en nuestro colegio...\n\nSaludos cordiales,\nEquipo de Admisiones`);
+      window.open(`mailto:${email}?subject=${subject}&body=${body}`, '_self');
+      toast({
+        title: "Email abierto",
+        description: `Enviando email a ${email}`,
+      });
+    } else {
+      toast({
+        title: "Sin email",
+        description: "No hay correo electrónico registrado",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleScheduleAppointment = (prospecto: any) => {
+    setSelectedProspecto(prospecto);
+    setShowAddActivityModal(true);
+    toast({
+      title: "Programar cita",
+      description: `Programando cita con ${prospecto.nombre_padre}`,
+    });
+  };
+
+  const handleShowTimeline = (prospecto: any) => {
+    setSelectedProspecto(prospecto);
+    setShowTimelineModal(true);
+  };
+
+  const handleAddActivity = () => {
+    if (!newActivity.tipo || !newActivity.descripcion) {
+      toast({
+        title: "Campos requeridos",
+        description: "Por favor complete todos los campos",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Actividad agregada",
+      description: `${newActivity.tipo} programada exitosamente`,
+    });
+
+    setNewActivity({
+      tipo: "",
+      descripcion: "",
+      resultado: "",
+      fecha_programada: ""
+    });
+    setShowAddActivityModal(false);
+  };
+
+  const getActivityIcon = (tipo: string) => {
+    switch (tipo) {
+      case "LLAMADA":
+        return <Phone className="w-4 h-4" />;
+      case "EMAIL":
+        return <Mail className="w-4 h-4" />;
+      case "VISITA":
+        return <Users className="w-4 h-4" />;
+      case "EVENTO":
+        return <Calendar className="w-4 h-4" />;
+      default:
+        return <Clock className="w-4 h-4" />;
+    }
+  };
+
+  const getActivityColor = (resultado: string) => {
+    switch (resultado) {
+      case "EXITOSO":
+        return "bg-green-100 border-green-300 text-green-800";
+      case "PENDIENTE":
+        return "bg-yellow-100 border-yellow-300 text-yellow-800";
+      case "FALLIDO":
+        return "bg-red-100 border-red-300 text-red-800";
+      default:
+        return "bg-gray-100 border-gray-300 text-gray-800";
+    }
   };
 
   return (
@@ -489,14 +601,17 @@ export default function CRMEscolar() {
                             </div>
                         <div className="text-xs text-slate-500">Probabilidad</div>
                         <div className="flex gap-1 mt-2">
-                          <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline" onClick={() => handlePhoneCall(prospecto)} title="Llamar">
                                 <Phone className="w-3 h-3" />
                               </Button>
-                          <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline" onClick={() => handleSendEmail(prospecto)} title="Enviar email">
                                 <Mail className="w-3 h-3" />
                               </Button>
-                          <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline" onClick={() => handleScheduleAppointment(prospecto)} title="Programar cita">
                                 <Calendar className="w-3 h-3" />
+                              </Button>
+                          <Button size="sm" variant="outline" onClick={() => handleShowTimeline(prospecto)} title="Ver timeline">
+                                <TrendingUp className="w-3 h-3" />
                               </Button>
                             </div>
                           </div>
@@ -622,6 +737,191 @@ export default function CRMEscolar() {
               </div>
             </TabsContent>
           </Tabs>
+
+          {/* Modal Timeline de Actividades - Similar a HubSpot */}
+          <Dialog open={showTimelineModal} onOpenChange={setShowTimelineModal}>
+            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>
+                  Timeline de Actividades - {selectedProspecto?.nombre_padre} & {selectedProspecto?.nombre_madre}
+                </DialogTitle>
+              </DialogHeader>
+              
+              <div className="py-4">
+                {/* Información del prospecto */}
+                <div className="bg-slate-50 p-4 rounded-lg mb-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Phone className="w-4 h-4 text-slate-600" />
+                        <span className="font-medium">Teléfonos:</span>
+                      </div>
+                      <div className="text-sm text-slate-600">
+                        <div>{selectedProspecto?.telefono_principal}</div>
+                        {selectedProspecto?.telefono_secundario && (
+                          <div>{selectedProspecto?.telefono_secundario}</div>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Mail className="w-4 h-4 text-slate-600" />
+                        <span className="font-medium">Emails:</span>
+                      </div>
+                      <div className="text-sm text-slate-600">
+                        <div>{selectedProspecto?.correo_principal}</div>
+                        {selectedProspecto?.correo_secundario && (
+                          <div>{selectedProspecto?.correo_secundario}</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center gap-4">
+                    {selectedProspecto && getEstadoBadge(selectedProspecto.estado_prospecto)}
+                    {selectedProspecto && getEstadoEconomicoBadge(selectedProspecto.estado_economico)}
+                    <span className="text-sm text-slate-600">
+                      Probabilidad: <span className={`font-bold ${getProbabilidadColor(selectedProspecto?.probabilidad_inscripcion || 0)}`}>
+                        {selectedProspecto?.probabilidad_inscripcion}%
+                      </span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Botón para agregar nueva actividad */}
+                <div className="mb-6">
+                  <Button 
+                    onClick={() => setShowAddActivityModal(true)}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Agregar Actividad
+                  </Button>
+                </div>
+
+                {/* Timeline de actividades */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-slate-900">Historial de Actividades</h3>
+                  
+                  {selectedProspecto?.contactos && selectedProspecto.contactos.length > 0 ? (
+                    <div className="relative">
+                      {/* Línea vertical del timeline */}
+                      <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200"></div>
+                      
+                      {selectedProspecto.contactos.map((contacto: any, index: number) => (
+                        <div key={index} className="relative flex items-start gap-4 pb-6">
+                          {/* Icono de la actividad */}
+                          <div className={`flex-shrink-0 w-8 h-8 rounded-full border-2 flex items-center justify-center ${getActivityColor(contacto.resultado)}`}>
+                            {getActivityIcon(contacto.tipo)}
+                          </div>
+                          
+                          {/* Contenido de la actividad */}
+                          <div className="flex-1 min-w-0">
+                            <div className="bg-white border rounded-lg p-4 shadow-sm">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-slate-900">{contacto.tipo}</span>
+                                  <Badge className={getActivityColor(contacto.resultado)}>
+                                    {contacto.resultado}
+                                  </Badge>
+                                </div>
+                                <span className="text-sm text-slate-500">{contacto.fecha}</span>
+                              </div>
+                              <p className="text-sm text-slate-600">{contacto.descripcion}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-slate-500">
+                      <Clock className="w-12 h-12 mx-auto mb-4 text-slate-300" />
+                      <p>No hay actividades registradas</p>
+                      <p className="text-sm">Agrega la primera actividad para comenzar el seguimiento</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Modal para Agregar Nueva Actividad */}
+          <Dialog open={showAddActivityModal} onOpenChange={setShowAddActivityModal}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Programar Nueva Actividad</DialogTitle>
+              </DialogHeader>
+              
+              <div className="py-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Tipo de actividad</Label>
+                    <Select value={newActivity.tipo} onValueChange={(value) => setNewActivity(prev => ({...prev, tipo: value}))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar tipo..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="LLAMADA">Llamada telefónica</SelectItem>
+                        <SelectItem value="EMAIL">Envío de email</SelectItem>
+                        <SelectItem value="VISITA">Visita guiada</SelectItem>
+                        <SelectItem value="EVENTO">Invitación a evento</SelectItem>
+                        <SelectItem value="REUNION">Reunión</SelectItem>
+                        <SelectItem value="SEGUIMIENTO">Seguimiento general</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label>Estado</Label>
+                    <Select value={newActivity.resultado} onValueChange={(value) => setNewActivity(prev => ({...prev, resultado: value}))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar estado..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PENDIENTE">Pendiente</SelectItem>
+                        <SelectItem value="EXITOSO">Exitoso</SelectItem>
+                        <SelectItem value="FALLIDO">Fallido</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="md:col-span-2">
+                    <Label>Fecha y hora programada</Label>
+                    <Input 
+                      type="datetime-local" 
+                      value={newActivity.fecha_programada}
+                      onChange={(e) => setNewActivity(prev => ({...prev, fecha_programada: e.target.value}))}
+                    />
+                  </div>
+                  
+                  <div className="md:col-span-2">
+                    <Label>Descripción de la actividad</Label>
+                    <Textarea 
+                      placeholder="Describe el objetivo y detalles de esta actividad..."
+                      value={newActivity.descripcion}
+                      onChange={(e) => setNewActivity(prev => ({...prev, descripcion: e.target.value}))}
+                      rows={4}
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex justify-end gap-2 mt-6">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowAddActivityModal(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button 
+                    onClick={handleAddActivity}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Programar Actividad
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </div>

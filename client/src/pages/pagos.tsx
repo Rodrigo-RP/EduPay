@@ -7,11 +7,16 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CreditCard, Banknote, Smartphone, Receipt, Download, Eye, DollarSign } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { CreditCard, Banknote, Smartphone, Receipt, Download, Eye, DollarSign, CheckCircle, Calendar, User, FileText, Building2 } from "lucide-react";
 
 export default function Pagos() {
   const [selectedMethod, setSelectedMethod] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [showPaymentDetails, setShowPaymentDetails] = useState(false);
+  const { toast } = useToast();
 
   // Datos demo de pagos
   const pagos = [
@@ -25,7 +30,17 @@ export default function Pagos() {
       fecha: "2024-12-10",
       estado: "completado",
       cfdi: "A001-12345-ABCDE-67890",
-      origen: "PORTAL"
+      origen: "PORTAL",
+      detallesCompletos: {
+        horaTransaccion: "14:32:15",
+        metodoPago: "Visa **** 4242",
+        autorizacion: "AUTH-789456123",
+        comision: 2500, // $25.00
+        iva: 400, // $4.00
+        direccionFacturacion: "Av. Reforma 123, Col. Centro, CDMX",
+        emailEnviado: "carlos.perez@email.com",
+        celularNotificacion: "+52 55 1234 5678"
+      }
     },
     {
       id: 2,
@@ -121,6 +136,72 @@ export default function Pagos() {
         <span className="ml-1">{metodo}</span>
       </Badge>
     );
+  };
+
+  const handleViewPaymentDetails = (pago: any) => {
+    setSelectedPayment(pago);
+    setShowPaymentDetails(true);
+  };
+
+  const handleDownloadReceipt = (pago: any) => {
+    const receiptContent = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Comprobante de Pago - ${pago.referencia}</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; border-bottom: 3px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; }
+        .header h1 { color: #2563eb; margin: 0; font-size: 24px; }
+        .status-paid { background: #10b981; color: white; padding: 8px 16px; border-radius: 20px; font-weight: bold; display: inline-block; margin: 10px 0; }
+        .payment-info { background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
+        .info-label { font-weight: bold; color: #64748b; }
+        .amount { font-size: 28px; font-weight: bold; color: #10b981; text-align: center; margin: 20px 0; }
+        .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #e2e8f0; color: #64748b; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>COMPROBANTE DE PAGO</h1>
+        <div>EscuelaPay - Sistema de Pagos Escolares</div>
+        <div class="status-paid">✓ PAGO COMPLETADO</div>
+    </div>
+    <div class="payment-info">
+        <div class="info-row"><span class="info-label">Estudiante:</span><span>${pago.estudiante}</span></div>
+        <div class="info-row"><span class="info-label">Concepto:</span><span>${pago.concepto}</span></div>
+        <div class="info-row"><span class="info-label">Fecha:</span><span>${pago.fecha}</span></div>
+        <div class="info-row"><span class="info-label">Método:</span><span>${pago.metodo}</span></div>
+        <div class="info-row"><span class="info-label">Referencia:</span><span>${pago.referencia}</span></div>
+        <div class="info-row"><span class="info-label">CFDI:</span><span>${pago.cfdi}</span></div>
+    </div>
+    <div class="amount">$${(pago.monto / 100).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</div>
+    <div class="footer">
+        <p><strong>EscuelaPay</strong> - Plataforma de Pagos Educativos</p>
+        <p>Generado: ${new Date().toLocaleDateString('es-MX')} ${new Date().toLocaleTimeString('es-MX')}</p>
+    </div>
+</body>
+</html>`;
+
+    const blob = new Blob([receiptContent], { type: 'text/html;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Comprobante_${pago.referencia}.html`;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    }, 100);
+    
+    toast({
+      title: "Comprobante Descargado",
+      description: `Comprobante de ${pago.estudiante} guardado exitosamente`,
+      duration: 3000,
+    });
   };
 
   return (
@@ -251,10 +332,20 @@ export default function Pagos() {
                               </Badge>
                             </div>
                         <div className="flex gap-1">
-                          <Button size="sm" variant="outline">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleViewPaymentDetails(pago)}
+                            title="Ver detalles del pago"
+                          >
                                 <Eye className="w-4 h-4" />
                               </Button>
-                          <Button size="sm" variant="outline">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleDownloadReceipt(pago)}
+                            title="Descargar comprobante"
+                          >
                                 <Download className="w-4 h-4" />
                               </Button>
                             </div>

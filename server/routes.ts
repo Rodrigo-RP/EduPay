@@ -287,6 +287,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { producto_id, fecha_vencimiento } = req.body;
       const userCampusId = req.user.campus_id; // Use authenticated user's campus
+      
+      // Debug logging
+      console.log("Request from user:", req.user.email, "Campus ID:", userCampusId);
+      
+      // Verify campus exists in the campuses table
+      const campuses = await storage.getCampusesByTenant(16); // Get any available campus
+      const allCampuses = await db.select().from(schema.campuses);
+      const campusExists = allCampuses.find(c => c.id === userCampusId);
+      
+      if (!campusExists) {
+        console.log("Available campuses:", allCampuses.map(c => ({ id: c.id, name: c.nombre })));
+        return res.status(400).json({ 
+          message: `Campus ${userCampusId} does not exist. Available campuses: ${allCampuses.map(c => c.id).join(', ')}` 
+        });
+      }
 
       
       // Catalog products with differentiated pricing

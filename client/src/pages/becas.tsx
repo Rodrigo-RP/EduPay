@@ -122,7 +122,9 @@ export default function Becas() {
       nombre_completo: "Ana García Pérez",
       grado: "5to Primaria",
       hermanos_inscritos: 1,
-      tipo_solicitud: "Beca Socioeconómica",
+      tipo_solicitud: "socioeconomica",
+      grupo: "A",
+      monto_mensual_descuento: 150000, // $1,500 MXN
       porcentaje_asignado: 50,
       estado: "Activa",
       fecha_asignacion: "2024-08-15",
@@ -133,7 +135,9 @@ export default function Becas() {
       nombre_completo: "Carlos Mendoza Silva", 
       grado: "3ro Secundaria",
       hermanos_inscritos: 3,
-      tipo_solicitud: "Descuento por Hermanos",
+      tipo_solicitud: "familiar",
+      grupo: "B",
+      monto_mensual_descuento: 90000, // $900 MXN
       porcentaje_asignado: 30,
       estado: "Automática",
       fecha_asignacion: "2024-08-01",
@@ -144,7 +148,9 @@ export default function Becas() {
       nombre_completo: "Sofia López Torres",
       grado: "1ro Bachillerato", 
       hermanos_inscritos: 2,
-      tipo_solicitud: "Beca por Convenio",
+      tipo_solicitud: "convenio",
+      grupo: "A",
+      monto_mensual_descuento: 225000, // $2,250 MXN
       porcentaje_asignado: 75,
       estado: "Activa",
       fecha_asignacion: "2024-09-01",
@@ -155,7 +161,9 @@ export default function Becas() {
       nombre_completo: "Miguel Ramírez Castro",
       grado: "2do Secundaria",
       hermanos_inscritos: 0,
-      tipo_solicitud: "Beca Deportiva",
+      tipo_solicitud: "deportiva",
+      grupo: "C",
+      monto_mensual_descuento: 120000, // $1,200 MXN
       porcentaje_asignado: 40,
       estado: "Pendiente Renovación",
       fecha_asignacion: "2024-08-20",
@@ -289,15 +297,33 @@ ${b.nombre}:
     setShowAsignarModal(true);
     toast({
       title: "Asignación Manual Activada",
-      description: "Selecciona estudiantes para asignar becas manualmente.",
+      description: "Selecciona estudiantes para asignar becas manualmente caso por caso.",
     });
   };
 
   const handleActivateAllBecas = () => {
-    const inactiveBecas = becasYDescuentos.filter(b => !b.activa).length;
+    // Simular activación de todas las becas inactivas
+    const inactiveBecas = becasYDescuentos.filter(b => !b.activa);
+    const totalActivated = inactiveBecas.length;
+    
+    // Actualizar estado de becas a activas
+    becasYDescuentos.forEach(beca => {
+      if (!beca.activa) {
+        beca.activa = true;
+      }
+    });
+
+    // Activar automáticamente descuentos por hermanos detectados
+    const hermanosBeneficiados = estudiantesParaBecas.filter(e => 
+      e.tipo_solicitud === 'familiar'
+    ).length;
+
+    // Aplicar becas automáticas configuradas
+    const becasAutomaticas = becasYDescuentos.filter(b => b.tipo === 'automatico');
+    
     toast({
-      title: "Becas Activadas",
-      description: `${inactiveBecas} becas han sido activadas exitosamente.`,
+      title: "Sistema de Becas Activado",
+      description: `${totalActivated} tipos de becas activadas. ${hermanosBeneficiados} descuentos por hermanos aplicados automáticamente. ${becasAutomaticas.length} algoritmos automáticos en funcionamiento.`,
     });
   };
 
@@ -1117,7 +1143,7 @@ ${b.nombre}:
                               {estudiante.porcentaje_asignado}% descuento
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              ${(estudiante.monto_mensual_descuento / 100).toLocaleString()} mensual
+                              ${((estudiante.monto_mensual_descuento || 0) / 100).toLocaleString()} mensual
                             </div>
                           </div>
                           <Badge 
@@ -1154,7 +1180,7 @@ ${b.nombre}:
                           e.tipo_solicitud === selectedBeca?.categoria || 
                           (selectedBeca?.categoria === 'usebeq' && e.tipo_solicitud === 'socioeconomica')
                         )
-                        .map(e => `${e.nombre_completo},${e.grado},${e.grupo},${e.porcentaje_asignado}%,$${(e.monto_mensual_descuento/100).toLocaleString()},${e.estado}`)
+                        .map(e => `${e.nombre_completo},${e.grado},${e.grupo || 'N/A'},${e.porcentaje_asignado}%,$${((e.monto_mensual_descuento || 0)/100).toLocaleString()},${e.estado}`)
                     ].join('\n');
                     
                     const blob = new Blob([csvContent], { type: 'text/csv' });

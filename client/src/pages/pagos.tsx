@@ -16,6 +16,7 @@ export default function Pagos() {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
+  const [showRegistrarPago, setShowRegistrarPago] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const { toast } = useToast();
@@ -180,6 +181,36 @@ export default function Pagos() {
     setShowPaymentDetails(true);
   };
 
+  const handleExportarPagos = () => {
+    const csvContent = [
+      // Encabezados
+      'Estudiante,Concepto,Monto,Fecha,Método,Estado,Referencia,CFDI,Origen',
+      // Datos
+      ...filteredPagos.map(pago => 
+        `"${pago.estudiante}","${pago.concepto}","${(pago.monto / 100).toFixed(2)}","${pago.fecha}","${pago.metodo}","${pago.estado}","${pago.referencia}","${pago.cfdi}","${pago.origen}"`
+      )
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Historial_Pagos_${new Date().toISOString().split('T')[0]}.csv`;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    }, 100);
+
+    toast({
+      title: "Exportación Completada",
+      description: `${filteredPagos.length} pagos exportados a CSV`,
+      duration: 3000,
+    });
+  };
+
   const handleDownloadReceipt = (pago: any) => {
     const receiptContent = `
 <!DOCTYPE html>
@@ -252,11 +283,17 @@ export default function Pagos() {
           <p className="text-slate-600">Administra pagos recibidos, métodos y conciliación</p>
             </div>
         <div className="flex gap-2">
-          <Button className="bg-green-600 hover:bg-green-700">
+          <Button 
+            className="bg-green-600 hover:bg-green-700"
+            onClick={() => setShowRegistrarPago(true)}
+          >
                 <Banknote className="w-4 h-4 mr-2" />
                 Registrar Pago Efectivo
               </Button>
-          <Button variant="outline">
+          <Button 
+            variant="outline"
+            onClick={handleExportarPagos}
+          >
                 <Download className="w-4 h-4 mr-2" />
                 Exportar
               </Button>
@@ -510,13 +547,22 @@ export default function Pagos() {
                       </div>
                     </div>
                 <div className="flex gap-4">
-                  <Button className="bg-blue-600 hover:bg-blue-700">
+                  <Button 
+                    className="bg-blue-600 hover:bg-blue-700"
+                    onClick={handleConciliacionAutomatica}
+                  >
                         Ejecutar conciliación automática
                       </Button>
-                  <Button variant="outline">
+                  <Button 
+                    variant="outline"
+                    onClick={() => setShowImportarEstado(true)}
+                  >
                         Importar estado de cuenta
                       </Button>
-                  <Button variant="outline">
+                  <Button 
+                    variant="outline"
+                    onClick={handleExportarReporte}
+                  >
                         Exportar reporte
                       </Button>
                     </div>

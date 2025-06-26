@@ -118,6 +118,16 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- June 26, 2025: FILTROS DE FECHA COMPLETOS EN HISTORIAL DE PAGOS - Funcionalidad de filtrado temporal implementada
+- June 26, 2025: Filtros "Desde" y "Hasta" con campos de fecha tipo input[date] funcionando correctamente
+- June 26, 2025: Lógica de filtrado adaptada para múltiples formatos de fecha (DD/MM/YYYY HH:MM y YYYY-MM-DD)
+- June 26, 2025: Mensaje informativo cuando no hay resultados de filtros aplicados
+- June 26, 2025: Botón "Limpiar fechas" que aparece dinámicamente cuando hay filtros activos
+- June 26, 2025: Integración completa con filtros existentes de método de pago y estado
+- June 26, 2025: BOTONES DE HISTORIAL DE PAGOS COMPLETAMENTE FUNCIONALES - Modal de detalles y descarga de comprobantes
+- June 26, 2025: Botón "ojo" abre modal con información completa del pago (estudiante, concepto, método, fechas, referencias)
+- June 26, 2025: Función descarga ubicada en modal de detalles genera comprobante HTML profesional
+- June 26, 2025: Comprobantes descargables con diseño EscuelaPay, convertibles a PDF con Ctrl+P
 - June 26, 2025: SISTEMA COMPLETO DE REGLAS DE PAGO Y CAPACITACIÓN IMPLEMENTADO - Plataforma lista para lanzamiento al mercado
 - June 26, 2025: Reglas de pago automáticas con integración calendario SEP 2025-2026 oficial
 - June 26, 2025: Sistema inteligente de ajuste de fechas: días no laborables se mueven al siguiente día hábil sin recargos

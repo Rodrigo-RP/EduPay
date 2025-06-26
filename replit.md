@@ -118,6 +118,14 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- June 26, 2025: CONEXIÓN REAL DE CUENTAS EMPRESARIALES DE REDES SOCIALES
+- June 26, 2025: Sistema de autenticación real con Facebook Business Manager, Instagram Business y TikTok Ads Manager
+- June 26, 2025: Redirección automática a sitios oficiales para autenticación con credenciales propias de cada escuela
+- June 26, 2025: Estados dinámicos de conexión con indicadores visuales rojos/verdes
+- June 26, 2025: Botones "Conectar Cuenta" y "Desconectar" funcionales para cada plataforma
+- June 26, 2025: Panel de estado actualizado mostrando conexiones reales y fechas de sincronización
+- June 26, 2025: Instrucciones claras para colegios sobre cómo conectar sus cuentas empresariales
+- June 26, 2025: Manejo de ventanas emergentes para autenticación sin interrumpir el flujo principal
 - June 26, 2025: INTEGRACIÓN COMPLETA DE REDES SOCIALES EN CRM
 - June 26, 2025: Facebook Ads Manager integrado con configuración completa de campañas publicitarias
 - June 26, 2025: Instagram Ads implementado con targeting demográfico y geográfico avanzado

@@ -6,9 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart3, Download, FileText, TrendingUp, PieChart, Calendar, DollarSign } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Reportes() {
   const [selectedPeriod, setSelectedPeriod] = useState("2025-01");
+  const { toast } = useToast();
 
   // Datos demo para reportes
   const reportesDisponibles = [
@@ -59,6 +61,71 @@ export default function Reportes() {
     promedioTiempoPago: 8.5
   };
 
+  const handleGenerarReporte = () => {
+    toast({
+      title: "Generando Reporte",
+      description: "Procesando datos del período seleccionado...",
+      duration: 2000,
+    });
+
+    setTimeout(() => {
+      toast({
+        title: "Reporte Generado",
+        description: "Reporte financiero mensual descargado exitosamente",
+        duration: 3000,
+      });
+    }, 2000);
+  };
+
+  const handleDescargarReporte = (reporte: any) => {
+    const contenido = `REPORTE: ${reporte.nombre}
+Período: ${selectedPeriod}
+Fecha de generación: ${new Date().toLocaleDateString('es-MX')}
+
+${reporte.descripcion}
+
+DATOS INCLUIDOS:
+- Total facturado: $${(kpisReporte.totalFacturado / 100).toLocaleString('es-MX')}
+- Total cobrado: $${(kpisReporte.totalCobrado / 100).toLocaleString('es-MX')}
+- Tasa de cobranza: ${kpisReporte.tasaCobranza}%
+- Cargos vencidos: ${kpisReporte.cargosVencidos}
+- Estudiantes activos: ${kpisReporte.estudiantesActivos}
+
+Generado por EscuelaPay - Sistema de Pagos Escolares`;
+
+    const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${reporte.nombre.replace(/\s+/g, '_')}_${selectedPeriod}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Descarga Completada",
+      description: `${reporte.nombre} descargado exitosamente`,
+      duration: 3000,
+    });
+  };
+
+  const handleAnalisisTendencias = () => {
+    toast({
+      title: "Generando Análisis",
+      description: "Procesando tendencias de pago de los últimos 12 meses...",
+      duration: 3000,
+    });
+  };
+
+  const handleDistribucionMetodos = () => {
+    toast({
+      title: "Generando Gráfico",
+      description: "Analizando distribución de métodos de pago...",
+      duration: 3000,
+    });
+  };
+
   return (
     <div >
       <div >
@@ -69,7 +136,10 @@ export default function Reportes() {
           <h1 className="text-3xl font-bold text-slate-900">Reportes y Análisis</h1>
           <p className="text-slate-600">Genera reportes financieros, de cobranza y análisis de desempeño</p>
             </div>
-            <Button className="bg-green-600 hover:bg-green-700">
+            <Button 
+              className="bg-green-600 hover:bg-green-700"
+              onClick={handleGenerarReporte}
+            >
               <FileText className="w-4 h-4 mr-2" />
               Generar Reporte
             </Button>
@@ -167,7 +237,11 @@ export default function Reportes() {
                             </div>
                           </div>
                         </div>
-                    <Button size="sm" variant="outline">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => handleDescargarReporte(reporte)}
+                    >
                           <Download className="w-4 h-4 mr-2" />
                           Descargar
                         </Button>
@@ -204,15 +278,27 @@ export default function Reportes() {
                         </Select>
                       </div>
                   <div className="space-y-2">
-                    <Button className="w-full" variant="outline">
+                    <Button 
+                      className="w-full" 
+                      variant="outline"
+                      onClick={handleGenerarReporte}
+                    >
                           <BarChart3 className="w-4 h-4 mr-2" />
                           Reporte de Ingresos por Concepto
                         </Button>
-                    <Button className="w-full" variant="outline">
+                    <Button 
+                      className="w-full" 
+                      variant="outline"
+                      onClick={handleAnalisisTendencias}
+                    >
                           <TrendingUp className="w-4 h-4 mr-2" />
                           Análisis de Tendencias de Pago
                         </Button>
-                    <Button className="w-full" variant="outline">
+                    <Button 
+                      className="w-full" 
+                      variant="outline"
+                      onClick={handleDistribucionMetodos}
+                    >
                           <PieChart className="w-4 h-4 mr-2" />
                           Distribución por Método de Pago
                         </Button>

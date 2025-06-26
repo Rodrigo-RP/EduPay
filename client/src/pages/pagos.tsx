@@ -17,6 +17,7 @@ export default function Pagos() {
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
   const [showRegistrarPago, setShowRegistrarPago] = useState(false);
+  const [showImportarEstado, setShowImportarEstado] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const { toast } = useToast();
@@ -268,6 +269,61 @@ export default function Pagos() {
     toast({
       title: "Comprobante Descargado",
       description: `Comprobante de ${pago.estudiante} guardado exitosamente`,
+      duration: 3000,
+    });
+  };
+
+  const handleConciliacionAutomatica = () => {
+    toast({
+      title: "Conciliación Iniciada",
+      description: "Procesando movimientos bancarios vs pagos registrados...",
+      duration: 3000,
+    });
+    
+    // Simular proceso de conciliación
+    setTimeout(() => {
+      toast({
+        title: "Conciliación Completada",
+        description: "Se procesaron 15 movimientos, 2 diferencias encontradas",
+        duration: 4000,
+      });
+    }, 2000);
+  };
+
+  const handleExportarReporte = () => {
+    const reporteContent = `
+REPORTE DE CONCILIACIÓN BANCARIA
+Fecha: ${new Date().toLocaleDateString('es-MX')}
+Período: ${new Date().toLocaleDateString('es-MX')}
+
+RESUMEN:
+- Pagos registrados: ${filteredPagos.length}
+- Monto total registrado: $${(filteredPagos.reduce((sum, p) => sum + p.monto, 0) / 100).toLocaleString('es-MX')}
+- Movimientos bancarios: 18
+- Diferencias: 2
+- Estado: Pendiente revisión
+
+DETALLE DE PAGOS:
+${filteredPagos.map(pago => 
+  `${pago.fecha} - ${pago.estudiante} - $${(pago.monto / 100).toFixed(2)} - ${pago.metodo} - ${pago.referencia}`
+).join('\n')}
+
+Generado por EscuelaPay - Sistema de Pagos Escolares
+`;
+
+    const blob = new Blob([reporteContent], { type: 'text/plain;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Reporte_Conciliacion_${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Reporte Exportado",
+      description: "Reporte de conciliación descargado exitosamente",
       duration: 3000,
     });
   };

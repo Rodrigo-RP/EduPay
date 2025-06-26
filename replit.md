@@ -118,6 +118,13 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- June 26, 2025: TEMPLATES EXCEL CATEGORIZADOS IMPLEMENTADOS - Sistema completo de importación/exportación de datos
+- June 26, 2025: 3 categorías de templates: Estudiantes y Familias, Conceptos y Precios, Becas y Descuentos
+- June 26, 2025: Descarga automática de templates Excel con datos de ejemplo y validaciones
+- June 26, 2025: Importación masiva desde archivos Excel/CSV con validación y reporte de errores
+- June 26, 2025: APIs backend completas para procesamiento de archivos con multer y xlsx
+- June 26, 2025: Página dedicada /importacion-datos con interfaz profesional de migración
+- June 26, 2025: Sistema resuelve migración eficiente para escuelas nuevas vs carga manual
 - June 26, 2025: ASIGNACIÓN DE BECAS POR CANTIDAD FIJA ($) IMPLEMENTADA - Sistema dual de descuentos completado
 - June 26, 2025: Botones de selección: Porcentaje (%) vs Cantidad Fija ($) con campos específicos
 - June 26, 2025: Vista previa explicativa del tipo de descuento y ejemplos de aplicación

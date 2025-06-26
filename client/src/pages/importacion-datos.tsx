@@ -288,31 +288,39 @@ export default function ImportacionDatos() {
   ];
 
   // Función para descargar template Excel
-  const downloadTemplate = (categoryId: string, templateId: string) => {
-    const category = templateCategories.find(c => c.id === categoryId);
-    const template = category?.templates.find(t => t.id === templateId);
-    
-    if (!template) return;
+  const downloadTemplate = async (categoryId: string, templateId: string) => {
+    try {
+      const response = await fetch(`/api/import/template/${categoryId}/${templateId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
 
-    // Crear contenido CSV para el template
-    const csvContent = [
-      template.columns.join(','),
-      ...template.sampleData.map(row => 
-        template.columns.map(col => row[col] || '').join(',')
-      )
-    ].join('\n');
+      if (!response.ok) {
+        throw new Error('Error descargando template');
+      }
 
-    // Crear y descargar archivo
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `template_${template.name.toLowerCase().replace(/\s+/g, '_')}.csv`;
-    link.click();
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `template_${templateId}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
 
-    toast({
-      title: "Template Descargado",
-      description: `Template "${template.name}" descargado exitosamente`,
-    });
+      toast({
+        title: "Template Descargado",
+        description: `Template Excel descargado exitosamente`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo descargar el template",
+        variant: "destructive"
+      });
+    }
   };
 
   // Función para manejar subida de archivo
@@ -334,21 +342,57 @@ export default function ImportacionDatos() {
   };
 
   // Función para procesar importación
-  const processImport = async () => {
+  const processImport = async (categoryId: string, templateId: string) => {
+    if (!selectedFile) return;
+
     setIsImporting(true);
     setImportProgress(0);
 
-    // Simular proceso de importación
-    for (let i = 0; i <= 100; i += 10) {
-      await new Promise(resolve => setTimeout(resolve, 200));
-      setImportProgress(i);
-    }
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
 
-    setIsImporting(false);
-    toast({
-      title: "Importación Completada",
-      description: `Se importaron ${previewData.length} registros exitosamente`,
-    });
+      // Simular progreso durante la carga
+      const progressInterval = setInterval(() => {
+        setImportProgress(prev => Math.min(prev + 10, 90));
+      }, 200);
+
+      const response = await fetch(`/api/import/data/${categoryId}/${templateId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
+      });
+
+      clearInterval(progressInterval);
+      setImportProgress(100);
+
+      if (!response.ok) {
+        throw new Error('Error procesando importación');
+      }
+
+      const result = await response.json();
+
+      toast({
+        title: "Importación Completada",
+        description: `${result.results.successful} registros importados exitosamente de ${result.results.total} total`,
+      });
+
+      if (result.results.errors.length > 0) {
+        console.log('Errores encontrados:', result.results.errors);
+      }
+
+    } catch (error) {
+      toast({
+        title: "Error en Importación",
+        description: "No se pudo procesar el archivo",
+        variant: "destructive"
+      });
+    } finally {
+      setIsImporting(false);
+      setImportProgress(0);
+    }
   };
 
   return (
@@ -564,7 +608,10 @@ export default function ImportacionDatos() {
                               <div className="flex justify-end gap-2">
                                 <Button variant="outline">Cancelar</Button>
                                 <Button 
-                                  onClick={processImport}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    processImport(category.id, template.id);
+                                  }}
                                   disabled={!selectedFile || isImporting}
                                 >
                                   {isImporting ? 'Procesando...' : 'Confirmar Importación'}

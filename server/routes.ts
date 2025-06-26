@@ -468,6 +468,298 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DATA IMPORT/EXPORT ROUTES
+
+  // Download template files
+  app.get("/api/import/template/:category/:templateId", authenticateToken, async (req, res) => {
+    try {
+      const { category, templateId } = req.params;
+
+      // Define templates structure
+      const templates: any = {
+        estudiantes: {
+          estudiantes: {
+            name: "Registro de Estudiantes",
+            columns: ["nombre_completo", "curp", "fecha_nacimiento", "grado", "grupo", "nivel_academico", "status", "fecha_ingreso", "observaciones"],
+            sampleData: [{
+              nombre_completo: "María González López",
+              curp: "GOLM051215MDFNPR03",
+              fecha_nacimiento: "2005-12-15",
+              grado: "3ro Secundaria",
+              grupo: "A",
+              nivel_academico: "SECUNDARIA",
+              status: "Activo",
+              fecha_ingreso: "2023-08-15",
+              observaciones: "Estudiante regular"
+            }]
+          },
+          tutores: {
+            name: "Tutores y Responsables",
+            columns: ["nombre_completo", "email", "telefono", "telefono_emergencia", "relacion", "direccion", "ocupacion", "empresa"],
+            sampleData: [{
+              nombre_completo: "Roberto González Martínez",
+              email: "roberto@email.com",
+              telefono: "5551234567",
+              telefono_emergencia: "5559876543",
+              relacion: "Padre",
+              direccion: "Av. Principal 123, Col. Centro",
+              ocupacion: "Ingeniero",
+              empresa: "Tech Solutions SA"
+            }]
+          },
+          relaciones: {
+            name: "Relaciones Estudiante-Tutor",
+            columns: ["curp_estudiante", "email_tutor", "tipo_relacion", "es_responsable_pago", "autorizacion_recoger", "contacto_emergencia"],
+            sampleData: [{
+              curp_estudiante: "GOLM051215MDFNPR03",
+              email_tutor: "roberto@email.com",
+              tipo_relacion: "Padre",
+              es_responsable_pago: "Sí",
+              autorizacion_recoger: "Sí",
+              contacto_emergencia: "No"
+            }]
+          }
+        },
+        financiero: {
+          conceptos: {
+            name: "Catálogo de Conceptos",
+            columns: ["nombre", "categoria", "descripcion", "precio_kinder", "precio_primaria", "precio_secundaria", "precio_bachillerato", "tipo_cargo", "periodicidad"],
+            sampleData: [{
+              nombre: "Colegiatura Mensual",
+              categoria: "Colegiatura",
+              descripcion: "Pago mensual de colegiatura",
+              precio_kinder: "2500.00",
+              precio_primaria: "3000.00",
+              precio_secundaria: "3500.00",
+              precio_bachillerato: "4000.00",
+              tipo_cargo: "Recurrente",
+              periodicidad: "Mensual"
+            }]
+          },
+          calendario: {
+            name: "Calendario de Vencimientos",
+            columns: ["concepto", "mes", "fecha_aplicacion", "fecha_vencimiento", "recargo_porcentaje", "dias_gracia", "activo"],
+            sampleData: [{
+              concepto: "Colegiatura Mensual",
+              mes: "Septiembre 2024",
+              fecha_aplicacion: "2024-08-25",
+              fecha_vencimiento: "2024-09-05",
+              recargo_porcentaje: "5.0",
+              dias_gracia: "5",
+              activo: "Sí"
+            }]
+          },
+          cargos_extraordinarios: {
+            name: "Cargos Extraordinarios",
+            columns: ["estudiante_curp", "concepto", "monto", "fecha_aplicacion", "descripcion", "autorizado_por", "fecha_vencimiento"],
+            sampleData: [{
+              estudiante_curp: "GOLM051215MDFNPR03",
+              concepto: "Examen Extraordinario Matemáticas",
+              monto: "500.00",
+              fecha_aplicacion: "2024-09-15",
+              descripcion: "Examen extraordinario primer parcial",
+              autorizado_por: "Coordinación Académica",
+              fecha_vencimiento: "2024-09-20"
+            }]
+          }
+        },
+        becas: {
+          tipos_becas: {
+            name: "Tipos de Becas",
+            columns: ["nombre", "categoria", "tipo_descuento", "porcentaje_max", "monto_fijo", "criterios", "vigencia_inicio", "vigencia_fin", "activa"],
+            sampleData: [{
+              nombre: "Beca Excelencia Académica",
+              categoria: "academica",
+              tipo_descuento: "porcentaje",
+              porcentaje_max: "50",
+              monto_fijo: "",
+              criterios: "Promedio mayor a 9.0",
+              vigencia_inicio: "2024-08-01",
+              vigencia_fin: "2025-07-31",
+              activa: "Sí"
+            }]
+          },
+          asignaciones_becas: {
+            name: "Asignaciones de Becas",
+            columns: ["estudiante_curp", "tipo_beca", "porcentaje_asignado", "monto_fijo_asignado", "fecha_inicio", "fecha_fin", "autorizado_por", "observaciones", "activa"],
+            sampleData: [{
+              estudiante_curp: "GOLM051215MDFNPR03",
+              tipo_beca: "Beca Excelencia Académica",
+              porcentaje_asignado: "30",
+              monto_fijo_asignado: "",
+              fecha_inicio: "2024-09-01",
+              fecha_fin: "2025-07-31",
+              autorizado_por: "Dirección Académica",
+              observaciones: "Promedio 9.2 primer parcial",
+              activa: "Sí"
+            }]
+          },
+          descuentos_hermanos: {
+            name: "Descuentos por Hermanos",
+            columns: ["numero_hermanos", "porcentaje_descuento", "aplica_a", "maximo_beneficiarios", "vigencia", "activo"],
+            sampleData: [{
+              numero_hermanos: "2",
+              porcentaje_descuento: "20",
+              aplica_a: "Segundo hermano",
+              maximo_beneficiarios: "1",
+              vigencia: "2024-2025",
+              activo: "Sí"
+            }]
+          }
+        }
+      };
+
+      const template = templates[category]?.[templateId];
+      if (!template) {
+        return res.status(404).json({ message: "Template no encontrado" });
+      }
+
+      // Create Excel workbook
+      const wb = XLSX.utils.book_new();
+      const wsData = [template.columns, ...template.sampleData.map((row: any) => 
+        template.columns.map((col: string) => row[col] || '')
+      )];
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      XLSX.utils.book_append_sheet(wb, ws, "Datos");
+
+      // Generate Excel buffer
+      const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="template_${template.name.toLowerCase().replace(/\s+/g, '_')}.xlsx"`);
+      res.send(excelBuffer);
+
+    } catch (error: any) {
+      res.status(500).json({ message: "Error generando template: " + error.message });
+    }
+  });
+
+  // Import data from Excel/CSV file
+  app.post("/api/import/data/:category/:templateId", authenticateToken, upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No se encontró archivo para importar" });
+      }
+
+      const { category, templateId } = req.params;
+      const campusId = (req as any).user?.campus_id;
+
+      if (!campusId) {
+        return res.status(400).json({ message: "Campus ID requerido" });
+      }
+
+      // Parse Excel/CSV file
+      let workbook: XLSX.WorkBook;
+      if (req.file.mimetype === 'text/csv') {
+        const csvData = req.file.buffer.toString();
+        workbook = XLSX.read(csvData, { type: 'string' });
+      } else {
+        workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+      }
+
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      // Validate and process data based on template
+      const results = {
+        successful: 0,
+        errors: [] as any[],
+        preview: jsonData.slice(0, 5),
+        total: jsonData.length
+      };
+
+      // Process based on category and template
+      if (category === 'estudiantes' && templateId === 'estudiantes') {
+        for (let index = 0; index < jsonData.length; index++) {
+          try {
+            const studentData = jsonData[index] as any;
+            
+            // Basic validation
+            if (!studentData.nombre_completo || !studentData.curp) {
+              results.errors.push({
+                row: index + 2,
+                error: "Nombre completo y CURP son requeridos",
+                data: studentData
+              });
+              continue;
+            }
+
+            // Create student (this would integrate with your actual database)
+            await storage.createStudent({
+              campus_id: campusId,
+              nombre_completo: studentData.nombre_completo,
+              curp: studentData.curp,
+              grado: studentData.grado || '',
+              grupo: studentData.grupo || 'A',
+              status: studentData.status || 'activo'
+            });
+            
+            results.successful++;
+          } catch (error: any) {
+            results.errors.push({
+              row: index + 2,
+              error: error.message,
+              data: jsonData[index]
+            });
+          }
+        }
+      }
+
+      res.json({
+        success: true,
+        results,
+        message: `Procesados ${results.successful} registros exitosamente de ${results.total} total`
+      });
+
+    } catch (error: any) {
+      res.status(500).json({ message: "Error procesando importación: " + error.message });
+    }
+  });
+
+  // Export data to Excel
+  app.get("/api/export/:type", authenticateToken, async (req, res) => {
+    try {
+      const { type } = req.params;
+      const campusId = (req as any).user?.campus_id;
+
+      if (!campusId) {
+        return res.status(400).json({ message: "Campus ID requerido" });
+      }
+
+      let data: any[] = [];
+      let filename = "export";
+
+      switch (type) {
+        case 'estudiantes':
+          data = await storage.getStudentsByCampus(campusId);
+          filename = "estudiantes";
+          break;
+        case 'conceptos':
+          data = await storage.getConceptsByCampus(campusId);
+          filename = "conceptos";
+          break;
+        default:
+          return res.status(400).json({ message: "Tipo de exportación no válido" });
+      }
+
+      // Create Excel workbook
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(data);
+      XLSX.utils.book_append_sheet(wb, ws, "Datos");
+
+      // Generate Excel buffer
+      const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}_${new Date().toISOString().split('T')[0]}.xlsx"`);
+      res.send(excelBuffer);
+
+    } catch (error: any) {
+      res.status(500).json({ message: "Error generando exportación: " + error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

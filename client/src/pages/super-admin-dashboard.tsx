@@ -23,7 +23,7 @@ export default function SuperAdminDashboard() {
     queryFn: async () => {
       const response = await fetch("/api/super-admin/platform/metrics", {
         headers: {
-          "Authorization": `Bearer ${localStorage.getItem("auth_token")}`,
+          "Authorization": `Bearer ${localStorage.getItem("token")}`,
         },
       });
       return response.json();
@@ -36,7 +36,7 @@ export default function SuperAdminDashboard() {
     queryFn: async () => {
       const response = await fetch("/api/super-admin/tenants", {
         headers: {
-          "Authorization": `Bearer ${localStorage.getItem("auth_token")}`,
+          "Authorization": `Bearer ${localStorage.getItem("token")}`,
         },
       });
       return response.json();
@@ -49,7 +49,7 @@ export default function SuperAdminDashboard() {
     queryFn: async () => {
       const response = await fetch("/api/super-admin/security/events", {
         headers: {
-          "Authorization": `Bearer ${localStorage.getItem("auth_token")}`,
+          "Authorization": `Bearer ${localStorage.getItem("token")}`,
         },
       });
       return response.json();
@@ -62,7 +62,7 @@ export default function SuperAdminDashboard() {
     queryFn: async () => {
       const response = await fetch("/api/super-admin/system/health", {
         headers: {
-          "Authorization": `Bearer ${localStorage.getItem("auth_token")}`,
+          "Authorization": `Bearer ${localStorage.getItem("token")}`,
         },
       });
       return response.json();
@@ -76,7 +76,7 @@ export default function SuperAdminDashboard() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("auth_token")}`,
+          "Authorization": `Bearer ${localStorage.getItem("token")}`,
         },
       });
       return response.json();
@@ -104,7 +104,7 @@ export default function SuperAdminDashboard() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("auth_token")}`,
+          "Authorization": `Bearer ${localStorage.getItem("token")}`,
         },
         body: JSON.stringify(data),
       });

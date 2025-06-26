@@ -1181,6 +1181,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== PAYMENT RULES ROUTES =====
+  app.get("/api/payment-rules", async (req, res) => {
+    try {
+      const campusId = 24; // Current campus
+      const rules = await db.select().from(payment_rules).where(eq(payment_rules.campus_id, campusId));
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching payment rules:", error);
+      res.status(500).json({ error: "Failed to fetch payment rules" });
+    }
+  });
+
+  app.post("/api/payment-rules", async (req, res) => {
+    try {
+      const ruleData = req.body;
+      const [newRule] = await db.insert(payment_rules).values(ruleData).returning();
+      res.json(newRule);
+    } catch (error) {
+      console.error("Error creating payment rule:", error);
+      res.status(500).json({ error: "Failed to create payment rule" });
+    }
+  });
+
+  app.post("/api/payment-rules/test", async (req, res) => {
+    try {
+      const { rule, sampleAmounts } = req.body;
+      
+      // Simulate different late payment scenarios
+      const scenarios = [];
+      const testDays = [1, 7, 15, 30, 60];
+      
+      for (const amount of sampleAmounts) {
+        for (const days of testDays) {
+          let lateFee = 0;
+          let calculation = "";
+          
+          // Apply grace period
+          const effectiveDays = Math.max(0, days - rule.grace_period_days);
+          
+          if (effectiveDays > 0) {
+            switch (rule.rule_type) {
+              case 'percentage':
+                lateFee = Math.round(amount * (rule.late_fee_percentage / 100));
+                calculation = `${rule.late_fee_percentage}% del monto original`;
+                break;
+              case 'fixed_amount':
+                lateFee = rule.late_fee_fixed_amount_centavos;
+                calculation = `Recargo fijo de $${(lateFee/100).toFixed(2)}`;
+                break;
+              case 'compound':
+                const dailyRate = (rule.late_fee_percentage / 100) / 30;
+                lateFee = Math.round(amount * dailyRate * effectiveDays);
+                calculation = `${rule.late_fee_percentage}% mensual compuesto por ${effectiveDays} días`;
+                break;
+            }
+            
+            // Apply limits
+            if (rule.max_late_fee_centavos && lateFee > rule.max_late_fee_centavos) {
+              lateFee = rule.max_late_fee_centavos;
+              calculation += ` (limitado a máximo)`;
+            }
+            if (rule.min_late_fee_centavos && lateFee < rule.min_late_fee_centavos) {
+              lateFee = rule.min_late_fee_centavos;
+              calculation += ` (mínimo aplicado)`;
+            }
+          }
+          
+          scenarios.push({
+            originalAmount: amount,
+            daysLate: days,
+            lateFee,
+            totalAmount: amount + lateFee,
+            calculation
+          });
+        }
+      }
+      
+      res.json({ scenarios });
+    } catch (error) {
+      console.error("Error testing payment rule:", error);
+      res.status(500).json({ error: "Failed to test payment rule" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

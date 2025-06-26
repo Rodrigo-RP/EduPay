@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useInstitution } from "@/hooks/use-institution";
+import TrainingModal from "@/components/training-modal";
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
   const [location, setLocation] = useLocation();
   const { institutionName, campusName, logoUrl } = useInstitution();
+  const [trainingOpen, setTrainingOpen] = useState(false);
 
   const menuItems = [
     { 
@@ -271,6 +274,15 @@ export default function Sidebar() {
                   {item.label}
                 </a>
               ))}
+              
+              {/* Botón de Capacitación */}
+              <button
+                onClick={() => setTrainingOpen(true)}
+                className="group flex items-center w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              >
+                <i className="fas fa-graduation-cap mr-3 text-sm"></i>
+                Capacitación
+              </button>
             </div>
           </div>
         </div>
@@ -300,6 +312,8 @@ export default function Sidebar() {
           </button>
         </div>
       </div>
+      
+      <TrainingModal open={trainingOpen} onOpenChange={setTrainingOpen} />
     </aside>
   );
 }

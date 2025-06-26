@@ -77,7 +77,7 @@ export default function SuperAdminSchoolManagement() {
     queryFn: async () => {
       const response = await fetch("/api/super-admin/tenants", {
         headers: {
-          "Authorization": `Bearer ${localStorage.getItem("auth_token")}`,
+          "Authorization": `Bearer ${localStorage.getItem("token")}`,
         },
       });
       return response.json();
@@ -91,7 +91,7 @@ export default function SuperAdminSchoolManagement() {
       if (!selectedSchool) return null;
       const response = await fetch(`/api/super-admin/school-details/${selectedSchool.id}`, {
         headers: {
-          "Authorization": `Bearer ${localStorage.getItem("auth_token")}`,
+          "Authorization": `Bearer ${localStorage.getItem("token")}`,
         },
       });
       return response.json();
@@ -158,9 +158,9 @@ export default function SuperAdminSchoolManagement() {
     },
   });
 
-  // Filter schools
-  const filteredSchools = schools.filter((school: Tenant) => {
-    const matchesName = school.nombre_legal.toLowerCase().includes(schoolFilter.toLowerCase());
+  // Filter schools - ensure schools is an array
+  const filteredSchools = (schools && Array.isArray(schools) ? schools : []).filter((school: Tenant) => {
+    const matchesName = school.nombre_legal?.toLowerCase().includes(schoolFilter.toLowerCase());
     const matchesStatus = statusFilter === "all" || school.status === statusFilter;
     return matchesName && matchesStatus;
   });

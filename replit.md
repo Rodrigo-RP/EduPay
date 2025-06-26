@@ -118,6 +118,12 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- June 26, 2025: ASIGNACIÓN DE BECAS POR CANTIDAD FIJA ($) IMPLEMENTADA - Sistema dual de descuentos completado
+- June 26, 2025: Botones de selección: Porcentaje (%) vs Cantidad Fija ($) con campos específicos
+- June 26, 2025: Vista previa explicativa del tipo de descuento y ejemplos de aplicación
+- June 26, 2025: Estudiantes demo con descuentos fijos: $1,500 básico y $2,500 premium
+- June 26, 2025: Funcionalidad completa en modales de asignación y edición de becas
+- June 26, 2025: Cambio de "Beca Socioeconómica" a "Beca USEBEQ" completado en todo el sistema
 - June 26, 2025: TODOS LOS BOTONES HABILITADOS CON FUNCIONALIDAD COMPLETA - Sistema de gestión administrativa totalmente operativo
 - June 26, 2025: Botones funcionales: modificar, suspender, documentos, activar, generar reportes, calcular total, auditar asignaciones
 - June 26, 2025: Descarga de reportes en Excel, PDF y Word implementada con contenido completo

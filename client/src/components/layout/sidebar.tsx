@@ -137,13 +137,7 @@ export default function Sidebar() {
       active: location === "/sistemas-avanzados",
       category: "sistema"
     },
-    { 
-      icon: "fas fa-shield-alt", 
-      label: "Seguridad Cibernética", 
-      href: "/seguridad-cibernetica", 
-      active: location === "/seguridad-cibernetica",
-      category: "sistema"
-    },
+
   ];
 
   return (

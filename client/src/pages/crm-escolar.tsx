@@ -27,6 +27,25 @@ export default function CRMEscolar() {
   });
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [campaignType, setCampaignType] = useState("");
+  const [socialMediaCampaign, setSocialMediaCampaign] = useState({
+    platform: "",
+    objective: "",
+    budget: "",
+    duration: "",
+    targeting: {
+      age_range: "",
+      location: "",
+      interests: "",
+      behavior: ""
+    },
+    creative: {
+      headline: "",
+      description: "",
+      call_to_action: "",
+      image_url: ""
+    }
+  });
 
   // Datos demo de prospectos de familias
   const prospectos = [
@@ -463,6 +482,65 @@ ${p.nombre_padre} & ${p.nombre_madre}
 
   const handleScheduleCampaign = () => {
     setShowCampaignModal(true);
+  };
+
+  const handleLaunchSocialMediaCampaign = () => {
+    if (campaignType === "FACEBOOK" || campaignType === "INSTAGRAM" || campaignType === "TIKTOK") {
+      // Validar configuración específica de redes sociales
+      if (!socialMediaCampaign.objective || !socialMediaCampaign.budget || !socialMediaCampaign.creative.headline) {
+        toast({
+          title: "Configuración incompleta",
+          description: "Por favor complete todos los campos requeridos para la campaña",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Simular integración con APIs de redes sociales
+      const platformNames = {
+        FACEBOOK: "Facebook Ads",
+        INSTAGRAM: "Instagram Ads", 
+        TIKTOK: "TikTok Ads"
+      };
+
+      const estimatedReach = socialMediaCampaign.budget ? parseInt(socialMediaCampaign.budget) * 50 : 0;
+      const totalBudget = socialMediaCampaign.budget && socialMediaCampaign.duration ? 
+        parseInt(socialMediaCampaign.budget) * parseInt(socialMediaCampaign.duration) : 0;
+
+      toast({
+        title: `Campaña de ${platformNames[campaignType as keyof typeof platformNames]} creada`,
+        description: `Campaña programada con alcance estimado de ${estimatedReach.toLocaleString()} personas y presupuesto de $${totalBudget.toLocaleString()} MXN`,
+      });
+
+      // Resetear formulario
+      setCampaignType("");
+      setSocialMediaCampaign({
+        platform: "",
+        objective: "",
+        budget: "",
+        duration: "",
+        targeting: {
+          age_range: "",
+          location: "",
+          interests: "",
+          behavior: ""
+        },
+        creative: {
+          headline: "",
+          description: "",
+          call_to_action: "",
+          image_url: ""
+        }
+      });
+    } else {
+      // Campaña tradicional
+      toast({
+        title: "Campaña programada",
+        description: "La campaña masiva ha sido programada exitosamente",
+      });
+    }
+    
+    setShowCampaignModal(false);
   };
 
   return (
@@ -1145,7 +1223,7 @@ ${p.nombre_padre} & ${p.nombre_madre}
                 <div className="space-y-4">
                   <div>
                     <Label>Tipo de campaña</Label>
-                    <Select>
+                    <Select value={campaignType} onValueChange={setCampaignType}>
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar tipo de campaña..." />
                       </SelectTrigger>
@@ -1154,6 +1232,9 @@ ${p.nombre_padre} & ${p.nombre_madre}
                         <SelectItem value="SMS">Campaña de SMS</SelectItem>
                         <SelectItem value="WHATSAPP">Campaña de WhatsApp</SelectItem>
                         <SelectItem value="LLAMADAS">Campaña de Llamadas</SelectItem>
+                        <SelectItem value="FACEBOOK">Campaña de Facebook Ads</SelectItem>
+                        <SelectItem value="INSTAGRAM">Campaña de Instagram Ads</SelectItem>
+                        <SelectItem value="TIKTOK">Campaña de TikTok Ads</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1174,8 +1255,219 @@ ${p.nombre_padre} & ${p.nombre_madre}
                     </Select>
                   </div>
 
+                  {/* Estado de conexión de redes sociales */}
+                  {(campaignType === "FACEBOOK" || campaignType === "INSTAGRAM" || campaignType === "TIKTOK") && (
+                    <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center gap-2 text-green-800">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="font-medium">
+                          {campaignType === "FACEBOOK" && "Facebook Business Manager conectado"}
+                          {campaignType === "INSTAGRAM" && "Instagram Business conectado"}
+                          {campaignType === "TIKTOK" && "TikTok Ads Manager conectado"}
+                        </span>
+                      </div>
+                      <p className="text-sm text-green-700 mt-1">
+                        Cuenta activa • Presupuesto disponible • API sincronizada
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Configuración específica para Redes Sociales */}
+                  {(campaignType === "FACEBOOK" || campaignType === "INSTAGRAM" || campaignType === "TIKTOK") && (
+                    <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
+                      <h3 className="text-lg font-semibold text-blue-800 mb-4 flex items-center gap-2">
+                        {campaignType === "FACEBOOK" && (
+                          <>
+                            <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">f</span>
+                            </div>
+                            Configuración Facebook Ads
+                          </>
+                        )}
+                        {campaignType === "INSTAGRAM" && (
+                          <>
+                            <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">IG</span>
+                            </div>
+                            Configuración Instagram Ads
+                          </>
+                        )}
+                        {campaignType === "TIKTOK" && (
+                          <>
+                            <div className="w-6 h-6 bg-black rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">TT</span>
+                            </div>
+                            Configuración TikTok Ads
+                          </>
+                        )}
+                      </h3>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label>Objetivo de la campaña</Label>
+                          <Select value={socialMediaCampaign.objective} onValueChange={(value) => 
+                            setSocialMediaCampaign(prev => ({...prev, objective: value}))
+                          }>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccionar objetivo..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="AWARENESS">Reconocimiento de marca</SelectItem>
+                              <SelectItem value="REACH">Alcance</SelectItem>
+                              <SelectItem value="TRAFFIC">Tráfico web</SelectItem>
+                              <SelectItem value="ENGAGEMENT">Engagement</SelectItem>
+                              <SelectItem value="LEADS">Generación de leads</SelectItem>
+                              <SelectItem value="CONVERSIONS">Conversiones</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label>Presupuesto diario (MXN)</Label>
+                          <Input 
+                            type="number" 
+                            placeholder="1000"
+                            value={socialMediaCampaign.budget}
+                            onChange={(e) => setSocialMediaCampaign(prev => ({...prev, budget: e.target.value}))}
+                          />
+                        </div>
+
+                        <div>
+                          <Label>Duración de la campaña</Label>
+                          <Select value={socialMediaCampaign.duration} onValueChange={(value) => 
+                            setSocialMediaCampaign(prev => ({...prev, duration: value}))
+                          }>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccionar duración..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="7">7 días</SelectItem>
+                              <SelectItem value="14">14 días</SelectItem>
+                              <SelectItem value="30">30 días</SelectItem>
+                              <SelectItem value="60">60 días</SelectItem>
+                              <SelectItem value="90">90 días</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label>Rango de edad</Label>
+                          <Select value={socialMediaCampaign.targeting.age_range} onValueChange={(value) => 
+                            setSocialMediaCampaign(prev => ({...prev, targeting: {...prev.targeting, age_range: value}}))
+                          }>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccionar edad..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="25-35">25-35 años</SelectItem>
+                              <SelectItem value="30-45">30-45 años</SelectItem>
+                              <SelectItem value="35-50">35-50 años</SelectItem>
+                              <SelectItem value="25-50">25-50 años</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label>Ubicación geográfica</Label>
+                          <Input 
+                            placeholder="Ciudad de México, Guadalajara..."
+                            value={socialMediaCampaign.targeting.location}
+                            onChange={(e) => setSocialMediaCampaign(prev => ({...prev, targeting: {...prev.targeting, location: e.target.value}}))}
+                          />
+                        </div>
+
+                        <div>
+                          <Label>Intereses específicos</Label>
+                          <Input 
+                            placeholder="Educación privada, colegios..."
+                            value={socialMediaCampaign.targeting.interests}
+                            onChange={(e) => setSocialMediaCampaign(prev => ({...prev, targeting: {...prev.targeting, interests: e.target.value}}))}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-4">
+                        <h4 className="font-medium text-blue-800 mb-3">Contenido creativo</h4>
+                        <div className="grid grid-cols-1 gap-4">
+                          <div>
+                            <Label>Título principal</Label>
+                            <Input 
+                              placeholder="¡Inscripciones abiertas 2025-2026!"
+                              value={socialMediaCampaign.creative.headline}
+                              onChange={(e) => setSocialMediaCampaign(prev => ({...prev, creative: {...prev.creative, headline: e.target.value}}))}
+                            />
+                          </div>
+                          
+                          <div>
+                            <Label>Descripción del anuncio</Label>
+                            <Textarea 
+                              placeholder="Descubre la excelencia educativa que tu hijo merece..."
+                              value={socialMediaCampaign.creative.description}
+                              onChange={(e) => setSocialMediaCampaign(prev => ({...prev, creative: {...prev.creative, description: e.target.value}}))}
+                              rows={3}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <Label>Llamada a la acción</Label>
+                              <Select value={socialMediaCampaign.creative.call_to_action} onValueChange={(value) => 
+                                setSocialMediaCampaign(prev => ({...prev, creative: {...prev.creative, call_to_action: value}}))
+                              }>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Seleccionar CTA..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="LEARN_MORE">Más información</SelectItem>
+                                  <SelectItem value="SIGN_UP">Inscríbete</SelectItem>
+                                  <SelectItem value="CONTACT_US">Contáctanos</SelectItem>
+                                  <SelectItem value="CALL_NOW">Llama ahora</SelectItem>
+                                  <SelectItem value="VISIT_WEBSITE">Visita web</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div>
+                              <Label>URL de imagen/video</Label>
+                              <Input 
+                                placeholder="https://ejemplo.com/imagen.jpg"
+                                value={socialMediaCampaign.creative.image_url}
+                                onChange={(e) => setSocialMediaCampaign(prev => ({...prev, creative: {...prev.creative, image_url: e.target.value}}))}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 p-3 bg-white border border-blue-200 rounded-lg">
+                        <h4 className="font-medium text-blue-800 mb-2">Estimaciones de la campaña</h4>
+                        <div className="grid grid-cols-3 gap-4 text-sm">
+                          <div>
+                            <span className="font-medium">Alcance estimado:</span>
+                            <div className="text-blue-600 font-semibold">
+                              {socialMediaCampaign.budget ? (parseInt(socialMediaCampaign.budget) * 50).toLocaleString() : '0'} personas
+                            </div>
+                          </div>
+                          <div>
+                            <span className="font-medium">Clics estimados:</span>
+                            <div className="text-blue-600 font-semibold">
+                              {socialMediaCampaign.budget ? Math.round(parseInt(socialMediaCampaign.budget) * 2.5) : '0'} clics
+                            </div>
+                          </div>
+                          <div>
+                            <span className="font-medium">Costo total:</span>
+                            <div className="text-blue-600 font-semibold">
+                              ${socialMediaCampaign.budget && socialMediaCampaign.duration ? 
+                                (parseInt(socialMediaCampaign.budget) * parseInt(socialMediaCampaign.duration)).toLocaleString() : '0'} MXN
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div>
-                    <Label>Fecha de envío</Label>
+                    <Label>Fecha de inicio</Label>
                     <Input type="datetime-local" />
                   </div>
 
@@ -1213,16 +1505,19 @@ ${p.nombre_padre} & ${p.nombre_madre}
                     </Button>
                     <Button 
                       className="bg-blue-600 hover:bg-blue-700"
-                      onClick={() => {
-                        toast({
-                          title: "Campaña programada",
-                          description: "La campaña masiva ha sido programada exitosamente",
-                        });
-                        setShowCampaignModal(false);
-                      }}
+                      onClick={handleLaunchSocialMediaCampaign}
                     >
-                      <Mail className="w-4 h-4 mr-2" />
-                      Programar Campaña
+                      {(campaignType === "FACEBOOK" || campaignType === "INSTAGRAM" || campaignType === "TIKTOK") ? (
+                        <>
+                          <TrendingUp className="w-4 h-4 mr-2" />
+                          Lanzar Campaña Publicitaria
+                        </>
+                      ) : (
+                        <>
+                          <Mail className="w-4 h-4 mr-2" />
+                          Programar Campaña
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>

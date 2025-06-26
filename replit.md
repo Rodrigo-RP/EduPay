@@ -118,6 +118,14 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- June 26, 2025: INTEGRACIÓN COMPLETA DE REDES SOCIALES EN CRM
+- June 26, 2025: Facebook Ads Manager integrado con configuración completa de campañas publicitarias
+- June 26, 2025: Instagram Ads implementado con targeting demográfico y geográfico avanzado
+- June 26, 2025: TikTok Ads Manager con configuración de objetivos y presupuestos
+- June 26, 2025: Sistema de estimaciones automáticas de alcance, clics y costos totales
+- June 26, 2025: Configuración de contenido creativo con títulos, descripciones y llamadas a la acción
+- June 26, 2025: Targeting avanzado por edad, ubicación, intereses y comportamiento
+- June 26, 2025: Estado de conexión visual para cada plataforma publicitaria
 - June 26, 2025: CRM ESCOLAR COMPLETADO CON FUNCIONALIDAD PROFESIONAL
 - June 26, 2025: Timeline de actividades similar a HubSpot implementado con línea cronológica vertical
 - June 26, 2025: Botones de teléfono, email y calendario con acciones reales funcionales

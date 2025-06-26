@@ -861,6 +861,118 @@ ${p.nombre_padre} & ${p.nombre_madre}
             </TabsContent>
 
             <TabsContent value="reportes">
+              {/* Sección de Redes Sociales */}
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5" />
+                    Campañas Publicitarias - Redes Sociales
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    {/* Facebook Ads */}
+                    <div className="border border-blue-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                          <span className="text-white font-bold">f</span>
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-blue-800">Facebook Ads</h3>
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span className="text-xs text-green-600">Conectado</span>
+                          </div>
+                        </div>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        className="w-full bg-blue-600 hover:bg-blue-700"
+                        onClick={() => {
+                          setCampaignType("FACEBOOK");
+                          setShowCampaignModal(true);
+                        }}
+                      >
+                        Crear Campaña
+                      </Button>
+                    </div>
+
+                    {/* Instagram Ads */}
+                    <div className="border border-purple-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                          <span className="text-white font-bold text-xs">IG</span>
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-purple-800">Instagram Ads</h3>
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span className="text-xs text-green-600">Conectado</span>
+                          </div>
+                        </div>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                        onClick={() => {
+                          setCampaignType("INSTAGRAM");
+                          setShowCampaignModal(true);
+                        }}
+                      >
+                        Crear Campaña
+                      </Button>
+                    </div>
+
+                    {/* TikTok Ads */}
+                    <div className="border border-gray-300 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center">
+                          <span className="text-white font-bold text-xs">TT</span>
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-800">TikTok Ads</h3>
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span className="text-xs text-green-600">Conectado</span>
+                          </div>
+                        </div>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        className="w-full bg-black hover:bg-gray-800"
+                        onClick={() => {
+                          setCampaignType("TIKTOK");
+                          setShowCampaignModal(true);
+                        }}
+                      >
+                        Crear Campaña
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="font-medium text-blue-800 mb-2">Estado de las Plataformas</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium">Facebook:</span>
+                        <div className="text-blue-600">Presupuesto: $50,000 MXN</div>
+                        <div className="text-gray-600">Última campaña: Hace 2 días</div>
+                      </div>
+                      <div>
+                        <span className="font-medium">Instagram:</span>
+                        <div className="text-purple-600">Presupuesto: $35,000 MXN</div>
+                        <div className="text-gray-600">Última campaña: Hace 1 semana</div>
+                      </div>
+                      <div>
+                        <span className="font-medium">TikTok:</span>
+                        <div className="text-gray-600">Presupuesto: $25,000 MXN</div>
+                        <div className="text-gray-600">Última campaña: Nueva plataforma</div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>

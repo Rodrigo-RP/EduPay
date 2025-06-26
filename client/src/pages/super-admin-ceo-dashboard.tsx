@@ -606,7 +606,7 @@ export default function SuperAdminCEODashboard() {
                   <CardDescription>Monitoreo de infraestructura crítica</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {systemHealth && (systemHealth as any[]).map((service: any) => (
+                  {systemHealth && Array.isArray(systemHealth) && systemHealth.map((service: any) => (
                     <div key={service.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
                       <div className="flex items-center space-x-2">
                         <div className={`h-3 w-3 rounded-full ${service.status === 'healthy' ? 'bg-green-500' : 'bg-red-500'}`}></div>
@@ -627,7 +627,7 @@ export default function SuperAdminCEODashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {tenants && (tenants as any[]).slice(0, 5).map((tenant: any) => (
+                    {tenants && Array.isArray(tenants) && tenants.slice(0, 5).map((tenant: any) => (
                       <div key={tenant.id} className="flex items-center justify-between p-2 border rounded">
                         <div>
                           <div className="font-medium">{tenant.nombre_legal}</div>

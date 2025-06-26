@@ -31,13 +31,13 @@ export const authService = {
   },
 
   logout() {
-    localStorage.removeItem("auth_token");
+    localStorage.removeItem("token");
     localStorage.removeItem("auth_type");
     localStorage.removeItem("auth_user");
   },
 
   getToken(): string | null {
-    return localStorage.getItem("auth_token");
+    return localStorage.getItem("token");
   },
 
   getAuthType(): string | null {

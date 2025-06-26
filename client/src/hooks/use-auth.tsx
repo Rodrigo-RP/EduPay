@@ -31,7 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Check for existing token on mount
-    const token = localStorage.getItem("auth_token");
+    const token = localStorage.getItem("token");
     const userType = localStorage.getItem("auth_type");
     
     if (token && userType) {
@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       const data = await response.json();
       
-      localStorage.setItem("auth_token", data.token);
+      localStorage.setItem("token", data.token);
       localStorage.setItem("auth_type", "user");
       localStorage.setItem("auth_user", JSON.stringify(data.user));
       
@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       const data = await response.json();
       
-      localStorage.setItem("auth_token", data.token);
+      localStorage.setItem("token", data.token);
       localStorage.setItem("auth_type", "guardian");
       localStorage.setItem("auth_user", JSON.stringify(data.guardian));
       
@@ -95,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    localStorage.removeItem("auth_token");
+    localStorage.removeItem("token");
     localStorage.removeItem("auth_type");
     localStorage.removeItem("auth_user");
     setUser(null);

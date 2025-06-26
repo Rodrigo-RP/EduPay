@@ -287,6 +287,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { producto_id, fecha_vencimiento } = req.body;
       const userCampusId = req.user.campus_id; // Use authenticated user's campus
+
       
       // Catalog products with differentiated pricing
       const catalogProducts = {

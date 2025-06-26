@@ -130,6 +130,13 @@ export default function Sidebar() {
       active: location === "/configuracion",
       category: "sistema"
     },
+    { 
+      icon: "fas fa-brain", 
+      label: "Sistemas Avanzados", 
+      href: "/sistemas-avanzados", 
+      active: location === "/sistemas-avanzados",
+      category: "sistema"
+    },
   ];
 
   return (

@@ -363,13 +363,45 @@ export default function Proveedores() {
                             </div>
                           )}
                       <div className="flex gap-1 mt-2">
-                        <Button size="sm" variant="outline">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            toast({
+                              title: "Editando Proveedor",
+                              description: `Abriendo datos de ${proveedor.nombre_empresa}`,
+                              duration: 2000,
+                            });
+                          }}
+                        >
                               <Edit className="w-3 h-3" />
                             </Button>
-                        <Button size="sm" variant="outline">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            window.open(`tel:${proveedor.telefono}`, '_self');
+                            toast({
+                              title: "Llamando a Proveedor",
+                              description: `Iniciando llamada a ${proveedor.contacto}`,
+                              duration: 2000,
+                            });
+                          }}
+                        >
                               <Phone className="w-3 h-3" />
                             </Button>
-                        <Button size="sm" variant="outline">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            window.open(`mailto:${proveedor.correo}`, '_blank');
+                            toast({
+                              title: "Enviando Email",
+                              description: `Abriendo cliente de correo para ${proveedor.contacto}`,
+                              duration: 2000,
+                            });
+                          }}
+                        >
                               <Mail className="w-3 h-3" />
                             </Button>
                           </div>

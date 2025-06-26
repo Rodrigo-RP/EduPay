@@ -1206,7 +1206,17 @@ ${b.nombre}:
                       <FileText className="h-4 w-4 text-blue-500" />
                       <span className="text-sm">Acta de nacimiento</span>
                     </div>
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        toast({
+                          title: "Abriendo Documento",
+                          description: "Acta de nacimiento descargada exitosamente",
+                          duration: 2000,
+                        });
+                      }}
+                    >
                       <Download className="h-3 w-3 mr-1" />
                       Ver
                     </Button>
@@ -1216,7 +1226,17 @@ ${b.nombre}:
                       <FileText className="h-4 w-4 text-blue-500" />
                       <span className="text-sm">CURP</span>
                     </div>
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        toast({
+                          title: "Descargando CURP",
+                          description: "Documento CURP descargado exitosamente",
+                          duration: 2000,
+                        });
+                      }}
+                    >
                       <Download className="h-3 w-3 mr-1" />
                       Ver
                     </Button>

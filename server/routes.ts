@@ -124,22 +124,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Middleware para verificar Super Admin
   const requireSuperAdmin = async (req: any, res: any, next: any) => {
     try {
-      const token = req.headers.authorization?.replace('Bearer ', '');
-      if (!token) {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ message: 'Token requerido' });
       }
 
+      const token = authHeader.replace('Bearer ', '');
       const decoded = jwt.verify(token, JWT_SECRET) as any;
+      
+      // Verificar que el token sea válido y contenga la información necesaria
+      if (!decoded || !decoded.id) {
+        return res.status(401).json({ message: 'Token inválido' });
+      }
+
       const user = await storage.getUser(decoded.id);
       
-      if (!user || !user.is_super_admin) {
+      if (!user) {
+        return res.status(401).json({ message: 'Usuario no encontrado' });
+      }
+
+      if (!user.is_super_admin) {
         return res.status(403).json({ message: 'Acceso denegado - Super Admin requerido' });
       }
 
       req.user = user;
       next();
-    } catch (error) {
-      res.status(401).json({ message: 'Token inválido' });
+    } catch (error: any) {
+      console.error('Error en middleware requireSuperAdmin:', error);
+      if (error.name === 'JsonWebTokenError') {
+        return res.status(401).json({ message: 'Token JWT inválido' });
+      }
+      if (error.name === 'TokenExpiredError') {
+        return res.status(401).json({ message: 'Token expirado' });
+      }
+      res.status(401).json({ message: 'Error de autenticación' });
     }
   };
 
@@ -1504,7 +1522,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.createSecurityEvent({
         event_type: 'security_scan',
         severity: 'low',
-        event_details: JSON.stringify({ initiated_by: req.user.email, scan_type: 'platform_wide' }),
+        event_details: JSON.stringify({ initiated_by: (req as any).user.email, scan_type: 'platform_wide' }),
         is_blocked: false
       });
 
@@ -1551,7 +1569,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ip_address: ipAddress,
         event_details: JSON.stringify({ 
           reason: reason || 'Manual block by super admin',
-          blocked_by: req.user.email 
+          blocked_by: (req as any).user.email 
         }),
         is_blocked: true
       });

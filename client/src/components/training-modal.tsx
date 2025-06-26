@@ -196,65 +196,192 @@ export default function TrainingModal({ open, onOpenChange }: TrainingModalProps
   const downloadManual = (filename: string) => {
     if (!selectedModule) return;
     
-    // Generar contenido completo del manual
-    const content = `
-MANUAL DE CAPACITACIÓN - ESCUELAPAY
-====================================
+    // Generar contenido HTML con estilos para PDF
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual de Capacitación - ${selectedModule.title}</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #2563eb;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #2563eb;
+            margin: 0;
+            font-size: 28px;
+        }
+        .header .subtitle {
+            color: #64748b;
+            font-size: 16px;
+            margin-top: 5px;
+        }
+        .module-info {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid #2563eb;
+        }
+        .module-info h2 {
+            margin-top: 0;
+            color: #1e40af;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section h3 {
+            color: #1e40af;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 5px;
+            margin-bottom: 15px;
+        }
+        .steps {
+            counter-reset: step-counter;
+        }
+        .steps li {
+            counter-increment: step-counter;
+            margin-bottom: 10px;
+            padding-left: 10px;
+        }
+        .steps li::marker {
+            content: counter(step-counter) ". ";
+            font-weight: bold;
+            color: #2563eb;
+        }
+        .tips {
+            background: #fef3cd;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #f59e0b;
+        }
+        .tips li {
+            margin-bottom: 8px;
+        }
+        .checklist {
+            background: #f0fdf4;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #10b981;
+        }
+        .support-box {
+            background: #f1f5f9;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #e2e8f0;
+            color: #64748b;
+            font-size: 14px;
+        }
+        @media print {
+            body { margin: 0; }
+            .header { page-break-after: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>MANUAL DE CAPACITACIÓN</h1>
+        <div class="subtitle">EscuelaPay - Plataforma SaaS líder en pagos educativos</div>
+    </div>
 
-MÓDULO: ${selectedModule.title}
-DURACIÓN: ${selectedModule.duration}
-DIFICULTAD: ${selectedModule.difficulty.toUpperCase()}
+    <div class="module-info">
+        <h2>${selectedModule.title}</h2>
+        <p><strong>Duración:</strong> ${selectedModule.duration}</p>
+        <p><strong>Dificultad:</strong> ${selectedModule.difficulty.charAt(0).toUpperCase() + selectedModule.difficulty.slice(1)}</p>
+        <p><strong>Descripción:</strong> ${selectedModule.description}</p>
+    </div>
 
-DESCRIPCIÓN
------------
-${selectedModule.description}
+    <div class="section">
+        <h3>📋 Pasos Detallados</h3>
+        <ol class="steps">
+            ${selectedModule.content.map(item => `<li>${item}</li>`).join('')}
+        </ol>
+    </div>
 
-PASOS DETALLADOS
-----------------
-${selectedModule.content.map((item, index) => `${index + 1}. ${item}`).join('\n')}
+    <div class="section">
+        <h3>💡 Tips Profesionales</h3>
+        <div class="tips">
+            <ul>
+                ${selectedModule.tips.map(tip => `<li>${tip}</li>`).join('')}
+            </ul>
+        </div>
+    </div>
 
-TIPS PROFESIONALES
-------------------
-${selectedModule.tips.map((tip, index) => `• ${tip}`).join('\n')}
+    <div class="section">
+        <h3>✅ Checklist de Verificación</h3>
+        <div class="checklist">
+            <ul style="list-style: none; padding-left: 0;">
+                <li>☐ Completar todos los pasos en orden</li>
+                <li>☐ Verificar que cada función opere correctamente</li>
+                <li>☐ Realizar pruebas con datos reales</li>
+                <li>☐ Capacitar al personal involucrado</li>
+                <li>☐ Documentar configuraciones específicas</li>
+            </ul>
+        </div>
+    </div>
 
-CHECKLIST DE VERIFICACIÓN
---------------------------
-□ Completar todos los pasos en orden
-□ Verificar que cada función opere correctamente
-□ Realizar pruebas con datos reales
-□ Capacitar al personal involucrado
-□ Documentar configuraciones específicas
+    <div class="section">
+        <h3>🎯 Recursos Adicionales</h3>
+        <ul>
+            <li>Video tutorial disponible en plataforma</li>
+            <li>Soporte técnico vía WhatsApp durante implementación</li>
+            <li>Sesión de capacitación en vivo disponible bajo solicitud</li>
+        </ul>
+    </div>
 
-RECURSOS ADICIONALES
----------------------
-• Video tutorial disponible en plataforma
-• Soporte técnico vía WhatsApp durante implementación
-• Sesión de capacitación en vivo disponible bajo solicitud
+    <div class="section">
+        <h3>📞 Soporte Técnico</h3>
+        <div class="support-box">
+            <p><strong>Email:</strong> soporte@escuelapay.mx</p>
+            <p><strong>WhatsApp:</strong> +52 55 1234 5678</p>
+            <p><strong>Horario:</strong> Lunes a Viernes 8:00 AM - 6:00 PM</p>
+            <p><strong>Tiempo de respuesta:</strong> Máximo 4 horas</p>
+        </div>
+    </div>
 
-SOPORTE TÉCNICO
----------------
-Email: soporte@escuelapay.mx
-WhatsApp: +52 55 1234 5678
-Horario: Lunes a Viernes 8:00 AM - 6:00 PM
-Tiempo de respuesta: Máximo 4 horas
+    <div class="section">
+        <h3>➡️ Siguientes Pasos</h3>
+        <ol>
+            <li>Completar este módulo</li>
+            <li>Verificar implementación</li>
+            <li>Proceder al siguiente módulo según cronograma</li>
+            <li>Solicitar revisión técnica si es necesario</li>
+        </ol>
+    </div>
 
-SIGUIENTES PASOS
-----------------
-1. Completar este módulo
-2. Verificar implementación
-3. Proceder al siguiente módulo según cronograma
-4. Solicitar revisión técnica si es necesario
+    <div class="footer">
+        <p><strong>© 2025 EscuelaPay</strong> - Plataforma SaaS líder en pagos educativos</p>
+        <p>Documento generado: ${new Date().toLocaleDateString('es-MX')}</p>
+    </div>
+</body>
+</html>`;
 
-====================================
-© 2025 EscuelaPay - Plataforma SaaS líder en pagos educativos
-Documento generado: ${new Date().toLocaleDateString('es-MX')}
-    `;
-
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    // Crear blob con contenido HTML
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = filename || `Manual_${selectedModule.title.replace(/\s+/g, '_')}.txt`;
+    link.download = `Manual_${selectedModule.title.replace(/\s+/g, '_')}.html`;
     
     // Asegurar que el enlace sea visible temporalmente
     link.style.display = 'none';
@@ -272,8 +399,8 @@ Documento generado: ${new Date().toLocaleDateString('es-MX')}
     // Notificación visual para el usuario
     toast({
       title: "Manual Descargado",
-      description: `${selectedModule.title} - Manual guardado exitosamente`,
-      duration: 3000,
+      description: `${selectedModule.title} - Abrir archivo y usar Ctrl+P para guardar como PDF`,
+      duration: 5000,
     });
   };
 
@@ -350,18 +477,30 @@ Documento generado: ${new Date().toLocaleDateString('es-MX')}
                     </div>
 
                     {selectedModule.downloadable && (
-                      <div className="flex gap-2">
-                        <Button 
-                          onClick={() => downloadManual(selectedModule.downloadable!)}
-                          className="flex items-center gap-2"
-                        >
-                          <Download className="h-4 w-4" />
-                          Descargar Manual
-                        </Button>
-                        <Button variant="outline" className="flex items-center gap-2">
-                          <Video className="h-4 w-4" />
-                          Ver Video Tutorial
-                        </Button>
+                      <div className="space-y-3">
+                        <div className="flex gap-2">
+                          <Button 
+                            onClick={() => downloadManual(selectedModule.downloadable!)}
+                            className="flex items-center gap-2"
+                          >
+                            <Download className="h-4 w-4" />
+                            Descargar Manual
+                          </Button>
+                          <Button variant="outline" className="flex items-center gap-2">
+                            <Video className="h-4 w-4" />
+                            Ver Video Tutorial
+                          </Button>
+                        </div>
+                        
+                        <div className="text-xs text-muted-foreground bg-blue-50 p-3 rounded-lg border border-blue-200">
+                          <strong>Para obtener PDF:</strong>
+                          <ol className="mt-1 space-y-1">
+                            <li>1. Abre el archivo HTML descargado</li>
+                            <li>2. Presiona Ctrl+P (Cmd+P en Mac)</li>
+                            <li>3. Selecciona "Guardar como PDF"</li>
+                            <li>4. Guarda tu manual en formato PDF</li>
+                          </ol>
+                        </div>
                       </div>
                     )}
                   </CardContent>

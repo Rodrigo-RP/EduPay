@@ -13,7 +13,7 @@ import {
   Users, School, CreditCard, Activity, Shield, Zap, 
   MapPin, Clock, Target, BarChart3, LineChart, Scan,
   Ban, Building, Server, Wifi, Database, Lock,
-  Bell, CheckCircle, XCircle, ArrowUp, ArrowDown
+  Bell, CheckCircle, XCircle, ArrowUp, ArrowDown, Settings
 } from "lucide-react";
 
 export default function SuperAdminCEODashboard() {

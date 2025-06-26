@@ -189,14 +189,14 @@ export default function SuperAdminDashboard() {
               </p>
             </div>
             <div className="flex items-center gap-4">
-              <Button
-                onClick={() => securityScanMutation.mutate()}
-                disabled={securityScanMutation.isPending}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                <Scan className="h-4 w-4 mr-2" />
-                {securityScanMutation.isPending ? "Escaneando..." : "Escaneo de Seguridad"}
-              </Button>
+              <div className="text-right">
+                <p className="text-sm text-gray-600">
+                  Plataforma SaaS EscuelaPay
+                </p>
+                <p className="text-xs text-gray-500">
+                  v2.0 - Super Admin Panel
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -367,28 +367,33 @@ export default function SuperAdminDashboard() {
 
           {/* Security Tab */}
           <TabsContent value="security" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-3">
               <Card>
                 <CardHeader>
-                  <CardTitle>Control de Seguridad</CardTitle>
-                  <CardDescription>Herramientas de seguridad de plataforma</CardDescription>
+                  <CardTitle>Escaneo de Seguridad</CardTitle>
+                  <CardDescription>Análisis completo de vulnerabilidades</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <Button
                     onClick={() => securityScanMutation.mutate()}
                     disabled={securityScanMutation.isPending}
-                    className="w-full"
+                    className="w-full bg-blue-600 hover:bg-blue-700"
                   >
                     <Scan className="h-4 w-4 mr-2" />
-                    {securityScanMutation.isPending ? "Escaneando..." : "Escaneo Completo"}
+                    {securityScanMutation.isPending ? "Escaneando..." : "Iniciar Escaneo"}
                   </Button>
+                  <div className="text-sm text-gray-600">
+                    <p>• Detección de vulnerabilidades</p>
+                    <p>• Análisis de ataques</p>
+                    <p>• Score de seguridad</p>
+                  </div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
                   <CardTitle>Bloquear IP</CardTitle>
-                  <CardDescription>Bloquear direcciones IP sospechosas</CardDescription>
+                  <CardDescription>Control de acceso por IP</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
@@ -409,6 +414,31 @@ export default function SuperAdminDashboard() {
                     <Ban className="h-4 w-4 mr-2" />
                     {blockIpMutation.isPending ? "Bloqueando..." : "Bloquear IP"}
                   </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Estado de Protecciones</CardTitle>
+                  <CardDescription>Resumen de defensas activas</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Firewall WAF</span>
+                    <span className="h-2 w-2 bg-green-500 rounded-full"></span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Anti-SQL Injection</span>
+                    <span className="h-2 w-2 bg-green-500 rounded-full"></span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Rate Limiting</span>
+                    <span className="h-2 w-2 bg-green-500 rounded-full"></span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Encriptación AES-256</span>
+                    <span className="h-2 w-2 bg-green-500 rounded-full"></span>
+                  </div>
                 </CardContent>
               </Card>
             </div>

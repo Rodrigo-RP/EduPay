@@ -19,25 +19,105 @@ export default function CatalogoProductos() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [productToDelete, setProductToDelete] = useState<any>(null);
 
-  // Catálogo de productos demo
-  const productos = [
-    { id: 1, codigo: "COL-2025", nombre: "Colegiatura Mensual", descripcion: "Pago mensual de colegiatura para servicios educativos", precio_unitario_centavos: 500000, categoria: "COLEGIATURAS", unidad_medida: "SERVICIO", clave_sat: "80101500", activo: true, seccion_academica: "GENERAL" },
-    { id: 2, codigo: "INS-2025", nombre: "Inscripción Anual", descripcion: "Pago único anual por inscripción al ciclo escolar", precio_unitario_centavos: 300000, categoria: "INSCRIPCIONES", unidad_medida: "SERVICIO", clave_sat: "80101500", activo: true, seccion_academica: "GENERAL" },
-    { id: 3, codigo: "SEG-ESC-2025", nombre: "Seguro Escolar", descripcion: "Seguro contra accidentes escolares para estudiantes", precio_unitario_centavos: 80000, categoria: "SEGURO_ESCOLAR", unidad_medida: "SERVICIO", clave_sat: "52121600", activo: true, seccion_academica: "GENERAL" },
-    { id: 4, codigo: "LIB-PRIM-2025", nombre: "Paquete de Libros Primaria", descripcion: "Set completo de libros de texto para nivel primaria", precio_unitario_centavos: 150000, categoria: "LIBROS", unidad_medida: "LOTE", clave_sat: "49111500", activo: true, seccion_academica: "PRIMARIA" },
-    { id: 5, codigo: "LIB-SEC-2025", nombre: "Paquete de Libros Secundaria", descripcion: "Set completo de libros de texto para nivel secundaria", precio_unitario_centavos: 200000, categoria: "LIBROS", unidad_medida: "LOTE", clave_sat: "49111500", activo: true, seccion_academica: "SECUNDARIA" },
-    { id: 6, codigo: "UNI-KINDER", nombre: "Uniforme Kinder", descripcion: "Uniforme completo para estudiantes de kinder", precio_unitario_centavos: 120000, categoria: "OTROS", unidad_medida: "PIEZA", clave_sat: "53101800", activo: true, seccion_academica: "KINDER" },
-    { id: 7, codigo: "EXCUR-2025", nombre: "Excursión Educativa", descripcion: "Viaje educativo y recreativo para estudiantes", precio_unitario_centavos: 100000, categoria: "OTROS", unidad_medida: "SERVICIO", clave_sat: "80101500", activo: true, seccion_academica: "GENERAL" },
-    { id: 8, codigo: "COL-BACH-2025", nombre: "Colegiatura Bachillerato", descripcion: "Pago mensual de colegiatura para nivel bachillerato", precio_unitario_centavos: 700000, categoria: "COLEGIATURAS", unidad_medida: "SERVICIO", clave_sat: "80101500", activo: true, seccion_academica: "BACHILLERATO" },
-    { id: 9, codigo: "REINS-2025", nombre: "Reinscripción", descripcion: "Proceso de reinscripción para ciclo escolar siguiente", precio_unitario_centavos: 150000, categoria: "REINSCRIPCIONES", unidad_medida: "SERVICIO", clave_sat: "80101500", activo: true, seccion_academica: "GENERAL" },
-    { id: 10, codigo: "REINS-BACH-2025", nombre: "Reinscripción Bachillerato", descripcion: "Proceso de reinscripción anual para bachillerato", precio_unitario_centavos: 350000, categoria: "REINSCRIPCIONES", unidad_medida: "SERVICIO", clave_sat: "80101500", activo: true, seccion_academica: "BACHILLERATO" },
-    { id: 11, codigo: "MAT-LAB-2025", nombre: "Material de Laboratorio", descripcion: "Materiales para prácticas de laboratorio de ciencias", precio_unitario_centavos: 180000, categoria: "OTROS", unidad_medida: "LOTE", clave_sat: "49122000", activo: true, seccion_academica: "SECUNDARIA" },
-    { id: 12, codigo: "UNI-DEPORTIVO", nombre: "Uniforme Deportivo", descripcion: "Uniforme completo para educación física y deportes", precio_unitario_centavos: 85000, categoria: "OTROS", unidad_medida: "PIEZA", clave_sat: "53101800", activo: true, seccion_academica: "GENERAL" },
-    { id: 13, codigo: "GRAD-PRIM-2025", nombre: "Graduación Primaria", descripcion: "Ceremonia de graduación y certificados para primaria", precio_unitario_centavos: 250000, categoria: "OTROS", unidad_medida: "SERVICIO", clave_sat: "80101500", activo: true, seccion_academica: "PRIMARIA" },
-    { id: 14, codigo: "EXAM-ADM-2025", nombre: "Examen de Admisión", descripcion: "Evaluación de ingreso para nuevos estudiantes", precio_unitario_centavos: 120000, categoria: "OTROS", unidad_medida: "SERVICIO", clave_sat: "80101500", activo: true, seccion_academica: "GENERAL" },
-    { id: 15, codigo: "MOCH-ESC-2025", nombre: "Mochila Escolar", descripcion: "Mochila oficial de la institución con logo", precio_unitario_centavos: 45000, categoria: "OTROS", unidad_medida: "PIEZA", clave_sat: "53101600", activo: true, seccion_academica: "GENERAL" },
-    { id: 16, codigo: "TRANS-ESC-2025", nombre: "Transporte Escolar", descripcion: "Servicio de transporte mensual casa-escuela-casa", precio_unitario_centavos: 180000, categoria: "OTROS", unidad_medida: "SERVICIO", clave_sat: "48000000", activo: true, seccion_academica: "GENERAL" }
-  ];
+  // Catálogo de productos demo con precios por nivel académico
+  const [productos, setProductos] = useState([
+    { 
+      id: 1, 
+      codigo: "COL-2025", 
+      nombre: "Colegiatura Mensual", 
+      descripcion: "Pago mensual de colegiatura para servicios educativos", 
+      categoria: "COLEGIATURAS", 
+      unidad_medida: "SERVICIO", 
+      clave_sat: "80101500", 
+      activo: true,
+      precios_por_nivel: {
+        KINDER: 350000,
+        PRIMARIA: 450000,
+        SECUNDARIA: 550000,
+        BACHILLERATO: 650000
+      }
+    },
+    { 
+      id: 2, 
+      codigo: "INS-2025", 
+      nombre: "Inscripción Anual", 
+      descripcion: "Pago único anual por inscripción al ciclo escolar", 
+      categoria: "INSCRIPCIONES", 
+      unidad_medida: "SERVICIO", 
+      clave_sat: "80101500", 
+      activo: true,
+      precios_por_nivel: {
+        KINDER: 250000,
+        PRIMARIA: 300000,
+        SECUNDARIA: 350000,
+        BACHILLERATO: 400000
+      }
+    },
+    { 
+      id: 3, 
+      codigo: "REINS-2025", 
+      nombre: "Reinscripción", 
+      descripcion: "Proceso de reinscripción para ciclo escolar siguiente", 
+      categoria: "REINSCRIPCIONES", 
+      unidad_medida: "SERVICIO", 
+      clave_sat: "80101500", 
+      activo: true,
+      precios_por_nivel: {
+        KINDER: 150000,
+        PRIMARIA: 180000,
+        SECUNDARIA: 220000,
+        BACHILLERATO: 280000
+      }
+    },
+    { 
+      id: 4, 
+      codigo: "SEG-ESC-2025", 
+      nombre: "Seguro Escolar", 
+      descripcion: "Seguro contra accidentes escolares para estudiantes", 
+      categoria: "SEGURO_ESCOLAR", 
+      unidad_medida: "SERVICIO", 
+      clave_sat: "52121600", 
+      activo: true,
+      precios_por_nivel: {
+        KINDER: 60000,
+        PRIMARIA: 70000,
+        SECUNDARIA: 80000,
+        BACHILLERATO: 90000
+      }
+    },
+    { 
+      id: 5, 
+      codigo: "LIB-2025", 
+      nombre: "Paquete de Libros", 
+      descripcion: "Set completo de libros de texto por nivel académico", 
+      categoria: "LIBROS", 
+      unidad_medida: "LOTE", 
+      clave_sat: "49111500", 
+      activo: true,
+      precios_por_nivel: {
+        KINDER: 80000,
+        PRIMARIA: 120000,
+        SECUNDARIA: 180000,
+        BACHILLERATO: 250000
+      }
+    },
+    { 
+      id: 6, 
+      codigo: "UNI-2025", 
+      nombre: "Uniforme Escolar", 
+      descripcion: "Uniforme completo oficial de la institución", 
+      categoria: "OTROS", 
+      unidad_medida: "PIEZA", 
+      clave_sat: "53101800", 
+      activo: true,
+      precios_por_nivel: {
+        KINDER: 95000,
+        PRIMARIA: 110000,
+        SECUNDARIA: 125000,
+        BACHILLERATO: 140000
+      }
+    }
+  ]);
 
   const filteredProductos = selectedCategory === "all" 
     ? productos 
@@ -175,13 +255,51 @@ export default function CatalogoProductos() {
                       defaultValue={editingProduct?.descripcion || ''}
                     />
                   </div>
-              <div>
-                    <Label>Precio unitario (MXN)</Label>
-                    <Input 
-                      type="number" 
-                      placeholder="5000" 
-                      defaultValue={editingProduct ? (editingProduct.precio_unitario_centavos / 100).toString() : ''}
-                    />
+              <div className="md:col-span-2">
+                    <Label className="text-base font-semibold">Precios por Nivel Académico (MXN)</Label>
+                    <div className="grid grid-cols-2 gap-4 mt-2 p-4 bg-slate-50 rounded-lg">
+                      <div>
+                        <Label htmlFor="precio-kinder">Kinder</Label>
+                        <Input 
+                          id="precio-kinder"
+                          type="number" 
+                          placeholder="0.00" 
+                          step="0.01"
+                          defaultValue={editingProduct ? (editingProduct.precios_por_nivel?.KINDER / 100).toString() : ''}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="precio-primaria">Primaria</Label>
+                        <Input 
+                          id="precio-primaria"
+                          type="number" 
+                          placeholder="0.00" 
+                          step="0.01"
+                          defaultValue={editingProduct ? (editingProduct.precios_por_nivel?.PRIMARIA / 100).toString() : ''}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="precio-secundaria">Secundaria</Label>
+                        <Input 
+                          id="precio-secundaria"
+                          type="number" 
+                          placeholder="0.00" 
+                          step="0.01"
+                          defaultValue={editingProduct ? (editingProduct.precios_por_nivel?.SECUNDARIA / 100).toString() : ''}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="precio-bachillerato">Bachillerato</Label>
+                        <Input 
+                          id="precio-bachillerato"
+                          type="number" 
+                          placeholder="0.00" 
+                          step="0.01"
+                          defaultValue={editingProduct ? (editingProduct.precios_por_nivel?.BACHILLERATO / 100).toString() : ''}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">Configure el precio específico para cada nivel académico</p>
                   </div>
               <div>
                     <Label>Categoría</Label>
@@ -220,21 +338,7 @@ export default function CatalogoProductos() {
                       defaultValue={editingProduct?.clave_sat || ''}
                     />
                   </div>
-              <div>
-                    <Label>Sección académica</Label>
-                    <Select defaultValue={editingProduct?.seccion_academica || ""}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar sección..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="GENERAL">General</SelectItem>
-                        <SelectItem value="KINDER">Kinder</SelectItem>
-                        <SelectItem value="PRIMARIA">Primaria</SelectItem>
-                        <SelectItem value="SECUNDARIA">Secundaria</SelectItem>
-                        <SelectItem value="BACHILLERATO">Bachillerato</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+
               <div className="flex items-center space-x-2">
                     <Switch 
                       id="active" 
@@ -332,9 +436,7 @@ export default function CatalogoProductos() {
                     <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-medium">{producto.nombre}</h3>
                           {getCategoryBadge(producto.categoria)}
-                          <Badge variant="outline" className="text-xs">
-                            {producto.seccion_academica}
-                          </Badge>
+
                         </div>
                     <p className="text-sm text-slate-600">{producto.descripcion}</p>
                     <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
@@ -346,7 +448,25 @@ export default function CatalogoProductos() {
                     </div>
                 <div className="flex items-center space-x-3">
                   <div className="text-right">
-                    <div className="text-lg font-bold">${(producto.precio_unitario_centavos / 100).toLocaleString()}</div>
+                    <div className="text-sm font-semibold text-slate-700 mb-1">Precios por nivel:</div>
+                    <div className="space-y-1 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Kinder:</span>
+                        <span className="font-medium">${(producto.precios_por_nivel.KINDER / 100).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Primaria:</span>
+                        <span className="font-medium">${(producto.precios_por_nivel.PRIMARIA / 100).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Secundaria:</span>
+                        <span className="font-medium">${(producto.precios_por_nivel.SECUNDARIA / 100).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Bachillerato:</span>
+                        <span className="font-medium">${(producto.precios_por_nivel.BACHILLERATO / 100).toLocaleString()}</span>
+                      </div>
+                    </div>
                         <Badge variant={producto.activo ? "default" : "secondary"}>
                           {producto.activo ? "Activo" : "Inactivo"}
                         </Badge>

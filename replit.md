@@ -118,6 +118,11 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- June 26, 2025: MODALES DE CONFIRMACIÓN ROJOS COMPLETADOS CON ACCESIBILIDAD
+- June 26, 2025: DialogDescription agregado a todos los modales de eliminación para cumplir estándares de accesibilidad
+- June 26, 2025: Modales personalizados rojos reemplazan completamente window.confirm() en toda la plataforma
+- June 26, 2025: Iconos de advertencia triangular y colores rojos consistentes en botones de eliminación
+- June 26, 2025: Validaciones específicas para eliminación (ej: estudiantes con saldos pendientes)
 - June 26, 2025: SCROLL SISTEMÁTICO CORREGIDO EN TODA LA PLATAFORMA
 - June 26, 2025: Todos los modales ahora tienen scroll adecuado con max-h-[90vh] overflow-y-auto
 - June 26, 2025: Formulario "Nuevo Prospecto" con campos de alumno completos y scroll funcional

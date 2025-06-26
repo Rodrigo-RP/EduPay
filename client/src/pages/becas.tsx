@@ -22,6 +22,7 @@ export default function Becas() {
   const [showAsignarModal, setShowAsignarModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [showStudentsModal, setShowStudentsModal] = useState(false);
   const [selectedBeca, setSelectedBeca] = useState<any>(null);
   const [selectedEstudiante, setSelectedEstudiante] = useState<any>(null);
   const { toast } = useToast();
@@ -301,19 +302,8 @@ ${b.nombre}:
   };
 
   const handleViewStudents = (beca: any) => {
-    // Mostrar modal con lista de estudiantes de la beca
-    const estudiantesDeLaBeca = estudiantesParaBecas.filter(e => 
-      e.tipo_solicitud === beca.categoria || 
-      (beca.categoria === 'usebeq' && e.tipo_solicitud === 'socioeconomica')
-    );
-    
-    toast({
-      title: `Estudiantes de ${beca.nombre}`,
-      description: `${estudiantesDeLaBeca.length} estudiantes encontrados con esta beca.`,
-    });
-    
-    // Aquí podrías abrir un modal con la lista completa
-    console.log('Estudiantes de la beca:', estudiantesDeLaBeca);
+    setSelectedBeca(beca);
+    setShowStudentsModal(true);
   };
 
   return (
@@ -774,7 +764,7 @@ ${b.nombre}:
               <CardTitle>Controles Administrativos</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button className="h-20 flex flex-col items-center justify-center">
@@ -815,6 +805,24 @@ ${b.nombre}:
                 >
                   <Users className="h-6 w-6 mb-2" />
                   Auditar Asignaciones
+                </Button>
+
+                <Button 
+                  variant="default" 
+                  className="h-20 flex flex-col items-center justify-center bg-green-600 hover:bg-green-700"
+                  onClick={handleActivateAllBecas}
+                >
+                  <CheckCircle className="h-6 w-6 mb-2" />
+                  ACTIVA
+                </Button>
+
+                <Button 
+                  variant="secondary" 
+                  className="h-20 flex flex-col items-center justify-center"
+                  onClick={handleManualAssignment}
+                >
+                  <Target className="h-6 w-6 mb-2" />
+                  Manual
                 </Button>
               </div>
 
@@ -1029,6 +1037,144 @@ ${b.nombre}:
               }}>
                 Subir Documento
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para Ver Estudiantes de la Beca */}
+      <Dialog open={showStudentsModal} onOpenChange={setShowStudentsModal}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Estudiantes con {selectedBeca?.nombre}</DialogTitle>
+            <DialogDescription>
+              Lista completa de estudiantes beneficiados con esta beca
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      {selectedBeca?.estudiantes_aplicados || 0}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Total Beneficiados</div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">
+                      ${((selectedBeca?.monto_total_descuento || 0) / 100).toLocaleString()}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Descuento Total</div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-purple-600">
+                      {selectedBeca?.porcentaje_max || 0}%
+                    </div>
+                    <div className="text-sm text-muted-foreground">Descuento Máximo</div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="border rounded-lg">
+              <div className="p-4 border-b bg-muted/50">
+                <h4 className="font-medium">Lista de Estudiantes</h4>
+              </div>
+              <div className="divide-y">
+                {estudiantesParaBecas
+                  .filter(e => 
+                    e.tipo_solicitud === selectedBeca?.categoria || 
+                    (selectedBeca?.categoria === 'usebeq' && e.tipo_solicitud === 'socioeconomica')
+                  )
+                  .map((estudiante, index) => (
+                    <div key={index} className="p-4 hover:bg-muted/50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-4">
+                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                              <GraduationCap className="h-5 w-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <div className="font-medium">{estudiante.nombre_completo}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {estudiante.grado} - {estudiante.grupo}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                          <div className="text-right">
+                            <div className="font-medium text-green-600">
+                              {estudiante.porcentaje_asignado}% descuento
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              ${(estudiante.monto_mensual_descuento / 100).toLocaleString()} mensual
+                            </div>
+                          </div>
+                          <Badge 
+                            variant={estudiante.estado === 'Activa' ? 'default' : 
+                                   estudiante.estado === 'Suspendida' ? 'destructive' : 'secondary'}
+                          >
+                            {estudiante.estado}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                }
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setShowStudentsModal(false)}>
+                Cerrar
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button>
+                    <Download className="h-4 w-4 mr-2" />
+                    Exportar Lista
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={() => {
+                    const csvContent = [
+                      'Nombre,Grado,Grupo,Porcentaje,Descuento Mensual,Estado',
+                      ...estudiantesParaBecas
+                        .filter(e => 
+                          e.tipo_solicitud === selectedBeca?.categoria || 
+                          (selectedBeca?.categoria === 'usebeq' && e.tipo_solicitud === 'socioeconomica')
+                        )
+                        .map(e => `${e.nombre_completo},${e.grado},${e.grupo},${e.porcentaje_asignado}%,$${(e.monto_mensual_descuento/100).toLocaleString()},${e.estado}`)
+                    ].join('\n');
+                    
+                    const blob = new Blob([csvContent], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `estudiantes_${selectedBeca?.nombre.replace(/\s+/g, '_').toLowerCase()}.csv`;
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    
+                    toast({
+                      title: "Lista Exportada",
+                      description: "Lista de estudiantes descargada en formato Excel.",
+                    });
+                  }}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Descargar Excel
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </DialogContent>

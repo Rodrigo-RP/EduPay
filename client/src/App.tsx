@@ -77,7 +77,7 @@ function AuthenticatedRoutes() {
   }
 
   // Super Admin routing - redirect to executive dashboard
-  if (user && (user.role === 'super_admin' || user.is_super_admin)) {
+  if (user && user.role === 'super_admin') {
     return (
       <Switch>
         <Route path="/" component={SuperAdminCEODashboardF1} />

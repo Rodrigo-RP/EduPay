@@ -41,6 +41,7 @@ import SuperAdminLogin from "@/pages/super-admin-login";
 import SuperAdminDashboard from "@/pages/super-admin-dashboard";
 import SuperAdminCEODashboard from "@/pages/super-admin-ceo-dashboard";
 import SuperAdminCEODashboardF1 from "@/pages/super-admin-ceo-dashboard-f1";
+import SuperAdminF1Simple from "@/pages/super-admin-f1-simple";
 import SuperAdminSchoolManagement from "@/pages/super-admin-school-management";
 import SupportDashboard from "@/pages/support-dashboard";
 import ImplementationDashboard from "@/pages/implementation-dashboard";
@@ -80,13 +81,13 @@ function AuthenticatedRoutes() {
   if (user && user.role === 'super_admin') {
     return (
       <Switch>
-        <Route path="/" component={SuperAdminCEODashboardF1} />
-        <Route path="/super-admin" component={SuperAdminCEODashboardF1} />
+        <Route path="/" component={SuperAdminF1Simple} />
+        <Route path="/super-admin" component={SuperAdminF1Simple} />
         <Route path="/super-admin-ceo-dashboard" component={SuperAdminCEODashboard} />
         <Route path="/super-admin-ceo-dashboard-f1" component={SuperAdminCEODashboardF1} />
         <Route path="/super-admin-school-management" component={SuperAdminSchoolManagement} />
         <Route path="/super-admin-classic" component={SuperAdminDashboard} />
-        <Route component={SuperAdminCEODashboardF1} />
+        <Route component={SuperAdminF1Simple} />
       </Switch>
     );
   }

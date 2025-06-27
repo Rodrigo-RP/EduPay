@@ -38,12 +38,7 @@ export default function Pagos() {
     { name: 'Fallido', value: 1, color: '#FF8042' }
   ];
 
-  const amountRangeData = [
-    { name: '$0-$2K', value: 6, color: '#0088FE' },
-    { name: '$2K-$5K', value: 8, color: '#00C49F' },
-    { name: '$5K-$10K', value: 4, color: '#FFBB28' },
-    { name: '$10K+', value: 2, color: '#FF8042' }
-  ];
+
 
   // Datos simulados de pagos
   const mockPagos = [
@@ -342,7 +337,7 @@ export default function Pagos() {
                   <PieChart className="h-5 w-5" />
                   Análisis Visual de Pagos
                 </h4>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                   <Card>
                     <CardContent className="p-4">
                       <PieChartComponent 
@@ -357,15 +352,6 @@ export default function Pagos() {
                       <PieChartComponent 
                         data={paymentStatusData} 
                         title="Por Estado de Pago" 
-                      />
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-4">
-                      <PieChartComponent 
-                        data={amountRangeData} 
-                        title="Por Rango de Montos" 
                       />
                     </CardContent>
                   </Card>

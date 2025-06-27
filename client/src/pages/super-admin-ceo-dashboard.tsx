@@ -30,82 +30,65 @@ export default function SuperAdminCEODashboard() {
     uptime: 99.94
   });
 
-  // F1 Style Racing Data
-  const [racingData, setRacingData] = useState({
-    schools: [
-      { name: "Colegio Ferrari", position: 1, revenue: 1245000, growth: 18.5, color: "#FF1801", lap: "Best", status: "P1" },
-      { name: "Instituto McLaren", position: 2, revenue: 987000, growth: 15.2, color: "#FF8000", lap: "+0.3s", status: "P2" },
-      { name: "Escuela Mercedes", position: 3, revenue: 876000, growth: 12.8, color: "#00A19B", lap: "+0.7s", status: "P3" },
-      { name: "Centro Red Bull", position: 4, revenue: 743000, growth: 9.4, color: "#1E41FF", lap: "+1.2s", status: "P4" },
-      { name: "Academia Alpine", position: 5, revenue: 654000, growth: 7.1, color: "#0090FF", lap: "+1.8s", status: "P5" },
-      { name: "Prep Aston Martin", position: 6, revenue: 521000, growth: 4.2, color: "#00594F", lap: "+2.3s", status: "P6" }
-    ],
-    sectors: [
-      { name: "Sector 1 - Inscripciones", time: "1:23.456", improvement: "+0.234", color: "#FF1801" },
-      { name: "Sector 2 - Colegiaturas", time: "2:45.789", improvement: "-0.156", color: "#00FF00" },
-      { name: "Sector 3 - Extraordinarios", time: "1:34.567", improvement: "+0.089", color: "#FFFF00" }
-    ],
-    performance: {
-      currentLap: "2:34.567",
-      bestLap: "2:33.891",
-      averageLap: "2:35.234",
-      position: 1,
-      gap: "Leader",
-      drs: true,
-      ers: 87,
-      fuel: 92,
-      tyre: "SOFT",
-      tyreAge: 12
-    }
-  });
+  // Live transactions data
+  const [liveTransactions, setLiveTransactions] = useState([
+    { school: "Colegio San Patricio", amount: 4500, status: "success", time: "14:23:15" },
+    { school: "Instituto Tecnológico", amount: 3200, status: "success", time: "14:22:48" },
+    { school: "Escuela Bilingüe", amount: 5800, status: "success", time: "14:22:12" },
+    { school: "Centro Educativo", amount: 2900, status: "failed", time: "14:21:45" },
+    { school: "Academia Premier", amount: 6200, status: "success", time: "14:21:23" }
+  ]);
 
-  // Auto-update real-time data F1 Style
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setRealTimeData(prev => ({
-        ...prev,
-        revenue: prev.revenue + Math.floor(Math.random() * 5000),
-        transactionsPerHour: Math.floor(Math.random() * 100) + 800,
-        successRate: 98 + Math.random() * 1.5
-      }));
-
-      // Update F1 racing positions
-      setRacingData(prev => ({
-        ...prev,
-        schools: prev.schools.map(school => ({
-          ...school,
-          revenue: school.revenue + Math.floor(Math.random() * 2000),
-          growth: school.growth + (Math.random() - 0.5) * 0.5
-        })),
-        performance: {
-          ...prev.performance,
-          ers: Math.max(0, Math.min(100, prev.performance.ers + (Math.random() - 0.5) * 10)),
-          fuel: Math.max(0, Math.min(100, prev.performance.fuel - Math.random() * 0.5))
-        }
-      }));
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Fetch platform metrics
+  // Platform metrics query
   const { data: platformMetrics, isLoading: metricsLoading } = useQuery({
     queryKey: ["/api/super-admin/platform/metrics"],
+    queryFn: async () => {
+      const response = await fetch("/api/super-admin/platform/metrics", {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      return response.json();
+    },
   });
 
-  // Fetch tenants
+  // Tenants list query
   const { data: tenants, isLoading: tenantsLoading } = useQuery({
     queryKey: ["/api/super-admin/tenants"],
+    queryFn: async () => {
+      const response = await fetch("/api/super-admin/tenants", {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      return response.json();
+    },
   });
 
-  // Fetch security events
+  // Security events query
   const { data: securityEvents, isLoading: eventsLoading } = useQuery({
     queryKey: ["/api/super-admin/security/events"],
+    queryFn: async () => {
+      const response = await fetch("/api/super-admin/security/events", {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      return response.json();
+    },
   });
 
-  // Fetch system health
+  // System health query
   const { data: systemHealth, isLoading: healthLoading } = useQuery({
     queryKey: ["/api/super-admin/system/health"],
+    queryFn: async () => {
+      const response = await fetch("/api/super-admin/system/health", {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      return response.json();
+    },
   });
 
   // Security scan mutation
@@ -114,25 +97,18 @@ export default function SuperAdminCEODashboard() {
       const response = await fetch("/api/super-admin/security/scan", {
         method: "POST",
         headers: {
+          "Authorization": `Bearer ${localStorage.getItem("token")}`,
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        }
+        },
       });
-      if (!response.ok) throw new Error("Error en el escaneo");
       return response.json();
     },
     onSuccess: () => {
       toast({
-        title: "Escaneo Completado",
-        description: "El escaneo de seguridad se ejecutó exitosamente",
+        title: "Escaneo de Seguridad Iniciado",
+        description: "El análisis de vulnerabilidades está en progreso.",
       });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Error al ejecutar el escaneo de seguridad",
-        variant: "destructive",
-      });
+      queryClient.invalidateQueries({ queryKey: ["/api/super-admin/security/events"] });
     },
   });
 
@@ -142,29 +118,25 @@ export default function SuperAdminCEODashboard() {
       const response = await fetch("/api/super-admin/security/block-ip", {
         method: "POST",
         headers: {
+          "Authorization": `Bearer ${localStorage.getItem("token")}`,
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
         },
-        body: JSON.stringify({ ip })
+        body: JSON.stringify({ ip }),
       });
-      if (!response.ok) throw new Error("Error al bloquear IP");
       return response.json();
     },
     onSuccess: () => {
-      setBlockIpInput("");
       toast({
         title: "IP Bloqueada",
-        description: "La dirección IP ha sido bloqueada exitosamente",
+        description: `La dirección ${blockIpInput} ha sido bloqueada exitosamente.`,
       });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Error al bloquear la dirección IP",
-        variant: "destructive",
-      });
+      setBlockIpInput("");
     },
   });
+
+  const handleSecurityScan = () => {
+    securityScanMutation.mutate();
+  };
 
   const handleBlockIp = () => {
     if (blockIpInput.trim()) {
@@ -172,116 +144,117 @@ export default function SuperAdminCEODashboard() {
     }
   };
 
-  // Live transaction feed data
-  const liveTransactions = [
-    { time: "09:47:23", school: "Colegio Cervantes", amount: 2500, status: "success" },
-    { time: "09:47:21", school: "Instituto Morelos", amount: 1800, status: "success" },
-    { time: "09:47:19", school: "Escuela Hidalgo", amount: 3200, status: "success" },
-    { time: "09:47:17", school: "Colegio Juárez", amount: 1950, status: "success" },
-    { time: "09:47:15", school: "Instituto Allende", amount: 2750, status: "success" },
-    { time: "09:47:13", school: "Escuela Reforma", amount: 1600, status: "success" },
-    { time: "09:47:11", school: "Colegio Victoria", amount: 2100, status: "success" },
-    { time: "09:47:09", school: "Instituto Norte", amount: 1500, status: "failed" },
-    { time: "09:47:07", school: "Escuela Central", amount: 2850, status: "success" },
-    { time: "09:47:05", school: "Colegio Sur", amount: 1750, status: "success" },
-  ];
+  // Real-time data updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRealTimeData(prev => ({
+        ...prev,
+        revenue: prev.revenue + Math.floor(Math.random() * 1000),
+        transactionsPerHour: prev.transactionsPerHour + Math.floor(Math.random() * 10 - 5),
+        successRate: Math.max(95, Math.min(99.9, prev.successRate + (Math.random() - 0.5) * 0.1))
+      }));
+
+      // Update live transactions
+      const newTransaction = {
+        school: ["Colegio San Patricio", "Instituto Tecnológico", "Escuela Bilingüe", "Centro Educativo", "Academia Premier"][Math.floor(Math.random() * 5)],
+        amount: Math.floor(Math.random() * 5000) + 1000,
+        status: Math.random() > 0.1 ? "success" : "failed",
+        time: new Date().toLocaleTimeString()
+      };
+
+      setLiveTransactions(prev => [newTransaction, ...prev.slice(0, 9)]);
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  if (metricsLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando panel ejecutivo...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 lg:p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* F1 Racing Header */}
-        <div className="bg-gradient-to-r from-red-600 via-black to-red-600 text-white rounded-lg shadow-lg p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 space-y-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-6">
-              <div className="flex items-center space-x-3">
-                <Trophy className="h-8 w-8 text-yellow-400" />
-                <div>
-                  <h1 className="text-3xl font-bold">F1 Racing Command Center</h1>
-                  <p className="text-red-200 mt-1">EscuelaPay Championship - Live Telemetry</p>
-                </div>
-              </div>
-              <div className="bg-black/30 rounded-lg p-4">
-                <div className="text-center">
-                  <div className="text-4xl font-mono font-bold text-green-400">P{racingData.performance.position}</div>
-                  <div className="text-sm text-gray-300">Current Position</div>
-                </div>
-              </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+                <Shield className="h-8 w-8 text-blue-600" />
+                Dashboard CEO - Centro de Comando
+              </h1>
+              <p className="text-gray-600 mt-2">
+                Monitoreo ejecutivo en tiempo real - Plataforma SaaS EscuelaPay
+              </p>
             </div>
             <div className="flex items-center gap-4">
+              <Button 
+                onClick={() => window.location.href = '/super-admin'}
+                className="bg-red-600 hover:bg-red-700 border-2 border-red-400 text-white font-bold"
+              >
+                <Trophy className="h-4 w-4 mr-2" />
+                F1 Racing Mode
+              </Button>
               <div className="text-right">
-                <p className="text-sm text-red-200">
-                  F1 Championship Dashboard
+                <p className="text-sm text-gray-600">
+                  EscuelaPay SaaS Platform
                 </p>
-                <p className="text-xs text-gray-300">
-                  Live Telemetry - 2s refresh
+                <p className="text-xs text-gray-500">
+                  v2.0 - CEO Executive Dashboard
                 </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* F1 Navigation & Controls */}
-        <div className="bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded-lg shadow-lg p-4">
+        {/* Navigation Controls */}
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-lg p-4 mb-8">
           <div className="flex flex-wrap items-center justify-center gap-4">
             <Button 
-              onClick={() => window.location.href = '/super-admin-schools'}
-              className="bg-blue-600 hover:bg-blue-700 border-2 border-blue-400 text-white font-bold"
+              onClick={() => window.location.href = '/super-admin-school-management'}
+              className="bg-white/20 hover:bg-white/30 border-2 border-white/30 text-white font-bold"
             >
-              <Flag className="h-4 w-4 mr-2" />
-              Race Control
+              <Building className="h-4 w-4 mr-2" />
+              Gestión Escuelas
             </Button>
             <Button 
               onClick={() => window.location.href = '/platform-login'}
-              className="bg-yellow-600 hover:bg-yellow-700 border-2 border-yellow-400 text-black font-bold"
+              className="bg-white/20 hover:bg-white/30 border-2 border-white/30 text-white font-bold"
             >
-              <Award className="h-4 w-4 mr-2" />
-              Pit Crew
-            </Button>
-            <Button 
-              onClick={() => window.location.href = '/super-admin-classic'}
-              className="bg-gray-600 hover:bg-gray-700 border-2 border-gray-400 text-white font-bold"
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              Classic Mode
+              <Users className="h-4 w-4 mr-2" />
+              Perfiles Especializados
             </Button>
             <div className="flex items-center space-x-4">
               <div className="bg-green-600 px-3 py-1 rounded-full text-sm font-bold">
-                <Timer className="h-4 w-4 inline mr-1" />
+                <Activity className="h-4 w-4 inline mr-1" />
                 LIVE
               </div>
-              <div className="bg-red-600 px-3 py-1 rounded-full text-sm font-bold">
-                <Flame className="h-4 w-4 inline mr-1" />
-                RACE MODE
+              <div className="bg-blue-600 px-3 py-1 rounded-full text-sm font-bold">
+                <Timer className="h-4 w-4 inline mr-1" />
+                REAL-TIME
               </div>
             </div>
           </div>
         </div>
 
-        <Tabs defaultValue="racing-dashboard" className="w-full">
-          <div className="bg-gradient-to-r from-black via-red-800 to-black rounded-lg shadow-lg p-4 mb-6">
-            <TabsList className="grid grid-cols-4 w-full max-w-2xl mx-auto bg-black/50 border-2 border-red-500">
-              <TabsTrigger value="racing-dashboard" className="text-sm font-bold text-white data-[state=active]:bg-red-600 data-[state=active]:text-white">
-                <Trophy className="h-4 w-4 mr-2" />
-                Racing Dashboard
-              </TabsTrigger>
-              <TabsTrigger value="championship" className="text-sm font-bold text-white data-[state=active]:bg-yellow-600 data-[state=active]:text-black">
-                <Star className="h-4 w-4 mr-2" />
-                Championship
-              </TabsTrigger>
-              <TabsTrigger value="telemetry" className="text-sm font-bold text-white data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-                <Gauge className="h-4 w-4 mr-2" />
-                Telemetry
-              </TabsTrigger>
-              <TabsTrigger value="pit-stop" className="text-sm font-bold text-white data-[state=active]:bg-green-600 data-[state=active]:text-white">
-                <Flag className="h-4 w-4 mr-2" />
-                Pit Stop
-              </TabsTrigger>
-            </TabsList>
-          </div>
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="overview">Vista General</TabsTrigger>
+            <TabsTrigger value="analytics">Análisis</TabsTrigger>
+            <TabsTrigger value="security">Seguridad</TabsTrigger>
+            <TabsTrigger value="operations">Operaciones</TabsTrigger>
+          </TabsList>
 
-          {/* Racing Dashboard Tab */}
-          <TabsContent value="racing-dashboard" className="space-y-8">
-            {/* Executive Overview Cards */}
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="space-y-8">
+            {/* Executive KPI Cards */}
             <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
               <Card>
                 <CardHeader className="pb-2">
@@ -299,13 +272,39 @@ export default function SuperAdminCEODashboard() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
+                    <School className="h-4 w-4" />
+                    Escuelas Activas
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{platformMetrics?.totalSchools || 18}</div>
+                  <div className="text-xs text-gray-600">Plataforma completa</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
                     <Users className="h-4 w-4" />
-                    Transacciones/Hora
+                    Estudiantes Totales
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{platformMetrics?.totalStudents || 2847}</div>
+                  <div className="text-xs text-gray-600">Activos en sistema</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <CreditCard className="h-4 w-4" />
+                    Transacciones
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{realTimeData.transactionsPerHour}</div>
-                  <div className="text-xs text-gray-600">Velocidad actual</div>
+                  <div className="text-xs text-gray-600">Por hora</div>
                 </CardContent>
               </Card>
 
@@ -317,7 +316,7 @@ export default function SuperAdminCEODashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{realTimeData.successRate.toFixed(1)}%</div>
+                  <div className="text-2xl font-bold text-green-600">{realTimeData.successRate.toFixed(1)}%</div>
                   <div className="text-xs text-gray-600">Pagos exitosos</div>
                 </CardContent>
               </Card>
@@ -325,12 +324,12 @@ export default function SuperAdminCEODashboard() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4" />
+                    <Target className="h-4 w-4" />
                     Uptime Sistema
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{realTimeData.uptime}%</div>
+                  <div className="text-2xl font-bold text-blue-600">{realTimeData.uptime}%</div>
                   <div className="text-xs text-gray-600">Disponibilidad</div>
                 </CardContent>
               </Card>
@@ -338,34 +337,39 @@ export default function SuperAdminCEODashboard() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <School className="h-4 w-4" />
+                    <TrendingUp className="h-4 w-4" />
                     MRR Growth
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">${realTimeData.mrr.toLocaleString()}</div>
-                  <div className="text-xs text-gray-600">Ingreso mensual recurrente</div>
+                  <div className="text-2xl font-bold text-purple-600">${realTimeData.mrr.toLocaleString()}</div>
+                  <div className="text-xs text-gray-600">Mensual recurrente</div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <Target className="h-4 w-4" />
+                    <BarChart3 className="h-4 w-4" />
                     Churn Risk
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-green-600">{realTimeData.churnRisk.toFixed(1)}%</div>
-                  <div className="text-xs text-gray-600">Bajo riesgo</div>
+                  <div className="text-xs text-gray-600">Riesgo bajo</div>
                 </CardContent>
               </Card>
+            </div>
+          </TabsContent>
 
+          {/* Analytics Tab */}
+          <TabsContent value="analytics" className="space-y-8">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <CreditCard className="h-4 w-4" />
-                    Conversión
+                    <LineChart className="h-4 w-4" />
+                    Conversión Rate
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -373,476 +377,30 @@ export default function SuperAdminCEODashboard() {
                   <div className="text-xs text-gray-600">Tasa de conversión</div>
                 </CardContent>
               </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </div>
-  );
-}
-                <div className="flex items-center space-x-6">
-                  <div className="bg-black/50 rounded-lg p-4">
-                    <div className="text-center">
-                      <div className="text-sm text-yellow-300">LAP TIME</div>
-                      <div className="text-3xl font-mono font-bold text-green-400">{racingData.performance.currentLap}</div>
-                      <div className="text-xs text-gray-300">Current</div>
-                    </div>
-                  </div>
-                  <div className="bg-black/50 rounded-lg p-4">
-                    <div className="text-center">
-                      <div className="text-sm text-yellow-300">BEST LAP</div>
-                      <div className="text-3xl font-mono font-bold text-purple-400">{racingData.performance.bestLap}</div>
-                      <div className="text-xs text-gray-300">Personal</div>
-                    </div>
-                  </div>
-                  <div className="bg-black/50 rounded-lg p-4">
-                    <div className="text-center">
-                      <div className="text-sm text-yellow-300">REVENUE</div>
-                      <div className="text-3xl font-mono font-bold text-green-400">${realTimeData.revenue.toLocaleString()}</div>
-                      <div className="text-xs text-gray-300">MXN Live</div>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <div className="bg-green-600 px-4 py-2 rounded-full">
-                    <div className="text-2xl font-bold">P{racingData.performance.position}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-lg font-bold">POSITION</div>
-                    <div className="text-sm text-yellow-300">{racingData.performance.gap}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
 
-            {/* F1 Car Telemetry Dashboard */}
-            <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
-              {/* ERS & Power Unit */}
-              <Card className="bg-gradient-to-br from-blue-900 to-purple-900 text-white border-2 border-blue-500">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-blue-300">
-                    <Zap className="h-5 w-5" />
-                    ERS & Power Unit
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>ERS Battery</span>
-                      <span>{racingData.performance.ers}%</span>
-                    </div>
-                    <Progress value={racingData.performance.ers} className="h-3" />
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>Fuel Level</span>
-                      <span>{racingData.performance.fuel}%</span>
-                    </div>
-                    <Progress value={racingData.performance.fuel} className="h-3" />
-                  </div>
-                  <div className="flex justify-between items-center bg-black/30 rounded p-3">
-                    <span>Tyre Compound</span>
-                    <Badge className="bg-red-600 text-white font-bold">{racingData.performance.tyre}</Badge>
-                  </div>
-                  <div className="flex justify-between items-center bg-black/30 rounded p-3">
-                    <span>Tyre Age</span>
-                    <span className="font-bold text-yellow-400">{racingData.performance.tyreAge} laps</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Sector Times */}
-              <Card className="bg-gradient-to-br from-green-900 to-emerald-900 text-white border-2 border-green-500">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-green-300">
-                    <Timer className="h-5 w-5" />
-                    Sector Performance
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {racingData.sectors.map((sector, index) => (
-                    <div key={index} className="bg-black/30 rounded p-3">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-medium">{sector.name}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold">{sector.time}</span>
-                          <span className={`text-xs px-2 py-1 rounded ${
-                            sector.improvement.startsWith('+') ? 'bg-red-600' : 'bg-green-600'
-                          }`}>
-                            {sector.improvement}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="w-full h-2 bg-gray-700 rounded">
-                        <div 
-                          className="h-full rounded" 
-                          style={{
-                            width: `${Math.random() * 100}%`,
-                            backgroundColor: sector.color
-                          }}
-                        ></div>
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
-              {/* Revenue Pie Chart */}
-              <Card className="bg-gradient-to-br from-yellow-900 to-orange-900 text-white border-2 border-yellow-500">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-yellow-300">
-                    <Target className="h-5 w-5" />
-                    Revenue Distribution
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="relative w-48 h-48 mx-auto">
-                    {/* Simple CSS Pie Chart */}
-                    <div className="w-full h-full rounded-full bg-gradient-to-r from-red-500 via-blue-500 via-green-500 to-yellow-500 animate-spin-slow relative">
-                      <div className="absolute inset-4 bg-black rounded-full flex items-center justify-center">
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-yellow-400">$2.8M</div>
-                          <div className="text-xs text-gray-300">Total Revenue</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-4 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-red-500 rounded"></div>
-                      <span className="text-sm">Colegiaturas 42%</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-blue-500 rounded"></div>
-                      <span className="text-sm">Inscripciones 28%</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-green-500 rounded"></div>
-                      <span className="text-sm">Extraordinarios 20%</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-yellow-500 rounded"></div>
-                      <span className="text-sm">Otros 10%</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* F1 Championship Standings Table */}
-            <Card className="bg-gradient-to-br from-gray-900 to-black text-white border-2 border-red-500">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-red-400 text-xl">
-                  <Trophy className="h-6 w-6" />
-                  Championship Standings - Schools Leaderboard
-                </CardTitle>
-                <CardDescription className="text-gray-300">Live revenue racing - Updates every 2 seconds</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {racingData.schools.map((school, index) => (
-                    <div 
-                      key={index} 
-                      className="flex items-center p-4 rounded-lg border-l-4 bg-gradient-to-r from-black/60 to-gray-800/60"
-                      style={{ borderLeftColor: school.color }}
-                    >
-                      <div className="flex items-center space-x-4 flex-1">
-                        <div 
-                          className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl"
-                          style={{ backgroundColor: school.color }}
-                        >
-                          {school.position}
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-bold text-lg">{school.name}</div>
-                          <div className="text-sm text-gray-400">Revenue Champion</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-mono text-xl font-bold text-green-400">
-                            ${school.revenue.toLocaleString()}
-                          </div>
-                          <div className="text-sm text-gray-400">MXN</div>
-                        </div>
-                        <div className="text-right">
-                          <div className={`font-bold ${school.growth > 10 ? 'text-green-400' : 'text-yellow-400'}`}>
-                            +{school.growth.toFixed(1)}%
-                          </div>
-                          <div className="text-sm text-gray-400">Growth</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-mono text-sm text-purple-400">{school.lap}</div>
-                          <div className="text-xs text-gray-400">Gap</div>
-                        </div>
-                        <div className="text-center">
-                          <Badge 
-                            className="font-bold text-white"
-                            style={{ backgroundColor: school.color }}
-                          >
-                            {school.status}
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-            {/* Executive KPIs Grid */}
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-              <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+              <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-blue-700 flex items-center gap-2">
-                    <School className="h-4 w-4" />
-                    Escuelas Activas
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-blue-800">
-                    {(platformMetrics as any)?.activeSchools || 4}
-                  </div>
-                  <div className="text-xs text-blue-600 flex items-center gap-1">
-                    <ArrowUp className="h-3 w-3" />
-                    +2 este mes
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-green-700 flex items-center gap-2">
-                    <Users className="h-4 w-4" />
-                    Estudiantes
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-green-800">
-                    {(platformMetrics as any)?.totalStudents || 1247}
-                  </div>
-                  <div className="text-xs text-green-600 flex items-center gap-1">
-                    <ArrowUp className="h-3 w-3" />
-                    +8.5% crecimiento
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-purple-700 flex items-center gap-2">
-                    <Activity className="h-4 w-4" />
-                    Pagos/Hora
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-purple-800">
-                    {realTimeData.transactionsPerHour}
-                  </div>
-                  <div className="text-xs text-purple-600">Última hora</div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-orange-700 flex items-center gap-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
                     <Target className="h-4 w-4" />
-                    Tasa Éxito
+                    CAC Promedio
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-orange-800">
-                    {realTimeData.successRate.toFixed(1)}%
-                  </div>
-                  <div className="text-xs text-orange-600">Transacciones</div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-red-700 flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4" />
-                    Churn Risk
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-red-800">
-                    {realTimeData.churnRisk}%
-                  </div>
-                  <div className="text-xs text-red-600">En riesgo</div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-teal-50 to-teal-100 border-teal-200">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-teal-700 flex items-center gap-2">
-                    <Shield className="h-4 w-4" />
-                    Uptime
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-teal-800">
-                    {realTimeData.uptime}%
-                  </div>
-                  <div className="text-xs text-teal-600">30 días</div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Real-time Command Center */}
-            <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
-              {/* Live Transaction Feed */}
-              <Card className="bg-black text-green-400 font-mono">
-                <CardHeader>
-                  <CardTitle className="text-green-400 flex items-center gap-2">
-                    <Activity className="h-4 w-4" />
-                    Live Transactions
-                  </CardTitle>
-                  <div className="text-xs text-green-300">
-                    Tiempo real - Wall Street Style
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-1 max-h-60 overflow-y-auto">
-                  {liveTransactions.map((tx, idx) => (
-                    <div 
-                      key={idx} 
-                      className={`text-xs ${tx.status === 'success' ? 'text-green-400' : 'text-red-400'}`}
-                    >
-                      {tx.time} | {tx.school} | ${tx.amount.toLocaleString()} | {tx.status === 'success' ? '✓' : '✗'}
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
-              {/* Executive Alerts */}
-              <Card className="border-red-200 bg-red-50">
-                <CardHeader>
-                  <CardTitle className="text-red-800 flex items-center gap-2">
-                    <Bell className="h-4 w-4" />
-                    Alertas Ejecutivas
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="bg-red-100 p-3 rounded-lg">
-                    <div className="text-sm font-semibold text-red-800 flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4" />
-                      Escuela en Riesgo
-                    </div>
-                    <div className="text-xs text-red-600">
-                      Instituto Benito Juárez - Pagos descendentes 15%
-                    </div>
-                    <div className="text-xs text-red-500">
-                      Acción: Llamada CEO requerida
-                    </div>
-                  </div>
-                  <div className="bg-yellow-100 p-3 rounded-lg">
-                    <div className="text-sm font-semibold text-yellow-800 flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4" />
-                      Oportunidad Upselling
-                    </div>
-                    <div className="text-xs text-yellow-600">
-                      Colegio Cervantes - Listo para plan Premium
-                    </div>
-                    <div className="text-xs text-yellow-500">
-                      Potencial: +$12,000 MXN/mes
-                    </div>
-                  </div>
-                  <div className="bg-blue-100 p-3 rounded-lg">
-                    <div className="text-sm font-semibold text-blue-800 flex items-center gap-2">
-                      <Eye className="h-4 w-4" />
-                      Expansión Detectada
-                    </div>
-                    <div className="text-xs text-blue-600">
-                      3 escuelas nuevas en Guadalajara consultando
-                    </div>
-                    <div className="text-xs text-blue-500">
-                      Pipeline: $85,000 MXN potencial
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Performance Map */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
-                    Mapa de Rendimiento
-                  </CardTitle>
-                  <CardDescription>Escuelas por región y volumen</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-2 bg-green-50 rounded">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                        <span className="text-sm font-medium">Ciudad de México</span>
-                      </div>
-                      <div className="text-sm">8 escuelas - $847K</div>
-                    </div>
-                    <div className="flex items-center justify-between p-2 bg-blue-50 rounded">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
-                        <span className="text-sm font-medium">Guadalajara</span>
-                      </div>
-                      <div className="text-sm">5 escuelas - $523K</div>
-                    </div>
-                    <div className="flex items-center justify-between p-2 bg-purple-50 rounded">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-purple-500 rounded-full animate-pulse"></div>
-                        <span className="text-sm font-medium">Monterrey</span>
-                      </div>
-                      <div className="text-sm">3 escuelas - $398K</div>
-                    </div>
-                    <div className="flex items-center justify-between p-2 bg-orange-50 rounded">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-orange-500 rounded-full animate-pulse"></div>
-                        <span className="text-sm font-medium">Puebla</span>
-                      </div>
-                      <div className="text-sm">2 escuelas - $267K</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Bottom Analytics Row */}
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Zap className="h-4 w-4" />
-                    Conciliación Automática
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-green-600">94.8%</div>
-                  <div className="text-xs text-gray-600">Sin intervención manual</div>
+                  <div className="text-2xl font-bold text-orange-600">$340</div>
+                  <div className="text-xs text-gray-600">Costo adquisición</div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    Tiempo Procesamiento
+                    <TrendingUp className="h-4 w-4" />
+                    LTV Promedio
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-blue-600">3.2s</div>
-                  <div className="text-xs text-gray-600">Promedio por transacción</div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Shield className="h-4 w-4" />
-                    Score Seguridad
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-purple-600">98/100</div>
-                  <div className="text-xs text-gray-600">Nivel empresarial</div>
+                  <div className="text-2xl font-bold text-green-600">$2,856</div>
+                  <div className="text-xs text-gray-600">Valor vitalicio</div>
                 </CardContent>
               </Card>
 
@@ -856,6 +414,216 @@ export default function SuperAdminCEODashboard() {
                 <CardContent>
                   <div className="text-2xl font-bold text-teal-600">8.4x</div>
                   <div className="text-xs text-gray-600">Objetivo: {">"}3x</div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Security Tab */}
+          <TabsContent value="security" className="space-y-8">
+            <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Escaneo de Seguridad</CardTitle>
+                  <CardDescription>Análisis de vulnerabilidades del sistema</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Button
+                    onClick={handleSecurityScan}
+                    disabled={securityScanMutation.isPending}
+                    className="w-full"
+                  >
+                    <Scan className="h-4 w-4 mr-2" />
+                    {securityScanMutation.isPending ? "Escaneando..." : "Iniciar Escaneo"}
+                  </Button>
+                  <div className="text-sm text-gray-600">
+                    <p>• Detección de vulnerabilidades</p>
+                    <p>• Análisis de ataques</p>
+                    <p>• Score de seguridad</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Bloquear IP</CardTitle>
+                  <CardDescription>Control de acceso por IP</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ip-input">Dirección IP</Label>
+                    <Input
+                      id="ip-input"
+                      placeholder="192.168.1.100"
+                      value={blockIpInput}
+                      onChange={(e) => setBlockIpInput(e.target.value)}
+                    />
+                  </div>
+                  <Button
+                    onClick={handleBlockIp}
+                    disabled={blockIpMutation.isPending || !blockIpInput.trim()}
+                    variant="destructive"
+                    className="w-full"
+                  >
+                    <Ban className="h-4 w-4 mr-2" />
+                    {blockIpMutation.isPending ? "Bloqueando..." : "Bloquear IP"}
+                  </Button>
+                  <div className="text-sm text-gray-600">
+                    <p>• Bloqueo inmediato</p>
+                    <p>• Protección automática</p>
+                    <p>• Log de eventos</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Estado de Protecciones</CardTitle>
+                  <CardDescription>Sistemas de defensa activos</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">WAF (Firewall)</span>
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Anti-SQL Injection</span>
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Rate Limiting</span>
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Encriptación AES-256</span>
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Monitoreo 24/7</span>
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Operations Tab */}
+          <TabsContent value="operations" className="space-y-8">
+            {/* Real-time Transactions Feed */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  Feed de Transacciones en Vivo
+                </CardTitle>
+                <CardDescription>Últimas transacciones procesadas - Actualización automática</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {liveTransactions.map((transaction, index) => (
+                    <div key={index} className={`flex items-center justify-between p-3 rounded-lg border-l-4 ${
+                      transaction.status === 'success' ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'
+                    }`}>
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-3 h-3 rounded-full ${
+                          transaction.status === 'success' ? 'bg-green-500' : 'bg-red-500'
+                        }`}></div>
+                        <div>
+                          <div className="font-medium">{transaction.school}</div>
+                          <div className="text-sm text-gray-600">{transaction.time}</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-lg">${transaction.amount.toLocaleString()}</div>
+                        <div className={`text-sm ${
+                          transaction.status === 'success' ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {transaction.status === 'success' ? 'Exitoso' : 'Fallido'}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* System Health Monitoring */}
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+              {(systemHealth as any)?.map((service: any, index: number) => (
+                <Card key={index} className={`border-l-4 ${
+                  service.status === 'operational' ? 'border-green-500' : 'border-red-500'
+                }`}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      {service.status === 'operational' ? (
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-red-600" />
+                      )}
+                      {service.service_name}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className={`text-lg font-bold ${
+                      service.status === 'operational' ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {service.status === 'operational' ? 'Operacional' : 'Error'}
+                    </div>
+                    <div className="text-xs text-gray-600">
+                      Actualizado: {new Date(service.last_check).toLocaleTimeString()}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Platform Overview */}
+            <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Resumen de Tenants</CardTitle>
+                  <CardDescription>Estado de escuelas en la plataforma</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {(tenants as any)?.slice(0, 5).map((tenant: any, index: number) => (
+                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <div className="font-medium">{tenant.nombre_legal}</div>
+                          <div className="text-sm text-gray-600">
+                            {tenant.campusCount} campus • {tenant.studentCount} estudiantes
+                          </div>
+                        </div>
+                        <Badge variant={tenant.status === 'activo' ? 'default' : 'secondary'}>
+                          {tenant.status}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Eventos de Seguridad Recientes</CardTitle>
+                  <CardDescription>Últimos eventos monitoreados</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {(securityEvents as any)?.slice(0, 5).map((event: any, index: number) => (
+                      <div key={index} className="flex items-center justify-between p-2 border-l-4 border-blue-500 bg-blue-50 rounded">
+                        <div>
+                          <div className="font-medium text-sm">{event.event_type}</div>
+                          <div className="text-xs text-gray-600">
+                            {new Date(event.timestamp).toLocaleString()}
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          {event.severity}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
             </div>

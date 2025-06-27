@@ -1,10 +1,19 @@
 import { useEffect } from "react";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function SwitchToSchool() {
+  const { logout } = useAuth();
+  
   useEffect(() => {
-    // Realizar login programático como administrador de escuela
-    const loginAsSchoolAdmin = async () => {
+    // Realizar logout completo primero y luego login como administrador de escuela
+    const switchToSchoolAdmin = async () => {
       try {
+        // Logout completo para limpiar estado
+        logout();
+        
+        // Esperar un momento para que se limpie el estado
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         const response = await fetch('/api/auth/login', {
           method: 'POST',
           headers: {
@@ -19,18 +28,15 @@ export default function SwitchToSchool() {
         if (response.ok) {
           const data = await response.json();
           
-          // Limpiar localStorage completamente
-          localStorage.clear();
-          
           // Configurar nueva sesión con datos reales del API
           localStorage.setItem("token", data.token);
           localStorage.setItem("auth_type", "user");
           localStorage.setItem("auth_user", JSON.stringify(data.user));
           
-          // Redirigir al dashboard de la escuela
+          // Forzar recarga completa de la página
           setTimeout(() => {
-            window.location.href = "/";
-          }, 1000);
+            window.location.reload();
+          }, 500);
         } else {
           console.error('Error en login:', response.statusText);
         }
@@ -39,8 +45,8 @@ export default function SwitchToSchool() {
       }
     };
 
-    loginAsSchoolAdmin();
-  }, []);
+    switchToSchoolAdmin();
+  }, [logout]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-800">

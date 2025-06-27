@@ -51,6 +51,7 @@ import ConfiguracionPagos from "@/pages/configuracion-pagos";
 import SuperAdminAccess from "@/pages/super-admin-access";
 import SuperAdminDirect from "@/pages/super-admin-direct";
 import SwitchToSchool from "@/pages/switch-to-school";
+import LogoutAndLoginSchool from "@/pages/logout-and-login-school";
 
 function AuthenticatedRoutes() {
   const { user, guardian, isLoading } = useAuth();
@@ -150,6 +151,7 @@ function App() {
                   <Route path="/super-admin-access" component={SuperAdminAccess} />
                   <Route path="/super-admin-direct" component={SuperAdminDirect} />
                   <Route path="/switch-to-school" component={SwitchToSchool} />
+                  <Route path="/logout-and-login-school" component={LogoutAndLoginSchool} />
                   <Route path="/super-admin" component={SuperAdminCEODashboardF1} />
                   <Route path="/super-admin-classic" component={SuperAdminDashboard} />
                   <Route path="/super-admin-ceo-dashboard" component={SuperAdminCEODashboard} />

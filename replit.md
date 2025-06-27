@@ -118,6 +118,9 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- June 27, 2025: DASHBOARD TRADICIONAL CONFIGURADO COMO PREDETERMINADO - Cambio de F1 a versión CEO tradicional por preferencia del usuario
+- June 27, 2025: Super administrador ahora usa dashboard ejecutivo tradicional en lugar del estilo F1
+- June 27, 2025: Acceso directo configurado en /super-admin-direct con autenticación automática
 - June 27, 2025: SISTEMA COMPLETO DE CONFIGURACIÓN DE PAGOS IMPLEMENTADO - Herramienta para gestionar fechas y recargos
 - June 27, 2025: Configuración de fechas de vencimiento por concepto con aplicación mensual o específica
 - June 27, 2025: Reglas de recargo automático: porcentaje, fijo y progresivo con períodos de gracia configurables

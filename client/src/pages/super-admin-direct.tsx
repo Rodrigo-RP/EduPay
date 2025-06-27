@@ -30,11 +30,11 @@ export default function SuperAdminDirect() {
   }, []);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-800">
       <div className="text-center">
-        <div className="animate-spin w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-red-500 mb-2">CONFIGURANDO SUPER ADMINISTRADOR</h2>
-        <p className="text-gray-400">Accediendo al Centro de Comando Ejecutivo...</p>
+        <div className="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4" />
+        <h2 className="text-2xl font-bold text-blue-600 mb-2">Configurando Super Administrador</h2>
+        <p className="text-slate-600">Accediendo al Dashboard Ejecutivo Tradicional...</p>
       </div>
     </div>
   );

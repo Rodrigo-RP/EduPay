@@ -82,13 +82,14 @@ function AuthenticatedRoutes() {
   if (user && user.role === 'super_admin') {
     return (
       <Switch>
-        <Route path="/" component={SuperAdminF1Simple} />
-        <Route path="/super-admin" component={SuperAdminF1Simple} />
+        <Route path="/" component={SuperAdminCEODashboard} />
+        <Route path="/super-admin" component={SuperAdminCEODashboard} />
         <Route path="/super-admin-ceo-dashboard" component={SuperAdminCEODashboard} />
         <Route path="/super-admin-ceo-dashboard-f1" component={SuperAdminCEODashboardF1} />
+        <Route path="/super-admin-f1" component={SuperAdminF1Simple} />
         <Route path="/super-admin-school-management" component={SuperAdminSchoolManagement} />
         <Route path="/super-admin-classic" component={SuperAdminDashboard} />
-        <Route component={SuperAdminF1Simple} />
+        <Route component={SuperAdminCEODashboard} />
       </Switch>
     );
   }

@@ -251,10 +251,11 @@ export default function AnalisisFinanciero() {
       </div>
 
       <Tabs defaultValue="profitability" className="space-y-6">
-        <TabsList className="grid grid-cols-5 w-full">
+        <TabsList className="grid grid-cols-6 w-full">
           <TabsTrigger value="profitability">Rentabilidad</TabsTrigger>
           <TabsTrigger value="costs">Estructura de Costos</TabsTrigger>
           <TabsTrigger value="collection">Cobranza</TabsTrigger>
+          <TabsTrigger value="ebitda">EBITDA</TabsTrigger>
           <TabsTrigger value="trends">Tendencias</TabsTrigger>
           <TabsTrigger value="health">Salud Financiera</TabsTrigger>
         </TabsList>
@@ -555,6 +556,212 @@ export default function AnalisisFinanciero() {
                       <li>• Buena retención de estudiantes (94.2%)</li>
                       <li>• Crecimiento sostenible del 8.7% anual</li>
                     </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* EBITDA Analysis */}
+        <TabsContent value="ebitda" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5" />
+                  Análisis EBITDA
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-base font-medium">Ingresos Totales</span>
+                    <span className="text-lg font-bold text-green-600">
+                      ${(data.netProfit * 1.56).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-base font-medium">Costos Operativos</span>
+                    <span className="text-lg text-red-600">
+                      -${(data.netProfit * 0.35).toLocaleString()}
+                    </span>
+                  </div>
+                  <hr />
+                  <div className="flex justify-between items-center text-xl font-bold">
+                    <span>EBITDA</span>
+                    <span className="text-blue-600">
+                      ${(data.netProfit * 1.21).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-base">Margen EBITDA</span>
+                    <Badge className="bg-blue-100 text-blue-800 text-base px-3 py-1">
+                      {((data.netProfit * 1.21) / (data.netProfit * 1.56) * 100).toFixed(1)}%
+                    </Badge>
+                  </div>
+                </div>
+                
+                <div className="mt-6">
+                  <h4 className="text-base font-semibold mb-4">Comparación vs Industria</h4>
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-base">
+                      <span>Margen EBITDA Empresa</span>
+                      <span className="font-semibold">{((data.netProfit * 1.21) / (data.netProfit * 1.56) * 100).toFixed(1)}%</span>
+                    </div>
+                    <Progress value={((data.netProfit * 1.21) / (data.netProfit * 1.56) * 100)} className="h-3" />
+                    <div className="flex justify-between text-base text-slate-600">
+                      <span>Promedio Industria: 35.0%</span>
+                      <span className="text-blue-600 font-medium">
+                        +{(((data.netProfit * 1.21) / (data.netProfit * 1.56) * 100) - 35.0).toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart className="w-5 h-5" />
+                  Desglose EBITDA por Componentes
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-4">
+                  {Object.entries({
+                    earnings: data.netProfit,
+                    interest: data.netProfit * 0.08,
+                    taxes: data.netProfit * 0.12,
+                    depreciation: data.netProfit * 0.15,
+                    amortization: data.netProfit * 0.05
+                  }).map(([key, value]) => {
+                    const total = data.netProfit * 1.4;
+                    const percentage = ((value as number) / total) * 100;
+                    
+                    const labels = {
+                      earnings: "Utilidad Neta",
+                      interest: "Intereses",
+                      taxes: "Impuestos",
+                      depreciation: "Depreciación",
+                      amortization: "Amortización"
+                    };
+                    
+                    return (
+                      <div key={key} className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-base font-medium">
+                            {labels[key as keyof typeof labels]}
+                          </span>
+                          <div className="text-right">
+                            <div className="text-lg font-semibold">
+                              ${((value as number) / 1000).toFixed(0)}K
+                            </div>
+                            <div className="text-sm text-slate-500">
+                              {percentage.toFixed(1)}%
+                            </div>
+                          </div>
+                        </div>
+                        <Progress value={percentage} className="h-3" />
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calculator className="w-5 h-5" />
+                  Múltiplos EBITDA
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-4">
+                  <div className="text-center p-4 bg-blue-50 rounded-lg">
+                    <div className="text-3xl font-bold text-blue-600">
+                      {((data.netProfit * 1.56) / (data.netProfit * 1.21)).toFixed(1)}x
+                    </div>
+                    <div className="text-base text-blue-700 font-medium">Precio/EBITDA</div>
+                    <div className="text-sm text-blue-600 mt-1">Múltiplo de valoración</div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-base">Industria Promedio</span>
+                      <span className="font-medium">8.5x</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-base">Posición Competitiva</span>
+                      <Badge className="bg-green-100 text-green-800">
+                        {((data.netProfit * 1.56) / (data.netProfit * 1.21)) < 8.5 ? 'Eficiente' : 'Premium'}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <PieChart className="w-5 h-5" />
+                  Eficiencia Operativa
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-4">
+                  <div className="text-center p-4 bg-green-50 rounded-lg">
+                    <div className="text-3xl font-bold text-green-600">
+                      {(((data.netProfit * 1.21) / data.totalStudents) / 1000).toFixed(1)}K
+                    </div>
+                    <div className="text-base text-green-700 font-medium">EBITDA por Alumno</div>
+                    <div className="text-sm text-green-600 mt-1">Generación de valor</div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-base">Benchmark Sector</span>
+                      <span className="font-medium">$2.8K</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-base">Performance</span>
+                      <Badge className="bg-green-100 text-green-800">
+                        Superior
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5" />
+                  Evaluación EBITDA
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-4">
+                  <div className="p-4 border rounded-lg">
+                    <h4 className="font-semibold text-base mb-2">Análisis Ejecutivo</h4>
+                    <div className="space-y-2 text-sm">
+                      <p>• EBITDA saludable del {((data.netProfit * 1.21) / (data.netProfit * 1.56) * 100).toFixed(1)}%</p>
+                      <p>• Generación de ${(((data.netProfit * 1.21) / data.totalStudents) / 1000).toFixed(1)}K por alumno</p>
+                      <p>• Múltiplo competitivo de {((data.netProfit * 1.56) / (data.netProfit * 1.21)).toFixed(1)}x</p>
+                      <p>• Posición financiera sólida</p>
+                    </div>
+                  </div>
+                  
+                  <div className="text-center">
+                    <Badge className="bg-green-100 text-green-800 text-base px-4 py-2">
+                      EBITDA Saludable
+                    </Badge>
                   </div>
                 </div>
               </CardContent>

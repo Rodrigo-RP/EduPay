@@ -279,28 +279,219 @@ export default function SuperAdminCEODashboard() {
             </TabsList>
           </div>
 
-          {/* Command Center Tab */}
-          <TabsContent value="command-center" className="space-y-8">
-            {/* Real-time Revenue Ticker */}
-            <div className="bg-gradient-to-r from-green-600 to-blue-600 text-white p-6 rounded-lg">
-              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
-                  <div className="text-2xl font-bold">Revenue Live</div>
-                  <div className="text-3xl lg:text-4xl font-mono">
-                    ${realTimeData.revenue.toLocaleString()} MXN
+          {/* Racing Dashboard Tab */}
+          <TabsContent value="racing-dashboard" className="space-y-8">
+            {/* F1 Live Timing Display */}
+            <div className="bg-gradient-to-r from-red-600 via-orange-500 to-yellow-500 text-white p-6 rounded-lg border-4 border-red-700 shadow-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-6">
+                  <div className="bg-black/50 rounded-lg p-4">
+                    <div className="text-center">
+                      <div className="text-sm text-yellow-300">LAP TIME</div>
+                      <div className="text-3xl font-mono font-bold text-green-400">{racingData.performance.currentLap}</div>
+                      <div className="text-xs text-gray-300">Current</div>
+                    </div>
                   </div>
-                  <div className="text-sm bg-green-500 px-3 py-1 rounded-full">
-                    +12.5% ↗
+                  <div className="bg-black/50 rounded-lg p-4">
+                    <div className="text-center">
+                      <div className="text-sm text-yellow-300">BEST LAP</div>
+                      <div className="text-3xl font-mono font-bold text-purple-400">{racingData.performance.bestLap}</div>
+                      <div className="text-xs text-gray-300">Personal</div>
+                    </div>
+                  </div>
+                  <div className="bg-black/50 rounded-lg p-4">
+                    <div className="text-center">
+                      <div className="text-sm text-yellow-300">REVENUE</div>
+                      <div className="text-3xl font-mono font-bold text-green-400">${realTimeData.revenue.toLocaleString()}</div>
+                      <div className="text-xs text-gray-300">MXN Live</div>
+                    </div>
                   </div>
                 </div>
-                <div className="text-left lg:text-right">
-                  <div className="text-sm opacity-90">MRR Actual</div>
-                  <div className="text-xl lg:text-2xl font-bold">
-                    ${realTimeData.mrr.toLocaleString()} MXN
+                <div className="flex items-center space-x-4">
+                  <div className="bg-green-600 px-4 py-2 rounded-full">
+                    <div className="text-2xl font-bold">P{racingData.performance.position}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-lg font-bold">POSITION</div>
+                    <div className="text-sm text-yellow-300">{racingData.performance.gap}</div>
                   </div>
                 </div>
               </div>
             </div>
+
+            {/* F1 Car Telemetry Dashboard */}
+            <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+              {/* ERS & Power Unit */}
+              <Card className="bg-gradient-to-br from-blue-900 to-purple-900 text-white border-2 border-blue-500">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-blue-300">
+                    <Zap className="h-5 w-5" />
+                    ERS & Power Unit
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span>ERS Battery</span>
+                      <span>{racingData.performance.ers}%</span>
+                    </div>
+                    <Progress value={racingData.performance.ers} className="h-3" />
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span>Fuel Level</span>
+                      <span>{racingData.performance.fuel}%</span>
+                    </div>
+                    <Progress value={racingData.performance.fuel} className="h-3" />
+                  </div>
+                  <div className="flex justify-between items-center bg-black/30 rounded p-3">
+                    <span>Tyre Compound</span>
+                    <Badge className="bg-red-600 text-white font-bold">{racingData.performance.tyre}</Badge>
+                  </div>
+                  <div className="flex justify-between items-center bg-black/30 rounded p-3">
+                    <span>Tyre Age</span>
+                    <span className="font-bold text-yellow-400">{racingData.performance.tyreAge} laps</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Sector Times */}
+              <Card className="bg-gradient-to-br from-green-900 to-emerald-900 text-white border-2 border-green-500">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-green-300">
+                    <Timer className="h-5 w-5" />
+                    Sector Performance
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {racingData.sectors.map((sector, index) => (
+                    <div key={index} className="bg-black/30 rounded p-3">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-medium">{sector.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold">{sector.time}</span>
+                          <span className={`text-xs px-2 py-1 rounded ${
+                            sector.improvement.startsWith('+') ? 'bg-red-600' : 'bg-green-600'
+                          }`}>
+                            {sector.improvement}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="w-full h-2 bg-gray-700 rounded">
+                        <div 
+                          className="h-full rounded" 
+                          style={{
+                            width: `${Math.random() * 100}%`,
+                            backgroundColor: sector.color
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Revenue Pie Chart */}
+              <Card className="bg-gradient-to-br from-yellow-900 to-orange-900 text-white border-2 border-yellow-500">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-yellow-300">
+                    <Target className="h-5 w-5" />
+                    Revenue Distribution
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="relative w-48 h-48 mx-auto">
+                    {/* Simple CSS Pie Chart */}
+                    <div className="w-full h-full rounded-full bg-gradient-to-r from-red-500 via-blue-500 via-green-500 to-yellow-500 animate-spin-slow relative">
+                      <div className="absolute inset-4 bg-black rounded-full flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-yellow-400">$2.8M</div>
+                          <div className="text-xs text-gray-300">Total Revenue</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-red-500 rounded"></div>
+                      <span className="text-sm">Colegiaturas 42%</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                      <span className="text-sm">Inscripciones 28%</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-green-500 rounded"></div>
+                      <span className="text-sm">Extraordinarios 20%</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-yellow-500 rounded"></div>
+                      <span className="text-sm">Otros 10%</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* F1 Championship Standings Table */}
+            <Card className="bg-gradient-to-br from-gray-900 to-black text-white border-2 border-red-500">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-red-400 text-xl">
+                  <Trophy className="h-6 w-6" />
+                  Championship Standings - Schools Leaderboard
+                </CardTitle>
+                <CardDescription className="text-gray-300">Live revenue racing - Updates every 2 seconds</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {racingData.schools.map((school, index) => (
+                    <div 
+                      key={index} 
+                      className="flex items-center p-4 rounded-lg border-l-4 bg-gradient-to-r from-black/60 to-gray-800/60"
+                      style={{ borderLeftColor: school.color }}
+                    >
+                      <div className="flex items-center space-x-4 flex-1">
+                        <div 
+                          className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl"
+                          style={{ backgroundColor: school.color }}
+                        >
+                          {school.position}
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-bold text-lg">{school.name}</div>
+                          <div className="text-sm text-gray-400">Revenue Champion</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-mono text-xl font-bold text-green-400">
+                            ${school.revenue.toLocaleString()}
+                          </div>
+                          <div className="text-sm text-gray-400">MXN</div>
+                        </div>
+                        <div className="text-right">
+                          <div className={`font-bold ${school.growth > 10 ? 'text-green-400' : 'text-yellow-400'}`}>
+                            +{school.growth.toFixed(1)}%
+                          </div>
+                          <div className="text-sm text-gray-400">Growth</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-mono text-sm text-purple-400">{school.lap}</div>
+                          <div className="text-xs text-gray-400">Gap</div>
+                        </div>
+                        <div className="text-center">
+                          <Badge 
+                            className="font-bold text-white"
+                            style={{ backgroundColor: school.color }}
+                          >
+                            {school.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
             {/* Executive KPIs Grid */}
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -574,47 +765,132 @@ export default function SuperAdminCEODashboard() {
             </div>
           </TabsContent>
 
-          {/* Analytics Tab */}
-          <TabsContent value="analytics" className="space-y-8">
-            <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
-              <Card>
+          {/* Championship Tab */}
+          <TabsContent value="championship" className="space-y-8">
+            {/* F1 Championship Podium */}
+            <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+              <Card className="bg-gradient-to-br from-yellow-600 to-yellow-800 text-white border-4 border-yellow-400">
                 <CardHeader>
-                  <CardTitle>Crecimiento de Revenue</CardTitle>
-                  <CardDescription>Tendencia mensual de ingresos</CardDescription>
+                  <CardTitle className="flex items-center gap-2 text-center justify-center">
+                    <Trophy className="h-8 w-8" />
+                    1st Place - Gold
+                  </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="h-48 flex items-center justify-center bg-gradient-to-r from-blue-50 to-green-50 rounded">
-                    <LineChart className="h-16 w-16 text-blue-400" />
-                    <div className="ml-4">
-                      <div className="text-2xl font-bold">$2.8M MXN</div>
-                      <div className="text-sm text-gray-600">Este mes</div>
-                    </div>
+                <CardContent className="text-center">
+                  <div className="text-4xl font-bold mb-2">{racingData.schools[0]?.name}</div>
+                  <div className="text-2xl font-mono">${racingData.schools[0]?.revenue.toLocaleString()}</div>
+                  <div className="text-lg mt-2">+{racingData.schools[0]?.growth.toFixed(1)}% Growth</div>
+                  <div className="mt-4">
+                    <Badge className="bg-yellow-500 text-black font-bold text-lg px-4 py-2">
+                      CHAMPION
+                    </Badge>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="bg-gradient-to-br from-gray-400 to-gray-600 text-white border-4 border-gray-300">
                 <CardHeader>
-                  <CardTitle>Distribución por Región</CardTitle>
-                  <CardDescription>Revenue por ubicación geográfica</CardDescription>
+                  <CardTitle className="flex items-center gap-2 text-center justify-center">
+                    <Star className="h-8 w-8" />
+                    2nd Place - Silver
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-center">
+                  <div className="text-3xl font-bold mb-2">{racingData.schools[1]?.name}</div>
+                  <div className="text-xl font-mono">${racingData.schools[1]?.revenue.toLocaleString()}</div>
+                  <div className="text-lg mt-2">+{racingData.schools[1]?.growth.toFixed(1)}% Growth</div>
+                  <div className="mt-4">
+                    <Badge className="bg-gray-400 text-black font-bold text-lg px-4 py-2">
+                      RUNNER-UP
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-orange-600 to-orange-800 text-white border-4 border-orange-400">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-center justify-center">
+                    <Award className="h-8 w-8" />
+                    3rd Place - Bronze
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-center">
+                  <div className="text-2xl font-bold mb-2">{racingData.schools[2]?.name}</div>
+                  <div className="text-xl font-mono">${racingData.schools[2]?.revenue.toLocaleString()}</div>
+                  <div className="text-lg mt-2">+{racingData.schools[2]?.growth.toFixed(1)}% Growth</div>
+                  <div className="mt-4">
+                    <Badge className="bg-orange-500 text-white font-bold text-lg px-4 py-2">
+                      PODIUM
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Performance Charts */}
+            <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
+              <Card className="bg-gradient-to-br from-blue-900 to-purple-900 text-white border-2 border-blue-500">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-blue-300">
+                    <BarChart3 className="h-6 w-6" />
+                    Performance by Sector
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span>Ciudad de México</span>
-                      <span className="font-bold">42%</span>
+                    {racingData.sectors.map((sector, index) => (
+                      <div key={index} className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="font-medium">{sector.name}</span>
+                          <span className="font-mono">{sector.time}</span>
+                        </div>
+                        <div className="w-full bg-gray-700 rounded-full h-4">
+                          <div 
+                            className="h-4 rounded-full transition-all duration-1000"
+                            style={{
+                              width: `${85 + Math.random() * 15}%`,
+                              backgroundColor: sector.color
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-green-900 to-emerald-900 text-white border-2 border-green-500">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-green-300">
+                    <Target className="h-6 w-6" />
+                    Revenue Distribution
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center">
+                      <div className="w-24 h-24 mx-auto mb-2 rounded-full bg-gradient-to-r from-red-500 to-red-700 flex items-center justify-center">
+                        <span className="text-xl font-bold">42%</span>
+                      </div>
+                      <div className="text-sm">Colegiaturas</div>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span>Guadalajara</span>
-                      <span className="font-bold">28%</span>
+                    <div className="text-center">
+                      <div className="w-24 h-24 mx-auto mb-2 rounded-full bg-gradient-to-r from-blue-500 to-blue-700 flex items-center justify-center">
+                        <span className="text-xl font-bold">28%</span>
+                      </div>
+                      <div className="text-sm">Inscripciones</div>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span>Monterrey</span>
-                      <span className="font-bold">20%</span>
+                    <div className="text-center">
+                      <div className="w-24 h-24 mx-auto mb-2 rounded-full bg-gradient-to-r from-green-500 to-green-700 flex items-center justify-center">
+                        <span className="text-xl font-bold">20%</span>
+                      </div>
+                      <div className="text-sm">Extraordinarios</div>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span>Otros</span>
-                      <span className="font-bold">10%</span>
+                    <div className="text-center">
+                      <div className="w-24 h-24 mx-auto mb-2 rounded-full bg-gradient-to-r from-yellow-500 to-yellow-700 flex items-center justify-center">
+                        <span className="text-xl font-bold">10%</span>
+                      </div>
+                      <div className="text-sm">Otros</div>
                     </div>
                   </div>
                 </CardContent>
@@ -622,25 +898,133 @@ export default function SuperAdminCEODashboard() {
             </div>
           </TabsContent>
 
-          {/* Security Tab */}
-          <TabsContent value="security" className="space-y-8">
-            <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-              <Card>
+          {/* Telemetry Tab */}
+          <TabsContent value="telemetry" className="space-y-8">
+            {/* Live Telemetry Dashboard */}
+            <div className="grid gap-6 grid-cols-1 lg:grid-cols-4">
+              <Card className="bg-gradient-to-br from-red-900 to-red-700 text-white border-2 border-red-500">
                 <CardHeader>
-                  <CardTitle>Escaneo de Seguridad</CardTitle>
-                  <CardDescription>Análisis completo de vulnerabilidades</CardDescription>
+                  <CardTitle className="flex items-center gap-2 text-red-300">
+                    <Gauge className="h-5 w-5" />
+                    Speed
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-center">
+                  <div className="text-4xl font-mono font-bold text-red-400">
+                    {realTimeData.transactionsPerHour}
+                  </div>
+                  <div className="text-sm text-gray-300">Transactions/hour</div>
+                  <Progress value={Math.min(100, (realTimeData.transactionsPerHour / 1000) * 100)} className="mt-4" />
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-blue-900 to-blue-700 text-white border-2 border-blue-500">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-blue-300">
+                    <Zap className="h-5 w-5" />
+                    Success Rate
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-center">
+                  <div className="text-4xl font-mono font-bold text-blue-400">
+                    {realTimeData.successRate.toFixed(1)}%
+                  </div>
+                  <div className="text-sm text-gray-300">Payment Success</div>
+                  <Progress value={realTimeData.successRate} className="mt-4" />
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-green-900 to-green-700 text-white border-2 border-green-500">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-green-300">
+                    <Activity className="h-5 w-5" />
+                    Uptime
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-center">
+                  <div className="text-4xl font-mono font-bold text-green-400">
+                    {realTimeData.uptime}%
+                  </div>
+                  <div className="text-sm text-gray-300">System Uptime</div>
+                  <Progress value={realTimeData.uptime} className="mt-4" />
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-yellow-900 to-yellow-700 text-white border-2 border-yellow-500">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-yellow-300">
+                    <AlertTriangle className="h-5 w-5" />
+                    Risk Level
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-center">
+                  <div className="text-4xl font-mono font-bold text-yellow-400">
+                    {realTimeData.churnRisk.toFixed(1)}%
+                  </div>
+                  <div className="text-sm text-gray-300">Churn Risk</div>
+                  <Progress value={realTimeData.churnRisk * 10} className="mt-4" />
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Pit Stop Tab */}
+          <TabsContent value="pit-stop" className="space-y-8">
+            <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
+              <Card className="bg-gradient-to-br from-gray-800 to-gray-900 text-white border-2 border-gray-600">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-gray-300">
+                    <Settings className="h-6 w-6" />
+                    System Controls
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <Button
-                    onClick={() => securityScanMutation.mutate()}
-                    disabled={securityScanMutation.isPending}
-                    className="w-full bg-blue-600 hover:bg-blue-700"
+                  <Button 
+                    onClick={() => window.location.href = '/super-admin-school-management'}
+                    className="w-full bg-blue-600 hover:bg-blue-700 border-2 border-blue-400"
                   >
-                    <Scan className="h-4 w-4 mr-2" />
-                    {securityScanMutation.isPending ? "Escaneando..." : "Iniciar Escaneo"}
+                    <Flag className="h-4 w-4 mr-2" />
+                    Race Control Center
                   </Button>
-                  <div className="text-sm text-gray-600">
-                    <p>• Detección de vulnerabilidades</p>
+                  <Button 
+                    onClick={() => window.location.href = '/platform-login'}
+                    className="w-full bg-yellow-600 hover:bg-yellow-700 border-2 border-yellow-400 text-black"
+                  >
+                    <Award className="h-4 w-4 mr-2" />
+                    Pit Crew Access
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-green-800 to-green-900 text-white border-2 border-green-600">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-green-300">
+                    <Gauge className="h-6 w-6" />
+                    Performance Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span>Engine Status</span>
+                    <Badge className="bg-green-600 text-white">OPTIMAL</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Safety Systems</span>
+                    <Badge className="bg-green-600 text-white">ACTIVE</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Communications</span>
+                    <Badge className="bg-green-600 text-white">ONLINE</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}
                     <p>• Análisis de ataques</p>
                     <p>• Score de seguridad</p>
                   </div>

@@ -1139,38 +1139,38 @@ export default function CuentasPorCobrar() {
                       <ResponsiveContainer width="100%" height="100%">
                         <RechartsPieChart>
                           <Pie
-                            data={getAmountRangeData()}
+                            data={amountRangeData}
                             cx="50%"
                             cy="50%"
                             outerRadius={70}
                             fill="#8884d8"
                             dataKey="value"
+                            label={({ name, value }) => `${name}: ${value}`}
                           >
-                            {getAmountRangeData().map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            {amountRangeData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
                           </Pie>
                           <Tooltip 
-                            formatter={(value: any, name: any, props: any) => [
-                              `${value} cuentas (${props.payload.percentage}%)`,
-                              props.payload.name
+                            formatter={(value: any, name: any) => [
+                              `${value} cuentas`,
+                              name
                             ]}
                           />
-                          <Legend />
                         </RechartsPieChart>
                       </ResponsiveContainer>
                     </div>
                     <div className="mt-2 space-y-1">
-                      {getAmountRangeData().map((item, index) => (
+                      {amountRangeData.map((item, index) => (
                         <div key={item.name} className="flex justify-between text-xs">
                           <span className="flex items-center gap-1">
                             <div 
                               className="w-2 h-2 rounded-full" 
-                              style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                              style={{ backgroundColor: item.color }}
                             />
                             {item.name}
                           </span>
-                          <span className="font-medium">${(item.amount / 100).toLocaleString()}</span>
+                          <span className="font-medium">{item.value} cuentas</span>
                         </div>
                       ))}
                     </div>

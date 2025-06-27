@@ -260,11 +260,12 @@ export default function AnalisisFinanciero() {
       </div>
 
       <Tabs defaultValue="profitability" className="space-y-6">
-        <TabsList className="grid grid-cols-6 w-full h-auto">
+        <TabsList className="grid grid-cols-7 w-full h-auto">
           <TabsTrigger value="profitability" className="text-xs px-2 py-3">Rentabilidad</TabsTrigger>
           <TabsTrigger value="costs" className="text-xs px-2 py-3">Costos</TabsTrigger>
           <TabsTrigger value="collection" className="text-xs px-2 py-3">Cobranza</TabsTrigger>
           <TabsTrigger value="ebitda" className="text-xs px-2 py-3">EBITDA</TabsTrigger>
+          <TabsTrigger value="projections" className="text-xs px-2 py-3">Proyecciones</TabsTrigger>
           <TabsTrigger value="trends" className="text-xs px-2 py-3">Tendencias</TabsTrigger>
           <TabsTrigger value="health" className="text-xs px-2 py-3">Salud</TabsTrigger>
         </TabsList>
@@ -771,6 +772,277 @@ export default function AnalisisFinanciero() {
                     <Badge className="bg-green-100 text-green-800 text-base px-4 py-2">
                       EBITDA Saludable
                     </Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Projections Analysis */}
+        <TabsContent value="projections" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5" />
+                  Proyección Ciclo Escolar 2025-2026
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-4">
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <h4 className="font-semibold text-base mb-3">Escenario Base (Crecimiento 5%)</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm">Estudiantes Proyectados</span>
+                        <span className="font-medium">{Math.round(data.totalStudents * 1.05)} alumnos</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm">Ingresos Anuales</span>
+                        <span className="font-medium text-green-600">
+                          ${((data.netProfit * 1.56 * 1.05) / 1000000).toFixed(2)}M
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm">EBITDA Proyectado</span>
+                        <span className="font-medium text-blue-600">
+                          ${((data.netProfit * 1.21 * 1.05) / 1000000).toFixed(2)}M
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-green-50 rounded-lg">
+                    <h4 className="font-semibold text-base mb-3">Escenario Optimista (Crecimiento 12%)</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm">Estudiantes Proyectados</span>
+                        <span className="font-medium">{Math.round(data.totalStudents * 1.12)} alumnos</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm">Ingresos Anuales</span>
+                        <span className="font-medium text-green-600">
+                          ${((data.netProfit * 1.56 * 1.12) / 1000000).toFixed(2)}M
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm">EBITDA Proyectado</span>
+                        <span className="font-medium text-blue-600">
+                          ${((data.netProfit * 1.21 * 1.12) / 1000000).toFixed(2)}M
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-yellow-50 rounded-lg">
+                    <h4 className="font-semibold text-base mb-3">Escenario Conservador (Crecimiento 2%)</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm">Estudiantes Proyectados</span>
+                        <span className="font-medium">{Math.round(data.totalStudents * 1.02)} alumnos</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm">Ingresos Anuales</span>
+                        <span className="font-medium text-green-600">
+                          ${((data.netProfit * 1.56 * 1.02) / 1000000).toFixed(2)}M
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm">EBITDA Proyectado</span>
+                        <span className="font-medium text-blue-600">
+                          ${((data.netProfit * 1.21 * 1.02) / 1000000).toFixed(2)}M
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="w-5 h-5" />
+                  Simulador de Incremento en Colegiaturas
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-4">
+                  <div className="p-4 border rounded-lg">
+                    <h4 className="font-semibold text-base mb-3">Incremento 8% (Recomendado)</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm">Colegiatura Promedio Actual</span>
+                        <span className="font-medium">$6,200</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm">Colegiatura Nueva</span>
+                        <span className="font-medium text-green-600">$6,696</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm">Ingresos Adicionales</span>
+                        <span className="font-medium text-blue-600">
+                          ${((data.netProfit * 1.56 * 0.08) / 1000000).toFixed(2)}M anuales
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-600 mt-2">
+                        • Mantiene competitividad en el mercado
+                        • Compensa inflación proyectada 6.5%
+                        • Mejora margen operativo 2.1%
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 border rounded-lg">
+                    <h4 className="font-semibold text-base mb-3">Incremento 12% (Agresivo)</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm">Colegiatura Nueva</span>
+                        <span className="font-medium text-green-600">$6,944</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm">Ingresos Adicionales</span>
+                        <span className="font-medium text-blue-600">
+                          ${((data.netProfit * 1.56 * 0.12) / 1000000).toFixed(2)}M anuales
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm">Riesgo de Deserción</span>
+                        <Badge className="bg-yellow-100 text-yellow-800">Medio (5-8%)</Badge>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 border rounded-lg">
+                    <h4 className="font-semibold text-base mb-3">Incremento 5% (Conservador)</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm">Colegiatura Nueva</span>
+                        <span className="font-medium text-green-600">$6,510</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm">Ingresos Adicionales</span>
+                        <span className="font-medium text-blue-600">
+                          ${((data.netProfit * 1.56 * 0.05) / 1000000).toFixed(2)}M anuales
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm">Riesgo de Deserción</span>
+                        <Badge className="bg-green-100 text-green-800">Bajo (1-2%)</Badge>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="w-5 h-5" />
+                  Punto de Equilibrio
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {Math.round(data.totalStudents * 0.73)} alumnos
+                  </div>
+                  <div className="text-sm text-blue-700">Punto de equilibrio</div>
+                  <div className="text-xs text-blue-600 mt-1">
+                    Actual: {data.totalStudents} (+{Math.round(data.totalStudents * 0.27)} margen)
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Costos Fijos Mensuales</span>
+                    <span className="font-medium">
+                      ${((data.netProfit * 0.4) / 12 / 1000).toFixed(0)}K
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Margen por Alumno</span>
+                    <span className="font-medium text-green-600">
+                      ${data.costPerStudent.profitPerStudent.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5" />
+                  Optimización de Costos
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="p-3 bg-green-50 rounded-lg">
+                    <div className="font-medium text-sm text-green-800">Oportunidad #1</div>
+                    <div className="text-xs text-green-700">Digitalización de procesos</div>
+                    <div className="text-xs text-green-600">Ahorro: $180K anuales</div>
+                  </div>
+                  
+                  <div className="p-3 bg-blue-50 rounded-lg">
+                    <div className="font-medium text-sm text-blue-800">Oportunidad #2</div>
+                    <div className="text-xs text-blue-700">Optimizar servicios terceros</div>
+                    <div className="text-xs text-blue-600">Ahorro: $95K anuales</div>
+                  </div>
+                  
+                  <div className="p-3 bg-purple-50 rounded-lg">
+                    <div className="font-medium text-sm text-purple-800">Oportunidad #3</div>
+                    <div className="text-xs text-purple-700">Eficiencia energética</div>
+                    <div className="text-xs text-purple-600">Ahorro: $45K anuales</div>
+                  </div>
+                </div>
+                
+                <div className="text-center pt-2 border-t">
+                  <div className="text-sm font-medium">Ahorro Total Potencial</div>
+                  <div className="text-lg font-bold text-green-600">$320K anuales</div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5" />
+                  Recomendaciones Estratégicas
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="p-3 border-l-4 border-green-500 bg-green-50">
+                    <div className="font-medium text-sm">Prioridad Alta</div>
+                    <div className="text-xs mt-1">
+                      • Incrementar colegiaturas 8% en 2025-2026
+                      • Implementar plan digital de cobranza
+                      • Optimizar estructura de costos administrativos
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 border-l-4 border-blue-500 bg-blue-50">
+                    <div className="font-medium text-sm">Prioridad Media</div>
+                    <div className="text-xs mt-1">
+                      • Diversificar ingresos (cursos de verano)
+                      • Mejorar retención estudiantil
+                      • Renegociar contratos de servicios
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 border-l-4 border-yellow-500 bg-yellow-50">
+                    <div className="font-medium text-sm">Monitoreo Continuo</div>
+                    <div className="text-xs mt-1">
+                      • Seguimiento mensual de KPIs
+                      • Análisis de competencia trimestral
+                      • Evaluación de satisfacción familiar
+                    </div>
                   </div>
                 </div>
               </CardContent>

@@ -11,60 +11,33 @@ interface PieChartComponentProps {
 
 export function PieChartComponent({ data, title }: PieChartComponentProps) {
   const total = data.reduce((sum, item) => sum + item.value, 0);
-  
-  // Función para generar el path del arco SVG
-  const createArcPath = (centerX: number, centerY: number, radius: number, startAngle: number, endAngle: number) => {
-    const start = polarToCartesian(centerX, centerY, radius, endAngle);
-    const end = polarToCartesian(centerX, centerY, radius, startAngle);
-    const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
-    return [
-      "M", centerX, centerY, 
-      "L", start.x, start.y, 
-      "A", radius, radius, 0, largeArcFlag, 0, end.x, end.y,
-      "Z"
-    ].join(" ");
-  };
-
-  const polarToCartesian = (centerX: number, centerY: number, radius: number, angleInDegrees: number) => {
-    const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
-    return {
-      x: centerX + (radius * Math.cos(angleInRadians)),
-      y: centerY + (radius * Math.sin(angleInRadians))
-    };
-  };
-
-  let currentAngle = 0;
-  const centerX = 80;
-  const centerY = 80;
-  const radius = 60;
 
   return (
     <div className="w-full">
       <h3 className="text-sm font-medium mb-4 text-center">{title}</h3>
+      
+      {/* Gráfico tipo pastel usando CSS conic-gradient */}
       <div className="flex justify-center mb-4">
-        <svg width="160" height="160" viewBox="0 0 160 160">
-          {data.map((item, index) => {
-            const percentage = (item.value / total) * 100;
-            const angle = (item.value / total) * 360;
-            const startAngle = currentAngle;
-            const endAngle = currentAngle + angle;
-            
-            const path = createArcPath(centerX, centerY, radius, startAngle, endAngle);
-            currentAngle += angle;
-            
-            return (
-              <path
-                key={index}
-                d={path}
-                fill={item.color}
-                stroke="white"
-                strokeWidth="2"
-                className="hover:opacity-80 transition-opacity"
-              />
-            );
-          })}
-        </svg>
+        <div 
+          className="w-32 h-32 rounded-full relative"
+          style={{
+            background: `conic-gradient(
+              ${data.map((item, index) => {
+                const percentage = (item.value / total) * 100;
+                const prevPercentage = data.slice(0, index).reduce((sum, prevItem) => sum + (prevItem.value / total) * 100, 0);
+                return `${item.color} ${prevPercentage}% ${prevPercentage + percentage}%`;
+              }).join(', ')}
+            )`
+          }}
+        >
+          {/* Círculo interno para crear efecto de dona */}
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-white rounded-full flex items-center justify-center">
+            <span className="text-xs font-medium text-gray-600">{total}</span>
+          </div>
+        </div>
       </div>
+      
+      {/* Leyenda */}
       <div className="space-y-2">
         {data.map((item, index) => {
           const percentage = ((item.value / total) * 100).toFixed(1);

@@ -118,6 +118,11 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- June 27, 2025: SIMULADOR DE COSTOS DINÁMICO COMPLETADO - Herramienta interactiva para directores de escuela funcionando
+- June 27, 2025: Simulador con 2 modos: Por Porcentaje (%) con sliders y Por Cantidad ($) con campos numéricos
+- June 27, 2025: Incluye colegiaturas (0-20%) e inscripciones (0-15%) con cálculos en tiempo real
+- June 27, 2025: Evaluación automática de riesgo de deserción y proyección de ingresos adicionales
+- June 27, 2025: API `/api/financial/analysis` corregida y funcionando con datos del Instituto San Patricio
 - June 27, 2025: PESTAÑA PROYECCIONES IMPLEMENTADA - Herramienta estratégica completa para planificación ciclo escolar
 - June 27, 2025: 3 escenarios de crecimiento: Base 5%, Optimista 12%, Conservador 2% con proyección estudiantes e ingresos
 - June 27, 2025: Simulador incremento colegiaturas: 8% recomendado, 12% agresivo, 5% conservador con análisis riesgo-beneficio

@@ -23,7 +23,7 @@ export default function CuentasPorCobrar() {
   const [fechaFin, setFechaFin] = useState("");
   const [showCompromiseModal, setShowCompromiseModal] = useState(false);
   const [selectedCuenta, setSelectedCuenta] = useState<any>(null);
-  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+
 
   // Colores para gráficos
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
@@ -522,13 +522,6 @@ export default function CuentasPorCobrar() {
         </div>
         <div className="flex gap-2">
           <Button 
-            variant="outline"
-            onClick={() => setShowAnalyticsModal(true)}
-          >
-            <PieChart className="w-4 h-4 mr-2" />
-            Análisis Visual
-          </Button>
-          <Button 
             className="bg-orange-600 hover:bg-orange-700"
             onClick={handleIniciarCobranza}
           >
@@ -686,6 +679,46 @@ export default function CuentasPorCobrar() {
                     placeholder="Fecha hasta"
                   />
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Gráficos de Análisis Visual */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2">
+                <PieChart className="h-5 w-5" />
+                Análisis Visual de Cuentas por Cobrar
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <Card>
+                  <CardContent className="p-4">
+                    <PieChartComponent 
+                      data={statusData} 
+                      title="Por Estado de Cobranza" 
+                    />
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-4">
+                    <PieChartComponent 
+                      data={daysOverdueData} 
+                      title="Por Días Vencidos" 
+                    />
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-4">
+                    <PieChartComponent 
+                      data={amountRangeData} 
+                      title="Por Rango de Montos" 
+                    />
+                  </CardContent>
+                </Card>
               </div>
             </CardContent>
           </Card>
@@ -913,128 +946,6 @@ export default function CuentasPorCobrar() {
               </Button>
               <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
                 Establecer compromiso
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Modal de Análisis Visual */}
-        <Dialog open={showAnalyticsModal} onOpenChange={setShowAnalyticsModal}>
-          <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <PieChart className="h-5 w-5" />
-                Análisis Visual de Cuentas por Cobrar
-              </DialogTitle>
-            </DialogHeader>
-            
-            <div className="space-y-6">
-              {/* Resumen Ejecutivo */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold text-blue-600">{filteredCuentas.length}</div>
-                    <div className="text-sm text-gray-600">Total Cuentas</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold text-green-600">
-                      ${(filteredCuentas.reduce((sum, c) => sum + c.pendiente_pagar_centavos, 0) / 100000).toFixed(0)}K
-                    </div>
-                    <div className="text-sm text-gray-600">Total Pendiente</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold text-orange-600">
-                      {filteredCuentas.filter(c => c.estado_cobranza === 'VENCIDO' || c.estado_cobranza === 'MOROSO').length}
-                    </div>
-                    <div className="text-sm text-gray-600">Cuentas Vencidas</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold text-red-600">
-                      {(filteredCuentas.filter(c => c.dias_vencido > 0).reduce((sum, c) => sum + c.dias_vencido, 0) / filteredCuentas.filter(c => c.dias_vencido > 0).length || 0).toFixed(0)}
-                    </div>
-                    <div className="text-sm text-gray-600">Promedio Días Vencidos</div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Gráficos Tipo Pastel */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card>
-                  <CardContent className="p-4">
-                    <PieChartComponent 
-                      data={statusData} 
-                      title="Por Estado de Cobranza" 
-                    />
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="p-4">
-                    <PieChartComponent 
-                      data={daysOverdueData} 
-                      title="Por Días Vencidos" 
-                    />
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="p-4">
-                    <PieChartComponent 
-                      data={amountRangeData} 
-                      title="Por Rango de Montos" 
-                    />
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Recomendaciones Automáticas */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Recomendaciones de Cobranza</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 border-l-4 border-red-500 bg-red-50">
-                      <div className="font-medium text-red-800">Acción Inmediata</div>
-                      <div className="text-sm text-red-700 mt-1">
-                        {filteredCuentas.filter(c => c.dias_vencido > 30).length} cuentas con más de 30 días vencidos requieren seguimiento urgente
-                      </div>
-                    </div>
-                    <div className="p-4 border-l-4 border-yellow-500 bg-yellow-50">
-                      <div className="font-medium text-yellow-800">Seguimiento</div>
-                      <div className="text-sm text-yellow-700 mt-1">
-                        {filteredCuentas.filter(c => c.dias_vencido > 0 && c.dias_vencido <= 30).length} cuentas vencidas necesitan recordatorios de pago
-                      </div>
-                    </div>
-                    <div className="p-4 border-l-4 border-blue-500 bg-blue-50">
-                      <div className="font-medium text-blue-800">Preventivo</div>
-                      <div className="text-sm text-blue-700 mt-1">
-                        Programar recordatorios automáticos 3 días antes del vencimiento
-                      </div>
-                    </div>
-                    <div className="p-4 border-l-4 border-green-500 bg-green-50">
-                      <div className="font-medium text-green-800">Oportunidad</div>
-                      <div className="text-sm text-green-700 mt-1">
-                        Ofrecer descuentos por pronto pago para reducir cartera vencida
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="flex justify-end pt-4 border-t">
-              <Button 
-                variant="outline"
-                onClick={() => setShowAnalyticsModal(false)}
-              >
-                Cerrar
               </Button>
             </div>
           </DialogContent>

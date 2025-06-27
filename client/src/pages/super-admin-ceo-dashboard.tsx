@@ -281,9 +281,105 @@ export default function SuperAdminCEODashboard() {
 
           {/* Racing Dashboard Tab */}
           <TabsContent value="racing-dashboard" className="space-y-8">
-            {/* F1 Live Timing Display */}
-            <div className="bg-gradient-to-r from-red-600 via-orange-500 to-yellow-500 text-white p-6 rounded-lg border-4 border-red-700 shadow-2xl">
-              <div className="flex items-center justify-between">
+            {/* Executive Overview Cards */}
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Revenue Total
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">${realTimeData.revenue.toLocaleString()}</div>
+                  <div className="text-xs text-gray-600">En tiempo real</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    Transacciones/Hora
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{realTimeData.transactionsPerHour}</div>
+                  <div className="text-xs text-gray-600">Velocidad actual</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Activity className="h-4 w-4" />
+                    Tasa de Éxito
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{realTimeData.successRate.toFixed(1)}%</div>
+                  <div className="text-xs text-gray-600">Pagos exitosos</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4" />
+                    Uptime Sistema
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{realTimeData.uptime}%</div>
+                  <div className="text-xs text-gray-600">Disponibilidad</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <School className="h-4 w-4" />
+                    MRR Growth
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">${realTimeData.mrr.toLocaleString()}</div>
+                  <div className="text-xs text-gray-600">Ingreso mensual recurrente</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Target className="h-4 w-4" />
+                    Churn Risk
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-600">{realTimeData.churnRisk.toFixed(1)}%</div>
+                  <div className="text-xs text-gray-600">Bajo riesgo</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <CreditCard className="h-4 w-4" />
+                    Conversión
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-600">94.2%</div>
+                  <div className="text-xs text-gray-600">Tasa de conversión</div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}
                 <div className="flex items-center space-x-6">
                   <div className="bg-black/50 rounded-lg p-4">
                     <div className="text-center">
@@ -764,14 +860,6 @@ export default function SuperAdminCEODashboard() {
               </Card>
             </div>
           </TabsContent>
-
-          {/* Additional tabs can be added here */}
-          
-        </Tabs>
-      </div>
-    </div>
-  );
-}
         </Tabs>
       </div>
     </div>

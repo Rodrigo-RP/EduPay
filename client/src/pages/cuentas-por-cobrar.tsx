@@ -692,7 +692,7 @@ export default function CuentasPorCobrar() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 <Card>
                   <CardContent className="p-4">
                     <PieChartComponent 
@@ -707,15 +707,6 @@ export default function CuentasPorCobrar() {
                     <PieChartComponent 
                       data={daysOverdueData} 
                       title="Por Días Vencidos" 
-                    />
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="p-4">
-                    <PieChartComponent 
-                      data={amountRangeData} 
-                      title="Por Rango de Montos" 
                     />
                   </CardContent>
                 </Card>

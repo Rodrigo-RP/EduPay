@@ -36,6 +36,7 @@ import AsignacionPrecios from "@/pages/asignacion-precios";
 import ImportacionDatos from "@/pages/importacion-datos";
 import SistemasAvanzados from "@/pages/sistemas-avanzados";
 import SeguridadCibernetica from "@/pages/seguridad-cibernetica";
+import AnalisisFinanciero from "@/pages/analisis-financiero";
 import SuperAdminLogin from "@/pages/super-admin-login";
 import SuperAdminDashboard from "@/pages/super-admin-dashboard";
 import SuperAdminCEODashboard from "@/pages/super-admin-ceo-dashboard";
@@ -104,6 +105,7 @@ function AuthenticatedRoutes() {
             <Route path="/sistemas-avanzados" component={SistemasAvanzados} />
             <Route path="/caja-conciliacion" component={CajaConciliacion} />
             <Route path="/fiscal-contable" component={FiscalContable} />
+            <Route path="/analisis-financiero" component={AnalisisFinanciero} />
             <Route path="/portal-3clics" component={PortalPadres3Clics} />
             <Route component={NotFound} />
           </Switch>

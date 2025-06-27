@@ -75,6 +75,13 @@ export default function Sidebar() {
       category: "financiero"
     },
     { 
+      icon: "fas fa-chart-line", 
+      label: "Análisis Financiero CFO", 
+      href: "/analisis-financiero", 
+      active: location === "/analisis-financiero",
+      category: "financiero"
+    },
+    { 
       icon: "fas fa-box", 
       label: "Catálogo Productos", 
       href: "/catalogo-productos", 

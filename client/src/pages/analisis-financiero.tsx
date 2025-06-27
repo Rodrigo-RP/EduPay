@@ -183,69 +183,77 @@ export default function AnalisisFinanciero() {
       {/* Executive Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
+          <CardContent className="p-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-slate-600">Utilidad Neta</p>
-                <p className="text-3xl font-bold text-green-600">
+                <TrendingUp className="w-6 h-6 text-green-600" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-2xl font-bold text-green-600">
                   ${(data.netProfit / 1000000).toFixed(2)}M
                 </p>
-                <p className="text-sm text-slate-500">
+                <p className="text-xs text-slate-500">
                   Margen: {data.healthIndicators.profitMargin}%
                 </p>
               </div>
-              <TrendingUp className="w-8 h-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
+          <CardContent className="p-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-slate-600">Costo por Alumno</p>
-                <p className="text-3xl font-bold text-blue-600">
+                <Calculator className="w-6 h-6 text-blue-600" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-2xl font-bold text-blue-600">
                   ${data.costPerStudent.totalCost.toLocaleString()}
                 </p>
-                <p className="text-sm text-slate-500">
+                <p className="text-xs text-slate-500">
                   Utilidad: ${data.costPerStudent.profitPerStudent.toLocaleString()}
                 </p>
               </div>
-              <Calculator className="w-8 h-8 text-blue-600" />
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
+          <CardContent className="p-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-slate-600">Tasa de Cobro</p>
-                <p className="text-3xl font-bold text-purple-600">
+                <Target className="w-6 h-6 text-purple-600" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-2xl font-bold text-purple-600">
                   {data.collectionMetrics.collectionRate}%
                 </p>
-                <p className="text-sm text-slate-500">
+                <p className="text-xs text-slate-500">
                   {data.collectionMetrics.averageDaysToCollect} días promedio
                 </p>
               </div>
-              <Target className="w-8 h-8 text-purple-600" />
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
+          <CardContent className="p-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-slate-600">Salud Financiera</p>
-                <p className="text-3xl font-bold text-orange-600">
+                <CheckCircle className="w-6 h-6 text-orange-600" />
+              </div>
+              <div className="space-y-2">
+                <p className="text-xl font-bold text-orange-600">
                   {data.healthIndicators.cashFlowScore}/100
                 </p>
-                <Badge className={getHealthStatus(data.healthIndicators.cashFlowScore).color + " text-white"}>
+                <Badge className={getHealthStatus(data.healthIndicators.cashFlowScore).color + " text-white text-xs px-2 py-1"}>
                   {getHealthStatus(data.healthIndicators.cashFlowScore).status}
                 </Badge>
               </div>
-              <CheckCircle className="w-8 h-8 text-orange-600" />
             </div>
           </CardContent>
         </Card>

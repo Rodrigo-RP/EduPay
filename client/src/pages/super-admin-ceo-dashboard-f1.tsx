@@ -170,13 +170,13 @@ export default function SuperAdminCEODashboardF1() {
 
           {/* Educational Dashboard Tab */}
           <TabsContent value="education-dashboard" className="space-y-8">
-            {/* Executive Overview Cards */}
+            {/* Tarjetas de Resumen Ejecutivo */}
             <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <DollarSign className="h-4 w-4" />
-                    Revenue Total
+                    Ingresos Totales
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -215,7 +215,7 @@ export default function SuperAdminCEODashboardF1() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <BarChart3 className="h-4 w-4" />
-                    Uptime Sistema
+                    Tiempo Activo Sistema
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -225,7 +225,7 @@ export default function SuperAdminCEODashboardF1() {
               </Card>
             </div>
 
-            {/* Educational Performance Display */}
+            {/* Panel de Rendimiento Educativo */}
             <div className="bg-gradient-to-r from-red-600 via-orange-500 to-yellow-500 text-white p-6 rounded-lg border-4 border-red-700 shadow-2xl">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-6">

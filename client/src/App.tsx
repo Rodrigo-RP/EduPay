@@ -47,6 +47,7 @@ import ImplementationDashboard from "@/pages/implementation-dashboard";
 import PlatformLogin from "@/pages/platform-login";
 import SaaSInfo from "@/components/saas-info";
 import ConfiguracionPagos from "@/pages/configuracion-pagos";
+import SuperAdminAccess from "@/pages/super-admin-access";
 
 function AuthenticatedRoutes() {
   const { user, guardian, isLoading } = useAuth();
@@ -71,6 +72,21 @@ function AuthenticatedRoutes() {
         <Route path="/parent" component={ParentPortal} />
         <Route path="/checkout" component={ParentPortal} />
         <Route component={NotFound} />
+      </Switch>
+    );
+  }
+
+  // Super Admin routing - redirect to executive dashboard
+  if (user && (user.role === 'super_admin' || user.is_super_admin)) {
+    return (
+      <Switch>
+        <Route path="/" component={SuperAdminCEODashboardF1} />
+        <Route path="/super-admin" component={SuperAdminCEODashboardF1} />
+        <Route path="/super-admin-ceo-dashboard" component={SuperAdminCEODashboard} />
+        <Route path="/super-admin-ceo-dashboard-f1" component={SuperAdminCEODashboardF1} />
+        <Route path="/super-admin-school-management" component={SuperAdminSchoolManagement} />
+        <Route path="/super-admin-classic" component={SuperAdminDashboard} />
+        <Route component={SuperAdminCEODashboardF1} />
       </Switch>
     );
   }
@@ -127,6 +143,7 @@ function App() {
               <div className="min-h-screen bg-slate-50">
                 <Switch>
                   <Route path="/super-admin-login" component={SuperAdminLogin} />
+                  <Route path="/super-admin-access" component={SuperAdminAccess} />
                   <Route path="/super-admin" component={SuperAdminCEODashboardF1} />
                   <Route path="/super-admin-classic" component={SuperAdminDashboard} />
                   <Route path="/super-admin-ceo-dashboard" component={SuperAdminCEODashboard} />

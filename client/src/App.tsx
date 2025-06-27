@@ -49,6 +49,7 @@ import PlatformLogin from "@/pages/platform-login";
 import SaaSInfo from "@/components/saas-info";
 import ConfiguracionPagos from "@/pages/configuracion-pagos";
 import SuperAdminAccess from "@/pages/super-admin-access";
+import SuperAdminDirect from "@/pages/super-admin-direct";
 
 function AuthenticatedRoutes() {
   const { user, guardian, isLoading } = useAuth();
@@ -145,6 +146,7 @@ function App() {
                 <Switch>
                   <Route path="/super-admin-login" component={SuperAdminLogin} />
                   <Route path="/super-admin-access" component={SuperAdminAccess} />
+                  <Route path="/super-admin-direct" component={SuperAdminDirect} />
                   <Route path="/super-admin" component={SuperAdminCEODashboardF1} />
                   <Route path="/super-admin-classic" component={SuperAdminDashboard} />
                   <Route path="/super-admin-ceo-dashboard" component={SuperAdminCEODashboard} />

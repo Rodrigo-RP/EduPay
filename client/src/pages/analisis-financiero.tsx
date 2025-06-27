@@ -260,13 +260,13 @@ export default function AnalisisFinanciero() {
       </div>
 
       <Tabs defaultValue="profitability" className="space-y-6">
-        <TabsList className="grid grid-cols-6 w-full">
-          <TabsTrigger value="profitability">Rentabilidad</TabsTrigger>
-          <TabsTrigger value="costs">Estructura de Costos</TabsTrigger>
-          <TabsTrigger value="collection">Cobranza</TabsTrigger>
-          <TabsTrigger value="ebitda">EBITDA</TabsTrigger>
-          <TabsTrigger value="trends">Tendencias</TabsTrigger>
-          <TabsTrigger value="health">Salud Financiera</TabsTrigger>
+        <TabsList className="grid grid-cols-6 w-full h-auto">
+          <TabsTrigger value="profitability" className="text-xs px-2 py-3">Rentabilidad</TabsTrigger>
+          <TabsTrigger value="costs" className="text-xs px-2 py-3">Costos</TabsTrigger>
+          <TabsTrigger value="collection" className="text-xs px-2 py-3">Cobranza</TabsTrigger>
+          <TabsTrigger value="ebitda" className="text-xs px-2 py-3">EBITDA</TabsTrigger>
+          <TabsTrigger value="trends" className="text-xs px-2 py-3">Tendencias</TabsTrigger>
+          <TabsTrigger value="health" className="text-xs px-2 py-3">Salud</TabsTrigger>
         </TabsList>
 
         {/* Profitability Analysis */}

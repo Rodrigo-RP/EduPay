@@ -45,792 +45,304 @@ export default function Pagos() {
     { name: '$10K+', value: 2, color: '#FF8042' }
   ];
 
-  // Función para generar datos de gráfico por método de pago
-  const getPaymentMethodData = () => {
-    const metodoCounts = filteredPagos.reduce((acc, pago) => {
-      acc[pago.metodo] = (acc[pago.metodo] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-    const total = filteredPagos.length;
-    
-    return Object.entries(metodoCounts).map(([metodo, count]) => ({
-      name: metodo === 'TARJETA' ? 'Tarjeta' : metodo === 'TRANSFERENCIA' ? 'Transferencia' : metodo === 'EFECTIVO' ? 'Efectivo' : 'Otros',
-      value: count,
-      percentage: ((count / total) * 100).toFixed(1),
-      amount: filteredPagos.filter(p => p.metodo === metodo).reduce((sum, p) => sum + p.monto, 0)
-    }));
-  };
-
-  // Función para generar datos de gráfico por monto
-  const getAmountRangeData = () => {
-    const ranges = [
-      { name: '$0 - $2,000', min: 0, max: 200000 },
-      { name: '$2,001 - $5,000', min: 200001, max: 500000 },
-      { name: '$5,001 - $10,000', min: 500001, max: 1000000 },
-      { name: '$10,001+', min: 1000001, max: Infinity }
-    ];
-
-    const total = filteredPagos.length;
-    
-    return ranges.map(range => {
-      const count = filteredPagos.filter(p => p.monto >= range.min && p.monto <= range.max).length;
-      const totalAmount = filteredPagos.filter(p => p.monto >= range.min && p.monto <= range.max).reduce((sum, p) => sum + p.monto, 0);
-      
-      return {
-        name: range.name,
-        value: count,
-        percentage: ((count / total) * 100).toFixed(1),
-        amount: totalAmount
-      };
-    }).filter(item => item.value > 0);
-  };
-
-  // Función para generar datos de gráfico por estado
-  const getStatusData = () => {
-    const statusCounts = filteredPagos.reduce((acc, pago) => {
-      acc[pago.estado] = (acc[pago.estado] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-    const total = filteredPagos.length;
-    
-    return Object.entries(statusCounts).map(([estado, count]) => ({
-      name: estado === 'completado' ? 'Completado' : estado === 'pendiente' ? 'Pendiente' : 'Fallido',
-      value: count,
-      percentage: ((count / total) * 100).toFixed(1),
-      amount: filteredPagos.filter(p => p.estado === estado).reduce((sum, p) => sum + p.monto, 0)
-    }));
-  };
-
-  // Datos demo de pagos
-  const pagos = [
+  // Datos simulados de pagos
+  const mockPagos = [
     {
       id: 1,
       estudiante: "Carlos Pérez Méndez",
-      concepto: "Colegiatura Diciembre",
+      concepto: "Colegiatura Enero",
       monto: 500000,
       metodo: "TARJETA",
-      referencia: "pi_1234567890",
-      fecha: "2024-12-10",
       estado: "completado",
-      cfdi: "A001-12345-ABCDE-67890",
-      origen: "PORTAL",
-      detallesCompletos: {
-        horaTransaccion: "14:32:15",
-        metodoPago: "Visa **** 4242",
-        autorizacion: "AUTH-789456123",
-        comision: 2500, // $25.00
-        iva: 400, // $4.00
-        direccionFacturacion: "Av. Reforma 123, Col. Centro, CDMX",
-        emailEnviado: "carlos.perez@email.com",
-        celularNotificacion: "+52 55 1234 5678"
-      }
+      fecha: "25/01/2025 14:30",
+      referencia: "TXN001",
+      origen: "Portal Padres"
     },
     {
       id: 2,
       estudiante: "Andrea García Luna",
-      concepto: "Colegiatura Noviembre",
-      monto: 450000,
-      metodo: "SPEI",
-      referencia: "SPEI789012345",
-      fecha: "2024-11-12",
+      concepto: "Inscripción 2025",
+      monto: 300000,
+      metodo: "EFECTIVO",
       estado: "completado",
-      cfdi: "A002-23456-BCDEF-78901",
-      origen: "PORTAL"
+      fecha: "20/01/2025 09:15",
+      referencia: "EFE002",
+      origen: "Caja Escuela"
     },
     {
       id: 3,
       estudiante: "Luis Martínez Gil",
-      concepto: "Colegiatura Octubre",
-      monto: 500000,
-      metodo: "EFECTIVO",
-      referencia: "CASH001",
-      fecha: "2024-10-08",
-      estado: "completado",
-      cfdi: "A003-34567-CDEFG-89012",
-      origen: "CAJA_FISICA"
-    },
-    {
-      id: 4,
-      estudiante: "Carlos Pérez Méndez",
-      concepto: "Colegiatura Enero (Parcial)",
-      monto: 250000,
-      metodo: "PAYPAL",
-      referencia: "PAYPAL456789",
-      fecha: "2024-09-15",
-      estado: "completado",
-      cfdi: "A004-45678-DEFGH-90123",
-      origen: "PORTAL"
-    },
-    {
-      id: 5,
-      estudiante: "Andrea García Luna",
-      concepto: "Materiales Didácticos",
-      monto: 135000,
-      metodo: "OXXOPAY",
-      referencia: "OXXO987654321",
-      fecha: "2024-08-20",
-      estado: "completado",
-      cfdi: "A005-56789-EFGHI-01234",
-      origen: "PORTAL"
+      concepto: "Materiales Escolares",
+      monto: 150000,
+      metodo: "SPEI",
+      estado: "pendiente",
+      fecha: "22/01/2025 16:45",
+      referencia: "SPEI003",
+      origen: "Banca Móvil"
     }
   ];
 
-  const filteredPagos = pagos.filter(pago => {
-    const matchesMethod = selectedMethod === "all" || pago.metodo === selectedMethod;
-    const matchesStatus = selectedStatus === "all" || pago.estado === selectedStatus;
+  // Filtrar pagos según criterios
+  const filteredPagos = mockPagos.filter(pago => {
+    const methodMatch = selectedMethod === "all" || pago.metodo === selectedMethod;
+    const statusMatch = selectedStatus === "all" || pago.estado === selectedStatus;
     
-    // Filtro por fechas
-    let matchesDate = true;
+    let dateMatch = true;
     if (dateFrom || dateTo) {
-      try {
-        let pagoDate;
-        
-        // Detectar formato de fecha y convertir apropiadamente
-        if (pago.fecha.includes('/')) {
-          // Formato: "25/06/2024 14:30" o "25/06/2024"
-          const fechaParts = pago.fecha.split(' ')[0].split('/');
-          pagoDate = new Date(
-            parseInt(fechaParts[2]), // año
-            parseInt(fechaParts[1]) - 1, // mes (0-indexado)
-            parseInt(fechaParts[0]) // día
-          );
-        } else {
-          // Formato: "2024-12-10" (ISO)
-          pagoDate = new Date(pago.fecha);
-        }
-        
-        if (dateFrom) {
-          const fromDate = new Date(dateFrom);
-          matchesDate = matchesDate && pagoDate >= fromDate;
-        }
-        
-        if (dateTo) {
-          const toDate = new Date(dateTo);
-          matchesDate = matchesDate && pagoDate <= toDate;
-        }
-      } catch (error) {
-        matchesDate = true;
+      const pagoDate = new Date(pago.fecha.split(' ')[0].split('/').reverse().join('-'));
+      if (dateFrom) {
+        const fromDate = new Date(dateFrom);
+        dateMatch = dateMatch && pagoDate >= fromDate;
+      }
+      if (dateTo) {
+        const toDate = new Date(dateTo);
+        dateMatch = dateMatch && pagoDate <= toDate;
       }
     }
     
-    return matchesMethod && matchesStatus && matchesDate;
+    return methodMatch && statusMatch && dateMatch;
   });
 
-  const estadisticas = {
-    totalPagos: pagos.length,
-    montoTotal: pagos.reduce((sum, p) => sum + p.monto, 0),
-    pagosTarjeta: pagos.filter(p => p.metodo === "TARJETA").length,
-    pagosEfectivo: pagos.filter(p => p.metodo === "EFECTIVO").length,
-    promedioPago: pagos.reduce((sum, p) => sum + p.monto, 0) / pagos.length
-  };
-
-  const getMetodoIcon = (metodo: string) => {
-    switch (metodo) {
-      case "TARJETA":
-        return <CreditCard className="w-4 h-4" />;
-      case "EFECTIVO":
-        return <Banknote className="w-4 h-4" />;
-      case "SPEI":
-      case "PAYPAL":
-      case "OXXOPAY":
-        return <Smartphone className="w-4 h-4" />;
-      default:
-        return <CreditCard className="w-4 h-4" />;
-    }
-  };
-
   const getMetodoBadge = (metodo: string) => {
-    const colors = {
-      TARJETA: "bg-blue-100 text-blue-800",
-      EFECTIVO: "bg-green-100 text-green-800",
-      SPEI: "bg-purple-100 text-purple-800",
-      PAYPAL: "bg-yellow-100 text-yellow-800",
-      OXXOPAY: "bg-orange-100 text-orange-800"
+    const metodoConfig = {
+      TARJETA: { icon: CreditCard, color: "bg-blue-100 text-blue-800", label: "Tarjeta" },
+      EFECTIVO: { icon: Banknote, color: "bg-green-100 text-green-800", label: "Efectivo" },
+      SPEI: { icon: Building2, color: "bg-purple-100 text-purple-800", label: "SPEI" },
+      PAYPAL: { icon: Smartphone, color: "bg-indigo-100 text-indigo-800", label: "PayPal" },
+      OXXOPAY: { icon: Receipt, color: "bg-orange-100 text-orange-800", label: "OXXO Pay" }
     };
     
+    const config = metodoConfig[metodo as keyof typeof metodoConfig] || metodoConfig.EFECTIVO;
+    const IconComponent = config.icon;
+    
     return (
-      <Badge className={colors[metodo as keyof typeof colors] || "bg-gray-100 text-gray-800"}>
-        {getMetodoIcon(metodo)}
-        <span className="ml-1">{metodo}</span>
+      <Badge className={`${config.color} flex items-center gap-1`}>
+        <IconComponent className="w-3 h-3" />
+        {config.label}
       </Badge>
     );
   };
 
-  const handleViewPaymentDetails = (pago: any) => {
+  const getEstadoBadge = (estado: string) => {
+    const config = {
+      completado: "bg-green-100 text-green-800",
+      pendiente: "bg-yellow-100 text-yellow-800", 
+      fallido: "bg-red-100 text-red-800"
+    };
+    
+    return (
+      <Badge className={config[estado as keyof typeof config] || config.pendiente}>
+        {estado === 'completado' ? 'Completado' : estado === 'pendiente' ? 'Pendiente' : 'Fallido'}
+      </Badge>
+    );
+  };
+
+  const handleVerDetalles = (pago: any) => {
     setSelectedPayment(pago);
     setShowPaymentDetails(true);
   };
 
-  const handleExportarPagos = () => {
-    const csvContent = [
-      // Encabezados
-      'Estudiante,Concepto,Monto,Fecha,Método,Estado,Referencia,CFDI,Origen',
-      // Datos
-      ...filteredPagos.map(pago => 
-        `"${pago.estudiante}","${pago.concepto}","${(pago.monto / 100).toFixed(2)}","${pago.fecha}","${pago.metodo}","${pago.estado}","${pago.referencia}","${pago.cfdi}","${pago.origen}"`
-      )
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Historial_Pagos_${new Date().toISOString().split('T')[0]}.csv`;
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    setTimeout(() => {
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    }, 100);
-
-    toast({
-      title: "Exportación Completada",
-      description: `${filteredPagos.length} pagos exportados a CSV`,
-      duration: 3000,
-    });
-  };
-
   const handleDownloadReceipt = (pago: any) => {
-    const receiptContent = `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Comprobante de Pago - ${pago.referencia}</title>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { text-align: center; border-bottom: 3px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; }
-        .header h1 { color: #2563eb; margin: 0; font-size: 24px; }
-        .status-paid { background: #10b981; color: white; padding: 8px 16px; border-radius: 20px; font-weight: bold; display: inline-block; margin: 10px 0; }
-        .payment-info { background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-        .info-row { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
-        .info-label { font-weight: bold; color: #64748b; }
-        .amount { font-size: 28px; font-weight: bold; color: #10b981; text-align: center; margin: 20px 0; }
-        .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #e2e8f0; color: #64748b; font-size: 12px; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>COMPROBANTE DE PAGO</h1>
-        <div>EscuelaPay - Sistema de Pagos Escolares</div>
-        <div class="status-paid">✓ PAGO COMPLETADO</div>
-    </div>
-    <div class="payment-info">
-        <div class="info-row"><span class="info-label">Estudiante:</span><span>${pago.estudiante}</span></div>
-        <div class="info-row"><span class="info-label">Concepto:</span><span>${pago.concepto}</span></div>
-        <div class="info-row"><span class="info-label">Fecha:</span><span>${pago.fecha}</span></div>
-        <div class="info-row"><span class="info-label">Método:</span><span>${pago.metodo}</span></div>
-        <div class="info-row"><span class="info-label">Referencia:</span><span>${pago.referencia}</span></div>
-        <div class="info-row"><span class="info-label">CFDI:</span><span>${pago.cfdi}</span></div>
-    </div>
-    <div class="amount">$${(pago.monto / 100).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</div>
-    <div class="footer">
-        <p><strong>EscuelaPay</strong> - Plataforma de Pagos Educativos</p>
-        <p>Generado: ${new Date().toLocaleDateString('es-MX')} ${new Date().toLocaleTimeString('es-MX')}</p>
-    </div>
-</body>
-</html>`;
-
-    const blob = new Blob([receiptContent], { type: 'text/html;charset=utf-8' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Comprobante_${pago.referencia}.html`;
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    setTimeout(() => {
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    }, 100);
+    const content = `
+      COMPROBANTE DE PAGO - ESCUELAPAY
+      ================================
+      
+      Estudiante: ${pago.estudiante}
+      Concepto: ${pago.concepto}
+      Monto: $${(pago.monto / 100).toLocaleString()} MXN
+      Método: ${pago.metodo}
+      Estado: ${pago.estado}
+      Fecha: ${pago.fecha}
+      Referencia: ${pago.referencia}
+      
+      ================================
+      Este comprobante es válido para efectos fiscales
+    `;
+    
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `comprobante_${pago.referencia}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
     
     toast({
-      title: "Comprobante Descargado",
-      description: `Comprobante de ${pago.estudiante} guardado exitosamente`,
-      duration: 3000,
+      title: "Comprobante descargado",
+      description: `Comprobante de ${pago.concepto} guardado exitosamente`,
     });
   };
 
   const handleConciliacionAutomatica = () => {
     toast({
-      title: "Conciliación Iniciada",
-      description: "Procesando movimientos bancarios vs pagos registrados...",
+      title: "Conciliación en proceso",
+      description: "Ejecutando conciliación automática de movimientos bancarios...",
       duration: 3000,
     });
-    
-    // Simular proceso de conciliación
-    setTimeout(() => {
-      toast({
-        title: "Conciliación Completada",
-        description: "Se procesaron 15 movimientos, 2 diferencias encontradas",
-        duration: 4000,
-      });
-    }, 2000);
   };
 
-  const handleExportarReporte = () => {
-    const reporteContent = `
-REPORTE DE CONCILIACIÓN BANCARIA
-Fecha: ${new Date().toLocaleDateString('es-MX')}
-Período: ${new Date().toLocaleDateString('es-MX')}
-
-RESUMEN:
-- Pagos registrados: ${filteredPagos.length}
-- Monto total registrado: $${(filteredPagos.reduce((sum, p) => sum + p.monto, 0) / 100).toLocaleString('es-MX')}
-- Movimientos bancarios: 18
-- Diferencias: 2
-- Estado: Pendiente revisión
-
-DETALLE DE PAGOS:
-${filteredPagos.map(pago => 
-  `${pago.fecha} - ${pago.estudiante} - $${(pago.monto / 100).toFixed(2)} - ${pago.metodo} - ${pago.referencia}`
-).join('\n')}
-
-Generado por EscuelaPay - Sistema de Pagos Escolares
-`;
-
-    const blob = new Blob([reporteContent], { type: 'text/plain;charset=utf-8' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Reporte_Conciliacion_${new Date().toISOString().split('T')[0]}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
-
+  const handleRegistrarPago = () => {
     toast({
-      title: "Reporte Exportado",
-      description: "Reporte de conciliación descargado exitosamente",
-      duration: 3000,
+      title: "Pago registrado",
+      description: "El pago en efectivo ha sido registrado exitosamente",
     });
   };
 
   return (
-    <div >
-      <div >
-        
-        <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="max-w-7xl mx-auto p-6 space-y-6">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Gestión de Pagos</h1>
-          <p className="text-slate-600">Administra pagos recibidos, métodos y conciliación</p>
-            </div>
-        <div className="flex gap-2">
+          <p className="text-slate-600">Administra pagos recibidos, registra efectivo y concilia movimientos</p>
+        </div>
+        <div className="flex gap-3">
           <Button 
             className="bg-green-600 hover:bg-green-700"
             onClick={() => setShowRegistrarPago(true)}
           >
-                <Banknote className="w-4 h-4 mr-2" />
-                Registrar Pago Efectivo
-              </Button>
-          <Button 
-            variant="outline"
-            onClick={handleExportarPagos}
-          >
-                <Download className="w-4 h-4 mr-2" />
-                Exportar
-              </Button>
-            </div>
-          </div>
-
-          {/* Estadísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
-            <Card>
-              <CardContent className="p-4 text-center">
-                <Receipt className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-            <div className="text-2xl font-bold">{estadisticas.totalPagos}</div>
-            <div className="text-sm text-slate-600">Total pagos</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <DollarSign className="w-8 h-8 text-green-600 mx-auto mb-2" />
-            <div className="text-2xl font-bold">${(estadisticas.montoTotal / 100).toLocaleString()}</div>
-            <div className="text-sm text-slate-600">Monto total</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <CreditCard className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-            <div className="text-2xl font-bold">{estadisticas.pagosTarjeta}</div>
-            <div className="text-sm text-slate-600">Pagos tarjeta</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <Banknote className="w-8 h-8 text-green-600 mx-auto mb-2" />
-            <div className="text-2xl font-bold">{estadisticas.pagosEfectivo}</div>
-            <div className="text-sm text-slate-600">Pagos efectivo</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold">${(estadisticas.promedioPago / 100).toLocaleString()}</div>
-            <div className="text-sm text-slate-600">Promedio por pago</div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Tabs defaultValue="lista" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="lista">Lista de pagos</TabsTrigger>
-              <TabsTrigger value="efectivo">Registro efectivo</TabsTrigger>
-              <TabsTrigger value="conciliacion">Conciliación</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="lista">
-              <Card>
-                <CardHeader>
-              <div className="flex items-center justify-between">
-                    <CardTitle>Historial de pagos</CardTitle>
-                <div className="flex gap-3">
-                      <div className="flex items-center gap-2">
-                        <Label className="text-sm whitespace-nowrap">Desde:</Label>
-                        <Input 
-                          type="date" 
-                          value={dateFrom}
-                          onChange={(e) => setDateFrom(e.target.value)}
-                          className="w-[140px]"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Label className="text-sm whitespace-nowrap">Hasta:</Label>
-                        <Input 
-                          type="date" 
-                          value={dateTo}
-                          onChange={(e) => setDateTo(e.target.value)}
-                          className="w-[140px]"
-                        />
-                      </div>
-                      <Select value={selectedMethod} onValueChange={setSelectedMethod}>
-                        <SelectTrigger className="w-40">
-                          <SelectValue placeholder="Método" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos</SelectItem>
-                          <SelectItem value="TARJETA">Tarjeta</SelectItem>
-                          <SelectItem value="EFECTIVO">Efectivo</SelectItem>
-                          <SelectItem value="SPEI">SPEI</SelectItem>
-                          <SelectItem value="PAYPAL">PayPal</SelectItem>
-                          <SelectItem value="OXXOPAY">OXXO Pay</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                        <SelectTrigger className="w-40">
-                          <SelectValue placeholder="Estado" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos</SelectItem>
-                          <SelectItem value="completado">Completados</SelectItem>
-                          <SelectItem value="pendiente">Pendientes</SelectItem>
-                          <SelectItem value="fallido">Fallidos</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {(dateFrom || dateTo) && (
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => {
-                            setDateFrom("");
-                            setDateTo("");
-                          }}
-                          className="text-xs"
-                        >
-                          Limpiar fechas
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {/* Gráficos de Análisis Visual */}
-                  <div className="mb-6">
-                    <h4 className="font-medium mb-4 flex items-center gap-2">
-                      <PieChart className="h-5 w-5" />
-                      Análisis Visual de Pagos
-                    </h4>
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                      <Card>
-                        <CardContent className="p-4">
-                          <PieChartComponent 
-                            data={paymentMethodData} 
-                            title="Por Método de Pago" 
-                          />
-                        </CardContent>
-                      </Card>
-
-                      <Card>
-                        <CardContent className="p-4">
-                          <PieChartComponent 
-                            data={paymentStatusData} 
-                            title="Por Estado de Pago" 
-                          />
-                        </CardContent>
-                      </Card>
-
-                      <Card>
-                        <CardContent className="p-4">
-                          <PieChartComponent 
-                            data={amountRangeData} 
-                            title="Por Rango de Montos" 
-                          />
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </div>
-
-              <div className="space-y-4">
-                    {filteredPagos.length === 0 ? (
-                      <div className="text-center py-8">
-                        <Receipt className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                        <h3 className="text-lg font-medium text-gray-600 mb-2">No se encontraron pagos</h3>
-                        <p className="text-gray-500">
-                          {(dateFrom || dateTo || selectedMethod !== "all" || selectedStatus !== "all") 
-                            ? "Intenta ajustar los filtros para ver más resultados" 
-                            : "No hay pagos registrados en el sistema"}
-                        </p>
-                      </div>
-                    ) : (
-                      filteredPagos.map((pago) => (
-                        <div key={pago.id} className="p-4 border rounded-lg hover:bg-slate-50">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-medium">{pago.estudiante}</h3>
-                                {getMetodoBadge(pago.metodo)}
-                                <Badge variant="outline" className="text-xs">
-                                  {pago.origen}
-                                </Badge>
-                              </div>
-                              <p className="text-sm text-slate-600">{pago.concepto}</p>
-                              <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
-                                <span>Fecha: {pago.fecha}</span>
-                                <span>Ref: {pago.referencia}</span>
-                                <span>CFDI: {pago.cfdi}</span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-4">
-                              <div className="text-right">
-                                <div className="text-lg font-bold">${(pago.monto / 100).toLocaleString()}</div>
-                                <Badge className="bg-green-100 text-green-800">
-                                  {pago.estado}
-                                </Badge>
-                              </div>
-                              <div className="flex gap-1">
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  onClick={() => handleViewPaymentDetails(pago)}
-                                  title="Ver detalles del pago"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="efectivo">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Registrar pago en efectivo</CardTitle>
-                </CardHeader>
-                <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                      <Label>Estudiante</Label>
-                      <Select>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Buscar estudiante..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">Carlos Pérez Méndez</SelectItem>
-                          <SelectItem value="2">Andrea García Luna</SelectItem>
-                          <SelectItem value="3">Luis Martínez Gil</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                <div>
-                      <Label>Concepto a pagar</Label>
-                      <Select>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar concepto..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">Colegiatura Enero - $5,000</SelectItem>
-                          <SelectItem value="2">Materiales - $1,500</SelectItem>
-                          <SelectItem value="3">Inscripción - $3,000</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                <div>
-                      <Label>Monto recibido (MXN)</Label>
-                      <Input type="number" placeholder="5000" />
-                    </div>
-                <div>
-                      <Label>Recibido por</Label>
-                      <Input placeholder="Nombre del cajero" />
-                    </div>
-                  </div>
-              <div className="mt-4">
-                    <Label>Observaciones</Label>
-                    <textarea 
-                      className="w-full p-2 border rounded"
-                      rows={2}
-                      placeholder="Observaciones adicionales..."
-                    />
-                  </div>
-              <Button className="mt-4 bg-green-600 hover:bg-green-700">
-                    <Banknote className="w-4 h-4 mr-2" />
-                    Registrar pago y emitir recibo
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="conciliacion">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Conciliación bancaria</CardTitle>
-                </CardHeader>
-                <CardContent>
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600">15</div>
-                    <div className="text-sm text-slate-600">Movimientos conciliados</div>
-                      </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-orange-600">3</div>
-                    <div className="text-sm text-slate-600">Pendientes de conciliar</div>
-                      </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-red-600">1</div>
-                    <div className="text-sm text-slate-600">Diferencias encontradas</div>
-                      </div>
-                    </div>
-                <div className="flex gap-4">
-                  <Button 
-                    className="bg-blue-600 hover:bg-blue-700"
-                    onClick={handleConciliacionAutomatica}
-                  >
-                        Ejecutar conciliación automática
-                      </Button>
-                  <Button 
-                    variant="outline"
-                    onClick={() => setShowImportarEstado(true)}
-                  >
-                        Importar estado de cuenta
-                      </Button>
-                  <Button 
-                    variant="outline"
-                    onClick={handleExportarReporte}
-                  >
-                        Exportar reporte
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+            <Banknote className="w-4 h-4 mr-2" />
+            Registrar pago
+          </Button>
         </div>
       </div>
 
-      {/* Modal de Detalles del Pago */}
-      <Dialog open={showPaymentDetails} onOpenChange={setShowPaymentDetails}>
-        <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Receipt className="h-5 w-5" />
-              Detalles del Pago
-            </DialogTitle>
-            <DialogDescription>
-              Información completa del pago realizado
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedPayment && (
-            <div className="space-y-6">
-              {/* Estado del Pago */}
-              <div className="flex items-center justify-center">
-                <div className="flex items-center gap-2 bg-green-50 text-green-800 px-4 py-2 rounded-full">
-                  <CheckCircle className="h-5 w-5" />
-                  <span className="font-semibold">Pago Completado</span>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-600">Total del día</p>
+                <p className="text-2xl font-bold">$15,750</p>
+              </div>
+              <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
+                <DollarSign className="h-4 w-4 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-600">Pagos completados</p>
+                <p className="text-2xl font-bold">24</p>
+              </div>
+              <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
+                <CheckCircle className="h-4 w-4 text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-600">Tasa de éxito</p>
+                <p className="text-2xl font-bold">94.2%</p>
+              </div>
+              <div className="h-8 w-8 bg-purple-100 rounded-full flex items-center justify-center">
+                <Receipt className="h-4 w-4 text-purple-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-600">Pendientes</p>
+                <p className="text-2xl font-bold">3</p>
+              </div>
+              <div className="h-8 w-8 bg-orange-100 rounded-full flex items-center justify-center">
+                <Calendar className="h-4 w-4 text-orange-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs defaultValue="lista" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="lista">Lista de pagos</TabsTrigger>
+          <TabsTrigger value="efectivo">Registro efectivo</TabsTrigger>
+          <TabsTrigger value="conciliacion">Conciliación</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="lista">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Historial de pagos</CardTitle>
+                <div className="flex gap-3">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm whitespace-nowrap">Desde:</Label>
+                    <Input 
+                      type="date" 
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="w-[140px]"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm whitespace-nowrap">Hasta:</Label>
+                    <Input 
+                      type="date" 
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="w-[140px]"
+                    />
+                  </div>
+                  <Select value={selectedMethod} onValueChange={setSelectedMethod}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Método" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="TARJETA">Tarjeta</SelectItem>
+                      <SelectItem value="EFECTIVO">Efectivo</SelectItem>
+                      <SelectItem value="SPEI">SPEI</SelectItem>
+                      <SelectItem value="PAYPAL">PayPal</SelectItem>
+                      <SelectItem value="OXXOPAY">OXXO Pay</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Estado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="completado">Completados</SelectItem>
+                      <SelectItem value="pendiente">Pendientes</SelectItem>
+                      <SelectItem value="fallido">Fallidos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {(dateFrom || dateTo) && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setDateFrom("");
+                        setDateTo("");
+                      }}
+                      className="text-xs"
+                    >
+                      Limpiar fechas
+                    </Button>
+                  )}
                 </div>
               </div>
-
-              {/* Información Principal */}
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Estudiante</label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <User className="h-4 w-4 text-gray-400" />
-                      <span className="font-medium">{selectedPayment.estudiante}</span>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Concepto</label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <FileText className="h-4 w-4 text-gray-400" />
-                      <span>{selectedPayment.concepto}</span>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Monto</label>
-                    <div className="text-2xl font-bold text-green-600">
-                      ${(selectedPayment.monto / 100).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Fecha y Hora</label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Calendar className="h-4 w-4 text-gray-400" />
-                      <span>{selectedPayment.fecha}</span>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Método de Pago</label>
-                    <div className="mt-1">
-                      {getMetodoBadge(selectedPayment.metodo)}
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Origen</label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Building2 className="h-4 w-4 text-gray-400" />
-                      <Badge variant="outline">{selectedPayment.origen}</Badge>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Análisis Visual de Pagos */}
-              <div className="border-t pt-4">
+            </CardHeader>
+            <CardContent>
+              {/* Gráficos de Análisis Visual */}
+              <div className="mb-6">
                 <h4 className="font-medium mb-4 flex items-center gap-2">
                   <PieChart className="h-5 w-5" />
-                  Análisis de Pagos del Período
+                  Análisis Visual de Pagos
                 </h4>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                   <Card>
                     <CardContent className="p-4">
                       <PieChartComponent 
@@ -843,100 +355,260 @@ Generado por EscuelaPay - Sistema de Pagos Escolares
                   <Card>
                     <CardContent className="p-4">
                       <PieChartComponent 
+                        data={paymentStatusData} 
+                        title="Por Estado de Pago" 
+                      />
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardContent className="p-4">
+                      <PieChartComponent 
                         data={amountRangeData} 
                         title="Por Rango de Montos" 
                       />
                     </CardContent>
                   </Card>
-
-                  {/* Gráfico por Estado */}
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">Por Estado de Pago</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="h-40">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <RechartsPieChart>
-                            <Pie
-                              data={getStatusData()}
-                              cx="50%"
-                              cy="50%"
-                              outerRadius={60}
-                              fill="#8884d8"
-                              dataKey="value"
-                            >
-                              {getStatusData().map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                              ))}
-                            </Pie>
-                            <Tooltip 
-                              formatter={(value: any, name: any, props: any) => [
-                                `${value} pagos (${props.payload.percentage}%)`,
-                                props.payload.name
-                              ]}
-                            />
-                            <Legend />
-                          </RechartsPieChart>
-                        </ResponsiveContainer>
-                      </div>
-                      <div className="mt-2 space-y-1">
-                        {getStatusData().map((item, index) => (
-                          <div key={item.name} className="flex justify-between text-xs">
-                            <span className="flex items-center gap-1">
-                              <div 
-                                className="w-2 h-2 rounded-full" 
-                                style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                              />
-                              {item.name}
-                            </span>
-                            <span className="font-medium">${(item.amount / 100).toLocaleString()}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
                 </div>
               </div>
 
-              {/* Información Técnica */}
+              <div className="space-y-4">
+                {filteredPagos.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">
+                    <Receipt className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p>No se encontraron pagos con los filtros aplicados</p>
+                  </div>
+                ) : (
+                  filteredPagos.map((pago) => (
+                    <div key={pago.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50">
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center gap-3">
+                          <User className="h-4 w-4 text-slate-400" />
+                          <span className="font-medium">{pago.estudiante}</span>
+                          {getEstadoBadge(pago.estado)}
+                        </div>
+                        <div className="flex items-center gap-3 text-sm text-slate-600">
+                          <FileText className="h-4 w-4" />
+                          <span>{pago.concepto}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <div className="font-semibold">${(pago.monto / 100).toLocaleString()}</div>
+                          <div className="text-sm text-slate-500">{pago.fecha}</div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          {getMetodoBadge(pago.metodo)}
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleVerDetalles(pago)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDownloadReceipt(pago)}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="efectivo">
+          <Card>
+            <CardHeader>
+              <CardTitle>Registrar pago en efectivo</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Label>Estudiante</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Buscar estudiante..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Carlos Pérez Méndez</SelectItem>
+                      <SelectItem value="2">Andrea García Luna</SelectItem>
+                      <SelectItem value="3">Luis Martínez Gil</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Concepto a pagar</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar concepto..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Colegiatura Enero - $5,000</SelectItem>
+                      <SelectItem value="2">Materiales - $1,500</SelectItem>
+                      <SelectItem value="3">Inscripción - $3,000</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Monto recibido (MXN)</Label>
+                  <Input type="number" placeholder="5000" />
+                </div>
+                <div>
+                  <Label>Recibido por</Label>
+                  <Input placeholder="Nombre del cajero" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <Label>Observaciones</Label>
+                <textarea 
+                  className="w-full p-2 border rounded"
+                  rows={2}
+                  placeholder="Observaciones adicionales..."
+                />
+              </div>
+              <Button 
+                className="mt-4 bg-green-600 hover:bg-green-700"
+                onClick={handleRegistrarPago}
+              >
+                <Banknote className="w-4 h-4 mr-2" />
+                Registrar pago y emitir recibo
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="conciliacion">
+          <Card>
+            <CardHeader>
+              <CardTitle>Conciliación bancaria</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">15</div>
+                    <div className="text-sm text-slate-600">Movimientos conciliados</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-orange-600">3</div>
+                    <div className="text-sm text-slate-600">Pendientes de conciliar</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-red-600">1</div>
+                    <div className="text-sm text-slate-600">Diferencias encontradas</div>
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  <Button 
+                    className="bg-blue-600 hover:bg-blue-700"
+                    onClick={handleConciliacionAutomatica}
+                  >
+                    Ejecutar conciliación automática
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => setShowImportarEstado(true)}
+                  >
+                    Importar estado de cuenta
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Modal de detalles de pago */}
+      <Dialog open={showPaymentDetails} onOpenChange={setShowPaymentDetails}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Detalles del Pago</DialogTitle>
+            <DialogDescription>
+              Información completa de la transacción seleccionada
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedPayment && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Estudiante</label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <User className="h-4 w-4 text-gray-400" />
+                    <span className="font-medium">{selectedPayment.estudiante}</span>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Concepto</label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <FileText className="h-4 w-4 text-gray-400" />
+                    <span>{selectedPayment.concepto}</span>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Monto</label>
+                  <div className="text-2xl font-bold text-green-600 mt-1">
+                    ${(selectedPayment.monto / 100).toLocaleString()} MXN
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Estado</label>
+                  <div className="mt-1">
+                    {getEstadoBadge(selectedPayment.estado)}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Fecha y Hora</label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Calendar className="h-4 w-4 text-gray-400" />
+                    <span>{selectedPayment.fecha}</span>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Método de Pago</label>
+                  <div className="mt-1">
+                    {getMetodoBadge(selectedPayment.metodo)}
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Origen</label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Building2 className="h-4 w-4 text-gray-400" />
+                    <Badge variant="outline">{selectedPayment.origen}</Badge>
+                  </div>
+                </div>
+              </div>
+
               <div className="border-t pt-4">
-                <h4 className="font-medium mb-3">Información Técnica</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-500">Referencia:</span>
-                    <span className="ml-2 font-mono">{selectedPayment.referencia}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">CFDI:</span>
-                    <span className="ml-2 font-mono">{selectedPayment.cfdi}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Estado:</span>
-                    <span className="ml-2">
-                      <Badge className="bg-green-100 text-green-800">
-                        {selectedPayment.estado}
-                      </Badge>
-                    </span>
-                  </div>
+                <div className="flex gap-3">
+                  <Button 
+                    onClick={() => handleDownloadReceipt(selectedPayment)}
+                    className="flex-1"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Descargar Comprobante
+                  </Button>
                 </div>
-              </div>
-
-              {/* Acciones */}
-              <div className="flex gap-3 pt-4 border-t">
-                <Button 
-                  onClick={() => handleDownloadReceipt(selectedPayment)}
-                  className="flex items-center gap-2"
-                >
-                  <Download className="h-4 w-4" />
-                  Descargar Comprobante
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={() => setShowPaymentDetails(false)}
-                >
-                  Cerrar
-                </Button>
               </div>
             </div>
           )}

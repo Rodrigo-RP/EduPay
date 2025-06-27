@@ -270,51 +270,51 @@ export default function AnalisisFinanciero() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Ingreso por Alumno</span>
-                    <span className="font-bold text-green-600">
+                    <span className="text-base font-medium">Ingreso por Alumno</span>
+                    <span className="text-lg font-bold text-green-600">
                       ${data.costPerStudent.revenuePerStudent.toLocaleString()}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Costo Directo</span>
-                    <span className="text-red-600">
+                    <span className="text-base font-medium">Costo Directo</span>
+                    <span className="text-lg text-red-600">
                       -${data.costPerStudent.directCosts.toLocaleString()}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Costo Indirecto</span>
-                    <span className="text-red-600">
+                    <span className="text-base font-medium">Costo Indirecto</span>
+                    <span className="text-lg text-red-600">
                       -${data.costPerStudent.indirectCosts.toLocaleString()}
                     </span>
                   </div>
                   <hr />
-                  <div className="flex justify-between items-center text-lg font-bold">
+                  <div className="flex justify-between items-center text-xl font-bold">
                     <span>Utilidad por Alumno</span>
                     <span className="text-green-600">
                       ${data.costPerStudent.profitPerStudent.toLocaleString()}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm">Margen de Utilidad</span>
-                    <Badge className="bg-green-100 text-green-800">
+                    <span className="text-base">Margen de Utilidad</span>
+                    <Badge className="bg-green-100 text-green-800 text-base px-3 py-1">
                       {data.costPerStudent.profitMarginPerStudent}%
                     </Badge>
                   </div>
                 </div>
                 
                 <div className="mt-6">
-                  <h4 className="text-sm font-semibold mb-3">Comparación vs Industria</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
+                  <h4 className="text-base font-semibold mb-4">Comparación vs Industria</h4>
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-base">
                       <span>Margen Empresa</span>
-                      <span className="font-medium">{data.costPerStudent.profitMarginPerStudent}%</span>
+                      <span className="font-semibold">{data.costPerStudent.profitMarginPerStudent}%</span>
                     </div>
-                    <Progress value={data.costPerStudent.profitMarginPerStudent} className="h-2" />
-                    <div className="flex justify-between text-sm text-slate-500">
+                    <Progress value={data.costPerStudent.profitMarginPerStudent} className="h-3" />
+                    <div className="flex justify-between text-base text-slate-600">
                       <span>Promedio Industria: {data.industryBenchmark.profitMarginIndustry}%</span>
-                      <span className="text-green-600">
+                      <span className="text-green-600 font-medium">
                         +{(data.costPerStudent.profitMarginPerStudent - data.industryBenchmark.profitMarginIndustry).toFixed(1)}%
                       </span>
                     </div>
@@ -390,21 +390,21 @@ export default function AnalisisFinanciero() {
                     };
                     
                     return (
-                      <div key={key} className="space-y-2">
+                      <div key={key} className="space-y-3">
                         <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium">
+                          <span className="text-base font-medium">
                             {labels[key as keyof typeof labels]}
                           </span>
                           <div className="text-right">
-                            <div className="font-semibold">
+                            <div className="text-lg font-semibold">
                               ${((value as number) / 1000).toFixed(0)}K
                             </div>
-                            <div className="text-xs text-slate-500">
+                            <div className="text-sm text-slate-500">
                               {percentage.toFixed(1)}%
                             </div>
                           </div>
                         </div>
-                        <Progress value={percentage} className="h-2" />
+                        <Progress value={percentage} className="h-3" />
                       </div>
                     );
                   })}
@@ -464,21 +464,21 @@ export default function AnalisisFinanciero() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="text-center p-4 bg-green-50 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">
+                    <div className="text-3xl font-bold text-green-600">
                       {data.collectionMetrics.collectionRate}%
                     </div>
-                    <div className="text-sm text-green-700">Tasa de Cobro</div>
-                    <div className="text-xs text-green-600 mt-1">
+                    <div className="text-base text-green-700 font-medium">Tasa de Cobro</div>
+                    <div className="text-sm text-green-600 mt-1">
                       +{(data.collectionMetrics.collectionRate - data.industryBenchmark.collectionRateIndustry).toFixed(1)}% vs industria
                     </div>
                   </div>
                   
                   <div className="text-center p-4 bg-blue-50 rounded-lg">
-                    <div className="text-2xl font-bold text-blue-600">
+                    <div className="text-3xl font-bold text-blue-600">
                       {data.collectionMetrics.averageDaysToCollect}
                     </div>
-                    <div className="text-sm text-blue-700">Días Promedio</div>
-                    <div className="text-xs text-blue-600 mt-1">Para cobro</div>
+                    <div className="text-base text-blue-700 font-medium">Días Promedio</div>
+                    <div className="text-sm text-blue-600 mt-1">Para cobro</div>
                   </div>
                 </div>
                 
@@ -677,26 +677,26 @@ export default function AnalisisFinanciero() {
                   const status = score >= benchmark ? 'good' : 'attention';
                   
                   return (
-                    <div key={key} className="space-y-2">
+                    <div key={key} className="space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">
+                        <span className="text-base font-medium">
                           {labels[key as keyof typeof labels]}
                         </span>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold">
+                          <span className="text-lg font-semibold">
                             {typeof value === 'number' && key.includes('Rate') || key.includes('Margin') || key.includes('Score') 
                               ? `${value.toFixed(1)}${key === 'liquidityRatio' ? 'x' : '%'}`
                               : value
                             }
                           </span>
                           {status === 'good' ? (
-                            <CheckCircle className="w-4 h-4 text-green-500" />
+                            <CheckCircle className="w-5 h-5 text-green-500" />
                           ) : (
-                            <AlertCircle className="w-4 h-4 text-yellow-500" />
+                            <AlertCircle className="w-5 h-5 text-yellow-500" />
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <div className="flex items-center gap-2 text-sm text-slate-500">
                         <span>Benchmark: {benchmark}{key === 'liquidityRatio' ? 'x' : '%'}</span>
                         <span className={score >= benchmark ? 'text-green-600' : 'text-yellow-600'}>
                           ({score >= benchmark ? '+' : ''}{(score - benchmark).toFixed(1)})

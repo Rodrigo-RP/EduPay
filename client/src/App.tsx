@@ -130,10 +130,6 @@ function App() {
                   <Route path="/platform-login" component={PlatformLogin} />
                   <Route path="/support-dashboard" component={SupportDashboard} />
                   <Route path="/implementation-dashboard" component={ImplementationDashboard} />
-                  <Route path="/" component={() => {
-                    window.location.href = '/super-admin-login';
-                    return null;
-                  }} />
                   <Route component={AuthenticatedRoutes} />
                 </Switch>
                 <Toaster />

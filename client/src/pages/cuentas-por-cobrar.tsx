@@ -8,8 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, TrendingDown, Clock, DollarSign, Users, Phone, Mail, Calendar, Search, Filter, Ban } from "lucide-react";
+import { AlertTriangle, TrendingDown, Clock, DollarSign, Users, Phone, Mail, Calendar, Search, Filter, Ban, PieChart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
 export default function CuentasPorCobrar() {
   const { toast } = useToast();
@@ -22,6 +23,75 @@ export default function CuentasPorCobrar() {
   const [fechaFin, setFechaFin] = useState("");
   const [showCompromiseModal, setShowCompromiseModal] = useState(false);
   const [selectedCuenta, setSelectedCuenta] = useState<any>(null);
+  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+
+  // Colores para gráficos
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
+
+  // Función para generar datos de gráfico por estado de cobranza
+  const getStatusChartData = () => {
+    const statusCounts = filteredCuentas.reduce((acc, cuenta) => {
+      acc[cuenta.estado_cobranza] = (acc[cuenta.estado_cobranza] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const total = filteredCuentas.length;
+    
+    return Object.entries(statusCounts).map(([estado, count]) => ({
+      name: estado === 'VIGENTE' ? 'Vigente' : estado === 'VENCIDO' ? 'Vencido' : estado === 'MOROSO' ? 'Moroso' : 'Jurídico',
+      value: count,
+      percentage: ((count / total) * 100).toFixed(1),
+      amount: filteredCuentas.filter(c => c.estado_cobranza === estado).reduce((sum, c) => sum + c.pendiente_pagar_centavos, 0)
+    }));
+  };
+
+  // Función para generar datos de gráfico por rango de días vencidos
+  const getDaysOverdueData = () => {
+    const ranges = [
+      { name: '0-7 días', min: 0, max: 7 },
+      { name: '8-30 días', min: 8, max: 30 },
+      { name: '31-60 días', min: 31, max: 60 },
+      { name: '60+ días', min: 61, max: Infinity }
+    ];
+
+    const total = filteredCuentas.length;
+    
+    return ranges.map(range => {
+      const count = filteredCuentas.filter(c => c.dias_vencido >= range.min && c.dias_vencido <= range.max).length;
+      const totalAmount = filteredCuentas.filter(c => c.dias_vencido >= range.min && c.dias_vencido <= range.max).reduce((sum, c) => sum + c.pendiente_pagar_centavos, 0);
+      
+      return {
+        name: range.name,
+        value: count,
+        percentage: ((count / total) * 100).toFixed(1),
+        amount: totalAmount
+      };
+    }).filter(item => item.value > 0);
+  };
+
+  // Función para generar datos de gráfico por monto pendiente
+  const getAmountRangeData = () => {
+    const ranges = [
+      { name: '$0 - $2,000', min: 0, max: 200000 },
+      { name: '$2,001 - $5,000', min: 200001, max: 500000 },
+      { name: '$5,001 - $10,000', min: 500001, max: 1000000 },
+      { name: '$10,001+', min: 1000001, max: Infinity }
+    ];
+
+    const total = filteredCuentas.length;
+    
+    return ranges.map(range => {
+      const count = filteredCuentas.filter(c => c.pendiente_pagar_centavos >= range.min && c.pendiente_pagar_centavos <= range.max).length;
+      const totalAmount = filteredCuentas.filter(c => c.pendiente_pagar_centavos >= range.min && c.pendiente_pagar_centavos <= range.max).reduce((sum, c) => sum + c.pendiente_pagar_centavos, 0);
+      
+      return {
+        name: range.name,
+        value: count,
+        percentage: ((count / total) * 100).toFixed(1),
+        amount: totalAmount
+      };
+    }).filter(item => item.value > 0);
+  };
 
   // Datos demo expandidos de cuentas por cobrar con todos los conceptos
   const cuentasPorCobrar = [
@@ -492,6 +562,13 @@ export default function CuentasPorCobrar() {
         </div>
         <div className="flex gap-2">
           <Button 
+            variant="outline"
+            onClick={() => setShowAnalyticsModal(true)}
+          >
+            <PieChart className="w-4 h-4 mr-2" />
+            Análisis Visual
+          </Button>
+          <Button 
             className="bg-orange-600 hover:bg-orange-700"
             onClick={handleIniciarCobranza}
           >
@@ -876,6 +953,245 @@ export default function CuentasPorCobrar() {
               </Button>
               <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
                 Establecer compromiso
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal de Análisis Visual */}
+        <Dialog open={showAnalyticsModal} onOpenChange={setShowAnalyticsModal}>
+          <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <PieChart className="h-5 w-5" />
+                Análisis Visual de Cuentas por Cobrar
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-6">
+              {/* Resumen Ejecutivo */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-blue-600">{filteredCuentas.length}</div>
+                    <div className="text-sm text-gray-600">Total Cuentas</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      ${(filteredCuentas.reduce((sum, c) => sum + c.pendiente_pagar_centavos, 0) / 100000).toFixed(0)}K
+                    </div>
+                    <div className="text-sm text-gray-600">Total Pendiente</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-orange-600">
+                      {filteredCuentas.filter(c => c.estado_cobranza === 'VENCIDO' || c.estado_cobranza === 'MOROSO').length}
+                    </div>
+                    <div className="text-sm text-gray-600">Cuentas Vencidas</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-red-600">
+                      {(filteredCuentas.filter(c => c.dias_vencido > 0).reduce((sum, c) => sum + c.dias_vencido, 0) / filteredCuentas.filter(c => c.dias_vencido > 0).length || 0).toFixed(0)}
+                    </div>
+                    <div className="text-sm text-gray-600">Promedio Días Vencidos</div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Gráficos Tipo Pastel */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Gráfico por Estado de Cobranza */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Por Estado de Cobranza</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsPieChart>
+                          <Pie
+                            data={getStatusChartData()}
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={70}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            {getStatusChartData().map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            formatter={(value: any, name: any, props: any) => [
+                              `${value} cuentas (${props.payload.percentage}%)`,
+                              props.payload.name
+                            ]}
+                          />
+                          <Legend />
+                        </RechartsPieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="mt-2 space-y-1">
+                      {getStatusChartData().map((item, index) => (
+                        <div key={item.name} className="flex justify-between text-xs">
+                          <span className="flex items-center gap-1">
+                            <div 
+                              className="w-2 h-2 rounded-full" 
+                              style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                            />
+                            {item.name}
+                          </span>
+                          <span className="font-medium">${(item.amount / 100).toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Gráfico por Días Vencidos */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Por Días Vencidos</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsPieChart>
+                          <Pie
+                            data={getDaysOverdueData()}
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={70}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            {getDaysOverdueData().map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            formatter={(value: any, name: any, props: any) => [
+                              `${value} cuentas (${props.payload.percentage}%)`,
+                              props.payload.name
+                            ]}
+                          />
+                          <Legend />
+                        </RechartsPieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="mt-2 space-y-1">
+                      {getDaysOverdueData().map((item, index) => (
+                        <div key={item.name} className="flex justify-between text-xs">
+                          <span className="flex items-center gap-1">
+                            <div 
+                              className="w-2 h-2 rounded-full" 
+                              style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                            />
+                            {item.name}
+                          </span>
+                          <span className="font-medium">${(item.amount / 100).toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Gráfico por Rango de Montos */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Por Rango de Montos</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsPieChart>
+                          <Pie
+                            data={getAmountRangeData()}
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={70}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            {getAmountRangeData().map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            formatter={(value: any, name: any, props: any) => [
+                              `${value} cuentas (${props.payload.percentage}%)`,
+                              props.payload.name
+                            ]}
+                          />
+                          <Legend />
+                        </RechartsPieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="mt-2 space-y-1">
+                      {getAmountRangeData().map((item, index) => (
+                        <div key={item.name} className="flex justify-between text-xs">
+                          <span className="flex items-center gap-1">
+                            <div 
+                              className="w-2 h-2 rounded-full" 
+                              style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                            />
+                            {item.name}
+                          </span>
+                          <span className="font-medium">${(item.amount / 100).toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Recomendaciones Automáticas */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Recomendaciones de Cobranza</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 border-l-4 border-red-500 bg-red-50">
+                      <div className="font-medium text-red-800">Acción Inmediata</div>
+                      <div className="text-sm text-red-700 mt-1">
+                        {filteredCuentas.filter(c => c.dias_vencido > 30).length} cuentas con más de 30 días vencidos requieren seguimiento urgente
+                      </div>
+                    </div>
+                    <div className="p-4 border-l-4 border-yellow-500 bg-yellow-50">
+                      <div className="font-medium text-yellow-800">Seguimiento</div>
+                      <div className="text-sm text-yellow-700 mt-1">
+                        {filteredCuentas.filter(c => c.dias_vencido > 0 && c.dias_vencido <= 30).length} cuentas vencidas necesitan recordatorios de pago
+                      </div>
+                    </div>
+                    <div className="p-4 border-l-4 border-blue-500 bg-blue-50">
+                      <div className="font-medium text-blue-800">Preventivo</div>
+                      <div className="text-sm text-blue-700 mt-1">
+                        Programar recordatorios automáticos 3 días antes del vencimiento
+                      </div>
+                    </div>
+                    <div className="p-4 border-l-4 border-green-500 bg-green-50">
+                      <div className="font-medium text-green-800">Oportunidad</div>
+                      <div className="text-sm text-green-700 mt-1">
+                        Ofrecer descuentos por pronto pago para reducir cartera vencida
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="flex justify-end pt-4 border-t">
+              <Button 
+                variant="outline"
+                onClick={() => setShowAnalyticsModal(false)}
+              >
+                Cerrar
               </Button>
             </div>
           </DialogContent>

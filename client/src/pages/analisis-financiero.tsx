@@ -376,8 +376,7 @@ export default function AnalisisFinanciero() {
       </div>
 
       <Tabs defaultValue="projections" className="space-y-6">
-        <TabsList className="grid grid-cols-7 w-full h-auto">
-          <TabsTrigger value="profitability" className="text-xs px-2 py-3">Rentabilidad</TabsTrigger>
+        <TabsList className="grid grid-cols-6 w-full h-auto">
           <TabsTrigger value="costs" className="text-xs px-2 py-3">Costos</TabsTrigger>
           <TabsTrigger value="collection" className="text-xs px-2 py-3">Cobranza</TabsTrigger>
           <TabsTrigger value="ebitda" className="text-xs px-2 py-3">EBITDA</TabsTrigger>
@@ -593,16 +592,6 @@ export default function AnalisisFinanciero() {
         </TabsContent>
 
         {/* Otras pestañas simplificadas */}
-        <TabsContent value="profitability" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Análisis de Rentabilidad</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p>Contenido de rentabilidad disponible en la pestaña Proyecciones.</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="costs" className="space-y-6">
           <Card>

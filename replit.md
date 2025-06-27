@@ -118,6 +118,14 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- June 27, 2025: TERMINOLOGÍA EDUCATIVA COMPLETADA - Transformación de todas las leyendas F1 a contexto educativo
+- June 27, 2025: Cambio completo de terminología: Racing → Dashboard Educativo, Championship → Rankings, Telemetry → Análisis
+- June 27, 2025: Escuelas con nombres educativos: Instituto San Patricio, Colegio Bilingüe Norte, Centro Educativo Sur
+- June 27, 2025: Métricas educativas: Eficiencia, Rankings, Áreas de Rendimiento, Capacidad Sistema, Recursos Completos
+- June 27, 2025: Header actualizado: "Centro de Comando Educativo" con "EscuelaPay Rankings - Monitoreo en Vivo"
+- June 27, 2025: Terminología F1 sustituida: LAP TIME → EFICIENCIA, POSITION → RANKING, PIT STOP → CONTROLES
+- June 27, 2025: Transacciones educativas: enrollment, payment, achievement, pending, excellence en lugar de pit_in, fastest_lap
+- June 27, 2025: Mantiene estilo visual F1 (colores Ferrari, McLaren, Mercedes) pero con contexto 100% educativo
 - June 27, 2025: DASHBOARD F1 ESTILO FÓRMULA 1 IMPLEMENTADO - Transformación completa del dashboard CEO al estilo racing
 - June 27, 2025: Gráficas coloridas estilo F1: telemetría en tiempo real, podium de campeonato, tablas comparativas dinámicas
 - June 27, 2025: Visualizaciones tipo pastel: distribución de revenue con círculos coloridos y porcentajes animados

@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from "@/components/ui/textarea";
 import { AlertTriangle, TrendingDown, Clock, DollarSign, Users, Phone, Mail, Calendar, Search, Filter, Ban, PieChart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { PieChartComponent } from "@/components/PieChartComponent";
 
 export default function CuentasPorCobrar() {
   const { toast } = useToast();
@@ -51,75 +51,7 @@ export default function CuentasPorCobrar() {
     { name: '$10K+', value: 1, color: '#FF8042' }
   ];
 
-  // Función para generar datos de gráfico por estado de cobranza
-  const getStatusChartData = () => {
-    const statusCounts = filteredCuentas.reduce((acc, cuenta) => {
-      acc[cuenta.estado_cobranza] = (acc[cuenta.estado_cobranza] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
 
-    const total = filteredCuentas.length;
-    
-    return Object.entries(statusCounts).map(([estado, count]) => ({
-      name: estado === 'CORRIENTE' ? 'Corriente' : 
-            estado === 'VIGENTE' ? 'Vigente' : 
-            estado === 'VENCIDO' ? 'Vencido' : 
-            estado === 'MOROSO' ? 'Moroso' : 
-            estado === 'PARCIAL' ? 'Parcial' :
-            estado === 'PAGADO' ? 'Pagado' : 'Jurídico',
-      value: count,
-      percentage: total > 0 ? ((count / total) * 100).toFixed(1) : '0',
-      amount: filteredCuentas.filter(c => c.estado_cobranza === estado).reduce((sum, c) => sum + c.pendiente_pagar_centavos, 0)
-    }));
-  };
-
-  // Función para generar datos de gráfico por rango de días vencidos
-  const getDaysOverdueData = () => {
-    const ranges = [
-      { name: '0-7 días', min: 0, max: 7 },
-      { name: '8-30 días', min: 8, max: 30 },
-      { name: '31-60 días', min: 31, max: 60 },
-      { name: '60+ días', min: 61, max: Infinity }
-    ];
-
-    const total = filteredCuentas.length;
-    
-    return ranges.map(range => {
-      const count = filteredCuentas.filter(c => c.dias_vencido >= range.min && c.dias_vencido <= range.max).length;
-      const totalAmount = filteredCuentas.filter(c => c.dias_vencido >= range.min && c.dias_vencido <= range.max).reduce((sum, c) => sum + c.pendiente_pagar_centavos, 0);
-      
-      return {
-        name: range.name,
-        value: count,
-        percentage: ((count / total) * 100).toFixed(1),
-        amount: totalAmount
-      };
-    }).filter(item => item.value > 0);
-  };
-
-  // Función para generar datos de gráfico por monto pendiente
-  const getAmountRangeData = () => {
-    const ranges = [
-      { name: '$0 - $2,000', min: 0, max: 200000 },
-      { name: '$2,001 - $5,000', min: 200001, max: 500000 },
-      { name: '$5,001 - $10,000', min: 500001, max: 1000000 },
-      { name: '$10,001+', min: 1000001, max: Infinity }
-    ];
-
-    const total = filteredCuentas.length;
-    
-    return ranges.map(range => {
-      const count = filteredCuentas.filter(c => c.pendiente_pagar_centavos >= range.min && c.pendiente_pagar_centavos <= range.max).length;
-      const totalAmount = filteredCuentas.filter(c => c.pendiente_pagar_centavos >= range.min && c.pendiente_pagar_centavos <= range.max).reduce((sum, c) => sum + c.pendiente_pagar_centavos, 0);
-      
-      return {
-        name: range.name,
-        value: count,
-        percentage: ((count / total) * 100).toFixed(1),
-        amount: totalAmount
-      };
-    }).filter(item => item.value > 0);
-  };
 
   // Datos demo expandidos de cuentas por cobrar con todos los conceptos
   const cuentasPorCobrar = [
@@ -1033,147 +965,30 @@ export default function CuentasPorCobrar() {
 
               {/* Gráficos Tipo Pastel */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Gráfico por Estado de Cobranza */}
                 <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Por Estado de Cobranza</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-48">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <RechartsPieChart>
-                          <Pie
-                            data={statusData}
-                            cx="50%"
-                            cy="50%"
-                            outerRadius={70}
-                            fill="#8884d8"
-                            dataKey="value"
-                            label={({ name, value }) => `${name}: ${value}`}
-                          >
-                            {statusData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip 
-                            formatter={(value: any, name: any) => [
-                              `${value} cuentas`,
-                              name
-                            ]}
-                          />
-                        </RechartsPieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="mt-2 space-y-1">
-                      {statusData.map((item, index) => (
-                        <div key={item.name} className="flex justify-between text-xs">
-                          <span className="flex items-center gap-1">
-                            <div 
-                              className="w-2 h-2 rounded-full" 
-                              style={{ backgroundColor: item.color }}
-                            />
-                            {item.name}
-                          </span>
-                          <span className="font-medium">{item.value} cuentas</span>
-                        </div>
-                      ))}
-                    </div>
+                  <CardContent className="p-4">
+                    <PieChartComponent 
+                      data={statusData} 
+                      title="Por Estado de Cobranza" 
+                    />
                   </CardContent>
                 </Card>
 
-                {/* Gráfico por Días Vencidos */}
                 <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Por Días Vencidos</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-48">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <RechartsPieChart>
-                          <Pie
-                            data={daysOverdueData}
-                            cx="50%"
-                            cy="50%"
-                            outerRadius={70}
-                            fill="#8884d8"
-                            dataKey="value"
-                            label={({ name, value }) => `${name}: ${value}`}
-                          >
-                            {daysOverdueData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip 
-                            formatter={(value: any, name: any) => [
-                              `${value} cuentas`,
-                              name
-                            ]}
-                          />
-                        </RechartsPieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="mt-2 space-y-1">
-                      {daysOverdueData.map((item, index) => (
-                        <div key={item.name} className="flex justify-between text-xs">
-                          <span className="flex items-center gap-1">
-                            <div 
-                              className="w-2 h-2 rounded-full" 
-                              style={{ backgroundColor: item.color }}
-                            />
-                            {item.name}
-                          </span>
-                          <span className="font-medium">{item.value} cuentas</span>
-                        </div>
-                      ))}
-                    </div>
+                  <CardContent className="p-4">
+                    <PieChartComponent 
+                      data={daysOverdueData} 
+                      title="Por Días Vencidos" 
+                    />
                   </CardContent>
                 </Card>
 
-                {/* Gráfico por Rango de Montos */}
                 <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Por Rango de Montos</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-48">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <RechartsPieChart>
-                          <Pie
-                            data={amountRangeData}
-                            cx="50%"
-                            cy="50%"
-                            outerRadius={70}
-                            fill="#8884d8"
-                            dataKey="value"
-                            label={({ name, value }) => `${name}: ${value}`}
-                          >
-                            {amountRangeData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip 
-                            formatter={(value: any, name: any) => [
-                              `${value} cuentas`,
-                              name
-                            ]}
-                          />
-                        </RechartsPieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="mt-2 space-y-1">
-                      {amountRangeData.map((item, index) => (
-                        <div key={item.name} className="flex justify-between text-xs">
-                          <span className="flex items-center gap-1">
-                            <div 
-                              className="w-2 h-2 rounded-full" 
-                              style={{ backgroundColor: item.color }}
-                            />
-                            {item.name}
-                          </span>
-                          <span className="font-medium">{item.value} cuentas</span>
-                        </div>
-                      ))}
-                    </div>
+                  <CardContent className="p-4">
+                    <PieChartComponent 
+                      data={amountRangeData} 
+                      title="Por Rango de Montos" 
+                    />
                   </CardContent>
                 </Card>
               </div>

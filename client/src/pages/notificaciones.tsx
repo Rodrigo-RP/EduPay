@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,10 +8,109 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, Mail, MessageSquare, Smartphone, Send, Clock, CheckCircle, AlertTriangle } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { Bell, Mail, MessageSquare, Smartphone, Send, Clock, CheckCircle, AlertTriangle, Users, User, Calendar, AlertCircle } from "lucide-react";
 
 export default function Notificaciones() {
   const [selectedChannel, setSelectedChannel] = useState("all");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedNotificationType, setSelectedNotificationType] = useState("RECORDATORIO_VENCIMIENTO");
+  const [selectedChannel2, setSelectedChannel2] = useState("EMAIL");
+  const [sendMode, setSendMode] = useState("masivo"); // masivo o individual
+  const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Datos simulados de estudiantes con pagos pendientes
+  const estudiantesPendientes = [
+    { id: 1, nombre: "Carlos Pérez", email: "carlos.perez@gmail.com", telefono: "5551234567", monto: 5000, diasVencido: 0, concepto: "Colegiatura Enero 2025" },
+    { id: 2, nombre: "Ana García", email: "ana.garcia@yahoo.com", telefono: "5555678901", monto: 4500, diasVencido: 3, concepto: "Colegiatura Enero 2025" },
+    { id: 3, nombre: "Luis Martínez", email: "luis.martinez@hotmail.com", telefono: "5559876543", monto: 5000, diasVencido: 7, concepto: "Colegiatura Enero 2025" },
+    { id: 4, nombre: "María González", email: "maria.gonzalez@gmail.com", telefono: "5552468101", monto: 4750, diasVencido: 1, concepto: "Colegiatura Enero 2025" },
+    { id: 5, nombre: "José Rodríguez", email: "jose.rodriguez@outlook.com", telefono: "5553691472", monto: 5200, diasVencido: 5, concepto: "Colegiatura Enero 2025" }
+  ];
+
+  // Mutation para envío de notificaciones
+  const sendNotificationMutation = useMutation({
+    mutationFn: async (data: {
+      tipo: string;
+      canal: string;
+      modo: string;
+      estudiantesIds?: number[];
+    }) => {
+      const response = await apiRequest('POST', '/api/notifications/send', data);
+      return await response.json();
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "Notificaciones enviadas",
+        description: `Se enviaron ${data.enviadas || data.count || 'las'} notificaciones exitosamente`,
+      });
+      setIsModalOpen(false);
+      setSelectedStudents([]);
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error al enviar notificaciones",
+        description: "Ocurrió un error al procesar el envío. Intente nuevamente.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleSendNotification = () => {
+    if (sendMode === "individual" && selectedStudents.length === 0) {
+      toast({
+        title: "Selección requerida",
+        description: "Debe seleccionar al menos un estudiante para envío individual",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const data = {
+      tipo: selectedNotificationType,
+      canal: selectedChannel2,
+      modo: sendMode,
+      estudiantesIds: sendMode === "individual" ? selectedStudents : undefined
+    };
+
+    sendNotificationMutation.mutate(data);
+  };
+
+  const handleStudentSelection = (studentId: number, checked: boolean) => {
+    if (checked) {
+      setSelectedStudents(prev => [...prev, studentId]);
+    } else {
+      setSelectedStudents(prev => prev.filter(id => id !== studentId));
+    }
+  };
+
+  const getNotificationTypeLabel = (tipo: string) => {
+    const labels = {
+      RECORDATORIO_VENCIMIENTO: "Recordatorio de Vencimiento",
+      AVISO_MORA: "Aviso de Mora",
+      CARGO_EMITIDO: "Cargo Emitido"
+    };
+    return labels[tipo as keyof typeof labels] || tipo;
+  };
+
+  const getStudentsByNotificationType = () => {
+    switch (selectedNotificationType) {
+      case "RECORDATORIO_VENCIMIENTO":
+        return estudiantesPendientes.filter(e => e.diasVencido >= -3 && e.diasVencido <= 0);
+      case "AVISO_MORA":
+        return estudiantesPendientes.filter(e => e.diasVencido > 0);
+      case "CARGO_EMITIDO":
+        return estudiantesPendientes;
+      default:
+        return estudiantesPendientes;
+    }
+  };
 
   // Datos demo de notificaciones
   const notificaciones = [
@@ -133,10 +233,223 @@ export default function Notificaciones() {
           <h1 className="text-3xl font-bold text-slate-900">Notificaciones Automáticas</h1>
           <p className="text-slate-600">Gestiona comunicación automática: emails, SMS y WhatsApp</p>
             </div>
-            <Button className="bg-blue-600 hover:bg-blue-700">
-              <Send className="w-4 h-4 mr-2" />
-              Enviar Notificación
-            </Button>
+            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-blue-600 hover:bg-blue-700">
+                  <Send className="w-4 h-4 mr-2" />
+                  Enviar Notificación
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Enviar Notificaciones Automáticas</DialogTitle>
+                  <DialogDescription>
+                    El sistema detectará automáticamente los estudiantes según el tipo de notificación seleccionado
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-6">
+                  {/* Configuración de Notificación */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="notification-type">Tipo de Notificación</Label>
+                      <Select value={selectedNotificationType} onValueChange={setSelectedNotificationType}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="RECORDATORIO_VENCIMIENTO">
+                            <div className="flex items-center gap-2">
+                              <Calendar className="w-4 h-4" />
+                              Recordatorio de Vencimiento
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="AVISO_MORA">
+                            <div className="flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4" />
+                              Aviso de Mora
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="CARGO_EMITIDO">
+                            <div className="flex items-center gap-2">
+                              <Bell className="w-4 h-4" />
+                              Cargo Emitido
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="channel">Canal de Envío</Label>
+                      <Select value={selectedChannel2} onValueChange={setSelectedChannel2}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="EMAIL">
+                            <div className="flex items-center gap-2">
+                              <Mail className="w-4 h-4" />
+                              Email
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="SMS">
+                            <div className="flex items-center gap-2">
+                              <Smartphone className="w-4 h-4" />
+                              SMS
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="WHATSAPP">
+                            <div className="flex items-center gap-2">
+                              <MessageSquare className="w-4 h-4" />
+                              WhatsApp
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="send-mode">Modo de Envío</Label>
+                      <Select value={sendMode} onValueChange={setSendMode}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="masivo">
+                            <div className="flex items-center gap-2">
+                              <Users className="w-4 h-4" />
+                              Envío Masivo
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="individual">
+                            <div className="flex items-center gap-2">
+                              <User className="w-4 h-4" />
+                              Envío Individual
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Información del tipo de notificación */}
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-blue-900 mb-2">
+                      {getNotificationTypeLabel(selectedNotificationType)}
+                    </h4>
+                    <p className="text-sm text-blue-700">
+                      {selectedNotificationType === "RECORDATORIO_VENCIMIENTO" && 
+                        "Se enviarán recordatorios a estudiantes con pagos que vencen en los próximos 3 días o vencen hoy."}
+                      {selectedNotificationType === "AVISO_MORA" && 
+                        "Se enviarán avisos a estudiantes con pagos vencidos (morosos)."}
+                      {selectedNotificationType === "CARGO_EMITIDO" && 
+                        "Se enviarán notificaciones de nuevos cargos emitidos a todos los estudiantes."}
+                    </p>
+                  </div>
+
+                  {/* Lista de estudiantes detectados */}
+                  <div>
+                    <h4 className="font-medium mb-3">
+                      Estudiantes Detectados ({getStudentsByNotificationType().length})
+                    </h4>
+                    <div className="border rounded-lg max-h-60 overflow-y-auto">
+                      {getStudentsByNotificationType().length === 0 ? (
+                        <div className="p-4 text-center text-gray-500">
+                          No se encontraron estudiantes para este tipo de notificación
+                        </div>
+                      ) : (
+                        <div className="space-y-2 p-4">
+                          {getStudentsByNotificationType().map((estudiante) => (
+                            <div key={estudiante.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
+                              {sendMode === "individual" && (
+                                <Checkbox
+                                  checked={selectedStudents.includes(estudiante.id)}
+                                  onCheckedChange={(checked) => 
+                                    handleStudentSelection(estudiante.id, checked as boolean)
+                                  }
+                                />
+                              )}
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <div className="font-medium">{estudiante.nombre}</div>
+                                    <div className="text-sm text-gray-600">
+                                      {selectedChannel2 === "EMAIL" ? estudiante.email : estudiante.telefono}
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="font-medium">${estudiante.monto.toLocaleString()}</div>
+                                    <div className={`text-sm ${
+                                      estudiante.diasVencido > 0 ? 'text-red-600' : 
+                                      estudiante.diasVencido === 0 ? 'text-yellow-600' : 'text-green-600'
+                                    }`}>
+                                      {estudiante.diasVencido > 0 
+                                        ? `${estudiante.diasVencido} días vencido`
+                                        : estudiante.diasVencido === 0 
+                                        ? 'Vence hoy'
+                                        : `Vence en ${Math.abs(estudiante.diasVencido)} días`
+                                      }
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Resumen de envío */}
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="font-medium mb-2">Resumen del Envío</h4>
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <div>Tipo: {getNotificationTypeLabel(selectedNotificationType)}</div>
+                      <div>Canal: {selectedChannel2}</div>
+                      <div>Modo: {sendMode === "masivo" ? "Envío Masivo" : "Envío Individual"}</div>
+                      <div>
+                        Destinatarios: {
+                          sendMode === "masivo" 
+                            ? getStudentsByNotificationType().length 
+                            : selectedStudents.length
+                        } estudiantes
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button 
+                    onClick={handleSendNotification}
+                    disabled={
+                      sendNotificationMutation.isPending || 
+                      getStudentsByNotificationType().length === 0 ||
+                      (sendMode === "individual" && selectedStudents.length === 0)
+                    }
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    {sendNotificationMutation.isPending ? (
+                      <>
+                        <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2" />
+                        Enviando...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4 mr-2" />
+                        Enviar {sendMode === "masivo" 
+                          ? `${getStudentsByNotificationType().length} Notificaciones` 
+                          : `${selectedStudents.length} Notificaciones`
+                        }
+                      </>
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
 
           {/* Estadísticas */}

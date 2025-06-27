@@ -2,6 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
+/* F1 Racing Dashboard Animations */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 4s linear infinite;
+}
+
+/* F1 Racing Colors and Effects */
+.f1-gradient-ferrari {
+  background: linear-gradient(135deg, #FF1801, #8B0000);
+}
+
+.f1-gradient-mclaren {
+  background: linear-gradient(135deg, #FF8000, #FF4500);
+}
+
+.f1-gradient-mercedes {
+  background: linear-gradient(135deg, #00A19B, #008B8B);
+}
+
+.f1-gradient-redbull {
+  background: linear-gradient(135deg, #1E41FF, #0000CD);
+}
+
+.f1-glow {
+  box-shadow: 0 0 20px rgba(255, 24, 1, 0.3);
+}
+
+.f1-border-glow {
+  border: 2px solid #FF1801;
+  box-shadow: 0 0 10px rgba(255, 24, 1, 0.5), inset 0 0 10px rgba(255, 24, 1, 0.1);
+}
+
 :root {
   --background: hsl(0, 0%, 100%);
   --foreground: hsl(210, 40%, 8%);

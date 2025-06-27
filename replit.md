@@ -118,6 +118,16 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- June 27, 2025: DASHBOARD F1 ESTILO FÓRMULA 1 IMPLEMENTADO - Transformación completa del dashboard CEO al estilo racing
+- June 27, 2025: Gráficas coloridas estilo F1: telemetría en tiempo real, podium de campeonato, tablas comparativas dinámicas
+- June 27, 2025: Visualizaciones tipo pastel: distribución de revenue con círculos coloridos y porcentajes animados
+- June 27, 2025: Championship Standings: tabla de posiciones estilo F1 con colores de equipos, tiempos de vuelta y gaps
+- June 27, 2025: Live Timing Display: cronómetros en tiempo real, sector times, ERS battery, fuel levels, tyre compounds
+- June 27, 2025: F1 Racing Header: diseño Ferrari con Trophy dorado, posición actual P1, indicadores LIVE y RACE MODE
+- June 27, 2025: 4 pestañas temáticas: Racing Dashboard, Championship (podium), Telemetry (sensores), Pit Stop (controles)
+- June 27, 2025: Animaciones CSS: efectos glow, gradientes de equipos F1, spinning animations para gráficas circulares
+- June 27, 2025: Ruta principal /super-admin ahora muestra F1 dashboard, ruta /super-admin-ceo-dashboard para versión clásica
+- June 27, 2025: Datos simulados de escuelas como equipos F1: Ferrari, McLaren, Mercedes, Red Bull, Alpine, Aston Martin
 - June 26, 2025: PERFILES ESPECIALIZADOS IMPLEMENTADOS - Usuarios de soporte técnico e implementación con dashboards específicos
 - June 26, 2025: Dashboard de Soporte Técnico: gestión de tickets, métricas de satisfacción, herramientas de atención al cliente
 - June 26, 2025: Dashboard de Implementación: gestión de proyectos de onboarding, fases de configuración, seguimiento go-live

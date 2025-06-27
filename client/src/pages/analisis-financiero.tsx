@@ -534,11 +534,11 @@ export default function AnalisisFinanciero() {
                   </div>
                   
                   <div className="space-y-3">
-                    {data.riskAssessment.riskFactors.map((factor, index) => (
+                    {data.riskAssessment.riskFactors.map((factor: any, index: number) => (
                       <div key={index} className="border rounded-lg p-3">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-medium">{factor.factor}</span>
-                          <Badge className={getRiskColor(factor.level)} size="sm">
+                          <Badge className={getRiskColor(factor.level)}>
                             {factor.level}
                           </Badge>
                         </div>

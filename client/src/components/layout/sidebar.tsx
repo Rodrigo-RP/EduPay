@@ -138,6 +138,13 @@ export default function Sidebar() {
       category: "sistema"
     },
     { 
+      icon: "fas fa-calendar-check", 
+      label: "Configuración de Pagos", 
+      href: "/configuracion-pagos", 
+      active: location === "/configuracion-pagos",
+      category: "sistema"
+    },
+    { 
       icon: "fas fa-brain", 
       label: "Sistemas Avanzados", 
       href: "/sistemas-avanzados", 

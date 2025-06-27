@@ -2420,6 +2420,423 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== PAYMENT CONFIGURATION APIs =====
+  
+  // Get payment due dates configuration
+  app.get("/api/payment-config/due-dates", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const campusId = user.campus_id || 1;
+      
+      // Demo data for due dates - in production this would come from database
+      const dueDates = [
+        {
+          id: "1",
+          concepto: "Colegiatura",
+          dia_vencimiento: 10,
+          mes_aplicacion: "todos",
+          activo: true,
+          campus_id: campusId
+        },
+        {
+          id: "2", 
+          concepto: "Inscripción",
+          dia_vencimiento: 15,
+          mes_aplicacion: "agosto",
+          activo: true,
+          campus_id: campusId
+        },
+        {
+          id: "3",
+          concepto: "Reinscripción",
+          dia_vencimiento: 20,
+          mes_aplicacion: "febrero",
+          activo: true,
+          campus_id: campusId
+        }
+      ];
+      
+      res.json(dueDates);
+    } catch (error: any) {
+      res.status(500).json({ error: "Error obteniendo fechas de vencimiento", message: error.message });
+    }
+  });
+
+  // Create new payment due date
+  app.post("/api/payment-config/due-dates", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const campusId = user.campus_id || 1;
+      const { concepto, dia_vencimiento, mes_aplicacion } = req.body;
+      
+      if (!concepto || !dia_vencimiento) {
+        return res.status(400).json({ error: "Concepto y día de vencimiento son requeridos" });
+      }
+
+      if (dia_vencimiento < 1 || dia_vencimiento > 31) {
+        return res.status(400).json({ error: "El día de vencimiento debe estar entre 1 y 31" });
+      }
+      
+      const newDueDate = {
+        id: Date.now().toString(),
+        concepto,
+        dia_vencimiento: parseInt(dia_vencimiento),
+        mes_aplicacion: mes_aplicacion || "todos",
+        activo: true,
+        campus_id: campusId,
+        created_at: new Date().toISOString()
+      };
+      
+      res.json({ 
+        message: "Fecha de vencimiento creada exitosamente",
+        dueDate: newDueDate
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: "Error creando fecha de vencimiento", message: error.message });
+    }
+  });
+
+  // Update payment due date
+  app.put("/api/payment-config/due-dates/:id", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { concepto, dia_vencimiento, mes_aplicacion, activo } = req.body;
+      
+      if (!concepto || !dia_vencimiento) {
+        return res.status(400).json({ error: "Concepto y día de vencimiento son requeridos" });
+      }
+
+      if (dia_vencimiento < 1 || dia_vencimiento > 31) {
+        return res.status(400).json({ error: "El día de vencimiento debe estar entre 1 y 31" });
+      }
+      
+      const updatedDueDate = {
+        id,
+        concepto,
+        dia_vencimiento: parseInt(dia_vencimiento),
+        mes_aplicacion: mes_aplicacion || "todos",
+        activo: activo !== undefined ? activo : true,
+        updated_at: new Date().toISOString()
+      };
+      
+      res.json({ 
+        message: "Fecha de vencimiento actualizada exitosamente",
+        dueDate: updatedDueDate
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: "Error actualizando fecha de vencimiento", message: error.message });
+    }
+  });
+
+  // Delete payment due date
+  app.delete("/api/payment-config/due-dates/:id", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      res.json({ 
+        message: "Fecha de vencimiento eliminada exitosamente",
+        deletedId: id
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: "Error eliminando fecha de vencimiento", message: error.message });
+    }
+  });
+
+  // Get late fee rules configuration
+  app.get("/api/payment-config/late-fee-rules", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const campusId = user.campus_id || 1;
+      
+      // Demo data for late fee rules - in production this would come from database
+      const lateFeeRules = [
+        {
+          id: "1",
+          nombre: "Estándar Mexicano",
+          tipo: "porcentaje",
+          dias_gracia: 5,
+          porcentaje: 3,
+          aplica_fines_semana: false,
+          aplica_festivos: false,
+          monto_maximo: 500000, // $5,000 MXN in centavos
+          activo: true,
+          campus_id: campusId
+        },
+        {
+          id: "2",
+          nombre: "Recargo Fijo Básico",
+          tipo: "fijo",
+          dias_gracia: 3,
+          monto_fijo: 20000, // $200 MXN in centavos
+          aplica_fines_semana: false,
+          aplica_festivos: false,
+          activo: true,
+          campus_id: campusId
+        },
+        {
+          id: "3",
+          nombre: "Progresivo por Días",
+          tipo: "progresivo",
+          dias_gracia: 7,
+          reglas_progresivas: [
+            { dias_desde: 1, dias_hasta: 15, porcentaje: 1 },
+            { dias_desde: 16, dias_hasta: 30, porcentaje: 2 },
+            { dias_desde: 31, dias_hasta: 999, porcentaje: 3 }
+          ],
+          aplica_fines_semana: false,
+          aplica_festivos: false,
+          activo: false,
+          campus_id: campusId
+        }
+      ];
+      
+      res.json(lateFeeRules);
+    } catch (error: any) {
+      res.status(500).json({ error: "Error obteniendo reglas de recargo", message: error.message });
+    }
+  });
+
+  // Create new late fee rule
+  app.post("/api/payment-config/late-fee-rules", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const campusId = user.campus_id || 1;
+      const { 
+        nombre, 
+        tipo, 
+        dias_gracia, 
+        porcentaje, 
+        monto_fijo, 
+        reglas_progresivas,
+        aplica_fines_semana, 
+        aplica_festivos, 
+        monto_maximo 
+      } = req.body;
+      
+      if (!nombre || !tipo || dias_gracia === undefined) {
+        return res.status(400).json({ error: "Nombre, tipo y días de gracia son requeridos" });
+      }
+
+      if (dias_gracia < 0 || dias_gracia > 30) {
+        return res.status(400).json({ error: "Los días de gracia deben estar entre 0 y 30" });
+      }
+
+      if (tipo === 'porcentaje' && (!porcentaje || porcentaje <= 0 || porcentaje > 50)) {
+        return res.status(400).json({ error: "El porcentaje debe estar entre 0.1 y 50" });
+      }
+
+      if (tipo === 'fijo' && (!monto_fijo || monto_fijo <= 0)) {
+        return res.status(400).json({ error: "El monto fijo debe ser mayor a 0" });
+      }
+      
+      const newLateFeeRule = {
+        id: Date.now().toString(),
+        nombre,
+        tipo,
+        dias_gracia: parseInt(dias_gracia),
+        porcentaje: tipo === 'porcentaje' ? parseFloat(porcentaje) : undefined,
+        monto_fijo: tipo === 'fijo' ? parseInt(monto_fijo) : undefined,
+        reglas_progresivas: tipo === 'progresivo' ? reglas_progresivas : undefined,
+        aplica_fines_semana: !!aplica_fines_semana,
+        aplica_festivos: !!aplica_festivos,
+        monto_maximo: monto_maximo ? parseInt(monto_maximo) : undefined,
+        activo: true,
+        campus_id: campusId,
+        created_at: new Date().toISOString()
+      };
+      
+      res.json({ 
+        message: "Regla de recargo creada exitosamente",
+        lateFeeRule: newLateFeeRule
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: "Error creando regla de recargo", message: error.message });
+    }
+  });
+
+  // Update late fee rule
+  app.put("/api/payment-config/late-fee-rules/:id", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { 
+        nombre, 
+        tipo, 
+        dias_gracia, 
+        porcentaje, 
+        monto_fijo, 
+        reglas_progresivas,
+        aplica_fines_semana, 
+        aplica_festivos, 
+        monto_maximo,
+        activo 
+      } = req.body;
+      
+      if (!nombre || !tipo || dias_gracia === undefined) {
+        return res.status(400).json({ error: "Nombre, tipo y días de gracia son requeridos" });
+      }
+
+      if (dias_gracia < 0 || dias_gracia > 30) {
+        return res.status(400).json({ error: "Los días de gracia deben estar entre 0 y 30" });
+      }
+
+      if (tipo === 'porcentaje' && (!porcentaje || porcentaje <= 0 || porcentaje > 50)) {
+        return res.status(400).json({ error: "El porcentaje debe estar entre 0.1 y 50" });
+      }
+
+      if (tipo === 'fijo' && (!monto_fijo || monto_fijo <= 0)) {
+        return res.status(400).json({ error: "El monto fijo debe ser mayor a 0" });
+      }
+      
+      const updatedLateFeeRule = {
+        id,
+        nombre,
+        tipo,
+        dias_gracia: parseInt(dias_gracia),
+        porcentaje: tipo === 'porcentaje' ? parseFloat(porcentaje) : undefined,
+        monto_fijo: tipo === 'fijo' ? parseInt(monto_fijo) : undefined,
+        reglas_progresivas: tipo === 'progresivo' ? reglas_progresivas : undefined,
+        aplica_fines_semana: !!aplica_fines_semana,
+        aplica_festivos: !!aplica_festivos,
+        monto_maximo: monto_maximo ? parseInt(monto_maximo) : undefined,
+        activo: activo !== undefined ? activo : true,
+        updated_at: new Date().toISOString()
+      };
+      
+      res.json({ 
+        message: "Regla de recargo actualizada exitosamente",
+        lateFeeRule: updatedLateFeeRule
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: "Error actualizando regla de recargo", message: error.message });
+    }
+  });
+
+  // Delete late fee rule
+  app.delete("/api/payment-config/late-fee-rules/:id", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      res.json({ 
+        message: "Regla de recargo eliminada exitosamente",
+        deletedId: id
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: "Error eliminando regla de recargo", message: error.message });
+    }
+  });
+
+  // Test late fee rule calculation
+  app.post("/api/payment-config/test-late-fee", authenticateToken, async (req, res) => {
+    try {
+      const { rule, amount, daysLate } = req.body;
+      
+      if (!rule || !amount || daysLate === undefined) {
+        return res.status(400).json({ error: "Regla, monto y días de atraso son requeridos" });
+      }
+
+      let lateFee = 0;
+      let calculation = "Sin recargo (dentro del período de gracia)";
+      
+      // Apply grace period
+      const effectiveDays = Math.max(0, parseInt(daysLate) - rule.dias_gracia);
+      
+      if (effectiveDays > 0) {
+        const baseAmount = parseInt(amount);
+        
+        switch (rule.tipo) {
+          case 'porcentaje':
+            lateFee = Math.round(baseAmount * (rule.porcentaje / 100));
+            calculation = `${rule.porcentaje}% del monto original ($${(baseAmount/100).toFixed(2)})`;
+            break;
+            
+          case 'fijo':
+            lateFee = rule.monto_fijo;
+            calculation = `Recargo fijo de $${(lateFee/100).toFixed(2)}`;
+            break;
+            
+          case 'progresivo':
+            if (rule.reglas_progresivas) {
+              for (const regla of rule.reglas_progresivas) {
+                if (effectiveDays >= regla.dias_desde && effectiveDays <= regla.dias_hasta) {
+                  lateFee = Math.round(baseAmount * (regla.porcentaje / 100));
+                  calculation = `${regla.porcentaje}% progresivo por ${effectiveDays} días de atraso`;
+                  break;
+                }
+              }
+            }
+            break;
+        }
+        
+        // Apply maximum limit if specified
+        if (rule.monto_maximo && lateFee > rule.monto_maximo) {
+          lateFee = rule.monto_maximo;
+          calculation += ` (limitado a máximo de $${(rule.monto_maximo/100).toFixed(2)})`;
+        }
+      }
+      
+      const result = {
+        originalAmount: parseInt(amount),
+        daysLate: parseInt(daysLate),
+        effectiveDaysLate: effectiveDays,
+        lateFeeAmount: lateFee,
+        totalAmount: parseInt(amount) + lateFee,
+        calculation,
+        gracePeriodApplied: parseInt(daysLate) <= rule.dias_gracia
+      };
+      
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: "Error calculando recargo", message: error.message });
+    }
+  });
+
+  // Get payment configuration presets
+  app.get("/api/payment-config/presets", authenticateToken, async (req, res) => {
+    try {
+      const presets = {
+        dueDatePresets: [
+          { concepto: "Colegiatura", dia_vencimiento: 10, mes_aplicacion: "todos" },
+          { concepto: "Inscripción", dia_vencimiento: 15, mes_aplicacion: "agosto" },
+          { concepto: "Reinscripción", dia_vencimiento: 20, mes_aplicacion: "febrero" },
+          { concepto: "Seguro Escolar", dia_vencimiento: 5, mes_aplicacion: "septiembre" },
+          { concepto: "Uniformes", dia_vencimiento: 25, mes_aplicacion: "julio" },
+          { concepto: "Libros y Materiales", dia_vencimiento: 30, mes_aplicacion: "agosto" }
+        ],
+        lateFeePresets: [
+          {
+            nombre: "Estándar Mexicano",
+            tipo: "porcentaje",
+            dias_gracia: 5,
+            porcentaje: 3,
+            description: "3% mensual sobre saldos vencidos con 5 días de gracia"
+          },
+          {
+            nombre: "Recargo Fijo Básico",
+            tipo: "fijo",
+            dias_gracia: 3,
+            monto_fijo: 20000,
+            description: "Recargo fijo de $200 pesos con 3 días de gracia"
+          },
+          {
+            nombre: "Progresivo Escalonado",
+            tipo: "progresivo",
+            dias_gracia: 7,
+            reglas_progresivas: [
+              { dias_desde: 1, dias_hasta: 15, porcentaje: 1 },
+              { dias_desde: 16, dias_hasta: 30, porcentaje: 2 },
+              { dias_desde: 31, dias_hasta: 999, porcentaje: 3 }
+            ],
+            description: "Recargo progresivo: 1% (1-15 días), 2% (16-30 días), 3% (31+ días)"
+          }
+        ]
+      };
+      
+      res.json(presets);
+    } catch (error: any) {
+      res.status(500).json({ error: "Error obteniendo presets", message: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

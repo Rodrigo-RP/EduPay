@@ -5,23 +5,23 @@ export default function SuperAdminDirect() {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    // Configurar datos de super admin directamente
-    const superAdminToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjUsImVtYWlsIjoic3VwZXJhZG1pbkBlc2N1ZWxhcGF5LmNvbSIsInJvbGUiOiJzdXBlcl9hZG1pbiIsImNhbXB1c19pZCI6MjcsInR5cGUiOiJ1c2VyIiwiaWF0IjoxNzUxMDUzMjUwLCJleHAiOjE3NTExMzk2NTB9.WaQR81J10ZpAZXuiYps43i-wzAOkYYcxD3Js4BmH_C4";
+    // Configurar datos de administrador de escuela
+    const schoolAdminToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjIsImVtYWlsIjoiYWRtaW5Ac2FucGF0cmljaW8uZWR1Lm14Iiwicm9sZSI6ImFkbWluIiwiY2FtcHVzX2lkIjoyNCwidHlwZSI6InVzZXIiLCJpYXQiOjE3NTEwNTQxMDAsImV4cCI6MTc1MTE0MDUwMH0.example_token_for_school_admin";
     
-    const superAdminUser = {
-      id: 25,
-      email: "superadmin@escuelapay.com",
-      role: "super_admin",
-      campus_id: 27
+    const schoolAdminUser = {
+      id: 22,
+      email: "admin@sanpatricio.edu.mx",
+      role: "admin",
+      campus_id: 24
     };
     
     // Limpiar localStorage anterior
     localStorage.clear();
     
-    // Configurar nueva sesión
-    localStorage.setItem("token", superAdminToken);
+    // Configurar nueva sesión de escuela
+    localStorage.setItem("token", schoolAdminToken);
     localStorage.setItem("auth_type", "user");
-    localStorage.setItem("auth_user", JSON.stringify(superAdminUser));
+    localStorage.setItem("auth_user", JSON.stringify(schoolAdminUser));
     
     // Forzar recarga para aplicar la nueva sesión
     setTimeout(() => {
@@ -32,9 +32,9 @@ export default function SuperAdminDirect() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-800">
       <div className="text-center">
-        <div className="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-blue-600 mb-2">Configurando Super Administrador</h2>
-        <p className="text-slate-600">Accediendo al Dashboard Ejecutivo Tradicional...</p>
+        <div className="animate-spin w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full mx-auto mb-4" />
+        <h2 className="text-2xl font-bold text-green-600 mb-2">Cambiando a Administrador de Escuela</h2>
+        <p className="text-slate-600">Accediendo al Instituto San Patricio...</p>
       </div>
     </div>
   );

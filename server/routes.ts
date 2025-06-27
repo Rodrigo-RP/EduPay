@@ -2081,6 +2081,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // NOTIFICATION SYSTEM API - Sistema de notificaciones automáticas
+  app.post("/api/notifications/send", authenticateToken, async (req, res) => {
+    try {
+      const { tipo, canal, modo, estudiantesIds } = req.body;
+      
+      if (!tipo || !canal || !modo) {
+        return res.status(400).json({ 
+          error: "Parámetros requeridos: tipo, canal, modo" 
+        });
+      }
+
+      // Simulated students with pending payments
+      const estudiantesPendientes = [
+        { id: 1, nombre: "Carlos Pérez", email: "carlos.perez@gmail.com", telefono: "5551234567", monto: 5000, diasVencido: 0, concepto: "Colegiatura Enero 2025" },
+        { id: 2, nombre: "Ana García", email: "ana.garcia@yahoo.com", telefono: "5555678901", monto: 4500, diasVencido: 3, concepto: "Colegiatura Enero 2025" },
+        { id: 3, nombre: "Luis Martínez", email: "luis.martinez@hotmail.com", telefono: "5559876543", monto: 5000, diasVencido: 7, concepto: "Colegiatura Enero 2025" },
+        { id: 4, nombre: "María González", email: "maria.gonzalez@gmail.com", telefono: "5552468101", monto: 4750, diasVencido: 1, concepto: "Colegiatura Enero 2025" },
+        { id: 5, nombre: "José Rodríguez", email: "jose.rodriguez@outlook.com", telefono: "5553691472", monto: 5200, diasVencido: 5, concepto: "Colegiatura Enero 2025" }
+      ];
+
+      // Filter students based on notification type
+      let targetStudents = [];
+      switch (tipo) {
+        case "RECORDATORIO_VENCIMIENTO":
+          targetStudents = estudiantesPendientes.filter(e => e.diasVencido >= -3 && e.diasVencido <= 0);
+          break;
+        case "AVISO_MORA":
+          targetStudents = estudiantesPendientes.filter(e => e.diasVencido > 0);
+          break;
+        case "CARGO_EMITIDO":
+          targetStudents = estudiantesPendientes;
+          break;
+        default:
+          targetStudents = estudiantesPendientes;
+      }
+
+      // Apply individual selection if specified
+      if (modo === "individual" && estudiantesIds && estudiantesIds.length > 0) {
+        targetStudents = targetStudents.filter(e => estudiantesIds.includes(e.id));
+      }
+
+      if (targetStudents.length === 0) {
+        return res.status(400).json({ 
+          error: "No se encontraron estudiantes para enviar notificaciones" 
+        });
+      }
+
+      // Generate notification messages based on type and channel
+      const messages = targetStudents.map(student => {
+        let message = "";
+        let subject = "";
+
+        switch (tipo) {
+          case "RECORDATORIO_VENCIMIENTO":
+            if (canal === "EMAIL") {
+              subject = `Recordatorio: ${student.concepto} - Instituto San Patricio`;
+              message = `Estimado/a responsable de ${student.nombre},\n\nLe recordamos que el pago de ${student.concepto} por $${student.monto.toLocaleString()} MXN ${student.diasVencido === 0 ? 'vence hoy' : `vence en ${Math.abs(student.diasVencido)} días`}.\n\nPuede realizar su pago en línea en: https://escuelapay.com/pagar\n\nGracias por su atención.`;
+            } else {
+              message = `Recordatorio: Su pago de ${student.concepto} por $${student.monto.toLocaleString()} ${student.diasVencido === 0 ? 'vence hoy' : `vence en ${Math.abs(student.diasVencido)} días`}. Pague en escuelapay.com/pagar`;
+            }
+            break;
+          case "AVISO_MORA":
+            if (canal === "EMAIL") {
+              subject = `URGENTE: Pago vencido - ${student.concepto} - Instituto San Patricio`;
+              message = `Estimado/a responsable de ${student.nombre},\n\nSu pago de ${student.concepto} por $${student.monto.toLocaleString()} MXN está vencido desde hace ${student.diasVencido} días. Se aplicarán recargos por mora.\n\nPague ahora para evitar cargos adicionales: https://escuelapay.com/pagar\n\nPara más información, contacte a finanzas.`;
+            } else {
+              message = `URGENTE: Su pago de ${student.concepto} está vencido ${student.diasVencido} días. Se aplicarán recargos. Pague en escuelapay.com/pagar`;
+            }
+            break;
+          case "CARGO_EMITIDO":
+            if (canal === "EMAIL") {
+              subject = `Nuevo cargo disponible - ${student.concepto} - Instituto San Patricio`;
+              message = `Estimado/a responsable de ${student.nombre},\n\nSe ha emitido un nuevo cargo: ${student.concepto} por $${student.monto.toLocaleString()} MXN.\n\nPuede consultarlo y pagarlo en línea en: https://escuelapay.com/pagar\n\nGracias por su preferencia.`;
+            } else {
+              message = `Nuevo cargo disponible: ${student.concepto} por $${student.monto.toLocaleString()}. Consulte y pague en escuelapay.com/pagar`;
+            }
+            break;
+        }
+
+        return {
+          student,
+          message,
+          subject,
+          canal,
+          tipo
+        };
+      });
+
+      // Simulate sending process
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call delay
+
+      // Log notification sending
+      console.log(`Enviando ${messages.length} notificaciones por ${canal}:`);
+      messages.forEach((msg, index) => {
+        console.log(`${index + 1}. ${msg.student.nombre} (${canal === 'EMAIL' ? msg.student.email : msg.student.telefono}): ${msg.message.substring(0, 100)}...`);
+      });
+
+      // Return success response
+      res.json({
+        success: true,
+        enviadas: messages.length,
+        modo,
+        canal,
+        tipo,
+        detalles: {
+          total_estudiantes: targetStudents.length,
+          mensajes_enviados: messages.length,
+          timestamp: new Date().toISOString()
+        },
+        preview: messages.slice(0, 3).map(m => ({
+          destinatario: m.student.nombre,
+          contacto: canal === 'EMAIL' ? m.student.email : m.student.telefono,
+          mensaje_preview: m.message.substring(0, 100) + "..."
+        }))
+      });
+
+    } catch (error: any) {
+      console.error("Error sending notifications:", error);
+      res.status(500).json({ 
+        error: "Error interno del servidor",
+        message: error.message 
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

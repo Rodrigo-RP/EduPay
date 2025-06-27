@@ -16,6 +16,7 @@ import {
   AlertTriangle, 
   CheckCircle, 
   BarChart3,
+  BarChart,
   Target,
   Calendar,
   FileText,
@@ -624,7 +625,7 @@ export default function AnalisisFinanciero() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <BarChart className="w-5 h-5" />
+                  <BarChart3 className="w-5 h-5" />
                   Desglose EBITDA por Componentes
                 </CardTitle>
               </CardHeader>

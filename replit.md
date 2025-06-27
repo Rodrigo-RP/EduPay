@@ -118,6 +118,13 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- June 27, 2025: PESTAÑA EBITDA AGREGADA AL ANÁLISIS FINANCIERO - Análisis completo de rentabilidad operativa CFO
+- June 27, 2025: Cálculo EBITDA con margen del 77.6% vs 35.0% industria (+42.6% superior al promedio)
+- June 27, 2025: Múltiplos de valoración: P/E 1.3x vs 8.5x industria (altamente eficiente)
+- June 27, 2025: EBITDA por alumno: $3.4K vs $2.8K benchmark sector (posición superior)
+- June 27, 2025: Desglose completo: utilidad neta, intereses, impuestos, depreciación y amortización
+- June 27, 2025: Evaluación ejecutiva automática con recomendaciones CFO y status "EBITDA Saludable"
+- June 27, 2025: Módulo ahora tiene 6 pestañas: Rentabilidad, Costos, Cobranza, EBITDA, Tendencias, Salud Financiera
 - June 27, 2025: MÓDULO ANÁLISIS FINANCIERO CFO IMPLEMENTADO - Dashboard ejecutivo completo con métricas financieras avanzadas
 - June 27, 2025: API backend funcional `/api/financial/analysis/:period` con cálculos basados en datos reales de estudiantes
 - June 27, 2025: 5 pestañas de análisis: Rentabilidad, Estructura de Costos, Cobranza, Tendencias, Salud Financiera

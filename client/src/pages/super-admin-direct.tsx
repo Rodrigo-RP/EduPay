@@ -5,17 +5,17 @@ export default function SuperAdminDirect() {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    // Configurar datos de administrador de escuela
-    const schoolAdminToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjIsImVtYWlsIjoiYWRtaW5Ac2FucGF0cmljaW8uZWR1Lm14Iiwicm9sZSI6ImFkbWluIiwiY2FtcHVzX2lkIjoyNCwidHlwZSI6InVzZXIiLCJpYXQiOjE3NTEwNTQxMDAsImV4cCI6MTc1MTE0MDUwMH0.example_token_for_school_admin";
+    // Configurar datos de administrador de escuela con token válido
+    const schoolAdminToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjYsImVtYWlsIjoiYWRtaW5Ac2FucGF0cmljaW8uZWR1Lm14Iiwicm9sZSI6ImFkbWluIiwiY2FtcHVzX2lkIjoyNCwidHlwZSI6InVzZXIiLCJpYXQiOjE3NTEwNTQxOTQsImV4cCI6MTc1MTE0MDU5NH0.sQqrjTkfVcdasAcln0SC-_0rvpz5QLsfFHqrrxTCiy0";
     
     const schoolAdminUser = {
-      id: 22,
+      id: 26,
       email: "admin@sanpatricio.edu.mx",
       role: "admin",
       campus_id: 24
     };
     
-    // Limpiar localStorage anterior
+    // Limpiar localStorage anterior completamente
     localStorage.clear();
     
     // Configurar nueva sesión de escuela
@@ -23,10 +23,10 @@ export default function SuperAdminDirect() {
     localStorage.setItem("auth_type", "user");
     localStorage.setItem("auth_user", JSON.stringify(schoolAdminUser));
     
-    // Forzar recarga para aplicar la nueva sesión
+    // Forzar recarga completa para aplicar la nueva sesión
     setTimeout(() => {
-      window.location.href = "/";
-    }, 500);
+      window.location.reload();
+    }, 1000);
   }, []);
 
   return (

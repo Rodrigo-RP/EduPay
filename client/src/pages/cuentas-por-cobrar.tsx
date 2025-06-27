@@ -28,6 +28,29 @@ export default function CuentasPorCobrar() {
   // Colores para gráficos
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
+  // Datos estáticos para gráficos tipo pastel
+  const statusData = [
+    { name: 'Corriente', value: 5, color: '#00C49F' },
+    { name: 'Vencido', value: 4, color: '#FFBB28' },
+    { name: 'Moroso', value: 3, color: '#FF8042' },
+    { name: 'Pagado', value: 2, color: '#0088FE' },
+    { name: 'Parcial', value: 1, color: '#8884D8' }
+  ];
+
+  const daysOverdueData = [
+    { name: '0-7 días', value: 6, color: '#00C49F' },
+    { name: '8-30 días', value: 4, color: '#FFBB28' },
+    { name: '31-60 días', value: 3, color: '#FF8042' },
+    { name: '60+ días', value: 2, color: '#8884D8' }
+  ];
+
+  const amountRangeData = [
+    { name: '$0-$2K', value: 7, color: '#0088FE' },
+    { name: '$2K-$5K', value: 4, color: '#00C49F' },
+    { name: '$5K-$10K', value: 3, color: '#FFBB28' },
+    { name: '$10K+', value: 1, color: '#FF8042' }
+  ];
+
   // Función para generar datos de gráfico por estado de cobranza
   const getStatusChartData = () => {
     const statusCounts = filteredCuentas.reduce((acc, cuenta) => {
@@ -38,9 +61,14 @@ export default function CuentasPorCobrar() {
     const total = filteredCuentas.length;
     
     return Object.entries(statusCounts).map(([estado, count]) => ({
-      name: estado === 'VIGENTE' ? 'Vigente' : estado === 'VENCIDO' ? 'Vencido' : estado === 'MOROSO' ? 'Moroso' : 'Jurídico',
+      name: estado === 'CORRIENTE' ? 'Corriente' : 
+            estado === 'VIGENTE' ? 'Vigente' : 
+            estado === 'VENCIDO' ? 'Vencido' : 
+            estado === 'MOROSO' ? 'Moroso' : 
+            estado === 'PARCIAL' ? 'Parcial' :
+            estado === 'PAGADO' ? 'Pagado' : 'Jurídico',
       value: count,
-      percentage: ((count / total) * 100).toFixed(1),
+      percentage: total > 0 ? ((count / total) * 100).toFixed(1) : '0',
       amount: filteredCuentas.filter(c => c.estado_cobranza === estado).reduce((sum, c) => sum + c.pendiente_pagar_centavos, 0)
     }));
   };
@@ -1015,38 +1043,38 @@ export default function CuentasPorCobrar() {
                       <ResponsiveContainer width="100%" height="100%">
                         <RechartsPieChart>
                           <Pie
-                            data={getStatusChartData()}
+                            data={statusData}
                             cx="50%"
                             cy="50%"
                             outerRadius={70}
                             fill="#8884d8"
                             dataKey="value"
+                            label={({ name, value }) => `${name}: ${value}`}
                           >
-                            {getStatusChartData().map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            {statusData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
                           </Pie>
                           <Tooltip 
-                            formatter={(value: any, name: any, props: any) => [
-                              `${value} cuentas (${props.payload.percentage}%)`,
-                              props.payload.name
+                            formatter={(value: any, name: any) => [
+                              `${value} cuentas`,
+                              name
                             ]}
                           />
-                          <Legend />
                         </RechartsPieChart>
                       </ResponsiveContainer>
                     </div>
                     <div className="mt-2 space-y-1">
-                      {getStatusChartData().map((item, index) => (
+                      {statusData.map((item, index) => (
                         <div key={item.name} className="flex justify-between text-xs">
                           <span className="flex items-center gap-1">
                             <div 
                               className="w-2 h-2 rounded-full" 
-                              style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                              style={{ backgroundColor: item.color }}
                             />
                             {item.name}
                           </span>
-                          <span className="font-medium">${(item.amount / 100).toLocaleString()}</span>
+                          <span className="font-medium">{item.value} cuentas</span>
                         </div>
                       ))}
                     </div>
@@ -1063,38 +1091,38 @@ export default function CuentasPorCobrar() {
                       <ResponsiveContainer width="100%" height="100%">
                         <RechartsPieChart>
                           <Pie
-                            data={getDaysOverdueData()}
+                            data={daysOverdueData}
                             cx="50%"
                             cy="50%"
                             outerRadius={70}
                             fill="#8884d8"
                             dataKey="value"
+                            label={({ name, value }) => `${name}: ${value}`}
                           >
-                            {getDaysOverdueData().map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            {daysOverdueData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
                           </Pie>
                           <Tooltip 
-                            formatter={(value: any, name: any, props: any) => [
-                              `${value} cuentas (${props.payload.percentage}%)`,
-                              props.payload.name
+                            formatter={(value: any, name: any) => [
+                              `${value} cuentas`,
+                              name
                             ]}
                           />
-                          <Legend />
                         </RechartsPieChart>
                       </ResponsiveContainer>
                     </div>
                     <div className="mt-2 space-y-1">
-                      {getDaysOverdueData().map((item, index) => (
+                      {daysOverdueData.map((item, index) => (
                         <div key={item.name} className="flex justify-between text-xs">
                           <span className="flex items-center gap-1">
                             <div 
                               className="w-2 h-2 rounded-full" 
-                              style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                              style={{ backgroundColor: item.color }}
                             />
                             {item.name}
                           </span>
-                          <span className="font-medium">${(item.amount / 100).toLocaleString()}</span>
+                          <span className="font-medium">{item.value} cuentas</span>
                         </div>
                       ))}
                     </div>

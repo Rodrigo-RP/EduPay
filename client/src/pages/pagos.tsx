@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { CreditCard, Banknote, Smartphone, Receipt, Download, Eye, DollarSign, CheckCircle, Calendar, User, FileText, Building2 } from "lucide-react";
+import { CreditCard, Banknote, Smartphone, Receipt, Download, Eye, DollarSign, CheckCircle, Calendar, User, FileText, Building2, PieChart } from "lucide-react";
+import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
 export default function Pagos() {
   const [selectedMethod, setSelectedMethod] = useState("all");
@@ -21,6 +22,67 @@ export default function Pagos() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const { toast } = useToast();
+
+  // Colores para gráficos
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
+
+  // Función para generar datos de gráfico por método de pago
+  const getPaymentMethodData = () => {
+    const metodoCounts = filteredPagos.reduce((acc, pago) => {
+      acc[pago.metodo] = (acc[pago.metodo] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const total = filteredPagos.length;
+    
+    return Object.entries(metodoCounts).map(([metodo, count]) => ({
+      name: metodo === 'TARJETA' ? 'Tarjeta' : metodo === 'TRANSFERENCIA' ? 'Transferencia' : metodo === 'EFECTIVO' ? 'Efectivo' : 'Otros',
+      value: count,
+      percentage: ((count / total) * 100).toFixed(1),
+      amount: filteredPagos.filter(p => p.metodo === metodo).reduce((sum, p) => sum + p.monto, 0)
+    }));
+  };
+
+  // Función para generar datos de gráfico por monto
+  const getAmountRangeData = () => {
+    const ranges = [
+      { name: '$0 - $2,000', min: 0, max: 200000 },
+      { name: '$2,001 - $5,000', min: 200001, max: 500000 },
+      { name: '$5,001 - $10,000', min: 500001, max: 1000000 },
+      { name: '$10,001+', min: 1000001, max: Infinity }
+    ];
+
+    const total = filteredPagos.length;
+    
+    return ranges.map(range => {
+      const count = filteredPagos.filter(p => p.monto >= range.min && p.monto <= range.max).length;
+      const totalAmount = filteredPagos.filter(p => p.monto >= range.min && p.monto <= range.max).reduce((sum, p) => sum + p.monto, 0);
+      
+      return {
+        name: range.name,
+        value: count,
+        percentage: ((count / total) * 100).toFixed(1),
+        amount: totalAmount
+      };
+    }).filter(item => item.value > 0);
+  };
+
+  // Función para generar datos de gráfico por estado
+  const getStatusData = () => {
+    const statusCounts = filteredPagos.reduce((acc, pago) => {
+      acc[pago.estado] = (acc[pago.estado] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const total = filteredPagos.length;
+    
+    return Object.entries(statusCounts).map(([estado, count]) => ({
+      name: estado === 'completado' ? 'Completado' : estado === 'pendiente' ? 'Pendiente' : 'Fallido',
+      value: count,
+      percentage: ((count / total) * 100).toFixed(1),
+      amount: filteredPagos.filter(p => p.estado === estado).reduce((sum, p) => sum + p.monto, 0)
+    }));
+  };
 
   // Datos demo de pagos
   const pagos = [
@@ -632,7 +694,7 @@ Generado por EscuelaPay - Sistema de Pagos Escolares
 
       {/* Modal de Detalles del Pago */}
       <Dialog open={showPaymentDetails} onOpenChange={setShowPaymentDetails}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Receipt className="h-5 w-5" />
@@ -703,6 +765,160 @@ Generado por EscuelaPay - Sistema de Pagos Escolares
                       <Badge variant="outline">{selectedPayment.origen}</Badge>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Análisis Visual de Pagos */}
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-4 flex items-center gap-2">
+                  <PieChart className="h-5 w-5" />
+                  Análisis de Pagos del Período
+                </h4>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Gráfico por Método de Pago */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Por Método de Pago</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-40">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RechartsPieChart>
+                            <Pie
+                              data={getPaymentMethodData()}
+                              cx="50%"
+                              cy="50%"
+                              outerRadius={60}
+                              fill="#8884d8"
+                              dataKey="value"
+                            >
+                              {getPaymentMethodData().map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip 
+                              formatter={(value: any, name: any, props: any) => [
+                                `${value} pagos (${props.payload.percentage}%)`,
+                                props.payload.name
+                              ]}
+                            />
+                            <Legend />
+                          </RechartsPieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="mt-2 space-y-1">
+                        {getPaymentMethodData().map((item, index) => (
+                          <div key={item.name} className="flex justify-between text-xs">
+                            <span className="flex items-center gap-1">
+                              <div 
+                                className="w-2 h-2 rounded-full" 
+                                style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                              />
+                              {item.name}
+                            </span>
+                            <span className="font-medium">${(item.amount / 100).toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Gráfico por Rango de Montos */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Por Rango de Montos</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-40">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RechartsPieChart>
+                            <Pie
+                              data={getAmountRangeData()}
+                              cx="50%"
+                              cy="50%"
+                              outerRadius={60}
+                              fill="#8884d8"
+                              dataKey="value"
+                            >
+                              {getAmountRangeData().map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip 
+                              formatter={(value: any, name: any, props: any) => [
+                                `${value} pagos (${props.payload.percentage}%)`,
+                                props.payload.name
+                              ]}
+                            />
+                            <Legend />
+                          </RechartsPieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="mt-2 space-y-1">
+                        {getAmountRangeData().map((item, index) => (
+                          <div key={item.name} className="flex justify-between text-xs">
+                            <span className="flex items-center gap-1">
+                              <div 
+                                className="w-2 h-2 rounded-full" 
+                                style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                              />
+                              {item.name}
+                            </span>
+                            <span className="font-medium">${(item.amount / 100).toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Gráfico por Estado */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Por Estado de Pago</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-40">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RechartsPieChart>
+                            <Pie
+                              data={getStatusData()}
+                              cx="50%"
+                              cy="50%"
+                              outerRadius={60}
+                              fill="#8884d8"
+                              dataKey="value"
+                            >
+                              {getStatusData().map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip 
+                              formatter={(value: any, name: any, props: any) => [
+                                `${value} pagos (${props.payload.percentage}%)`,
+                                props.payload.name
+                              ]}
+                            />
+                            <Legend />
+                          </RechartsPieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="mt-2 space-y-1">
+                        {getStatusData().map((item, index) => (
+                          <div key={item.name} className="flex justify-between text-xs">
+                            <span className="flex items-center gap-1">
+                              <div 
+                                className="w-2 h-2 rounded-full" 
+                                style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                              />
+                              {item.name}
+                            </span>
+                            <span className="font-medium">${(item.amount / 100).toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
               </div>
 

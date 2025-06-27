@@ -13,8 +13,10 @@ import {
   Users, School, CreditCard, Activity, Shield, Zap, 
   MapPin, Clock, Target, BarChart3, LineChart, Scan,
   Ban, Building, Server, Wifi, Database, Lock,
-  Bell, CheckCircle, XCircle, ArrowUp, ArrowDown, Settings
+  Bell, CheckCircle, XCircle, ArrowUp, ArrowDown, Settings,
+  Trophy, Flag, Timer, Gauge, Flame, Star, Award
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
 export default function SuperAdminCEODashboard() {
   const { toast } = useToast();
@@ -28,7 +30,36 @@ export default function SuperAdminCEODashboard() {
     uptime: 99.94
   });
 
-  // Auto-update real-time data
+  // F1 Style Racing Data
+  const [racingData, setRacingData] = useState({
+    schools: [
+      { name: "Colegio Ferrari", position: 1, revenue: 1245000, growth: 18.5, color: "#FF1801", lap: "Best", status: "P1" },
+      { name: "Instituto McLaren", position: 2, revenue: 987000, growth: 15.2, color: "#FF8000", lap: "+0.3s", status: "P2" },
+      { name: "Escuela Mercedes", position: 3, revenue: 876000, growth: 12.8, color: "#00A19B", lap: "+0.7s", status: "P3" },
+      { name: "Centro Red Bull", position: 4, revenue: 743000, growth: 9.4, color: "#1E41FF", lap: "+1.2s", status: "P4" },
+      { name: "Academia Alpine", position: 5, revenue: 654000, growth: 7.1, color: "#0090FF", lap: "+1.8s", status: "P5" },
+      { name: "Prep Aston Martin", position: 6, revenue: 521000, growth: 4.2, color: "#00594F", lap: "+2.3s", status: "P6" }
+    ],
+    sectors: [
+      { name: "Sector 1 - Inscripciones", time: "1:23.456", improvement: "+0.234", color: "#FF1801" },
+      { name: "Sector 2 - Colegiaturas", time: "2:45.789", improvement: "-0.156", color: "#00FF00" },
+      { name: "Sector 3 - Extraordinarios", time: "1:34.567", improvement: "+0.089", color: "#FFFF00" }
+    ],
+    performance: {
+      currentLap: "2:34.567",
+      bestLap: "2:33.891",
+      averageLap: "2:35.234",
+      position: 1,
+      gap: "Leader",
+      drs: true,
+      ers: 87,
+      fuel: 92,
+      tyre: "SOFT",
+      tyreAge: 12
+    }
+  });
+
+  // Auto-update real-time data F1 Style
   useEffect(() => {
     const interval = setInterval(() => {
       setRealTimeData(prev => ({
@@ -37,7 +68,22 @@ export default function SuperAdminCEODashboard() {
         transactionsPerHour: Math.floor(Math.random() * 100) + 800,
         successRate: 98 + Math.random() * 1.5
       }));
-    }, 3000);
+
+      // Update F1 racing positions
+      setRacingData(prev => ({
+        ...prev,
+        schools: prev.schools.map(school => ({
+          ...school,
+          revenue: school.revenue + Math.floor(Math.random() * 2000),
+          growth: school.growth + (Math.random() - 0.5) * 0.5
+        })),
+        performance: {
+          ...prev.performance,
+          ers: Math.max(0, Math.min(100, prev.performance.ers + (Math.random() - 0.5) * 10)),
+          fuel: Math.max(0, Math.min(100, prev.performance.fuel - Math.random() * 0.5))
+        }
+      }));
+    }, 2000);
 
     return () => clearInterval(interval);
   }, []);
@@ -143,67 +189,93 @@ export default function SuperAdminCEODashboard() {
   return (
     <div className="min-h-screen bg-slate-50 p-4 lg:p-6">
       <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        {/* F1 Racing Header */}
+        <div className="bg-gradient-to-r from-red-600 via-black to-red-600 text-white rounded-lg shadow-lg p-6">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                CEO Command Center
-              </h1>
-              <p className="text-gray-600 mt-2">
-                Control ejecutivo en tiempo real - EscuelaPay SaaS Platform
-              </p>
+            <div className="flex items-center space-x-6">
+              <div className="flex items-center space-x-3">
+                <Trophy className="h-8 w-8 text-yellow-400" />
+                <div>
+                  <h1 className="text-3xl font-bold">F1 Racing Command Center</h1>
+                  <p className="text-red-200 mt-1">EscuelaPay Championship - Live Telemetry</p>
+                </div>
+              </div>
+              <div className="bg-black/30 rounded-lg p-4">
+                <div className="text-center">
+                  <div className="text-4xl font-mono font-bold text-green-400">P{racingData.performance.position}</div>
+                  <div className="text-sm text-gray-300">Current Position</div>
+                </div>
+              </div>
             </div>
             <div className="flex items-center gap-4">
               <div className="text-right">
-                <p className="text-sm text-gray-600">
-                  Wall Street Style Dashboard
+                <p className="text-sm text-red-200">
+                  F1 Championship Dashboard
                 </p>
-                <p className="text-xs text-gray-500">
-                  Live Data - Actualización cada 3s
+                <p className="text-xs text-gray-300">
+                  Live Telemetry - 2s refresh
                 </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Navigation Buttons */}
-        <div className="bg-white rounded-lg shadow-sm p-4">
-          <div className="flex flex-wrap items-center justify-center gap-3">
+        {/* F1 Navigation & Controls */}
+        <div className="bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded-lg shadow-lg p-4">
+          <div className="flex flex-wrap items-center justify-center gap-4">
             <Button 
-              variant="outline" 
               onClick={() => window.location.href = '/super-admin-schools'}
-              className="flex items-center gap-2"
+              className="bg-blue-600 hover:bg-blue-700 border-2 border-blue-400 text-white font-bold"
             >
-              <School className="h-4 w-4" />
-              Gestión Escuelas
+              <Flag className="h-4 w-4 mr-2" />
+              Race Control
             </Button>
             <Button 
-              variant="outline" 
               onClick={() => window.location.href = '/platform-login'}
-              className="flex items-center gap-2 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+              className="bg-yellow-600 hover:bg-yellow-700 border-2 border-yellow-400 text-black font-bold"
             >
-              <Users className="h-4 w-4" />
-              Perfiles Especializados
+              <Award className="h-4 w-4 mr-2" />
+              Pit Crew
             </Button>
             <Button 
-              variant="outline" 
               onClick={() => window.location.href = '/super-admin-classic'}
-              className="flex items-center gap-2"
+              className="bg-gray-600 hover:bg-gray-700 border-2 border-gray-400 text-white font-bold"
             >
-              <Settings className="h-4 w-4" />
-              Panel Clásico
+              <Settings className="h-4 w-4 mr-2" />
+              Classic Mode
             </Button>
+            <div className="flex items-center space-x-4">
+              <div className="bg-green-600 px-3 py-1 rounded-full text-sm font-bold">
+                <Timer className="h-4 w-4 inline mr-1" />
+                LIVE
+              </div>
+              <div className="bg-red-600 px-3 py-1 rounded-full text-sm font-bold">
+                <Flame className="h-4 w-4 inline mr-1" />
+                RACE MODE
+              </div>
+            </div>
           </div>
         </div>
 
-        <Tabs defaultValue="command-center" className="w-full">
-          <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-            <TabsList className="grid grid-cols-4 w-full max-w-md mx-auto">
-              <TabsTrigger value="command-center" className="text-sm">Centro de Comando</TabsTrigger>
-              <TabsTrigger value="analytics" className="text-sm">Analytics</TabsTrigger>
-              <TabsTrigger value="security" className="text-sm">Seguridad</TabsTrigger>
-              <TabsTrigger value="operations" className="text-sm">Operaciones</TabsTrigger>
+        <Tabs defaultValue="racing-dashboard" className="w-full">
+          <div className="bg-gradient-to-r from-black via-red-800 to-black rounded-lg shadow-lg p-4 mb-6">
+            <TabsList className="grid grid-cols-4 w-full max-w-2xl mx-auto bg-black/50 border-2 border-red-500">
+              <TabsTrigger value="racing-dashboard" className="text-sm font-bold text-white data-[state=active]:bg-red-600 data-[state=active]:text-white">
+                <Trophy className="h-4 w-4 mr-2" />
+                Racing Dashboard
+              </TabsTrigger>
+              <TabsTrigger value="championship" className="text-sm font-bold text-white data-[state=active]:bg-yellow-600 data-[state=active]:text-black">
+                <Star className="h-4 w-4 mr-2" />
+                Championship
+              </TabsTrigger>
+              <TabsTrigger value="telemetry" className="text-sm font-bold text-white data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+                <Gauge className="h-4 w-4 mr-2" />
+                Telemetry
+              </TabsTrigger>
+              <TabsTrigger value="pit-stop" className="text-sm font-bold text-white data-[state=active]:bg-green-600 data-[state=active]:text-white">
+                <Flag className="h-4 w-4 mr-2" />
+                Pit Stop
+              </TabsTrigger>
             </TabsList>
           </div>
 

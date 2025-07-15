@@ -46,7 +46,7 @@ import SuperAdminSchoolManagement from "@/pages/super-admin-school-management";
 import SupportDashboard from "@/pages/support-dashboard";
 import ImplementationDashboard from "@/pages/implementation-dashboard";
 import PlatformLogin from "@/pages/platform-login";
-import SaaSInfo from "@/components/saas-info";
+
 import ConfiguracionPagos from "@/pages/configuracion-pagos";
 import SuperAdminAccess from "@/pages/super-admin-access";
 import SuperAdminDirect from "@/pages/super-admin-direct";
@@ -162,7 +162,6 @@ function App() {
                   <Route component={AuthenticatedRoutes} />
                 </Switch>
                 <Toaster />
-                <SaaSInfo />
               </div>
             </TooltipProvider>
           </AcademicFilterProvider>

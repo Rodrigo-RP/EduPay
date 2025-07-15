@@ -1779,33 +1779,32 @@ export default function Familias() {
                   </Select>
                 </div>
               </TabsContent>
-
-              <div className="flex justify-end space-x-4 pt-6 border-t mt-6">
-                <Button type="button" variant="outline" onClick={() => {
-                  resetForm();
-                  setShowAddModal(false);
-                  setShowEditModal(false);
-                  setEditingFamily(null);
-                }}>
-                  Cancelar
-                </Button>
-                <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-                  {editingFamily ? (
-                    <>
-                      <Edit className="w-4 h-4 mr-2" />
-                      Actualizar Familia
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Registrar Familia
-                    </>
-                  )}
-                </Button>
-              </div>
             </Tabs>
+
+            <div className="flex justify-end space-x-4 pt-6 border-t mt-6">
+              <Button type="button" variant="outline" onClick={() => {
+                resetForm();
+                setShowAddModal(false);
+                setShowEditModal(false);
+                setEditingFamily(null);
+              }}>
+                Cancelar
+              </Button>
+              <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+                {editingFamily ? (
+                  <>
+                    <Edit className="w-4 h-4 mr-2" />
+                    Actualizar Familia
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Registrar Familia
+                  </>
+                )}
+              </Button>
+            </div>
           </form>
-        )}
         </DialogContent>
       </Dialog>
 

@@ -118,6 +118,11 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- July 15, 2025: PLANTILLA EXCEL OPTIMIZADA CON NOMBRES SEPARADOS - Estructura actualizada para captura más precisa de datos
+- July 15, 2025: Plantilla Excel ahora incluye campos separados: nombres, primer_apellido, segundo_apellido (18 campos total)
+- July 15, 2025: Procesamiento automático que combina nombres en nombre_completo para compatibilidad del sistema
+- July 15, 2025: Interfaz de importación mejorada con 3 ejemplos de estudiantes y formato CSV optimizado con BOM UTF-8
+- July 15, 2025: Modal de estudiantes completado con pestañas: Individual e Importar Excel para gestión eficiente
 - June 27, 2025: DASHBOARD TRADICIONAL CONFIGURADO COMO PREDETERMINADO - Cambio de F1 a versión CEO tradicional por preferencia del usuario
 - June 27, 2025: Super administrador ahora usa dashboard ejecutivo tradicional en lugar del estilo F1
 - June 27, 2025: Acceso directo configurado en /super-admin-direct con autenticación automática

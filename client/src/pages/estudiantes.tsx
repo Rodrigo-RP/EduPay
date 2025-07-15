@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Plus, Search, Edit, Trash2, UserCheck, UserX, Phone, Mail, MapPin, AlertTriangle } from "lucide-react";
+import { Users, Plus, Search, Edit, Trash2, UserCheck, UserX, Phone, Mail, MapPin, AlertTriangle, FileSpreadsheet, Download, Upload } from "lucide-react";
 
 export default function Estudiantes() {
   const { toast } = useToast();
@@ -23,6 +24,11 @@ export default function Estudiantes() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState("individual");
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importProgress, setImportProgress] = useState(0);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     nombre_completo: "",
     curp: "",
@@ -638,6 +644,141 @@ export default function Estudiantes() {
     setNombreGrupoEditando("");
   };
 
+  // Funciones para importación de Excel
+  const generateExcelTemplate = () => {
+    const headers = [
+      "nombre_completo",
+      "curp", 
+      "fecha_nacimiento",
+      "grado",
+      "grupo",
+      "responsable_nombre",
+      "responsable_telefono",
+      "responsable_email",
+      "direccion",
+      "codigo_postal",
+      "ciudad",
+      "estado",
+      "alergias",
+      "medicamentos",
+      "contacto_emergencia",
+      "telefono_emergencia"
+    ];
+    
+    const exampleData = [
+      [
+        "María García López",
+        "GALM120815MDFRRR05",
+        "2012-08-15",
+        "6to",
+        "A",
+        "Juan García Martínez",
+        "5551234567",
+        "juan.garcia@email.com",
+        "Calle Reforma 123, Col. Centro",
+        "01000",
+        "Ciudad de México",
+        "Ciudad de México",
+        "Ninguna",
+        "Vitaminas",
+        "Ana López García",
+        "5559876543"
+      ]
+    ];
+    
+    const csvContent = [headers, ...exampleData].map(row => row.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "plantilla_estudiantes.csv");
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({
+      title: "Plantilla descargada",
+      description: "La plantilla Excel ha sido descargada exitosamente.",
+    });
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImportFile(file);
+      toast({
+        title: "Archivo seleccionado",
+        description: `${file.name} está listo para importar.`,
+      });
+    }
+  };
+
+  const processExcelImport = async () => {
+    if (!importFile) return;
+    
+    setIsImporting(true);
+    setImportProgress(0);
+    
+    try {
+      const text = await importFile.text();
+      const lines = text.split('\n');
+      const headers = lines[0].split(',').map(h => h.trim());
+      
+      const newStudents: any[] = [];
+      
+      // Procesar cada línea (excluyendo encabezados)
+      for (let i = 1; i < lines.length; i++) {
+        if (lines[i].trim()) {
+          const values = lines[i].split(',').map(v => v.trim());
+          const student: any = { id: Date.now() + i, status: "activo" };
+          
+          headers.forEach((header, index) => {
+            if (values[index]) {
+              student[header] = values[index];
+            }
+          });
+          
+          // Agregar campos adicionales para compatibilidad
+          student.responsable = student.responsable_nombre || "";
+          student.telefono = student.responsable_telefono || "";
+          student.saldo_pendiente = 0;
+          student.fecha_inscripcion = new Date().toISOString().split('T')[0];
+          
+          newStudents.push(student);
+        }
+        
+        // Actualizar progreso
+        setImportProgress(Math.round((i / lines.length) * 100));
+      }
+      
+      // Agregar estudiantes al estado
+      setEstudiantes(prev => [...prev, ...newStudents]);
+      
+      toast({
+        title: "Importación exitosa",
+        description: `Se importaron ${newStudents.length} estudiantes correctamente.`,
+      });
+      
+      // Limpiar formulario
+      setImportFile(null);
+      setShowAddModal(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      
+    } catch (error) {
+      toast({
+        title: "Error en importación",
+        description: "Hubo un error al procesar el archivo Excel.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsImporting(false);
+      setImportProgress(0);
+    }
+  };
+
   // Filtrar estudiantes según criterios de búsqueda
   const filteredStudents = estudiantes.filter(student => {
     const matchesSearch = student.nombre_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -835,9 +976,26 @@ export default function Estudiantes() {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingStudent ? 'Editar Estudiante' : 'Agregar Nuevo Estudiante'}</DialogTitle>
+            <DialogDescription>
+              {editingStudent ? 'Modifica la información del estudiante' : 'Agrega un nuevo estudiante individual o importa múltiples estudiantes desde Excel'}
+            </DialogDescription>
           </DialogHeader>
           
-          <form onSubmit={handleSubmit} className="space-y-6">
+          {!editingStudent ? (
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="individual">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Individual
+                </TabsTrigger>
+                <TabsTrigger value="excel">
+                  <FileSpreadsheet className="w-4 h-4 mr-2" />
+                  Importar Excel
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="individual">
+                <form onSubmit={handleSubmit} className="space-y-6">
             {/* Información del Estudiante */}
             <div>
               <h3 className="text-lg font-semibold text-slate-900 mb-4">Información del Estudiante</h3>
@@ -1069,6 +1227,319 @@ export default function Estudiantes() {
               </Button>
             </div>
           </form>
+        </TabsContent>
+        
+        <TabsContent value="excel">
+          <div className="space-y-6">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h3 className="font-semibold text-blue-900 mb-2">Importación masiva desde Excel</h3>
+              <p className="text-sm text-blue-700 mb-4">
+                Descarga la plantilla, completa los datos de los estudiantes y sube el archivo para importar múltiples estudiantes a la vez.
+              </p>
+              <Button onClick={generateExcelTemplate} variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100">
+                <Download className="w-4 h-4 mr-2" />
+                Descargar Plantilla Excel
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="excel-file">Seleccionar archivo Excel/CSV</Label>
+                <Input
+                  id="excel-file"
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  onChange={handleFileSelect}
+                  ref={fileInputRef}
+                  className="mt-2"
+                />
+                {importFile && (
+                  <p className="text-sm text-green-600 mt-2">
+                    Archivo seleccionado: {importFile.name}
+                  </p>
+                )}
+              </div>
+
+              {importProgress > 0 && (
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${importProgress}%` }}
+                  ></div>
+                </div>
+              )}
+
+              <div className="bg-amber-50 p-4 rounded-lg">
+                <h4 className="font-semibold text-amber-900 mb-2">Formato de la plantilla:</h4>
+                <ul className="text-sm text-amber-700 space-y-1">
+                  <li>• <strong>nombre_completo:</strong> Nombre y apellidos del estudiante</li>
+                  <li>• <strong>curp:</strong> CURP de 18 caracteres (obligatorio)</li>
+                  <li>• <strong>fecha_nacimiento:</strong> Formato: YYYY-MM-DD</li>
+                  <li>• <strong>grado:</strong> Ej: "Kinder 1", "1ro", "2do Sec", etc.</li>
+                  <li>• <strong>grupo:</strong> Letra del grupo (A, B, C, etc.)</li>
+                  <li>• <strong>responsable_nombre:</strong> Nombre del padre/madre/tutor</li>
+                  <li>• <strong>responsable_telefono:</strong> Teléfono de 10 dígitos</li>
+                  <li>• <strong>responsable_email:</strong> Correo electrónico</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-4 pt-4 border-t">
+              <Button type="button" variant="outline" onClick={() => {
+                setImportFile(null);
+                setShowAddModal(false);
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = "";
+                }
+              }}>
+                Cancelar
+              </Button>
+              <Button 
+                onClick={processExcelImport} 
+                disabled={!importFile || isImporting}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {isImporting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Importando...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Importar Estudiantes
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+    ) : (
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Toda la información del estudiante para modo edición */}
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900 mb-4">Información del Estudiante</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="nombre_completo">Nombre Completo *</Label>
+              <Input
+                id="nombre_completo"
+                value={formData.nombre_completo}
+                onChange={(e) => handleInputChange("nombre_completo", e.target.value)}
+                placeholder="Nombre y apellidos del estudiante"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="curp">CURP *</Label>
+              <Input
+                id="curp"
+                value={formData.curp}
+                onChange={(e) => handleInputChange("curp", e.target.value.toUpperCase())}
+                placeholder="18 caracteres del CURP"
+                maxLength={18}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="fecha_nacimiento">Fecha de Nacimiento</Label>
+              <Input
+                id="fecha_nacimiento"
+                type="date"
+                value={formData.fecha_nacimiento}
+                onChange={(e) => handleInputChange("fecha_nacimiento", e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="grado">Grado *</Label>
+              <Select value={formData.grado} onValueChange={(value) => handleInputChange("grado", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar grado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Kinder 1">Kinder 1</SelectItem>
+                  <SelectItem value="Kinder 2">Kinder 2</SelectItem>
+                  <SelectItem value="Kinder 3">Kinder 3</SelectItem>
+                  <SelectItem value="1ro">1ro Primaria</SelectItem>
+                  <SelectItem value="2do">2do Primaria</SelectItem>
+                  <SelectItem value="3ro">3ro Primaria</SelectItem>
+                  <SelectItem value="4to">4to Primaria</SelectItem>
+                  <SelectItem value="5to">5to Primaria</SelectItem>
+                  <SelectItem value="6to">6to Primaria</SelectItem>
+                  <SelectItem value="1ro Sec">1ro Secundaria</SelectItem>
+                  <SelectItem value="2do Sec">2do Secundaria</SelectItem>
+                  <SelectItem value="3ro Sec">3ro Secundaria</SelectItem>
+                  <SelectItem value="1ro Bach">1ro Bachillerato</SelectItem>
+                  <SelectItem value="2do Bach">2do Bachillerato</SelectItem>
+                  <SelectItem value="3ro Bach">3ro Bachillerato</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="grupo">Grupo</Label>
+              <Select value={formData.grupo} onValueChange={(value) => handleInputChange("grupo", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar grupo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {gruposPersonalizados.map(grupo => (
+                    <SelectItem key={grupo} value={grupo}>{grupo}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="status">Estado</Label>
+              <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="activo">Activo</SelectItem>
+                  <SelectItem value="inactivo">Inactivo</SelectItem>
+                  <SelectItem value="suspendido">Suspendido</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+
+        {/* Información del Responsable */}
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900 mb-4">Información del Responsable</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="responsable_nombre">Nombre del Responsable *</Label>
+              <Input
+                id="responsable_nombre"
+                value={formData.responsable_nombre}
+                onChange={(e) => handleInputChange("responsable_nombre", e.target.value)}
+                placeholder="Padre, madre o tutor"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="responsable_telefono">Teléfono *</Label>
+              <Input
+                id="responsable_telefono"
+                value={formData.responsable_telefono}
+                onChange={(e) => handleInputChange("responsable_telefono", e.target.value)}
+                placeholder="10 dígitos"
+                maxLength={10}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label htmlFor="responsable_email">Correo Electrónico</Label>
+              <Input
+                id="responsable_email"
+                type="email"
+                value={formData.responsable_email}
+                onChange={(e) => handleInputChange("responsable_email", e.target.value)}
+                placeholder="correo@ejemplo.com"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Dirección */}
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900 mb-4">Dirección</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <Label htmlFor="direccion">Dirección Completa</Label>
+              <Input
+                id="direccion"
+                value={formData.direccion}
+                onChange={(e) => handleInputChange("direccion", e.target.value)}
+                placeholder="Calle, número, colonia"
+              />
+            </div>
+            <div>
+              <Label htmlFor="codigo_postal">Código Postal</Label>
+              <Input
+                id="codigo_postal"
+                value={formData.codigo_postal}
+                onChange={(e) => handleInputChange("codigo_postal", e.target.value)}
+                placeholder="5 dígitos"
+                maxLength={5}
+              />
+            </div>
+            <div>
+              <Label htmlFor="ciudad">Ciudad</Label>
+              <Input
+                id="ciudad"
+                value={formData.ciudad}
+                onChange={(e) => handleInputChange("ciudad", e.target.value)}
+                placeholder="Ciudad"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Información Médica y Emergencias */}
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900 mb-4">Información Médica y Emergencias</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="alergias">Alergias</Label>
+              <Textarea
+                id="alergias"
+                value={formData.alergias}
+                onChange={(e) => handleInputChange("alergias", e.target.value)}
+                placeholder="Alergias conocidas del estudiante"
+                rows={3}
+              />
+            </div>
+            <div>
+              <Label htmlFor="medicamentos">Medicamentos</Label>
+              <Textarea
+                id="medicamentos"
+                value={formData.medicamentos}
+                onChange={(e) => handleInputChange("medicamentos", e.target.value)}
+                placeholder="Medicamentos que toma regularmente"
+                rows={3}
+              />
+            </div>
+            <div>
+              <Label htmlFor="contacto_emergencia">Contacto de Emergencia</Label>
+              <Input
+                id="contacto_emergencia"
+                value={formData.contacto_emergencia}
+                onChange={(e) => handleInputChange("contacto_emergencia", e.target.value)}
+                placeholder="Nombre del contacto de emergencia"
+              />
+            </div>
+            <div>
+              <Label htmlFor="telefono_emergencia">Teléfono de Emergencia</Label>
+              <Input
+                id="telefono_emergencia"
+                value={formData.telefono_emergencia}
+                onChange={(e) => handleInputChange("telefono_emergencia", e.target.value)}
+                placeholder="Teléfono del contacto de emergencia"
+                maxLength={10}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Botones */}
+        <div className="flex justify-end space-x-4 pt-4 border-t">
+          <Button type="button" variant="outline" onClick={() => {
+            resetForm();
+            setShowAddModal(false);
+            setShowEditModal(false);
+            setEditingStudent(null);
+          }}>
+            Cancelar
+          </Button>
+          <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+            <Edit className="w-4 h-4 mr-2" />
+            Actualizar Estudiante
+          </Button>
+        </div>
+      </form>
+    )}
         </DialogContent>
       </Dialog>
 

@@ -71,8 +71,6 @@ export default function Familias() {
     {
       id: 1,
       numero_familia: "FAM001",
-      apellido_paterno: "Pérez",
-      apellido_materno: "Méndez",
       padre_nombre: "Carlos Pérez García",
       padre_telefono: "5551234567",
       padre_email: "carlos.perez@gmail.com",
@@ -94,8 +92,6 @@ export default function Familias() {
     {
       id: 2,
       numero_familia: "FAM002",
-      apellido_paterno: "García",
-      apellido_materno: "Luna",
       padre_nombre: "Roberto García Hernández",
       padre_telefono: "5559876543",
       padre_email: "roberto.garcia@hotmail.com",
@@ -117,8 +113,6 @@ export default function Familias() {
     {
       id: 3,
       numero_familia: "FAM003",
-      apellido_paterno: "Martínez",
-      apellido_materno: "Gil",
       padre_nombre: "Luis Martínez Rodríguez",
       padre_telefono: "5554567890",
       padre_email: "luis.martinez@empresa.com",
@@ -140,8 +134,6 @@ export default function Familias() {
     {
       id: 4,
       numero_familia: "FAM004",
-      apellido_paterno: "Santos",
-      apellido_materno: "Rivera",
       padre_nombre: "José Santos Morales",
       padre_telefono: "5551234567",
       padre_email: "jose.santos@gmail.com",
@@ -163,8 +155,6 @@ export default function Familias() {
     {
       id: 5,
       numero_familia: "FAM005",
-      apellido_paterno: "Hernández",
-      apellido_materno: "Castro",
       padre_nombre: "Roberto Hernández Villa",
       padre_telefono: "5557788990",
       padre_email: "roberto.hernandez@gmail.com",
@@ -186,8 +176,6 @@ export default function Familias() {
     {
       id: 6,
       numero_familia: "FAM006",
-      apellido_paterno: "Morales",
-      apellido_materno: "Ruiz",
       padre_nombre: "Fernando Morales Castro",
       padre_telefono: "5555566778",
       padre_email: "fernando.morales@outlook.com",
@@ -209,8 +197,6 @@ export default function Familias() {
     {
       id: 7,
       numero_familia: "FAM007",
-      apellido_paterno: "Castillo",
-      apellido_materno: "Mendoza",
       padre_nombre: "Alejandro Castillo Vega",
       padre_telefono: "5557788990",
       padre_email: "alejandro.castillo@gmail.com",
@@ -232,8 +218,6 @@ export default function Familias() {
     {
       id: 8,
       numero_familia: "FAM008",
-      apellido_paterno: "Ramírez",
-      apellido_materno: "Silva",
       padre_nombre: "Jorge Ramírez Salinas",
       padre_telefono: "5553344556",
       padre_email: "jorge.ramirez@hotmail.com",
@@ -256,8 +240,6 @@ export default function Familias() {
     {
       id: 9,
       numero_familia: "FAM009",
-      apellido_paterno: "Torres",
-      apellido_materno: "Vega",
       padre_nombre: "Roberto Torres Medina",
       padre_telefono: "5559900112",
       padre_email: "roberto.torres@outlook.com",
@@ -280,8 +262,6 @@ export default function Familias() {
     {
       id: 10,
       numero_familia: "FAM010",
-      apellido_paterno: "López",
-      apellido_materno: "Cruz",
       padre_nombre: "Eduardo López Mendoza",
       padre_telefono: "5551122334",
       padre_email: "eduardo.lopez@gmail.com",
@@ -322,8 +302,6 @@ export default function Familias() {
   const resetForm = () => {
     setFormData({
       numero_familia: "",
-      apellido_paterno: "",
-      apellido_materno: "",
       padre_nombre: "",
       padre_telefono: "",
       padre_email: "",
@@ -357,8 +335,6 @@ export default function Familias() {
   // Funciones para importación Excel de familias
   const downloadFamilyTemplate = () => {
     const headers = [
-      "apellido_paterno",
-      "apellido_materno", 
       "padre_nombres",
       "padre_primer_apellido",
       "padre_segundo_apellido",
@@ -394,8 +370,6 @@ export default function Familias() {
     
     const exampleData = [
       [
-        "García",
-        "López",
         "Carlos Alberto",
         "García",
         "Mendoza",
@@ -429,8 +403,6 @@ export default function Familias() {
         "activo"
       ],
       [
-        "Hernández",
-        "Ruiz",
         "José Luis",
         "Hernández",
         "Martínez",
@@ -464,8 +436,6 @@ export default function Familias() {
         "activo"
       ],
       [
-        "Rodríguez",
-        "Sánchez",
         "Miguel Ángel",
         "Rodríguez",
         "Pérez",
@@ -609,8 +579,6 @@ export default function Familias() {
   const loadFamilyForEdit = (familia: any) => {
     setFormData({
       numero_familia: familia.numero_familia,
-      apellido_paterno: familia.apellido_paterno,
-      apellido_materno: familia.apellido_materno || "",
       padre_nombre: familia.padre_nombre,
       padre_telefono: familia.padre_telefono,
       padre_email: familia.padre_email || "",
@@ -647,10 +615,10 @@ export default function Familias() {
     e.preventDefault();
     
     // Validaciones básicas
-    if (!formData.apellido_paterno || !formData.padre_nombre || !formData.padre_telefono) {
+    if (!formData.padre_nombre || !formData.padre_telefono) {
       toast({
         title: "Error",
-        description: "Por favor complete los campos obligatorios: apellido paterno, nombre del padre y teléfono.",
+        description: "Por favor complete los campos obligatorios: nombre del padre y teléfono.",
         variant: "destructive"
       });
       return;
@@ -670,8 +638,6 @@ export default function Familias() {
       // Actualizar familia existente
       const updatedFamily = {
         ...editingFamily,
-        apellido_paterno: formData.apellido_paterno,
-        apellido_materno: formData.apellido_materno,
         padre_nombre: formData.padre_nombre,
         padre_telefono: formData.padre_telefono,
         padre_email: formData.padre_email,
@@ -993,28 +959,6 @@ export default function Familias() {
                     </TabsList>
 
                     <TabsContent value="generales" className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="apellido_paterno">Apellido Paterno *</Label>
-                          <Input
-                            id="apellido_paterno"
-                            value={formData.apellido_paterno}
-                            onChange={(e) => handleInputChange("apellido_paterno", e.target.value)}
-                            placeholder="Apellido paterno de la familia"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="apellido_materno">Apellido Materno</Label>
-                          <Input
-                            id="apellido_materno"
-                            value={formData.apellido_materno}
-                            onChange={(e) => handleInputChange("apellido_materno", e.target.value)}
-                            placeholder="Apellido materno de la familia"
-                          />
-                        </div>
-                      </div>
-
                       <div>
                         <h3 className="text-lg font-semibold text-slate-900 mb-4">Padre/Tutor Principal</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1455,28 +1399,6 @@ export default function Familias() {
                 </TabsList>
 
               <TabsContent value="generales" className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="apellido_paterno">Apellido Paterno *</Label>
-                    <Input
-                      id="apellido_paterno"
-                      value={formData.apellido_paterno}
-                      onChange={(e) => handleInputChange("apellido_paterno", e.target.value)}
-                      placeholder="Apellido paterno de la familia"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="apellido_materno">Apellido Materno</Label>
-                    <Input
-                      id="apellido_materno"
-                      value={formData.apellido_materno}
-                      onChange={(e) => handleInputChange("apellido_materno", e.target.value)}
-                      placeholder="Apellido materno de la familia"
-                    />
-                  </div>
-                </div>
-
                 <div>
                   <h3 className="text-lg font-semibold text-slate-900 mb-4">Padre/Tutor Principal</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

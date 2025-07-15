@@ -647,7 +647,9 @@ export default function Estudiantes() {
   // Funciones para importación de Excel
   const generateExcelTemplate = () => {
     const headers = [
-      "nombre_completo",
+      "nombres",
+      "primer_apellido",
+      "segundo_apellido",
       "curp", 
       "fecha_nacimiento",
       "grado",
@@ -667,7 +669,9 @@ export default function Estudiantes() {
     
     const exampleData = [
       [
-        "María García López",
+        "María Elena",
+        "García",
+        "López",
         "GALM120815MDFRRR05",
         "2012-08-15",
         "6to",
@@ -685,7 +689,9 @@ export default function Estudiantes() {
         "5559876543"
       ],
       [
-        "Carlos Mendoza Ruiz",
+        "Carlos Alberto",
+        "Mendoza",
+        "Ruiz",
         "MERC110305HDFRRL04",
         "2011-03-05",
         "1ro Sec",
@@ -703,7 +709,9 @@ export default function Estudiantes() {
         "5558765432"
       ],
       [
-        "Sofía Hernández Castro",
+        "Sofía Gabriela",
+        "Hernández",
+        "Castro",
         "HECS130922MDFRTF06",
         "2013-09-22",
         "Kinder 3",
@@ -739,7 +747,7 @@ export default function Estudiantes() {
     
     toast({
       title: "Plantilla descargada",
-      description: "La plantilla Excel ha sido descargada exitosamente con 3 ejemplos de estudiantes.",
+      description: "La plantilla Excel ha sido descargada exitosamente con nombres separados (nombres, primer_apellido, segundo_apellido) y 3 ejemplos de estudiantes.",
     });
   };
 
@@ -770,7 +778,7 @@ export default function Estudiantes() {
       // Procesar cada línea (excluyendo encabezados)
       for (let i = 1; i < lines.length; i++) {
         if (lines[i].trim()) {
-          const values = lines[i].split(',').map(v => v.trim());
+          const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
           const student: any = { id: Date.now() + i, status: "activo" };
           
           headers.forEach((header, index) => {
@@ -778,6 +786,12 @@ export default function Estudiantes() {
               student[header] = values[index];
             }
           });
+          
+          // Combinar nombres, primer_apellido y segundo_apellido en nombre_completo
+          const nombres = student.nombres || "";
+          const primerApellido = student.primer_apellido || "";
+          const segundoApellido = student.segundo_apellido || "";
+          student.nombre_completo = `${nombres} ${primerApellido} ${segundoApellido}`.trim();
           
           // Agregar campos adicionales para compatibilidad
           student.responsable = student.responsable_nombre || "";
@@ -1312,13 +1326,15 @@ export default function Estudiantes() {
               <div className="bg-amber-50 p-4 rounded-lg">
                 <h4 className="font-semibold text-amber-900 mb-2">Formato de la plantilla:</h4>
                 <p className="text-sm text-amber-700 mb-2">
-                  La plantilla incluye <strong>16 campos obligatorios</strong> en el siguiente orden:
+                  La plantilla incluye <strong>18 campos obligatorios</strong> en el siguiente orden:
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-amber-700">
                   <div>
                     <p><strong>Información del estudiante:</strong></p>
                     <ul className="ml-4 space-y-1">
-                      <li>• nombre_completo</li>
+                      <li>• nombres</li>
+                      <li>• primer_apellido</li>
+                      <li>• segundo_apellido</li>
                       <li>• curp (18 caracteres)</li>
                       <li>• fecha_nacimiento (YYYY-MM-DD)</li>
                       <li>• grado</li>

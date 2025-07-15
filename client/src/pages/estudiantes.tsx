@@ -683,10 +683,50 @@ export default function Estudiantes() {
         "Vitaminas",
         "Ana López García",
         "5559876543"
+      ],
+      [
+        "Carlos Mendoza Ruiz",
+        "MERC110305HDFRRL04",
+        "2011-03-05",
+        "1ro Sec",
+        "B",
+        "Patricia Ruiz Mendoza",
+        "5552345678",
+        "patricia.ruiz@email.com",
+        "Av. Insurgentes 456, Col. Roma",
+        "06700",
+        "Ciudad de México",
+        "Ciudad de México",
+        "Asma",
+        "Inhalador",
+        "Roberto Mendoza",
+        "5558765432"
+      ],
+      [
+        "Sofía Hernández Castro",
+        "HECS130922MDFRTF06",
+        "2013-09-22",
+        "Kinder 3",
+        "C",
+        "Miguel Hernández López",
+        "5553456789",
+        "miguel.hernandez@email.com",
+        "Calle Juárez 789, Col. Centro",
+        "01020",
+        "Ciudad de México",
+        "Ciudad de México",
+        "Ninguna",
+        "Ninguno",
+        "Carmen Castro",
+        "5557654321"
       ]
     ];
     
-    const csvContent = [headers, ...exampleData].map(row => row.join(",")).join("\n");
+    // Crear CSV con BOM UTF-8 para compatibilidad con Excel
+    const csvContent = "\uFEFF" + [headers, ...exampleData].map(row => 
+      row.map(cell => `"${cell}"`).join(",")
+    ).join("\n");
+    
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -699,7 +739,7 @@ export default function Estudiantes() {
     
     toast({
       title: "Plantilla descargada",
-      description: "La plantilla Excel ha sido descargada exitosamente.",
+      description: "La plantilla Excel ha sido descargada exitosamente con 3 ejemplos de estudiantes.",
     });
   };
 
@@ -1271,16 +1311,47 @@ export default function Estudiantes() {
 
               <div className="bg-amber-50 p-4 rounded-lg">
                 <h4 className="font-semibold text-amber-900 mb-2">Formato de la plantilla:</h4>
-                <ul className="text-sm text-amber-700 space-y-1">
-                  <li>• <strong>nombre_completo:</strong> Nombre y apellidos del estudiante</li>
-                  <li>• <strong>curp:</strong> CURP de 18 caracteres (obligatorio)</li>
-                  <li>• <strong>fecha_nacimiento:</strong> Formato: YYYY-MM-DD</li>
-                  <li>• <strong>grado:</strong> Ej: "Kinder 1", "1ro", "2do Sec", etc.</li>
-                  <li>• <strong>grupo:</strong> Letra del grupo (A, B, C, etc.)</li>
-                  <li>• <strong>responsable_nombre:</strong> Nombre del padre/madre/tutor</li>
-                  <li>• <strong>responsable_telefono:</strong> Teléfono de 10 dígitos</li>
-                  <li>• <strong>responsable_email:</strong> Correo electrónico</li>
-                </ul>
+                <p className="text-sm text-amber-700 mb-2">
+                  La plantilla incluye <strong>16 campos obligatorios</strong> en el siguiente orden:
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-amber-700">
+                  <div>
+                    <p><strong>Información del estudiante:</strong></p>
+                    <ul className="ml-4 space-y-1">
+                      <li>• nombre_completo</li>
+                      <li>• curp (18 caracteres)</li>
+                      <li>• fecha_nacimiento (YYYY-MM-DD)</li>
+                      <li>• grado</li>
+                      <li>• grupo</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <p><strong>Información del responsable:</strong></p>
+                    <ul className="ml-4 space-y-1">
+                      <li>• responsable_nombre</li>
+                      <li>• responsable_telefono</li>
+                      <li>• responsable_email</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <p><strong>Dirección:</strong></p>
+                    <ul className="ml-4 space-y-1">
+                      <li>• direccion</li>
+                      <li>• codigo_postal</li>
+                      <li>• ciudad</li>
+                      <li>• estado</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <p><strong>Información médica:</strong></p>
+                    <ul className="ml-4 space-y-1">
+                      <li>• alergias</li>
+                      <li>• medicamentos</li>
+                      <li>• contacto_emergencia</li>
+                      <li>• telefono_emergencia</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             </div>
 

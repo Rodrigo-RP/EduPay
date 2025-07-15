@@ -30,16 +30,18 @@ export default function Familias() {
   const [formData, setFormData] = useState({
     // Datos Generales
     numero_familia: "",
-    apellido_paterno: "",
-    apellido_materno: "",
-    // Padre/Tutor Principal
-    padre_nombre: "",
+    // Padre/Tutor Principal - Campos separados
+    padre_nombres: "",
+    padre_primer_apellido: "",
+    padre_segundo_apellido: "",
     padre_telefono: "",
     padre_email: "",
     padre_ocupacion: "",
     padre_empresa: "",
-    // Madre/Tutora
-    madre_nombre: "",
+    // Madre/Tutora - Campos separados
+    madre_nombres: "",
+    madre_primer_apellido: "",
+    madre_segundo_apellido: "",
     madre_telefono: "",
     madre_email: "",
     madre_ocupacion: "",
@@ -299,15 +301,25 @@ export default function Familias() {
     }));
   };
 
+  // Función para combinar nombres separados en nombre completo
+  const combineNames = (nombres: string, primerApellido: string, segundoApellido: string) => {
+    const parts = [nombres, primerApellido, segundoApellido].filter(part => part.trim());
+    return parts.join(' ');
+  };
+
   const resetForm = () => {
     setFormData({
       numero_familia: "",
-      padre_nombre: "",
+      padre_nombres: "",
+      padre_primer_apellido: "",
+      padre_segundo_apellido: "",
       padre_telefono: "",
       padre_email: "",
       padre_ocupacion: "",
       padre_empresa: "",
-      madre_nombre: "",
+      madre_nombres: "",
+      madre_primer_apellido: "",
+      madre_segundo_apellido: "",
       madre_telefono: "",
       madre_email: "",
       madre_ocupacion: "",
@@ -577,14 +589,22 @@ export default function Familias() {
   };
 
   const loadFamilyForEdit = (familia: any) => {
+    // Separar nombres existentes para el formulario
+    const padreNombreParts = familia.padre_nombre?.split(' ') || [];
+    const madreNombreParts = familia.madre_nombre?.split(' ') || [];
+    
     setFormData({
       numero_familia: familia.numero_familia,
-      padre_nombre: familia.padre_nombre,
+      padre_nombres: padreNombreParts[0] || "",
+      padre_primer_apellido: padreNombreParts[1] || "",
+      padre_segundo_apellido: padreNombreParts[2] || "",
       padre_telefono: familia.padre_telefono,
       padre_email: familia.padre_email || "",
       padre_ocupacion: familia.padre_ocupacion || "",
       padre_empresa: familia.padre_empresa || "",
-      madre_nombre: familia.madre_nombre || "",
+      madre_nombres: madreNombreParts[0] || "",
+      madre_primer_apellido: madreNombreParts[1] || "",
+      madre_segundo_apellido: madreNombreParts[2] || "",
       madre_telefono: familia.madre_telefono || "",
       madre_email: familia.madre_email || "",
       madre_ocupacion: familia.madre_ocupacion || "",
@@ -615,10 +635,10 @@ export default function Familias() {
     e.preventDefault();
     
     // Validaciones básicas
-    if (!formData.padre_nombre || !formData.padre_telefono) {
+    if (!formData.padre_nombres || !formData.padre_primer_apellido || !formData.padre_telefono) {
       toast({
         title: "Error",
-        description: "Por favor complete los campos obligatorios: nombre del padre y teléfono.",
+        description: "Por favor complete los campos obligatorios: nombres del padre, primer apellido y teléfono.",
         variant: "destructive"
       });
       return;
@@ -634,20 +654,32 @@ export default function Familias() {
       return;
     }
 
+    // Combinar nombres separados para compatibilidad
+    const padreNombreCompleto = combineNames(
+      formData.padre_nombres, 
+      formData.padre_primer_apellido, 
+      formData.padre_segundo_apellido
+    );
+    const madreNombreCompleto = combineNames(
+      formData.madre_nombres, 
+      formData.madre_primer_apellido, 
+      formData.madre_segundo_apellido
+    );
+
     if (editingFamily) {
       // Actualizar familia existente
       const updatedFamily = {
         ...editingFamily,
-        padre_nombre: formData.padre_nombre,
+        padre_nombre: padreNombreCompleto,
         padre_telefono: formData.padre_telefono,
         padre_email: formData.padre_email,
-        madre_nombre: formData.madre_nombre,
+        madre_nombre: madreNombreCompleto,
         madre_telefono: formData.madre_telefono,
         madre_email: formData.madre_email,
         direccion: formData.direccion,
         ciudad: formData.ciudad,
         codigo_postal: formData.codigo_postal,
-        razon_social: formData.razon_social || formData.padre_nombre,
+        razon_social: formData.razon_social || padreNombreCompleto,
         rfc: formData.rfc,
         estatus: formData.estatus
       };
@@ -656,7 +688,7 @@ export default function Familias() {
       
       toast({
         title: "Familia actualizada",
-        description: `Los datos de la familia ${formData.apellido_paterno} han sido actualizados exitosamente.`
+        description: `Los datos de la familia ${formData.padre_primer_apellido} han sido actualizados exitosamente.`
       });
 
       resetForm();
@@ -670,18 +702,16 @@ export default function Familias() {
       const newFamily = {
         id: newId,
         numero_familia: numeroFamilia,
-        apellido_paterno: formData.apellido_paterno,
-        apellido_materno: formData.apellido_materno,
-        padre_nombre: formData.padre_nombre,
+        padre_nombre: padreNombreCompleto,
         padre_telefono: formData.padre_telefono,
         padre_email: formData.padre_email,
-        madre_nombre: formData.madre_nombre,
+        madre_nombre: madreNombreCompleto,
         madre_telefono: formData.madre_telefono,
         madre_email: formData.madre_email,
         direccion: formData.direccion,
         ciudad: formData.ciudad,
         codigo_postal: formData.codigo_postal,
-        razon_social: formData.razon_social || formData.padre_nombre,
+        razon_social: formData.razon_social || padreNombreCompleto,
         rfc: formData.rfc,
         estatus: formData.estatus,
         estudiantes_vinculados: [],
@@ -693,7 +723,7 @@ export default function Familias() {
       
       toast({
         title: "Familia registrada",
-        description: `La familia ${formData.apellido_paterno} ha sido registrada exitosamente con número ${numeroFamilia}.`
+        description: `La familia ${formData.padre_primer_apellido} ha sido registrada exitosamente con número ${numeroFamilia}.`
       });
 
       resetForm();
@@ -961,15 +991,34 @@ export default function Familias() {
                     <TabsContent value="generales" className="space-y-4">
                       <div>
                         <h3 className="text-lg font-semibold text-slate-900 mb-4">Padre/Tutor Principal</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div>
-                            <Label htmlFor="padre_nombre">Nombre Completo *</Label>
+                            <Label htmlFor="padre_nombres">Nombres *</Label>
                             <Input
-                              id="padre_nombre"
-                              value={formData.padre_nombre}
-                              onChange={(e) => handleInputChange("padre_nombre", e.target.value)}
-                              placeholder="Nombre completo del padre/tutor"
+                              id="padre_nombres"
+                              value={formData.padre_nombres}
+                              onChange={(e) => handleInputChange("padre_nombres", e.target.value)}
+                              placeholder="Nombres del padre/tutor"
                               required
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="padre_primer_apellido">Primer Apellido *</Label>
+                            <Input
+                              id="padre_primer_apellido"
+                              value={formData.padre_primer_apellido}
+                              onChange={(e) => handleInputChange("padre_primer_apellido", e.target.value)}
+                              placeholder="Primer apellido"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="padre_segundo_apellido">Segundo Apellido</Label>
+                            <Input
+                              id="padre_segundo_apellido"
+                              value={formData.padre_segundo_apellido}
+                              onChange={(e) => handleInputChange("padre_segundo_apellido", e.target.value)}
+                              placeholder="Segundo apellido"
                             />
                           </div>
                           <div>
@@ -1002,7 +1051,7 @@ export default function Familias() {
                               placeholder="Ocupación del padre/tutor"
                             />
                           </div>
-                          <div>
+                          <div className="md:col-span-3">
                             <Label htmlFor="padre_empresa">Empresa</Label>
                             <Input
                               id="padre_empresa"
@@ -1016,14 +1065,32 @@ export default function Familias() {
 
                       <div>
                         <h3 className="text-lg font-semibold text-slate-900 mb-4">Madre/Tutora</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div>
-                            <Label htmlFor="madre_nombre">Nombre Completo</Label>
+                            <Label htmlFor="madre_nombres">Nombres</Label>
                             <Input
-                              id="madre_nombre"
-                              value={formData.madre_nombre}
-                              onChange={(e) => handleInputChange("madre_nombre", e.target.value)}
-                              placeholder="Nombre completo de la madre/tutora"
+                              id="madre_nombres"
+                              value={formData.madre_nombres}
+                              onChange={(e) => handleInputChange("madre_nombres", e.target.value)}
+                              placeholder="Nombres de la madre/tutora"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="madre_primer_apellido">Primer Apellido</Label>
+                            <Input
+                              id="madre_primer_apellido"
+                              value={formData.madre_primer_apellido}
+                              onChange={(e) => handleInputChange("madre_primer_apellido", e.target.value)}
+                              placeholder="Primer apellido"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="madre_segundo_apellido">Segundo Apellido</Label>
+                            <Input
+                              id="madre_segundo_apellido"
+                              value={formData.madre_segundo_apellido}
+                              onChange={(e) => handleInputChange("madre_segundo_apellido", e.target.value)}
+                              placeholder="Segundo apellido"
                             />
                           </div>
                           <div>
@@ -1055,7 +1122,7 @@ export default function Familias() {
                               placeholder="Ocupación de la madre/tutora"
                             />
                           </div>
-                          <div>
+                          <div className="md:col-span-3">
                             <Label htmlFor="madre_empresa">Empresa</Label>
                             <Input
                               id="madre_empresa"

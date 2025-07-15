@@ -118,6 +118,13 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- July 15, 2025: FORMULARIO INDIVIDUAL DE FAMILIAS ACTUALIZADO - Campos de nombres separados implementados igual que Excel
+- July 15, 2025: Formulario individual ahora tiene campos separados: Nombres, Primer Apellido, Segundo Apellido (padre y madre)
+- July 15, 2025: Estructura de grid optimizada con 3 columnas para mejor aprovechamiento del espacio
+- July 15, 2025: Validaciones actualizadas para requerir nombres y primer apellido como campos obligatorios
+- July 15, 2025: Función combineNames() implementada para generar nombres completos manteniendo compatibilidad del sistema
+- July 15, 2025: Función loadFamilyForEdit() actualizada para separar nombres existentes en campos individuales
+- July 15, 2025: Consistencia completa entre formulario individual y plantilla Excel con estructura de nombres separados
 - July 15, 2025: FUNCIONALIDAD EXCEL PARA FAMILIAS EN DESARROLLO - Implementación de importación masiva con nombres separados
 - July 15, 2025: Plantilla Excel para familias con 33 campos: apellido_paterno, apellido_materno, padre_nombres, padre_primer_apellido, padre_segundo_apellido, etc.
 - July 15, 2025: Interfaz con pestañas (Individual e Importar Excel) similar a la implementada en estudiantes

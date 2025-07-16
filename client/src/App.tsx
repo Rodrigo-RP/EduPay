@@ -54,6 +54,8 @@ import SwitchToSchool from "@/pages/switch-to-school";
 import LogoutAndLoginSchool from "@/pages/logout-and-login-school";
 import Aprobaciones from "@/pages/aprobaciones";
 import DemoAprobaciones from "@/pages/demo-aprobaciones";
+import DashboardAdmisiones from "@/pages/dashboard-admisiones";
+import DashboardCaja from "@/pages/dashboard-caja";
 
 function AuthenticatedRoutes() {
   const { user, guardian, isLoading } = useAuth();
@@ -134,6 +136,8 @@ function AuthenticatedRoutes() {
             <Route path="/portal-3clics" component={PortalPadres3Clics} />
             <Route path="/aprobaciones" component={Aprobaciones} />
             <Route path="/demo-aprobaciones" component={DemoAprobaciones} />
+            <Route path="/dashboard-admisiones" component={DashboardAdmisiones} />
+            <Route path="/dashboard-caja" component={DashboardCaja} />
             <Route component={NotFound} />
           </Switch>
         </main>

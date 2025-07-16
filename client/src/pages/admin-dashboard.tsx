@@ -2,6 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import KPICard from "@/components/kpi-card";
 import { useAuth } from "@/hooks/use-auth";
+import { useRoleBasedData } from "@/hooks/useRoleBasedData";
+import { useEffect } from "react";
+import { useLocation } from "wouter";
 import { 
   BarChart3, 
   CreditCard, 
@@ -29,7 +32,26 @@ interface Student {
 
 export default function AdminDashboard() {
   const { user } = useAuth();
+  const { userRole } = useRoleBasedData();
+  const [, setLocation] = useLocation();
   const campusId = 1;
+
+  // Redirección automática según el rol
+  useEffect(() => {
+    if (user && userRole) {
+      switch (userRole) {
+        case 'admisiones':
+          setLocation('/dashboard-admisiones');
+          return;
+        case 'caja':
+          setLocation('/dashboard-caja');
+          return;
+        // Los demás roles permanecen en el dashboard general
+        default:
+          break;
+      }
+    }
+  }, [user, userRole, setLocation]);
 
   const { data: kpiData, isLoading: kpiLoading } = useQuery<KPIData>({
     queryKey: [`/api/admin/dashboard/${campusId}`],

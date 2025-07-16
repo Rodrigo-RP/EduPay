@@ -26,6 +26,9 @@ export default function Usuarios() {
   const [selectedUserForPermissions, setSelectedUserForPermissions] = useState<any>(null);
   const [customPermissions, setCustomPermissions] = useState<string[]>([]);
   const [useCustomPermissions, setUseCustomPermissions] = useState(false);
+  const [activeTab, setActiveTab] = useState<'list' | 'assign'>('list');
+  const [selectedUserForAssignment, setSelectedUserForAssignment] = useState<any>(null);
+  const [assignmentPermissions, setAssignmentPermissions] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     nombre_completo: "",
     email: "",
@@ -293,6 +296,25 @@ export default function Usuarios() {
     );
   };
 
+  const handleAssignmentPermissionToggle = (permissionId: string) => {
+    setAssignmentPermissions(prev => 
+      prev.includes(permissionId) 
+        ? prev.filter(id => id !== permissionId)
+        : [...prev, permissionId]
+    );
+  };
+
+  const handleAssignPermissions = () => {
+    if (selectedUserForAssignment) {
+      toast({
+        title: "Permisos asignados",
+        description: `Se han asignado ${assignmentPermissions.length} permisos a ${selectedUserForAssignment.nombre_completo}`,
+      });
+      setSelectedUserForAssignment(null);
+      setAssignmentPermissions([]);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       nombre_completo: "",
@@ -393,13 +415,42 @@ export default function Usuarios() {
           <h1 className="text-3xl font-bold text-slate-900">Gestión de Usuarios</h1>
           <p className="text-slate-600">Administra usuarios del sistema, roles y permisos</p>
             </div>
-            <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-              <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Agregar Usuario
-                </Button>
-              </DialogTrigger>
+            
+            {/* Pestañas */}
+            <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+              <button
+                onClick={() => setActiveTab('list')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'list'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                Lista de Usuarios
+              </button>
+              <button
+                onClick={() => setActiveTab('assign')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'assign'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                Asignar Permisos
+              </button>
+            </div>
+          </div>
+          
+          {/* Contenido de la pestaña Lista de Usuarios */}
+          {activeTab === 'list' && (
+            <div>
+              <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+                <DialogTrigger asChild>
+                <Button className="bg-blue-600 hover:bg-blue-700">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Agregar Usuario
+                    </Button>
+                </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Crear nuevo usuario</DialogTitle>
@@ -585,10 +636,9 @@ export default function Usuarios() {
                 </div>
               </DialogContent>
             </Dialog>
-          </div>
-
+          
           {/* Estadísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
             <Card>
               <CardContent className="p-4 text-center">
                 <Users className="w-8 h-8 text-blue-600 mx-auto mb-2" />
@@ -955,6 +1005,199 @@ export default function Usuarios() {
               </div>
             </DialogContent>
           </Dialog>
+            </div>
+          )}
+          
+          {/* Contenido de la pestaña Asignar Permisos */}
+          {activeTab === 'assign' && (
+            <div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Asignar Permisos Personalizados</CardTitle>
+                  <CardDescription>
+                    Selecciona un usuario existente y asígnale permisos específicos manualmente
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {/* Selector de usuario */}
+                    <div>
+                      <Label className="text-base font-semibold mb-3 block">1. Seleccionar Usuario</Label>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {usuarios.map((usuario) => (
+                          <div 
+                            key={usuario.id}
+                            className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                              selectedUserForAssignment?.id === usuario.id
+                                ? 'border-blue-500 bg-blue-50'
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                            onClick={() => setSelectedUserForAssignment(usuario)}
+                          >
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                <User className="w-5 h-5 text-blue-600" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{usuario.nombre_completo}</p>
+                                <p className="text-xs text-gray-500">{usuario.email}</p>
+                                <Badge variant="outline" className="text-xs mt-1">
+                                  {usuario.role === 'SUPER_ADMIN' ? 'Super Admin' :
+                                   usuario.role === 'ADMIN_CAMPUS' ? 'Admin Campus' :
+                                   usuario.role === 'ADMISIONES' ? 'Admisiones' :
+                                   usuario.role === 'ASISTENTE' ? 'Asistente' :
+                                   usuario.role === 'CAJA' ? 'Caja' : 'Contador'}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Selección de permisos */}
+                    {selectedUserForAssignment && (
+                      <div>
+                        <Label className="text-base font-semibold mb-3 block">
+                          2. Seleccionar Permisos para {selectedUserForAssignment.nombre_completo}
+                        </Label>
+                        
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <AlertTriangle className="w-4 h-4 text-yellow-600" />
+                            <p className="text-sm font-medium text-yellow-800">
+                              Nota importante sobre permisos personalizados
+                            </p>
+                          </div>
+                          <p className="text-sm text-yellow-700">
+                            Los permisos asignados manualmente reemplazarán completamente los permisos predeterminados del rol "{selectedUserForAssignment.role}". 
+                            Asegúrate de incluir todos los permisos necesarios para el correcto funcionamiento del usuario.
+                          </p>
+                        </div>
+                        
+                        {/* Botones de selección rápida */}
+                        <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-lg mb-4">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setAssignmentPermissions(getAllAvailablePermissions().map(p => p.id))}
+                          >
+                            Seleccionar todos
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setAssignmentPermissions([])}
+                          >
+                            Deseleccionar todos
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const basicPermissions = getAllAvailablePermissions()
+                                .filter(p => ['Panel de Control', 'Estudiantes', 'Familias'].includes(p.module))
+                                .map(p => p.id);
+                              setAssignmentPermissions(basicPermissions);
+                            }}
+                          >
+                            Permisos básicos
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const financialPermissions = getAllAvailablePermissions()
+                                .filter(p => ['Pagos', 'Cargos', 'Finanzas', 'Cuentas por Cobrar'].includes(p.module))
+                                .map(p => p.id);
+                              setAssignmentPermissions(financialPermissions);
+                            }}
+                          >
+                            Solo finanzas
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const rolePermissions = getRolePermissions(selectedUserForAssignment.role.toLowerCase() as UserRole);
+                              if (rolePermissions) {
+                                const currentRolePermissions = rolePermissions.permissions.map(p => 
+                                  `${p.module}_${p.action}_${p.scope}`
+                                );
+                                setAssignmentPermissions(currentRolePermissions);
+                              }
+                            }}
+                          >
+                            Permisos del rol actual
+                          </Button>
+                        </div>
+                        
+                        {/* Lista de permisos */}
+                        <div className="max-h-80 overflow-y-auto space-y-3 mb-4">
+                          {getAllAvailablePermissions().map((permission) => (
+                            <div key={permission.id} className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-gray-50">
+                              <input
+                                type="checkbox"
+                                id={`assign-${permission.id}`}
+                                checked={assignmentPermissions.includes(permission.id)}
+                                onChange={() => handleAssignmentPermissionToggle(permission.id)}
+                                className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Badge variant="outline" className="text-xs">
+                                    {permission.module}
+                                  </Badge>
+                                  <Badge variant="outline" className="text-xs bg-green-100 text-green-800">
+                                    {permission.action}
+                                  </Badge>
+                                  <Badge variant="outline" className="text-xs bg-gray-100">
+                                    {permission.scope === 'all' ? 'Toda la plataforma' : 
+                                     permission.scope === 'campus' ? 'Solo su campus' : 
+                                     permission.scope === 'own' ? 'Solo sus registros' : 'Solo lectura'}
+                                  </Badge>
+                                </div>
+                                <label 
+                                  htmlFor={`assign-${permission.id}`} 
+                                  className="text-sm text-gray-700 cursor-pointer"
+                                >
+                                  {permission.description}
+                                </label>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {/* Resumen y botón de asignación */}
+                        <div className="bg-blue-50 p-4 rounded-lg">
+                          <div className="flex items-center justify-between mb-3">
+                            <p className="text-sm font-medium text-blue-800">
+                              Resumen de asignación
+                            </p>
+                            <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                              {assignmentPermissions.length} permisos seleccionados
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-blue-700 mb-4">
+                            Se asignarán {assignmentPermissions.length} permisos personalizados a{' '}
+                            <strong>{selectedUserForAssignment.nombre_completo}</strong>
+                          </p>
+                          <Button 
+                            onClick={handleAssignPermissions}
+                            className="w-full"
+                            disabled={assignmentPermissions.length === 0}
+                          >
+                            <Key className="w-4 h-4 mr-2" />
+                            Asignar Permisos Personalizados
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       </div>
     </div>

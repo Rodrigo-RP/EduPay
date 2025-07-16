@@ -86,6 +86,8 @@ export default function DashboardAdmisiones() {
            (p.concept?.name?.toLowerCase().includes('inscripcion') || p.concept?.name?.toLowerCase().includes('inscription'));
   });
 
+
+
   if (studentsLoading || paymentsLoading || chargesLoading || scholarshipsLoading || prospectsLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -101,8 +103,8 @@ export default function DashboardAdmisiones() {
     <div className="space-y-6">
       {/* Header personalizado para Admisiones */}
       <div className="border-b pb-4">
-        <h1 className="text-3xl font-bold text-gray-900">{getDashboardTitle()}</h1>
-        <p className="text-gray-600 mt-1">{getDashboardDescription()}</p>
+        <h1 className="text-3xl font-bold text-gray-900">{getDashboardTitle}</h1>
+        <p className="text-gray-600 mt-1">{getDashboardDescription}</p>
         <div className="flex items-center gap-2 mt-2">
           <Badge variant="secondary" className="bg-blue-100 text-blue-800">
             <GraduationCap className="w-3 h-3 mr-1" />

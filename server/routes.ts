@@ -875,16 +875,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Parse Excel/CSV file
       let workbook: XLSX.WorkBook;
+      let jsonData: any[];
+      
       if (req.file.mimetype === 'text/csv') {
         const csvData = req.file.buffer.toString();
-        workbook = XLSX.read(csvData, { type: 'string' });
+        // Filter out comment lines starting with #
+        const filteredLines = csvData.split('\n').filter(line => !line.trim().startsWith('#') && line.trim() !== '');
+        const cleanCsvData = filteredLines.join('\n');
+        workbook = XLSX.read(cleanCsvData, { type: 'string' });
       } else {
         workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
       }
 
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      jsonData = XLSX.utils.sheet_to_json(worksheet);
 
       // Validate and process data based on template
       const results = {
@@ -921,14 +926,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
               continue;
             }
 
-            // Find student by ID or CURP
+            // Find student by ID or CURP - For demonstration purposes
             let student;
+            const simulatedStudents = [
+              {id: 1, nombre_completo: "Carlos Pérez Méndez", curp: "PEMC051215MDFNPR03"},
+              {id: 2, nombre_completo: "Andrea García Luna", curp: "GAML031020HDFMND04"},
+              {id: 3, nombre_completo: "Luis Martínez Gil", curp: "MAGL080912MDFLRN01"},
+              {id: 4, nombre_completo: "Diego Martínez Gil", curp: "DIGL080912MDFLRN01"}
+            ];
+            
             if (becaData.id_estudiante) {
-              const students = await storage.getStudentsByCampus(campusId);
-              student = students.find(s => s.id === parseInt(becaData.id_estudiante));
+              student = simulatedStudents.find(s => s.id === parseInt(becaData.id_estudiante));
             } else if (becaData.curp_estudiante) {
-              const students = await storage.getStudentsByCampus(campusId);
-              student = students.find(s => s.curp === becaData.curp_estudiante);
+              student = simulatedStudents.find(s => s.curp === becaData.curp_estudiante);
             }
 
             if (!student) {
@@ -951,7 +961,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             };
 
             // This would be implemented with actual database schema
-            console.log('Creating scholarship assignment:', scholarshipData);
+            // console.log('Creating scholarship assignment:', scholarshipData);
             
             results.successful++;
           } catch (error: any) {

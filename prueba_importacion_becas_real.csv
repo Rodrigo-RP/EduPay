@@ -1,0 +1,4 @@
+id_estudiante,curp_estudiante,nombre_estudiante,tipo_beca,tipo_descuento,valor_descuento,vigencia_inicio,vigencia_fin,observaciones
+1,PEMC051215MDFNPR03,Carlos Pérez Méndez,Beca USEBEQ,porcentaje,50,2024-08-15,2025-07-15,Beca por excelencia académica
+2,GAML031020HDFMND04,Andrea García Luna,Descuento Empleados,cantidad,1500,2024-08-15,2025-07-15,Descuento por ser hijo de empleado
+3,MAGL080912MDFLRN01,Luis Martínez Gil,Beca Deportiva,porcentaje,30,2024-08-15,2025-07-15,Beca por destacar en atletismo

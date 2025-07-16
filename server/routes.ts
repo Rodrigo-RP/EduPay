@@ -812,48 +812,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         },
         becas: {
-          tipos_becas: {
-            name: "Tipos de Becas",
-            columns: ["nombre", "categoria", "tipo_descuento", "porcentaje_max", "monto_fijo", "criterios", "vigencia_inicio", "vigencia_fin", "activa"],
-            sampleData: [{
-              nombre: "Beca Excelencia Académica",
-              categoria: "academica",
-              tipo_descuento: "porcentaje",
-              porcentaje_max: "50",
-              monto_fijo: "",
-              criterios: "Promedio mayor a 9.0",
-              vigencia_inicio: "2024-08-01",
-              vigencia_fin: "2025-07-31",
-              activa: "Sí"
-            }]
-          },
-          asignaciones_becas: {
-            name: "Asignaciones de Becas",
-            columns: ["id_estudiante", "curp_estudiante", "nombre_estudiante", "tipo_beca", "tipo_descuento", "valor_descuento", "vigencia_inicio", "vigencia_fin", "observaciones"],
-            sampleData: [{
-              id_estudiante: "1",
-              curp_estudiante: "GOLM051215MDFNPR03",
-              nombre_estudiante: "María González López",
-              tipo_beca: "Beca USEBEQ",
-              tipo_descuento: "porcentaje",
-              valor_descuento: "50",
-              vigencia_inicio: "2024-08-15",
-              vigencia_fin: "2025-07-15",
-              observaciones: "Beca por excelencia académica"
-            }, {
-              id_estudiante: "2",
-              curp_estudiante: "RAMS031020HDFMND04",
-              nombre_estudiante: "Carlos Ramírez Sánchez",
-              tipo_beca: "Descuento Empleados",
-              tipo_descuento: "cantidad",
-              valor_descuento: "1500",
-              vigencia_inicio: "2024-08-15",
-              vigencia_fin: "2025-07-15",
-              observaciones: "Descuento por ser hijo de empleado"
-            }]
-          }
-        },
-        becas: {
           asignaciones: {
             name: "Asignaciones de Becas",
             columns: ["id_estudiante", "curp_estudiante", "nombre_estudiante", "tipo_beca", "tipo_descuento", "valor_descuento", "vigencia_inicio", "vigencia_fin", "observaciones"],
@@ -877,6 +835,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
               vigencia_inicio: "2024-08-15",
               vigencia_fin: "2025-07-15",
               observaciones: "Descuento por ser hijo de empleado"
+            }, {
+              id_estudiante: "3",
+              curp_estudiante: "MAGL080912MDFLRN01",
+              nombre_estudiante: "Luis Martínez Gil",
+              tipo_beca: "Beca Deportiva",
+              tipo_descuento: "porcentaje",
+              valor_descuento: "25",
+              vigencia_inicio: "2024-08-15",
+              vigencia_fin: "2025-07-15",
+              observaciones: "Beca por destacar en fútbol"
             }]
           }
         }

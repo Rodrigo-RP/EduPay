@@ -1,7 +1,1 @@
-﻿# PLANTILLA: Asignaciones de Becas
-# FECHA: 7/16/2025
-# INSTRUCCIONES: Complete los campos obligatorios y guarde como archivo CSV
-
-id_estudiante,curp_estudiante,nombre_estudiante,tipo_beca,tipo_descuento,valor_descuento,vigencia_inicio,vigencia_fin,observaciones
-1,GOLM051215MDFNPR03,María González López,Beca USEBEQ,porcentaje,50,2024-08-15,2025-07-15,Beca por excelencia académica
-2,RAMS031020HDFMND04,Carlos Ramírez Sánchez,Descuento Empleados,cantidad,1500,2024-08-15,2025-07-15,Descuento por ser hijo de empleado
+Forbidden

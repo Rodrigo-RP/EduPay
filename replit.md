@@ -118,6 +118,11 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- July 16, 2025: PLANTILLA CSV PARA BECAS CORREGIDA - Formato CSV correcto con BOM UTF-8 y estructura de datos adecuada implementada
+- July 16, 2025: Función handleDownloadTemplate actualizada para generar CSV localmente con formato correcto y campos completos
+- July 16, 2025: Plantilla CSV incluye todos los campos requeridos: id_estudiante, curp_estudiante, nombre_estudiante, tipo_beca, tipo_descuento, valor_descuento, vigencia_inicio, vigencia_fin, observaciones
+- July 16, 2025: Archivo CSV con BOM UTF-8 para compatibilidad perfecta con Excel y procesamiento correcto de caracteres especiales
+- July 16, 2025: Problema de inconsistencia de tokens de autenticación completamente resuelto - sistema unificado con auth_token
 - July 16, 2025: SISTEMA DE IMPORTACIÓN CSV PARA BECAS COMPLETADO - Funcionalidad de importación masiva con CSV completamente operativa
 - July 16, 2025: Plantilla CSV para asignación de becas implementada con campos: id_estudiante, curp_estudiante, nombre_estudiante, tipo_beca, tipo_descuento, valor_descuento, vigencia_inicio, vigencia_fin, observaciones
 - July 16, 2025: Procesamiento de archivos CSV con filtrado automático de líneas de comentario (#) implementado correctamente

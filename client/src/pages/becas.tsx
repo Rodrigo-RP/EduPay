@@ -37,39 +37,36 @@ export default function Becas() {
   // Funciones para importación masiva de Excel
   const handleDownloadTemplate = async () => {
     try {
-      const response = await createAuthenticatedRequest('/api/import/template/becas/asignaciones');
+      // Create CSV content with proper BOM UTF-8 encoding
+      const csvContent = `\ufeff# PLANTILLA: Asignaciones de Becas
+# FECHA: ${new Date().toLocaleDateString()}
+# INSTRUCCIONES: Complete los campos obligatorios y guarde como archivo CSV
+
+id_estudiante,curp_estudiante,nombre_estudiante,tipo_beca,tipo_descuento,valor_descuento,vigencia_inicio,vigencia_fin,observaciones
+1,GOLM051215MDFNPR03,María González López,Beca USEBEQ,porcentaje,50,2024-08-15,2025-07-15,Beca por excelencia académica
+2,RAMS031020HDFMND04,Carlos Ramírez Sánchez,Descuento Empleados,cantidad,1500,2024-08-15,2025-07-15,Descuento por ser hijo de empleado
+3,MAGL080912MDFLRN01,Luis Martínez Gil,Beca Deportiva,porcentaje,25,2024-08-15,2025-07-15,Beca por destacar en fútbol`;
       
-      const blob = await response.blob();
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'plantilla_asignacion_becas.csv';
+      a.download = `plantilla_asignaciones_becas_${new Date().toISOString().split('T')[0]}.csv`;
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
       
       toast({
         title: "Plantilla descargada",
-        description: "La plantilla CSV ha sido descargada exitosamente.",
+        description: "La plantilla CSV ha sido descargada exitosamente con formato correcto.",
       });
     } catch (error: any) {
-      if (error.message.includes('sesión')) {
-        toast({
-          title: "Error",
-          description: error.message,
-          variant: "destructive"
-        });
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 1000);
-      } else {
-        toast({
-          title: "Error",
-          description: "No se pudo descargar la plantilla. Inténtalo de nuevo.",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Error",
+        description: "Error al crear la plantilla CSV. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
     }
   };
 

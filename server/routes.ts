@@ -3332,7 +3332,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get financial reports data
   app.get("/api/reports/financial", authenticateToken, async (req, res) => {
     try {
-      const { period, month, year } = req.query;
+      const { period, month = new Date().getMonth() + 1, year = new Date().getFullYear() } = req.query;
       const user = (req as any).user;
       
       if (!user || !user.campus_id) {
@@ -3340,82 +3340,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const campusId = user.campus_id;
+      
+      // Get data from storage using existing methods
+      const allPayments = await storage.getPayments(campusId);
+      const allCharges = await storage.getCharges(campusId);
+      const allStudents = await storage.getStudents(campusId);
+      const allConcepts = await storage.getConcepts(campusId);
+      
+      // Filter payments for the period
       const selectedDate = new Date(parseInt(year as string), parseInt(month as string) - 1, 1);
       const nextMonth = new Date(selectedDate);
       nextMonth.setMonth(nextMonth.getMonth() + 1);
 
-      // Get all payments for the period
-      const payments = await db
-        .select({
-          id: payments.id,
-          monto_centavos: payments.monto_centavos,
-          metodo: payments.metodo,
-          fecha_pago: payments.fecha_pago,
-          estado: payments.estado,
-          concept_name: concepts.nombre,
-          student_name: students.nombre_completo,
-          charge_id: charges.id
-        })
-        .from(payments)
-        .innerJoin(charges, eq(payments.charge_id, charges.id))
-        .innerJoin(students, eq(charges.student_id, students.id))
-        .innerJoin(concepts, eq(charges.concept_id, concepts.id))
-        .where(
-          and(
-            eq(students.campus_id, campusId),
-            gte(payments.fecha_pago, selectedDate),
-            lt(payments.fecha_pago, nextMonth)
-          )
-        );
-
-      // Get all charges for the period
-      const allCharges = await db
-        .select({
-          id: charges.id,
-          monto_base_centavos: charges.monto_base_centavos,
-          estado: charges.estado,
-          fecha_vencimiento: charges.fecha_vencimiento,
-          concept_name: concepts.nombre,
-          student_name: students.nombre_completo
-        })
-        .from(charges)
-        .innerJoin(students, eq(charges.student_id, students.id))
-        .innerJoin(concepts, eq(charges.concept_id, concepts.id))
-        .where(
-          and(
-            eq(students.campus_id, campusId),
-            gte(charges.fecha_emision, selectedDate),
-            lt(charges.fecha_emision, nextMonth)
-          )
-        );
-
-      // Calculate summary metrics
-      const totalIncome = payments
-        .filter(p => p.estado === 'exitoso')
-        .reduce((sum, p) => sum + p.monto_centavos, 0);
-
-      const paymentsProcessed = payments.filter(p => p.estado === 'exitoso').length;
-      
-      const accountsReceivable = allCharges
-        .filter(c => c.estado === 'pendiente')
-        .reduce((sum, c) => sum + c.monto_base_centavos, 0);
-
-      const overdueCharges = allCharges.filter(c => {
-        return c.estado === 'pendiente' && new Date(c.fecha_vencimiento) < new Date();
+      const filteredPayments = allPayments.filter(p => {
+        const paymentDate = new Date(p.created_at);
+        return paymentDate >= selectedDate && paymentDate < nextMonth;
       });
 
-      const overdueAmount = overdueCharges.reduce((sum, c) => sum + c.monto_base_centavos, 0);
-      const overduePercentage = allCharges.length > 0 ? (overdueCharges.length / allCharges.length) * 100 : 0;
+      const filteredCharges = allCharges.filter(c => {
+        const chargeDate = new Date(c.created_at);
+        return chargeDate >= selectedDate && chargeDate < nextMonth;
+      });
+
+      // Calculate summary metrics
+      const totalIncome = filteredPayments
+        .filter(p => p.status === 'exitoso')
+        .reduce((sum, p) => sum + p.amount, 0);
+
+      const paymentsProcessed = filteredPayments.filter(p => p.status === 'exitoso').length;
+      
+      const accountsReceivable = filteredCharges
+        .filter(c => c.status === 'pendiente')
+        .reduce((sum, c) => sum + c.amount, 0);
+
+      const overdueCharges = filteredCharges.filter(c => {
+        return c.status === 'pendiente' && new Date(c.due_date) < new Date();
+      });
+
+      const overdueAmount = overdueCharges.reduce((sum, c) => sum + c.amount, 0);
+      const overduePercentage = filteredCharges.length > 0 ? (overdueCharges.length / filteredCharges.length) * 100 : 0;
 
       // Group by concept
-      const incomeByType = payments
-        .filter(p => p.estado === 'exitoso')
+      const incomeByType = filteredPayments
+        .filter(p => p.status === 'exitoso')
         .reduce((acc, p) => {
-          const concept = p.concept_name;
+          const concept = p.concept?.name || 'Sin concepto';
           if (!acc[concept]) {
             acc[concept] = { amount: 0, count: 0 };
           }
-          acc[concept].amount += p.monto_centavos;
+          acc[concept].amount += p.amount;
           acc[concept].count += 1;
           return acc;
         }, {} as Record<string, { amount: number; count: number }>);
@@ -3428,14 +3401,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }));
 
       // Group by payment method
-      const paymentMethodGroups = payments
-        .filter(p => p.estado === 'exitoso')
+      const paymentMethodGroups = filteredPayments
+        .filter(p => p.status === 'exitoso')
         .reduce((acc, p) => {
-          const method = p.metodo;
+          const method = p.method || 'Sin método';
           if (!acc[method]) {
             acc[method] = { amount: 0, count: 0 };
           }
-          acc[method].amount += p.monto_centavos;
+          acc[method].amount += p.amount;
           acc[method].count += 1;
           return acc;
         }, {} as Record<string, { amount: number; count: number }>);
@@ -3447,14 +3420,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }));
 
       // Income details for table
-      const incomeDetails = payments
-        .filter(p => p.estado === 'exitoso')
+      const incomeDetails = filteredPayments
+        .filter(p => p.status === 'exitoso')
         .map(p => ({
-          fecha_pago: p.fecha_pago,
-          concepto: p.concept_name,
-          estudiante: p.student_name,
-          metodo: p.metodo,
-          monto: p.monto_centavos
+          fecha_pago: p.created_at,
+          concepto: p.concept?.name || 'Sin concepto',
+          estudiante: p.student?.nombre_completo || 'Sin estudiante',
+          metodo: p.method || 'Sin método',
+          monto: p.amount
         }))
         .sort((a, b) => new Date(b.fecha_pago).getTime() - new Date(a.fecha_pago).getTime());
 
@@ -3467,15 +3440,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           overdue_percentage: Math.round(overduePercentage * 100) / 100,
           income_growth: Math.floor(Math.random() * 20) + 5, // Placeholder
           payment_growth: Math.floor(Math.random() * 15) + 3, // Placeholder
-          receivable_accounts: allCharges.filter(c => c.estado === 'pendiente').length
+          receivable_accounts: filteredCharges.filter(c => c.status === 'pendiente').length
         },
         income_by_concept: incomeByConceptArray,
         payment_methods: paymentMethodsArray,
         income_details: incomeDetails.slice(0, 50), // Limit to 50 recent entries
         payments_analysis: {
-          successful: payments.filter(p => p.estado === 'exitoso').length,
-          failed: payments.filter(p => p.estado === 'fallido').length,
-          pending: allCharges.filter(c => c.estado === 'pendiente').length
+          successful: filteredPayments.filter(p => p.status === 'exitoso').length,
+          failed: filteredPayments.filter(p => p.status === 'fallido').length,
+          pending: filteredCharges.filter(c => c.status === 'pendiente').length
         },
         overdue_analysis: {
           total_amount: overdueAmount,

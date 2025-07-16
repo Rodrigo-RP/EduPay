@@ -3453,9 +3453,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         summarySheet.addRow([]);
         
         summarySheet.addRow(['MÉTRICAS PRINCIPALES']);
-        summarySheet.addRow(['Ingresos Totales:', `$${(data.summary.total_income / 100).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`]);
+        summarySheet.addRow(['Ingresos Totales:', `$${data.summary.total_income.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`]);
         summarySheet.addRow(['Pagos Procesados:', data.summary.payments_processed]);
-        summarySheet.addRow(['Cuentas por Cobrar:', `$${(data.summary.accounts_receivable / 100).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`]);
+        summarySheet.addRow(['Cuentas por Cobrar:', `$${data.summary.accounts_receivable.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`]);
         summarySheet.addRow(['Morosidad:', `${data.summary.overdue_percentage}%`]);
         summarySheet.addRow([]);
 
@@ -3465,7 +3465,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data.income_by_concept.forEach((item: any) => {
           conceptSheet.addRow([
             item.concept,
-            `$${(item.amount / 100).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
+            `$${item.amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
             `${item.percentage}%`
           ]);
         });
@@ -3479,7 +3479,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             payment.concepto,
             payment.estudiante,
             payment.metodo,
-            `$${(payment.monto / 100).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`
+            `$${payment.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`
           ]);
         });
 
@@ -3514,9 +3514,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         doc.setFontSize(16);
         doc.text('RESUMEN EJECUTIVO', 20, 60);
         doc.setFontSize(12);
-        doc.text(`Ingresos Totales: $${(data.summary.total_income / 100).toLocaleString('es-MX')}`, 20, 75);
+        doc.text(`Ingresos Totales: $${data.summary.total_income.toLocaleString('es-MX')}`, 20, 75);
         doc.text(`Pagos Procesados: ${data.summary.payments_processed}`, 20, 85);
-        doc.text(`Cuentas por Cobrar: $${(data.summary.accounts_receivable / 100).toLocaleString('es-MX')}`, 20, 95);
+        doc.text(`Cuentas por Cobrar: $${data.summary.accounts_receivable.toLocaleString('es-MX')}`, 20, 95);
         doc.text(`Morosidad: ${data.summary.overdue_percentage}%`, 20, 105);
         
         // Tabla de ingresos por concepto
@@ -3525,7 +3525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         const conceptData = data.income_by_concept.map((item: any) => [
           item.concept,
-          `$${(item.amount / 100).toLocaleString('es-MX')}`,
+          `$${item.amount.toLocaleString('es-MX')}`,
           `${item.percentage}%`
         ]);
         
@@ -3547,7 +3547,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           payment.concepto,
           payment.estudiante,
           payment.metodo,
-          `$${(payment.monto / 100).toLocaleString('es-MX')}`
+          `$${payment.monto.toLocaleString('es-MX')}`
         ]);
         
         (doc as any).autoTable({

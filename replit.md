@@ -118,6 +118,12 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- July 16, 2025: SISTEMA DE USUARIOS COMPLETADO CON NUEVOS ROLES - Gestión completa de permisos y visualización detallada
+- July 16, 2025: Agregados roles "Admisiones" y "Asistente" al sistema con permisos específicos y restricciones definidas
+- July 16, 2025: Implementado botón "Ver Permisos" con modal detallado mostrando permisos, restricciones y alcance por rol
+- July 16, 2025: Sistema completo de 6 roles: Super Admin, Admin Campus, Admisiones, Asistente, Caja, Contador
+- July 16, 2025: Filtros actualizados para incluir todos los roles y estadísticas visuales por tipo de usuario
+- July 16, 2025: Integración completa con shared/permissions.ts para control granular de acceso
 - July 16, 2025: MÚLTIPLES DATOS FISCALES IMPLEMENTADOS - Sistema para gestionar varios RFC por familia
 - July 16, 2025: Pestaña de Facturación ahora permite agregar múltiples RFC con botón "Agregar RFC"
 - July 16, 2025: Cada RFC tiene su propia configuración CFDI independiente (Uso CFDI, Método de Pago, Forma de Pago)

@@ -536,6 +536,9 @@ export default function Usuarios() {
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Editar usuario</DialogTitle>
+                <DialogDescription>
+                  Modifica la información del usuario seleccionado
+                </DialogDescription>
               </DialogHeader>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
                 <div>

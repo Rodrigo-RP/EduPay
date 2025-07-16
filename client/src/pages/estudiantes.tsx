@@ -30,7 +30,9 @@ export default function Estudiantes() {
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
-    nombre_completo: "",
+    nombres: "",
+    primer_apellido: "",
+    segundo_apellido: "",
     curp: "",
     fecha_nacimiento: "",
     grado: "",
@@ -434,9 +436,17 @@ export default function Estudiantes() {
     }));
   };
 
+  // Función para combinar nombres separados en nombre completo
+  const combineNames = (nombres: string, primerApellido: string, segundoApellido: string) => {
+    const parts = [nombres, primerApellido, segundoApellido].filter(part => part.trim());
+    return parts.join(' ');
+  };
+
   const resetForm = () => {
     setFormData({
-      nombre_completo: "",
+      nombres: "",
+      primer_apellido: "",
+      segundo_apellido: "",
       curp: "",
       fecha_nacimiento: "",
       grado: "",
@@ -457,8 +467,17 @@ export default function Estudiantes() {
   };
 
   const loadStudentForEdit = (student: any) => {
+    // Separar el nombre completo en campos individuales
+    const nombreCompleto = student.nombre_completo || "";
+    const partesNombre = nombreCompleto.split(" ");
+    const nombres = partesNombre.length > 0 ? partesNombre[0] : "";
+    const primerApellido = partesNombre.length > 1 ? partesNombre[1] : "";
+    const segundoApellido = partesNombre.length > 2 ? partesNombre.slice(2).join(" ") : "";
+    
     setFormData({
-      nombre_completo: student.nombre_completo,
+      nombres: nombres,
+      primer_apellido: primerApellido,
+      segundo_apellido: segundoApellido,
       curp: student.curp,
       fecha_nacimiento: student.fecha_nacimiento || "",
       grado: student.grado,
@@ -483,8 +502,11 @@ export default function Estudiantes() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Combinar nombres separados en nombre completo
+    const nombreCompleto = combineNames(formData.nombres, formData.primer_apellido, formData.segundo_apellido);
+    
     // Validaciones básicas
-    if (!formData.nombre_completo || !formData.curp || !formData.grado || !formData.responsable_nombre) {
+    if (!formData.nombres || !formData.primer_apellido || !formData.curp || !formData.grado || !formData.responsable_nombre) {
       toast({
         title: "Error",
         description: "Por favor complete todos los campos obligatorios.",
@@ -507,7 +529,7 @@ export default function Estudiantes() {
       // Actualizar estudiante existente
       const updatedStudent = {
         ...editingStudent,
-        nombre_completo: formData.nombre_completo,
+        nombre_completo: nombreCompleto,
         curp: formData.curp,
         grado: formData.grado,
         grupo: formData.grupo,
@@ -520,7 +542,7 @@ export default function Estudiantes() {
       
       toast({
         title: "Estudiante actualizado",
-        description: `Los datos de ${formData.nombre_completo} han sido actualizados exitosamente.`
+        description: `Los datos de ${nombreCompleto} han sido actualizados exitosamente.`
       });
 
       resetForm();
@@ -532,7 +554,7 @@ export default function Estudiantes() {
       
       const newStudent = {
         id: newId,
-        nombre_completo: formData.nombre_completo,
+        nombre_completo: nombreCompleto,
         curp: formData.curp,
         grado: formData.grado,
         grupo: formData.grupo,
@@ -547,7 +569,7 @@ export default function Estudiantes() {
       
       toast({
         title: "Estudiante agregado",
-        description: `${formData.nombre_completo} ha sido registrado exitosamente.`
+        description: `${nombreCompleto} ha sido registrado exitosamente.`
       });
 
       resetForm();
@@ -1053,15 +1075,34 @@ export default function Estudiantes() {
             {/* Información del Estudiante */}
             <div>
               <h3 className="text-lg font-semibold text-slate-900 mb-4">Información del Estudiante</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <Label htmlFor="nombre_completo">Nombre Completo *</Label>
+                  <Label htmlFor="nombres">Nombres *</Label>
                   <Input
-                    id="nombre_completo"
-                    value={formData.nombre_completo}
-                    onChange={(e) => handleInputChange("nombre_completo", e.target.value)}
-                    placeholder="Nombre y apellidos del estudiante"
+                    id="nombres"
+                    value={formData.nombres}
+                    onChange={(e) => handleInputChange("nombres", e.target.value)}
+                    placeholder="Nombres del estudiante"
                     required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="primer_apellido">Primer Apellido *</Label>
+                  <Input
+                    id="primer_apellido"
+                    value={formData.primer_apellido}
+                    onChange={(e) => handleInputChange("primer_apellido", e.target.value)}
+                    placeholder="Primer apellido"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="segundo_apellido">Segundo Apellido</Label>
+                  <Input
+                    id="segundo_apellido"
+                    value={formData.segundo_apellido}
+                    onChange={(e) => handleInputChange("segundo_apellido", e.target.value)}
+                    placeholder="Segundo apellido"
                   />
                 </div>
                 <div>
@@ -1407,15 +1448,34 @@ export default function Estudiantes() {
         {/* Toda la información del estudiante para modo edición */}
         <div>
           <h3 className="text-lg font-semibold text-slate-900 mb-4">Información del Estudiante</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <Label htmlFor="nombre_completo">Nombre Completo *</Label>
+              <Label htmlFor="nombres">Nombres *</Label>
               <Input
-                id="nombre_completo"
-                value={formData.nombre_completo}
-                onChange={(e) => handleInputChange("nombre_completo", e.target.value)}
-                placeholder="Nombre y apellidos del estudiante"
+                id="nombres"
+                value={formData.nombres}
+                onChange={(e) => handleInputChange("nombres", e.target.value)}
+                placeholder="Nombres del estudiante"
                 required
+              />
+            </div>
+            <div>
+              <Label htmlFor="primer_apellido">Primer Apellido *</Label>
+              <Input
+                id="primer_apellido"
+                value={formData.primer_apellido}
+                onChange={(e) => handleInputChange("primer_apellido", e.target.value)}
+                placeholder="Primer apellido"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="segundo_apellido">Segundo Apellido</Label>
+              <Input
+                id="segundo_apellido"
+                value={formData.segundo_apellido}
+                onChange={(e) => handleInputChange("segundo_apellido", e.target.value)}
+                placeholder="Segundo apellido"
               />
             </div>
             <div>

@@ -34,24 +34,33 @@ export default function Becas() {
   const [showImportResults, setShowImportResults] = useState(false);
   const { toast } = useToast();
 
-  // Funciones para importación masiva de Excel
-  const handleDownloadTemplate = async () => {
+  // Funciones para importación masiva de CSV
+  const handleDownloadTemplate = () => {
     try {
-      // Create CSV content with proper BOM UTF-8 encoding
-      const csvContent = `\ufeff# PLANTILLA: Asignaciones de Becas
-# FECHA: ${new Date().toLocaleDateString()}
-# INSTRUCCIONES: Complete los campos obligatorios y guarde como archivo CSV
-
-id_estudiante,curp_estudiante,nombre_estudiante,tipo_beca,tipo_descuento,valor_descuento,vigencia_inicio,vigencia_fin,observaciones
-1,GOLM051215MDFNPR03,María González López,Beca USEBEQ,porcentaje,50,2024-08-15,2025-07-15,Beca por excelencia académica
-2,RAMS031020HDFMND04,Carlos Ramírez Sánchez,Descuento Empleados,cantidad,1500,2024-08-15,2025-07-15,Descuento por ser hijo de empleado
-3,MAGL080912MDFLRN01,Luis Martínez Gil,Beca Deportiva,porcentaje,25,2024-08-15,2025-07-15,Beca por destacar en fútbol`;
+      // Create CSV content with proper structure and UTF-8 BOM
+      const csvLines = [
+        "# PLANTILLA: Asignaciones de Becas",
+        `# FECHA: ${new Date().toLocaleDateString('es-ES')}`,
+        "# INSTRUCCIONES: Complete los campos obligatorios y guarde como archivo CSV",
+        "",
+        "id_estudiante,curp_estudiante,nombre_estudiante,tipo_beca,tipo_descuento,valor_descuento,vigencia_inicio,vigencia_fin,observaciones",
+        "1,GOLM051215MDFNPR03,María González López,Beca USEBEQ,porcentaje,50,2024-08-15,2025-07-15,Beca por excelencia académica",
+        "2,RAMS031020HDFMND04,Carlos Ramírez Sánchez,Descuento Empleados,cantidad,1500,2024-08-15,2025-07-15,Descuento por ser hijo de empleado",
+        "3,MAGL080912MDFLRN01,Luis Martínez Gil,Beca Deportiva,porcentaje,25,2024-08-15,2025-07-15,Beca por destacar en fútbol"
+      ];
       
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const csvContent = csvLines.join('\n');
+      
+      // Create blob with UTF-8 BOM for Excel compatibility
+      const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+      const csvData = new TextEncoder().encode(csvContent);
+      const blob = new Blob([bom, csvData], { type: 'text/csv;charset=utf-8;' });
+      
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `plantilla_asignaciones_becas_${new Date().toISOString().split('T')[0]}.csv`;
+      a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -59,9 +68,10 @@ id_estudiante,curp_estudiante,nombre_estudiante,tipo_beca,tipo_descuento,valor_d
       
       toast({
         title: "Plantilla descargada",
-        description: "La plantilla CSV ha sido descargada exitosamente con formato correcto.",
+        description: "Plantilla CSV descargada con formato correcto y compatibilidad total con Excel.",
       });
     } catch (error: any) {
+      console.error('Error creating CSV:', error);
       toast({
         title: "Error",
         description: "Error al crear la plantilla CSV. Inténtalo de nuevo.",

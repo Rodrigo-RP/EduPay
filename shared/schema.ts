@@ -571,3 +571,122 @@ export const insertPlatformProfileSchema = createInsertSchema(platform_profiles)
 
 export type PlatformProfile = typeof platform_profiles.$inferSelect;
 export type InsertPlatformProfile = z.infer<typeof insertPlatformProfileSchema>;
+
+// ========================================
+// SISTEMA DE VALIDACIÓN Y APROBACIÓN
+// ========================================
+
+// PENDING APPROVALS (Sistema de validación para cambios críticos)
+export const pending_approvals = pgTable("pending_approvals", {
+  id: serial("id").primaryKey(),
+  campus_id: integer("campus_id").references(() => campuses.id, { onDelete: "cascade" }),
+  tenant_id: integer("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
+  requested_by: integer("requested_by").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  approved_by: integer("approved_by").references(() => users.id, { onDelete: "set null" }),
+  action_type: varchar("action_type", { length: 100 }).notNull(), // 'modify_scholarship', 'modify_late_fee', 'modify_price', 'modify_payment_due_date', 'delete_concept', 'modify_concept'
+  entity_type: varchar("entity_type", { length: 50 }).notNull(), // 'scholarship', 'late_fee', 'concept', 'payment_rule', 'product'
+  entity_id: integer("entity_id").notNull(), // ID del elemento a modificar
+  original_data: text("original_data").notNull(), // JSON con datos originales
+  requested_data: text("requested_data").notNull(), // JSON con datos solicitados
+  reason: text("reason"), // Justificación del cambio
+  status: varchar("status", { length: 50 }).default("pending"), // 'pending', 'approved', 'rejected', 'expired'
+  priority: varchar("priority", { length: 20 }).default("medium"), // 'low', 'medium', 'high', 'critical'
+  approval_notes: text("approval_notes"), // Notas del aprobador
+  expires_at: timestamp("expires_at"), // Fecha de expiración de la solicitud
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+// APPROVAL NOTIFICATIONS (Notificaciones de aprobación)
+export const approval_notifications = pgTable("approval_notifications", {
+  id: serial("id").primaryKey(),
+  approval_id: integer("approval_id").references(() => pending_approvals.id, { onDelete: "cascade" }).notNull(),
+  recipient_id: integer("recipient_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  notification_type: varchar("notification_type", { length: 50 }).notNull(), // 'approval_request', 'approval_granted', 'approval_denied', 'approval_expired'
+  title: varchar("title", { length: 255 }).notNull(),
+  message: text("message").notNull(),
+  is_read: boolean("is_read").default(false),
+  sent_at: timestamp("sent_at").defaultNow(),
+  read_at: timestamp("read_at"),
+});
+
+// APPROVAL WORKFLOW LOGS (Auditoría del flujo de aprobación)
+export const approval_workflow_logs = pgTable("approval_workflow_logs", {
+  id: serial("id").primaryKey(),
+  approval_id: integer("approval_id").references(() => pending_approvals.id, { onDelete: "cascade" }).notNull(),
+  user_id: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  action: varchar("action", { length: 100 }).notNull(), // 'created', 'approved', 'rejected', 'expired', 'viewed', 'commented'
+  details: text("details"), // Detalles adicionales de la acción
+  ip_address: varchar("ip_address", { length: 45 }),
+  user_agent: text("user_agent"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+// Relations para el sistema de aprobación
+export const pendingApprovalsRelations = relations(pending_approvals, ({ one, many }) => ({
+  requester: one(users, {
+    fields: [pending_approvals.requested_by],
+    references: [users.id],
+  }),
+  approver: one(users, {
+    fields: [pending_approvals.approved_by],
+    references: [users.id],
+  }),
+  campus: one(campuses, {
+    fields: [pending_approvals.campus_id],
+    references: [campuses.id],
+  }),
+  tenant: one(tenants, {
+    fields: [pending_approvals.tenant_id],
+    references: [tenants.id],
+  }),
+  notifications: many(approval_notifications),
+  workflow_logs: many(approval_workflow_logs),
+}));
+
+export const approvalNotificationsRelations = relations(approval_notifications, ({ one }) => ({
+  approval: one(pending_approvals, {
+    fields: [approval_notifications.approval_id],
+    references: [pending_approvals.id],
+  }),
+  recipient: one(users, {
+    fields: [approval_notifications.recipient_id],
+    references: [users.id],
+  }),
+}));
+
+export const approvalWorkflowLogsRelations = relations(approval_workflow_logs, ({ one }) => ({
+  approval: one(pending_approvals, {
+    fields: [approval_workflow_logs.approval_id],
+    references: [pending_approvals.id],
+  }),
+  user: one(users, {
+    fields: [approval_workflow_logs.user_id],
+    references: [users.id],
+  }),
+}));
+
+// Insert schemas para el sistema de aprobación
+export const insertPendingApprovalSchema = createInsertSchema(pending_approvals).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+});
+
+export const insertApprovalNotificationSchema = createInsertSchema(approval_notifications).omit({
+  id: true,
+  sent_at: true,
+});
+
+export const insertApprovalWorkflowLogSchema = createInsertSchema(approval_workflow_logs).omit({
+  id: true,
+  created_at: true,
+});
+
+// Types para el sistema de aprobación
+export type PendingApproval = typeof pending_approvals.$inferSelect;
+export type InsertPendingApproval = z.infer<typeof insertPendingApprovalSchema>;
+export type ApprovalNotification = typeof approval_notifications.$inferSelect;
+export type InsertApprovalNotification = z.infer<typeof insertApprovalNotificationSchema>;
+export type ApprovalWorkflowLog = typeof approval_workflow_logs.$inferSelect;
+export type InsertApprovalWorkflowLog = z.infer<typeof insertApprovalWorkflowLogSchema>;

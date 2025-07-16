@@ -2838,5 +2838,199 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  // ========================================
+  // APPROVAL WORKFLOW ROUTES
+  // ========================================
+
+  // Get pending approvals for current user (as approver)
+  app.get("/api/approvals/pending", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const approvals = await storage.getPendingApprovalsForApprover(user.id);
+      res.json(approvals);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error obteniendo aprobaciones pendientes: " + error.message });
+    }
+  });
+
+  // Get user's own requests (as requester)
+  app.get("/api/approvals/my-requests", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const requests = await storage.getPendingApprovalsByRequester(user.id);
+      res.json(requests);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error obteniendo mis solicitudes: " + error.message });
+    }
+  });
+
+  // Create new approval request
+  app.post("/api/approvals/request", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { 
+        action_type, 
+        action_description, 
+        current_value, 
+        proposed_value, 
+        reason, 
+        additional_data 
+      } = req.body;
+
+      // Validate required fields
+      if (!action_type || !action_description || !reason) {
+        return res.status(400).json({ message: "Faltan campos requeridos" });
+      }
+
+      // Check if this action type requires approval for this user
+      const needsApproval = await storage.requiresApproval(action_type, user.id);
+      if (!needsApproval) {
+        return res.status(400).json({ message: "Esta acción no requiere aprobación para tu rol" });
+      }
+
+      // Create the approval request
+      const approval = await storage.createPendingApproval({
+        campus_id: user.campus_id!,
+        requested_by: user.id,
+        action_type,
+        action_description,
+        current_value,
+        proposed_value,
+        reason,
+        additional_data: additional_data ? JSON.stringify(additional_data) : undefined,
+        status: 'pending'
+      });
+
+      // Create notifications for approvers
+      const approvers = await storage.getPendingApprovalsForApprover(user.id);
+      // In a real system, you would notify all potential approvers
+      
+      // Log the request
+      await storage.createApprovalWorkflowLog({
+        approval_id: approval.id,
+        action: 'created',
+        performed_by: user.id,
+        notes: `Solicitud de aprobación creada para: ${action_description}`
+      });
+
+      res.json({ 
+        message: "Solicitud de aprobación enviada exitosamente",
+        approval_id: approval.id
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error creando solicitud de aprobación: " + error.message });
+    }
+  });
+
+  // Approve or reject a request
+  app.post("/api/approvals/decision", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { approval_id, decision, notes } = req.body;
+
+      // Validate required fields
+      if (!approval_id || !decision || !['approved', 'rejected'].includes(decision)) {
+        return res.status(400).json({ message: "ID de aprobación y decisión válida son requeridos" });
+      }
+
+      // Get the approval request
+      const approval = await storage.getPendingApprovalById(approval_id);
+      if (!approval) {
+        return res.status(404).json({ message: "Solicitud de aprobación no encontrada" });
+      }
+
+      // Check if user can approve this type of action
+      const canApprove = await storage.checkUserCanApprove(user.id, approval.action_type);
+      if (!canApprove) {
+        return res.status(403).json({ message: "No tienes permisos para aprobar este tipo de acción" });
+      }
+
+      // Update the approval status
+      await storage.updateApprovalStatus(approval_id, decision, user.id, notes);
+
+      // Create notification for the requester
+      await storage.createApprovalNotification({
+        approval_id,
+        recipient_id: approval.requested_by,
+        notification_type: decision === 'approved' ? 'approval_granted' : 'approval_denied',
+        title: `Solicitud ${decision === 'approved' ? 'Aprobada' : 'Rechazada'}`,
+        message: `Tu solicitud "${approval.action_description}" ha sido ${decision === 'approved' ? 'aprobada' : 'rechazada'}`,
+        additional_data: notes ? JSON.stringify({ notes }) : undefined
+      });
+
+      // Log the decision
+      await storage.createApprovalWorkflowLog({
+        approval_id,
+        action: decision,
+        performed_by: user.id,
+        notes: notes || `Solicitud ${decision === 'approved' ? 'aprobada' : 'rechazada'} por ${user.name}`
+      });
+
+      res.json({ 
+        message: `Solicitud ${decision === 'approved' ? 'aprobada' : 'rechazada'} exitosamente`,
+        approval_id,
+        decision
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error procesando decisión: " + error.message });
+    }
+  });
+
+  // Get approval workflow logs
+  app.get("/api/approvals/logs/:approvalId", authenticateToken, async (req, res) => {
+    try {
+      const { approvalId } = req.params;
+      const logs = await storage.getWorkflowLogsByApproval(parseInt(approvalId));
+      res.json(logs);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error obteniendo logs de aprobación: " + error.message });
+    }
+  });
+
+  // Get user notifications
+  app.get("/api/approvals/notifications", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const notifications = await storage.getNotificationsByUser(user.id);
+      res.json(notifications);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error obteniendo notificaciones: " + error.message });
+    }
+  });
+
+  // Mark notification as read
+  app.post("/api/approvals/notifications/:id/read", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.markNotificationAsRead(parseInt(id));
+      res.json({ message: "Notificación marcada como leída" });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error marcando notificación como leída: " + error.message });
+    }
+  });
+
+  // Check if action requires approval
+  app.post("/api/approvals/check-required", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { action_type } = req.body;
+
+      if (!action_type) {
+        return res.status(400).json({ message: "Tipo de acción requerido" });
+      }
+
+      const requiresApproval = await storage.requiresApproval(action_type, user.id);
+      const canApprove = await storage.checkUserCanApprove(user.id, action_type);
+
+      res.json({
+        requiresApproval,
+        canApprove,
+        userRole: user.role
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error verificando requisitos de aprobación: " + error.message });
+    }
+  });
+
   return httpServer;
 }

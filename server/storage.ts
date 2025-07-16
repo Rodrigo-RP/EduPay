@@ -1,13 +1,16 @@
 import { 
   tenants, campuses, users, students, guardians, student_guardian, concepts, 
   charges, payments, payment_methods, invoices, scholarships, discounts,
-  security_events, platform_metrics, system_health,
+  security_events, platform_metrics, system_health, pending_approvals,
+  approval_notifications, approval_workflow_logs,
   type User, type InsertUser, type Guardian, type InsertGuardian, 
   type Student, type InsertStudent, type Charge, type InsertCharge,
   type Payment, type InsertPayment, type Campus, type InsertCampus,
   type Concept, type InsertConcept, type Tenant, type InsertTenant,
   type PaymentMethod, type SecurityEvent, type InsertSecurityEvent, 
-  type SystemHealth
+  type SystemHealth, type PendingApproval, type InsertPendingApproval,
+  type ApprovalNotification, type InsertApprovalNotification,
+  type ApprovalWorkflowLog, type InsertApprovalWorkflowLog
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
@@ -79,6 +82,20 @@ export interface IStorage {
     overdueRate: number;
     activeStudents: number;
   }>;
+  
+  // Approval workflow operations
+  createPendingApproval(approval: InsertPendingApproval): Promise<PendingApproval>;
+  getPendingApprovalsForApprover(userId: number): Promise<PendingApproval[]>;
+  getPendingApprovalsByRequester(userId: number): Promise<PendingApproval[]>;
+  getPendingApprovalById(id: number): Promise<PendingApproval | undefined>;
+  updateApprovalStatus(id: number, status: string, approvedBy?: number, notes?: string): Promise<void>;
+  createApprovalNotification(notification: InsertApprovalNotification): Promise<ApprovalNotification>;
+  getNotificationsByUser(userId: number): Promise<ApprovalNotification[]>;
+  markNotificationAsRead(id: number): Promise<void>;
+  createApprovalWorkflowLog(log: InsertApprovalWorkflowLog): Promise<ApprovalWorkflowLog>;
+  getWorkflowLogsByApproval(approvalId: number): Promise<ApprovalWorkflowLog[]>;
+  checkUserCanApprove(userId: number, actionType: string): Promise<boolean>;
+  requiresApproval(actionType: string, userId: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -466,6 +483,153 @@ export class DatabaseStorage implements IStorage {
   async createSecurityEvent(event: InsertSecurityEvent): Promise<SecurityEvent> {
     const [newEvent] = await db.insert(security_events).values(event).returning();
     return newEvent;
+  }
+
+  // ========================================
+  // APPROVAL WORKFLOW OPERATIONS
+  // ========================================
+
+  async createPendingApproval(approval: InsertPendingApproval): Promise<PendingApproval> {
+    const [newApproval] = await db.insert(pending_approvals).values(approval).returning();
+    return newApproval;
+  }
+
+  async getPendingApprovalsForApprover(userId: number): Promise<PendingApproval[]> {
+    const user = await this.getUser(userId);
+    if (!user) return [];
+    
+    // Solo admin y super_admin pueden aprobar cambios críticos
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
+      return [];
+    }
+    
+    const approvals = await db
+      .select()
+      .from(pending_approvals)
+      .where(
+        and(
+          eq(pending_approvals.status, 'pending'),
+          user.role === 'super_admin' 
+            ? undefined 
+            : eq(pending_approvals.campus_id, user.campus_id!)
+        )
+      )
+      .orderBy(desc(pending_approvals.created_at));
+    
+    return approvals;
+  }
+
+  async getPendingApprovalsByRequester(userId: number): Promise<PendingApproval[]> {
+    const approvals = await db
+      .select()
+      .from(pending_approvals)
+      .where(eq(pending_approvals.requested_by, userId))
+      .orderBy(desc(pending_approvals.created_at));
+    
+    return approvals;
+  }
+
+  async getPendingApprovalById(id: number): Promise<PendingApproval | undefined> {
+    const [approval] = await db
+      .select()
+      .from(pending_approvals)
+      .where(eq(pending_approvals.id, id));
+    
+    return approval || undefined;
+  }
+
+  async updateApprovalStatus(id: number, status: string, approvedBy?: number, notes?: string): Promise<void> {
+    await db
+      .update(pending_approvals)
+      .set({ 
+        status, 
+        approved_by: approvedBy,
+        approval_notes: notes,
+        updated_at: new Date()
+      })
+      .where(eq(pending_approvals.id, id));
+  }
+
+  async createApprovalNotification(notification: InsertApprovalNotification): Promise<ApprovalNotification> {
+    const [newNotification] = await db.insert(approval_notifications).values(notification).returning();
+    return newNotification;
+  }
+
+  async getNotificationsByUser(userId: number): Promise<ApprovalNotification[]> {
+    const notifications = await db
+      .select()
+      .from(approval_notifications)
+      .where(eq(approval_notifications.recipient_id, userId))
+      .orderBy(desc(approval_notifications.sent_at));
+    
+    return notifications;
+  }
+
+  async markNotificationAsRead(id: number): Promise<void> {
+    await db
+      .update(approval_notifications)
+      .set({ is_read: true, read_at: new Date() })
+      .where(eq(approval_notifications.id, id));
+  }
+
+  async createApprovalWorkflowLog(log: InsertApprovalWorkflowLog): Promise<ApprovalWorkflowLog> {
+    const [newLog] = await db.insert(approval_workflow_logs).values(log).returning();
+    return newLog;
+  }
+
+  async getWorkflowLogsByApproval(approvalId: number): Promise<ApprovalWorkflowLog[]> {
+    const logs = await db
+      .select()
+      .from(approval_workflow_logs)
+      .where(eq(approval_workflow_logs.approval_id, approvalId))
+      .orderBy(desc(approval_workflow_logs.created_at));
+    
+    return logs;
+  }
+
+  async checkUserCanApprove(userId: number, actionType: string): Promise<boolean> {
+    const user = await this.getUser(userId);
+    if (!user) return false;
+    
+    // Solo admin y super_admin pueden aprobar cambios críticos
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
+      return false;
+    }
+    
+    // Super admin puede aprobar cualquier cosa
+    if (user.role === 'super_admin') {
+      return true;
+    }
+    
+    // Admin puede aprobar dentro de su campus
+    return user.role === 'admin';
+  }
+
+  async requiresApproval(actionType: string, userId: number): Promise<boolean> {
+    const user = await this.getUser(userId);
+    if (!user) return true;
+    
+    // Super admin no necesita aprobación
+    if (user.role === 'super_admin') {
+      return false;
+    }
+    
+    // Admin no necesita aprobación
+    if (user.role === 'admin') {
+      return false;
+    }
+    
+    // Tipos de acción que requieren aprobación
+    const criticalActions = [
+      'modify_scholarship',
+      'modify_late_fee', 
+      'modify_price',
+      'modify_payment_due_date',
+      'delete_concept',
+      'modify_concept'
+    ];
+    
+    return criticalActions.includes(actionType);
   }
 }
 

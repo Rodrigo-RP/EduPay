@@ -52,6 +52,7 @@ import SuperAdminAccess from "@/pages/super-admin-access";
 import SuperAdminDirect from "@/pages/super-admin-direct";
 import SwitchToSchool from "@/pages/switch-to-school";
 import LogoutAndLoginSchool from "@/pages/logout-and-login-school";
+import Aprobaciones from "@/pages/aprobaciones";
 
 function AuthenticatedRoutes() {
   const { user, guardian, isLoading } = useAuth();
@@ -130,6 +131,7 @@ function AuthenticatedRoutes() {
             <Route path="/fiscal-contable" component={FiscalContable} />
             <Route path="/analisis-financiero" component={AnalisisFinanciero} />
             <Route path="/portal-3clics" component={PortalPadres3Clics} />
+            <Route path="/aprobaciones" component={Aprobaciones} />
             <Route component={NotFound} />
           </Switch>
         </main>

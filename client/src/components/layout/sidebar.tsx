@@ -151,6 +151,13 @@ export default function Sidebar() {
       active: location === "/sistemas-avanzados",
       category: "sistema"
     },
+    { 
+      icon: "fas fa-shield-alt", 
+      label: "Aprobaciones", 
+      href: "/aprobaciones", 
+      active: location === "/aprobaciones",
+      category: "sistema"
+    },
 
   ];
 

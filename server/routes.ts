@@ -190,6 +190,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Refresh token endpoint
+  app.post("/api/auth/refresh", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ message: 'Token requerido' });
+      }
+      
+      const token = authHeader.split(' ')[1];
+      
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET) as any;
+        
+        // Generate new token with same payload but fresh expiration
+        const newToken = jwt.sign(
+          { 
+            id: decoded.id, 
+            email: decoded.email, 
+            role: decoded.role, 
+            campus_id: decoded.campus_id, 
+            type: decoded.type || 'user' 
+          },
+          JWT_SECRET,
+          { expiresIn: '24h' }
+        );
+        
+        res.json({ token: newToken });
+      } catch (jwtError) {
+        // Token is expired or invalid, try to decode without verification to get user info
+        const decoded = jwt.decode(token) as any;
+        
+        if (decoded && decoded.id) {
+          // Verify user still exists
+          const user = await storage.getUser(decoded.id);
+          if (user) {
+            const newToken = jwt.sign(
+              { 
+                id: user.id, 
+                email: user.email, 
+                role: user.role, 
+                campus_id: user.campus_id, 
+                type: decoded.type || 'user' 
+              },
+              JWT_SECRET,
+              { expiresIn: '24h' }
+            );
+            
+            res.json({ token: newToken });
+          } else {
+            res.status(401).json({ message: 'Usuario no encontrado' });
+          }
+        } else {
+          res.status(401).json({ message: 'Token inválido' });
+        }
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: "Token refresh failed: " + error.message });
+    }
+  });
+
   // Guardian login
   app.post("/api/auth/guardian-login", async (req, res) => {
     try {

@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { createAuthenticatedRequest, handleAuthError } from "@/lib/authUtils";
 import { Gift, Percent, Users, Plus, Edit, Trash2, GraduationCap, DollarSign, Calculator, Zap, Target, Award, FileText, Building, Download, AlertTriangle, CheckCircle, XCircle, Clock, MoreVertical, Upload, FileSpreadsheet, Eye } from "lucide-react";
 
 export default function Becas() {
@@ -36,25 +37,7 @@ export default function Becas() {
   // Funciones para importación masiva de Excel
   const handleDownloadTemplate = async () => {
     try {
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        toast({
-          title: "Error",
-          description: "No hay sesión activa. Por favor, inicia sesión nuevamente.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      const response = await fetch('/api/import/template/becas/asignaciones', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Error descargando plantilla');
-      }
+      const response = await createAuthenticatedRequest('/api/import/template/becas/asignaciones');
       
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -70,12 +53,23 @@ export default function Becas() {
         title: "Plantilla descargada",
         description: "La plantilla CSV ha sido descargada exitosamente.",
       });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "No se pudo descargar la plantilla. Inténtalo de nuevo.",
-        variant: "destructive",
-      });
+    } catch (error: any) {
+      if (error.message.includes('sesión')) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive"
+        });
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 1000);
+      } else {
+        toast({
+          title: "Error",
+          description: "No se pudo descargar la plantilla. Inténtalo de nuevo.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -100,30 +94,14 @@ export default function Becas() {
 
     try {
       setImportProgress(0);
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        toast({
-          title: "Error",
-          description: "No hay sesión activa. Por favor, inicia sesión nuevamente.",
-          variant: "destructive"
-        });
-        return;
-      }
-
+      
       const formData = new FormData();
       formData.append('file', importFile);
 
-      const response = await fetch('/api/import/data/becas/asignaciones', {
+      const response = await createAuthenticatedRequest('/api/import/data/becas/asignaciones', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
         body: formData,
       });
-
-      if (!response.ok) {
-        throw new Error('Error en la importación');
-      }
 
       const results = await response.json();
       setImportResults(results);
@@ -134,12 +112,23 @@ export default function Becas() {
         title: "Importación completada",
         description: `Se procesaron ${results.successful} asignaciones exitosamente.`,
       });
-    } catch (error) {
-      toast({
-        title: "Error en importación",
-        description: "No se pudo procesar el archivo. Verifica el formato y datos.",
-        variant: "destructive",
-      });
+    } catch (error: any) {
+      if (error.message.includes('sesión')) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive"
+        });
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 1000);
+      } else {
+        toast({
+          title: "Error en importación",
+          description: "No se pudo procesar el archivo. Verifica el formato y datos.",
+          variant: "destructive",
+        });
+      }
     }
   };
 

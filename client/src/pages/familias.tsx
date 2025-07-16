@@ -623,6 +623,26 @@ export default function Familias() {
           // Generar número de familia automáticamente
           family.numero_familia = `FAM${String(Date.now() + i).slice(-3)}`;
           
+          // Generar datos fiscales múltiples con la información del CSV
+          family.datos_fiscales = [
+            {
+              id: 1,
+              razon_social: family.razon_social || family.padre_nombre || "",
+              rfc: family.rfc || "",
+              email_facturacion: family.email_facturacion || family.padre_email || "",
+              direccion_fiscal: family.direccion_fiscal || family.direccion || "",
+              uso_cfdi: family.uso_cfdi || "G03",
+              metodo_pago: family.metodo_pago || "PUE",
+              forma_pago: family.forma_pago || "03",
+              es_principal: true
+            }
+          ];
+          
+          // Agregar propiedades adicionales
+          family.estudiantes_vinculados = [];
+          family.saldo_total = 0;
+          family.fecha_registro = new Date().toISOString().split('T')[0];
+          
           newFamilies.push(family);
         }
         
@@ -696,6 +716,27 @@ export default function Familias() {
       observaciones: familia.observaciones || "",
       estatus: familia.estatus || "activo"
     });
+    
+    // Cargar múltiples datos fiscales si existen
+    if (familia.datos_fiscales && familia.datos_fiscales.length > 0) {
+      setDatosFiscales(familia.datos_fiscales);
+    } else {
+      // Si no hay datos fiscales múltiples, usar los datos fiscales existentes
+      setDatosFiscales([
+        {
+          id: 1,
+          razon_social: familia.razon_social || "",
+          rfc: familia.rfc || "",
+          email_facturacion: familia.email_facturacion || "",
+          direccion_fiscal: familia.direccion_fiscal || "",
+          uso_cfdi: familia.uso_cfdi || "G03",
+          metodo_pago: familia.metodo_pago || "PUE",
+          forma_pago: familia.forma_pago || "03",
+          es_principal: true
+        }
+      ]);
+    }
+    
     setEditingFamily(familia);
     setShowEditModal(true);
   };
@@ -713,11 +754,33 @@ export default function Familias() {
       return;
     }
 
-    // Validar RFC si se proporciona
+    // Validar RFC si se proporciona (compatibilidad)
     if (formData.rfc && formData.rfc.length < 12) {
       toast({
         title: "Error",
         description: "El RFC debe tener al menos 12 caracteres.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validar datos fiscales múltiples
+    const invalidRfc = datosFiscales.find(dato => dato.rfc && dato.rfc.length < 12);
+    if (invalidRfc) {
+      toast({
+        title: "Error",
+        description: "Todos los RFC deben tener al menos 12 caracteres.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validar que haya al menos un RFC principal
+    const principalRfc = datosFiscales.find(dato => dato.es_principal);
+    if (!principalRfc) {
+      toast({
+        title: "Error",
+        description: "Debe seleccionar un RFC como principal.",
         variant: "destructive"
       });
       return;
@@ -750,7 +813,9 @@ export default function Familias() {
         codigo_postal: formData.codigo_postal,
         razon_social: formData.razon_social || padreNombreCompleto,
         rfc: formData.rfc,
-        estatus: formData.estatus
+        estatus: formData.estatus,
+        // Incluir múltiples datos fiscales
+        datos_fiscales: datosFiscales
       };
 
       setFamilias(prev => prev.map(f => f.id === editingFamily.id ? updatedFamily : f));
@@ -785,7 +850,9 @@ export default function Familias() {
         estatus: formData.estatus,
         estudiantes_vinculados: [],
         saldo_total: 0,
-        fecha_registro: new Date().toISOString().split('T')[0]
+        fecha_registro: new Date().toISOString().split('T')[0],
+        // Incluir múltiples datos fiscales
+        datos_fiscales: datosFiscales
       };
 
       setFamilias(prev => [...prev, newFamily]);

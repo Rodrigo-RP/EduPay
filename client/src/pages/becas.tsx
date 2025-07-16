@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { Gift, Percent, Users, Plus, Edit, Trash2, GraduationCap, DollarSign, Calculator, Zap, Target, Award, FileText, Building, Download, AlertTriangle, CheckCircle, XCircle, Clock, MoreVertical } from "lucide-react";
+import { Gift, Percent, Users, Plus, Edit, Trash2, GraduationCap, DollarSign, Calculator, Zap, Target, Award, FileText, Building, Download, AlertTriangle, CheckCircle, XCircle, Clock, MoreVertical, Upload, FileSpreadsheet, Eye } from "lucide-react";
 
 export default function Becas() {
   const [showAddModal, setShowAddModal] = useState(false);
@@ -26,7 +26,97 @@ export default function Becas() {
   const [selectedBeca, setSelectedBeca] = useState<any>(null);
   const [selectedEstudiante, setSelectedEstudiante] = useState<any>(null);
   const [tipoDescuento, setTipoDescuento] = useState<'porcentaje' | 'cantidad'>('porcentaje');
+  const [activeAssignTab, setActiveAssignTab] = useState("individual");
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importProgress, setImportProgress] = useState(0);
+  const [importResults, setImportResults] = useState<any>(null);
+  const [showImportResults, setShowImportResults] = useState(false);
   const { toast } = useToast();
+
+  // Funciones para importación masiva de Excel
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await fetch('/api/import/template/becas/asignaciones');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'plantilla_asignacion_becas.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: "Plantilla descargada",
+        description: "La plantilla Excel ha sido descargada exitosamente.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo descargar la plantilla. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setImportFile(file);
+      setImportResults(null);
+      setShowImportResults(false);
+    }
+  };
+
+  const handleImportFile = async () => {
+    if (!importFile) {
+      toast({
+        title: "Error",
+        description: "Por favor selecciona un archivo Excel para importar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setImportProgress(0);
+      const formData = new FormData();
+      formData.append('file', importFile);
+
+      const response = await fetch('/api/import/data/becas/asignaciones', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Error en la importación');
+      }
+
+      const results = await response.json();
+      setImportResults(results);
+      setShowImportResults(true);
+      setImportProgress(100);
+
+      toast({
+        title: "Importación completada",
+        description: `Se procesaron ${results.successful} asignaciones exitosamente.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error en importación",
+        description: "No se pudo procesar el archivo. Verifica el formato y datos.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const resetImport = () => {
+    setImportFile(null);
+    setImportResults(null);
+    setShowImportResults(false);
+    setImportProgress(0);
+  };
 
   // Sistema de gestión administrativa de becas y descuentos
   const becasYDescuentos = [
@@ -424,11 +514,20 @@ ${b.nombre}:
                 Asignar Beca
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Asignar Beca/Descuento a Estudiante</DialogTitle>
+                <DialogDescription>
+                  Asigna becas y descuentos de forma individual o masiva usando Excel
+                </DialogDescription>
               </DialogHeader>
-              <div className="space-y-6">
+              <Tabs value={activeAssignTab} onValueChange={setActiveAssignTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="individual">Individual</TabsTrigger>
+                  <TabsTrigger value="excel">Importar Excel</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="individual" className="space-y-6 mt-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="estudiante">Estudiante</Label>
@@ -571,7 +670,150 @@ ${b.nombre}:
                     Asignar Beca
                   </Button>
                 </div>
-              </div>
+                </TabsContent>
+
+                <TabsContent value="excel" className="space-y-6 mt-4">
+                  <div className="space-y-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <FileSpreadsheet className="h-4 w-4 text-blue-600" />
+                        <h4 className="font-medium text-blue-900">Importación Masiva de Becas</h4>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Asigna múltiples becas y descuentos usando un archivo Excel. Descarga la plantilla, llénala con los datos y súbela para procesamiento automático.
+                      </p>
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                          <span className="text-sm">Descarga la plantilla Excel</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                          <span className="text-sm">Llena los datos: ID estudiante, tipo de beca, descuento, vigencia, observaciones</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                          <span className="text-sm">Guarda y sube el archivo completado</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Paso 1: Descargar Plantilla</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-muted-foreground mb-4">
+                            Plantilla Excel con ejemplos de asignación de becas
+                          </p>
+                          <Button onClick={handleDownloadTemplate} className="w-full">
+                            <Download className="mr-2 h-4 w-4" />
+                            Descargar Plantilla Excel
+                          </Button>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Paso 2: Subir Archivo</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            <div>
+                              <Input
+                                type="file"
+                                accept=".xlsx,.xls,.csv"
+                                onChange={handleFileSelect}
+                                className="mb-2"
+                              />
+                              {importFile && (
+                                <p className="text-sm text-muted-foreground">
+                                  Archivo seleccionado: {importFile.name}
+                                </p>
+                              )}
+                            </div>
+                            <Button 
+                              onClick={handleImportFile}
+                              disabled={!importFile}
+                              className="w-full"
+                            >
+                              <Upload className="mr-2 h-4 w-4" />
+                              Procesar Archivo
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {importProgress > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Progreso de Importación</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <Progress value={importProgress} className="mb-2" />
+                          <p className="text-sm text-muted-foreground">
+                            {importProgress}% completado
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {showImportResults && importResults && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg flex items-center">
+                            <CheckCircle className="mr-2 h-5 w-5 text-green-600" />
+                            Resultados de Importación
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-green-600">
+                                {importResults.successful || 0}
+                              </div>
+                              <div className="text-sm text-muted-foreground">Exitosos</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-red-600">
+                                {importResults.failed || 0}
+                              </div>
+                              <div className="text-sm text-muted-foreground">Fallidos</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-blue-600">
+                                {importResults.total || 0}
+                              </div>
+                              <div className="text-sm text-muted-foreground">Total</div>
+                            </div>
+                          </div>
+                          
+                          {importResults.errors && importResults.errors.length > 0 && (
+                            <div className="mt-4">
+                              <h4 className="font-medium mb-2">Errores encontrados:</h4>
+                              <div className="max-h-40 overflow-y-auto">
+                                {importResults.errors.map((error: string, index: number) => (
+                                  <div key={index} className="text-sm text-red-600 py-1">
+                                    • {error}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="flex justify-end space-x-2 mt-4">
+                            <Button variant="outline" onClick={resetImport}>
+                              Limpiar
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
             </DialogContent>
           </Dialog>
 

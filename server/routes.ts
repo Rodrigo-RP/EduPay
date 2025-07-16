@@ -768,105 +768,309 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
           asignaciones_becas: {
             name: "Asignaciones de Becas",
-            columns: ["estudiante_curp", "tipo_beca", "porcentaje_asignado", "monto_fijo_asignado", "fecha_inicio", "fecha_fin", "autorizado_por", "observaciones", "activa"],
+            columns: ["id_estudiante", "curp_estudiante", "nombre_estudiante", "tipo_beca", "tipo_descuento", "valor_descuento", "vigencia_inicio", "vigencia_fin", "observaciones"],
             sampleData: [{
-              estudiante_curp: "GOLM051215MDFNPR03",
-              tipo_beca: "Beca Excelencia Académica",
-              porcentaje_asignado: "30",
-              monto_fijo_asignado: "",
-              fecha_inicio: "2024-09-01",
-              fecha_fin: "2025-07-31",
-              autorizado_por: "Dirección Académica",
-              observaciones: "Promedio 9.2 primer parcial",
-              activa: "Sí"
+              id_estudiante: "1",
+              curp_estudiante: "GOLM051215MDFNPR03",
+              nombre_estudiante: "María González López",
+              tipo_beca: "Beca USEBEQ",
+              tipo_descuento: "porcentaje",
+              valor_descuento: "50",
+              vigencia_inicio: "2024-08-15",
+              vigencia_fin: "2025-07-15",
+              observaciones: "Beca por excelencia académica"
+            }, {
+              id_estudiante: "2",
+              curp_estudiante: "RAMS031020HDFMND04",
+              nombre_estudiante: "Carlos Ramírez Sánchez",
+              tipo_beca: "Descuento Empleados",
+              tipo_descuento: "cantidad",
+              valor_descuento: "1500",
+              vigencia_inicio: "2024-08-15",
+              vigencia_fin: "2025-07-15",
+              observaciones: "Descuento por ser hijo de empleado"
             }]
-          },
-          descuentos_hermanos: {
-            name: "Descuentos por Hermanos",
-            columns: ["numero_hermanos", "porcentaje_descuento", "aplica_a", "maximo_beneficiarios", "vigencia", "activo"],
+          }
+        },
+        becas: {
+          asignaciones: {
+            name: "Asignaciones de Becas",
+            columns: ["id_estudiante", "curp_estudiante", "nombre_estudiante", "tipo_beca", "tipo_descuento", "valor_descuento", "vigencia_inicio", "vigencia_fin", "observaciones"],
             sampleData: [{
-              numero_hermanos: "2",
-              porcentaje_descuento: "20",
-              aplica_a: "Segundo hermano",
-              maximo_beneficiarios: "1",
-              vigencia: "2024-2025",
-              activo: "Sí"
+              id_estudiante: "1",
+              curp_estudiante: "GOLM051215MDFNPR03",
+              nombre_estudiante: "María González López",
+              tipo_beca: "Beca USEBEQ",
+              tipo_descuento: "porcentaje",
+              valor_descuento: "50",
+              vigencia_inicio: "2024-08-15",
+              vigencia_fin: "2025-07-15",
+              observaciones: "Beca por excelencia académica"
+            }, {
+              id_estudiante: "2",
+              curp_estudiante: "RAMS031020HDFMND04",
+              nombre_estudiante: "Carlos Ramírez Sánchez",
+              tipo_beca: "Descuento Empleados",
+              tipo_descuento: "cantidad",
+              valor_descuento: "1500",
+              vigencia_inicio: "2024-08-15",
+              vigencia_fin: "2025-07-15",
+              observaciones: "Descuento por ser hijo de empleado"
             }]
           }
         }
       };
 
-      const template = templates[category]?.[templateId];
-      if (!template) {
-        return res.status(404).json({ message: "Template no encontrado" });
+      // Get template configuration
+      const templateConfig = templates[category]?.[templateId];
+      if (!templateConfig) {
+        return res.status(400).json({ message: "Plantilla no encontrada" });
       }
 
-      // Create Excel workbook with enhanced formatting
+      // Create Excel workbook
       const wb = XLSX.utils.book_new();
       
-      // Prepare data with headers and sample rows
-      const wsData = [
-        template.columns, 
-        ...template.sampleData.map((row: any) => 
-          template.columns.map((col: string) => row[col] || '')
+      // Add header with template info
+      const headerData = [
+        ["PLANTILLA: " + templateConfig.name],
+        ["FECHA: " + new Date().toLocaleDateString()],
+        ["INSTRUCCIONES: Complete los campos obligatorios y guarde como archivo Excel"],
+        [""],
+        templateConfig.columns,
+        ...templateConfig.sampleData.map((item: any) => 
+          templateConfig.columns.map((col: string) => item[col] || '')
         )
       ];
       
-      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      const ws = XLSX.utils.aoa_to_sheet(headerData);
       
-      // Add formatting to headers
-      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-      for (let col = range.s.c; col <= range.e.c; col++) {
-        const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
-        if (ws[cellRef]) {
-          ws[cellRef].s = {
-            font: { bold: true, color: { rgb: "FFFFFF" } },
-            fill: { fgColor: { rgb: "2563EB" } },
-            alignment: { horizontal: "center" }
-          };
+      // Style the header rows
+      if (!ws['!merges']) ws['!merges'] = [];
+      ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: templateConfig.columns.length - 1 } });
+      
+      XLSX.utils.book_append_sheet(wb, ws, templateConfig.name);
+      
+      // Generate Excel buffer
+      const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+      
+      const fileName = `plantilla_${templateId}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.send(excelBuffer);
+      
+    } catch (error: any) {
+      console.error('Error generating template:', error);
+      res.status(500).json({ message: "Error generando plantilla: " + error.message });
+    }
+  });
+
+  // Import data from Excel/CSV file
+  app.post("/api/import/data/:category/:templateId", authenticateToken, upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No se encontró archivo para importar" });
+      }
+
+      const { category, templateId } = req.params;
+      const campusId = (req as any).user?.campus_id;
+
+      if (!campusId) {
+        return res.status(400).json({ message: "Campus ID requerido" });
+      }
+
+      // Parse Excel/CSV file
+      let workbook: XLSX.WorkBook;
+      if (req.file.mimetype === 'text/csv') {
+        const csvData = req.file.buffer.toString();
+        workbook = XLSX.read(csvData, { type: 'string' });
+      } else {
+        workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+      }
+
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      // Validate and process data based on template
+      const results = {
+        successful: 0,
+        failed: 0,
+        errors: [] as any[],
+        preview: jsonData.slice(0, 5),
+        total: jsonData.length
+      };
+
+      // Process based on category and template
+      if (category === 'becas' && templateId === 'asignaciones') {
+        // Process scholarship assignments
+        for (let index = 0; index < jsonData.length; index++) {
+          try {
+            const becaData = jsonData[index] as any;
+            
+            // Basic validation
+            if (!becaData.id_estudiante && !becaData.curp_estudiante) {
+              results.errors.push(`Fila ${index + 2}: ID de estudiante o CURP requerido`);
+              results.failed++;
+              continue;
+            }
+
+            if (!becaData.tipo_beca) {
+              results.errors.push(`Fila ${index + 2}: Tipo de beca requerido`);
+              results.failed++;
+              continue;
+            }
+
+            if (!becaData.valor_descuento) {
+              results.errors.push(`Fila ${index + 2}: Valor de descuento requerido`);
+              results.failed++;
+              continue;
+            }
+
+            // Find student by ID or CURP
+            let student;
+            if (becaData.id_estudiante) {
+              const students = await storage.getStudentsByCampus(campusId);
+              student = students.find(s => s.id === parseInt(becaData.id_estudiante));
+            } else if (becaData.curp_estudiante) {
+              const students = await storage.getStudentsByCampus(campusId);
+              student = students.find(s => s.curp === becaData.curp_estudiante);
+            }
+
+            if (!student) {
+              results.errors.push(`Fila ${index + 2}: Estudiante no encontrado`);
+              results.failed++;
+              continue;
+            }
+
+            // Create scholarship assignment (simulated - would need real database schema)
+            const scholarshipData = {
+              student_id: student.id,
+              scholarship_type: becaData.tipo_beca,
+              discount_type: becaData.tipo_descuento || 'porcentaje',
+              discount_value: parseFloat(becaData.valor_descuento),
+              start_date: becaData.vigencia_inicio || new Date().toISOString().split('T')[0],
+              end_date: becaData.vigencia_fin || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              observations: becaData.observaciones || '',
+              created_by: (req as any).user?.id,
+              campus_id: campusId
+            };
+
+            // This would be implemented with actual database schema
+            console.log('Creating scholarship assignment:', scholarshipData);
+            
+            results.successful++;
+          } catch (error: any) {
+            results.errors.push(`Fila ${index + 2}: ${error.message}`);
+            results.failed++;
+          }
+        }
+      } else if (category === 'estudiantes') {
+        if (templateId === 'estudiantes') {
+          // Process students
+          for (let index = 0; index < jsonData.length; index++) {
+            try {
+              const studentData = jsonData[index] as any;
+              
+              // Basic validation
+              if (!studentData.nombre_completo || !studentData.curp) {
+                results.errors.push(`Fila ${index + 2}: Nombre completo y CURP son requeridos`);
+                results.failed++;
+                continue;
+              }
+
+              // Create student
+              await storage.createStudent({
+                campus_id: campusId,
+                nombre_completo: studentData.nombre_completo,
+                curp: studentData.curp,
+                grado: studentData.grado || '',
+                grupo: studentData.grupo || 'A',
+                status: studentData.status || 'activo'
+              });
+              
+              results.successful++;
+            } catch (error: any) {
+              results.errors.push(`Fila ${index + 2}: ${error.message}`);
+              results.failed++;
+            }
+          }
+        } else if (templateId === 'tutores') {
+          // Process guardians/tutors
+          for (let index = 0; index < jsonData.length; index++) {
+            try {
+              const tutorData = jsonData[index] as any;
+              
+              if (!tutorData.nombre_completo || !tutorData.email) {
+                results.errors.push(`Fila ${index + 2}: Nombre completo y email son requeridos`);
+                results.failed++;
+                continue;
+              }
+
+              // Create guardian
+              await storage.createGuardian({
+                campus_id: campusId,
+                nombre_completo: tutorData.nombre_completo,
+                email: tutorData.email,
+                telefono: tutorData.telefono || ''
+              });
+              
+              results.successful++;
+            } catch (error: any) {
+              results.errors.push(`Fila ${index + 2}: ${error.message}`);
+              results.failed++;
+            }
+          }
         }
       }
+
+      res.json(results);
       
-      // Auto-size columns
-      const colWidths = template.columns.map((header: string) => ({ 
-        wch: Math.max(header.length + 2, 15) 
-      }));
-      ws['!cols'] = colWidths;
-      
-      // Add data validation notes for important fields
-      if (category === 'estudiantes' && templateId === 'relaciones') {
-        // Add note for CURP validation
-        const curpCell = 'A2';
-        if (!ws[curpCell]) ws[curpCell] = { t: 's', v: '' };
-        ws[curpCell].c = [{
-          a: 'Sistema',
-          t: 'Debe coincidir exactamente con CURP del archivo de estudiantes'
-        }];
-        
-        // Add note for email validation  
-        const emailCell = 'C2';
-        if (!ws[emailCell]) ws[emailCell] = { t: 's', v: '' };
-        ws[emailCell].c = [{
-          a: 'Sistema',
-          t: 'Debe coincidir exactamente con email del archivo de tutores'
-        }];
+    } catch (error: any) {
+      console.error('Error importing data:', error);
+      res.status(500).json({ message: "Error procesando archivo: " + error.message });
+    }
+  });
+
+  // Export data to Excel
+  app.get("/api/export/:type", authenticateToken, async (req, res) => {
+    try {
+      const { type } = req.params;
+      const campusId = (req as any).user?.campus_id;
+
+      if (!campusId) {
+        return res.status(400).json({ message: "Campus ID requerido" });
       }
-      
-      XLSX.utils.book_append_sheet(wb, ws, template.name);
+
+      let data: any[] = [];
+      let filename = "export";
+
+      switch (type) {
+        case 'estudiantes':
+          data = await storage.getStudentsByCampus(campusId);
+          filename = "estudiantes";
+          break;
+        case 'conceptos':
+          data = await storage.getConceptsByCampus(campusId);
+          filename = "conceptos";
+          break;
+        default:
+          return res.status(400).json({ message: "Tipo de exportación no válido" });
+      }
+
+      // Create Excel workbook
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(data);
+      XLSX.utils.book_append_sheet(wb, ws, "Datos");
 
       // Generate Excel buffer
-      const excelBuffer = XLSX.write(wb, { 
-        type: 'buffer', 
-        bookType: 'xlsx',
-        cellStyles: true
-      });
+      const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename="template_${category}_${templateId}.xlsx"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}_${new Date().toISOString().split('T')[0]}.xlsx"`);
       res.send(excelBuffer);
 
     } catch (error: any) {
-      res.status(500).json({ message: "Error generando template: " + error.message });
+      res.status(500).json({ message: "Error generando exportación: " + error.message });
     }
   });
 

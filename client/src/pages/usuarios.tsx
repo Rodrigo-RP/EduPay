@@ -229,6 +229,40 @@ export default function Usuarios() {
     setShowPermissionsModal(true);
   };
 
+  // Traducciones para módulos y acciones
+  const moduleTranslations: { [key: string]: string } = {
+    'dashboard': 'Panel de Control',
+    'students': 'Estudiantes',
+    'families': 'Familias',
+    'charges': 'Cargos',
+    'payments': 'Pagos',
+    'concepts': 'Conceptos',
+    'scholarships': 'Becas',
+    'users': 'Usuarios',
+    'reports': 'Reportes',
+    'settings': 'Configuración',
+    'financial': 'Finanzas',
+    'crm': 'CRM',
+    'providers': 'Proveedores',
+    'alumni': 'Ex-Alumnos',
+    'receivables': 'Cuentas por Cobrar',
+    'security': 'Seguridad',
+    'system': 'Sistema'
+  };
+
+  const actionTranslations: { [key: string]: string } = {
+    'read': 'Leer',
+    'create': 'Crear',
+    'update': 'Actualizar',
+    'delete': 'Eliminar',
+    'export': 'Exportar',
+    'import': 'Importar',
+    'approve': 'Aprobar',
+    'assign': 'Asignar',
+    'process': 'Procesar',
+    'configure': 'Configurar'
+  };
+
   // Función para obtener todos los permisos disponibles
   const getAllAvailablePermissions = () => {
     const allPermissions: { id: string; module: string; action: string; description: string; scope: string }[] = [];
@@ -239,8 +273,8 @@ export default function Usuarios() {
         if (!allPermissions.some(p => p.id === permissionId)) {
           allPermissions.push({
             id: permissionId,
-            module: permission.module,
-            action: permission.action,
+            module: moduleTranslations[permission.module] || permission.module,
+            action: actionTranslations[permission.action] || permission.action,
             description: permission.description,
             scope: permission.scope
           });
@@ -473,7 +507,7 @@ export default function Usuarios() {
                           variant="outline"
                           onClick={() => {
                             const basicPermissions = getAllAvailablePermissions()
-                              .filter(p => ['estudiantes', 'familias', 'dashboard'].includes(p.module))
+                              .filter(p => ['Panel de Control', 'Estudiantes', 'Familias'].includes(p.module))
                               .map(p => p.id);
                             setCustomPermissions(basicPermissions);
                           }}
@@ -485,7 +519,7 @@ export default function Usuarios() {
                           variant="outline"
                           onClick={() => {
                             const financialPermissions = getAllAvailablePermissions()
-                              .filter(p => ['pagos', 'cuentas_cobrar', 'finanzas'].includes(p.module))
+                              .filter(p => ['Pagos', 'Cargos', 'Finanzas', 'Cuentas por Cobrar'].includes(p.module))
                               .map(p => p.id);
                             setCustomPermissions(financialPermissions);
                           }}

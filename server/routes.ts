@@ -3439,8 +3439,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Tipo de exportación y datos requeridos" });
       }
 
-      const fileName = `reporte_financiero_${period}_${month}_${year}`;
-      const periodText = `${getMonthName(parseInt(month))} ${year}`;
+      const fileName = `reporte_financiero_${period || 'mensual'}_${month || new Date().getMonth() + 1}_${year || new Date().getFullYear()}`;
+      const periodText = `${getMonthName(parseInt(month) || new Date().getMonth() + 1)} ${year || new Date().getFullYear()}`;
 
       if (type === 'excel') {
         const ExcelJS = require('exceljs');
@@ -3453,33 +3453,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         summarySheet.addRow([]);
         
         summarySheet.addRow(['MÉTRICAS PRINCIPALES']);
-        summarySheet.addRow(['Ingresos Totales:', `$${data.summary.total_income.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`]);
-        summarySheet.addRow(['Pagos Procesados:', data.summary.payments_processed]);
-        summarySheet.addRow(['Cuentas por Cobrar:', `$${data.summary.accounts_receivable.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`]);
-        summarySheet.addRow(['Morosidad:', `${data.summary.overdue_percentage}%`]);
+        summarySheet.addRow(['Ingresos Totales:', `$${(data.summary?.total_income || 0).toLocaleString('es-MX')}`]);
+        summarySheet.addRow(['Pagos Procesados:', data.summary?.payments_processed || 0]);
+        summarySheet.addRow(['Cuentas por Cobrar:', `$${(data.summary?.accounts_receivable || 0).toLocaleString('es-MX')}`]);
+        summarySheet.addRow(['Morosidad:', `${data.summary?.overdue_percentage || 0}%`]);
         summarySheet.addRow([]);
 
         // Hoja de Ingresos por Concepto
         const conceptSheet = workbook.addWorksheet('Ingresos por Concepto');
         conceptSheet.addRow(['Concepto', 'Monto', 'Porcentaje']);
-        data.income_by_concept.forEach((item: any) => {
+        (data.income_by_concept || []).forEach((item: any) => {
           conceptSheet.addRow([
-            item.concept,
-            `$${item.amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
-            `${item.percentage}%`
+            item.concept || 'N/A',
+            `$${(item.amount || 0).toLocaleString('es-MX')}`,
+            `${item.percentage || 0}%`
           ]);
         });
 
         // Hoja de Detalle de Ingresos
         const detailSheet = workbook.addWorksheet('Detalle de Pagos');
         detailSheet.addRow(['Fecha', 'Concepto', 'Estudiante', 'Método', 'Monto']);
-        data.income_details.forEach((payment: any) => {
+        (data.income_details || []).forEach((payment: any) => {
           detailSheet.addRow([
-            new Date(payment.fecha_pago).toLocaleDateString('es-MX'),
-            payment.concepto,
-            payment.estudiante,
-            payment.metodo,
-            `$${payment.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`
+            payment.fecha_pago ? new Date(payment.fecha_pago).toLocaleDateString('es-MX') : 'N/A',
+            payment.concepto || 'N/A',
+            payment.estudiante || 'N/A',
+            payment.metodo || 'N/A',
+            `$${(payment.monto || 0).toLocaleString('es-MX')}`
           ]);
         });
 
@@ -3514,55 +3514,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
         doc.setFontSize(16);
         doc.text('RESUMEN EJECUTIVO', 20, 60);
         doc.setFontSize(12);
-        doc.text(`Ingresos Totales: $${data.summary.total_income.toLocaleString('es-MX')}`, 20, 75);
-        doc.text(`Pagos Procesados: ${data.summary.payments_processed}`, 20, 85);
-        doc.text(`Cuentas por Cobrar: $${data.summary.accounts_receivable.toLocaleString('es-MX')}`, 20, 95);
-        doc.text(`Morosidad: ${data.summary.overdue_percentage}%`, 20, 105);
+        doc.text(`Ingresos Totales: $${(data.summary?.total_income || 0).toLocaleString('es-MX')}`, 20, 75);
+        doc.text(`Pagos Procesados: ${data.summary?.payments_processed || 0}`, 20, 85);
+        doc.text(`Cuentas por Cobrar: $${(data.summary?.accounts_receivable || 0).toLocaleString('es-MX')}`, 20, 95);
+        doc.text(`Morosidad: ${data.summary?.overdue_percentage || 0}%`, 20, 105);
         
         // Tabla de ingresos por concepto
-        doc.setFontSize(14);
-        doc.text('INGRESOS POR CONCEPTO', 20, 125);
-        
-        const conceptData = data.income_by_concept.map((item: any) => [
-          item.concept,
-          `$${item.amount.toLocaleString('es-MX')}`,
-          `${item.percentage}%`
-        ]);
-        
-        (doc as any).autoTable({
-          head: [['Concepto', 'Monto', 'Porcentaje']],
-          body: conceptData,
-          startY: 135,
-          styles: { fontSize: 10 },
-          headStyles: { fillColor: [66, 139, 202] }
-        });
+        if (data.income_by_concept && data.income_by_concept.length > 0) {
+          doc.setFontSize(14);
+          doc.text('INGRESOS POR CONCEPTO', 20, 125);
+          
+          const conceptData = data.income_by_concept.slice(0, 10).map((item: any) => [
+            item.concept || 'N/A',
+            `$${(item.amount || 0).toLocaleString('es-MX')}`,
+            `${item.percentage || 0}%`
+          ]);
+          
+          (doc as any).autoTable({
+            head: [['Concepto', 'Monto', 'Porcentaje']],
+            body: conceptData,
+            startY: 135,
+            styles: { fontSize: 10 },
+            headStyles: { fillColor: [66, 139, 202] }
+          });
+        }
         
         // Segunda página con detalle de pagos
-        doc.addPage();
-        doc.setFontSize(16);
-        doc.text('DETALLE DE PAGOS', 20, 20);
-        
-        const paymentData = data.income_details.slice(0, 30).map((payment: any) => [
-          new Date(payment.fecha_pago).toLocaleDateString('es-MX'),
-          payment.concepto,
-          payment.estudiante,
-          payment.metodo,
-          `$${payment.monto.toLocaleString('es-MX')}`
-        ]);
-        
-        (doc as any).autoTable({
-          head: [['Fecha', 'Concepto', 'Estudiante', 'Método', 'Monto']],
-          body: paymentData,
-          startY: 30,
-          styles: { fontSize: 8 },
-          headStyles: { fillColor: [66, 139, 202] }
-        });
+        if (data.income_details && data.income_details.length > 0) {
+          doc.addPage();
+          doc.setFontSize(16);
+          doc.text('DETALLE DE PAGOS', 20, 20);
+          
+          const paymentData = data.income_details.slice(0, 30).map((payment: any) => [
+            payment.fecha_pago ? new Date(payment.fecha_pago).toLocaleDateString('es-MX') : 'N/A',
+            payment.concepto || 'N/A',
+            payment.estudiante || 'N/A',
+            payment.metodo || 'N/A',
+            `$${(payment.monto || 0).toLocaleString('es-MX')}`
+          ]);
+          
+          (doc as any).autoTable({
+            head: [['Fecha', 'Concepto', 'Estudiante', 'Método', 'Monto']],
+            body: paymentData,
+            startY: 30,
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [66, 139, 202] }
+          });
+        }
         
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="${fileName}.pdf"`);
         
         const pdfBuffer = doc.output('arraybuffer');
         res.send(Buffer.from(pdfBuffer));
+      } else {
+        res.status(400).json({ message: "Tipo de exportación no válido" });
       }
 
     } catch (error: any) {

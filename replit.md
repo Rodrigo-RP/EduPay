@@ -118,6 +118,14 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- July 16, 2025: PESTAÑA DE ASIGNACIÓN MANUAL DE PERMISOS IMPLEMENTADA - Sistema completo para asignar funciones específicas a usuarios
+- July 16, 2025: Agregada pestaña "Asignar Permisos" con selector visual de usuarios y checkboxes de permisos individuales
+- July 16, 2025: Botones de selección rápida: todos, ninguno, básicos, finanzas, permisos del rol actual
+- July 16, 2025: Sistema de traducciones español implementado para módulos y acciones (Panel de Control, Estudiantes, Pagos, etc.)
+- July 16, 2025: Interfaz de navegación con pestañas entre "Lista de Usuarios" y "Asignar Permisos"
+- July 16, 2025: Avisos informativos sobre reemplazo de permisos predeterminados por permisos personalizados
+- July 16, 2025: Resumen visual con contador de permisos seleccionados y confirmación de asignación
+- July 16, 2025: Corrección de filtros "Solo finanzas" y "Permisos básicos" para funcionar con nombres traducidos
 - July 16, 2025: SISTEMA DE USUARIOS COMPLETADO CON NUEVOS ROLES - Gestión completa de permisos y visualización detallada
 - July 16, 2025: Agregados roles "Admisiones" y "Asistente" al sistema con permisos específicos y restricciones definidas
 - July 16, 2025: Implementado botón "Ver Permisos" con modal detallado mostrando permisos, restricciones y alcance por rol

@@ -906,12 +906,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let workbook: XLSX.WorkBook;
       let jsonData: any[];
       
-      if (req.file.mimetype === 'text/csv') {
+      if (req.file.mimetype === 'text/csv' || req.file.mimetype === 'text/tab-separated-values' || req.file.originalname?.endsWith('.tsv')) {
         const csvData = req.file.buffer.toString();
         // Filter out comment lines starting with #
         const filteredLines = csvData.split('\n').filter(line => !line.trim().startsWith('#') && line.trim() !== '');
         const cleanCsvData = filteredLines.join('\n');
-        workbook = XLSX.read(cleanCsvData, { type: 'string' });
+        
+        // Detect separator (tab, semicolon, or comma) and parse accordingly
+        let separator = ',';
+        if (cleanCsvData.includes('\t')) {
+          separator = '\t'; // Tab separator (TSV)
+        } else if (cleanCsvData.includes(';')) {
+          separator = ';'; // Semicolon separator
+        }
+        
+        workbook = XLSX.read(cleanCsvData, { 
+          type: 'string',
+          FS: separator  // Field separator
+        });
       } else {
         workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
       }

@@ -37,28 +37,19 @@ export default function Becas() {
   // Funciones para importación masiva de CSV
   const handleDownloadTemplate = () => {
     try {
-      // Create CSV content with proper escaping for Excel/Numbers compatibility
-      const csvData = [
-        ["# PLANTILLA: Asignaciones de Becas"],
-        [`# FECHA: ${new Date().toLocaleDateString('es-ES')}`],
-        ["# INSTRUCCIONES: Complete los campos obligatorios y guarde como archivo CSV"],
-        [""],
-        ["id_estudiante", "curp_estudiante", "nombre_estudiante", "tipo_beca", "tipo_descuento", "valor_descuento", "vigencia_inicio", "vigencia_fin", "observaciones"],
-        ["1", "GOLM051215MDFNPR03", "María González López", "Beca USEBEQ", "porcentaje", "50", "2024-08-15", "2025-07-15", "Beca por excelencia académica"],
-        ["2", "RAMS031020HDFMND04", "Carlos Ramírez Sánchez", "Descuento Empleados", "cantidad", "1500", "2024-08-15", "2025-07-15", "Descuento por ser hijo de empleado"],
-        ["3", "MAGL080912MDFLRN01", "Luis Martínez Gil", "Beca Deportiva", "porcentaje", "25", "2024-08-15", "2025-07-15", "Beca por destacar en fútbol"]
+      // Create CSV content optimized for Numbers and Excel with semicolon separator
+      const csvLines = [
+        "# PLANTILLA: Asignaciones de Becas",
+        `# FECHA: ${new Date().toLocaleDateString('es-ES')}`,
+        "# INSTRUCCIONES: Complete los campos obligatorios y guarde como archivo CSV",
+        "",
+        "id_estudiante;curp_estudiante;nombre_estudiante;tipo_beca;tipo_descuento;valor_descuento;vigencia_inicio;vigencia_fin;observaciones",
+        "1;GOLM051215MDFNPR03;María González López;Beca USEBEQ;porcentaje;50;2024-08-15;2025-07-15;Beca por excelencia académica",
+        "2;RAMS031020HDFMND04;Carlos Ramírez Sánchez;Descuento Empleados;cantidad;1500;2024-08-15;2025-07-15;Descuento por ser hijo de empleado",
+        "3;MAGL080912MDFLRN01;Luis Martínez Gil;Beca Deportiva;porcentaje;25;2024-08-15;2025-07-15;Beca por destacar en fútbol"
       ];
       
-      // Convert to CSV format with proper escaping
-      const csvContent = csvData.map(row => 
-        row.map(cell => {
-          // Escape cells that contain commas, quotes, or newlines
-          if (cell.includes(',') || cell.includes('"') || cell.includes('\n')) {
-            return `"${cell.replace(/"/g, '""')}"`;
-          }
-          return cell;
-        }).join(',')
-      ).join('\n');
+      const csvContent = csvLines.join('\n');
       
       // Create blob with UTF-8 BOM for Excel/Numbers compatibility
       const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
@@ -77,13 +68,59 @@ export default function Becas() {
       
       toast({
         title: "Plantilla descargada",
-        description: "Plantilla CSV descargada con formato correcto para Excel y Numbers.",
+        description: "Plantilla CSV con separador punto y coma para mejor compatibilidad con Numbers.",
       });
     } catch (error: any) {
       console.error('Error creating CSV:', error);
       toast({
         title: "Error",
         description: "Error al crear la plantilla CSV. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Función alternativa para descargar plantilla TSV (Tab-Separated Values)
+  const handleDownloadTSVTemplate = () => {
+    try {
+      // Create TSV content with tab separators (better for Numbers)
+      const tsvLines = [
+        "# PLANTILLA: Asignaciones de Becas",
+        `# FECHA: ${new Date().toLocaleDateString('es-ES')}`,
+        "# INSTRUCCIONES: Complete los campos obligatorios y guarde como archivo TSV",
+        "",
+        "id_estudiante\tcurp_estudiante\tnombre_estudiante\ttipo_beca\ttipo_descuento\tvalor_descuento\tvigencia_inicio\tvigencia_fin\tobservaciones",
+        "1\tGOLM051215MDFNPR03\tMaría González López\tBeca USEBEQ\tporcentaje\t50\t2024-08-15\t2025-07-15\tBeca por excelencia académica",
+        "2\tRAMS031020HDFMND04\tCarlos Ramírez Sánchez\tDescuento Empleados\tcantidad\t1500\t2024-08-15\t2025-07-15\tDescuento por ser hijo de empleado",
+        "3\tMAGL080912MDFLRN01\tLuis Martínez Gil\tBeca Deportiva\tporcentaje\t25\t2024-08-15\t2025-07-15\tBeca por destacar en fútbol"
+      ];
+      
+      const tsvContent = tsvLines.join('\n');
+      
+      // Create blob with UTF-8 BOM for Excel/Numbers compatibility
+      const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+      const tsvBytes = new TextEncoder().encode(tsvContent);
+      const blob = new Blob([bom, tsvBytes], { type: 'text/tab-separated-values;charset=utf-8' });
+      
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `plantilla_asignaciones_becas_${new Date().toISOString().split('T')[0]}.tsv`;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Plantilla TSV descargada",
+        description: "Plantilla TSV (separador tabulador) especialmente para Numbers en Mac.",
+      });
+    } catch (error: any) {
+      console.error('Error creating TSV:', error);
+      toast({
+        title: "Error",
+        description: "Error al crear la plantilla TSV. Inténtalo de nuevo.",
         variant: "destructive",
       });
     }
@@ -749,8 +786,16 @@ ${b.nombre}:
                               <Download className="mr-2 h-4 w-4" />
                               Descargar Plantilla CSV
                             </Button>
+                            <Button 
+                              onClick={handleDownloadTSVTemplate} 
+                              variant="outline" 
+                              className="w-full"
+                            >
+                              <Download className="mr-2 h-4 w-4" />
+                              Descargar Plantilla TSV (Numbers)
+                            </Button>
                             <p className="text-xs text-gray-600">
-                              Compatible con Excel, Numbers y Google Sheets
+                              CSV: Excel y Windows | TSV: Numbers y Mac
                             </p>
                           </div>
                         </CardContent>

@@ -118,10 +118,13 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
-- July 16, 2025: PLANTILLA CSV PARA BECAS COMPLETAMENTE CORREGIDA - Generación local de CSV con BOM UTF-8 y estructura perfecta implementada
+- July 16, 2025: PLANTILLA CSV/TSV PARA BECAS COMPLETAMENTE CORREGIDA - Doble formato implementado para máxima compatibilidad
+- July 16, 2025: Plantilla CSV con separadores punto y coma (;) optimizada para Excel y Windows
+- July 16, 2025: Plantilla TSV con separadores tabulador optimizada específicamente para Numbers (Mac)
+- July 16, 2025: Servidor actualizado para detectar automáticamente separadores: tabulador, punto y coma, o coma
 - July 16, 2025: Función handleDownloadTemplate actualizada para generar CSV localmente con formato correcto y campos completos
-- July 16, 2025: Plantilla CSV incluye todos los campos requeridos: id_estudiante, curp_estudiante, nombre_estudiante, tipo_beca, tipo_descuento, valor_descuento, vigencia_inicio, vigencia_fin, observaciones
-- July 16, 2025: Archivo CSV con BOM UTF-8 para compatibilidad perfecta con Excel y procesamiento correcto de caracteres especiales
+- July 16, 2025: Plantilla incluye todos los campos requeridos: id_estudiante, curp_estudiante, nombre_estudiante, tipo_beca, tipo_descuento, valor_descuento, vigencia_inicio, vigencia_fin, observaciones
+- July 16, 2025: Archivo CSV/TSV con BOM UTF-8 para compatibilidad perfecta con Excel/Numbers y procesamiento correcto de caracteres especiales
 - July 16, 2025: Problema de inconsistencia de tokens de autenticación completamente resuelto - sistema unificado con auth_token
 - July 16, 2025: SISTEMA DE IMPORTACIÓN CSV PARA BECAS COMPLETADO - Funcionalidad de importación masiva con CSV completamente operativa
 - July 16, 2025: Plantilla CSV para asignación de becas implementada con campos: id_estudiante, curp_estudiante, nombre_estudiante, tipo_beca, tipo_descuento, valor_descuento, vigencia_inicio, vigencia_fin, observaciones

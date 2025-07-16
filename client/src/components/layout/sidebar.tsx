@@ -82,6 +82,13 @@ export default function Sidebar() {
       category: "financiero"
     },
     { 
+      icon: "fas fa-file-alt", 
+      label: "Reportes Financieros", 
+      href: "/reportes-financieros", 
+      active: location === "/reportes-financieros",
+      category: "financiero"
+    },
+    { 
       icon: "fas fa-box", 
       label: "Catálogo Productos", 
       href: "/catalogo-productos", 

@@ -827,36 +827,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Plantilla no encontrada" });
       }
 
-      // Create Excel workbook
-      const wb = XLSX.utils.book_new();
-      
-      // Add header with template info
-      const headerData = [
-        ["PLANTILLA: " + templateConfig.name],
-        ["FECHA: " + new Date().toLocaleDateString()],
-        ["INSTRUCCIONES: Complete los campos obligatorios y guarde como archivo Excel"],
-        [""],
-        templateConfig.columns,
+      // Generate CSV content
+      const csvRows = [
+        `# PLANTILLA: ${templateConfig.name}`,
+        `# FECHA: ${new Date().toLocaleDateString()}`,
+        `# INSTRUCCIONES: Complete los campos obligatorios y guarde como archivo CSV`,
+        ``,
+        templateConfig.columns.join(','),
         ...templateConfig.sampleData.map((item: any) => 
-          templateConfig.columns.map((col: string) => item[col] || '')
+          templateConfig.columns.map((col: string) => {
+            const value = item[col] || '';
+            // Escape commas and quotes in CSV
+            return typeof value === 'string' && (value.includes(',') || value.includes('"')) 
+              ? `"${value.replace(/"/g, '""')}"` 
+              : value;
+          }).join(',')
         )
       ];
       
-      const ws = XLSX.utils.aoa_to_sheet(headerData);
+      const csvContent = csvRows.join('\n');
+      const csvBuffer = Buffer.from('\ufeff' + csvContent, 'utf8'); // Add BOM for Excel compatibility
       
-      // Style the header rows
-      if (!ws['!merges']) ws['!merges'] = [];
-      ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: templateConfig.columns.length - 1 } });
-      
-      XLSX.utils.book_append_sheet(wb, ws, templateConfig.name);
-      
-      // Generate Excel buffer
-      const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-      
-      const fileName = `plantilla_${templateId}_${new Date().toISOString().split('T')[0]}.xlsx`;
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      const fileName = `plantilla_${templateId}_${new Date().toISOString().split('T')[0]}.csv`;
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-      res.send(excelBuffer);
+      res.send(csvBuffer);
       
     } catch (error: any) {
       console.error('Error generating template:', error);

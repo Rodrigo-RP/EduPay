@@ -36,12 +36,31 @@ export default function Becas() {
   // Funciones para importación masiva de Excel
   const handleDownloadTemplate = async () => {
     try {
-      const response = await fetch('/api/import/template/becas/asignaciones');
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        toast({
+          title: "Error",
+          description: "No hay sesión activa. Por favor, inicia sesión nuevamente.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const response = await fetch('/api/import/template/becas/asignaciones', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error descargando plantilla');
+      }
+      
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'plantilla_asignacion_becas.xlsx';
+      a.download = 'plantilla_asignacion_becas.csv';
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -49,7 +68,7 @@ export default function Becas() {
       
       toast({
         title: "Plantilla descargada",
-        description: "La plantilla Excel ha sido descargada exitosamente.",
+        description: "La plantilla CSV ha sido descargada exitosamente.",
       });
     } catch (error) {
       toast({
@@ -73,7 +92,7 @@ export default function Becas() {
     if (!importFile) {
       toast({
         title: "Error",
-        description: "Por favor selecciona un archivo Excel para importar.",
+        description: "Por favor selecciona un archivo CSV para importar.",
         variant: "destructive",
       });
       return;
@@ -81,11 +100,24 @@ export default function Becas() {
 
     try {
       setImportProgress(0);
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        toast({
+          title: "Error",
+          description: "No hay sesión activa. Por favor, inicia sesión nuevamente.",
+          variant: "destructive"
+        });
+        return;
+      }
+
       const formData = new FormData();
       formData.append('file', importFile);
 
       const response = await fetch('/api/import/data/becas/asignaciones', {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
         body: formData,
       });
 
@@ -680,12 +712,12 @@ ${b.nombre}:
                         <h4 className="font-medium text-blue-900">Importación Masiva de Becas</h4>
                       </div>
                       <p className="text-sm text-gray-600 mb-4">
-                        Asigna múltiples becas y descuentos usando un archivo Excel. Descarga la plantilla, llénala con los datos y súbela para procesamiento automático.
+                        Asigna múltiples becas y descuentos usando un archivo CSV. Descarga la plantilla, llénala con los datos y súbela para procesamiento automático.
                       </p>
                       <div className="space-y-3">
                         <div className="flex items-center space-x-2">
                           <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
-                          <span className="text-sm">Descarga la plantilla Excel</span>
+                          <span className="text-sm">Descarga la plantilla CSV</span>
                         </div>
                         <div className="flex items-center space-x-2">
                           <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
@@ -705,11 +737,11 @@ ${b.nombre}:
                         </CardHeader>
                         <CardContent>
                           <p className="text-sm text-muted-foreground mb-4">
-                            Plantilla Excel con ejemplos de asignación de becas
+                            Plantilla CSV con ejemplos de asignación de becas
                           </p>
                           <Button onClick={handleDownloadTemplate} className="w-full">
                             <Download className="mr-2 h-4 w-4" />
-                            Descargar Plantilla Excel
+                            Descargar Plantilla CSV
                           </Button>
                         </CardContent>
                       </Card>

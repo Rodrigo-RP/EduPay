@@ -118,6 +118,14 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- July 16, 2025: EXPORTACIÓN PDF REPORTES FINANCIEROS COMPLETAMENTE FUNCIONAL - Implementación HTML exitosa
+- July 16, 2025: Reemplazado jsPDF por generación HTML con CSS profesional para exportación PDF
+- July 16, 2025: Sistema abre ventana de impresión automática para convertir HTML a PDF
+- July 16, 2025: Exportación Excel mantiene funcionalidad original con descarga directa
+- July 16, 2025: Reporte HTML incluye métricas ejecutivas, tablas de ingresos y detalles de pagos
+- July 16, 2025: Formato responsive con estilos CSS optimizados para impresión
+- July 16, 2025: Manejo robusto de errores con validaciones de datos y valores por defecto
+- July 16, 2025: Backend endpoint /api/reports/financial/export completamente operativo
 - July 16, 2025: ERROR DASHBOARD ADMISIONES CORREGIDO - Problema con getDashboardTitle resuelto
 - July 16, 2025: Funciones getDashboardTitle y getDashboardDescription corregidas de función() a valor directo en dashboard-admisiones.tsx
 - July 16, 2025: Error "getDashboardTitle is not a function" eliminado - valores useMemo accedidos correctamente

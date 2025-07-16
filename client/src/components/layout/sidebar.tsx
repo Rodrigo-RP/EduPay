@@ -168,6 +168,60 @@ export default function Sidebar() {
 
   ];
 
+  // Función para obtener los colores de cada sección
+  const getSectionColors = (category: string) => {
+    switch (category) {
+      case "principal":
+        return {
+          titleColor: "text-blue-600",
+          activeBackground: "bg-blue-50",
+          activeText: "text-blue-700",
+          hoverBackground: "hover:bg-blue-25",
+          borderColor: "border-l-blue-400"
+        };
+      case "academico":
+        return {
+          titleColor: "text-green-600",
+          activeBackground: "bg-green-50",
+          activeText: "text-green-700",
+          hoverBackground: "hover:bg-green-25",
+          borderColor: "border-l-green-400"
+        };
+      case "financiero":
+        return {
+          titleColor: "text-yellow-600",
+          activeBackground: "bg-yellow-50",
+          activeText: "text-yellow-700",
+          hoverBackground: "hover:bg-yellow-25",
+          borderColor: "border-l-yellow-400"
+        };
+      case "administrativo":
+        return {
+          titleColor: "text-purple-600",
+          activeBackground: "bg-purple-50",
+          activeText: "text-purple-700",
+          hoverBackground: "hover:bg-purple-25",
+          borderColor: "border-l-purple-400"
+        };
+      case "sistema":
+        return {
+          titleColor: "text-red-600",
+          activeBackground: "bg-red-50",
+          activeText: "text-red-700",
+          hoverBackground: "hover:bg-red-25",
+          borderColor: "border-l-red-400"
+        };
+      default:
+        return {
+          titleColor: "text-slate-500",
+          activeBackground: "bg-primary-50",
+          activeText: "text-primary-700",
+          hoverBackground: "hover:bg-slate-50",
+          borderColor: "border-l-gray-400"
+        };
+    }
+  };
+
   return (
     <aside className="w-64 bg-white border-r border-slate-200 flex flex-col">
       <div className="p-6">
@@ -190,126 +244,151 @@ export default function Sidebar() {
         <div className="space-y-4">
           {/* Sección Principal */}
           <div>
-            <h3 className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Principal</h3>
+            <h3 className={`px-3 text-xs font-semibold uppercase tracking-wider ${getSectionColors("principal").titleColor}`}>
+              <i className="fas fa-home mr-2"></i>Principal
+            </h3>
             <div className="mt-2 space-y-1">
-              {menuItems.filter(item => item.category === "principal").map((item, index) => (
-                <a
-                  key={index}
-                  href={item.href}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setLocation(item.href);
-                  }}
-                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
-                    item.active
-                      ? "bg-primary-50 text-primary-700"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                >
-                  <i className={`${item.icon} mr-3 text-sm`}></i>
-                  {item.label}
-                </a>
-              ))}
+              {menuItems.filter(item => item.category === "principal").map((item, index) => {
+                const colors = getSectionColors("principal");
+                return (
+                  <a
+                    key={index}
+                    href={item.href}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setLocation(item.href);
+                    }}
+                    className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer border-l-4 ${
+                      item.active
+                        ? `${colors.activeBackground} ${colors.activeText} ${colors.borderColor}`
+                        : `text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-l-transparent ${colors.hoverBackground}`
+                    }`}
+                  >
+                    <i className={`${item.icon} mr-3 text-sm`}></i>
+                    {item.label}
+                  </a>
+                );
+              })}
             </div>
           </div>
 
           {/* Sección Académica */}
           <div>
-            <h3 className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Académico</h3>
+            <h3 className={`px-3 text-xs font-semibold uppercase tracking-wider ${getSectionColors("academico").titleColor}`}>
+              <i className="fas fa-graduation-cap mr-2"></i>Académico
+            </h3>
             <div className="mt-2 space-y-1">
-              {menuItems.filter(item => item.category === "academico").map((item, index) => (
-                <a
-                  key={index}
-                  href={item.href}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setLocation(item.href);
-                  }}
-                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
-                    item.active
-                      ? "bg-primary-50 text-primary-700"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                >
-                  <i className={`${item.icon} mr-3 text-sm`}></i>
-                  {item.label}
-                </a>
-              ))}
+              {menuItems.filter(item => item.category === "academico").map((item, index) => {
+                const colors = getSectionColors("academico");
+                return (
+                  <a
+                    key={index}
+                    href={item.href}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setLocation(item.href);
+                    }}
+                    className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer border-l-4 ${
+                      item.active
+                        ? `${colors.activeBackground} ${colors.activeText} ${colors.borderColor}`
+                        : `text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-l-transparent ${colors.hoverBackground}`
+                    }`}
+                  >
+                    <i className={`${item.icon} mr-3 text-sm`}></i>
+                    {item.label}
+                  </a>
+                );
+              })}
             </div>
           </div>
 
           {/* Sección Financiera */}
           <div>
-            <h3 className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Financiero</h3>
+            <h3 className={`px-3 text-xs font-semibold uppercase tracking-wider ${getSectionColors("financiero").titleColor}`}>
+              <i className="fas fa-dollar-sign mr-2"></i>Financiero
+            </h3>
             <div className="mt-2 space-y-1">
-              {menuItems.filter(item => item.category === "financiero").map((item, index) => (
-                <a
-                  key={index}
-                  href={item.href}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setLocation(item.href);
-                  }}
-                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
-                    item.active
-                      ? "bg-primary-50 text-primary-700"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                >
-                  <i className={`${item.icon} mr-3 text-sm`}></i>
-                  {item.label}
-                </a>
-              ))}
+              {menuItems.filter(item => item.category === "financiero").map((item, index) => {
+                const colors = getSectionColors("financiero");
+                return (
+                  <a
+                    key={index}
+                    href={item.href}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setLocation(item.href);
+                    }}
+                    className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer border-l-4 ${
+                      item.active
+                        ? `${colors.activeBackground} ${colors.activeText} ${colors.borderColor}`
+                        : `text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-l-transparent ${colors.hoverBackground}`
+                    }`}
+                  >
+                    <i className={`${item.icon} mr-3 text-sm`}></i>
+                    {item.label}
+                  </a>
+                );
+              })}
             </div>
           </div>
 
           {/* Sección Administrativa */}
           <div>
-            <h3 className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Administrativo</h3>
+            <h3 className={`px-3 text-xs font-semibold uppercase tracking-wider ${getSectionColors("administrativo").titleColor}`}>
+              <i className="fas fa-clipboard-list mr-2"></i>Administrativo
+            </h3>
             <div className="mt-2 space-y-1">
-              {menuItems.filter(item => item.category === "administrativo").map((item, index) => (
-                <a
-                  key={index}
-                  href={item.href}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setLocation(item.href);
-                  }}
-                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
-                    item.active
-                      ? "bg-primary-50 text-primary-700"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                >
-                  <i className={`${item.icon} mr-3 text-sm`}></i>
-                  {item.label}
-                </a>
-              ))}
+              {menuItems.filter(item => item.category === "administrativo").map((item, index) => {
+                const colors = getSectionColors("administrativo");
+                return (
+                  <a
+                    key={index}
+                    href={item.href}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setLocation(item.href);
+                    }}
+                    className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer border-l-4 ${
+                      item.active
+                        ? `${colors.activeBackground} ${colors.activeText} ${colors.borderColor}`
+                        : `text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-l-transparent ${colors.hoverBackground}`
+                    }`}
+                  >
+                    <i className={`${item.icon} mr-3 text-sm`}></i>
+                    {item.label}
+                  </a>
+                );
+              })}
             </div>
           </div>
 
           {/* Sección Sistema */}
           <div>
-            <h3 className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Sistema</h3>
+            <h3 className={`px-3 text-xs font-semibold uppercase tracking-wider ${getSectionColors("sistema").titleColor}`}>
+              <i className="fas fa-cog mr-2"></i>Sistema
+            </h3>
             <div className="mt-2 space-y-1">
-              {menuItems.filter(item => item.category === "sistema").map((item, index) => (
-                <a
-                  key={index}
-                  href={item.href}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setLocation(item.href);
-                  }}
-                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
-                    item.active
-                      ? "bg-primary-50 text-primary-700"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                >
-                  <i className={`${item.icon} mr-3 text-sm`}></i>
-                  {item.label}
-                </a>
-              ))}
+              {menuItems.filter(item => item.category === "sistema").map((item, index) => {
+                const colors = getSectionColors("sistema");
+                return (
+                  <a
+                    key={index}
+                    href={item.href}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setLocation(item.href);
+                    }}
+                    className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer border-l-4 ${
+                      item.active
+                        ? `${colors.activeBackground} ${colors.activeText} ${colors.borderColor}`
+                        : `text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-l-transparent ${colors.hoverBackground}`
+                    }`}
+                  >
+                    <i className={`${item.icon} mr-3 text-sm`}></i>
+                    {item.label}
+                  </a>
+                );
+              })}
               
               {/* Botón de Capacitación */}
               <button

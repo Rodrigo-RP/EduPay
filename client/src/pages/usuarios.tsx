@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Users, Plus, Edit, Trash2, UserCheck, UserX, Shield, Mail, AlertTriangle } from "lucide-react";
+import { Users, Plus, Edit, Trash2, UserCheck, UserX, Shield, Mail, AlertTriangle, Key, Settings, Eye } from "lucide-react";
+import { ROLE_PERMISSIONS, hasPermission, getRolePermissions, UserRole } from "@shared/permissions";
 
 export default function Usuarios() {
   const { toast } = useToast();
@@ -21,6 +22,8 @@ export default function Usuarios() {
   const [selectedRole, setSelectedRole] = useState("all");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState<any>(null);
+  const [showPermissionsModal, setShowPermissionsModal] = useState(false);
+  const [selectedUserForPermissions, setSelectedUserForPermissions] = useState<any>(null);
   const [formData, setFormData] = useState({
     nombre_completo: "",
     email: "",
@@ -100,17 +103,50 @@ export default function Usuarios() {
     },
     {
       id: 7,
-      email: "secretaria@sanpatricio.edu.mx",
+      email: "admisiones@sanpatricio.edu.mx",
       nombre_completo: "Carmen Rosa Martínez",
-      role: "CAJA",
+      role: "ADMISIONES",
       telefono: "55-7890-1234",
       activo: true,
       campus: "Campus Principal",
       ultimo_acceso: "2025-01-20 13:15",
-      created_at: "2024-09-10"
+      created_at: "2024-11-01"
     },
     {
       id: 8,
+      email: "asistente@sanpatricio.edu.mx",
+      nombre_completo: "Patricia Fernández Ruiz",
+      role: "ASISTENTE",
+      telefono: "55-8901-2345",
+      activo: true,
+      campus: "Campus Principal",
+      ultimo_acceso: "2025-01-20 14:30",
+      created_at: "2024-11-15"
+    },
+    {
+      id: 9,
+      email: "admisiones.norte@sanpatricio.edu.mx",
+      nombre_completo: "Luis Alberto Sánchez",
+      role: "ADMISIONES",
+      telefono: "55-9012-3456",
+      activo: true,
+      campus: "Campus Norte",
+      ultimo_acceso: "2025-01-20 09:45",
+      created_at: "2024-12-01"
+    },
+    {
+      id: 11,
+      email: "asistente.norte@sanpatricio.edu.mx",
+      nombre_completo: "Rosa María García",
+      role: "ASISTENTE",
+      telefono: "55-7890-1234",
+      activo: true,
+      campus: "Campus Norte",
+      ultimo_acceso: "2025-01-20 13:15",
+      created_at: "2024-09-10"
+    },
+    {
+      id: 12,
       email: "sistemas@sanpatricio.edu.mx",
       nombre_completo: "Daniel Eduardo Torres",
       role: "SUPER_ADMIN",
@@ -119,28 +155,6 @@ export default function Usuarios() {
       campus: "Soporte Técnico",
       ultimo_acceso: "2025-01-20 07:45",
       created_at: "2024-07-15"
-    },
-    {
-      id: 9,
-      email: "coord.kinder@sanpatricio.edu.mx",
-      nombre_completo: "Mónica Patricia Ruiz",
-      role: "ADMIN_CAMPUS",
-      telefono: "55-9012-3456",
-      activo: true,
-      campus: "Campus Principal",
-      ultimo_acceso: "2025-01-19 15:20",
-      created_at: "2024-09-05"
-    },
-    {
-      id: 10,
-      email: "tesoreria@sanpatricio.edu.mx",
-      nombre_completo: "Francisco Javier Morales",
-      role: "CONTADOR",
-      telefono: "55-0123-4567",
-      activo: true,
-      campus: "Campus Principal",
-      ultimo_acceso: "2025-01-18 17:30",
-      created_at: "2024-08-30"
     }
   ];
 
@@ -152,7 +166,9 @@ export default function Usuarios() {
     totalUsuarios: usuarios.length,
     usuariosActivos: usuarios.filter(u => u.activo).length,
     adminsCampus: usuarios.filter(u => u.role === "ADMIN_CAMPUS").length,
-    usuariosCaja: usuarios.filter(u => u.role === "CAJA").length
+    usuariosCaja: usuarios.filter(u => u.role === "CAJA").length,
+    usuariosAdmisiones: usuarios.filter(u => u.role === "ADMISIONES").length,
+    usuariosAsistente: usuarios.filter(u => u.role === "ASISTENTE").length
   };
 
   const getRoleBadge = (role: string) => {
@@ -160,14 +176,18 @@ export default function Usuarios() {
       SUPER_ADMIN: "bg-red-100 text-red-800",
       ADMIN_CAMPUS: "bg-blue-100 text-blue-800", 
       CAJA: "bg-green-100 text-green-800",
-      CONTADOR: "bg-purple-100 text-purple-800"
+      CONTADOR: "bg-purple-100 text-purple-800",
+      ADMISIONES: "bg-orange-100 text-orange-800",
+      ASISTENTE: "bg-gray-100 text-gray-800"
     };
     
     const names = {
       SUPER_ADMIN: "Super Admin",
       ADMIN_CAMPUS: "Admin Campus",
       CAJA: "Caja",
-      CONTADOR: "Contador"
+      CONTADOR: "Contador",
+      ADMISIONES: "Admisiones",
+      ASISTENTE: "Asistente"
     };
     
     return (
@@ -200,7 +220,12 @@ export default function Usuarios() {
       setUserToDelete(user);
       setShowDeleteModal(true);
     }
-  };
+  }
+
+  const handleViewPermissions = (usuario: any) => {
+    setSelectedUserForPermissions(usuario);
+    setShowPermissionsModal(true);
+  };;
 
   const confirmDeleteUser = async () => {
     if (!userToDelete) return;
@@ -328,6 +353,8 @@ export default function Usuarios() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="ADMIN_CAMPUS">Administrador Campus</SelectItem>
+                        <SelectItem value="ADMISIONES">Admisiones</SelectItem>
+                        <SelectItem value="ASISTENTE">Asistente</SelectItem>
                         <SelectItem value="CAJA">Personal de Caja</SelectItem>
                         <SelectItem value="CONTADOR">Contador Externo</SelectItem>
                       </SelectContent>
@@ -362,7 +389,7 @@ export default function Usuarios() {
           </div>
 
           {/* Estadísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
             <Card>
               <CardContent className="p-4 text-center">
                 <Users className="w-8 h-8 text-blue-600 mx-auto mb-2" />
@@ -386,6 +413,21 @@ export default function Usuarios() {
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
+                <UserCheck className="w-8 h-8 text-orange-600 mx-auto mb-2" />
+            <div className="text-2xl font-bold">{estadisticas.usuariosAdmisiones}</div>
+            <div className="text-sm text-slate-600">Admisiones</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <User className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+            <div className="text-2xl font-bold">{estadisticas.usuariosAsistente}</div>
+            <div className="text-sm text-slate-600">Asistentes</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <Mail className="w-8 h-8 text-green-600 mx-auto mb-2" />
             <div className="text-2xl font-bold">{estadisticas.usuariosCaja}</div>
             <div className="text-sm text-slate-600">Personal Caja</div>
               </CardContent>
@@ -407,6 +449,8 @@ export default function Usuarios() {
                     <SelectItem value="all">Todos los roles</SelectItem>
                     <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
                     <SelectItem value="ADMIN_CAMPUS">Admin Campus</SelectItem>
+                    <SelectItem value="ADMISIONES">Admisiones</SelectItem>
+                    <SelectItem value="ASISTENTE">Asistente</SelectItem>
                     <SelectItem value="CAJA">Personal Caja</SelectItem>
                     <SelectItem value="CONTADOR">Contador</SelectItem>
                   </SelectContent>
@@ -460,6 +504,14 @@ export default function Usuarios() {
                           checked={usuario.activo}
                           onCheckedChange={() => handleToggleActive(usuario.id, usuario.activo)}
                         />
+                    <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => handleViewPermissions(usuario)}
+                          className="text-blue-600 hover:text-blue-700"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
                     <Button size="sm" variant="outline" onClick={() => handleEdit(usuario)}>
                           <Edit className="w-4 h-4" />
                         </Button>
@@ -517,6 +569,8 @@ export default function Usuarios() {
                     <SelectContent>
                       <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
                       <SelectItem value="ADMIN_CAMPUS">Administrador Campus</SelectItem>
+                      <SelectItem value="ADMISIONES">Admisiones</SelectItem>
+                      <SelectItem value="ASISTENTE">Asistente</SelectItem>
                       <SelectItem value="CAJA">Personal de Caja</SelectItem>
                       <SelectItem value="CONTADOR">Contador Externo</SelectItem>
                     </SelectContent>
@@ -597,6 +651,104 @@ export default function Usuarios() {
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   Eliminar Usuario
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Modal de Permisos de Usuario */}
+          <Dialog open={showPermissionsModal} onOpenChange={setShowPermissionsModal}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-3">
+                  <Key className="w-5 h-5 text-blue-600" />
+                  Permisos de Usuario - {selectedUserForPermissions?.nombre_completo}
+                </DialogTitle>
+                <DialogDescription>
+                  {selectedUserForPermissions && getRolePermissions(selectedUserForPermissions.role.toLowerCase() as UserRole)?.description}
+                </DialogDescription>
+              </DialogHeader>
+              
+              {selectedUserForPermissions && (
+                <div className="space-y-6">
+                  {/* Información básica del rol */}
+                  <div className="bg-blue-50 rounded-lg p-4">
+                    <div className="flex items-center gap-3 mb-3">
+                      <Shield className="w-5 h-5 text-blue-600" />
+                      <h3 className="font-semibold text-blue-900">
+                        {getRolePermissions(selectedUserForPermissions.role.toLowerCase() as UserRole)?.name}
+                      </h3>
+                    </div>
+                    <p className="text-sm text-blue-700 mb-3">
+                      {getRolePermissions(selectedUserForPermissions.role.toLowerCase() as UserRole)?.description}
+                    </p>
+                    
+                    {/* Scope de permisos */}
+                    <div className="flex items-center gap-2 text-sm">
+                      <Badge variant="outline" className="bg-white">
+                        {selectedUserForPermissions.role === 'SUPER_ADMIN' ? 'Alcance: Toda la plataforma' : 
+                         selectedUserForPermissions.role === 'ADMIN_CAMPUS' ? 'Alcance: Solo su campus' : 
+                         'Alcance: Solo su campus (limitado)'}
+                      </Badge>
+                      <Badge variant="outline" className="bg-white">
+                        Campus: {selectedUserForPermissions.campus}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Permisos específicos */}
+                  <div>
+                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                      <Settings className="w-4 h-4" />
+                      Permisos Específicos
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {getRolePermissions(selectedUserForPermissions.role.toLowerCase() as UserRole)?.permissions.map((permission, index) => (
+                        <div key={index} className="bg-gray-50 rounded-lg p-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="outline" className="text-xs bg-white">
+                              {permission.module}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs bg-green-100 text-green-800">
+                              {permission.action}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-gray-600">{permission.description}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Alcance: {permission.scope === 'all' ? 'Toda la plataforma' : 
+                                     permission.scope === 'campus' ? 'Solo su campus' : 
+                                     permission.scope === 'own' ? 'Solo sus registros' : 'Solo lectura'}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Restricciones */}
+                  {getRolePermissions(selectedUserForPermissions.role.toLowerCase() as UserRole)?.restrictions.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold mb-3 flex items-center gap-2 text-red-700">
+                        <AlertTriangle className="w-4 h-4" />
+                        Restricciones
+                      </h4>
+                      <div className="bg-red-50 rounded-lg p-4">
+                        <ul className="space-y-2">
+                          {getRolePermissions(selectedUserForPermissions.role.toLowerCase() as UserRole)?.restrictions.map((restriction, index) => (
+                            <li key={index} className="flex items-start gap-2 text-sm text-red-700">
+                              <span className="text-red-500 font-bold">•</span>
+                              {restriction}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              <div className="flex justify-end pt-4">
+                <Button variant="outline" onClick={() => setShowPermissionsModal(false)}>
+                  Cerrar
                 </Button>
               </div>
             </DialogContent>

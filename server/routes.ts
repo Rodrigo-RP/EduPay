@@ -22,6 +22,7 @@ import { getAcademicLevel } from "@shared/academic-levels";
 import { z } from "zod";
 import multer from "multer";
 import * as XLSX from "xlsx";
+import { optimizeDatabase, checkQueryPerformance, cleanupObsoleteData, runMaintenanceTask } from "./optimize-database";
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
 
@@ -82,8 +83,8 @@ const authenticateGuardian = async (req: any, res: any, next: any) => {
   }
 };
 
-// Middleware de autenticación mejorado
-const requireAuthStrict = (req: any, res: any, next: any) => {
+// Middleware de autenticación unificado
+const requireAuth = async (req: any, res: any, next: any) => {
   const authHeader = req.headers.authorization;
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -95,16 +96,16 @@ const requireAuthStrict = (req: any, res: any, next: any) => {
   
   const token = authHeader.split(' ')[1];
   
-  // Validar token (implementación simplificada para desarrollo)
-  if (token !== 'valid-admin-token-2025') {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    req.user = decoded;
+    next();
+  } catch (error) {
     return res.status(403).json({ 
       error: 'Token inválido',
       message: 'Credenciales de acceso no válidas' 
     });
   }
-  
-  req.user = { id: 1, role: 'admin' };
-  next();
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -348,7 +349,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ADMIN PORTAL ROUTES
 
   // Get dashboard KPIs - PROTEGIDO
-  app.get("/api/admin/dashboard/:campusId", requireAuthStrict, async (req, res) => {
+  app.get("/api/admin/dashboard/:campusId", requireAuth, async (req, res) => {
     try {
       const campusId = parseInt(req.params.campusId);
       
@@ -1452,7 +1453,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // SECURITY CYBERNETICS APIs
   
   // Security dashboard metrics - PROTEGIDO
-  app.get("/api/security/metrics", requireAuthStrict, async (req, res) => {
+  app.get("/api/security/metrics", requireAuth, async (req, res) => {
     try {
       const metrics = {
         totalThreats: 127,
@@ -1468,7 +1469,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Security events log - PROTEGIDO
-  app.get("/api/security/events", requireAuthStrict, async (req, res) => {
+  app.get("/api/security/events", requireAuth, async (req, res) => {
     try {
       const events = [
         {
@@ -1497,7 +1498,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Security scan - PROTEGIDO
-  app.post("/api/security/scan", requireAuthStrict, async (req, res) => {
+  app.post("/api/security/scan", requireAuth, async (req, res) => {
     try {
       res.json({ 
         message: "Escaneo de seguridad iniciado",
@@ -1515,7 +1516,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Block IP address - PROTEGIDO
-  app.post("/api/security/block-ip", requireAuthStrict, async (req, res) => {
+  app.post("/api/security/block-ip", requireAuth, async (req, res) => {
     try {
       const { ipAddress } = req.body;
       
@@ -1533,7 +1534,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Enable 2FA globally - PROTEGIDO
-  app.post("/api/security/enable-2fa", requireAuthStrict, async (req, res) => {
+  app.post("/api/security/enable-2fa", requireAuth, async (req, res) => {
     try {
       res.json({ 
         message: "2FA habilitado globalmente para todos los usuarios admin",
@@ -1545,7 +1546,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate security report - PROTEGIDO
-  app.get("/api/security/report", requireAuthStrict, async (req, res) => {
+  app.get("/api/security/report", requireAuth, async (req, res) => {
     try {
       const report = {
         generatedAt: new Date().toISOString(),
@@ -1572,6 +1573,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(report);
     } catch (error) {
       res.status(500).json({ error: "Error generando reporte de seguridad" });
+    }
+  });
+
+  // ========================================
+  // DATABASE OPTIMIZATION ENDPOINTS
+  // ========================================
+
+  // Optimize database performance
+  app.post("/api/admin/optimize-database", requireAuth, async (req, res) => {
+    try {
+      const result = await optimizeDatabase();
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: "Error optimizando base de datos", details: error.message });
+    }
+  });
+
+  // Check query performance
+  app.get("/api/admin/database-performance", requireAuth, async (req, res) => {
+    try {
+      const result = await checkQueryPerformance();
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: "Error verificando rendimiento", details: error.message });
+    }
+  });
+
+  // Clean obsolete data
+  app.post("/api/admin/cleanup-database", requireAuth, async (req, res) => {
+    try {
+      const result = await cleanupObsoleteData();
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: "Error limpiando datos", details: error.message });
+    }
+  });
+
+  // Run complete maintenance task
+  app.post("/api/admin/database-maintenance", requireAuth, async (req, res) => {
+    try {
+      const result = await runMaintenanceTask();
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: "Error ejecutando mantenimiento", details: error.message });
     }
   });
 

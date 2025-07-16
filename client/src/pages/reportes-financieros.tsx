@@ -99,22 +99,38 @@ export default function ReportesFinancieros() {
       });
 
       if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `reporte_financiero_${selectedPeriod}_${selectedMonth}_${selectedYear}.${type === 'excel' ? 'xlsx' : 'pdf'}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-
         clearInterval(progressInterval);
         setExportProgress(100);
 
+        if (type === 'excel') {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `reporte_financiero_${selectedPeriod}_${selectedMonth}_${selectedYear}.xlsx`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        } else if (type === 'pdf') {
+          // Para PDF, abrir en nueva ventana para imprimir
+          const htmlContent = await response.text();
+          const printWindow = window.open('', '_blank');
+          if (printWindow) {
+            printWindow.document.write(htmlContent);
+            printWindow.document.close();
+            // Esperar a que se cargue y luego mostrar diálogo de impresión
+            setTimeout(() => {
+              printWindow.print();
+            }, 1000);
+          }
+        }
+
         toast({
           title: "Reporte exportado",
-          description: `El reporte ha sido descargado exitosamente en formato ${type.toUpperCase()}`,
+          description: type === 'excel' 
+            ? "El reporte Excel ha sido descargado exitosamente"
+            : "El reporte PDF se ha abierto en una nueva ventana. Usa Ctrl+P para guardarlo como PDF",
         });
 
         setTimeout(() => {

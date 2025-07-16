@@ -3498,75 +3498,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.end();
 
       } else if (type === 'pdf') {
-        const jsPDF = require('jspdf');
-        require('jspdf-autotable');
+        // Generar contenido HTML para PDF
+        const htmlContent = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <title>Reporte Financiero</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; }
+              .header { text-align: center; margin-bottom: 30px; }
+              .header h1 { color: #333; margin: 0; }
+              .header p { color: #666; margin: 5px 0; }
+              .section { margin-bottom: 25px; }
+              .section h2 { color: #444; border-bottom: 2px solid #ddd; padding-bottom: 5px; }
+              .metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin: 20px 0; }
+              .metric { background: #f8f9fa; padding: 15px; border-radius: 5px; border-left: 4px solid #007bff; }
+              .metric-label { font-weight: bold; color: #333; }
+              .metric-value { font-size: 1.2em; color: #007bff; margin-top: 5px; }
+              table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+              th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+              th { background-color: #f8f9fa; font-weight: bold; }
+              .footer { text-align: center; margin-top: 30px; color: #666; font-size: 0.9em; }
+              @media print {
+                body { margin: 0; }
+                .no-print { display: none; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>REPORTE FINANCIERO</h1>
+              <p>Período: ${periodText}</p>
+              <p>Generado: ${new Date().toLocaleDateString('es-MX')}</p>
+            </div>
+            
+            <div class="section">
+              <h2>RESUMEN EJECUTIVO</h2>
+              <div class="metrics">
+                <div class="metric">
+                  <div class="metric-label">Ingresos Totales</div>
+                  <div class="metric-value">$${(data.summary?.total_income || 0).toLocaleString('es-MX')}</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">Pagos Procesados</div>
+                  <div class="metric-value">${data.summary?.payments_processed || 0}</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">Cuentas por Cobrar</div>
+                  <div class="metric-value">$${(data.summary?.accounts_receivable || 0).toLocaleString('es-MX')}</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">Morosidad</div>
+                  <div class="metric-value">${data.summary?.overdue_percentage || 0}%</div>
+                </div>
+              </div>
+            </div>
+            
+            ${data.income_by_concept && data.income_by_concept.length > 0 ? `
+            <div class="section">
+              <h2>INGRESOS POR CONCEPTO</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Concepto</th>
+                    <th>Monto</th>
+                    <th>Porcentaje</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.income_by_concept.slice(0, 15).map((item: any) => `
+                    <tr>
+                      <td>${item.concept || 'N/A'}</td>
+                      <td>$${(item.amount || 0).toLocaleString('es-MX')}</td>
+                      <td>${item.percentage || 0}%</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+            ` : ''}
+            
+            ${data.income_details && data.income_details.length > 0 ? `
+            <div class="section">
+              <h2>DETALLE DE PAGOS (Últimos 20 registros)</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Concepto</th>
+                    <th>Estudiante</th>
+                    <th>Método</th>
+                    <th>Monto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.income_details.slice(0, 20).map((payment: any) => `
+                    <tr>
+                      <td>${payment.fecha_pago ? new Date(payment.fecha_pago).toLocaleDateString('es-MX') : 'N/A'}</td>
+                      <td>${payment.concepto || 'N/A'}</td>
+                      <td>${payment.estudiante || 'N/A'}</td>
+                      <td>${payment.metodo || 'N/A'}</td>
+                      <td>$${(payment.monto || 0).toLocaleString('es-MX')}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+            ` : ''}
+            
+            <div class="footer">
+              <p>Reporte generado por EscuelaPay - Sistema de Gestión Financiera Escolar</p>
+            </div>
+          </body>
+          </html>
+        `;
         
-        const doc = new jsPDF();
-        
-        // Título
-        doc.setFontSize(20);
-        doc.text('REPORTE FINANCIERO', 20, 20);
-        doc.setFontSize(14);
-        doc.text(`Período: ${periodText}`, 20, 30);
-        doc.text(`Generado: ${new Date().toLocaleDateString('es-MX')}`, 20, 40);
-        
-        // Métricas principales
-        doc.setFontSize(16);
-        doc.text('RESUMEN EJECUTIVO', 20, 60);
-        doc.setFontSize(12);
-        doc.text(`Ingresos Totales: $${(data.summary?.total_income || 0).toLocaleString('es-MX')}`, 20, 75);
-        doc.text(`Pagos Procesados: ${data.summary?.payments_processed || 0}`, 20, 85);
-        doc.text(`Cuentas por Cobrar: $${(data.summary?.accounts_receivable || 0).toLocaleString('es-MX')}`, 20, 95);
-        doc.text(`Morosidad: ${data.summary?.overdue_percentage || 0}%`, 20, 105);
-        
-        // Tabla de ingresos por concepto
-        if (data.income_by_concept && data.income_by_concept.length > 0) {
-          doc.setFontSize(14);
-          doc.text('INGRESOS POR CONCEPTO', 20, 125);
-          
-          const conceptData = data.income_by_concept.slice(0, 10).map((item: any) => [
-            item.concept || 'N/A',
-            `$${(item.amount || 0).toLocaleString('es-MX')}`,
-            `${item.percentage || 0}%`
-          ]);
-          
-          (doc as any).autoTable({
-            head: [['Concepto', 'Monto', 'Porcentaje']],
-            body: conceptData,
-            startY: 135,
-            styles: { fontSize: 10 },
-            headStyles: { fillColor: [66, 139, 202] }
-          });
-        }
-        
-        // Segunda página con detalle de pagos
-        if (data.income_details && data.income_details.length > 0) {
-          doc.addPage();
-          doc.setFontSize(16);
-          doc.text('DETALLE DE PAGOS', 20, 20);
-          
-          const paymentData = data.income_details.slice(0, 30).map((payment: any) => [
-            payment.fecha_pago ? new Date(payment.fecha_pago).toLocaleDateString('es-MX') : 'N/A',
-            payment.concepto || 'N/A',
-            payment.estudiante || 'N/A',
-            payment.metodo || 'N/A',
-            `$${(payment.monto || 0).toLocaleString('es-MX')}`
-          ]);
-          
-          (doc as any).autoTable({
-            head: [['Fecha', 'Concepto', 'Estudiante', 'Método', 'Monto']],
-            body: paymentData,
-            startY: 30,
-            styles: { fontSize: 8 },
-            headStyles: { fillColor: [66, 139, 202] }
-          });
-        }
-        
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="${fileName}.pdf"`);
-        
-        const pdfBuffer = doc.output('arraybuffer');
-        res.send(Buffer.from(pdfBuffer));
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Content-Disposition', `inline; filename="${fileName}.html"`);
+        res.send(htmlContent);
       } else {
         res.status(400).json({ message: "Tipo de exportación no válido" });
       }

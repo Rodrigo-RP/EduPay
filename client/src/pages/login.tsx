@@ -8,8 +8,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Login() {
-  const [adminEmail, setAdminEmail] = useState("");
-  const [adminPassword, setAdminPassword] = useState("");
+  const [adminEmail, setAdminEmail] = useState("admisiones@sanpatricio.edu.mx");
+  const [adminPassword, setAdminPassword] = useState("demo123");
   const [guardianEmail, setGuardianEmail] = useState("");
   const [guardianPassword, setGuardianPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);

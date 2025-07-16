@@ -100,7 +100,17 @@ function AuthenticatedRoutes() {
     );
   }
 
-  // Admin/staff routes
+  // Admin/staff routes with role-based dashboard redirection
+  const getRoleBasedDashboard = () => {
+    if (user?.role === 'admisiones') {
+      return DashboardAdmisiones;
+    } else if (user?.role === 'caja') {
+      return DashboardCaja;
+    } else {
+      return AdminDashboard;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex">
       <Sidebar />
@@ -108,8 +118,10 @@ function AuthenticatedRoutes() {
         <Header />
         <main className="flex-1 p-6 bg-slate-50">
           <Switch>
-            <Route path="/" component={AdminDashboard} />
+            <Route path="/" component={getRoleBasedDashboard()} />
             <Route path="/admin" component={AdminDashboard} />
+            <Route path="/dashboard-admisiones" component={DashboardAdmisiones} />
+            <Route path="/dashboard-caja" component={DashboardCaja} />
             <Route path="/estudiantes" component={Estudiantes} />
             <Route path="/familias" component={Familias} />
             <Route path="/usuarios" component={Usuarios} />

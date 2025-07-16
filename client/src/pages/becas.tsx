@@ -37,24 +37,33 @@ export default function Becas() {
   // Funciones para importación masiva de CSV
   const handleDownloadTemplate = () => {
     try {
-      // Create CSV content with proper structure and UTF-8 BOM
-      const csvLines = [
-        "# PLANTILLA: Asignaciones de Becas",
-        `# FECHA: ${new Date().toLocaleDateString('es-ES')}`,
-        "# INSTRUCCIONES: Complete los campos obligatorios y guarde como archivo CSV",
-        "",
-        "id_estudiante,curp_estudiante,nombre_estudiante,tipo_beca,tipo_descuento,valor_descuento,vigencia_inicio,vigencia_fin,observaciones",
-        "1,GOLM051215MDFNPR03,María González López,Beca USEBEQ,porcentaje,50,2024-08-15,2025-07-15,Beca por excelencia académica",
-        "2,RAMS031020HDFMND04,Carlos Ramírez Sánchez,Descuento Empleados,cantidad,1500,2024-08-15,2025-07-15,Descuento por ser hijo de empleado",
-        "3,MAGL080912MDFLRN01,Luis Martínez Gil,Beca Deportiva,porcentaje,25,2024-08-15,2025-07-15,Beca por destacar en fútbol"
+      // Create CSV content with proper escaping for Excel/Numbers compatibility
+      const csvData = [
+        ["# PLANTILLA: Asignaciones de Becas"],
+        [`# FECHA: ${new Date().toLocaleDateString('es-ES')}`],
+        ["# INSTRUCCIONES: Complete los campos obligatorios y guarde como archivo CSV"],
+        [""],
+        ["id_estudiante", "curp_estudiante", "nombre_estudiante", "tipo_beca", "tipo_descuento", "valor_descuento", "vigencia_inicio", "vigencia_fin", "observaciones"],
+        ["1", "GOLM051215MDFNPR03", "María González López", "Beca USEBEQ", "porcentaje", "50", "2024-08-15", "2025-07-15", "Beca por excelencia académica"],
+        ["2", "RAMS031020HDFMND04", "Carlos Ramírez Sánchez", "Descuento Empleados", "cantidad", "1500", "2024-08-15", "2025-07-15", "Descuento por ser hijo de empleado"],
+        ["3", "MAGL080912MDFLRN01", "Luis Martínez Gil", "Beca Deportiva", "porcentaje", "25", "2024-08-15", "2025-07-15", "Beca por destacar en fútbol"]
       ];
       
-      const csvContent = csvLines.join('\n');
+      // Convert to CSV format with proper escaping
+      const csvContent = csvData.map(row => 
+        row.map(cell => {
+          // Escape cells that contain commas, quotes, or newlines
+          if (cell.includes(',') || cell.includes('"') || cell.includes('\n')) {
+            return `"${cell.replace(/"/g, '""')}"`;
+          }
+          return cell;
+        }).join(',')
+      ).join('\n');
       
-      // Create blob with UTF-8 BOM for Excel compatibility
+      // Create blob with UTF-8 BOM for Excel/Numbers compatibility
       const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
-      const csvData = new TextEncoder().encode(csvContent);
-      const blob = new Blob([bom, csvData], { type: 'text/csv;charset=utf-8;' });
+      const csvBytes = new TextEncoder().encode(csvContent);
+      const blob = new Blob([bom, csvBytes], { type: 'text/csv;charset=utf-8' });
       
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -68,7 +77,7 @@ export default function Becas() {
       
       toast({
         title: "Plantilla descargada",
-        description: "Plantilla CSV descargada con formato correcto y compatibilidad total con Excel.",
+        description: "Plantilla CSV descargada con formato correcto para Excel y Numbers.",
       });
     } catch (error: any) {
       console.error('Error creating CSV:', error);
@@ -735,10 +744,15 @@ ${b.nombre}:
                           <p className="text-sm text-muted-foreground mb-4">
                             Plantilla CSV con ejemplos de asignación de becas
                           </p>
-                          <Button onClick={handleDownloadTemplate} className="w-full">
-                            <Download className="mr-2 h-4 w-4" />
-                            Descargar Plantilla CSV
-                          </Button>
+                          <div className="space-y-2">
+                            <Button onClick={handleDownloadTemplate} className="w-full">
+                              <Download className="mr-2 h-4 w-4" />
+                              Descargar Plantilla CSV
+                            </Button>
+                            <p className="text-xs text-gray-600">
+                              Compatible con Excel, Numbers y Google Sheets
+                            </p>
+                          </div>
                         </CardContent>
                       </Card>
 

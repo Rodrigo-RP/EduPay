@@ -24,6 +24,8 @@ export default function Usuarios() {
   const [userToDelete, setUserToDelete] = useState<any>(null);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const [selectedUserForPermissions, setSelectedUserForPermissions] = useState<any>(null);
+  const [customPermissions, setCustomPermissions] = useState<string[]>([]);
+  const [useCustomPermissions, setUseCustomPermissions] = useState(false);
   const [formData, setFormData] = useState({
     nombre_completo: "",
     email: "",
@@ -225,7 +227,50 @@ export default function Usuarios() {
   const handleViewPermissions = (usuario: any) => {
     setSelectedUserForPermissions(usuario);
     setShowPermissionsModal(true);
-  };;
+  };
+
+  // Función para obtener todos los permisos disponibles
+  const getAllAvailablePermissions = () => {
+    const allPermissions: { id: string; module: string; action: string; description: string; scope: string }[] = [];
+    
+    ROLE_PERMISSIONS.forEach(role => {
+      role.permissions.forEach(permission => {
+        const permissionId = `${permission.module}_${permission.action}_${permission.scope}`;
+        if (!allPermissions.some(p => p.id === permissionId)) {
+          allPermissions.push({
+            id: permissionId,
+            module: permission.module,
+            action: permission.action,
+            description: permission.description,
+            scope: permission.scope
+          });
+        }
+      });
+    });
+    
+    return allPermissions.sort((a, b) => a.module.localeCompare(b.module));
+  };
+
+  const handlePermissionToggle = (permissionId: string) => {
+    setCustomPermissions(prev => 
+      prev.includes(permissionId) 
+        ? prev.filter(id => id !== permissionId)
+        : [...prev, permissionId]
+    );
+  };
+
+  const resetForm = () => {
+    setFormData({
+      nombre_completo: "",
+      email: "",
+      telefono: "",
+      role: "",
+      campus: "",
+      activo: true
+    });
+    setCustomPermissions([]);
+    setUseCustomPermissions(false);
+  };
 
   const confirmDeleteUser = async () => {
     if (!userToDelete) return;
@@ -255,7 +300,7 @@ export default function Usuarios() {
     }));
   };
 
-  const resetForm = () => {
+  const resetFormComplete = () => {
     setFormData({
       nombre_completo: "",
       email: "",
@@ -264,6 +309,8 @@ export default function Usuarios() {
       campus: "",
       activo: true
     });
+    setCustomPermissions([]);
+    setUseCustomPermissions(false);
   };
 
   const handleEdit = (usuario: any) => {
@@ -290,12 +337,16 @@ export default function Usuarios() {
   };
 
   const handleAdd = () => {
+    const permissionsMessage = useCustomPermissions 
+      ? `con ${customPermissions.length} permisos personalizados`
+      : `con rol ${formData.role}`;
+    
     toast({
       title: "Usuario creado",
-      description: `${formData.nombre_completo} ha sido agregado al sistema.`,
+      description: `${formData.nombre_completo} ha sido agregado al sistema ${permissionsMessage}.`,
     });
     setShowAddModal(false);
-    resetForm();
+    resetFormComplete();
   };
 
   return (
@@ -318,6 +369,9 @@ export default function Usuarios() {
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Crear nuevo usuario</DialogTitle>
+                  <DialogDescription>
+                    Completa la información para crear un nuevo usuario del sistema
+                  </DialogDescription>
                 </DialogHeader>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
               <div>
@@ -376,8 +430,119 @@ export default function Usuarios() {
                     <Label>Usuario activo</Label>
                   </div>
                 </div>
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setShowAddModal(false)}>
+
+                {/* Sección de Permisos Personalizados */}
+                <div className="mt-6 pt-4 border-t">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <Switch 
+                      checked={useCustomPermissions}
+                      onCheckedChange={setUseCustomPermissions}
+                    />
+                    <Label className="font-semibold">Configurar permisos personalizados</Label>
+                  </div>
+                  
+                  {useCustomPermissions && (
+                    <div className="space-y-4">
+                      <div className="bg-blue-50 p-4 rounded-lg">
+                        <p className="text-sm text-blue-700 mb-2">
+                          <strong>Nota:</strong> Al activar permisos personalizados, se ignoran los permisos predeterminados del rol seleccionado.
+                        </p>
+                        <p className="text-sm text-blue-600">
+                          Selecciona específicamente qué funcionalidades puede acceder este usuario.
+                        </p>
+                      </div>
+                      
+                      {/* Botones de selección rápida */}
+                      <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-lg">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setCustomPermissions(getAllAvailablePermissions().map(p => p.id))}
+                        >
+                          Seleccionar todos
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setCustomPermissions([])}
+                        >
+                          Deseleccionar todos
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const basicPermissions = getAllAvailablePermissions()
+                              .filter(p => ['estudiantes', 'familias', 'dashboard'].includes(p.module))
+                              .map(p => p.id);
+                            setCustomPermissions(basicPermissions);
+                          }}
+                        >
+                          Permisos básicos
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const financialPermissions = getAllAvailablePermissions()
+                              .filter(p => ['pagos', 'cuentas_cobrar', 'finanzas'].includes(p.module))
+                              .map(p => p.id);
+                            setCustomPermissions(financialPermissions);
+                          }}
+                        >
+                          Solo finanzas
+                        </Button>
+                      </div>
+                      
+                      <div className="max-h-80 overflow-y-auto space-y-3">
+                        {getAllAvailablePermissions().map((permission) => (
+                          <div key={permission.id} className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-gray-50">
+                            <input
+                              type="checkbox"
+                              id={permission.id}
+                              checked={customPermissions.includes(permission.id)}
+                              onChange={() => handlePermissionToggle(permission.id)}
+                              className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge variant="outline" className="text-xs">
+                                  {permission.module}
+                                </Badge>
+                                <Badge variant="outline" className="text-xs bg-green-100 text-green-800">
+                                  {permission.action}
+                                </Badge>
+                                <Badge variant="outline" className="text-xs bg-gray-100">
+                                  {permission.scope === 'all' ? 'Toda la plataforma' : 
+                                   permission.scope === 'campus' ? 'Solo su campus' : 
+                                   permission.scope === 'own' ? 'Solo sus registros' : 'Solo lectura'}
+                                </Badge>
+                              </div>
+                              <label 
+                                htmlFor={permission.id} 
+                                className="text-sm text-gray-700 cursor-pointer"
+                              >
+                                {permission.description}
+                              </label>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <p className="text-sm text-gray-600">
+                          <strong>Permisos seleccionados:</strong> {customPermissions.length} de {getAllAvailablePermissions().length}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button variant="outline" onClick={() => {
+                setShowAddModal(false);
+                resetFormComplete();
+              }}>
                     Cancelar
                   </Button>
               <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleAdd}>

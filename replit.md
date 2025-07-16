@@ -118,6 +118,14 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- July 16, 2025: MÚLTIPLES DATOS FISCALES IMPLEMENTADOS - Sistema para gestionar varios RFC por familia
+- July 16, 2025: Pestaña de Facturación ahora permite agregar múltiples RFC con botón "Agregar RFC"
+- July 16, 2025: Cada RFC tiene su propia configuración CFDI independiente (Uso CFDI, Método de Pago, Forma de Pago)
+- July 16, 2025: Sistema de RFC principal con badge visual y función "Hacer Principal"
+- July 16, 2025: Funcionalidad de eliminar RFC (mínimo 1 RFC siempre debe existir)
+- July 16, 2025: Interfaz optimizada con cards separadas para cada RFC y configuración CFDI integrada
+- July 16, 2025: Funciones handleFiscalDataChange(), addFiscalData(), removeFiscalData() y setPrincipalFiscalData() implementadas
+- July 16, 2025: Estado datosFiscales separado del formData principal para mejor gestión de múltiples RFC
 - July 16, 2025: FORMULARIO INDIVIDUAL DE ESTUDIANTES ACTUALIZADO - Campos de nombres separados implementados igual que Excel
 - July 16, 2025: Formulario individual de estudiantes ahora tiene campos separados: Nombres, Primer Apellido, Segundo Apellido
 - July 16, 2025: Estructura de grid optimizada con 3 columnas para mejor aprovechamiento del espacio

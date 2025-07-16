@@ -52,7 +52,7 @@ export default function Familias() {
     ciudad: "",
     estado: "Ciudad de México",
     codigo_postal: "",
-    // Datos de Facturación
+    // Datos de Facturación (mantenido para compatibilidad)
     razon_social: "",
     rfc: "",
     email_facturacion: "",
@@ -68,6 +68,21 @@ export default function Familias() {
     observaciones: "",
     estatus: "activo"
   });
+
+  // Estado para múltiples datos fiscales
+  const [datosFiscales, setDatosFiscales] = useState([
+    {
+      id: 1,
+      razon_social: "",
+      rfc: "",
+      email_facturacion: "",
+      direccion_fiscal: "",
+      uso_cfdi: "G03",
+      metodo_pago: "PUE",
+      forma_pago: "03",
+      es_principal: true
+    }
+  ]);
 
   const [familias, setFamilias] = useState([
     {
@@ -301,6 +316,45 @@ export default function Familias() {
     }));
   };
 
+  // Funciones para manejar múltiples datos fiscales
+  const handleFiscalDataChange = (index: number, field: string, value: string) => {
+    setDatosFiscales(prev => 
+      prev.map((dato, i) => 
+        i === index ? { ...dato, [field]: value } : dato
+      )
+    );
+  };
+
+  const addFiscalData = () => {
+    const newId = Math.max(...datosFiscales.map(d => d.id)) + 1;
+    setDatosFiscales(prev => [...prev, {
+      id: newId,
+      razon_social: "",
+      rfc: "",
+      email_facturacion: "",
+      direccion_fiscal: "",
+      uso_cfdi: "G03",
+      metodo_pago: "PUE",
+      forma_pago: "03",
+      es_principal: false
+    }]);
+  };
+
+  const removeFiscalData = (index: number) => {
+    if (datosFiscales.length > 1) {
+      setDatosFiscales(prev => prev.filter((_, i) => i !== index));
+    }
+  };
+
+  const setPrincipalFiscalData = (index: number) => {
+    setDatosFiscales(prev => 
+      prev.map((dato, i) => ({
+        ...dato,
+        es_principal: i === index
+      }))
+    );
+  };
+
   // Función para combinar nombres separados en nombre completo
   const combineNames = (nombres: string, primerApellido: string, segundoApellido: string) => {
     const parts = [nombres, primerApellido, segundoApellido].filter(part => part.trim());
@@ -342,6 +396,21 @@ export default function Familias() {
       observaciones: "",
       estatus: "activo"
     });
+    
+    // Resetear datos fiscales múltiples
+    setDatosFiscales([
+      {
+        id: 1,
+        razon_social: "",
+        rfc: "",
+        email_facturacion: "",
+        direccion_fiscal: "",
+        uso_cfdi: "G03",
+        metodo_pago: "PUE",
+        forma_pago: "03",
+        es_principal: true
+      }
+    ]);
   };
 
   // Funciones para importación Excel de familias
@@ -1215,92 +1284,154 @@ export default function Familias() {
 
                     <TabsContent value="facturacion" className="space-y-4">
                       <div>
-                        <h3 className="text-lg font-semibold text-slate-900 mb-4">Datos Fiscales</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="razon_social">Razón Social</Label>
-                            <Input
-                              id="razon_social"
-                              value={formData.razon_social}
-                              onChange={(e) => handleInputChange("razon_social", e.target.value)}
-                              placeholder="Nombre o razón social para facturación"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="rfc">RFC</Label>
-                            <Input
-                              id="rfc"
-                              value={formData.rfc}
-                              onChange={(e) => handleInputChange("rfc", e.target.value.toUpperCase())}
-                              placeholder="RFC de 12 o 13 caracteres"
-                              maxLength={13}
-                            />
-                          </div>
-                          <div className="md:col-span-2">
-                            <Label htmlFor="email_facturacion">Email para Facturación</Label>
-                            <Input
-                              id="email_facturacion"
-                              type="email"
-                              value={formData.email_facturacion}
-                              onChange={(e) => handleInputChange("email_facturacion", e.target.value)}
-                              placeholder="Email donde se enviarán las facturas"
-                            />
-                          </div>
-                          <div className="md:col-span-2">
-                            <Label htmlFor="direccion_fiscal">Dirección Fiscal</Label>
-                            <Input
-                              id="direccion_fiscal"
-                              value={formData.direccion_fiscal}
-                              onChange={(e) => handleInputChange("direccion_fiscal", e.target.value)}
-                              placeholder="Dirección fiscal registrada en el SAT"
-                            />
-                          </div>
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-semibold text-slate-900">Datos Fiscales</h3>
+                          <Button 
+                            type="button" 
+                            onClick={addFiscalData}
+                            className="bg-blue-600 hover:bg-blue-700"
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Agregar RFC
+                          </Button>
                         </div>
-                      </div>
-                      
-                      <div>
-                        <h3 className="text-lg font-semibold text-slate-900 mb-4">Configuración CFDI</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div>
-                            <Label htmlFor="uso_cfdi">Uso de CFDI</Label>
-                            <Select value={formData.uso_cfdi} onValueChange={(value) => handleInputChange("uso_cfdi", value)}>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="G01">G01 - Adquisición de mercancías</SelectItem>
-                                <SelectItem value="G03">G03 - Gastos en general</SelectItem>
-                                <SelectItem value="P01">P01 - Por definir</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label htmlFor="metodo_pago">Método de Pago</Label>
-                            <Select value={formData.metodo_pago} onValueChange={(value) => handleInputChange("metodo_pago", value)}>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="PUE">PUE - Pago en una sola exhibición</SelectItem>
-                                <SelectItem value="PPD">PPD - Pago en parcialidades o diferido</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label htmlFor="forma_pago">Forma de Pago</Label>
-                            <Select value={formData.forma_pago} onValueChange={(value) => handleInputChange("forma_pago", value)}>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="01">01 - Efectivo</SelectItem>
-                                <SelectItem value="02">02 - Cheque nominativo</SelectItem>
-                                <SelectItem value="03">03 - Transferencia electrónica</SelectItem>
-                                <SelectItem value="04">04 - Tarjeta de crédito</SelectItem>
-                                <SelectItem value="28">28 - Tarjeta de débito</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
+                        
+                        <div className="space-y-6">
+                          {datosFiscales.map((datoFiscal, index) => (
+                            <div key={datoFiscal.id} className="border rounded-lg p-4 bg-gray-50">
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center space-x-2">
+                                  <h4 className="font-medium text-slate-900">
+                                    RFC #{index + 1}
+                                  </h4>
+                                  {datoFiscal.es_principal && (
+                                    <Badge variant="default" className="bg-green-100 text-green-800">
+                                      Principal
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  {!datoFiscal.es_principal && (
+                                    <Button 
+                                      type="button" 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => setPrincipalFiscalData(index)}
+                                    >
+                                      Hacer Principal
+                                    </Button>
+                                  )}
+                                  {datosFiscales.length > 1 && (
+                                    <Button 
+                                      type="button" 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => removeFiscalData(index)}
+                                      className="text-red-600 hover:text-red-700"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <Label htmlFor={`razon_social_${index}`}>Razón Social</Label>
+                                  <Input
+                                    id={`razon_social_${index}`}
+                                    value={datoFiscal.razon_social}
+                                    onChange={(e) => handleFiscalDataChange(index, "razon_social", e.target.value)}
+                                    placeholder="Nombre o razón social para facturación"
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor={`rfc_${index}`}>RFC</Label>
+                                  <Input
+                                    id={`rfc_${index}`}
+                                    value={datoFiscal.rfc}
+                                    onChange={(e) => handleFiscalDataChange(index, "rfc", e.target.value.toUpperCase())}
+                                    placeholder="RFC de 12 o 13 caracteres"
+                                    maxLength={13}
+                                  />
+                                </div>
+                                <div className="md:col-span-2">
+                                  <Label htmlFor={`email_facturacion_${index}`}>Email para Facturación</Label>
+                                  <Input
+                                    id={`email_facturacion_${index}`}
+                                    type="email"
+                                    value={datoFiscal.email_facturacion}
+                                    onChange={(e) => handleFiscalDataChange(index, "email_facturacion", e.target.value)}
+                                    placeholder="Email donde se enviarán las facturas"
+                                  />
+                                </div>
+                                <div className="md:col-span-2">
+                                  <Label htmlFor={`direccion_fiscal_${index}`}>Dirección Fiscal</Label>
+                                  <Input
+                                    id={`direccion_fiscal_${index}`}
+                                    value={datoFiscal.direccion_fiscal}
+                                    onChange={(e) => handleFiscalDataChange(index, "direccion_fiscal", e.target.value)}
+                                    placeholder="Dirección fiscal registrada en el SAT"
+                                  />
+                                </div>
+                              </div>
+                              
+                              <div className="mt-4 pt-4 border-t">
+                                <h5 className="font-medium text-slate-900 mb-3">Configuración CFDI</h5>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                  <div>
+                                    <Label htmlFor={`uso_cfdi_${index}`}>Uso de CFDI</Label>
+                                    <Select 
+                                      value={datoFiscal.uso_cfdi} 
+                                      onValueChange={(value) => handleFiscalDataChange(index, "uso_cfdi", value)}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="G01">G01 - Adquisición de mercancías</SelectItem>
+                                        <SelectItem value="G03">G03 - Gastos en general</SelectItem>
+                                        <SelectItem value="P01">P01 - Por definir</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div>
+                                    <Label htmlFor={`metodo_pago_${index}`}>Método de Pago</Label>
+                                    <Select 
+                                      value={datoFiscal.metodo_pago} 
+                                      onValueChange={(value) => handleFiscalDataChange(index, "metodo_pago", value)}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="PUE">PUE - Pago en una sola exhibición</SelectItem>
+                                        <SelectItem value="PPD">PPD - Pago en parcialidades o diferido</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div>
+                                    <Label htmlFor={`forma_pago_${index}`}>Forma de Pago</Label>
+                                    <Select 
+                                      value={datoFiscal.forma_pago} 
+                                      onValueChange={(value) => handleFiscalDataChange(index, "forma_pago", value)}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="01">01 - Efectivo</SelectItem>
+                                        <SelectItem value="02">02 - Cheque nominativo</SelectItem>
+                                        <SelectItem value="03">03 - Transferencia electrónica</SelectItem>
+                                        <SelectItem value="04">04 - Tarjeta de crédito</SelectItem>
+                                        <SelectItem value="28">28 - Tarjeta de débito</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </TabsContent>

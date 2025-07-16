@@ -53,6 +53,7 @@ import SuperAdminDirect from "@/pages/super-admin-direct";
 import SwitchToSchool from "@/pages/switch-to-school";
 import LogoutAndLoginSchool from "@/pages/logout-and-login-school";
 import Aprobaciones from "@/pages/aprobaciones";
+import DemoAprobaciones from "@/pages/demo-aprobaciones";
 
 function AuthenticatedRoutes() {
   const { user, guardian, isLoading } = useAuth();
@@ -132,6 +133,7 @@ function AuthenticatedRoutes() {
             <Route path="/analisis-financiero" component={AnalisisFinanciero} />
             <Route path="/portal-3clics" component={PortalPadres3Clics} />
             <Route path="/aprobaciones" component={Aprobaciones} />
+            <Route path="/demo-aprobaciones" component={DemoAprobaciones} />
             <Route component={NotFound} />
           </Switch>
         </main>

@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { CreditCard, Banknote, Smartphone, Receipt, Download, Eye, DollarSign, CheckCircle, Calendar, User, FileText, Building2, PieChart, Upload, X, AlertCircle, Info } from "lucide-react";
+import { CreditCard, Banknote, Smartphone, Receipt, Download, Eye, DollarSign, CheckCircle, Calendar, User, FileText, Building2, PieChart, Upload, X, AlertCircle, Info, Mail, MessageCircle, FileCheck } from "lucide-react";
 import { PieChartComponent } from "@/components/PieChartComponent";
 import { hasPermission, MODULES, ACTIONS, type UserRole } from "@shared/permissions";
 import { useAuth } from "@/hooks/use-auth";
@@ -21,6 +21,8 @@ export default function Pagos() {
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
   const [showRegistrarPago, setShowRegistrarPago] = useState(false);
   const [showImportarEstado, setShowImportarEstado] = useState(false);
+  const [showReceiptOptions, setShowReceiptOptions] = useState(false);
+  const [currentReceiptHTML, setCurrentReceiptHTML] = useState('');
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -456,7 +458,7 @@ export default function Pagos() {
     }
   };
 
-  const generateFiscalReceipt = (pagoData: any) => {
+  const generateFiscalReceiptHTML = (pagoData: any) => {
     const fechaEmision = new Date().toLocaleDateString('es-MX', {
       year: 'numeric',
       month: 'long',
@@ -700,6 +702,97 @@ export default function Pagos() {
     return receiptContent;
   };
 
+  const generatePDFFromHTML = async (htmlContent: string, filename: string) => {
+    try {
+      // Crear un elemento temporal para renderizar el HTML
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = htmlContent;
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.left = '-9999px';
+      tempDiv.style.top = '-9999px';
+      tempDiv.style.width = '800px';
+      tempDiv.style.backgroundColor = 'white';
+      tempDiv.style.padding = '20px';
+      document.body.appendChild(tempDiv);
+
+      // Importar html2canvas dinámicamente
+      const html2canvas = await import('html2canvas');
+      
+      // Generar canvas del HTML
+      const canvas = await html2canvas.default(tempDiv, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: 'white'
+      });
+
+      // Limpiar el elemento temporal
+      document.body.removeChild(tempDiv);
+
+      // Convertir canvas a blob de imagen
+      return new Promise<Blob>((resolve) => {
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          }
+        }, 'image/png');
+      });
+    } catch (error) {
+      console.error('Error generando PDF:', error);
+      throw error;
+    }
+  };
+
+  const shareReceipt = async (htmlContent: string, method: 'email' | 'whatsapp' | 'download') => {
+    try {
+      const filename = `recibo-fiscal-${Date.now()}`;
+      
+      if (method === 'download') {
+        // Descargar como imagen PNG
+        const blob = await generatePDFFromHTML(htmlContent, filename);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${filename}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        toast({
+          title: "Recibo descargado",
+          description: "El recibo se ha descargado como imagen PNG"
+        });
+      } else if (method === 'email') {
+        // Compartir por email
+        const subject = "Recibo de Pago - EscuelaPay";
+        const body = "Adjunto el recibo de pago correspondiente.";
+        const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        window.open(mailtoUrl, '_blank');
+        
+        toast({
+          title: "Compartir por email",
+          description: "Se abrió tu cliente de email para compartir el recibo"
+        });
+      } else if (method === 'whatsapp') {
+        // Compartir por WhatsApp
+        const message = "Recibo de pago - EscuelaPay";
+        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+        window.open(whatsappUrl, '_blank');
+        
+        toast({
+          title: "Compartir por WhatsApp",
+          description: "Se abrió WhatsApp para compartir el recibo"
+        });
+      }
+    } catch (error) {
+      console.error('Error compartiendo recibo:', error);
+      toast({
+        title: "Error",
+        description: "Ocurrió un error al compartir el recibo",
+        variant: "destructive"
+      });
+    }
+  };
+
   const convertirNumeroALetras = (numero: string) => {
     const num = parseFloat(numero || '0');
     if (num === 0) return 'CERO';
@@ -732,34 +825,15 @@ export default function Pagos() {
       observaciones: pagoManualForm.observaciones
     };
 
-    const receiptHTML = generateFiscalReceipt(pagoData);
+    const receiptHTML = generateFiscalReceiptHTML(pagoData);
+    setCurrentReceiptHTML(receiptHTML);
     
-    // Crear y descargar el recibo
-    const blob = new Blob([receiptHTML], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `recibo-fiscal-${Date.now()}.html`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    // Abrir el recibo en una nueva ventana para impresión
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(receiptHTML);
-      printWindow.document.close();
-      
-      // Abrir diálogo de impresión después de que se cargue
-      printWindow.onload = () => {
-        setTimeout(() => {
-          printWindow.print();
-        }, 500);
-      };
-    }
+    // Mostrar opciones de descarga
+    setShowReceiptOptions(true);
 
     toast({
-      title: "Pago registrado y recibo generado",
-      description: "El pago se registró exitosamente y el recibo fiscal ha sido generado",
+      title: "Pago registrado exitosamente",
+      description: "Selecciona cómo deseas descargar o compartir el recibo fiscal",
     });
     
     // Limpiar formulario pero mantener el nombre del usuario
@@ -1414,6 +1488,89 @@ export default function Pagos() {
                 disabled={isUploading}
               >
                 Cancelar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de opciones de descarga y compartir */}
+      <Dialog open={showReceiptOptions} onOpenChange={setShowReceiptOptions}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Opciones de Recibo Fiscal</DialogTitle>
+            <DialogDescription>
+              Selecciona cómo deseas descargar o compartir el recibo fiscal generado
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-3">
+              <Button
+                onClick={() => shareReceipt(currentReceiptHTML, 'download')}
+                className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700"
+              >
+                <Download className="w-4 h-4" />
+                Descargar como PNG
+              </Button>
+              
+              <Button
+                onClick={() => {
+                  // Crear y descargar HTML
+                  const blob = new Blob([currentReceiptHTML], { type: 'text/html' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `recibo-fiscal-${Date.now()}.html`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                  
+                  // Abrir ventana de impresión
+                  const printWindow = window.open('', '_blank');
+                  if (printWindow) {
+                    printWindow.document.write(currentReceiptHTML);
+                    printWindow.document.close();
+                    printWindow.onload = () => {
+                      setTimeout(() => printWindow.print(), 500);
+                    };
+                  }
+                  
+                  toast({
+                    title: "Recibo descargado",
+                    description: "El recibo HTML se descargó y se abrió la ventana de impresión"
+                  });
+                }}
+                variant="outline"
+                className="flex items-center justify-center gap-2"
+              >
+                <FileCheck className="w-4 h-4" />
+                Descargar HTML + Imprimir
+              </Button>
+              
+              <Button
+                onClick={() => shareReceipt(currentReceiptHTML, 'email')}
+                variant="outline"
+                className="flex items-center justify-center gap-2"
+              >
+                <Mail className="w-4 h-4" />
+                Enviar por Email
+              </Button>
+              
+              <Button
+                onClick={() => shareReceipt(currentReceiptHTML, 'whatsapp')}
+                variant="outline"
+                className="flex items-center justify-center gap-2 bg-green-50 hover:bg-green-100"
+              >
+                <MessageCircle className="w-4 h-4 text-green-600" />
+                Compartir por WhatsApp
+              </Button>
+            </div>
+            
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowReceiptOptions(false)}
+              >
+                Cerrar
               </Button>
             </div>
           </div>

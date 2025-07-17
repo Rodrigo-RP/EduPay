@@ -118,6 +118,14 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- July 17, 2025: SISTEMA AVANZADO DE COMPARTIR RECIBOS FISCALES IMPLEMENTADO - Modal de opciones de descarga y compartir completado
+- July 17, 2025: Modal de opciones con 4 métodos: descargar PNG, descargar HTML + imprimir, enviar por email, compartir por WhatsApp
+- July 17, 2025: Funcionalidad de generación PDF usando html2canvas para descarga como imagen PNG
+- July 17, 2025: Integración con clientes de email y WhatsApp para compartir recibos fiscales
+- July 17, 2025: Modal implementado en ambas páginas: Pagos y Caja-Conciliación con interfaz consistente
+- July 17, 2025: Funciones shareReceipt y generatePDFFromHTML agregadas para manejo avanzado de recibos
+- July 17, 2025: Opción de descarga HTML + impresión mantiene funcionalidad original del sistema
+- July 17, 2025: Iconos Lucide React usados para mejor experiencia visual: Download, Mail, MessageCircle, FileCheck
 - July 17, 2025: SISTEMA COMPLETO DE GENERACIÓN DE RECIBOS FISCALES IMPLEMENTADO - Recibos con información fiscal completa
 - July 17, 2025: Funcionalidad agregada en páginas de Pagos y Caja-Conciliación con generación automática de PDF
 - July 17, 2025: Recibos incluyen RFC, CFDI, método y forma de pago, folio automático, serie y número de recibo

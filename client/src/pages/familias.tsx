@@ -1956,90 +1956,265 @@ export default function Familias() {
 
               <TabsContent value="facturacion" className="space-y-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Datos Fiscales</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-slate-900">Datos Fiscales</h3>
+                    <Button 
+                      type="button" 
+                      onClick={addFiscalData}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Agregar RFC
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    {datosFiscales.map((datoFiscal, index) => (
+                      <div key={datoFiscal.id} className="border rounded-lg p-4 bg-gray-50">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-2">
+                            <h4 className="font-medium text-slate-900">
+                              RFC #{index + 1}
+                            </h4>
+                            {datoFiscal.es_principal && (
+                              <Badge variant="default" className="bg-green-100 text-green-800">
+                                Principal
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {!datoFiscal.es_principal && (
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => setPrincipalFiscalData(index)}
+                              >
+                                Hacer Principal
+                              </Button>
+                            )}
+                            {datosFiscales.length > 1 && (
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => removeFiscalData(index)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor={`razon_social_${index}`}>Razón Social</Label>
+                            <Input
+                              id={`razon_social_${index}`}
+                              value={datoFiscal.razon_social}
+                              onChange={(e) => handleFiscalDataChange(index, "razon_social", e.target.value)}
+                              placeholder="Nombre o razón social para facturación"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor={`rfc_${index}`}>RFC</Label>
+                            <Input
+                              id={`rfc_${index}`}
+                              value={datoFiscal.rfc}
+                              onChange={(e) => handleFiscalDataChange(index, "rfc", e.target.value.toUpperCase())}
+                              placeholder="RFC de 12 o 13 caracteres"
+                              maxLength={13}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor={`email_facturacion_${index}`}>Email para Facturación</Label>
+                            <Input
+                              id={`email_facturacion_${index}`}
+                              type="email"
+                              value={datoFiscal.email_facturacion}
+                              onChange={(e) => handleFiscalDataChange(index, "email_facturacion", e.target.value)}
+                              placeholder="Email donde se enviarán las facturas"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor={`direccion_fiscal_${index}`}>Dirección Fiscal</Label>
+                            <Input
+                              id={`direccion_fiscal_${index}`}
+                              value={datoFiscal.direccion_fiscal}
+                              onChange={(e) => handleFiscalDataChange(index, "direccion_fiscal", e.target.value)}
+                              placeholder="Dirección fiscal registrada en el SAT"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="mt-4">
+                          <h5 className="font-medium text-slate-900 mb-3">Configuración CFDI</h5>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                              <Label htmlFor={`uso_cfdi_${index}`}>Uso de CFDI</Label>
+                              <Select value={datoFiscal.uso_cfdi} onValueChange={(value) => handleFiscalDataChange(index, "uso_cfdi", value)}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Seleccionar uso" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="G01">G01 - Adquisición de mercancías</SelectItem>
+                                  <SelectItem value="G03">G03 - Gastos en general</SelectItem>
+                                  <SelectItem value="P01">P01 - Por definir</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label htmlFor={`metodo_pago_${index}`}>Método de Pago</Label>
+                              <Select value={datoFiscal.metodo_pago} onValueChange={(value) => handleFiscalDataChange(index, "metodo_pago", value)}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Seleccionar método" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="PUE">PUE - Pago en una exhibición</SelectItem>
+                                  <SelectItem value="PPD">PPD - Pago en parcialidades</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label htmlFor={`forma_pago_${index}`}>Forma de Pago</Label>
+                              <Select value={datoFiscal.forma_pago} onValueChange={(value) => handleFiscalDataChange(index, "forma_pago", value)}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Seleccionar forma" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="01">01 - Efectivo</SelectItem>
+                                  <SelectItem value="03">03 - Transferencia electrónica</SelectItem>
+                                  <SelectItem value="04">04 - Tarjeta de crédito</SelectItem>
+                                  <SelectItem value="28">28 - Tarjeta de débito</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="adicional" className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Contacto de Emergencia</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <Label htmlFor="razon_social">Razón Social</Label>
+                      <Label htmlFor="contacto_emergencia_nombre">Nombre Completo</Label>
                       <Input
-                        id="razon_social"
-                        value={formData.razon_social}
-                        onChange={(e) => handleInputChange("razon_social", e.target.value)}
-                        placeholder="Nombre o razón social para facturación"
+                        id="contacto_emergencia_nombre"
+                        value={formData.contacto_emergencia_nombre}
+                        onChange={(e) => handleInputChange("contacto_emergencia_nombre", e.target.value)}
+                        placeholder="Nombre del contacto de emergencia"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="rfc">RFC</Label>
+                      <Label htmlFor="contacto_emergencia_telefono">Teléfono</Label>
                       <Input
-                        id="rfc"
-                        value={formData.rfc}
-                        onChange={(e) => handleInputChange("rfc", e.target.value.toUpperCase())}
-                        placeholder="RFC de 12 o 13 caracteres"
-                        maxLength={13}
+                        id="contacto_emergencia_telefono"
+                        value={formData.contacto_emergencia_telefono}
+                        onChange={(e) => handleInputChange("contacto_emergencia_telefono", e.target.value)}
+                        placeholder="Teléfono de emergencia"
+                        maxLength={10}
                       />
                     </div>
-                    <div className="md:col-span-2">
-                      <Label htmlFor="email_facturacion">Email para Facturación</Label>
-                      <Input
-                        id="email_facturacion"
-                        type="email"
-                        value={formData.email_facturacion}
-                        onChange={(e) => handleInputChange("email_facturacion", e.target.value)}
-                        placeholder="Email donde se enviarán las facturas"
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <Label htmlFor="direccion_fiscal">Dirección Fiscal</Label>
-                      <Input
-                        id="direccion_fiscal"
-                        value={formData.direccion_fiscal}
-                        onChange={(e) => handleInputChange("direccion_fiscal", e.target.value)}
-                        placeholder="Dirección fiscal registrada en el SAT"
-                      />
+                    <div>
+                      <Label htmlFor="contacto_emergencia_relacion">Relación</Label>
+                      <Select value={formData.contacto_emergencia_relacion} onValueChange={(value) => handleInputChange("contacto_emergencia_relacion", value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar relación" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="abuelo">Abuelo/a</SelectItem>
+                          <SelectItem value="tio">Tío/a</SelectItem>
+                          <SelectItem value="hermano">Hermano/a</SelectItem>
+                          <SelectItem value="amigo">Amigo/a de la familia</SelectItem>
+                          <SelectItem value="otro">Otro</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Configuración CFDI</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Observaciones</h3>
+                  <div>
+                    <Label htmlFor="observaciones">Información adicional sobre la familia</Label>
+                    <Textarea
+                      id="observaciones"
+                      value={formData.observaciones}
+                      onChange={(e) => handleInputChange("observaciones", e.target.value)}
+                      placeholder="Información adicional sobre la familia..."
+                      className="min-h-[100px]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Estado de la Familia</h3>
+                  <div>
+                    <Label htmlFor="estatus">Estado</Label>
+                    <Select value={formData.estatus} onValueChange={(value) => handleInputChange("estatus", value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar estado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="activo">Activo</SelectItem>
+                        <SelectItem value="inactivo">Inactivo</SelectItem>
+                        <SelectItem value="suspendido">Suspendido</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="credenciales" className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Credenciales del Portal</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="uso_cfdi">Uso de CFDI</Label>
-                      <Select value={formData.uso_cfdi} onValueChange={(value) => handleInputChange("uso_cfdi", value)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="G01">G01 - Adquisición de mercancías</SelectItem>
-                          <SelectItem value="G03">G03 - Gastos en general</SelectItem>
-                          <SelectItem value="P01">P01 - Por definir</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Label htmlFor="usuario">Usuario *</Label>
+                      <Input
+                        id="usuario"
+                        value={formData.usuario}
+                        onChange={(e) => handleInputChange("usuario", e.target.value)}
+                        placeholder="Nombre de usuario para el portal"
+                        required
+                      />
                     </div>
                     <div>
-                      <Label htmlFor="metodo_pago">Método de Pago</Label>
-                      <Select value={formData.metodo_pago} onValueChange={(value) => handleInputChange("metodo_pago", value)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="PUE">PUE - Pago en una exhibición</SelectItem>
-                          <SelectItem value="PPD">PPD - Pago en parcialidades</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Label htmlFor="password">Contraseña *</Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        value={formData.password}
+                        onChange={(e) => handleInputChange("password", e.target.value)}
+                        placeholder="Contraseña para el portal"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="id_referencia_padre">ID de Refereence - Padre</Label>
+                      <Input
+                        id="id_referencia_padre"
+                        value={formData.id_referencia_padre}
+                        onChange={(e) => handleInputChange("id_referencia_padre", e.target.value)}
+                        placeholder="ID único de refereence del padre"
+                      />
                     </div>
                     <div>
-                      <Label htmlFor="forma_pago">Forma de Pago</Label>
-                      <Select value={formData.forma_pago} onValueChange={(value) => handleInputChange("forma_pago", value)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="01">01 - Efectivo</SelectItem>
-                          <SelectItem value="03">03 - Transferencia electrónica</SelectItem>
-                          <SelectItem value="04">04 - Tarjeta de crédito</SelectItem>
-                          <SelectItem value="28">28 - Tarjeta de débito</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Label htmlFor="id_referencia_madre">ID de Refereence - Madre</Label>
+                      <Input
+                        id="id_referencia_madre"
+                        value={formData.id_referencia_madre}
+                        onChange={(e) => handleInputChange("id_referencia_madre", e.target.value)}
+                        placeholder="ID único de refereence de la madre"
+                      />
                     </div>
                   </div>
                 </div>

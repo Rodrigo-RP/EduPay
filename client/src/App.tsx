@@ -25,33 +25,14 @@ import Cargos from "@/pages/cargos";
 import Pagos from "@/pages/pagos";
 import CuentasPorCobrar from "@/pages/cuentas-por-cobrar";
 import CatalogoProductos from "@/pages/catalogo-productos";
-import Proveedores from "@/pages/proveedores";
-import ExAlumnos from "@/pages/exalumnos";
-import CRMEscolar from "@/pages/crm-escolar";
 import Becas from "@/pages/becas";
 import Notificaciones from "@/pages/notificaciones";
 import Reportes from "@/pages/reportes";
 import Configuracion from "@/pages/configuracion";
 import AsignacionPrecios from "@/pages/asignacion-precios";
 import ImportacionDatos from "@/pages/importacion-datos";
-import SistemasAvanzados from "@/pages/sistemas-avanzados";
-import SeguridadCibernetica from "@/pages/seguridad-cibernetica";
-import AnalisisFinanciero from "@/pages/analisis-financiero";
-import SuperAdminLogin from "@/pages/super-admin-login";
-import SuperAdminDashboard from "@/pages/super-admin-dashboard";
-import SuperAdminCEODashboard from "@/pages/super-admin-ceo-dashboard";
-import SuperAdminCEODashboardF1 from "@/pages/super-admin-ceo-dashboard-f1";
-import SuperAdminF1Simple from "@/pages/super-admin-f1-simple";
-import SuperAdminSchoolManagement from "@/pages/super-admin-school-management";
-import SupportDashboard from "@/pages/support-dashboard";
-import ImplementationDashboard from "@/pages/implementation-dashboard";
-import PlatformLogin from "@/pages/platform-login";
 
 import ConfiguracionPagos from "@/pages/configuracion-pagos";
-import SuperAdminAccess from "@/pages/super-admin-access";
-import SuperAdminDirect from "@/pages/super-admin-direct";
-import SwitchToSchool from "@/pages/switch-to-school";
-import LogoutAndLoginSchool from "@/pages/logout-and-login-school";
 import Aprobaciones from "@/pages/aprobaciones";
 import DemoAprobaciones from "@/pages/demo-aprobaciones";
 import DashboardAdmisiones from "@/pages/dashboard-admisiones";
@@ -87,18 +68,13 @@ function AuthenticatedRoutes() {
     );
   }
 
-  // Super Admin routing - redirect to executive dashboard
+  // Super Admin routing - redirect to dashboard
   if (user && user.role === 'super_admin') {
     return (
       <Switch>
-        <Route path="/" component={SuperAdminCEODashboard} />
-        <Route path="/super-admin" component={SuperAdminCEODashboard} />
-        <Route path="/super-admin-ceo-dashboard" component={SuperAdminCEODashboard} />
-        <Route path="/super-admin-ceo-dashboard-f1" component={SuperAdminCEODashboardF1} />
-        <Route path="/super-admin-f1" component={SuperAdminF1Simple} />
-        <Route path="/super-admin-school-management" component={SuperAdminSchoolManagement} />
-        <Route path="/super-admin-classic" component={SuperAdminDashboard} />
-        <Route component={SuperAdminCEODashboard} />
+        <Route path="/" component={AdminDashboard} />
+        <Route path="/admin" component={AdminDashboard} />
+        <Route component={AdminDashboard} />
       </Switch>
     );
   }
@@ -126,9 +102,6 @@ function AuthenticatedRoutes() {
             <Route path="/pagos" component={Pagos} />
             <Route path="/cuentas-por-cobrar" component={CuentasPorCobrar} />
             <Route path="/catalogo-productos" component={CatalogoProductos} />
-            <Route path="/proveedores" component={Proveedores} />
-            <Route path="/exalumnos" component={ExAlumnos} />
-            <Route path="/crm-escolar" component={CRMEscolar} />
             <Route path="/becas" component={Becas} />
             <Route path="/notificaciones" component={Notificaciones} />
             <Route path="/reportes" component={Reportes} />
@@ -138,10 +111,8 @@ function AuthenticatedRoutes() {
             <Route path="/emision-cargos" component={EmisionCargos} />
             <Route path="/asignacion-precios" component={AsignacionPrecios} />
             <Route path="/importacion-datos" component={ImportacionDatos} />
-            <Route path="/sistemas-avanzados" component={SistemasAvanzados} />
             <Route path="/caja-conciliacion" component={CajaConciliacion} />
             <Route path="/fiscal-contable" component={FiscalContable} />
-            <Route path="/analisis-financiero" component={AnalisisFinanciero} />
             <Route path="/reportes-financieros" component={ReportesFinancieros} />
             <Route path="/reportes-admisiones" component={ReportesAdmisiones} />
             <Route path="/portal-3clics" component={PortalPadres3Clics} />
@@ -166,18 +137,6 @@ function App() {
             <TooltipProvider>
               <div className="min-h-screen bg-slate-50">
                 <Switch>
-                  <Route path="/super-admin-login" component={SuperAdminLogin} />
-                  <Route path="/super-admin-access" component={SuperAdminAccess} />
-                  <Route path="/super-admin-direct" component={SuperAdminDirect} />
-                  <Route path="/switch-to-school" component={SwitchToSchool} />
-                  <Route path="/logout-and-login-school" component={LogoutAndLoginSchool} />
-                  <Route path="/super-admin" component={SuperAdminCEODashboardF1} />
-                  <Route path="/super-admin-classic" component={SuperAdminDashboard} />
-                  <Route path="/super-admin-ceo-dashboard" component={SuperAdminCEODashboard} />
-                  <Route path="/super-admin-schools" component={SuperAdminSchoolManagement} />
-                  <Route path="/platform-login" component={PlatformLogin} />
-                  <Route path="/support-dashboard" component={SupportDashboard} />
-                  <Route path="/implementation-dashboard" component={ImplementationDashboard} />
                   <Route component={AuthenticatedRoutes} />
                 </Switch>
                 <Toaster />

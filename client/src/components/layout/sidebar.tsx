@@ -42,24 +42,7 @@ export default function Sidebar() {
       module: MODULES.FAMILIES,
       action: ACTIONS.READ
     },
-    { 
-      icon: "fas fa-graduation-cap", 
-      label: "Ex-Alumnos", 
-      href: "/exalumnos", 
-      active: location === "/exalumnos",
-      category: "academico",
-      module: MODULES.ALUMNI,
-      action: ACTIONS.READ
-    },
-    { 
-      icon: "fas fa-user-friends", 
-      label: "CRM Escolar", 
-      href: "/crm-escolar", 
-      active: location === "/crm-escolar",
-      category: "academico",
-      module: MODULES.CRM,
-      action: ACTIONS.READ
-    },
+
     { 
       icon: "fas fa-user-cog", 
       label: "Usuarios", 
@@ -96,15 +79,7 @@ export default function Sidebar() {
       module: MODULES.RECEIVABLES,
       action: ACTIONS.READ
     },
-    { 
-      icon: "fas fa-chart-line", 
-      label: "Análisis Financiero CFO", 
-      href: "/analisis-financiero", 
-      active: location === "/analisis-financiero",
-      category: "financiero",
-      module: MODULES.FINANCIAL,
-      action: ACTIONS.READ
-    },
+
     { 
       icon: "fas fa-file-alt", 
       label: "Reportes Financieros", 
@@ -132,15 +107,7 @@ export default function Sidebar() {
       module: MODULES.CONCEPTS,
       action: ACTIONS.CONFIGURE
     },
-    { 
-      icon: "fas fa-building", 
-      label: "Proveedores", 
-      href: "/proveedores", 
-      active: location === "/proveedores",
-      category: "administrativo",
-      module: MODULES.PROVIDERS,
-      action: ACTIONS.READ
-    },
+
     { 
       icon: "fas fa-percent", 
       label: "Becas y Descuentos", 
@@ -195,15 +162,7 @@ export default function Sidebar() {
       module: MODULES.SETTINGS,
       action: ACTIONS.CONFIGURE
     },
-    { 
-      icon: "fas fa-brain", 
-      label: "Sistemas Avanzados", 
-      href: "/sistemas-avanzados", 
-      active: location === "/sistemas-avanzados",
-      category: "sistema",
-      module: MODULES.SYSTEM,
-      action: ACTIONS.READ
-    },
+
     { 
       icon: "fas fa-shield-alt", 
       label: "Aprobaciones", 
@@ -224,8 +183,6 @@ export default function Sidebar() {
     const admisionesItems = [
       '/estudiantes',
       '/familias',
-      '/exalumnos',
-      '/crm-escolar',
       '/pagos', // Solo para inscripciones
       '/reportes-financieros', // Solo reportes de inscripciones
       '/capacitacion'

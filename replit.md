@@ -118,6 +118,11 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- July 17, 2025: INTERFAZ DE ESTUDIANTES MEJORADA - Implementado sistema unificado de visualización y edición de información
+- July 17, 2025: Modal de visualización completo con todas las secciones: información personal, responsable, dirección, médica, financiera y credenciales
+- July 17, 2025: Eliminado botón duplicado de edición - ahora solo icono Eye que abre modal de visualización con botón de editar al final
+- July 17, 2025: Campos de credenciales (usuario, contraseña, ID de Refereence) integrados en formularios de agregar y editar estudiantes
+- July 17, 2025: Flujo de usuario optimizado: Ver → Editar desde modal de visualización
 - July 17, 2025: CAMPOS DE CREDENCIALES COMPLETADOS - Agregados usuario, contraseña e ID de Refereence (padre/madre) en formularios de estudiantes y familias
 - July 17, 2025: PRUEBA INTEGRAL FINAL COMPLETADA - Tasa de éxito 100% después de correcciones
 - July 17, 2025: ENDPOINT DE TUTORES CORREGIDO - Agregado /api/admin/guardians/:campusId con método getGuardiansByCampus

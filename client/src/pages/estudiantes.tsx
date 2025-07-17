@@ -1042,9 +1042,6 @@ export default function Estudiantes() {
                     <Button size="sm" variant="outline" onClick={() => loadStudentForView(student)} title="Ver información del estudiante">
                       <Eye className="w-4 h-4" />
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => loadStudentForEdit(student)} title="Editar estudiante">
-                      <Edit className="w-4 h-4" />
-                    </Button>
                     <Button size="sm" variant="outline" onClick={() => handleDelete(student.id)} title="Eliminar estudiante"
                       className="text-red-600 hover:text-red-700 hover:bg-red-50">
                       <UserX className="w-4 h-4" />

@@ -118,6 +118,12 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- July 16, 2025: PÁGINA DE REPORTES ADMISIONES COMPLETAMENTE FUNCIONAL - Datos reales de estudiantes visualizándose correctamente
+- July 16, 2025: Corregido endpoint API de /api/students a /api/admin/students/24 para mostrar datos reales
+- July 16, 2025: Actualizada interfaz Student para usar estructura real: status, fecha_nacimiento, campus_id, familia_id
+- July 16, 2025: Implementada función detectarNivelAcademico() para clasificar estudiantes por grado
+- July 16, 2025: Estadísticas funcionando: 27 estudiantes distribuidos en 4 niveles académicos (Primaria 33.3%, Secundaria 25.9%, Kinder 22.2%, Bachillerato 18.5%)
+- July 16, 2025: Exportación Excel actualizada con campos reales: CURP, grado, nivel académico, estado, fecha nacimiento
 - July 16, 2025: PÁGINA DE REPORTES ESPECÍFICA PARA ADMISIONES IMPLEMENTADA - Eliminados elementos financieros irrelevantes
 - July 16, 2025: Nueva página /reportes-admisiones creada exclusivamente para control de inscripciones y becas
 - July 16, 2025: Sidebar actualizado con redirección automática desde /reportes-financieros a /reportes-admisiones para rol admisiones

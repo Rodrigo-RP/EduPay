@@ -1327,12 +1327,12 @@ export default function Estudiantes() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="id_referencia">ID de Referencia</Label>
+                  <Label htmlFor="id_referencia">ID de Refereence</Label>
                   <Input
                     id="id_referencia"
                     value={formData.id_referencia}
                     onChange={(e) => handleInputChange("id_referencia", e.target.value)}
-                    placeholder="ID único de referencia"
+                    placeholder="ID único de refereence"
                   />
                 </div>
               </div>

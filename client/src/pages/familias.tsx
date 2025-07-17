@@ -1537,21 +1537,21 @@ export default function Familias() {
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                              <Label htmlFor="id_referencia_padre">ID de Referencia - Padre</Label>
+                              <Label htmlFor="id_referencia_padre">ID de Refereence - Padre</Label>
                               <Input
                                 id="id_referencia_padre"
                                 value={formData.id_referencia_padre}
                                 onChange={(e) => handleInputChange("id_referencia_padre", e.target.value)}
-                                placeholder="ID único de referencia del padre"
+                                placeholder="ID único de refereence del padre"
                               />
                             </div>
                             <div>
-                              <Label htmlFor="id_referencia_madre">ID de Referencia - Madre</Label>
+                              <Label htmlFor="id_referencia_madre">ID de Refereence - Madre</Label>
                               <Input
                                 id="id_referencia_madre"
                                 value={formData.id_referencia_madre}
                                 onChange={(e) => handleInputChange("id_referencia_madre", e.target.value)}
-                                placeholder="ID único de referencia de la madre"
+                                placeholder="ID único de refereence de la madre"
                               />
                             </div>
                           </div>

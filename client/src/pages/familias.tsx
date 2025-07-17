@@ -69,7 +69,9 @@ export default function Familias() {
     estatus: "activo",
     // Campos de acceso al portal
     usuario: "",
-    password: ""
+    password: "",
+    id_referencia_padre: "",
+    id_referencia_madre: ""
   });
 
   // Estado para múltiples datos fiscales
@@ -1966,6 +1968,24 @@ export default function Familias() {
                         onChange={(e) => handleInputChange("password", e.target.value)}
                         placeholder="Contraseña para el portal"
                         required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="id_referencia_padre">ID de Referencia - Padre</Label>
+                      <Input
+                        id="id_referencia_padre"
+                        value={formData.id_referencia_padre}
+                        onChange={(e) => handleInputChange("id_referencia_padre", e.target.value)}
+                        placeholder="ID único de referencia del padre"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="id_referencia_madre">ID de Referencia - Madre</Label>
+                      <Input
+                        id="id_referencia_madre"
+                        value={formData.id_referencia_madre}
+                        onChange={(e) => handleInputChange("id_referencia_madre", e.target.value)}
+                        placeholder="ID único de referencia de la madre"
                       />
                     </div>
                   </div>

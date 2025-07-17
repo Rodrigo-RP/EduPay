@@ -51,7 +51,8 @@ export default function Estudiantes() {
     telefono_emergencia: "",
     // Campos de acceso al portal
     usuario: "",
-    password: ""
+    password: "",
+    id_referencia: ""
   });
 
   const [estudiantes, setEstudiantes] = useState([
@@ -1303,7 +1304,7 @@ export default function Estudiantes() {
             {/* Credenciales del Portal */}
             <div>
               <h3 className="text-lg font-semibold text-slate-900 mb-4">Credenciales del Portal</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="usuario">Usuario *</Label>
                   <Input
@@ -1323,6 +1324,15 @@ export default function Estudiantes() {
                     onChange={(e) => handleInputChange("password", e.target.value)}
                     placeholder="Contraseña para el portal"
                     required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="id_referencia">ID de Referencia</Label>
+                  <Input
+                    id="id_referencia"
+                    value={formData.id_referencia}
+                    onChange={(e) => handleInputChange("id_referencia", e.target.value)}
+                    placeholder="ID único de referencia"
                   />
                 </div>
               </div>

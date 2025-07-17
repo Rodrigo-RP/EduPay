@@ -902,8 +902,6 @@ export default function Familias() {
   const filteredFamilias = familias.filter(familia => {
     const searchLower = searchTerm.toLowerCase();
     return familia.numero_familia.toLowerCase().includes(searchLower) ||
-           familia.apellido_paterno.toLowerCase().includes(searchLower) ||
-           familia.apellido_materno.toLowerCase().includes(searchLower) ||
            familia.padre_nombre.toLowerCase().includes(searchLower) ||
            familia.madre_nombre.toLowerCase().includes(searchLower) ||
            familia.padre_email.toLowerCase().includes(searchLower) ||

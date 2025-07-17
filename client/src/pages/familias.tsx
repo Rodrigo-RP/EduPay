@@ -1508,7 +1508,81 @@ export default function Familias() {
                       </div>
                     </TabsContent>
 
-
+                    <TabsContent value="adicional" className="space-y-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-900 mb-4">Credenciales del Portal</h3>
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="usuario">Usuario *</Label>
+                              <Input
+                                id="usuario"
+                                value={formData.usuario}
+                                onChange={(e) => handleInputChange("usuario", e.target.value)}
+                                placeholder="Nombre de usuario para el portal"
+                                required
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="password">Contraseña *</Label>
+                              <Input
+                                id="password"
+                                type="password"
+                                value={formData.password}
+                                onChange={(e) => handleInputChange("password", e.target.value)}
+                                placeholder="Contraseña para el portal"
+                                required
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="id_referencia_padre">ID de Referencia - Padre</Label>
+                              <Input
+                                id="id_referencia_padre"
+                                value={formData.id_referencia_padre}
+                                onChange={(e) => handleInputChange("id_referencia_padre", e.target.value)}
+                                placeholder="ID único de referencia del padre"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="id_referencia_madre">ID de Referencia - Madre</Label>
+                              <Input
+                                id="id_referencia_madre"
+                                value={formData.id_referencia_madre}
+                                onChange={(e) => handleInputChange("id_referencia_madre", e.target.value)}
+                                placeholder="ID único de referencia de la madre"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="observaciones">Observaciones</Label>
+                        <Textarea
+                          id="observaciones"
+                          value={formData.observaciones}
+                          onChange={(e) => handleInputChange("observaciones", e.target.value)}
+                          placeholder="Información adicional sobre la familia..."
+                          rows={4}
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="estatus">Estado de la Familia</Label>
+                        <Select value={formData.estatus} onValueChange={(value) => handleInputChange("estatus", value)}>
+                          <SelectTrigger className="w-48">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="activo">Activo</SelectItem>
+                            <SelectItem value="inactivo">Inactivo</SelectItem>
+                            <SelectItem value="suspendido">Suspendido</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </TabsContent>
 
                     <div className="flex justify-end gap-2 mt-6">
                       <Button variant="outline" onClick={() => setShowAddModal(false)}>
@@ -1917,85 +1991,6 @@ export default function Familias() {
                       </Select>
                     </div>
                   </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="adicional" className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Credenciales del Portal</h3>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="usuario">Usuario *</Label>
-                        <Input
-                          id="usuario"
-                          value={formData.usuario}
-                          onChange={(e) => handleInputChange("usuario", e.target.value)}
-                          placeholder="Nombre de usuario para el portal"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="password">Contraseña *</Label>
-                        <Input
-                          id="password"
-                          type="password"
-                          value={formData.password}
-                          onChange={(e) => handleInputChange("password", e.target.value)}
-                          placeholder="Contraseña para el portal"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="id_referencia_padre">ID de Referencia - Padre</Label>
-                        <Input
-                          id="id_referencia_padre"
-                          value={formData.id_referencia_padre}
-                          onChange={(e) => handleInputChange("id_referencia_padre", e.target.value)}
-                          placeholder="ID único de referencia del padre"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="id_referencia_madre">ID de Referencia - Madre</Label>
-                        <Input
-                          id="id_referencia_madre"
-                          value={formData.id_referencia_madre}
-                          onChange={(e) => handleInputChange("id_referencia_madre", e.target.value)}
-                          placeholder="ID único de referencia de la madre"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-sm text-slate-600 mt-2">
-                    Estas credenciales permitirán a la familia acceder al portal de pagos y consultas.
-                  </p>
-                </div>
-
-                <div>
-                  <Label htmlFor="observaciones">Observaciones</Label>
-                  <Textarea
-                    id="observaciones"
-                    value={formData.observaciones}
-                    onChange={(e) => handleInputChange("observaciones", e.target.value)}
-                    placeholder="Información adicional sobre la familia..."
-                    rows={4}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="estatus">Estado de la Familia</Label>
-                  <Select value={formData.estatus} onValueChange={(value) => handleInputChange("estatus", value)}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="activo">Activo</SelectItem>
-                      <SelectItem value="inactivo">Inactivo</SelectItem>
-                      <SelectItem value="suspendido">Suspendido</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
               </TabsContent>
 

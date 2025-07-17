@@ -512,10 +512,14 @@ export default function Pagos() {
       </div>
 
       <Tabs defaultValue="lista" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className={`grid w-full ${userRole === 'admisiones' ? 'grid-cols-1' : 'grid-cols-3'}`}>
           <TabsTrigger value="lista">Lista de pagos</TabsTrigger>
-          <TabsTrigger value="efectivo">Registro efectivo</TabsTrigger>
-          <TabsTrigger value="conciliacion">Conciliación</TabsTrigger>
+          {userRole !== 'admisiones' && (
+            <>
+              <TabsTrigger value="efectivo">Registro efectivo</TabsTrigger>
+              <TabsTrigger value="conciliacion">Conciliación</TabsTrigger>
+            </>
+          )}
         </TabsList>
 
         <TabsContent value="lista">
@@ -689,106 +693,110 @@ export default function Pagos() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="efectivo">
-          <Card>
-            <CardHeader>
-              <CardTitle>Registrar pago en efectivo</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <Label>Estudiante</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Buscar estudiante..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">Carlos Pérez Méndez</SelectItem>
-                      <SelectItem value="2">Andrea García Luna</SelectItem>
-                      <SelectItem value="3">Luis Martínez Gil</SelectItem>
-                    </SelectContent>
-                  </Select>
+        {userRole !== 'admisiones' && (
+          <TabsContent value="efectivo">
+            <Card>
+              <CardHeader>
+                <CardTitle>Registrar pago en efectivo</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <Label>Estudiante</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Buscar estudiante..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">Carlos Pérez Méndez</SelectItem>
+                        <SelectItem value="2">Andrea García Luna</SelectItem>
+                        <SelectItem value="3">Luis Martínez Gil</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Concepto a pagar</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar concepto..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">Colegiatura Enero - $5,000</SelectItem>
+                        <SelectItem value="2">Materiales - $1,500</SelectItem>
+                        <SelectItem value="3">Inscripción - $3,000</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Monto recibido (MXN)</Label>
+                    <Input type="number" placeholder="5000" />
+                  </div>
+                  <div>
+                    <Label>Recibido por</Label>
+                    <Input placeholder="Nombre del cajero" />
+                  </div>
                 </div>
-                <div>
-                  <Label>Concepto a pagar</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar concepto..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">Colegiatura Enero - $5,000</SelectItem>
-                      <SelectItem value="2">Materiales - $1,500</SelectItem>
-                      <SelectItem value="3">Inscripción - $3,000</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="mt-4">
+                  <Label>Observaciones</Label>
+                  <textarea 
+                    className="w-full p-2 border rounded"
+                    rows={2}
+                    placeholder="Observaciones adicionales..."
+                  />
                 </div>
-                <div>
-                  <Label>Monto recibido (MXN)</Label>
-                  <Input type="number" placeholder="5000" />
-                </div>
-                <div>
-                  <Label>Recibido por</Label>
-                  <Input placeholder="Nombre del cajero" />
-                </div>
-              </div>
-              <div className="mt-4">
-                <Label>Observaciones</Label>
-                <textarea 
-                  className="w-full p-2 border rounded"
-                  rows={2}
-                  placeholder="Observaciones adicionales..."
-                />
-              </div>
-              <Button 
-                className="mt-4 bg-green-600 hover:bg-green-700"
-                onClick={handleRegistrarPago}
-              >
-                <Banknote className="w-4 h-4 mr-2" />
-                Registrar pago y emitir recibo
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                <Button 
+                  className="mt-4 bg-green-600 hover:bg-green-700"
+                  onClick={handleRegistrarPago}
+                >
+                  <Banknote className="w-4 h-4 mr-2" />
+                  Registrar pago y emitir recibo
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
-        <TabsContent value="conciliacion">
-          <Card>
-            <CardHeader>
-              <CardTitle>Conciliación bancaria</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600">15</div>
-                    <div className="text-sm text-slate-600">Movimientos conciliados</div>
+        {userRole !== 'admisiones' && (
+          <TabsContent value="conciliacion">
+            <Card>
+              <CardHeader>
+                <CardTitle>Conciliación bancaria</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">15</div>
+                      <div className="text-sm text-slate-600">Movimientos conciliados</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-orange-600">3</div>
+                      <div className="text-sm text-slate-600">Pendientes de conciliar</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-red-600">1</div>
+                      <div className="text-sm text-slate-600">Diferencias encontradas</div>
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-orange-600">3</div>
-                    <div className="text-sm text-slate-600">Pendientes de conciliar</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-red-600">1</div>
-                    <div className="text-sm text-slate-600">Diferencias encontradas</div>
+                  <div className="flex gap-4">
+                    <Button 
+                      className="bg-blue-600 hover:bg-blue-700"
+                      onClick={handleConciliacionAutomatica}
+                    >
+                      Ejecutar conciliación automática
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      onClick={() => setShowImportarEstado(true)}
+                    >
+                      Importar estado de cuenta
+                    </Button>
                   </div>
                 </div>
-                <div className="flex gap-4">
-                  <Button 
-                    className="bg-blue-600 hover:bg-blue-700"
-                    onClick={handleConciliacionAutomatica}
-                  >
-                    Ejecutar conciliación automática
-                  </Button>
-                  <Button 
-                    variant="outline"
-                    onClick={() => setShowImportarEstado(true)}
-                  >
-                    Importar estado de cuenta
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Modal de detalles de pago */}

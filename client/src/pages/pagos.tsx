@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,8 +26,66 @@ export default function Pagos() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  
+  // Estado para el formulario de registro de pagos
+  const [pagoManualForm, setPagoManualForm] = useState({
+    estudiante_id: "",
+    concepto_id: "",
+    monto: "",
+    recibido_por: "",
+    observaciones: ""
+  });
+  
   const { toast } = useToast();
   const { user } = useAuth();
+  
+  // Función para obtener el nombre completo del usuario basado en su perfil
+  const getUserDisplayName = () => {
+    if (!user) return "";
+    
+    // Si hay nombre y apellido en el usuario, usarlos
+    if (user.firstName && user.lastName) {
+      return `${user.firstName} ${user.lastName}`;
+    }
+    
+    // Si no, extraer nombre del email o usar el rol
+    if (user.email) {
+      const emailParts = user.email.split('@')[0];
+      
+      // Mapear roles a nombres más amigables
+      const roleNames = {
+        'admin': 'Administrador',
+        'caja': 'Cajero',
+        'contador': 'Contador',
+        'admisiones': 'Admisiones',
+        'asistente': 'Asistente',
+        'super_admin': 'Super Admin'
+      };
+      
+      // Si el email contiene un nombre específico, usarlo
+      if (emailParts.includes('.')) {
+        const nameParts = emailParts.split('.');
+        return nameParts.map(part => 
+          part.charAt(0).toUpperCase() + part.slice(1)
+        ).join(' ');
+      }
+      
+      // Si no, usar el mapeo de roles
+      return roleNames[user.role as keyof typeof roleNames] || user.role;
+    }
+    
+    return user.role || "Usuario";
+  };
+
+  // Establecer automáticamente el campo "Recibido por" cuando el usuario esté disponible
+  useEffect(() => {
+    if (user && !pagoManualForm.recibido_por) {
+      setPagoManualForm(prev => ({
+        ...prev,
+        recibido_por: getUserDisplayName()
+      }));
+    }
+  }, [user]);
   
   // Obtener rol del usuario para filtrado
   const userRole = (user?.role as UserRole) || 'asistente';
@@ -403,6 +461,15 @@ export default function Pagos() {
       title: "Pago registrado",
       description: "El pago en efectivo ha sido registrado exitosamente",
     });
+    
+    // Limpiar formulario pero mantener el nombre del usuario
+    setPagoManualForm({
+      estudiante_id: "",
+      concepto_id: "",
+      monto: "",
+      recibido_por: getUserDisplayName(),
+      observaciones: ""
+    });
   };
 
   // Mostrar estado de carga
@@ -749,7 +816,11 @@ export default function Pagos() {
                   </div>
                   <div>
                     <Label>Recibido por</Label>
-                    <Input placeholder="Nombre del cajero" />
+                    <Input 
+                      value={pagoManualForm.recibido_por}
+                      onChange={(e) => setPagoManualForm(prev => ({ ...prev, recibido_por: e.target.value }))}
+                      placeholder="Nombre del cajero" 
+                    />
                   </div>
                 </div>
                 <div className="mt-4">
@@ -757,6 +828,8 @@ export default function Pagos() {
                   <textarea 
                     className="w-full p-2 border rounded"
                     rows={2}
+                    value={pagoManualForm.observaciones}
+                    onChange={(e) => setPagoManualForm(prev => ({ ...prev, observaciones: e.target.value }))}
                     placeholder="Observaciones adicionales..."
                   />
                 </div>

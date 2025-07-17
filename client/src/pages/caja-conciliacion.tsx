@@ -1,5 +1,5 @@
 // Módulo 4: Caja y conciliación - Pagos manual, control bancario, conciliación automática
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,50 @@ export default function CajaConciliacion() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Obtener información del usuario autenticado
+  const { data: user } = useQuery({
+    queryKey: ["/api/auth/user"],
+    retry: false,
+  });
+
+  // Función para obtener el nombre completo del usuario basado en su perfil
+  const getUserDisplayName = () => {
+    if (!user) return "";
+    
+    // Si hay nombre y apellido en el usuario, usarlos
+    if (user.firstName && user.lastName) {
+      return `${user.firstName} ${user.lastName}`;
+    }
+    
+    // Si no, extraer nombre del email o usar el rol
+    if (user.email) {
+      const emailParts = user.email.split('@')[0];
+      
+      // Mapear roles a nombres más amigables
+      const roleNames = {
+        'admin': 'Administrador',
+        'caja': 'Cajero',
+        'contador': 'Contador',
+        'admisiones': 'Admisiones',
+        'asistente': 'Asistente',
+        'super_admin': 'Super Admin'
+      };
+      
+      // Si el email contiene un nombre específico, usarlo
+      if (emailParts.includes('.')) {
+        const nameParts = emailParts.split('.');
+        return nameParts.map(part => 
+          part.charAt(0).toUpperCase() + part.slice(1)
+        ).join(' ');
+      }
+      
+      // Si no, usar el mapeo de roles
+      return roleNames[user.role as keyof typeof roleNames] || user.role;
+    }
+    
+    return user.role || "Usuario";
+  };
+
   // Registro de pagos manual
   const PagoEfectivo = () => {
     const [pagoForm, setPagoForm] = useState({
@@ -36,6 +80,16 @@ export default function CajaConciliacion() {
       recibido_por: "",
       observaciones: ""
     });
+
+    // Establecer automáticamente el campo "Recibido por" cuando el usuario esté disponible
+    useEffect(() => {
+      if (user && !pagoForm.recibido_por) {
+        setPagoForm(prev => ({
+          ...prev,
+          recibido_por: getUserDisplayName()
+        }));
+      }
+    }, [user]);
 
     const registrarPagoEfectivo = useMutation({
       mutationFn: (data: any) => apiRequest("POST", "/api/caja/pago-efectivo", data),
@@ -48,7 +102,7 @@ export default function CajaConciliacion() {
           estudiante_id: "",
           concepto_id: "",
           monto: "",
-          recibido_por: "",
+          recibido_por: getUserDisplayName(),
           observaciones: ""
         });
         queryClient.invalidateQueries({ queryKey: ["/api/caja"] });

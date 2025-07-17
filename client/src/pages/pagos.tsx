@@ -1494,6 +1494,110 @@ export default function Pagos() {
         </DialogContent>
       </Dialog>
 
+      {/* Modal de registro de pagos */}
+      <Dialog open={showRegistrarPago} onOpenChange={setShowRegistrarPago}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Registro de Pagos Manual</DialogTitle>
+            <DialogDescription>
+              Registra un pago recibido en efectivo y genera el recibo fiscal correspondiente
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="estudiante">Estudiante</Label>
+                <Select 
+                  value={pagoManualForm.estudiante_id}
+                  onValueChange={(value) => setPagoManualForm(prev => ({ ...prev, estudiante_id: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Buscar estudiante..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">Carlos Pérez Méndez</SelectItem>
+                    <SelectItem value="2">Andrea García Luna</SelectItem>
+                    <SelectItem value="3">Luis Martínez Gil</SelectItem>
+                    <SelectItem value="4">María Fernández Castro</SelectItem>
+                    <SelectItem value="5">Diego Morales Ruiz</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="concepto">Concepto a pagar</Label>
+                <Select 
+                  value={pagoManualForm.concepto_id}
+                  onValueChange={(value) => setPagoManualForm(prev => ({ ...prev, concepto_id: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar concepto..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">Colegiatura Enero - $5,000</SelectItem>
+                    <SelectItem value="2">Materiales - $1,500</SelectItem>
+                    <SelectItem value="3">Inscripción - $3,000</SelectItem>
+                    <SelectItem value="4">Uniformes - $2,500</SelectItem>
+                    <SelectItem value="5">Seguro Escolar - $800</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="monto">Monto recibido (MXN)</Label>
+                <Input 
+                  id="monto"
+                  type="number" 
+                  value={pagoManualForm.monto}
+                  onChange={(e) => setPagoManualForm(prev => ({ ...prev, monto: e.target.value }))}
+                  placeholder="5000" 
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="recibido_por">Recibido por</Label>
+                <Input 
+                  id="recibido_por"
+                  value={pagoManualForm.recibido_por}
+                  onChange={(e) => setPagoManualForm(prev => ({ ...prev, recibido_por: e.target.value }))}
+                  placeholder="Nombre del cajero" 
+                />
+              </div>
+            </div>
+            
+            <div>
+              <Label htmlFor="observaciones">Observaciones</Label>
+              <textarea 
+                id="observaciones"
+                className="w-full p-2 border rounded"
+                rows={3}
+                value={pagoManualForm.observaciones}
+                onChange={(e) => setPagoManualForm(prev => ({ ...prev, observaciones: e.target.value }))}
+                placeholder="Observaciones adicionales..."
+              />
+            </div>
+            
+            <div className="flex gap-3">
+              <Button 
+                onClick={handleRegistrarPago}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+              >
+                <Banknote className="w-4 h-4 mr-2" />
+                Registrar pago y emitir recibo
+              </Button>
+              
+              <Button
+                variant="outline"
+                onClick={() => setShowRegistrarPago(false)}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Modal de opciones de descarga y compartir */}
       <Dialog open={showReceiptOptions} onOpenChange={setShowReceiptOptions}>
         <DialogContent className="sm:max-w-md">

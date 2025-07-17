@@ -118,6 +118,13 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- July 17, 2025: BOTÓN "REGISTRAR PAGO" COMPLETAMENTE FUNCIONAL - Modal de registro de pagos manual implementado
+- July 17, 2025: Modal independiente con formulario completo para registro de pagos en efectivo
+- July 17, 2025: Funcionalidad integrada con sistema de recibos fiscales existente
+- July 17, 2025: Validación de campos requeridos y generación automática de recibo fiscal
+- July 17, 2025: Campos: estudiante, concepto, monto, recibido por, observaciones
+- July 17, 2025: Autocompletado del campo "Recibido por" con nombre del usuario actual
+- July 17, 2025: Botón completamente operativo desde header de página de Pagos
 - July 17, 2025: SISTEMA AVANZADO DE COMPARTIR RECIBOS FISCALES IMPLEMENTADO - Modal de opciones de descarga y compartir completado
 - July 17, 2025: Modal de opciones con 4 métodos: descargar PNG, descargar HTML + imprimir, enviar por email, compartir por WhatsApp
 - July 17, 2025: Funcionalidad de generación PDF usando html2canvas para descarga como imagen PNG

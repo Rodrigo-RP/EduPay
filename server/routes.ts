@@ -185,7 +185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { expiresIn: '24h' }
       );
 
-      res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
+      res.json({ token, user: { id: user.id, email: user.email, role: user.role, campus_id: user.campus_id } });
     } catch (error: any) {
       res.status(500).json({ message: "Login failed: " + error.message });
     }

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Login</title>
+</head>
+<body>
+    <h1>Test Login</h1>
+    <button onclick="doLogin()">Login</button>
+    <button onclick="checkPayments()">Check Payments</button>
+    <div id="result"></div>
+
+    <script>
+        async function doLogin() {
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'admisiones@sanpatricio.edu.mx',
+                        password: 'demo123'
+                    })
+                });
+                
+                const data = await response.json();
+                console.log('Login response:', data);
+                
+                if (data.token) {
+                    localStorage.setItem('auth_token', data.token);
+                    localStorage.setItem('auth_user', JSON.stringify(data.user));
+                    document.getElementById('result').innerHTML = `
+                        <h3>Login successful!</h3>
+                        <p>User: ${JSON.stringify(data.user, null, 2)}</p>
+                        <p>Token: ${data.token}</p>
+                    `;
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                document.getElementById('result').innerHTML = `<p>Login failed: ${error.message}</p>`;
+            }
+        }
+
+        async function checkPayments() {
+            try {
+                const token = localStorage.getItem('auth_token');
+                if (!token) {
+                    document.getElementById('result').innerHTML = '<p>No token found. Please login first.</p>';
+                    return;
+                }
+                
+                const response = await fetch('/api/payments', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                console.log('Payments response:', data);
+                
+                document.getElementById('result').innerHTML = `
+                    <h3>Payments response:</h3>
+                    <p>Status: ${response.status}</p>
+                    <p>Data: ${JSON.stringify(data, null, 2)}</p>
+                `;
+            } catch (error) {
+                console.error('Payments error:', error);
+                document.getElementById('result').innerHTML = `<p>Payments failed: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

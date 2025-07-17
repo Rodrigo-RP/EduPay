@@ -5,6 +5,7 @@ interface User {
   id: number;
   email: string;
   role: string;
+  campus_id: number;
 }
 
 interface Guardian {

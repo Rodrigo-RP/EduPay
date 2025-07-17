@@ -34,10 +34,26 @@ export default function Pagos() {
   console.log('User role:', userRole, 'User:', user);
   
   // Cargar datos reales de pagos desde la API
-  const { data: paymentsData, isLoading: paymentsLoading } = useQuery({
+  const { data: paymentsData, isLoading: paymentsLoading, error: paymentsError } = useQuery({
     queryKey: ["/api/payments", user?.campus_id],
     enabled: !!user?.campus_id,
   });
+  
+  console.log('Payments query state:', {
+    paymentsData,
+    paymentsLoading,
+    paymentsError,
+    userCampusId: user?.campus_id,
+    queryEnabled: !!user?.campus_id
+  });
+
+  // Si no hay campus_id, forzar logout para que haga login nuevamente
+  if (user && !user.campus_id) {
+    console.log('User sin campus_id, forzando logout...');
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    window.location.href = '/login';
+  }
   
   // Definir qué conceptos puede ver cada rol
   const canViewConcept = (conceptName: string) => {

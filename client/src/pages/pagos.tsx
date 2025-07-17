@@ -31,6 +31,7 @@ export default function Pagos() {
   
   // Obtener rol del usuario para filtrado
   const userRole = (user?.role as UserRole) || 'asistente';
+  console.log('User role:', userRole, 'User:', user);
   
   // Cargar datos reales de pagos desde la API
   const { data: paymentsData, isLoading: paymentsLoading } = useQuery({
@@ -47,8 +48,10 @@ export default function Pagos() {
       
       case 'admisiones':
         // Solo puede ver pagos relacionados con inscripciones (NO becas)
-        return conceptName.toLowerCase().includes('inscripción') ||
-               conceptName.toLowerCase().includes('inscripcion');
+        const isInscripcion = conceptName.toLowerCase().includes('inscripción') ||
+                            conceptName.toLowerCase().includes('inscripcion');
+        console.log('Checking admisiones concept:', conceptName, 'isInscripcion:', isInscripcion);
+        return isInscripcion;
       
       case 'caja':
         // Solo puede ver pagos operativos (no inscripciones)
@@ -117,23 +120,32 @@ export default function Pagos() {
 
 
   // Transformar los datos de la API al formato esperado por el frontend
-  const transformedPagos = paymentsData?.map(payment => ({
-    id: payment.id,
-    estudiante: payment.charge?.student?.nombre_completo || 'Sin estudiante',
-    concepto: payment.charge?.concept?.nombre || 'Sin concepto',
-    monto: payment.monto_centavos,
-    metodo: payment.metodo_pago?.toUpperCase() || 'EFECTIVO',
-    estado: payment.estado || 'pendiente',
-    fecha: new Date(payment.fecha_pago).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    }),
-    referencia: payment.referencia_pago || `PAY${payment.id}`,
-    origen: payment.origen_pago || 'Portal Padres'
-  })) || [];
+  const transformedPagos = paymentsData?.map(payment => {
+    const transformedPayment = {
+      id: payment.id,
+      estudiante: payment.charge?.student?.nombre_completo || 'Sin estudiante',
+      concepto: payment.charge?.concept?.nombre || 'Sin concepto',
+      monto: payment.monto_centavos,
+      metodo: payment.metodo?.toUpperCase() || 'EFECTIVO',
+      estado: payment.estado || 'pendiente',
+      fecha: new Date(payment.fecha_pago).toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      referencia: payment.referencia_pasarela || `PAY${payment.id}`,
+      origen: 'Portal Padres'
+    };
+    
+    // Debug log para verificar datos
+    console.log('Payment transformado:', transformedPayment);
+    console.log('Concept match:', canViewConcept(transformedPayment.concepto));
+    console.log('Status match:', canViewStatus(transformedPayment.estado));
+    
+    return transformedPayment;
+  }) || [];
 
   // Filtrar pagos según criterios Y rol del usuario
   const filteredPagos = transformedPagos.filter(pago => {
@@ -157,6 +169,16 @@ export default function Pagos() {
         dateMatch = dateMatch && pagoDate <= toDate;
       }
     }
+    
+    console.log('Filtrado completo:', {
+      pago: pago.concepto,
+      methodMatch,
+      statusMatch,
+      dateMatch,
+      conceptMatch,
+      statusRoleMatch,
+      finalResult: methodMatch && statusMatch && dateMatch && conceptMatch && statusRoleMatch
+    });
     
     return methodMatch && statusMatch && dateMatch && conceptMatch && statusRoleMatch;
   });

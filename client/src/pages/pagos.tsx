@@ -40,11 +40,9 @@ export default function Pagos() {
         return true; // Puede ver todos los conceptos
       
       case 'admisiones':
-        // Solo puede ver pagos relacionados con inscripciones y matrículas (NO becas)
+        // Solo puede ver pagos relacionados con inscripciones (NO becas)
         return conceptName.toLowerCase().includes('inscripción') ||
-               conceptName.toLowerCase().includes('inscripcion') ||
-               conceptName.toLowerCase().includes('matrícula') ||
-               conceptName.toLowerCase().includes('matricula');
+               conceptName.toLowerCase().includes('inscripcion');
       
       case 'caja':
         // Solo puede ver pagos operativos (no inscripciones)
@@ -64,11 +62,9 @@ export default function Pagos() {
         return true;
       
       case 'asistente':
-        // Solo puede ver inscripciones y matrículas
+        // Solo puede ver inscripciones
         return conceptName.toLowerCase().includes('inscripción') ||
-               conceptName.toLowerCase().includes('inscripcion') ||
-               conceptName.toLowerCase().includes('matrícula') ||
-               conceptName.toLowerCase().includes('matricula');
+               conceptName.toLowerCase().includes('inscripcion');
       
       default:
         return false;
@@ -620,10 +616,10 @@ export default function Pagos() {
                     <Info className="h-4 w-4" />
                     <span className="text-sm font-medium">
                       Mostrando solo pagos relevantes para {
-                        userRole === 'admisiones' ? 'Admisiones (inscripciones, matrículas, becas)' : 
+                        userRole === 'admisiones' ? 'Admisiones (inscripciones únicamente)' : 
                         userRole === 'caja' ? 'Caja (colegiaturas, recargos, seguros)' : 
                         userRole === 'contador' ? 'Contador (solo pagos completados)' : 
-                        userRole === 'asistente' ? 'Asistente (inscripciones y becas)' : 
+                        userRole === 'asistente' ? 'Asistente (inscripciones únicamente)' : 
                         'tu rol'
                       }
                     </span>

@@ -130,7 +130,11 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.PROVIDERS, action: ACTIONS.UPDATE, scope: 'campus', description: 'Gestionar proveedores del campus' },
       { module: MODULES.ALUMNI, action: ACTIONS.READ, scope: 'campus', description: 'Ver ex-alumnos del campus' },
       { module: MODULES.RECEIVABLES, action: ACTIONS.READ, scope: 'campus', description: 'Ver cuentas por cobrar del campus' },
-      { module: MODULES.RECEIVABLES, action: ACTIONS.PROCESS, scope: 'campus', description: 'Procesar cobranza del campus' }
+      { module: MODULES.RECEIVABLES, action: ACTIONS.PROCESS, scope: 'campus', description: 'Procesar cobranza del campus' },
+      { module: MODULES.CONCEPTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver catálogo de productos del campus' },
+      { module: MODULES.SYSTEM, action: ACTIONS.READ, scope: 'campus', description: 'Ver sistemas del campus' },
+      { module: MODULES.SYSTEM, action: ACTIONS.IMPORT, scope: 'campus', description: 'Importar datos del campus' },
+      { module: MODULES.SYSTEM, action: ACTIONS.APPROVE, scope: 'campus', description: 'Aprobar acciones del campus' }
     ],
     restrictions: [
       'No puede ver información de otros campus',

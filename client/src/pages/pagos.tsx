@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from "@/hooks/use-toast";
 import { CreditCard, Banknote, Smartphone, Receipt, Download, Eye, DollarSign, CheckCircle, Calendar, User, FileText, Building2, PieChart, Upload, X, AlertCircle } from "lucide-react";
 import { PieChartComponent } from "@/components/PieChartComponent";
+import { hasPermission, MODULES, ACTIONS, type UserRole } from "@shared/permissions";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function Pagos() {
   const [selectedMethod, setSelectedMethod] = useState("all");
@@ -25,6 +27,76 @@ export default function Pagos() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+  
+  // Obtener rol del usuario para filtrado
+  const userRole = (user?.role as UserRole) || 'asistente';
+  
+  // Definir qué conceptos puede ver cada rol
+  const canViewConcept = (conceptName: string) => {
+    switch (userRole) {
+      case 'super_admin':
+      case 'admin':
+        return true; // Puede ver todos los conceptos
+      
+      case 'admisiones':
+        // Solo puede ver pagos relacionados con admisiones
+        return conceptName.toLowerCase().includes('inscripción') ||
+               conceptName.toLowerCase().includes('inscripcion') ||
+               conceptName.toLowerCase().includes('matrícula') ||
+               conceptName.toLowerCase().includes('matricula') ||
+               conceptName.toLowerCase().includes('beca') ||
+               conceptName.toLowerCase().includes('descuento');
+      
+      case 'caja':
+        // Solo puede ver pagos operativos (no inscripciones)
+        return conceptName.toLowerCase().includes('colegiatura') ||
+               conceptName.toLowerCase().includes('mensualidad') ||
+               conceptName.toLowerCase().includes('recargo') ||
+               conceptName.toLowerCase().includes('multa') ||
+               conceptName.toLowerCase().includes('seguro') ||
+               conceptName.toLowerCase().includes('transporte') ||
+               conceptName.toLowerCase().includes('cafetería') ||
+               conceptName.toLowerCase().includes('cafeteria') ||
+               conceptName.toLowerCase().includes('papelería') ||
+               conceptName.toLowerCase().includes('papeleria');
+      
+      case 'contador':
+        // Solo puede ver pagos completados para reportes
+        return true;
+      
+      case 'asistente':
+        // Solo puede ver inscripciones y becas
+        return conceptName.toLowerCase().includes('inscripción') ||
+               conceptName.toLowerCase().includes('inscripcion') ||
+               conceptName.toLowerCase().includes('beca');
+      
+      default:
+        return false;
+    }
+  };
+  
+  // Filtrar estados según el rol
+  const canViewStatus = (status: string) => {
+    switch (userRole) {
+      case 'super_admin':
+      case 'admin':
+      case 'caja':
+        return true; // Puede ver todos los estados
+      
+      case 'admisiones':
+        return status === 'completado' || status === 'pendiente';
+      
+      case 'contador':
+        return status === 'completado'; // Solo pagos completados
+      
+      case 'asistente':
+        return status === 'completado' || status === 'pendiente';
+      
+      default:
+        return status === 'completado';
+    }
+  };
 
   // Datos estáticos para gráficos tipo pastel
   const paymentMethodData = [
@@ -80,10 +152,15 @@ export default function Pagos() {
     }
   ];
 
-  // Filtrar pagos según criterios
+  // Filtrar pagos según criterios Y rol del usuario
   const filteredPagos = mockPagos.filter(pago => {
+    // Filtros básicos existentes
     const methodMatch = selectedMethod === "all" || pago.metodo === selectedMethod;
     const statusMatch = selectedStatus === "all" || pago.estado === selectedStatus;
+    
+    // Filtrado por rol - concepto y estado
+    const conceptMatch = canViewConcept(pago.concepto);
+    const statusRoleMatch = canViewStatus(pago.estado);
     
     let dateMatch = true;
     if (dateFrom || dateTo) {
@@ -98,7 +175,7 @@ export default function Pagos() {
       }
     }
     
-    return methodMatch && statusMatch && dateMatch;
+    return methodMatch && statusMatch && dateMatch && conceptMatch && statusRoleMatch;
   });
 
   const getMetodoBadge = (metodo: string) => {

@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useInstitution } from "@/hooks/use-institution";
 import TrainingModal from "@/components/training-modal";
+import { hasPermission, MODULES, ACTIONS, UserRole } from "@shared/permissions";
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
@@ -10,163 +11,219 @@ export default function Sidebar() {
   const { institutionName, campusName, logoUrl } = useInstitution();
   const [trainingOpen, setTrainingOpen] = useState(false);
 
-  const menuItems = [
+  const userRole = (user?.role as UserRole) || 'asistente';
+
+  // Definir elementos del menú con permisos
+  const getAllMenuItems = () => [
     { 
       icon: "fas fa-chart-line", 
       label: "Dashboard", 
       href: "/admin", 
       active: location === "/" || location === "/admin",
-      category: "principal"
+      category: "principal",
+      module: MODULES.DASHBOARD,
+      action: ACTIONS.READ
     },
     { 
       icon: "fas fa-users", 
       label: "Estudiantes", 
       href: "/estudiantes", 
       active: location === "/estudiantes",
-      category: "academico"
+      category: "academico",
+      module: MODULES.STUDENTS,
+      action: ACTIONS.READ
     },
     { 
       icon: "fas fa-home", 
       label: "Familias", 
       href: "/familias", 
       active: location === "/familias",
-      category: "academico"
+      category: "academico",
+      module: MODULES.FAMILIES,
+      action: ACTIONS.READ
     },
     { 
       icon: "fas fa-graduation-cap", 
       label: "Ex-Alumnos", 
       href: "/exalumnos", 
       active: location === "/exalumnos",
-      category: "academico"
+      category: "academico",
+      module: MODULES.ALUMNI,
+      action: ACTIONS.READ
     },
     { 
       icon: "fas fa-user-friends", 
       label: "CRM Escolar", 
       href: "/crm-escolar", 
       active: location === "/crm-escolar",
-      category: "academico"
+      category: "academico",
+      module: MODULES.CRM,
+      action: ACTIONS.READ
     },
     { 
       icon: "fas fa-user-cog", 
       label: "Usuarios", 
       href: "/usuarios", 
       active: location === "/usuarios",
-      category: "administrativo"
+      category: "administrativo",
+      module: MODULES.USERS,
+      action: ACTIONS.READ
     },
     { 
       icon: "fas fa-file-invoice-dollar", 
       label: "Cargos", 
       href: "/cargos", 
       active: location === "/cargos",
-      category: "financiero"
+      category: "financiero",
+      module: MODULES.CHARGES,
+      action: ACTIONS.READ
     },
     { 
       icon: "fas fa-credit-card", 
       label: "Pagos", 
       href: "/pagos", 
       active: location === "/pagos",
-      category: "financiero"
+      category: "financiero",
+      module: MODULES.PAYMENTS,
+      action: ACTIONS.READ
     },
     { 
       icon: "fas fa-exclamation-triangle", 
       label: "Cuentas por Cobrar", 
       href: "/cuentas-por-cobrar", 
       active: location === "/cuentas-por-cobrar",
-      category: "financiero"
+      category: "financiero",
+      module: MODULES.RECEIVABLES,
+      action: ACTIONS.READ
     },
     { 
       icon: "fas fa-chart-line", 
       label: "Análisis Financiero CFO", 
       href: "/analisis-financiero", 
       active: location === "/analisis-financiero",
-      category: "financiero"
+      category: "financiero",
+      module: MODULES.FINANCIAL,
+      action: ACTIONS.READ
     },
     { 
       icon: "fas fa-file-alt", 
       label: "Reportes Financieros", 
       href: "/reportes-financieros", 
       active: location === "/reportes-financieros",
-      category: "financiero"
+      category: "financiero",
+      module: MODULES.REPORTS,
+      action: ACTIONS.READ
     },
     { 
       icon: "fas fa-box", 
       label: "Catálogo Productos", 
       href: "/catalogo-productos", 
       active: location === "/catalogo-productos",
-      category: "financiero"
+      category: "financiero",
+      module: MODULES.CONCEPTS,
+      action: ACTIONS.READ
     },
     { 
       icon: "fas fa-tags", 
       label: "Asignación de Precios", 
       href: "/asignacion-precios", 
       active: location === "/asignacion-precios",
-      category: "financiero"
+      category: "financiero",
+      module: MODULES.CONCEPTS,
+      action: ACTIONS.CONFIGURE
     },
     { 
       icon: "fas fa-building", 
       label: "Proveedores", 
       href: "/proveedores", 
       active: location === "/proveedores",
-      category: "administrativo"
+      category: "administrativo",
+      module: MODULES.PROVIDERS,
+      action: ACTIONS.READ
     },
     { 
       icon: "fas fa-percent", 
       label: "Becas y Descuentos", 
       href: "/becas", 
       active: location === "/becas",
-      category: "financiero"
+      category: "financiero",
+      module: MODULES.SCHOLARSHIPS,
+      action: ACTIONS.READ
     },
     { 
       icon: "fas fa-file-import", 
       label: "Importación de Datos", 
       href: "/importacion-datos", 
       active: location === "/importacion-datos",
-      category: "sistema"
+      category: "sistema",
+      module: MODULES.SYSTEM,
+      action: ACTIONS.IMPORT
     },
     { 
       icon: "fas fa-bell", 
       label: "Notificaciones", 
       href: "/notificaciones", 
       active: location === "/notificaciones",
-      category: "sistema"
+      category: "sistema",
+      module: MODULES.SYSTEM,
+      action: ACTIONS.READ
     },
     { 
       icon: "fas fa-chart-bar", 
       label: "Reportes", 
       href: "/reportes", 
       active: location === "/reportes",
-      category: "sistema"
+      category: "sistema",
+      module: MODULES.REPORTS,
+      action: ACTIONS.READ
     },
     { 
       icon: "fas fa-cog", 
       label: "Configuración", 
       href: "/configuracion", 
       active: location === "/configuracion",
-      category: "sistema"
+      category: "sistema",
+      module: MODULES.SETTINGS,
+      action: ACTIONS.CONFIGURE
     },
     { 
       icon: "fas fa-calendar-check", 
       label: "Configuración de Pagos", 
       href: "/configuracion-pagos", 
       active: location === "/configuracion-pagos",
-      category: "sistema"
+      category: "sistema",
+      module: MODULES.SETTINGS,
+      action: ACTIONS.CONFIGURE
     },
     { 
       icon: "fas fa-brain", 
       label: "Sistemas Avanzados", 
       href: "/sistemas-avanzados", 
       active: location === "/sistemas-avanzados",
-      category: "sistema"
+      category: "sistema",
+      module: MODULES.SYSTEM,
+      action: ACTIONS.READ
     },
     { 
       icon: "fas fa-shield-alt", 
       label: "Aprobaciones", 
       href: "/aprobaciones", 
       active: location === "/aprobaciones",
-      category: "sistema"
+      category: "sistema",
+      module: MODULES.SYSTEM,
+      action: ACTIONS.APPROVE
     },
 
   ];
+
+  // Filtrar elementos del menú según permisos del usuario
+  const menuItems = getAllMenuItems().filter(item => {
+    // Si no tiene módulo definido, mostrar por defecto
+    if (!item.module || !item.action) return true;
+    
+    // Verificar permisos específicos para el rol
+    return hasPermission(userRole, item.module, item.action);
+  });
 
   // Función para obtener los colores de cada sección
   const getSectionColors = (category: string) => {

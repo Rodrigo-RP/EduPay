@@ -57,6 +57,7 @@ import DemoAprobaciones from "@/pages/demo-aprobaciones";
 import DashboardAdmisiones from "@/pages/dashboard-admisiones";
 import DashboardCaja from "@/pages/dashboard-caja";
 import ReportesFinancieros from "@/pages/reportes-financieros";
+import RoleBasedDashboard from "@/components/RoleBasedDashboard";
 
 function AuthenticatedRoutes() {
   const { user, guardian, isLoading } = useAuth();
@@ -103,13 +104,7 @@ function AuthenticatedRoutes() {
 
   // Admin/staff routes with role-based dashboard redirection
   const getRoleBasedDashboard = () => {
-    if (user?.role === 'admisiones') {
-      return DashboardAdmisiones;
-    } else if (user?.role === 'caja') {
-      return DashboardCaja;
-    } else {
-      return AdminDashboard;
-    }
+    return RoleBasedDashboard;
   };
 
   return (

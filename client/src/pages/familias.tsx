@@ -1948,45 +1948,49 @@ export default function Familias() {
               <TabsContent value="adicional" className="space-y-4">
                 <div>
                   <h3 className="text-lg font-semibold text-slate-900 mb-4">Credenciales del Portal</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="usuario">Usuario *</Label>
-                      <Input
-                        id="usuario"
-                        value={formData.usuario}
-                        onChange={(e) => handleInputChange("usuario", e.target.value)}
-                        placeholder="Nombre de usuario para el portal"
-                        required
-                      />
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="usuario">Usuario *</Label>
+                        <Input
+                          id="usuario"
+                          value={formData.usuario}
+                          onChange={(e) => handleInputChange("usuario", e.target.value)}
+                          placeholder="Nombre de usuario para el portal"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="password">Contraseña *</Label>
+                        <Input
+                          id="password"
+                          type="password"
+                          value={formData.password}
+                          onChange={(e) => handleInputChange("password", e.target.value)}
+                          placeholder="Contraseña para el portal"
+                          required
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <Label htmlFor="password">Contraseña *</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        value={formData.password}
-                        onChange={(e) => handleInputChange("password", e.target.value)}
-                        placeholder="Contraseña para el portal"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="id_referencia_padre">ID de Referencia - Padre</Label>
-                      <Input
-                        id="id_referencia_padre"
-                        value={formData.id_referencia_padre}
-                        onChange={(e) => handleInputChange("id_referencia_padre", e.target.value)}
-                        placeholder="ID único de referencia del padre"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="id_referencia_madre">ID de Referencia - Madre</Label>
-                      <Input
-                        id="id_referencia_madre"
-                        value={formData.id_referencia_madre}
-                        onChange={(e) => handleInputChange("id_referencia_madre", e.target.value)}
-                        placeholder="ID único de referencia de la madre"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="id_referencia_padre">ID de Referencia - Padre</Label>
+                        <Input
+                          id="id_referencia_padre"
+                          value={formData.id_referencia_padre}
+                          onChange={(e) => handleInputChange("id_referencia_padre", e.target.value)}
+                          placeholder="ID único de referencia del padre"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="id_referencia_madre">ID de Referencia - Madre</Label>
+                        <Input
+                          id="id_referencia_madre"
+                          value={formData.id_referencia_madre}
+                          onChange={(e) => handleInputChange("id_referencia_madre", e.target.value)}
+                          placeholder="ID único de referencia de la madre"
+                        />
+                      </div>
                     </div>
                   </div>
                   <p className="text-sm text-slate-600 mt-2">

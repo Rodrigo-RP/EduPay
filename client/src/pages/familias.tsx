@@ -2205,6 +2205,24 @@ export default function Familias() {
                 </div>
               </div>
 
+              {/* Credenciales del Portal */}
+              <div className="bg-teal-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-teal-900 mb-3 flex items-center">
+                  <UserCheck className="w-5 h-5 mr-2" />
+                  Credenciales del Portal
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <p><strong>Usuario:</strong> {viewingFamily.usuario || 'No especificado'}</p>
+                    <p><strong>Contraseña:</strong> {viewingFamily.password ? '••••••••' : 'No especificado'}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p><strong>ID de Refereence (Padre):</strong> {viewingFamily.id_referencia_padre || 'No especificado'}</p>
+                    <p><strong>ID de Refereence (Madre):</strong> {viewingFamily.id_referencia_madre || 'No especificado'}</p>
+                  </div>
+                </div>
+              </div>
+
               {/* Botón de Editar */}
               <div className="flex justify-end space-x-2">
                 <Button variant="outline" onClick={() => setShowViewModal(false)}>

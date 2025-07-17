@@ -48,7 +48,10 @@ export default function Estudiantes() {
     alergias: "",
     medicamentos: "",
     contacto_emergencia: "",
-    telefono_emergencia: ""
+    telefono_emergencia: "",
+    // Campos de acceso al portal
+    usuario: "",
+    password: ""
   });
 
   const [estudiantes, setEstudiantes] = useState([
@@ -1295,6 +1298,37 @@ export default function Estudiantes() {
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Credenciales del Portal */}
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-4">Credenciales del Portal</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="usuario">Usuario *</Label>
+                  <Input
+                    id="usuario"
+                    value={formData.usuario}
+                    onChange={(e) => handleInputChange("usuario", e.target.value)}
+                    placeholder="Nombre de usuario para el portal"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="password">Contraseña *</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => handleInputChange("password", e.target.value)}
+                    placeholder="Contraseña para el portal"
+                    required
+                  />
+                </div>
+              </div>
+              <p className="text-sm text-slate-600 mt-2">
+                Estas credenciales permitirán al responsable del estudiante acceder al portal de pagos.
+              </p>
             </div>
 
             {/* Botones */}

@@ -66,7 +66,10 @@ export default function Familias() {
     contacto_emergencia_relacion: "",
     // Observaciones
     observaciones: "",
-    estatus: "activo"
+    estatus: "activo",
+    // Campos de acceso al portal
+    usuario: "",
+    password: ""
   });
 
   // Estado para múltiples datos fiscales
@@ -1941,6 +1944,36 @@ export default function Familias() {
               </TabsContent>
 
               <TabsContent value="adicional" className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Credenciales del Portal</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="usuario">Usuario *</Label>
+                      <Input
+                        id="usuario"
+                        value={formData.usuario}
+                        onChange={(e) => handleInputChange("usuario", e.target.value)}
+                        placeholder="Nombre de usuario para el portal"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="password">Contraseña *</Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        value={formData.password}
+                        onChange={(e) => handleInputChange("password", e.target.value)}
+                        placeholder="Contraseña para el portal"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <p className="text-sm text-slate-600 mt-2">
+                    Estas credenciales permitirán a la familia acceder al portal de pagos y consultas.
+                  </p>
+                </div>
+
                 <div>
                   <Label htmlFor="observaciones">Observaciones</Label>
                   <Textarea

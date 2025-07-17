@@ -58,6 +58,7 @@ export interface IStorage {
   
   // Charge operations
   getChargesByStudent(studentId: number): Promise<(Charge & { concept: Concept })[]>;
+  getChargesByCampus(campusId: number): Promise<Charge[]>;
   getPendingChargesByGuardian(guardianId: number): Promise<(Charge & { student: Student; concept: Concept })[]>;
   createCharge(charge: InsertCharge): Promise<Charge>;
   updateChargeStatus(chargeId: number, status: string): Promise<void>;
@@ -216,6 +217,15 @@ export class DatabaseStorage implements IStorage {
       .from(charges)
       .innerJoin(concepts, eq(charges.concept_id, concepts.id))
       .where(eq(charges.student_id, studentId))
+      .orderBy(desc(charges.fecha_vencimiento));
+  }
+
+  async getChargesByCampus(campusId: number): Promise<Charge[]> {
+    return await db
+      .select()
+      .from(charges)
+      .innerJoin(students, eq(charges.student_id, students.id))
+      .where(eq(students.campus_id, campusId))
       .orderBy(desc(charges.fecha_vencimiento));
   }
 

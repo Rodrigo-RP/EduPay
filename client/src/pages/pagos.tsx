@@ -424,11 +424,14 @@ export default function Pagos() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">
-            {userRole === 'admisiones' ? 'Pagos de Inscripciones' : 'Gestión de Pagos'}
+            {userRole === 'admisiones' ? 'Pagos de Inscripciones' : 
+             userRole === 'contador' ? 'Reportes de Pagos' : 'Gestión de Pagos'}
           </h1>
           <p className="text-slate-600">
             {userRole === 'admisiones' 
               ? 'Administra pagos de inscripciones, matrículas y becas para nuevos estudiantes'
+              : userRole === 'contador'
+              ? 'Consulta y analiza todos los pagos completados para reportes contables'
               : 'Administra pagos recibidos, registra efectivo y concilia movimientos'
             }
           </p>
@@ -442,16 +445,28 @@ export default function Pagos() {
               </div>
             </div>
           )}
+          {userRole === 'contador' && (
+            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center gap-2 text-blue-700">
+                <i className="fas fa-calculator"></i>
+                <span className="text-sm font-medium">
+                  Perfil Contador - Acceso completo de solo lectura para reportes contables
+                </span>
+              </div>
+            </div>
+          )}
         </div>
-        <div className="flex gap-3">
-          <Button 
-            className="bg-green-600 hover:bg-green-700"
-            onClick={() => setShowRegistrarPago(true)}
-          >
-            <Banknote className="w-4 h-4 mr-2" />
-            Registrar pago
-          </Button>
-        </div>
+        {userRole !== 'contador' && (
+          <div className="flex gap-3">
+            <Button 
+              className="bg-green-600 hover:bg-green-700"
+              onClick={() => setShowRegistrarPago(true)}
+            >
+              <Banknote className="w-4 h-4 mr-2" />
+              Registrar pago
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -513,9 +528,9 @@ export default function Pagos() {
       </div>
 
       <Tabs defaultValue="lista" className="w-full">
-        <TabsList className={`grid w-full ${userRole === 'admisiones' ? 'grid-cols-1' : 'grid-cols-3'}`}>
+        <TabsList className={`grid w-full ${(userRole === 'admisiones' || userRole === 'contador') ? 'grid-cols-1' : 'grid-cols-3'}`}>
           <TabsTrigger value="lista">Lista de pagos</TabsTrigger>
-          {userRole !== 'admisiones' && (
+          {userRole !== 'admisiones' && userRole !== 'contador' && (
             <>
               <TabsTrigger value="efectivo">Registro efectivo</TabsTrigger>
               <TabsTrigger value="conciliacion">Conciliación</TabsTrigger>

@@ -2,6 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { UserRole } from "@shared/permissions";
 import DashboardAdmisiones from "@/pages/dashboard-admisiones";
 import DashboardCaja from "@/pages/dashboard-caja";
+import DashboardContador from "@/pages/dashboard-contador";
 import AdminDashboard from "@/pages/admin-dashboard";
 
 /**
@@ -25,7 +26,7 @@ export default function RoleBasedDashboard() {
     
     case 'contador':
       // Dashboard enfocado en reportes financieros y contables
-      return <AdminDashboard />;
+      return <DashboardContador />;
     
     case 'asistente':
       // Dashboard simplificado con información básica

@@ -1976,6 +1976,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ========================================
+  // DASHBOARD CONTADOR ROUTE
+  // ========================================
+
+  // Dashboard específico para contador (solo lectura)
+  app.get("/api/dashboard/contador", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user?.campus_id;
+      if (!campusId) {
+        return res.status(400).json({ message: "Campus ID requerido" });
+      }
+
+      // Obtener datos completos para análisis contable
+      const [students, payments, charges, concepts] = await Promise.all([
+        storage.getStudentsByCampus(campusId),
+        storage.getPaymentsByCampus(campusId),
+        storage.getChargesByCampus(campusId),
+        storage.getConceptsByCampus(campusId)
+      ]);
+
+      // Calcular métricas financieras
+      const completedPayments = payments.filter((p: any) => p.estado === 'completado');
+      const totalIncome = completedPayments.reduce((sum: number, p: any) => sum + p.monto_centavos, 0);
+      
+      const pendingCharges = charges.filter((c: any) => c.estado === 'pendiente');
+      const totalPending = pendingCharges.reduce((sum: number, c: any) => sum + c.monto_base_centavos, 0);
+      
+      const overdueCharges = charges.filter((c: any) => {
+        const vencimiento = new Date(c.fecha_vencimiento);
+        const hoy = new Date();
+        return c.estado === 'pendiente' && vencimiento < hoy;
+      });
+      const totalOverdue = overdueCharges.reduce((sum: number, c: any) => sum + c.monto_base_centavos, 0);
+
+      // Calcular tasa de cobranza
+      const totalCharges = charges.reduce((sum: number, c: any) => sum + c.monto_base_centavos, 0);
+      const collectionRate = totalCharges > 0 ? (totalIncome / totalCharges) * 100 : 0;
+
+      // Estudiantes con saldo pendiente
+      const studentsWithBalance = new Set();
+      pendingCharges.forEach((charge: any) => {
+        studentsWithBalance.add(charge.student_id);
+      });
+
+      const financialSummary = {
+        total_income: totalIncome,
+        total_pending: totalPending,
+        total_overdue: totalOverdue,
+        collection_rate: collectionRate,
+        students_with_balance: studentsWithBalance.size,
+        active_students: students.filter((s: any) => s.status === 'activo').length
+      };
+
+      res.json({
+        students,
+        payments: completedPayments, // Solo pagos completados para el contador
+        charges,
+        financial_summary: financialSummary
+      });
+
+    } catch (error: any) {
+      res.status(500).json({ message: "Error obteniendo datos del dashboard: " + error.message });
+    }
+  });
+
+  // ========================================
   // SUPER ADMIN SCHOOL MANAGEMENT ROUTES
   // ========================================
 

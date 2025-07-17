@@ -130,6 +130,28 @@ export class DatabaseStorage implements IStorage {
     return guardian || undefined;
   }
 
+  async getGuardiansByCampus(campusId: number): Promise<Guardian[]> {
+    const results = await db
+      .select({
+        id: guardians.id,
+        email: guardians.email,
+        password_hash: guardians.password_hash,
+        telefono: guardians.telefono,
+        nombre_completo: guardians.nombre_completo,
+        rfc: guardians.rfc,
+        created_at: guardians.created_at,
+        updated_at: guardians.updated_at,
+      })
+      .from(guardians)
+      .innerJoin(student_guardian, eq(guardians.id, student_guardian.guardian_id))
+      .innerJoin(students, eq(student_guardian.student_id, students.id))
+      .where(eq(students.campus_id, campusId))
+      .groupBy(guardians.id)
+      .orderBy(guardians.nombre_completo);
+    
+    return results;
+  }
+
   async createGuardian(insertGuardian: InsertGuardian): Promise<Guardian> {
     const hashedPassword = insertGuardian.password_hash ? 
       await bcrypt.hash(insertGuardian.password_hash, 10) : null;

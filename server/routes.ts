@@ -443,6 +443,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get guardians by campus
+  app.get("/api/admin/guardians/:campusId", async (req, res) => {
+    try {
+      const campusId = parseInt(req.params.campusId);
+      
+      // Get real guardians from database
+      const guardians = await storage.getGuardiansByCampus(campusId);
+      
+      res.json(guardians);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error fetching guardians: " + error.message });
+    }
+  });
+
   // Get students (real data from database)
   app.get("/api/students", authenticateToken, async (req, res) => {
     try {

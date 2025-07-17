@@ -3757,5 +3757,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GENERATE CHARGES - ENDPOINT PARA GENERAR CARGOS CON CONFIGURACIÓN FLEXIBLE
+  app.post("/api/charges/generate", authenticateToken, async (req: any, res: any) => {
+    try {
+      const {
+        concepto,
+        tipo_generacion,
+        nivel_academico,
+        fecha_emision,
+        fecha_vencimiento,
+        aplicar_becas,
+        incluir_recargos
+      } = req.body;
+      
+      const userCampusId = req.user.campus_id;
+      
+      // Find the concept by name
+      const concepts = await storage.getConceptsByCampus(userCampusId);
+      const concept = concepts.find(c => c.nombre === concepto);
+      
+      if (!concept) {
+        return res.status(404).json({ message: "Concepto no encontrado" });
+      }
+      
+      // Get students based on nivel_academico filter
+      const allStudents = await storage.getStudentsByCampus(userCampusId);
+      let targetStudents = allStudents.filter(s => s.status === 'activo');
+      
+      // Filter by academic level if specified
+      if (nivel_academico !== 'todos') {
+        targetStudents = targetStudents.filter(student => {
+          const academicLevel = getAcademicLevel(student.grado);
+          return academicLevel === nivel_academico;
+        });
+      }
+      
+      console.log(`Generating charges for ${targetStudents.length} students with concept: ${concepto}`);
+      
+      const charges = [];
+      const chargesSummary = [];
+      
+      for (const student of targetStudents) {
+        // Calculate base amount (could be dynamic based on academic level)
+        let baseAmount = concept.monto_centavos;
+        
+        // Apply academic level pricing if available
+        const academicLevel = getAcademicLevel(student.grado);
+        const levelPrice = concept[`monto_${academicLevel}`];
+        if (levelPrice && levelPrice > 0) {
+          baseAmount = levelPrice;
+        }
+        
+        // Calculate final amount with scholarships and late fees
+        let finalAmount = baseAmount;
+        let discountPercentage = "0.00";
+        let lateFee = 0;
+        
+        if (aplicar_becas) {
+          // In a real implementation, you'd fetch student scholarships
+          // For now, applying a random discount for demo
+          const randomDiscount = Math.random() > 0.7 ? (Math.random() * 20).toFixed(2) : "0.00";
+          discountPercentage = randomDiscount;
+          finalAmount = baseAmount * (1 - parseFloat(discountPercentage) / 100);
+        }
+        
+        if (incluir_recargos) {
+          // Apply late fees if enabled
+          lateFee = Math.floor(baseAmount * 0.05); // 5% late fee
+        }
+        
+        // Create the charge
+        const charge = await storage.createCharge({
+          student_id: student.id,
+          concept_id: concept.id,
+          ciclo_escolar: "2024-2025",
+          fecha_emision: fecha_emision,
+          fecha_vencimiento: fecha_vencimiento,
+          monto_base_centavos: baseAmount,
+          beca_aplicada: discountPercentage,
+          recargo_aplicado_centavos: lateFee,
+          estado: "pendiente"
+        });
+        
+        charges.push(charge);
+        chargesSummary.push({
+          student_name: student.nombre_completo,
+          grade: student.grado,
+          academic_level: academicLevel,
+          base_amount: baseAmount,
+          discount: discountPercentage,
+          late_fee: lateFee,
+          final_amount: Math.round(finalAmount + lateFee)
+        });
+      }
+      
+      res.status(201).json({
+        message: `Generated ${charges.length} charges successfully`,
+        charges_created: charges.length,
+        concepto: concepto,
+        tipo_generacion: tipo_generacion,
+        nivel_academico: nivel_academico,
+        summary: chargesSummary
+      });
+      
+    } catch (error: any) {
+      console.error("Error generating charges:", error);
+      res.status(500).json({ message: "Error generating charges: " + error.message });
+    }
+  });
+
   return httpServer;
 }

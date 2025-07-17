@@ -7,13 +7,86 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
-import { FileText, Plus, AlertTriangle, CheckCircle, Clock, DollarSign } from "lucide-react";
+import { FileText, Plus, AlertTriangle, CheckCircle, Clock, DollarSign, Calendar, Users, CreditCard } from "lucide-react";
 
 export default function Cargos() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [generateModalOpen, setGenerateModalOpen] = useState(false);
+  const [generateForm, setGenerateForm] = useState({
+    concepto: "",
+    tipo_generacion: "automatica",
+    nivel_academico: "todos",
+    fecha_emision: "",
+    fecha_vencimiento: "",
+    aplicar_becas: true,
+    incluir_recargos: false,
+    conceptos_seleccionados: [] as string[]
+  });
+
+  // Datos demo de conceptos disponibles
+  const conceptos = [
+    { id: 1, nombre: "Colegiatura Mensual", tipo: "COLEGIATURA", monto: 500000, iva: false },
+    { id: 2, nombre: "Inscripción Anual", tipo: "INSCRIPCION", monto: 800000, iva: false },
+    { id: 3, nombre: "Materiales Didácticos", tipo: "MATERIAL", monto: 150000, iva: true },
+    { id: 4, nombre: "Seguro Escolar", tipo: "SEGURO", monto: 50000, iva: false },
+    { id: 5, nombre: "Actividades Extracurriculares", tipo: "ACTIVIDAD", monto: 200000, iva: true }
+  ];
+
+  // Mutación para generar cargos
+  const generateChargesMutation = useMutation({
+    mutationFn: async (formData: any) => {
+      return await apiRequest("/api/charges/generate", {
+        method: "POST",
+        body: formData
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Cargos generados exitosamente",
+        description: "Los cargos se han aplicado a los estudiantes seleccionados",
+        variant: "default"
+      });
+      setGenerateModalOpen(false);
+      setGenerateForm({
+        concepto: "",
+        tipo_generacion: "automatica",
+        nivel_academico: "todos",
+        fecha_emision: "",
+        fecha_vencimiento: "",
+        aplicar_becas: true,
+        incluir_recargos: false,
+        conceptos_seleccionados: []
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/charges'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error al generar cargos",
+        description: error.message || "Ocurrió un error al generar los cargos",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleGenerateCharges = () => {
+    if (!generateForm.concepto || !generateForm.fecha_emision || !generateForm.fecha_vencimiento) {
+      toast({
+        title: "Campos requeridos",
+        description: "Por favor completa todos los campos obligatorios",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    generateChargesMutation.mutate(generateForm);
+  };
 
   // Datos demo de cargos
   const cargos = [
@@ -112,10 +185,161 @@ export default function Cargos() {
           <p className="text-slate-600">Administra cargos automáticos, manuales y extraordinarios</p>
         </div>
         <div className="flex gap-2">
-          <Button className="bg-green-600 hover:bg-green-700">
-            <Plus className="w-4 h-4 mr-2" />
-            Generar Cargos
-          </Button>
+          <Dialog open={generateModalOpen} onOpenChange={setGenerateModalOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-green-600 hover:bg-green-700">
+                <Plus className="w-4 h-4 mr-2" />
+                Generar Cargos
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Generar Cargos</DialogTitle>
+              </DialogHeader>
+              
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="concepto">Concepto *</Label>
+                    <Select 
+                      value={generateForm.concepto} 
+                      onValueChange={(value) => setGenerateForm({...generateForm, concepto: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona un concepto" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {conceptos.map((concepto) => (
+                          <SelectItem key={concepto.id} value={concepto.nombre}>
+                            {concepto.nombre} - ${(concepto.monto / 100).toLocaleString()}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="tipo_generacion">Tipo de Generación</Label>
+                    <Select 
+                      value={generateForm.tipo_generacion} 
+                      onValueChange={(value) => setGenerateForm({...generateForm, tipo_generacion: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="automatica">Automática</SelectItem>
+                        <SelectItem value="manual">Manual</SelectItem>
+                        <SelectItem value="extraordinaria">Extraordinaria</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="nivel_academico">Nivel Académico</Label>
+                  <Select 
+                    value={generateForm.nivel_academico} 
+                    onValueChange={(value) => setGenerateForm({...generateForm, nivel_academico: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos los niveles</SelectItem>
+                      <SelectItem value="kinder">Kinder</SelectItem>
+                      <SelectItem value="primaria">Primaria</SelectItem>
+                      <SelectItem value="secundaria">Secundaria</SelectItem>
+                      <SelectItem value="bachillerato">Bachillerato</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="fecha_emision">Fecha de Emisión *</Label>
+                    <Input 
+                      id="fecha_emision"
+                      type="date"
+                      value={generateForm.fecha_emision}
+                      onChange={(e) => setGenerateForm({...generateForm, fecha_emision: e.target.value})}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="fecha_vencimiento">Fecha de Vencimiento *</Label>
+                    <Input 
+                      id="fecha_vencimiento"
+                      type="date"
+                      value={generateForm.fecha_vencimiento}
+                      onChange={(e) => setGenerateForm({...generateForm, fecha_vencimiento: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="aplicar_becas"
+                      checked={generateForm.aplicar_becas}
+                      onCheckedChange={(checked) => setGenerateForm({...generateForm, aplicar_becas: !!checked})}
+                    />
+                    <Label htmlFor="aplicar_becas">Aplicar becas automáticamente</Label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="incluir_recargos"
+                      checked={generateForm.incluir_recargos}
+                      onCheckedChange={(checked) => setGenerateForm({...generateForm, incluir_recargos: !!checked})}
+                    />
+                    <Label htmlFor="incluir_recargos">Incluir recargos por mora</Label>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-lg">
+                  <h3 className="font-medium mb-2 flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    Resumen de Aplicación
+                  </h3>
+                  <div className="space-y-1 text-sm text-slate-600">
+                    <p>• Concepto: {generateForm.concepto || "Sin seleccionar"}</p>
+                    <p>• Tipo: {generateForm.tipo_generacion}</p>
+                    <p>• Nivel: {generateForm.nivel_academico}</p>
+                    <p>• Becas: {generateForm.aplicar_becas ? "Sí" : "No"}</p>
+                    <p>• Recargos: {generateForm.incluir_recargos ? "Sí" : "No"}</p>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setGenerateModalOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button 
+                    onClick={handleGenerateCharges}
+                    disabled={generateChargesMutation.isPending}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {generateChargesMutation.isPending ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Generando...
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard className="w-4 h-4 mr-2" />
+                        Generar Cargos
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+          
           <Button variant="outline">
             <FileText className="w-4 h-4 mr-2" />
             Exportar

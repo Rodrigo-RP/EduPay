@@ -118,6 +118,13 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- July 17, 2025: PROBLEMA DE AUTENTICACIÓN JWT RESUELTO - Sistema de login completamente funcional
+- July 17, 2025: Corregido endpoint /api/auth/login para incluir campus_id en respuesta del usuario
+- July 17, 2025: Token JWT ahora incluye campus_id en payload para consultas de datos por campus
+- July 17, 2025: Página de pagos admisiones muestra correctamente 3 pagos de inscripción reales
+- July 17, 2025: Implementado mensaje de error elegante para solicitar re-login cuando falta campus_id
+- July 17, 2025: Sistema de autenticación "auth_token" unificado funcionando correctamente
+- July 17, 2025: Datos auténticos confirmados: Inscripción Kinder $2,500, Primaria $2,800, Secundaria $3,200
 - July 16, 2025: TERMINOLOGÍA UNIFICADA PARA PAGOS - Cambiado de "Matrícula" a "Inscripción" para consistencia terminológica
 - July 16, 2025: FILTROS DE PAGOS PARA ADMISIONES CORREGIDOS - Eliminadas becas del filtro de admisiones por restricción de acceso
 - July 16, 2025: Perfil de admisiones solo puede ver pagos de "inscripción" únicamente - becas y matrículas excluidas completamente

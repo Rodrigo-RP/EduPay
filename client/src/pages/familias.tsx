@@ -1128,11 +1128,12 @@ export default function Familias() {
               <TabsContent value="individual" className="space-y-4">
                 <form onSubmit={handleSubmit}>
                   <Tabs defaultValue="generales" className="space-y-4">
-                    <TabsList className="grid w-full grid-cols-4">
+                    <TabsList className="grid w-full grid-cols-5">
                       <TabsTrigger value="generales">Datos Generales</TabsTrigger>
                       <TabsTrigger value="contacto">Contacto y Dirección</TabsTrigger>
                       <TabsTrigger value="facturacion">Facturación</TabsTrigger>
                       <TabsTrigger value="adicional">Información Adicional</TabsTrigger>
+                      <TabsTrigger value="credenciales">Credenciales del Portal</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="generales" className="space-y-4">
@@ -1516,6 +1517,74 @@ export default function Familias() {
 
                     <TabsContent value="adicional" className="space-y-4">
                       <div>
+                        <h3 className="text-lg font-semibold text-slate-900 mb-4">Contacto de Emergencia</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <Label htmlFor="contacto_emergencia_nombre">Nombre Completo</Label>
+                            <Input
+                              id="contacto_emergencia_nombre"
+                              value={formData.contacto_emergencia_nombre}
+                              onChange={(e) => handleInputChange("contacto_emergencia_nombre", e.target.value)}
+                              placeholder="Nombre del contacto de emergencia"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="contacto_emergencia_telefono">Teléfono</Label>
+                            <Input
+                              id="contacto_emergencia_telefono"
+                              value={formData.contacto_emergencia_telefono}
+                              onChange={(e) => handleInputChange("contacto_emergencia_telefono", e.target.value)}
+                              placeholder="Teléfono de emergencia"
+                              maxLength={10}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="contacto_emergencia_relacion">Relación</Label>
+                            <Select value={formData.contacto_emergencia_relacion} onValueChange={(value) => handleInputChange("contacto_emergencia_relacion", value)}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Seleccionar relación" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="abuelo">Abuelo/a</SelectItem>
+                                <SelectItem value="tio">Tío/a</SelectItem>
+                                <SelectItem value="hermano">Hermano/a</SelectItem>
+                                <SelectItem value="amigo">Amigo/a de familia</SelectItem>
+                                <SelectItem value="vecino">Vecino/a</SelectItem>
+                                <SelectItem value="otro">Otro</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="observaciones">Observaciones</Label>
+                        <Textarea
+                          id="observaciones"
+                          value={formData.observaciones}
+                          onChange={(e) => handleInputChange("observaciones", e.target.value)}
+                          placeholder="Información adicional sobre la familia..."
+                          rows={4}
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="estatus">Estado de la Familia</Label>
+                        <Select value={formData.estatus} onValueChange={(value) => handleInputChange("estatus", value)}>
+                          <SelectTrigger className="w-48">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="activo">Activo</SelectItem>
+                            <SelectItem value="inactivo">Inactivo</SelectItem>
+                            <SelectItem value="suspendido">Suspendido</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="credenciales" className="space-y-4">
+                      <div>
                         <h3 className="text-lg font-semibold text-slate-900 mb-4">Credenciales del Portal</h3>
                         <div className="space-y-4">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1562,31 +1631,6 @@ export default function Familias() {
                             </div>
                           </div>
                         </div>
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="observaciones">Observaciones</Label>
-                        <Textarea
-                          id="observaciones"
-                          value={formData.observaciones}
-                          onChange={(e) => handleInputChange("observaciones", e.target.value)}
-                          placeholder="Información adicional sobre la familia..."
-                          rows={4}
-                        />
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="estatus">Estado de la Familia</Label>
-                        <Select value={formData.estatus} onValueChange={(value) => handleInputChange("estatus", value)}>
-                          <SelectTrigger className="w-48">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="activo">Activo</SelectItem>
-                            <SelectItem value="inactivo">Inactivo</SelectItem>
-                            <SelectItem value="suspendido">Suspendido</SelectItem>
-                          </SelectContent>
-                        </Select>
                       </div>
                     </TabsContent>
 
@@ -1716,11 +1760,12 @@ export default function Familias() {
           ) : (
             <form onSubmit={handleSubmit}>
               <Tabs defaultValue="generales" className="space-y-4">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-5">
                   <TabsTrigger value="generales">Datos Generales</TabsTrigger>
                   <TabsTrigger value="contacto">Contacto y Dirección</TabsTrigger>
                   <TabsTrigger value="facturacion">Facturación</TabsTrigger>
                   <TabsTrigger value="adicional">Información Adicional</TabsTrigger>
+                  <TabsTrigger value="credenciales">Credenciales del Portal</TabsTrigger>
                 </TabsList>
 
               <TabsContent value="generales" className="space-y-4">

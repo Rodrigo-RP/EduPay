@@ -118,6 +118,11 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- July 17, 2025: PESTAÑA CREDENCIALES DEL PORTAL AGREGADA - Nueva pestaña separada para gestión de credenciales en formularios de familias
+- July 17, 2025: Reorganización de pestañas en familias: 5 pestañas (Datos Generales, Contacto, Facturación, Información Adicional, Credenciales del Portal)
+- July 17, 2025: Credenciales del Portal incluye: Usuario, Contraseña, ID de Refereence (Padre), ID de Refereence (Madre)
+- July 17, 2025: Sección de Credenciales del Portal agregada también al modal de visualización de familias
+- July 17, 2025: Corrección del bug de filtro en familias.tsx que causaba pantalla blanca por propiedades inexistentes
 - July 17, 2025: INTERFAZ DE ESTUDIANTES MEJORADA - Implementado sistema unificado de visualización y edición de información
 - July 17, 2025: Modal de visualización completo con todas las secciones: información personal, responsable, dirección, médica, financiera y credenciales
 - July 17, 2025: Eliminado botón duplicado de edición - ahora solo icono Eye que abre modal de visualización con botón de editar al final

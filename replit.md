@@ -118,6 +118,13 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- July 17, 2025: BOTÓN "GENERAR CARGOS" COMPLETAMENTE FUNCIONAL - Implementado sistema completo de generación automática de cargos
+- July 17, 2025: Modal de generación con formulario completo: concepto, tipo, nivel académico, fechas, becas automáticas, recargos
+- July 17, 2025: Endpoint backend /api/charges/generate funcional con procesamiento de datos reales y filtrado por campus
+- July 17, 2025: Validación de campos requeridos, mutación React Query, manejo de errores con toast notifications
+- July 17, 2025: Configuración flexible para aplicar becas automáticamente y incluir recargos por mora
+- July 17, 2025: Resumen visual de aplicación con contador de estudiantes afectados por nivel académico
+- July 17, 2025: Corregido warning de accesibilidad agregando DialogDescription al modal de generación
 - July 17, 2025: MODAL "EDITAR FAMILIA" COMPLETAMENTE FUNCIONAL - Corregido problema crítico donde faltaban pestañas funcionales
 - July 17, 2025: Modal de edición ahora tiene todas las 5 pestañas: Datos Generales, Contacto y Dirección, Facturación, Información Adicional, Credenciales del Portal
 - July 17, 2025: Pestaña Facturación en edición: botón "Agregar RFC", múltiples RFC con configuración CFDI individual

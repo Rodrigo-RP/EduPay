@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { Home, Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, CreditCard, FileText, Link2, Download, Upload, AlertCircle } from "lucide-react";
+import { Home, Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, CreditCard, FileText, Link2, Download, Upload, AlertCircle, Eye, UserCheck, UserX } from "lucide-react";
 
 export default function Familias() {
   const { toast } = useToast();
@@ -20,6 +20,8 @@ export default function Familias() {
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingFamily, setEditingFamily] = useState<any>(null);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [viewingFamily, setViewingFamily] = useState<any>(null);
   
   // Estados para importación Excel
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -746,6 +748,12 @@ export default function Familias() {
     setShowEditModal(true);
   };
 
+  // Función para cargar familia en modo visualización
+  const loadFamilyForView = (familia: any) => {
+    setViewingFamily(familia);
+    setShowViewModal(true);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -1076,18 +1084,18 @@ export default function Familias() {
                       <div className="text-xs text-slate-500">Saldo pendiente</div>
                     </div>
                     <div className="flex space-x-1">
+                      <Button size="sm" variant="outline" onClick={() => loadFamilyForView(familia)} title="Ver información de la familia">
+                        <Eye className="w-4 h-4" />
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => {
                         setSelectedFamily(familia);
                         setShowLinkModal(true);
                       }} title="Vincular estudiantes">
                         <Link2 className="w-4 h-4" />
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => loadFamilyForEdit(familia)} title="Editar familia">
-                        <Edit className="w-4 h-4" />
-                      </Button>
                       <Button size="sm" variant="outline" onClick={() => handleDelete(familia.id)} title="Eliminar familia"
                         className="text-red-600 hover:text-red-700 hover:bg-red-50">
-                        <Trash2 className="w-4 h-4" />
+                        <UserX className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
@@ -2058,6 +2066,157 @@ export default function Familias() {
               <div className="flex justify-end space-x-2">
                 <Button variant="outline" onClick={() => setShowLinkModal(false)}>
                   Cerrar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para visualización de información familiar */}
+      <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Información Familiar</DialogTitle>
+          </DialogHeader>
+          
+          {viewingFamily && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Información General */}
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-blue-900 mb-3 flex items-center">
+                    <Home className="w-5 h-5 mr-2" />
+                    Información General
+                  </h3>
+                  <div className="space-y-2">
+                    <p><strong>Número de Familia:</strong> {viewingFamily.numero_familia}</p>
+                    <p><strong>Fecha de Registro:</strong> {viewingFamily.fecha_registro}</p>
+                    <p><strong>Estado:</strong> 
+                      <Badge variant={viewingFamily.estatus === 'activo' ? 'default' : 'secondary'} className="ml-2">
+                        {viewingFamily.estatus}
+                      </Badge>
+                    </p>
+                    <p><strong>Saldo Total:</strong> ${(viewingFamily.saldo_total / 100).toLocaleString()}</p>
+                  </div>
+                </div>
+
+                {/* Datos del Padre/Tutor */}
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-green-900 mb-3 flex items-center">
+                    <Users className="w-5 h-5 mr-2" />
+                    Padre/Tutor Principal
+                  </h3>
+                  <div className="space-y-2">
+                    <p><strong>Nombre:</strong> {viewingFamily.padre_nombre}</p>
+                    <p><strong>Teléfono:</strong> {viewingFamily.padre_telefono}</p>
+                    <p><strong>Email:</strong> {viewingFamily.padre_email}</p>
+                    <p><strong>Ocupación:</strong> {viewingFamily.padre_ocupacion || 'No especificado'}</p>
+                    <p><strong>Empresa:</strong> {viewingFamily.padre_empresa || 'No especificado'}</p>
+                  </div>
+                </div>
+
+                {/* Datos de la Madre/Tutora */}
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-purple-900 mb-3 flex items-center">
+                    <Users className="w-5 h-5 mr-2" />
+                    Madre/Tutora
+                  </h3>
+                  <div className="space-y-2">
+                    <p><strong>Nombre:</strong> {viewingFamily.madre_nombre}</p>
+                    <p><strong>Teléfono:</strong> {viewingFamily.madre_telefono}</p>
+                    <p><strong>Email:</strong> {viewingFamily.madre_email}</p>
+                    <p><strong>Ocupación:</strong> {viewingFamily.madre_ocupacion || 'No especificado'}</p>
+                    <p><strong>Empresa:</strong> {viewingFamily.madre_empresa || 'No especificado'}</p>
+                  </div>
+                </div>
+
+                {/* Información de Dirección */}
+                <div className="bg-orange-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-orange-900 mb-3 flex items-center">
+                    <MapPin className="w-5 h-5 mr-2" />
+                    Dirección
+                  </h3>
+                  <div className="space-y-2">
+                    <p><strong>Dirección:</strong> {viewingFamily.direccion}</p>
+                    <p><strong>Colonia:</strong> {viewingFamily.colonia}</p>
+                    <p><strong>Ciudad:</strong> {viewingFamily.ciudad}</p>
+                    <p><strong>Estado:</strong> {viewingFamily.estado}</p>
+                    <p><strong>Código Postal:</strong> {viewingFamily.codigo_postal}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Datos Fiscales */}
+              <div className="bg-yellow-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-yellow-900 mb-3 flex items-center">
+                  <CreditCard className="w-5 h-5 mr-2" />
+                  Datos Fiscales
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <p><strong>Razón Social:</strong> {viewingFamily.razon_social}</p>
+                    <p><strong>RFC:</strong> {viewingFamily.rfc}</p>
+                    <p><strong>Email de Facturación:</strong> {viewingFamily.email_facturacion}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p><strong>Uso CFDI:</strong> {viewingFamily.uso_cfdi}</p>
+                    <p><strong>Método de Pago:</strong> {viewingFamily.metodo_pago}</p>
+                    <p><strong>Forma de Pago:</strong> {viewingFamily.forma_pago}</p>
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <p><strong>Dirección Fiscal:</strong> {viewingFamily.direccion_fiscal}</p>
+                </div>
+              </div>
+
+              {/* Estudiantes Vinculados */}
+              <div className="bg-indigo-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-indigo-900 mb-3 flex items-center">
+                  <Users className="w-5 h-5 mr-2" />
+                  Estudiantes Vinculados
+                </h3>
+                <div className="space-y-2">
+                  {viewingFamily.estudiantes_vinculados && viewingFamily.estudiantes_vinculados.length > 0 ? (
+                    viewingFamily.estudiantes_vinculados.map((estudiante, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                        <div>
+                          <p className="font-medium">{estudiante.nombre}</p>
+                          <p className="text-sm text-slate-600">{estudiante.grado}</p>
+                        </div>
+                        <Badge variant="outline">{estudiante.grado}</Badge>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-slate-500">No hay estudiantes vinculados a esta familia</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Información Adicional */}
+              <div className="bg-slate-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-slate-900 mb-3 flex items-center">
+                  <FileText className="w-5 h-5 mr-2" />
+                  Información Adicional
+                </h3>
+                <div className="space-y-2">
+                  <p><strong>Contacto de Emergencia:</strong> {viewingFamily.contacto_emergencia_nombre || 'No especificado'}</p>
+                  <p><strong>Teléfono de Emergencia:</strong> {viewingFamily.contacto_emergencia_telefono || 'No especificado'}</p>
+                  <p><strong>Relación:</strong> {viewingFamily.contacto_emergencia_relacion || 'No especificado'}</p>
+                  <p><strong>Observaciones:</strong> {viewingFamily.observaciones || 'Sin observaciones'}</p>
+                </div>
+              </div>
+
+              {/* Botón de Editar */}
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setShowViewModal(false)}>
+                  Cerrar
+                </Button>
+                <Button onClick={() => {
+                  setShowViewModal(false);
+                  loadFamilyForEdit(viewingFamily);
+                }}>
+                  Editar Información
                 </Button>
               </div>
             </div>

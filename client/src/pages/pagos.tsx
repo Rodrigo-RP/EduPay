@@ -32,6 +32,12 @@ export default function Pagos() {
   // Obtener rol del usuario para filtrado
   const userRole = (user?.role as UserRole) || 'asistente';
   
+  // Cargar datos reales de pagos desde la API
+  const { data: paymentsData, isLoading: paymentsLoading } = useQuery({
+    queryKey: ["/api/payments", user?.campus_id],
+    enabled: !!user?.campus_id,
+  });
+  
   // Definir qué conceptos puede ver cada rol
   const canViewConcept = (conceptName: string) => {
     switch (userRole) {
@@ -110,103 +116,27 @@ export default function Pagos() {
 
 
 
-  // Datos simulados de pagos con conceptos específicos por rol
-  const mockPagos = [
-    // Pagos que puede ver ADMISIONES
-    {
-      id: 1,
-      estudiante: "María González Ruiz",
-      concepto: "Inscripción Kinder 2025",
-      monto: 380000,
-      metodo: "TARJETA",
-      estado: "completado",
-      fecha: "15/01/2025 10:30",
-      referencia: "INS001",
-      origen: "Portal Padres"
-    },
-    {
-      id: 2,
-      estudiante: "José Luis Torres",
-      concepto: "Matrícula Primaria",
-      monto: 280000,
-      metodo: "EFECTIVO",
-      estado: "pendiente",
-      fecha: "18/01/2025 14:20",
-      referencia: "MAT002",
-      origen: "Ventanilla Admisiones"
-    },
-    {
-      id: 3,
-      estudiante: "Ana Sofía Mendoza",
-      concepto: "Beca Socioeconómica",
-      monto: -50000,
-      metodo: "DESCUENTO",
-      estado: "completado",
-      fecha: "20/01/2025 11:45",
-      referencia: "BEC003",
-      origen: "Sistema Becas"
-    },
-    
-    // Pagos que puede ver CAJA
-    {
-      id: 4,
-      estudiante: "Roberto Jiménez",
-      concepto: "Colegiatura Enero",
-      monto: 650000,
-      metodo: "SPEI",
-      estado: "completado",
-      fecha: "05/01/2025 08:15",
-      referencia: "COL004",
-      origen: "Banca Móvil"
-    },
-    {
-      id: 5,
-      estudiante: "Carmen Vázquez",
-      concepto: "Mensualidad Febrero",
-      monto: 650000,
-      metodo: "TARJETA",
-      estado: "procesando",
-      fecha: "28/01/2025 16:30",
-      referencia: "MEN005",
-      origen: "Portal Padres"
-    },
-    {
-      id: 6,
-      estudiante: "Pedro Ramírez",
-      concepto: "Recargo por Mora",
-      monto: 45000,
-      metodo: "EFECTIVO",
-      estado: "completado",
-      fecha: "22/01/2025 13:20",
-      referencia: "REC006",
-      origen: "Caja Escuela"
-    },
-    {
-      id: 7,
-      estudiante: "Laura Hernández",
-      concepto: "Seguro Escolar",
-      monto: 120000,
-      metodo: "TARJETA",
-      estado: "completado",
-      fecha: "10/01/2025 09:40",
-      referencia: "SEG007",
-      origen: "Portal Padres"
-    },
-    {
-      id: 8,
-      estudiante: "Miguel Castillo",
-      concepto: "Transporte Escolar",
-      monto: 350000,
-      metodo: "SPEI",
-      estado: "pendiente",
-      fecha: "25/01/2025 15:10",
-      referencia: "TRA008",
-      origen: "Banca Móvil"
-    }
-  ];
+  // Transformar los datos de la API al formato esperado por el frontend
+  const transformedPagos = paymentsData?.map(payment => ({
+    id: payment.id,
+    estudiante: payment.charge?.student?.nombre_completo || 'Sin estudiante',
+    concepto: payment.charge?.concept?.nombre || 'Sin concepto',
+    monto: payment.monto_centavos,
+    metodo: payment.metodo_pago?.toUpperCase() || 'EFECTIVO',
+    estado: payment.estado || 'pendiente',
+    fecha: new Date(payment.fecha_pago).toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    }),
+    referencia: payment.referencia_pago || `PAY${payment.id}`,
+    origen: payment.origen_pago || 'Portal Padres'
+  })) || [];
 
   // Filtrar pagos según criterios Y rol del usuario
-  const filteredPagos = mockPagos.filter(pago => {
+  const filteredPagos = transformedPagos.filter(pago => {
     // Filtros básicos existentes
     const methodMatch = selectedMethod === "all" || pago.metodo === selectedMethod;
     const statusMatch = selectedStatus === "all" || pago.estado === selectedStatus;
@@ -412,6 +342,20 @@ export default function Pagos() {
       description: "El pago en efectivo ha sido registrado exitosamente",
     });
   };
+
+  // Mostrar estado de carga
+  if (paymentsLoading) {
+    return (
+      <div className="max-w-7xl mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p className="text-slate-600">Cargando pagos...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">

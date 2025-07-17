@@ -118,6 +118,9 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- July 17, 2025: TERMINOLOGÍA ACTUALIZADA - Cambiado "Registro de Efectivo" por "Registro de Pagos Manual"
+- July 17, 2025: Actualización en páginas pagos.tsx y caja-conciliacion.tsx para reflejar nuevo nombre
+- July 17, 2025: Modificación de tabs, títulos y comentarios para consistencia terminológica
 - July 17, 2025: BOTÓN "EXPORTAR" COMPLETAMENTE FUNCIONAL - Implementado sistema completo de exportación de cargos
 - July 17, 2025: Menú desplegable con opciones Excel (.xlsx) y CSV (.csv) con descarga automática
 - July 17, 2025: Endpoint backend /api/charges/export funcional con manejo de archivos binarios y texto

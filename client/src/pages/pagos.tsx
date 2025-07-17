@@ -532,7 +532,7 @@ export default function Pagos() {
           <TabsTrigger value="lista">Lista de pagos</TabsTrigger>
           {userRole !== 'admisiones' && userRole !== 'contador' && (
             <>
-              <TabsTrigger value="efectivo">Registro efectivo</TabsTrigger>
+              <TabsTrigger value="efectivo">Registro de Pagos Manual</TabsTrigger>
               <TabsTrigger value="conciliacion">Conciliación</TabsTrigger>
             </>
           )}
@@ -713,7 +713,7 @@ export default function Pagos() {
           <TabsContent value="efectivo">
             <Card>
               <CardHeader>
-                <CardTitle>Registrar pago en efectivo</CardTitle>
+                <CardTitle>Registro de Pagos Manual</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

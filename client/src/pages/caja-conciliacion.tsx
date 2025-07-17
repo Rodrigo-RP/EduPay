@@ -1,4 +1,4 @@
-// Módulo 4: Caja y conciliación - Pagos efectivo, control bancario, conciliación automática
+// Módulo 4: Caja y conciliación - Pagos manual, control bancario, conciliación automática
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +27,7 @@ export default function CajaConciliacion() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Registro de pagos en efectivo
+  // Registro de pagos manual
   const PagoEfectivo = () => {
     const [pagoForm, setPagoForm] = useState({
       estudiante_id: "",
@@ -439,13 +439,13 @@ export default function CajaConciliacion() {
             Caja y conciliación
           </h1>
           <p className="text-slate-600">
-            Registro de pagos en efectivo, control bancario y conciliación automática
+            Registro de pagos manual, control bancario y conciliación automática
           </p>
         </div>
 
         <Tabs defaultValue="efectivo" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="efectivo">Pagos en efectivo</TabsTrigger>
+            <TabsTrigger value="efectivo">Registro de Pagos Manual</TabsTrigger>
             <TabsTrigger value="bancarios">Control bancario</TabsTrigger>
             <TabsTrigger value="conciliacion">Conciliación automática</TabsTrigger>
           </TabsList>

@@ -124,6 +124,40 @@ export async function seedDemoData() {
       generacion_automatica: false
     }).returning();
 
+    // Conceptos de inscripción específicos por nivel
+    const [inscripcionKinder] = await db.insert(concepts).values({
+      campus_id: campusNorte.id,
+      nombre: "Inscripción Kinder",
+      tipo: "INSCRIPCION_KINDER",
+      periodicidad: "ANUAL",
+      monto_centavos: 250000, // $2,500 MXN
+      iva: false,
+      genera_cfdi: true,
+      generacion_automatica: false
+    }).returning();
+
+    const [inscripcionPrimaria] = await db.insert(concepts).values({
+      campus_id: campusNorte.id,
+      nombre: "Inscripción Primaria",
+      tipo: "INSCRIPCION_PRIMARIA",
+      periodicidad: "ANUAL",
+      monto_centavos: 280000, // $2,800 MXN
+      iva: false,
+      genera_cfdi: true,
+      generacion_automatica: false
+    }).returning();
+
+    const [inscripcionSecundaria] = await db.insert(concepts).values({
+      campus_id: campusNorte.id,
+      nombre: "Inscripción Secundaria",
+      tipo: "INSCRIPCION_SECUNDARIA",
+      periodicidad: "ANUAL",
+      monto_centavos: 320000, // $3,200 MXN
+      iva: false,
+      genera_cfdi: true,
+      generacion_automatica: false
+    }).returning();
+
     const [materiales] = await db.insert(concepts).values({
       campus_id: campusNorte.id,
       nombre: "Materiales Didácticos",
@@ -282,18 +316,44 @@ export async function seedDemoData() {
       tipo_generacion: "AUTOMATICA"
     });
 
-    // Más cargos pendientes para demo completo
+    // Más cargos pendientes para demo completo - Inscripciones específicas por nivel
     await db.insert(charges).values([
       {
         student_id: student1.id,
-        concept_id: inscripcionAnual.id,
+        concept_id: inscripcionKinder.id,
         ciclo_escolar: "2024-2025",
         fecha_emision: new Date("2024-08-01"),
         fecha_vencimiento: new Date("2024-08-15"),
-        monto_base_centavos: 300000,
+        monto_base_centavos: 250000,
         beca_aplicada: "0",
-        recargo_aplicado_centavos: 30000, // Recargo por pago tardío
-        total_amount_centavos: 330000,
+        recargo_aplicado_centavos: 0,
+        total_amount_centavos: 250000,
+        estado: "pendiente",
+        tipo_generacion: "AUTOMATICA"
+      },
+      {
+        student_id: student2.id,
+        concept_id: inscripcionPrimaria.id,
+        ciclo_escolar: "2024-2025",
+        fecha_emision: new Date("2024-08-01"),
+        fecha_vencimiento: new Date("2024-08-15"),
+        monto_base_centavos: 280000,
+        beca_aplicada: "0",
+        recargo_aplicado_centavos: 0,
+        total_amount_centavos: 280000,
+        estado: "pendiente",
+        tipo_generacion: "AUTOMATICA"
+      },
+      {
+        student_id: student3.id,
+        concept_id: inscripcionSecundaria.id,
+        ciclo_escolar: "2024-2025",
+        fecha_emision: new Date("2024-08-01"),
+        fecha_vencimiento: new Date("2024-08-15"),
+        monto_base_centavos: 320000,
+        beca_aplicada: "0",
+        recargo_aplicado_centavos: 0,
+        total_amount_centavos: 320000,
         estado: "pendiente",
         tipo_generacion: "AUTOMATICA"
       },

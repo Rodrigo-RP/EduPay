@@ -221,12 +221,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getChargesByCampus(campusId: number): Promise<Charge[]> {
-    return await db
+    const results = await db
       .select()
       .from(charges)
       .innerJoin(students, eq(charges.student_id, students.id))
       .where(eq(students.campus_id, campusId))
       .orderBy(desc(charges.fecha_vencimiento));
+    
+    return results.map((row: any) => row.charges);
   }
 
   async getPendingChargesByGuardian(guardianId: number): Promise<(Charge & { student: Student; concept: Concept })[]> {

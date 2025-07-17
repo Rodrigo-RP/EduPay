@@ -119,6 +119,13 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 
 Changelog:
 - July 17, 2025: SISTEMA DE AUTENTICACIÓN JWT COMPLETAMENTE FUNCIONAL - Login, roles y dashboards operativos
+- July 17, 2025: ERRORES CRÍTICOS DE AUTENTICACIÓN RESUELTOS - Servidor funcionando correctamente en puerto 5000
+- July 17, 2025: API de pagos /api/payments devolviendo datos auténticos del campus 24 para todos los roles
+- July 17, 2025: Sistema de filtrado por rol implementado correctamente en página de pagos
+- July 17, 2025: Rol 'admisiones' solo ve pagos de inscripción (Kinder $2,500, Primaria $2,800, Secundaria $3,200)
+- July 17, 2025: Rol 'contador' tiene acceso completo a todos los pagos para análisis financiero
+- July 17, 2025: Middleware authenticateToken funcionando con tokens JWT válidos y campus_id correcto
+- July 17, 2025: Credenciales contador@sanpatricio.edu.mx / demo123 completamente funcionales
 - July 17, 2025: Método getChargesByCampus agregado exitosamente al storage para dashboard contador
 - July 17, 2025: Endpoint /api/dashboard/contador totalmente funcional con datos reales del campus
 - July 17, 2025: Credenciales contador@sanpatricio.edu.mx / demo123 validadas y funcionando

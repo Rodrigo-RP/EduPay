@@ -118,6 +118,15 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- July 16, 2025: PÁGINA DE REPORTES ESPECÍFICA PARA ADMISIONES IMPLEMENTADA - Eliminados elementos financieros irrelevantes
+- July 16, 2025: Nueva página /reportes-admisiones creada exclusivamente para control de inscripciones y becas
+- July 16, 2025: Sidebar actualizado con redirección automática desde /reportes-financieros a /reportes-admisiones para rol admisiones
+- July 16, 2025: Eliminados completamente: ingresos, morosidad, conciliación bancaria, análisis financiero
+- July 16, 2025: Enfoque exclusivo en estudiantes inscritos, pendientes y activos con control de becas
+- July 16, 2025: 3 pestañas específicas: Resumen (estadísticas inscripciones), Estudiantes (lista detallada), Control de Becas
+- July 16, 2025: Filtros específicos por estado de inscripción, nivel académico y aplicación de becas
+- July 16, 2025: Exportación a Excel y PDF mantenida con datos relevantes para admisiones
+- July 16, 2025: Información de contacto de padres/tutores incluida para seguimiento de inscripciones
 - July 16, 2025: SIDEBAR CON DIFERENCIACIÓN POR COLORES IMPLEMENTADO - Navegación mejorada con colores distintivos por sección
 - July 16, 2025: Sistema de colores profesional: Principal (azul), Académico (verde), Financiero (amarillo), Administrativo (morado), Sistema (rojo)
 - July 16, 2025: Iconos específicos por sección y efectos hover suaves con transparencias ligeras

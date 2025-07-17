@@ -23,6 +23,7 @@ import { z } from "zod";
 import multer from "multer";
 import * as XLSX from "xlsx";
 import { optimizeDatabase, checkQueryPerformance, cleanupObsoleteData, runMaintenanceTask } from "./optimize-database";
+import { seedAdmissionsData } from "./seed-admissions-data";
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
 
@@ -433,45 +434,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const campusId = parseInt(req.params.campusId);
       
-      // Mock students data para demo
-      const students = [
-        {
-          id: 1,
-          nombre_completo: "Carlos Pérez Méndez",
-          grado: "3ro",
-          grupo: "A",
-          status: "activo",
-          pendingBalance: 500000
-        },
-        {
-          id: 2,
-          nombre_completo: "Andrea García Luna",
-          grado: "2do", 
-          grupo: "B",
-          status: "activo",
-          pendingBalance: 535000
-        },
-        {
-          id: 3,
-          nombre_completo: "Luis Martínez Gil",
-          grado: "1ro",
-          grupo: "A", 
-          status: "activo",
-          pendingBalance: 550000
-        },
-        {
-          id: 4,
-          nombre_completo: "Diego Martínez Gil",
-          grado: "Kinder",
-          grupo: "C",
-          status: "activo",
-          pendingBalance: 425000
-        }
-      ];
+      // Get real students from database
+      const students = await storage.getStudentsByCampus(campusId);
       
       res.json(students);
     } catch (error: any) {
       res.status(500).json({ message: "Error fetching students: " + error.message });
+    }
+  });
+
+  // Get students (real data from database)
+  app.get("/api/students", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user?.campus_id;
+      
+      if (!campusId) {
+        return res.status(400).json({ message: "Campus ID requerido" });
+      }
+      
+      const students = await storage.getStudentsByCampus(campusId);
+      res.json(students);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error fetching students: " + error.message });
+    }
+  });
+
+  // Get payments (real data from database)
+  app.get("/api/payments", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user?.campus_id;
+      
+      if (!campusId) {
+        return res.status(400).json({ message: "Campus ID requerido" });
+      }
+      
+      const payments = await storage.getPaymentsByCampus(campusId);
+      res.json(payments);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error fetching payments: " + error.message });
+    }
+  });
+
+  // Get charges (real data from database)
+  app.get("/api/charges", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user?.campus_id;
+      
+      if (!campusId) {
+        return res.status(400).json({ message: "Campus ID requerido" });
+      }
+      
+      const charges = await storage.getChargesByCampus(campusId);
+      res.json(charges);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error fetching charges: " + error.message });
+    }
+  });
+
+  // Get scholarships (real data from database)
+  app.get("/api/scholarships", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user?.campus_id;
+      
+      if (!campusId) {
+        return res.status(400).json({ message: "Campus ID requerido" });
+      }
+      
+      const scholarships = await storage.getScholarshipsByCampus(campusId);
+      res.json(scholarships);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error fetching scholarships: " + error.message });
     }
   });
 
@@ -3635,6 +3667,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     ];
     return months[month - 1];
   }
+
+  // ADMISSIONS DATA SEEDING - ENDPOINT ESPECÍFICO
+  app.post("/api/seed-admissions-data", authenticateToken, async (req, res) => {
+    try {
+      await seedAdmissionsData();
+      res.json({ message: "Datos de admisiones generados exitosamente" });
+    } catch (error: any) {
+      res.status(500).json({ error: "Error generando datos de admisiones", details: error.message });
+    }
+  });
 
   return httpServer;
 }

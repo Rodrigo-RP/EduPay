@@ -40,13 +40,11 @@ export default function Pagos() {
         return true; // Puede ver todos los conceptos
       
       case 'admisiones':
-        // Solo puede ver pagos relacionados con admisiones
+        // Solo puede ver pagos relacionados con inscripciones y matrículas (NO becas)
         return conceptName.toLowerCase().includes('inscripción') ||
                conceptName.toLowerCase().includes('inscripcion') ||
                conceptName.toLowerCase().includes('matrícula') ||
-               conceptName.toLowerCase().includes('matricula') ||
-               conceptName.toLowerCase().includes('beca') ||
-               conceptName.toLowerCase().includes('descuento');
+               conceptName.toLowerCase().includes('matricula');
       
       case 'caja':
         // Solo puede ver pagos operativos (no inscripciones)
@@ -66,10 +64,11 @@ export default function Pagos() {
         return true;
       
       case 'asistente':
-        // Solo puede ver inscripciones y becas
+        // Solo puede ver inscripciones y matrículas
         return conceptName.toLowerCase().includes('inscripción') ||
                conceptName.toLowerCase().includes('inscripcion') ||
-               conceptName.toLowerCase().includes('beca');
+               conceptName.toLowerCase().includes('matrícula') ||
+               conceptName.toLowerCase().includes('matricula');
       
       default:
         return false;

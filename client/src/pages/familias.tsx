@@ -1508,32 +1508,7 @@ export default function Familias() {
                       </div>
                     </TabsContent>
 
-                    <TabsContent value="adicional" className="space-y-4">
-                      <div>
-                        <Label htmlFor="observaciones">Observaciones</Label>
-                        <Textarea
-                          id="observaciones"
-                          value={formData.observaciones}
-                          onChange={(e) => handleInputChange("observaciones", e.target.value)}
-                          placeholder="Información adicional sobre la familia..."
-                          rows={4}
-                        />
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="estatus">Estado de la Familia</Label>
-                        <Select value={formData.estatus} onValueChange={(value) => handleInputChange("estatus", value)}>
-                          <SelectTrigger className="w-48">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="activo">Activo</SelectItem>
-                            <SelectItem value="inactivo">Inactivo</SelectItem>
-                            <SelectItem value="suspendido">Suspendido</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </TabsContent>
+
 
                     <div className="flex justify-end gap-2 mt-6">
                       <Button variant="outline" onClick={() => setShowAddModal(false)}>

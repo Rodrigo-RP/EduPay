@@ -122,7 +122,10 @@ Changelog:
 - July 17, 2025: Funcionalidades ERP eliminadas: gestión de inventarios, asistencia maestros, planificación académica, recursos humanos
 - July 17, 2025: Reportes complejos eliminados: análisis financiero CFO, dashboards F1, métricas de rentabilidad excesivas
 - July 17, 2025: Módulos redundantes eliminados: CRM prospectos, gestión de proveedores, ex-alumnos, marketing integrado
-- July 17, 2025: Sistemas avanzados eliminados: motor predictivo, conciliación automática, facturación inteligente
+- July 17, 2025: Sistemas avanzados: motor predictivo eliminado, conciliación automática y facturación inteligente MANTENIDAS
+- July 17, 2025: Facturación inteligente ESENCIAL: CFDI 4.0 automático, cumplimiento SAT, eliminación de procesos manuales
+- July 17, 2025: Conciliación bancaria automática MANTENIDA: reduce trabajo manual de caja
+- July 17, 2025: Notificaciones automáticas MANTENIDAS: recordatorios, alertas, reducen llamadas manuales
 - July 17, 2025: Perfiles especializados eliminados: soporte técnico, implementación, super admin F1
 - July 17, 2025: Enfoque purificado en gestión de pagos escolares: estudiantes, familias, cargos, pagos, conciliación básica
 - July 17, 2025: DUPLICACIÓN ELIMINADA - Pestaña "Registro de Pagos Manual" removida por mejor UX

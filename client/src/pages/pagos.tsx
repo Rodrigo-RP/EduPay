@@ -47,12 +47,36 @@ export default function Pagos() {
     queryEnabled: !!user?.campus_id
   });
 
-  // Si no hay campus_id, forzar logout para que haga login nuevamente
+  // Si no hay campus_id, mostrar mensaje de error
   if (user && !user.campus_id) {
-    console.log('User sin campus_id, forzando logout...');
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('auth_user');
-    window.location.href = '/login';
+    console.log('User sin campus_id, necesita reautenticar...');
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Pagos</h1>
+            <p className="text-sm text-gray-500">Gestión de pagos de inscripción</p>
+          </div>
+        </div>
+        
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h3 className="text-lg font-semibold text-red-800 mb-2">Error de Autenticación</h3>
+          <p className="text-red-700 mb-4">
+            Tu sesión necesita ser actualizada. Por favor, cierra sesión e inicia sesión nuevamente.
+          </p>
+          <button 
+            onClick={() => {
+              localStorage.removeItem('auth_token');
+              localStorage.removeItem('auth_user');
+              window.location.href = '/login';
+            }}
+            className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors"
+          >
+            Cerrar Sesión e Iniciar Sesión Nuevamente
+          </button>
+        </div>
+      </div>
+    );
   }
   
   // Definir qué conceptos puede ver cada rol

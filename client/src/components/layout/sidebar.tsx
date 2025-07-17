@@ -148,7 +148,7 @@ export default function Sidebar() {
       active: location === "/becas",
       category: "financiero",
       module: MODULES.SCHOLARSHIPS,
-      action: ACTIONS.READ
+      action: ACTIONS.ASSIGN
     },
     { 
       icon: "fas fa-file-import", 

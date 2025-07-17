@@ -124,6 +124,8 @@ Changelog:
 - July 17, 2025: Pestaña Información Adicional en edición: contacto de emergencia, observaciones y estado de familia
 - July 17, 2025: Pestaña Credenciales del Portal en edición: usuario, contraseña e ID de Refereence (padre/madre)
 - July 17, 2025: Flujo Eye → Editar Familia → completamente operativo con funcionalidad idéntica a "Agregar Familia"
+- July 17, 2025: PESTAÑA "BECAS Y DESCUENTOS" VISIBLE EN SIDEBAR ADMIN - Corregido permiso de ACTIONS.READ a ACTIONS.ASSIGN
+- July 17, 2025: Sidebar ahora muestra correctamente módulo de becas para perfil administrador con permisos adecuados
 - July 17, 2025: PESTAÑA CREDENCIALES DEL PORTAL AGREGADA - Nueva pestaña separada para gestión de credenciales en formularios de familias
 - July 17, 2025: Reorganización de pestañas en familias: 5 pestañas (Datos Generales, Contacto, Facturación, Información Adicional, Credenciales del Portal)
 - July 17, 2025: Credenciales del Portal incluye: Usuario, Contraseña, ID de Refereence (Padre), ID de Refereence (Madre)

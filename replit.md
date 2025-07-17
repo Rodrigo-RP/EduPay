@@ -118,6 +118,12 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- July 17, 2025: MODAL "EDITAR FAMILIA" COMPLETAMENTE FUNCIONAL - Corregido problema crítico donde faltaban pestañas funcionales
+- July 17, 2025: Modal de edición ahora tiene todas las 5 pestañas: Datos Generales, Contacto y Dirección, Facturación, Información Adicional, Credenciales del Portal
+- July 17, 2025: Pestaña Facturación en edición: botón "Agregar RFC", múltiples RFC con configuración CFDI individual
+- July 17, 2025: Pestaña Información Adicional en edición: contacto de emergencia, observaciones y estado de familia
+- July 17, 2025: Pestaña Credenciales del Portal en edición: usuario, contraseña e ID de Refereence (padre/madre)
+- July 17, 2025: Flujo Eye → Editar Familia → completamente operativo con funcionalidad idéntica a "Agregar Familia"
 - July 17, 2025: PESTAÑA CREDENCIALES DEL PORTAL AGREGADA - Nueva pestaña separada para gestión de credenciales en formularios de familias
 - July 17, 2025: Reorganización de pestañas en familias: 5 pestañas (Datos Generales, Contacto, Facturación, Información Adicional, Credenciales del Portal)
 - July 17, 2025: Credenciales del Portal incluye: Usuario, Contraseña, ID de Refereence (Padre), ID de Refereence (Madre)

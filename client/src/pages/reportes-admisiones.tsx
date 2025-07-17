@@ -15,16 +15,12 @@ interface Student {
   nombre_completo: string;
   curp: string;
   grado: string;
-  nivel_academico: string;
-  estado: string;
-  fecha_inscripcion: string;
-  padre_nombre: string;
-  padre_email: string;
-  padre_telefono: string;
-  monto_inscripcion: number;
-  estado_pago: string;
-  beca_aplicada: string;
-  descuento_aplicado: number;
+  status: string;
+  fecha_nacimiento: string;
+  campus_id: number;
+  familia_id: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export default function ReportesAdmisiones() {
@@ -43,52 +39,53 @@ export default function ReportesAdmisiones() {
 
   // Obtener datos de estudiantes
   const { data: estudiantes = [], isLoading } = useQuery<Student[]>({
-    queryKey: ['/api/students'],
+    queryKey: ['/api/admin/students/24'],
     enabled: true
   });
 
+  // Detectar nivel académico desde el grado
+  const detectarNivelAcademico = (grado: string) => {
+    if (grado.includes('Kinder')) return 'Kinder';
+    if (grado.includes('Primaria')) return 'Primaria';
+    if (grado.includes('Secundaria')) return 'Secundaria';
+    if (grado.includes('Bachillerato')) return 'Bachillerato';
+    return 'Sin nivel';
+  };
+
   // Filtrar estudiantes según criterios de admisiones
   const estudiantesFiltrados = estudiantes.filter(estudiante => {
-    // Solo estudiantes activos o pendientes de inscripción
-    const estadosValidos = ['activo', 'pendiente', 'inscrito'];
+    // Solo estudiantes activos
+    const estadosValidos = ['activo'];
+    
+    const nivelAcademico = detectarNivelAcademico(estudiante.grado);
     
     // Filtros por estado
-    if (filtrosEstado.estado !== 'todos' && estudiante.estado !== filtrosEstado.estado) {
+    if (filtrosEstado.estado !== 'todos' && estudiante.status !== filtrosEstado.estado) {
       return false;
     }
     
     // Filtros por nivel académico
-    if (filtrosEstado.nivel !== 'todos' && estudiante.nivel_academico !== filtrosEstado.nivel) {
+    if (filtrosEstado.nivel !== 'todos' && nivelAcademico !== filtrosEstado.nivel) {
       return false;
     }
     
-    // Filtros por beca
-    if (filtrosEstado.beca !== 'todos') {
-      if (filtrosEstado.beca === 'con_beca' && !estudiante.beca_aplicada) {
-        return false;
-      }
-      if (filtrosEstado.beca === 'sin_beca' && estudiante.beca_aplicada) {
-        return false;
-      }
-    }
-    
-    return estadosValidos.includes(estudiante.estado);
+    return estadosValidos.includes(estudiante.status);
   });
 
   // Calcular estadísticas de inscripciones
   const estadisticas = {
-    total_inscritos: estudiantesFiltrados.filter(e => e.estado === 'inscrito').length,
-    total_pendientes: estudiantesFiltrados.filter(e => e.estado === 'pendiente').length,
-    total_activos: estudiantesFiltrados.filter(e => e.estado === 'activo').length,
-    con_beca: estudiantesFiltrados.filter(e => e.beca_aplicada).length,
-    sin_beca: estudiantesFiltrados.filter(e => !e.beca_aplicada).length,
-    pagos_completados: estudiantesFiltrados.filter(e => e.estado_pago === 'completado').length,
-    pagos_pendientes: estudiantesFiltrados.filter(e => e.estado_pago === 'pendiente').length
+    total_inscritos: estudiantesFiltrados.filter(e => e.status === 'activo').length,
+    total_pendientes: 0, // No hay pendientes en los datos actuales
+    total_activos: estudiantesFiltrados.filter(e => e.status === 'activo').length,
+    con_beca: 0, // Implementar después
+    sin_beca: estudiantesFiltrados.length,
+    pagos_completados: 0, // No hay información de pagos en esta estructura
+    pagos_pendientes: 0
   };
 
   // Agrupar por nivel académico
   const porNivel = estudiantesFiltrados.reduce((acc, estudiante) => {
-    const nivel = estudiante.nivel_academico || 'Sin nivel';
+    const nivel = detectarNivelAcademico(estudiante.grado);
     if (!acc[nivel]) {
       acc[nivel] = {
         total: 0,
@@ -98,9 +95,7 @@ export default function ReportesAdmisiones() {
       };
     }
     acc[nivel].total++;
-    if (estudiante.estado === 'inscrito') acc[nivel].inscritos++;
-    if (estudiante.estado === 'pendiente') acc[nivel].pendientes++;
-    if (estudiante.beca_aplicada) acc[nivel].con_beca++;
+    if (estudiante.status === 'activo') acc[nivel].inscritos++;
     return acc;
   }, {} as Record<string, any>);
 
@@ -108,18 +103,14 @@ export default function ReportesAdmisiones() {
   const exportarExcel = () => {
     const datosExportacion = estudiantesFiltrados.map(estudiante => ({
       'Nombre Completo': estudiante.nombre_completo,
-      'CURP': estudiante.curp,
+      'CURP': estudiante.curp || 'Pendiente',
       'Grado': estudiante.grado,
-      'Nivel Académico': estudiante.nivel_academico,
-      'Estado': estudiante.estado,
-      'Fecha Inscripción': estudiante.fecha_inscripcion,
-      'Padre/Tutor': estudiante.padre_nombre,
-      'Email': estudiante.padre_email,
-      'Teléfono': estudiante.padre_telefono,
-      'Monto Inscripción': estudiante.monto_inscripcion,
-      'Estado Pago': estudiante.estado_pago,
-      'Beca Aplicada': estudiante.beca_aplicada || 'Sin beca',
-      'Descuento': estudiante.descuento_aplicado || 0
+      'Nivel Académico': detectarNivelAcademico(estudiante.grado),
+      'Estado': estudiante.status,
+      'Fecha Nacimiento': estudiante.fecha_nacimiento,
+      'Campus ID': estudiante.campus_id,
+      'Familia ID': estudiante.familia_id,
+      'Fecha Creación': estudiante.created_at
     }));
 
     const ws = XLSX.utils.json_to_sheet(datosExportacion);

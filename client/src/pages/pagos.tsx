@@ -969,13 +969,10 @@ export default function Pagos() {
       </div>
 
       <Tabs defaultValue="lista" className="w-full">
-        <TabsList className={`grid w-full ${(userRole === 'admisiones' || userRole === 'contador') ? 'grid-cols-1' : 'grid-cols-3'}`}>
+        <TabsList className={`grid w-full ${(userRole === 'admisiones' || userRole === 'contador') ? 'grid-cols-1' : 'grid-cols-2'}`}>
           <TabsTrigger value="lista">Lista de pagos</TabsTrigger>
           {userRole !== 'admisiones' && userRole !== 'contador' && (
-            <>
-              <TabsTrigger value="efectivo">Registro de Pagos Manual</TabsTrigger>
-              <TabsTrigger value="conciliacion">Conciliación</TabsTrigger>
-            </>
+            <TabsTrigger value="conciliacion">Conciliación</TabsTrigger>
           )}
         </TabsList>
 
@@ -1150,85 +1147,7 @@ export default function Pagos() {
           </Card>
         </TabsContent>
 
-        {userRole !== 'admisiones' && (
-          <TabsContent value="efectivo">
-            <Card>
-              <CardHeader>
-                <CardTitle>Registro de Pagos Manual</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <Label>Estudiante</Label>
-                    <Select 
-                      value={pagoManualForm.estudiante_id}
-                      onValueChange={(value) => setPagoManualForm(prev => ({ ...prev, estudiante_id: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Buscar estudiante..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">Carlos Pérez Méndez</SelectItem>
-                        <SelectItem value="2">Andrea García Luna</SelectItem>
-                        <SelectItem value="3">Luis Martínez Gil</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Concepto a pagar</Label>
-                    <Select 
-                      value={pagoManualForm.concepto_id}
-                      onValueChange={(value) => setPagoManualForm(prev => ({ ...prev, concepto_id: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar concepto..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">Colegiatura Enero - $5,000</SelectItem>
-                        <SelectItem value="2">Materiales - $1,500</SelectItem>
-                        <SelectItem value="3">Inscripción - $3,000</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Monto recibido (MXN)</Label>
-                    <Input 
-                      type="number" 
-                      value={pagoManualForm.monto}
-                      onChange={(e) => setPagoManualForm(prev => ({ ...prev, monto: e.target.value }))}
-                      placeholder="5000" 
-                    />
-                  </div>
-                  <div>
-                    <Label>Recibido por</Label>
-                    <Input 
-                      value={pagoManualForm.recibido_por}
-                      onChange={(e) => setPagoManualForm(prev => ({ ...prev, recibido_por: e.target.value }))}
-                      placeholder="Nombre del cajero" 
-                    />
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <Label>Observaciones</Label>
-                  <textarea 
-                    className="w-full p-2 border rounded"
-                    rows={2}
-                    value={pagoManualForm.observaciones}
-                    onChange={(e) => setPagoManualForm(prev => ({ ...prev, observaciones: e.target.value }))}
-                    placeholder="Observaciones adicionales..."
-                  />
-                </div>
-                <Button 
-                  className="mt-4 bg-green-600 hover:bg-green-700"
-                  onClick={handleRegistrarPago}
-                >
-                  <Banknote className="w-4 h-4 mr-2" />
-                  Registrar pago y emitir recibo
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
+
 
         {userRole !== 'admisiones' && (
           <TabsContent value="conciliacion">

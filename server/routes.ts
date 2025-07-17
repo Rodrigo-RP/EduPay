@@ -3757,6 +3757,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // EXPORT CHARGES - ENDPOINT PARA EXPORTAR CARGOS EN EXCEL/CSV
+  app.get("/api/charges/export", authenticateToken, async (req: any, res: any) => {
+    try {
+      const { format = 'excel', status = 'all' } = req.query;
+      const userCampusId = req.user.campus_id;
+      
+      // Get all charges for the campus
+      const allCharges = await storage.getChargesByCampus(userCampusId);
+      
+      // Get students and concepts for additional details
+      const students = await storage.getStudentsByCampus(userCampusId);
+      const concepts = await storage.getConceptsByCampus(userCampusId);
+      
+      // Create a lookup map for students and concepts
+      const studentMap = new Map(students.map(s => [s.id, s]));
+      const conceptMap = new Map(concepts.map(c => [c.id, c]));
+      
+      // Filter charges based on status
+      let filteredCharges = allCharges;
+      if (status !== 'all') {
+        filteredCharges = allCharges.filter(charge => charge.estado === status);
+      }
+      
+      // Prepare data for export
+      const exportData = filteredCharges.map(charge => {
+        const student = studentMap.get(charge.student_id);
+        const concept = conceptMap.get(charge.concept_id);
+        
+        return {
+          'ID': charge.id,
+          'Estudiante': student?.nombre_completo || 'N/A',
+          'Grado': student?.grado || 'N/A',
+          'Concepto': concept?.nombre || 'N/A',
+          'Ciclo Escolar': charge.ciclo_escolar,
+          'Fecha Emisión': charge.fecha_emision,
+          'Fecha Vencimiento': charge.fecha_vencimiento,
+          'Monto Base': (charge.monto_base_centavos / 100).toFixed(2),
+          'Beca Aplicada (%)': charge.beca_aplicada,
+          'Recargo': (charge.recargo_aplicado_centavos / 100).toFixed(2),
+          'Total': ((charge.monto_base_centavos + charge.recargo_aplicado_centavos) * (1 - parseFloat(charge.beca_aplicada) / 100) / 100).toFixed(2),
+          'Estado': charge.estado,
+          'Creado': charge.created_at?.toISOString().split('T')[0] || 'N/A'
+        };
+      });
+      
+      if (format === 'excel') {
+        // Create Excel file
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Cargos');
+        
+        // Generate Excel buffer
+        const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
+        
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=cargos_${new Date().toISOString().split('T')[0]}.xlsx`);
+        res.send(excelBuffer);
+      } else {
+        // Create CSV file
+        const csvHeaders = Object.keys(exportData[0] || {}).join(',');
+        const csvRows = exportData.map(row => 
+          Object.values(row).map(value => 
+            typeof value === 'string' && value.includes(',') ? `"${value}"` : value
+          ).join(',')
+        );
+        const csvContent = [csvHeaders, ...csvRows].join('\n');
+        
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename=cargos_${new Date().toISOString().split('T')[0]}.csv`);
+        res.send('\uFEFF' + csvContent); // Add BOM for UTF-8
+      }
+      
+    } catch (error: any) {
+      console.error("Error exporting charges:", error);
+      res.status(500).json({ message: "Error exporting charges: " + error.message });
+    }
+  });
+
   // GENERATE CHARGES - ENDPOINT PARA GENERAR CARGOS CON CONFIGURACIÓN FLEXIBLE
   app.post("/api/charges/generate", authenticateToken, async (req: any, res: any) => {
     try {

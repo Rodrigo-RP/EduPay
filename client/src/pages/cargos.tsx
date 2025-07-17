@@ -8,11 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
-import { FileText, Plus, AlertTriangle, CheckCircle, Clock, DollarSign, Calendar, Users, CreditCard } from "lucide-react";
+import { FileText, Plus, AlertTriangle, CheckCircle, Clock, DollarSign, Calendar, Users, CreditCard, Download, FileSpreadsheet } from "lucide-react";
 
 export default function Cargos() {
   const { toast } = useToast();
@@ -86,6 +87,54 @@ export default function Cargos() {
     }
 
     generateChargesMutation.mutate(generateForm);
+  };
+
+  // Mutación para exportar cargos
+  const exportChargesMutation = useMutation({
+    mutationFn: async (format: 'excel' | 'csv') => {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`/api/charges/export?format=${format}&status=${selectedStatus}`, {
+        method: "GET",
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      
+      return { blob: await response.blob(), format };
+    },
+    onSuccess: ({ blob, format }) => {
+      // Create and download file
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cargos_${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'csv'}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Exportación exitosa",
+        description: `Archivo ${format.toUpperCase()} descargado correctamente`,
+        variant: "default"
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error en exportación",
+        description: error.message || "Error al exportar los datos",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleExportCharges = (format: 'excel' | 'csv') => {
+    exportChargesMutation.mutate(format);
   };
 
   // Datos demo de cargos
@@ -343,10 +392,33 @@ export default function Cargos() {
             </DialogContent>
           </Dialog>
           
-          <Button variant="outline">
-            <FileText className="w-4 h-4 mr-2" />
-            Exportar
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" disabled={exportChargesMutation.isPending}>
+                {exportChargesMutation.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                    Exportando...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    Exportar
+                  </>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => handleExportCharges('excel')}>
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                Exportar Excel (.xlsx)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExportCharges('csv')}>
+                <FileText className="w-4 h-4 mr-2" />
+                Exportar CSV (.csv)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

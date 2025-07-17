@@ -118,6 +118,11 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- July 17, 2025: AUTOCOMPLETADO DE CAMPO "RECIBIDO POR" IMPLEMENTADO - Campo se llena automáticamente con el nombre del usuario actual
+- July 17, 2025: Funcionalidad agregada en páginas de Pagos y Caja-Conciliación con mapeo inteligente de roles
+- July 17, 2025: Sistema detecta nombres desde email o asigna nombres amigables según rol del usuario
+- July 17, 2025: Campo persiste después de limpiar formulario manteniendo siempre el nombre del usuario
+- July 17, 2025: Soporte para nombres completos (firstName + lastName) o extracción automática desde email
 - July 17, 2025: TERMINOLOGÍA ACTUALIZADA - Cambiado "Registro de Efectivo" por "Registro de Pagos Manual"
 - July 17, 2025: Actualización en páginas pagos.tsx y caja-conciliacion.tsx para reflejar nuevo nombre
 - July 17, 2025: Modificación de tabs, títulos y comentarios para consistencia terminológica

@@ -118,6 +118,13 @@ EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de cole
 ## Changelog
 
 Changelog:
+- July 17, 2025: BOTÓN "EXPORTAR" COMPLETAMENTE FUNCIONAL - Implementado sistema completo de exportación de cargos
+- July 17, 2025: Menú desplegable con opciones Excel (.xlsx) y CSV (.csv) con descarga automática
+- July 17, 2025: Endpoint backend /api/charges/export funcional con manejo de archivos binarios y texto
+- July 17, 2025: Exportación filtrada por estado de cargos (todos, pendientes, vencidos, pagados)
+- July 17, 2025: Formato Excel con librería XLSX y CSV con codificación UTF-8 y BOM
+- July 17, 2025: Indicadores de carga durante exportación y manejo robusto de errores
+- July 17, 2025: Nombres de archivo dinámicos con fecha actual y datos completos de estudiantes/conceptos
 - July 17, 2025: BOTÓN "GENERAR CARGOS" COMPLETAMENTE FUNCIONAL - Implementado sistema completo de generación automática de cargos
 - July 17, 2025: Modal de generación con formulario completo: concepto, tipo, nivel académico, fechas, becas automáticas, recargos
 - July 17, 2025: Endpoint backend /api/charges/generate funcional con procesamiento de datos reales y filtrado por campus

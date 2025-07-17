@@ -65,6 +65,7 @@ export interface IStorage {
   // Payment operations
   createPayment(payment: InsertPayment): Promise<Payment>;
   getPaymentsByGuardian(guardianId: number): Promise<(Payment & { charge: Charge & { concept: Concept; student: Student } })[]>;
+  getPaymentsByCampus(campusId: number): Promise<(Payment & { charge: Charge & { concept: Concept; student: Student } })[]>;
   
   // Payment methods
   getPaymentMethodsByGuardian(guardianId: number): Promise<PaymentMethod[]>;
@@ -273,6 +274,26 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(concepts, eq(charges.concept_id, concepts.id))
       .innerJoin(students, eq(charges.student_id, students.id))
       .where(eq(payments.guardian_id, guardianId));
+
+    return results.map((row: any) => ({
+      ...row.payments,
+      charge: {
+        ...row.charges,
+        concept: row.concepts,
+        student: row.students
+      }
+    })) as any;
+  }
+
+  async getPaymentsByCampus(campusId: number): Promise<(Payment & { charge: Charge & { concept: Concept; student: Student } })[]> {
+    const results = await db
+      .select()
+      .from(payments)
+      .innerJoin(charges, eq(payments.charge_id, charges.id))
+      .innerJoin(concepts, eq(charges.concept_id, concepts.id))
+      .innerJoin(students, eq(charges.student_id, students.id))
+      .where(eq(students.campus_id, campusId))
+      .orderBy(desc(payments.fecha_pago));
 
     return results.map((row: any) => ({
       ...row.payments,

@@ -132,8 +132,8 @@ export function useRoleBasedData() {
       }
       
       return payments.filter(payment => {
-        const conceptName = payment.concept?.name?.toLowerCase() || '';
-        const conceptType = payment.concept?.type?.toLowerCase() || '';
+        const conceptName = payment.charge?.concept?.nombre?.toLowerCase() || '';
+        const conceptType = payment.charge?.concept?.tipo?.toLowerCase() || '';
         
         return allowedPaymentTypes.some(type => 
           conceptName.includes(type) || conceptType.includes(type)
@@ -152,8 +152,8 @@ export function useRoleBasedData() {
       }
       
       return charges.filter(charge => {
-        const conceptName = charge.concept?.name?.toLowerCase() || '';
-        const conceptType = charge.concept?.type?.toLowerCase() || '';
+        const conceptName = charge.concept?.nombre?.toLowerCase() || '';
+        const conceptType = charge.concept?.tipo?.toLowerCase() || '';
         
         return allowedPaymentTypes.some(type => 
           conceptName.includes(type) || conceptType.includes(type)

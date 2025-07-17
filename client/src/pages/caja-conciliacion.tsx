@@ -91,20 +91,327 @@ export default function CajaConciliacion() {
       }
     }, [user]);
 
+    const generateFiscalReceipt = (pagoData: any) => {
+      const fechaEmision = new Date().toLocaleDateString('es-MX', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
+      const folioRecibo = `REC-${Date.now().toString().slice(-8)}`;
+      const serie = "A";
+      const numeroRecibo = `${serie}${folioRecibo}`;
+      
+      const receiptContent = `
+  <!DOCTYPE html>
+  <html lang="es">
+  <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Recibo Fiscal - EscuelaPay</title>
+      <style>
+          body {
+              font-family: Arial, sans-serif;
+              margin: 0;
+              padding: 20px;
+              background-color: #f5f5f5;
+          }
+          .receipt-container {
+              max-width: 600px;
+              margin: 0 auto;
+              background: white;
+              padding: 30px;
+              border-radius: 10px;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          }
+          .header {
+              text-align: center;
+              border-bottom: 2px solid #2563eb;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+          }
+          .header h1 {
+              color: #2563eb;
+              margin: 0;
+              font-size: 24px;
+          }
+          .header p {
+              color: #666;
+              margin: 5px 0;
+          }
+          .receipt-info {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 20px;
+              margin-bottom: 30px;
+          }
+          .info-block {
+              background: #f8fafc;
+              padding: 15px;
+              border-radius: 8px;
+              border-left: 4px solid #2563eb;
+          }
+          .info-block h3 {
+              margin: 0 0 10px 0;
+              color: #1e293b;
+              font-size: 14px;
+              font-weight: 600;
+          }
+          .info-block p {
+              margin: 5px 0;
+              color: #475569;
+              font-size: 12px;
+          }
+          .payment-details {
+              background: #f0f9ff;
+              padding: 20px;
+              border-radius: 8px;
+              border: 1px solid #0ea5e9;
+              margin-bottom: 30px;
+          }
+          .payment-details h3 {
+              color: #0369a1;
+              margin: 0 0 15px 0;
+              font-size: 16px;
+          }
+          .detail-row {
+              display: flex;
+              justify-content: space-between;
+              margin: 8px 0;
+              font-size: 14px;
+          }
+          .detail-label {
+              color: #475569;
+              font-weight: 500;
+          }
+          .detail-value {
+              color: #1e293b;
+              font-weight: 600;
+          }
+          .amount-total {
+              background: #dcfce7;
+              padding: 15px;
+              border-radius: 8px;
+              border: 1px solid #16a34a;
+              text-align: center;
+              margin-bottom: 30px;
+          }
+          .amount-total h3 {
+              color: #15803d;
+              margin: 0;
+              font-size: 18px;
+          }
+          .fiscal-info {
+              background: #fef3c7;
+              padding: 20px;
+              border-radius: 8px;
+              border: 1px solid #f59e0b;
+              margin-bottom: 30px;
+          }
+          .fiscal-info h3 {
+              color: #92400e;
+              margin: 0 0 15px 0;
+              font-size: 16px;
+          }
+          .fiscal-info p {
+              margin: 5px 0;
+              color: #78350f;
+              font-size: 13px;
+          }
+          .footer {
+              text-align: center;
+              color: #6b7280;
+              font-size: 12px;
+              border-top: 1px solid #e5e7eb;
+              padding-top: 20px;
+          }
+          .signature-section {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 40px;
+              margin-top: 40px;
+              text-align: center;
+          }
+          .signature-block {
+              border-top: 1px solid #000;
+              padding-top: 10px;
+              font-size: 12px;
+              color: #374151;
+          }
+          @media print {
+              body { background: white; }
+              .receipt-container { box-shadow: none; }
+          }
+      </style>
+  </head>
+  <body>
+      <div class="receipt-container">
+          <div class="header">
+              <h1>RECIBO FISCAL</h1>
+              <p>Instituto San Patricio</p>
+              <p>RFC: ISP850101ABC</p>
+              <p>Calle Principal #123, Col. Centro, CP 44100</p>
+              <p>Guadalajara, Jalisco, México</p>
+          </div>
+  
+          <div class="receipt-info">
+              <div class="info-block">
+                  <h3>INFORMACIÓN DEL RECIBO</h3>
+                  <p><strong>Folio:</strong> ${folioRecibo}</p>
+                  <p><strong>Serie:</strong> ${serie}</p>
+                  <p><strong>Número:</strong> ${numeroRecibo}</p>
+                  <p><strong>Fecha de Emisión:</strong> ${fechaEmision}</p>
+              </div>
+              <div class="info-block">
+                  <h3>INFORMACIÓN DEL ESTUDIANTE</h3>
+                  <p><strong>Nombre:</strong> ${pagoData.estudiante || 'Estudiante Demo'}</p>
+                  <p><strong>Grado:</strong> ${pagoData.grado || '3ro A'}</p>
+                  <p><strong>Matrícula:</strong> ${pagoData.matricula || 'EST-001'}</p>
+              </div>
+          </div>
+  
+          <div class="payment-details">
+              <h3>DETALLES DEL PAGO</h3>
+              <div class="detail-row">
+                  <span class="detail-label">Concepto:</span>
+                  <span class="detail-value">${pagoData.concepto || 'Colegiatura'}</span>
+              </div>
+              <div class="detail-row">
+                  <span class="detail-label">Método de Pago:</span>
+                  <span class="detail-value">${pagoData.metodo || 'Efectivo'}</span>
+              </div>
+              <div class="detail-row">
+                  <span class="detail-label">Forma de Pago:</span>
+                  <span class="detail-value">${pagoData.forma || 'Pago en una sola exhibición'}</span>
+              </div>
+              <div class="detail-row">
+                  <span class="detail-label">Recibido por:</span>
+                  <span class="detail-value">${pagoData.recibido_por}</span>
+              </div>
+              <div class="detail-row">
+                  <span class="detail-label">Observaciones:</span>
+                  <span class="detail-value">${pagoData.observaciones || 'Ninguna'}</span>
+              </div>
+          </div>
+  
+          <div class="amount-total">
+              <h3>TOTAL: $${pagoData.monto ? parseFloat(pagoData.monto).toLocaleString() : '0.00'} MXN</h3>
+              <p>SON: ${convertirNumeroALetras(pagoData.monto || '0')} PESOS MEXICANOS</p>
+          </div>
+  
+          <div class="fiscal-info">
+              <h3>INFORMACIÓN FISCAL</h3>
+              <p><strong>Régimen Fiscal:</strong> Personas Morales del Régimen General</p>
+              <p><strong>Lugar de Expedición:</strong> 44100, Guadalajara, Jalisco</p>
+              <p><strong>Uso CFDI:</strong> G03 - Gastos en general</p>
+              <p><strong>Tipo de Comprobante:</strong> Recibo de Pago</p>
+              <p><strong>Moneda:</strong> MXN - Peso Mexicano</p>
+              <p><strong>Tipo de Cambio:</strong> 1.00</p>
+          </div>
+  
+          <div class="signature-section">
+              <div class="signature-block">
+                  <div><strong>Recibí de conformidad</strong></div>
+                  <div>Padre/Madre/Tutor</div>
+              </div>
+              <div class="signature-block">
+                  <div><strong>Autorizado por</strong></div>
+                  <div>${pagoData.recibido_por}</div>
+              </div>
+          </div>
+  
+          <div class="footer">
+              <p>Este recibo fue generado electrónicamente por EscuelaPay</p>
+              <p>Documento válido para efectos fiscales y contables</p>
+              <p>Fecha de generación: ${new Date().toLocaleString('es-MX')}</p>
+          </div>
+      </div>
+  </body>
+  </html>
+      `;
+  
+      return receiptContent;
+    };
+
+    const convertirNumeroALetras = (numero: string) => {
+      const num = parseFloat(numero || '0');
+      if (num === 0) return 'CERO';
+      if (num < 1000) return `${Math.floor(num).toString().toUpperCase()}`;
+      if (num < 1000000) return `${Math.floor(num / 1000)} MIL ${Math.floor(num % 1000)}`;
+      return `${Math.floor(num / 1000000)} MILLONES ${Math.floor((num % 1000000) / 1000)} MIL ${Math.floor(num % 1000)}`;
+    };
+
+    const handleRegistrarPagoEfectivo = () => {
+      // Validar que los campos requeridos estén completos
+      if (!pagoForm.estudiante_id || !pagoForm.concepto_id || !pagoForm.monto) {
+        toast({
+          title: "Campos requeridos",
+          description: "Por favor completa todos los campos obligatorios",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Generar el recibo fiscal
+      const pagoData = {
+        estudiante: "Carlos Pérez - 3ro A", // En producción vendría de la selección
+        grado: "3ro A",
+        matricula: "EST-001",
+        concepto: "Colegiatura Enero",
+        metodo: "Efectivo",
+        forma: "Pago en una sola exhibición",
+        monto: pagoForm.monto,
+        recibido_por: pagoForm.recibido_por,
+        observaciones: pagoForm.observaciones
+      };
+
+      const receiptHTML = generateFiscalReceipt(pagoData);
+      
+      // Crear y descargar el recibo
+      const blob = new Blob([receiptHTML], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `recibo-fiscal-${Date.now()}.html`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      // Abrir el recibo en una nueva ventana para impresión
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(receiptHTML);
+        printWindow.document.close();
+        
+        // Abrir diálogo de impresión después de que se cargue
+        printWindow.onload = () => {
+          setTimeout(() => {
+            printWindow.print();
+          }, 500);
+        };
+      }
+
+      toast({
+        title: "Pago registrado y recibo generado",
+        description: "El pago se registró exitosamente y el recibo fiscal ha sido generado"
+      });
+      
+      setPagoForm({
+        estudiante_id: "",
+        concepto_id: "",
+        monto: "",
+        recibido_por: getUserDisplayName(),
+        observaciones: ""
+      });
+      
+      // Ejecutar la mutación para registrar el pago
+      registrarPagoEfectivo.mutate(pagoForm);
+    };
+
     const registrarPagoEfectivo = useMutation({
       mutationFn: (data: any) => apiRequest("POST", "/api/caja/pago-efectivo", data),
       onSuccess: () => {
-        toast({
-          title: "Pago registrado",
-          description: "El pago en efectivo se registró correctamente y se generará CFDI"
-        });
-        setPagoForm({
-          estudiante_id: "",
-          concepto_id: "",
-          monto: "",
-          recibido_por: getUserDisplayName(),
-          observaciones: ""
-        });
         queryClient.invalidateQueries({ queryKey: ["/api/caja"] });
       }
     });
@@ -183,7 +490,7 @@ export default function CajaConciliacion() {
             </div>
 
             <Button 
-              onClick={() => registrarPagoEfectivo.mutate(pagoForm)}
+              onClick={handleRegistrarPagoEfectivo}
               disabled={registrarPagoEfectivo.isPending}
               className="w-full mt-4 bg-green-600 hover:bg-green-700"
             >

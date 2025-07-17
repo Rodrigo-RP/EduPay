@@ -57,6 +57,7 @@ import DemoAprobaciones from "@/pages/demo-aprobaciones";
 import DashboardAdmisiones from "@/pages/dashboard-admisiones";
 import DashboardCaja from "@/pages/dashboard-caja";
 import ReportesFinancieros from "@/pages/reportes-financieros";
+import ReportesAdmisiones from "@/pages/reportes-admisiones";
 import RoleBasedDashboard from "@/components/RoleBasedDashboard";
 
 function AuthenticatedRoutes() {
@@ -142,6 +143,7 @@ function AuthenticatedRoutes() {
             <Route path="/fiscal-contable" component={FiscalContable} />
             <Route path="/analisis-financiero" component={AnalisisFinanciero} />
             <Route path="/reportes-financieros" component={ReportesFinancieros} />
+            <Route path="/reportes-admisiones" component={ReportesAdmisiones} />
             <Route path="/portal-3clics" component={PortalPadres3Clics} />
             <Route path="/aprobaciones" component={Aprobaciones} />
             <Route path="/demo-aprobaciones" component={DemoAprobaciones} />

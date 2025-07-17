@@ -246,6 +246,7 @@ export default function Sidebar() {
         return {
           ...item,
           label: 'Reportes de Inscripciones',
+          href: '/reportes-admisiones',
           category: 'administrativo'
         };
       }

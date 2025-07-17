@@ -422,8 +422,25 @@ export default function Pagos() {
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Gestión de Pagos</h1>
-          <p className="text-slate-600">Administra pagos recibidos, registra efectivo y concilia movimientos</p>
+          <h1 className="text-3xl font-bold text-slate-900">
+            {userRole === 'admisiones' ? 'Pagos de Inscripciones' : 'Gestión de Pagos'}
+          </h1>
+          <p className="text-slate-600">
+            {userRole === 'admisiones' 
+              ? 'Administra pagos de inscripciones, matrículas y becas para nuevos estudiantes'
+              : 'Administra pagos recibidos, registra efectivo y concilia movimientos'
+            }
+          </p>
+          {userRole === 'admisiones' && (
+            <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center gap-2 text-green-700">
+                <i className="fas fa-user-graduate"></i>
+                <span className="text-sm font-medium">
+                  Perfil Admisiones - Solo puedes ver pagos relacionados con inscripciones, matrículas y becas
+                </span>
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex gap-3">
           <Button 

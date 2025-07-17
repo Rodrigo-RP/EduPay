@@ -216,14 +216,53 @@ export default function Sidebar() {
 
   ];
 
-  // Filtrar elementos del menú según permisos del usuario
-  const menuItems = getAllMenuItems().filter(item => {
-    // Si no tiene módulo definido, mostrar por defecto
-    if (!item.module || !item.action) return true;
+  // Filtrar elementos específicos para el perfil de Admisiones
+  const getAdmisionesMenuItems = () => {
+    const allItems = getAllMenuItems();
     
-    // Verificar permisos específicos para el rol
-    return hasPermission(userRole, item.module, item.action);
-  });
+    // Elementos específicos para admisiones con etiquetas personalizadas
+    const admisionesItems = [
+      '/estudiantes',
+      '/familias',
+      '/exalumnos',
+      '/crm-escolar',
+      '/pagos', // Solo para inscripciones
+      '/reportes-financieros', // Solo reportes de inscripciones
+      '/capacitacion'
+    ];
+    
+    return allItems.filter(item => {
+      return admisionesItems.includes(item.href);
+    }).map(item => {
+      // Personalizar etiquetas específicas para admisiones
+      if (item.href === '/pagos') {
+        return {
+          ...item,
+          label: 'Pagos de Inscripciones',
+          icon: 'fas fa-graduation-cap'
+        };
+      }
+      if (item.href === '/reportes-financieros') {
+        return {
+          ...item,
+          label: 'Reportes de Inscripciones',
+          category: 'administrativo'
+        };
+      }
+      return item;
+    });
+  };
+
+  // Filtrar elementos del menú según permisos del usuario
+  const menuItems = userRole === 'admisiones' 
+    ? getAdmisionesMenuItems()
+    : getAllMenuItems().filter(item => {
+        // Si no tiene módulo definido, mostrar por defecto
+        if (!item.module || !item.action) return true;
+        
+        // Verificar permisos específicos para el rol
+        return hasPermission(userRole, item.module, item.action);
+      });
 
   // Función para obtener los colores de cada sección
   const getSectionColors = (category: string) => {
@@ -293,6 +332,12 @@ export default function Sidebar() {
           <div className="flex-1">
             <h1 className="text-lg font-bold text-slate-900 leading-tight">{institutionName}</h1>
             <p className="text-xs text-slate-500">{campusName}</p>
+            {userRole === 'admisiones' && (
+              <div className="mt-1 px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full text-center">
+                <i className="fas fa-user-graduate mr-1"></i>
+                Perfil Admisiones
+              </div>
+            )}
           </div>
         </div>
       </div>

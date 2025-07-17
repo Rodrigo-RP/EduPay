@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { CreditCard, Banknote, Smartphone, Receipt, Download, Eye, DollarSign, CheckCircle, Calendar, User, FileText, Building2, PieChart, Upload, X, AlertCircle } from "lucide-react";
+import { CreditCard, Banknote, Smartphone, Receipt, Download, Eye, DollarSign, CheckCircle, Calendar, User, FileText, Building2, PieChart, Upload, X, AlertCircle, Info } from "lucide-react";
 import { PieChartComponent } from "@/components/PieChartComponent";
 import { hasPermission, MODULES, ACTIONS, type UserRole } from "@shared/permissions";
 import { useAuth } from "@/hooks/use-auth";
@@ -115,39 +115,97 @@ export default function Pagos() {
 
 
 
-  // Datos simulados de pagos
+  // Datos simulados de pagos con conceptos específicos por rol
   const mockPagos = [
+    // Pagos que puede ver ADMISIONES
     {
       id: 1,
-      estudiante: "Carlos Pérez Méndez",
-      concepto: "Colegiatura Enero",
-      monto: 500000,
+      estudiante: "María González Ruiz",
+      concepto: "Inscripción Kinder 2025",
+      monto: 380000,
       metodo: "TARJETA",
       estado: "completado",
-      fecha: "25/01/2025 14:30",
-      referencia: "TXN001",
+      fecha: "15/01/2025 10:30",
+      referencia: "INS001",
       origen: "Portal Padres"
     },
     {
       id: 2,
-      estudiante: "Andrea García Luna",
-      concepto: "Inscripción 2025",
-      monto: 300000,
+      estudiante: "José Luis Torres",
+      concepto: "Matrícula Primaria",
+      monto: 280000,
       metodo: "EFECTIVO",
-      estado: "completado",
-      fecha: "20/01/2025 09:15",
-      referencia: "EFE002",
-      origen: "Caja Escuela"
+      estado: "pendiente",
+      fecha: "18/01/2025 14:20",
+      referencia: "MAT002",
+      origen: "Ventanilla Admisiones"
     },
     {
       id: 3,
-      estudiante: "Luis Martínez Gil",
-      concepto: "Materiales Escolares",
-      monto: 150000,
+      estudiante: "Ana Sofía Mendoza",
+      concepto: "Beca Socioeconómica",
+      monto: -50000,
+      metodo: "DESCUENTO",
+      estado: "completado",
+      fecha: "20/01/2025 11:45",
+      referencia: "BEC003",
+      origen: "Sistema Becas"
+    },
+    
+    // Pagos que puede ver CAJA
+    {
+      id: 4,
+      estudiante: "Roberto Jiménez",
+      concepto: "Colegiatura Enero",
+      monto: 650000,
+      metodo: "SPEI",
+      estado: "completado",
+      fecha: "05/01/2025 08:15",
+      referencia: "COL004",
+      origen: "Banca Móvil"
+    },
+    {
+      id: 5,
+      estudiante: "Carmen Vázquez",
+      concepto: "Mensualidad Febrero",
+      monto: 650000,
+      metodo: "TARJETA",
+      estado: "procesando",
+      fecha: "28/01/2025 16:30",
+      referencia: "MEN005",
+      origen: "Portal Padres"
+    },
+    {
+      id: 6,
+      estudiante: "Pedro Ramírez",
+      concepto: "Recargo por Mora",
+      monto: 45000,
+      metodo: "EFECTIVO",
+      estado: "completado",
+      fecha: "22/01/2025 13:20",
+      referencia: "REC006",
+      origen: "Caja Escuela"
+    },
+    {
+      id: 7,
+      estudiante: "Laura Hernández",
+      concepto: "Seguro Escolar",
+      monto: 120000,
+      metodo: "TARJETA",
+      estado: "completado",
+      fecha: "10/01/2025 09:40",
+      referencia: "SEG007",
+      origen: "Portal Padres"
+    },
+    {
+      id: 8,
+      estudiante: "Miguel Castillo",
+      concepto: "Transporte Escolar",
+      monto: 350000,
       metodo: "SPEI",
       estado: "pendiente",
-      fecha: "22/01/2025 16:45",
-      referencia: "SPEI003",
+      fecha: "25/01/2025 15:10",
+      referencia: "TRA008",
       origen: "Banca Móvil"
     }
   ];
@@ -535,11 +593,34 @@ export default function Pagos() {
                 </div>
               </div>
 
+              {/* Mensaje informativo de filtrado por rol */}
+              {userRole !== 'admin' && userRole !== 'super_admin' && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-blue-700">
+                    <Info className="h-4 w-4" />
+                    <span className="text-sm font-medium">
+                      Mostrando solo pagos relevantes para {
+                        userRole === 'admisiones' ? 'Admisiones (inscripciones, matrículas, becas)' : 
+                        userRole === 'caja' ? 'Caja (colegiaturas, recargos, seguros)' : 
+                        userRole === 'contador' ? 'Contador (solo pagos completados)' : 
+                        userRole === 'asistente' ? 'Asistente (inscripciones y becas)' : 
+                        'tu rol'
+                      }
+                    </span>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-4">
                 {filteredPagos.length === 0 ? (
                   <div className="text-center py-8 text-slate-500">
                     <Receipt className="h-12 w-12 mx-auto mb-3 opacity-50" />
                     <p>No se encontraron pagos con los filtros aplicados</p>
+                    {userRole !== 'admin' && userRole !== 'super_admin' && (
+                      <p className="mt-2 text-sm text-blue-600">
+                        Recuerda que solo ves pagos relevantes para tu rol
+                      </p>
+                    )}
                   </div>
                 ) : (
                   filteredPagos.map((pago) => (

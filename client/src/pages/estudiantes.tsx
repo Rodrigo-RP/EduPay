@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Plus, Search, Edit, Trash2, UserCheck, UserX, Phone, Mail, MapPin, AlertTriangle, FileSpreadsheet, Download, Upload } from "lucide-react";
+import { Users, Plus, Search, Edit, Trash2, UserCheck, UserX, Phone, Mail, MapPin, AlertTriangle, FileSpreadsheet, Download, Upload, Eye } from "lucide-react";
 
 export default function Estudiantes() {
   const { toast } = useToast();
@@ -23,7 +23,9 @@ export default function Estudiantes() {
   const [nombreGrupoEditando, setNombreGrupoEditando] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState<any>(null);
+  const [viewingStudent, setViewingStudent] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("individual");
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importProgress, setImportProgress] = useState(0);
@@ -466,8 +468,16 @@ export default function Estudiantes() {
       alergias: "",
       medicamentos: "",
       contacto_emergencia: "",
-      telefono_emergencia: ""
+      telefono_emergencia: "",
+      usuario: "",
+      password: "",
+      id_referencia: ""
     });
+  };
+
+  const loadStudentForView = (student: any) => {
+    setViewingStudent(student);
+    setShowViewModal(true);
   };
 
   const loadStudentForEdit = (student: any) => {
@@ -1029,6 +1039,9 @@ export default function Estudiantes() {
                     {student.status}
                   </Badge>
                   <div className="flex space-x-1">
+                    <Button size="sm" variant="outline" onClick={() => loadStudentForView(student)} title="Ver información del estudiante">
+                      <Eye className="w-4 h-4" />
+                    </Button>
                     <Button size="sm" variant="outline" onClick={() => loadStudentForEdit(student)} title="Editar estudiante">
                       <Edit className="w-4 h-4" />
                     </Button>
@@ -1714,6 +1727,41 @@ export default function Estudiantes() {
           </div>
         </div>
 
+        {/* Credenciales de Acceso al Portal */}
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900 mb-4">Credenciales de Acceso al Portal</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="usuario">Usuario</Label>
+              <Input
+                id="usuario"
+                value={formData.usuario}
+                onChange={(e) => handleInputChange("usuario", e.target.value)}
+                placeholder="Usuario para acceso al portal"
+              />
+            </div>
+            <div>
+              <Label htmlFor="password">Contraseña</Label>
+              <Input
+                id="password"
+                type="password"
+                value={formData.password}
+                onChange={(e) => handleInputChange("password", e.target.value)}
+                placeholder="Contraseña para acceso al portal"
+              />
+            </div>
+            <div>
+              <Label htmlFor="id_referencia">ID de Refereence</Label>
+              <Input
+                id="id_referencia"
+                value={formData.id_referencia}
+                onChange={(e) => handleInputChange("id_referencia", e.target.value)}
+                placeholder="ID único de refereence"
+              />
+            </div>
+          </div>
+        </div>
+
         {/* Botones */}
         <div className="flex justify-end space-x-4 pt-4 border-t">
           <Button type="button" variant="outline" onClick={() => {
@@ -1731,6 +1779,187 @@ export default function Estudiantes() {
         </div>
       </form>
     )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para ver información del estudiante */}
+      <Dialog open={showViewModal} onOpenChange={(open) => {
+        if (!open) {
+          setShowViewModal(false);
+          setViewingStudent(null);
+        }
+      }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Información del Estudiante</DialogTitle>
+            <DialogDescription>
+              Visualiza toda la información del estudiante seleccionado
+            </DialogDescription>
+          </DialogHeader>
+          
+          {viewingStudent && (
+            <div className="space-y-6">
+              {/* Información del Estudiante */}
+              <div className="bg-slate-50 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center">
+                  <Users className="w-5 h-5 mr-2 text-blue-600" />
+                  Información del Estudiante
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-slate-600">Nombre Completo</Label>
+                    <p className="text-sm text-slate-900 mt-1">{viewingStudent.nombre_completo}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-slate-600">CURP</Label>
+                    <p className="text-sm text-slate-900 mt-1">{viewingStudent.curp}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-slate-600">Fecha de Nacimiento</Label>
+                    <p className="text-sm text-slate-900 mt-1">{viewingStudent.fecha_nacimiento || "No especificada"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-slate-600">Grado</Label>
+                    <p className="text-sm text-slate-900 mt-1">{viewingStudent.grado}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-slate-600">Grupo</Label>
+                    <p className="text-sm text-slate-900 mt-1">{viewingStudent.grupo}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-slate-600">Estado</Label>
+                    <Badge variant={viewingStudent.status === 'activo' ? 'default' : 'secondary'} className="mt-1">
+                      {viewingStudent.status}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Información del Responsable */}
+              <div className="bg-slate-50 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center">
+                  <Phone className="w-5 h-5 mr-2 text-green-600" />
+                  Información del Responsable
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-slate-600">Nombre del Responsable</Label>
+                    <p className="text-sm text-slate-900 mt-1">{viewingStudent.responsable}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-slate-600">Teléfono</Label>
+                    <p className="text-sm text-slate-900 mt-1">{viewingStudent.telefono}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-slate-600">Correo Electrónico</Label>
+                    <p className="text-sm text-slate-900 mt-1">{viewingStudent.responsable_email || "No especificado"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Dirección */}
+              <div className="bg-slate-50 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center">
+                  <MapPin className="w-5 h-5 mr-2 text-purple-600" />
+                  Dirección
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <Label className="text-sm font-medium text-slate-600">Dirección Completa</Label>
+                    <p className="text-sm text-slate-900 mt-1">{viewingStudent.direccion || "No especificada"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-slate-600">Código Postal</Label>
+                    <p className="text-sm text-slate-900 mt-1">{viewingStudent.codigo_postal || "No especificado"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-slate-600">Ciudad</Label>
+                    <p className="text-sm text-slate-900 mt-1">{viewingStudent.ciudad || "No especificada"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Información Médica */}
+              <div className="bg-slate-50 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center">
+                  <AlertTriangle className="w-5 h-5 mr-2 text-red-600" />
+                  Información Médica
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-slate-600">Alergias</Label>
+                    <p className="text-sm text-slate-900 mt-1">{viewingStudent.alergias || "Ninguna"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-slate-600">Medicamentos</Label>
+                    <p className="text-sm text-slate-900 mt-1">{viewingStudent.medicamentos || "Ninguno"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-slate-600">Contacto de Emergencia</Label>
+                    <p className="text-sm text-slate-900 mt-1">{viewingStudent.contacto_emergencia || "No especificado"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-slate-600">Teléfono de Emergencia</Label>
+                    <p className="text-sm text-slate-900 mt-1">{viewingStudent.telefono_emergencia || "No especificado"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Información Financiera */}
+              <div className="bg-slate-50 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center">
+                  <Users className="w-5 h-5 mr-2 text-yellow-600" />
+                  Información Financiera
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-slate-600">Saldo Pendiente</Label>
+                    <p className="text-lg font-semibold text-slate-900 mt-1">${(viewingStudent.saldo_pendiente / 100).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-slate-600">Fecha de Inscripción</Label>
+                    <p className="text-sm text-slate-900 mt-1">{viewingStudent.fecha_inscripcion || "No especificada"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Credenciales de Acceso */}
+              <div className="bg-slate-50 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center">
+                  <UserCheck className="w-5 h-5 mr-2 text-indigo-600" />
+                  Credenciales de Acceso al Portal
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-slate-600">Usuario</Label>
+                    <p className="text-sm text-slate-900 mt-1">{viewingStudent.usuario || "No asignado"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-slate-600">Contraseña</Label>
+                    <p className="text-sm text-slate-900 mt-1">{viewingStudent.password ? "•••••••••" : "No asignada"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-slate-600">ID de Refereence</Label>
+                    <p className="text-sm text-slate-900 mt-1">{viewingStudent.id_referencia || "No asignado"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Botón de Editar */}
+              <div className="flex justify-end pt-4">
+                <Button 
+                  onClick={() => {
+                    setShowViewModal(false);
+                    loadStudentForEdit(viewingStudent);
+                  }}
+                  className="flex items-center space-x-2"
+                >
+                  <Edit className="w-4 h-4" />
+                  <span>Editar Información</span>
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

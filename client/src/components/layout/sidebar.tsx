@@ -162,6 +162,15 @@ export default function Sidebar() {
       module: MODULES.SETTINGS,
       action: ACTIONS.CONFIGURE
     },
+    { 
+      icon: "fas fa-file-invoice", 
+      label: "Fiscal y Contable", 
+      href: "/fiscal-contable", 
+      active: location === "/fiscal-contable",
+      category: "financiero",
+      module: MODULES.FISCAL,
+      action: ACTIONS.READ
+    },
 
     { 
       icon: "fas fa-shield-alt", 

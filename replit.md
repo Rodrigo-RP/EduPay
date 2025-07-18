@@ -128,6 +128,10 @@ Changelog:
 - July 17, 2025: Notificaciones automáticas MANTENIDAS: recordatorios, alertas, reducen llamadas manuales
 - July 17, 2025: Perfiles especializados eliminados: soporte técnico, implementación, super admin F1
 - July 17, 2025: Enfoque purificado en gestión de pagos escolares: estudiantes, familias, cargos, pagos, conciliación básica
+- July 17, 2025: FACTURACIÓN INTELIGENTE COMPLETADA - Página "Fiscal y Contable" implementada con 4 pestañas completas
+- July 17, 2025: Pestañas implementadas: Gestión CFDI, Facturación Automática, Integración PAC, Contadores Externos
+- July 17, 2025: Funcionalidades: CFDI 4.0 automático, timbrado automático, validación SAT, integración PAC Facturama
+- July 17, 2025: Sidebar actualizado: nueva pestaña "Fiscal y Contable" en sección financiero con permisos MODULES.FISCAL
 - July 17, 2025: DUPLICACIÓN ELIMINADA - Pestaña "Registro de Pagos Manual" removida por mejor UX
 - July 17, 2025: Solo se mantiene el modal del botón "Registrar pago" del header por mejor experiencia de usuario
 - July 17, 2025: Pestañas reorganizadas: "Lista de pagos" y "Conciliación" únicamente

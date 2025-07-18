@@ -40,6 +40,7 @@ export const MODULES = {
   ALUMNI: 'alumni',
   RECEIVABLES: 'receivables',
   SECURITY: 'security',
+  FISCAL: 'fiscal',
   SYSTEM: 'system'
 } as const;
 

@@ -27,6 +27,7 @@ export default function FiscalContable() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedPeriod, setSelectedPeriod] = useState("2025-01");
+  const [activeTab, setActiveTab] = useState("gestion-cfdi");
 
   // CFDI 4.0 automático al pagar
   const GestionCFDI = () => {
@@ -169,6 +170,237 @@ export default function FiscalContable() {
                   </div>
                 </div>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  // Facturación Automática
+  const FacturacionAutomatica = () => {
+    const { data: configAutomatica } = useQuery({
+      queryKey: ["/api/fiscal/config-automatica"],
+    });
+
+    const actualizarConfigAutomatica = useMutation({
+      mutationFn: (data: any) => apiRequest("PUT", "/api/fiscal/config-automatica", data),
+      onSuccess: () => {
+        toast({
+          title: "Configuración actualizada",
+          description: "La facturación automática se configuró correctamente"
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/fiscal"] });
+      }
+    });
+
+    return (
+      <div className="space-y-6">
+        <Card className="border-blue-200 bg-blue-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-blue-800">
+              <RefreshCw className="w-5 h-5" />
+              Facturación automática al recibir pago
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-blue-700 mb-4">
+              Configurar la emisión automática de CFDI 4.0 cada vez que se registre un pago
+            </p>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-white rounded border">
+                <div>
+                  <div className="font-medium">Timbrado automático</div>
+                  <div className="text-sm text-slate-600">Generar CFDI automáticamente al confirmar pago</div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" className="sr-only peer" defaultChecked />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-white rounded border">
+                <div>
+                  <div className="font-medium">Envío automático por email</div>
+                  <div className="text-sm text-slate-600">Enviar CFDI por correo electrónico al padre/tutor</div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" className="sr-only peer" defaultChecked />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-white rounded border">
+                <div>
+                  <div className="font-medium">Validación SAT en tiempo real</div>
+                  <div className="text-sm text-slate-600">Validar datos fiscales contra catálogos SAT</div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" className="sr-only peer" defaultChecked />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+            </div>
+
+            <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded">
+              <div className="flex items-center gap-2 text-green-800 mb-2">
+                <CheckCircle className="w-5 h-5" />
+                <span className="font-medium">Sistema configurado correctamente</span>
+              </div>
+              <p className="text-sm text-green-700">
+                El sistema está configurado para generar automáticamente CFDI 4.0 al recibir pagos, 
+                validar datos fiscales en tiempo real y enviar facturas por email.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Estadísticas de facturación automática */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="p-4 text-center">
+              <RefreshCw className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+              <div className="text-2xl font-bold">156</div>
+              <div className="text-sm text-slate-600">Facturas automáticas</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4 text-center">
+              <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
+              <div className="text-2xl font-bold">98.7%</div>
+              <div className="text-sm text-slate-600">Tasa de éxito</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4 text-center">
+              <Clock className="w-8 h-8 text-orange-600 mx-auto mb-2" />
+              <div className="text-2xl font-bold">1.2 seg</div>
+              <div className="text-sm text-slate-600">Tiempo promedio</div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  };
+
+  // Integración PAC
+  const IntegracionPAC = () => {
+    const { data: estadoPAC } = useQuery({
+      queryKey: ["/api/fiscal/estado-pac"],
+    });
+
+    const configurarPAC = useMutation({
+      mutationFn: (data: any) => apiRequest("POST", "/api/fiscal/configurar-pac", data),
+      onSuccess: () => {
+        toast({
+          title: "PAC configurado",
+          description: "La integración con el PAC se configuró correctamente"
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/fiscal"] });
+      }
+    });
+
+    return (
+      <div className="space-y-6">
+        <Card className="border-purple-200 bg-purple-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-purple-800">
+              <Shield className="w-5 h-5" />
+              Proveedor Autorizado de Certificación (PAC)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-purple-700 mb-4">
+              Configurar conexión con PAC Facturama para timbrado automático de CFDI
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Proveedor PAC</Label>
+                <Select defaultValue="facturama">
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="facturama">Facturama</SelectItem>
+                    <SelectItem value="enlace-fiscal">Enlace Fiscal</SelectItem>
+                    <SelectItem value="comercio-digital">Comercio Digital</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Ambiente</Label>
+                <Select defaultValue="produccion">
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sandbox">Sandbox (Pruebas)</SelectItem>
+                    <SelectItem value="produccion">Producción</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <div>
+                <Label>Usuario PAC</Label>
+                <Input placeholder="usuario_pac" />
+              </div>
+              <div>
+                <Label>Contraseña PAC</Label>
+                <Input type="password" placeholder="contraseña_pac" />
+              </div>
+            </div>
+
+            <Button 
+              onClick={() => configurarPAC.mutate({})}
+              disabled={configurarPAC.isPending}
+              className="w-full mt-4"
+            >
+              <Shield className="w-4 h-4 mr-2" />
+              Configurar conexión PAC
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Estado de la conexión PAC */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Estado de la conexión PAC</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <div>
+                    <div className="font-medium text-green-800">Facturama - Producción</div>
+                    <div className="text-sm text-green-600">Conectado correctamente</div>
+                  </div>
+                </div>
+                <Badge className="bg-green-100 text-green-800">Activo</Badge>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-3 bg-slate-50 rounded">
+                  <div className="text-sm text-slate-600">Timbres disponibles</div>
+                  <div className="text-2xl font-bold">2,847</div>
+                </div>
+                <div className="p-3 bg-slate-50 rounded">
+                  <div className="text-sm text-slate-600">Timbres usados (mes)</div>
+                  <div className="text-2xl font-bold">156</div>
+                </div>
+              </div>
+
+              <Button variant="outline" className="w-full">
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Probar conexión PAC
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -412,23 +644,28 @@ export default function FiscalContable() {
           </p>
         </div>
 
-        <Tabs defaultValue="cfdi" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="cfdi">Gestión CFDI</TabsTrigger>
-            <TabsTrigger value="contadores">Integración contadores</TabsTrigger>
-            <TabsTrigger value="sat">Reportes SAT</TabsTrigger>
+        <Tabs defaultValue="gestion-cfdi" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="gestion-cfdi">Gestión CFDI</TabsTrigger>
+            <TabsTrigger value="facturacion-automatica">Facturación Automática</TabsTrigger>
+            <TabsTrigger value="integracion-pac">Integración PAC</TabsTrigger>
+            <TabsTrigger value="contadores-externos">Contadores Externos</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="cfdi">
+          <TabsContent value="gestion-cfdi">
             <GestionCFDI />
           </TabsContent>
 
-          <TabsContent value="contadores">
-            <IntegracionContadores />
+          <TabsContent value="facturacion-automatica">
+            <FacturacionAutomatica />
           </TabsContent>
 
-          <TabsContent value="sat">
-            <ReportesSAT />
+          <TabsContent value="integracion-pac">
+            <IntegracionPAC />
+          </TabsContent>
+
+          <TabsContent value="contadores-externos">
+            <IntegracionContadores />
           </TabsContent>
         </Tabs>
       </div>

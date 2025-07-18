@@ -137,6 +137,12 @@ export default function CajaConciliacion() {
               padding-bottom: 20px;
               margin-bottom: 30px;
           }
+          .school-logo {
+              width: 80px;
+              height: 80px;
+              margin: 0 auto 15px auto;
+              display: block;
+          }
           .header h1 {
               color: #2563eb;
               margin: 0;
@@ -254,6 +260,18 @@ export default function CajaConciliacion() {
   <body>
       <div class="receipt-container">
           <div class="header">
+              <svg class="school-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="50" cy="50" r="45" fill="#2563eb" stroke="#1e40af" stroke-width="2"/>
+                  <rect x="25" y="35" width="50" height="30" fill="white" rx="3"/>
+                  <rect x="30" y="40" width="40" height="3" fill="#2563eb"/>
+                  <rect x="30" y="47" width="40" height="2" fill="#64748b"/>
+                  <rect x="30" y="52" width="40" height="2" fill="#64748b"/>
+                  <rect x="30" y="57" width="30" height="2" fill="#64748b"/>
+                  <polygon points="45,20 55,20 60,35 40,35" fill="#f59e0b"/>
+                  <circle cx="50" cy="75" r="8" fill="white"/>
+                  <polygon points="46,75 50,78 54,75 52,71 48,71" fill="#2563eb"/>
+                  <text x="50" y="90" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="white" font-weight="bold">EDUCACIÓN</text>
+              </svg>
               <h1>RECIBO FISCAL</h1>
               <p>Instituto San Patricio</p>
               <p>RFC: ISP850101ABC</p>

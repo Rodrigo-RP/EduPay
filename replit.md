@@ -137,6 +137,9 @@ Changelog:
 - July 17, 2025: Logo diseñado específicamente para sector educativo con elementos de graduación y texto "EDUCACIÓN"
 - July 17, 2025: Implementado en ambas páginas: Pagos y Caja-Conciliación con diseño consistente
 - July 17, 2025: Logo SVG incluye círculo azul institucional, libro abierto, birrete de graduación y medallla de excelencia
+- July 17, 2025: LOGO OPTIMIZADO PARA COMPATIBILIDAD PDF - Cambiado de SVG complejo a logo circular basado en CSS
+- July 17, 2025: Logo circular con gradiente azul, iniciales "ISP" y texto "EDUCACIÓN" dorado para mejor renderizado
+- July 17, 2025: Diseño optimizado para generación HTML-to-PDF manteniendo identidad visual profesional
 - July 17, 2025: DUPLICACIÓN ELIMINADA - Pestaña "Registro de Pagos Manual" removida por mejor UX
 - July 17, 2025: Solo se mantiene el modal del botón "Registrar pago" del header por mejor experiencia de usuario
 - July 17, 2025: Pestañas reorganizadas: "Lista de pagos" y "Conciliación" únicamente

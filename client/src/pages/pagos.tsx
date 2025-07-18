@@ -499,11 +499,37 @@ export default function Pagos() {
             padding-bottom: 20px;
             margin-bottom: 30px;
         }
-        .school-logo {
+        .logo-container {
+            margin: 0 auto 15px auto;
+            display: flex;
+            justify-content: center;
+        }
+        .logo-circle {
             width: 80px;
             height: 80px;
-            margin: 0 auto 15px auto;
-            display: block;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #2563eb, #1e40af);
+            border: 3px solid #1e40af;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+        }
+        .logo-text {
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+            font-family: Arial, sans-serif;
+            letter-spacing: 1px;
+        }
+        .logo-subtext {
+            color: #fbbf24;
+            font-weight: bold;
+            font-size: 8px;
+            font-family: Arial, sans-serif;
+            margin-top: 2px;
+            letter-spacing: 0.5px;
         }
         .header h1 {
             color: #2563eb;
@@ -622,18 +648,12 @@ export default function Pagos() {
 <body>
     <div class="receipt-container">
         <div class="header">
-            <svg class="school-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="50" cy="50" r="45" fill="#2563eb" stroke="#1e40af" stroke-width="2"/>
-                <rect x="25" y="35" width="50" height="30" fill="white" rx="3"/>
-                <rect x="30" y="40" width="40" height="3" fill="#2563eb"/>
-                <rect x="30" y="47" width="40" height="2" fill="#64748b"/>
-                <rect x="30" y="52" width="40" height="2" fill="#64748b"/>
-                <rect x="30" y="57" width="30" height="2" fill="#64748b"/>
-                <polygon points="45,20 55,20 60,35 40,35" fill="#f59e0b"/>
-                <circle cx="50" cy="75" r="8" fill="white"/>
-                <polygon points="46,75 50,78 54,75 52,71 48,71" fill="#2563eb"/>
-                <text x="50" y="90" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="white" font-weight="bold">EDUCACIÓN</text>
-            </svg>
+            <div class="logo-container">
+                <div class="logo-circle">
+                    <div class="logo-text">ISP</div>
+                    <div class="logo-subtext">EDUCACIÓN</div>
+                </div>
+            </div>
             <h1>RECIBO FISCAL</h1>
             <p>Instituto San Patricio</p>
             <p>RFC: ISP850101ABC</p>

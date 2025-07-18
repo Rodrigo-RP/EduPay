@@ -20,7 +20,8 @@ import {
   Receipt,
   Database,
   RefreshCw,
-  Eye
+  Eye,
+  Clock
 } from "lucide-react";
 
 export default function FiscalContable() {

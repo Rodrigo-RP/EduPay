@@ -151,8 +151,10 @@ Changelog:
 - July 22, 2025: Formato HTML completo con información fiscal SAT, folio único, numeración automática y sección de firmas
 - July 22, 2025: MIGRACIÓN A INSTITUTO JFR COMPLETADA - Todas las referencias cambiadas de "Colegio San Patricio" a "Instituto JFR"
 - July 22, 2025: Usuarios de prueba actualizados: admin@jfr.edu.mx, contador@jfr.edu.mx, caja@jfr.edu.mx, admisiones@jfr.edu.mx
-- July 22, 2025: Base de datos, recibos fiscales y documentación actualizados con información del Instituto JFR
-- July 22, 2025: Hook useInstitution configurado con "Instituto JFR" como institución predeterminada
+- July 22, 2025: Base de datos actualizada con UPDATE SQL para cambiar emails de @sanpatricio.edu.mx a @jfr.edu.mx
+- July 22, 2025: Hook useInstitution configurado con valores hardcodeados "Instituto JFR" para forzar migración
+- July 22, 2025: AUTENTICACIÓN RESTAURADA - Credenciales admin@jfr.edu.mx/demo123 funcionando correctamente
+- July 22, 2025: Sistema completamente funcional con 4 usuarios activos: admin, contador, caja, admisiones @jfr.edu.mx
 - July 17, 2025: DUPLICACIÓN ELIMINADA - Pestaña "Registro de Pagos Manual" removida por mejor UX
 - July 17, 2025: Solo se mantiene el modal del botón "Registrar pago" del header por mejor experiencia de usuario
 - July 17, 2025: Pestañas reorganizadas: "Lista de pagos" y "Conciliación" únicamente

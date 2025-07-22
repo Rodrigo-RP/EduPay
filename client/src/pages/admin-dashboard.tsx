@@ -94,7 +94,7 @@ export default function AdminDashboard() {
             </div>
           </CardHeader>
           <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <KPICard
                 icon={DollarSign}
                 label="Total Facturado"

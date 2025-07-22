@@ -15,7 +15,7 @@ export default function Reportes() {
   const { logoUrl, institutionName } = useInstitution();
   const [selectedPeriod, setSelectedPeriod] = useState("2025-01");
   const [selectedFormat, setSelectedFormat] = useState("detallado");
-  const [previewReport, setPreviewReport] = useState<any>(null);
+  const [previewReport, setPreviewReport] = useState<{ nombre: string; descripcion: string; id: number } | null>(null);
   const [showPreview, setShowPreview] = useState(false);
 
   // KPIs simulados del reporte
@@ -853,7 +853,7 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
     }
   };
 
-  const handleDescargarReporte = (reporte: any) => {
+  const handleDescargarReporte = (reporte: { nombre: string; descripcion: string; id: number }) => {
     const contenido = `REPORTE: ${reporte.nombre}
 Período: ${selectedPeriod}
 Fecha de generación: ${new Date().toLocaleDateString('es-MX')}
@@ -886,7 +886,7 @@ Generado por Edupay - Sistema de Pagos Escolares`;
     });
   };
 
-  const handlePreviewReport = (reporte: any) => {
+  const handlePreviewReport = (reporte: { nombre: string; descripcion: string; id: number }) => {
     setPreviewReport(reporte);
     setShowPreview(true);
     
@@ -897,7 +897,7 @@ Generado por Edupay - Sistema de Pagos Escolares`;
     });
   };
 
-  const generatePreviewContent = (reporte: any) => {
+  const generatePreviewContent = (reporte: { nombre: string; descripcion: string; id: number }) => {
     const fechaGeneracion = new Date().toLocaleDateString('es-MX');
     
     switch(reporte.id) {

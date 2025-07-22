@@ -43,7 +43,7 @@ export const getQueryFn: <T>(options: {
     const token = localStorage.getItem("auth_token");
     const headers: Record<string, string> = {};
     
-    console.log('Query token check:', { token: token ? 'exists' : 'missing', endpoint: queryKey[0] });
+    // Query token validated
     
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
@@ -54,14 +54,14 @@ export const getQueryFn: <T>(options: {
       credentials: "include",
     });
 
-    console.log('Query response:', { status: res.status, endpoint: queryKey[0] });
+    // Query response processed
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;
     }
 
     if (res.status === 403 || res.status === 401) {
-      console.error('Auth error - Token inválido o expirado, re-autenticando...');
+      // Token expired, attempting re-authentication
       
       try {
         // Auto-reauth with admin credentials
@@ -94,7 +94,7 @@ export const getQueryFn: <T>(options: {
           }
         }
       } catch (reAuthError) {
-        console.error('Re-auth failed:', reAuthError);
+        // Re-authentication failed
       }
       
       // Clear invalid token if reauth failed

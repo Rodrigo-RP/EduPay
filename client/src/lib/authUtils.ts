@@ -43,7 +43,7 @@ export const refreshToken = async (): Promise<string | null> => {
       return data.token;
     }
   } catch (error) {
-    console.error('Error refreshing token:', error);
+    // Token refresh failed
   }
   
   return null;

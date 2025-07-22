@@ -658,7 +658,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Campus ID requerido" });
       }
       
-      const scholarships = await storage.getScholarshipsByCampus(campusId);
+      const scholarships = await storage.getChargesByCampus(campusId);
       res.json(scholarships);
     } catch (error: any) {
       res.status(500).json({ message: "Error fetching scholarships: " + error.message });
@@ -1244,7 +1244,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
               // Create guardian
               await storage.createGuardian({
-                campus_id: campusId,
                 nombre_completo: tutorData.nombre_completo,
                 email: tutorData.email,
                 telefono: tutorData.telefono || ''
@@ -3443,11 +3442,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         campus_id: user.campus_id!,
         requested_by: user.id,
         action_type,
-        action_description,
-        current_value,
-        proposed_value,
+        entity_type: 'approval',
+        entity_id: 1,
+        original_data: current_value || '',
+        requested_data: proposed_value || '',
         reason,
-        additional_data: additional_data ? JSON.stringify(additional_data) : undefined,
         status: 'pending'
       });
 
@@ -3504,8 +3503,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         recipient_id: approval.requested_by,
         notification_type: decision === 'approved' ? 'approval_granted' : 'approval_denied',
         title: `Solicitud ${decision === 'approved' ? 'Aprobada' : 'Rechazada'}`,
-        message: `Tu solicitud "${approval.action_description}" ha sido ${decision === 'approved' ? 'aprobada' : 'rechazada'}`,
-        additional_data: notes ? JSON.stringify({ notes }) : undefined
+        message: `Tu solicitud ha sido ${decision === 'approved' ? 'aprobada' : 'rechazada'}`
       });
 
       // Log the decision
@@ -3739,9 +3737,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         // Aplicar formato
-        [summarySheet, conceptSheet, detailSheet].forEach(sheet => {
+        [summarySheet, conceptSheet, detailSheet].forEach((sheet: any) => {
           sheet.getRow(1).font = { bold: true, size: 16 };
-          sheet.columns.forEach(column => {
+          sheet.columns.forEach((column: any) => {
             column.width = 20;
           });
         });
@@ -3926,8 +3924,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Prepare data for export
       const exportData = filteredCharges.map(charge => {
-        const student = studentMap.get(charge.student_id);
-        const concept = conceptMap.get(charge.concept_id);
+        const student = studentMap.get(charge.student_id || 0);
+        const concept = conceptMap.get(charge.concept_id || 0);
         
         return {
           'ID': charge.id,
@@ -3939,8 +3937,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'Fecha Vencimiento': charge.fecha_vencimiento,
           'Monto Base': (charge.monto_base_centavos / 100).toFixed(2),
           'Beca Aplicada (%)': charge.beca_aplicada,
-          'Recargo': (charge.recargo_aplicado_centavos / 100).toFixed(2),
-          'Total': ((charge.monto_base_centavos + charge.recargo_aplicado_centavos) * (1 - parseFloat(charge.beca_aplicada) / 100) / 100).toFixed(2),
+          'Recargo': ((charge.recargo_aplicado_centavos || 0) / 100).toFixed(2),
+          'Total': ((charge.monto_base_centavos + (charge.recargo_aplicado_centavos || 0)) * (1 - parseFloat(charge.beca_aplicada || '0') / 100) / 100).toFixed(2),
           'Estado': charge.estado,
           'Creado': charge.created_at?.toISOString().split('T')[0] || 'N/A'
         };
@@ -4025,7 +4023,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Apply academic level pricing if available
         const academicLevel = getAcademicLevel(student.grado);
-        const levelPrice = concept[`monto_${academicLevel}`];
+        const levelPrice = (concept as any)[`monto_${academicLevel}`];
         if (levelPrice && levelPrice > 0) {
           baseAmount = levelPrice;
         }

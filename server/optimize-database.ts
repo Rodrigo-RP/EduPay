@@ -1,5 +1,5 @@
 /**
- * OPTIMIZACIÓN DE BASE DE DATOS - ESCUELAPAY
+ * OPTIMIZACIÓN DE BASE DE DATOS - EDUPAY
  * Script para agregar índices críticos y optimizar rendimiento
  */
 

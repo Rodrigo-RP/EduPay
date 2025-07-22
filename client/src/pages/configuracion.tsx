@@ -87,7 +87,7 @@ export default function Configuracion() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Configuración del Sistema</h1>
-          <p className="text-slate-600">Administra la configuración general de EscuelaPay</p>
+          <p className="text-slate-600">Administra la configuración general de Edupay</p>
         </div>
         <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleSaveChanges}>
           <Settings className="w-4 h-4 mr-2" />
@@ -118,7 +118,7 @@ export default function Configuracion() {
                 <div className="space-y-4">
                   <div>
                         <Label>Nombre del sistema</Label>
-                        <Input defaultValue="EscuelaPay - Plataforma SaaS" />
+                        <Input defaultValue="Edupay - Plataforma SaaS" />
                       </div>
                   <div>
                         <Label>Zona horaria</Label>

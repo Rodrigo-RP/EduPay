@@ -352,7 +352,7 @@ export default function TrainingModal({ open, onOpenChange }: TrainingModalProps
     <div class="section">
         <h3>📞 Soporte Técnico</h3>
         <div class="support-box">
-            <p><strong>Email:</strong> soporte@escuelapay.mx</p>
+            <p><strong>Email:</strong> soporte@edupay.mx</p>
             <p><strong>WhatsApp:</strong> +52 55 1234 5678</p>
             <p><strong>Horario:</strong> Lunes a Viernes 8:00 AM - 6:00 PM</p>
             <p><strong>Tiempo de respuesta:</strong> Máximo 4 horas</p>

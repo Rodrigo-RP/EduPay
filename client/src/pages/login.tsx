@@ -186,7 +186,7 @@ export default function Login() {
         {/* Footer */}
         <div className="text-center mt-6 text-sm text-slate-500">
           <p>Plataforma segura para pagos escolares</p>
-          <p className="mt-1">© 2024 EscuelaPay. Todos los derechos reservados.</p>
+          <p className="mt-1">© 2024 Edupay. Todos los derechos reservados.</p>
         </div>
       </div>
     </div>

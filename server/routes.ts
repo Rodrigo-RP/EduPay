@@ -289,9 +289,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Demo users for testing
       const platformUsers = {
-        "ana.soporte@escuelapay.com": {
+        "ana.soporte@edupay.com": {
           id: 100,
-          email: "ana.soporte@escuelapay.com",
+          email: "ana.soporte@edupay.com",
           name: "Ana García",
           role: "support",
           password: "Support123!",
@@ -304,9 +304,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             permissions: ["view_tickets", "respond_tickets", "escalate_tickets", "view_metrics"]
           }
         },
-        "carlos.implementacion@escuelapay.com": {
+        "carlos.implementacion@edupay.com": {
           id: 101,
-          email: "carlos.implementacion@escuelapay.com",
+          email: "carlos.implementacion@edupay.com",
           name: "Carlos Ramírez",
           role: "implementation",
           password: "Implement123!",
@@ -319,9 +319,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             permissions: ["manage_projects", "configure_systems", "train_users", "go_live_support"]
           }
         },
-        "luis.configuracion@escuelapay.com": {
+        "luis.configuracion@edupay.com": {
           id: 102,
-          email: "luis.configuracion@escuelapay.com",
+          email: "luis.configuracion@edupay.com",
           name: "Luis Martínez",
           role: "implementation",
           password: "Config123!",
@@ -2757,25 +2757,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           case "RECORDATORIO_VENCIMIENTO":
             if (canal === "EMAIL") {
               subject = `Recordatorio: ${student.concepto} - Instituto San Patricio`;
-              message = `Estimado/a responsable de ${student.nombre},\n\nLe recordamos que el pago de ${student.concepto} por $${student.monto.toLocaleString()} MXN ${student.diasVencido === 0 ? 'vence hoy' : `vence en ${Math.abs(student.diasVencido)} días`}.\n\nPuede realizar su pago en línea en: https://escuelapay.com/pagar\n\nGracias por su atención.`;
+              message = `Estimado/a responsable de ${student.nombre},\n\nLe recordamos que el pago de ${student.concepto} por $${student.monto.toLocaleString()} MXN ${student.diasVencido === 0 ? 'vence hoy' : `vence en ${Math.abs(student.diasVencido)} días`}.\n\nPuede realizar su pago en línea en: https://edupay.com/pagar\n\nGracias por su atención.`;
             } else {
-              message = `Recordatorio: Su pago de ${student.concepto} por $${student.monto.toLocaleString()} ${student.diasVencido === 0 ? 'vence hoy' : `vence en ${Math.abs(student.diasVencido)} días`}. Pague en escuelapay.com/pagar`;
+              message = `Recordatorio: Su pago de ${student.concepto} por $${student.monto.toLocaleString()} ${student.diasVencido === 0 ? 'vence hoy' : `vence en ${Math.abs(student.diasVencido)} días`}. Pague en edupay.com/pagar`;
             }
             break;
           case "AVISO_MORA":
             if (canal === "EMAIL") {
               subject = `URGENTE: Pago vencido - ${student.concepto} - Instituto San Patricio`;
-              message = `Estimado/a responsable de ${student.nombre},\n\nSu pago de ${student.concepto} por $${student.monto.toLocaleString()} MXN está vencido desde hace ${student.diasVencido} días. Se aplicarán recargos por mora.\n\nPague ahora para evitar cargos adicionales: https://escuelapay.com/pagar\n\nPara más información, contacte a finanzas.`;
+              message = `Estimado/a responsable de ${student.nombre},\n\nSu pago de ${student.concepto} por $${student.monto.toLocaleString()} MXN está vencido desde hace ${student.diasVencido} días. Se aplicarán recargos por mora.\n\nPague ahora para evitar cargos adicionales: https://edupay.com/pagar\n\nPara más información, contacte a finanzas.`;
             } else {
-              message = `URGENTE: Su pago de ${student.concepto} está vencido ${student.diasVencido} días. Se aplicarán recargos. Pague en escuelapay.com/pagar`;
+              message = `URGENTE: Su pago de ${student.concepto} está vencido ${student.diasVencido} días. Se aplicarán recargos. Pague en edupay.com/pagar`;
             }
             break;
           case "CARGO_EMITIDO":
             if (canal === "EMAIL") {
               subject = `Nuevo cargo disponible - ${student.concepto} - Instituto San Patricio`;
-              message = `Estimado/a responsable de ${student.nombre},\n\nSe ha emitido un nuevo cargo: ${student.concepto} por $${student.monto.toLocaleString()} MXN.\n\nPuede consultarlo y pagarlo en línea en: https://escuelapay.com/pagar\n\nGracias por su preferencia.`;
+              message = `Estimado/a responsable de ${student.nombre},\n\nSe ha emitido un nuevo cargo: ${student.concepto} por $${student.monto.toLocaleString()} MXN.\n\nPuede consultarlo y pagarlo en línea en: https://edupay.com/pagar\n\nGracias por su preferencia.`;
             } else {
-              message = `Nuevo cargo disponible: ${student.concepto} por $${student.monto.toLocaleString()}. Consulte y pague en escuelapay.com/pagar`;
+              message = `Nuevo cargo disponible: ${student.concepto} por $${student.monto.toLocaleString()}. Consulte y pague en edupay.com/pagar`;
             }
             break;
         }

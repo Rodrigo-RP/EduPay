@@ -1,5 +1,5 @@
 /**
- * SISTEMA DE PERMISOS Y ROLES - ESCUELAPAY
+ * SISTEMA DE PERMISOS Y ROLES - EDUPAY
  * Define reglas de autorización para cada rol de usuario
  */
 

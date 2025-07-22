@@ -131,7 +131,7 @@ export default function Notificaciones() {
       canal: "SMS",
       destinatario: "5551234567",
       asunto: "",
-      mensaje: "Recordatorio: Su colegiatura vence mañana. Pague en escuelapay.com",
+      mensaje: "Recordatorio: Su colegiatura vence mañana. Pague en edupay.com",
       fecha_envio: "2025-01-14 10:00",
       estado: "enviado",
       intentos: 1

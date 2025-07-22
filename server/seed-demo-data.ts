@@ -62,7 +62,7 @@ export async function seedDemoData() {
     // Super Admin
     await db.insert(users).values({
       campus_id: campusNorte.id,
-      email: "superadmin@escuelapay.com",
+      email: "superadmin@edupay.com",
       password_hash: hashedPassword,
       role: "super_admin"
     });
@@ -535,7 +535,7 @@ export async function seedDemoData() {
 
     console.log("✅ DATOS DEMO COMPLETOS CREADOS EXITOSAMENTE!");
     console.log("\n📧 USUARIOS DEMO CREADOS:");
-    console.log("🔧 Super Admin: superadmin@escuelapay.com / demo123");
+    console.log("🔧 Super Admin: superadmin@edupay.com / demo123");
     console.log("🏫 Admin Campus: admin@jfr.edu.mx / demo123");
     console.log("💰 Caja: caja@jfr.edu.mx / demo123");
     console.log("📊 Contador: contador@contabilidad.com / demo123");
@@ -553,7 +553,7 @@ export async function seedDemoData() {
     console.log("- Métodos de pago guardados: 3");
     console.log("- Facturas CFDI: 5 generadas");
     
-    console.log("\n🎯 META ESCUELAPAY: 80% pagos antes del vencimiento");
+    console.log("\n🎯 META EDUPAY: 80% pagos antes del vencimiento");
     console.log("📊 DASHBOARD TENDRÁ DATOS COMPLETOS PARA PRUEBAS");
 
   } catch (error) {

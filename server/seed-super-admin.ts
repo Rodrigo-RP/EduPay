@@ -10,12 +10,12 @@ export async function seedSuperAdminData() {
     console.log("🚀 Iniciando seed de datos Super Admin...");
 
     // 1. Crear usuario Super Admin si no existe
-    const existingSuperAdmin = await db.select().from(users).where(eq(users.email, 'superadmin@escuelapay.com'));
+    const existingSuperAdmin = await db.select().from(users).where(eq(users.email, 'superadmin@edupay.com'));
     
     if (existingSuperAdmin.length === 0) {
       const hashedPassword = await bcrypt.hash('SuperAdmin123!', 12);
       await db.insert(users).values({
-        email: 'superadmin@escuelapay.com',
+        email: 'superadmin@edupay.com',
         password_hash: hashedPassword,
         name: 'Propietario Edupay',
         role: 'super_admin',

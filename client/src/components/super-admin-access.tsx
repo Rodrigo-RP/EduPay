@@ -19,7 +19,7 @@ export default function SuperAdminAccess() {
       </CardHeader>
       <CardContent className="text-center space-y-4">
         <div className="text-sm text-blue-800">
-          <p><strong>Email:</strong> superadmin@escuelapay.com</p>
+          <p><strong>Email:</strong> superadmin@edupay.com</p>
           <p><strong>Password:</strong> SuperAdmin123!</p>
         </div>
         <Button 

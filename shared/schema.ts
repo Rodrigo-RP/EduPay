@@ -32,6 +32,8 @@ export const users = pgTable("users", {
   password_hash: varchar("password_hash", { length: 255 }).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   role: varchar("role", { length: 50 }).notNull(), // 'super_admin', 'admin', 'caja', 'contador', 'admisiones', 'asistente', 'support', 'implementation'
+  telefono: varchar("telefono", { length: 20 }),
+  foto_url: varchar("foto_url", { length: 500 }),
   twofa_secret: varchar("twofa_secret", { length: 255 }),
   is_active: boolean("is_active").default(true),
   is_super_admin: boolean("is_super_admin").default(false),

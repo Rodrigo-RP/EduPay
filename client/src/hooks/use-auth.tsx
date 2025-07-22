@@ -4,14 +4,19 @@ import { apiRequest } from "@/lib/queryClient";
 interface User {
   id: number;
   email: string;
+  name: string;
   role: string;
   campus_id: number;
+  telefono?: string;
+  foto_url?: string;
 }
 
 interface Guardian {
   id: number;
   email: string;
   nombre_completo: string;
+  telefono?: string;
+  foto_url?: string;
 }
 
 interface AuthContextType {

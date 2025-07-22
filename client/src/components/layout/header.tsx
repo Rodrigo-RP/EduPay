@@ -1,12 +1,15 @@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useAcademicFilter } from "@/hooks/use-academic-filter";
-import { Calendar, GraduationCap } from "lucide-react";
+import { Calendar, GraduationCap, User, Settings } from "lucide-react";
+import { useLocation } from "wouter";
 
 export default function Header() {
-  const { user } = useAuth();
+  const { user, guardian } = useAuth();
   const { selectedCiclo, selectedNivel, setSelectedCiclo, setSelectedNivel } = useAcademicFilter();
+  const [, setLocation] = useLocation();
 
   const ciclosEscolares = [
     "2024-2025",
@@ -67,10 +70,40 @@ export default function Header() {
             Sistema Activo
           </Badge>
           
-          <div className="text-right">
-            <p className="text-sm font-medium text-slate-900">{user?.email}</p>
-            <p className="text-xs text-slate-500">Administrador</p>
-          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-right p-2 hover:bg-slate-100 rounded-lg transition-colors"
+            onClick={() => setLocation('/profile')}
+          >
+            <div className="flex items-center gap-3">
+              {/* Profile Photo */}
+              <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center overflow-hidden">
+                {(user?.foto_url || guardian?.foto_url) ? (
+                  <img 
+                    src={user?.foto_url || guardian?.foto_url} 
+                    alt="Profile" 
+                    className="w-full h-full object-cover" 
+                  />
+                ) : (
+                  <User className="w-4 h-4 text-slate-500" />
+                )}
+              </div>
+              
+              {/* User Info */}
+              <div className="text-right">
+                <p className="text-sm font-medium text-slate-900">
+                  {user?.email || guardian?.email}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {user ? "Administrador" : "Padre/Tutor"}
+                </p>
+              </div>
+
+              {/* Settings Icon */}
+              <Settings className="w-4 h-4 text-slate-400" />
+            </div>
+          </Button>
         </div>
       </div>
     </header>

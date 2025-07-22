@@ -76,6 +76,8 @@ export interface IStorage {
   updateTenantStatus(tenantId: number, status: string): Promise<void>;
   updateUserStatus(userId: number, status: string): Promise<void>;
   updateUserPassword(userId: number, password_hash: string): Promise<void>;
+  updateUserProfile(userId: number, updates: { name?: string; email?: string; telefono?: string; foto_url?: string }): Promise<void>;
+  updateGuardianProfile(guardianId: number, updates: { nombre_completo?: string; email?: string; telefono?: string; foto_url?: string }): Promise<void>;
   
   // Dashboard KPIs
   getDashboardKPIs(campusId: number): Promise<{
@@ -533,6 +535,18 @@ export class DatabaseStorage implements IStorage {
     await db.update(users)
       .set({ password_hash, updated_at: new Date() })
       .where(eq(users.id, userId));
+  }
+
+  async updateUserProfile(userId: number, updates: { name?: string; email?: string; telefono?: string; foto_url?: string }): Promise<void> {
+    await db.update(users)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(users.id, userId));
+  }
+
+  async updateGuardianProfile(guardianId: number, updates: { nombre_completo?: string; email?: string; telefono?: string; foto_url?: string }): Promise<void> {
+    await db.update(guardians)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(guardians.id, guardianId));
   }
 
   async createSecurityEvent(event: InsertSecurityEvent): Promise<SecurityEvent> {

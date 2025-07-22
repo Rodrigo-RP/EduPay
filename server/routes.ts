@@ -278,6 +278,150 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Profile Management Routes
+  
+  // Get current user profile
+  app.get("/api/profile", authenticateToken, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Return user profile without password
+      const { password_hash, ...profile } = user;
+      res.json(profile);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error fetching profile: " + error.message });
+    }
+  });
+
+  // Update user profile
+  app.put("/api/profile", authenticateToken, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      const { name, email, telefono, foto_url } = req.body;
+      
+      const updates: any = {};
+      if (name !== undefined) updates.name = name;
+      if (email !== undefined) updates.email = email;
+      if (telefono !== undefined) updates.telefono = telefono;
+      if (foto_url !== undefined) updates.foto_url = foto_url;
+      
+      await storage.updateUserProfile(userId, updates);
+      
+      // Get updated user data
+      const updatedUser = await storage.getUser(userId);
+      if (updatedUser) {
+        const { password_hash, ...profile } = updatedUser;
+        res.json({ message: "Profile updated successfully", profile });
+      } else {
+        res.status(404).json({ message: "User not found" });
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: "Error updating profile: " + error.message });
+    }
+  });
+
+  // Update user password
+  app.put("/api/profile/password", authenticateToken, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      const { currentPassword, newPassword } = req.body;
+      
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: "Current password and new password are required" });
+      }
+      
+      // Verify current password
+      const user = await storage.getUser(userId);
+      if (!user || !await bcrypt.compare(currentPassword, user.password_hash)) {
+        return res.status(401).json({ message: "Current password is incorrect" });
+      }
+      
+      // Hash new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await storage.updateUserPassword(userId, hashedPassword);
+      
+      res.json({ message: "Password updated successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error updating password: " + error.message });
+    }
+  });
+
+  // Get guardian profile
+  app.get("/api/guardian/profile", authenticateGuardian, async (req, res) => {
+    try {
+      const guardianId = (req as any).guardian?.id;
+      const guardian = await storage.getGuardian(guardianId);
+      
+      if (!guardian) {
+        return res.status(404).json({ message: "Guardian not found" });
+      }
+      
+      // Return guardian profile without password
+      const { password_hash, ...profile } = guardian;
+      res.json(profile);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error fetching profile: " + error.message });
+    }
+  });
+
+  // Update guardian profile
+  app.put("/api/guardian/profile", authenticateGuardian, async (req, res) => {
+    try {
+      const guardianId = (req as any).guardian?.id;
+      const { nombre_completo, email, telefono, foto_url } = req.body;
+      
+      const updates: any = {};
+      if (nombre_completo !== undefined) updates.nombre_completo = nombre_completo;
+      if (email !== undefined) updates.email = email;
+      if (telefono !== undefined) updates.telefono = telefono;
+      if (foto_url !== undefined) updates.foto_url = foto_url;
+      
+      await storage.updateGuardianProfile(guardianId, updates);
+      
+      // Get updated guardian data
+      const updatedGuardian = await storage.getGuardian(guardianId);
+      if (updatedGuardian) {
+        const { password_hash, ...profile } = updatedGuardian;
+        res.json({ message: "Profile updated successfully", profile });
+      } else {
+        res.status(404).json({ message: "Guardian not found" });
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: "Error updating profile: " + error.message });
+    }
+  });
+
+  // Update guardian password
+  app.put("/api/guardian/profile/password", authenticateGuardian, async (req, res) => {
+    try {
+      const guardianId = (req as any).guardian?.id;
+      const { currentPassword, newPassword } = req.body;
+      
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: "Current password and new password are required" });
+      }
+      
+      // Verify current password
+      const guardian = await storage.getGuardian(guardianId);
+      if (!guardian || !guardian.password_hash || !await bcrypt.compare(currentPassword, guardian.password_hash)) {
+        return res.status(401).json({ message: "Current password is incorrect" });
+      }
+      
+      // Hash new password and update guardian
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await storage.updateGuardianProfile(guardianId, { password_hash: hashedPassword } as any);
+      
+      res.json({ message: "Password updated successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error updating password: " + error.message });
+    }
+  });
+
   // PLATFORM LOGIN for Support and Implementation users
   app.post("/api/auth/platform-login", async (req, res) => {
     try {

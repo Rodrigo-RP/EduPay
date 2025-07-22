@@ -8,7 +8,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { User, Mail, Phone, Lock, Camera, Save } from "lucide-react";
+import { User, Mail, Phone, Lock, Camera, Save, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
@@ -90,8 +90,9 @@ export default function Profile() {
     },
     onSuccess: (data) => {
       toast({
-        title: "Perfil actualizado",
-        description: "Tu información personal ha sido actualizada correctamente.",
+        title: "✅ Perfil actualizado exitosamente",
+        description: "Tu información personal ha sido guardada correctamente.",
+        duration: 3000,
       });
       queryClient.invalidateQueries({ queryKey: [profileEndpoint] });
       // Update auth context if needed
@@ -103,9 +104,10 @@ export default function Profile() {
     },
     onError: (error: any) => {
       toast({
-        title: "Error al actualizar perfil",
-        description: error.message || "Hubo un problema al actualizar tu información.",
+        title: "❌ Error al actualizar perfil",
+        description: error.message || "Hubo un problema al actualizar tu información. Intenta nuevamente.",
         variant: "destructive",
+        duration: 4000,
       });
     },
   });
@@ -121,16 +123,18 @@ export default function Profile() {
     },
     onSuccess: () => {
       toast({
-        title: "Contraseña actualizada",
-        description: "Tu contraseña ha sido cambiada exitosamente.",
+        title: "✅ Contraseña actualizada exitosamente",
+        description: "Tu nueva contraseña ha sido configurada correctamente.",
+        duration: 3000,
       });
       passwordForm.reset();
     },
     onError: (error: any) => {
       toast({
-        title: "Error al cambiar contraseña",
-        description: error.message || "La contraseña actual es incorrecta.",
+        title: "❌ Error al cambiar contraseña",
+        description: error.message || "La contraseña actual es incorrecta. Verifica e intenta nuevamente.",
         variant: "destructive",
+        duration: 4000,
       });
     },
   });
@@ -139,22 +143,25 @@ export default function Profile() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validate file size (2MB max)
-    if (file.size > 2 * 1024 * 1024) {
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
       toast({
-        title: "Error",
-        description: "El archivo es demasiado grande. Máximo 2MB.",
+        title: "❌ Archivo muy grande",
+        description: "La imagen no debe superar los 5MB. Selecciona una imagen más pequeña.",
         variant: "destructive",
+        duration: 4000,
       });
       return;
     }
 
     // Validate file type
-    if (!file.type.startsWith('image/')) {
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
       toast({
-        title: "Error",
-        description: "Solo se permiten archivos de imagen (PNG, JPG, SVG).",
+        title: "❌ Formato no válido",
+        description: "Solo se permiten archivos JPG, PNG o WebP. Selecciona una imagen válida.",
         variant: "destructive",
+        duration: 4000,
       });
       return;
     }
@@ -164,6 +171,12 @@ export default function Profile() {
     reader.onload = (e) => {
       const photoDataUrl = e.target?.result as string;
       setPhotoPreview(photoDataUrl);
+      
+      toast({
+        title: "✅ Foto cargada correctamente",
+        description: "Imagen cargada exitosamente. Recuerda guardar los cambios para aplicar.",
+        duration: 3000,
+      });
     };
     reader.readAsDataURL(file);
   };

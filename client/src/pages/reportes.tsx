@@ -128,16 +128,16 @@ Instituto JFR - ${fechaGeneracion}`;
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `Reporte_Financiero_${periodo}_${fechaGeneracion.replace(/\//g, '-')}.txt`;
+      link.download = `JFR_Reporte_Financiero_${periodo}_${fechaGeneracion.replace(/\//g, '-')}.txt`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
       toast({
-        title: "Reporte Generado",
-        description: "Reporte financiero mensual descargado exitosamente",
-        duration: 3000,
+        title: "✅ Reporte Generado Exitosamente",
+        description: `Reporte financiero del período ${periodo} descargado correctamente`,
+        duration: 4000,
       });
     }, 2000);
   };
@@ -196,16 +196,16 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `Reporte_Financiero_${periodo}_${fechaGeneracion.replace(/\//g, '-')}.csv`;
+      link.download = `JFR_Reporte_Financiero_${periodo}_${fechaGeneracion.replace(/\//g, '-')}.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
       toast({
-        title: "Reporte Excel Generado",
-        description: "Archivo CSV compatible con Excel descargado exitosamente",
-        duration: 3000,
+        title: "✅ Reporte Excel Generado",
+        description: `Archivo CSV del período ${periodo} compatible con Excel descargado exitosamente`,
+        duration: 4000,
       });
     }, 2000);
   };
@@ -213,9 +213,9 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
   const handleGenerarReportePDF = async () => {
     try {
       toast({
-        title: "Generando Reporte PDF",
-        description: "Procesando datos para exportación en formato PDF profesional...",
-        duration: 2000,
+        title: "🔄 Generando Reporte PDF",
+        description: "Procesando datos del Instituto JFR para exportación en formato PDF profesional...",
+        duration: 3000,
       });
 
       // Función para cargar imagen como base64
@@ -289,9 +289,13 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
         });
 
         // ========== HEADER PROFESIONAL ==========
-        // Logo y título principal
+        // Header profesional con gradiente visual
         doc.setFillColor(40, 116, 166);
-        doc.rect(0, 0, pageWidth, 35, 'F');
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        
+        // Línea decorativa dorada
+        doc.setFillColor(244, 208, 63);
+        doc.rect(0, 38, pageWidth, 2, 'F');
         
         // Logo del Instituto JFR - implementación robusta
         let logoCargoCorrecta = false;
@@ -664,15 +668,21 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
           doc.text('JFR', 24.5, 24);
         }
         
-        // Información institucional
+        // Información institucional actualizada
         doc.setTextColor(255, 255, 255);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(20);
+        doc.setFontSize(22);
         doc.text('INSTITUTO JFR', 50, 18);
         
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(11);
-        doc.text('Sistema Integrado de Gestión Educativa', 50, 26);
+        doc.setFontSize(12);
+        doc.text('Sistema Edupay de Gestión de Pagos Escolares', 50, 26);
+        
+        // Fecha y hora en el header
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.text(`Generado: ${fechaGeneracion} ${horaGeneracion}`, pageWidth - 80, 18);
+        doc.text('Documento Confidencial', pageWidth - 80, 26);
         doc.text('RFC: IJF123456789 | Acreditación SEP: ES-25-09-0234', 50, 33);
         
         // Información del documento (esquina superior derecha)
@@ -780,30 +790,40 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
           }
         });
 
-        // ========== FOOTER INSTITUCIONAL ==========
-        // Asegurar que el footer esté en la posición correcta sin sobreescribir - mayor separación
-        const footerStartY = pageHeight - 50;
+        // ========== FOOTER INSTITUCIONAL MEJORADO ==========
+        const footerStartY = pageHeight - 45;
         
-        // Línea separadora elegante
+        // Línea separadora elegante con degradado visual
         doc.setDrawColor(40, 116, 166);
-        doc.setLineWidth(1);
+        doc.setLineWidth(2);
+        doc.line(margin, footerStartY - 5, pageWidth - margin, footerStartY - 5);
+        
+        // Sub-línea dorada
+        doc.setDrawColor(244, 208, 63);
+        doc.setLineWidth(0.5);
         doc.line(margin, footerStartY - 3, pageWidth - margin, footerStartY - 3);
         
-        // Información del pie de página (lado izquierdo)
-        doc.setTextColor(80, 80, 80);
+        // Información institucional (lado izquierdo)
+        doc.setTextColor(60, 60, 60);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.text('INSTITUTO JFR | Sistema Edupay de Gestión de Pagos Escolares', margin, footerStartY + 3);
+        
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
-        doc.text('INSTITUTO JFR | Sistema Edupay de Gestión Escolar', margin, footerStartY + 2);
-        doc.text('www.institutojfr.edu.mx | administracion@institutojfr.edu.mx', margin, footerStartY + 7);
-        doc.text(`Documento generado el ${fechaGeneracion} a las ${horaGeneracion}`, margin, footerStartY + 12);
+        doc.text('📧 administracion@institutojfr.edu.mx | 🌐 www.institutojfr.edu.mx', margin, footerStartY + 8);
+        doc.text(`📅 Generado: ${fechaGeneracion} ⏰ ${horaGeneracion}`, margin, footerStartY + 13);
         
-        // Información de página y confidencialidad (lado derecho, bien separada)
+        // Información de seguridad y paginación (lado derecho)
         const totalPages = doc.internal.pages.length - 1;
         doc.setFont('helvetica', 'bold');
-        doc.text(`Página ${totalPages}`, pageWidth - 45, footerStartY + 2);
+        doc.setFontSize(9);
+        doc.text(`Página ${totalPages}`, pageWidth - 45, footerStartY + 3);
+        
         doc.setFont('helvetica', 'normal');
-        doc.text('CONFIDENCIAL', pageWidth - 45, footerStartY + 7);
-        doc.text('Uso Interno', pageWidth - 45, footerStartY + 12);
+        doc.setFontSize(8);
+        doc.text('🔒 CONFIDENCIAL', pageWidth - 45, footerStartY + 8);
+        doc.text('📋 Uso Interno', pageWidth - 45, footerStartY + 13);
 
         // ========== MARCA DE AGUA INSTITUCIONAL ==========
         doc.setTextColor(250, 250, 250);
@@ -816,9 +836,9 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
         doc.save(nombreArchivo);
         
         toast({
-          title: "Documento PDF Generado",
-          description: `${reporte.nombre} - Instituto JFR formato ejecutivo`,
-          duration: 3000,
+          title: "✅ PDF Generado Exitosamente",
+          description: `${reporte.nombre} - Instituto JFR en formato ejecutivo profesional`,
+          duration: 4000,
         });
       }, 2000);
       
@@ -1025,21 +1045,21 @@ Fecha: ${reporte.fecha}
                 onClick={handleGenerarReporte}
               >
                 <FileText className="w-5 h-5 mr-2" />
-                Generar Reporte TXT
+                Generar Reporte
               </Button>
               <Button 
                 className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 px-6 py-3"
                 onClick={handleGenerarReporteExcel}
               >
                 <Download className="w-5 h-5 mr-2" />
-                Generar Excel
+                Exportar Excel
               </Button>
               <Button 
                 className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 px-6 py-3"
                 onClick={handleGenerarReportePDF}
               >
                 <FileText className="w-5 h-5 mr-2" />
-                Generar PDF
+                Exportar PDF
               </Button>
             </div>
           </div>

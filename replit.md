@@ -140,6 +140,11 @@ Changelog:
 - July 17, 2025: LOGO OPTIMIZADO PARA COMPATIBILIDAD PDF - Cambiado de SVG complejo a logo circular basado en CSS
 - July 17, 2025: Logo circular con gradiente azul, iniciales "ISP" y texto "EDUCACIÓN" dorado para mejor renderizado
 - July 17, 2025: Diseño optimizado para generación HTML-to-PDF manteniendo identidad visual profesional
+- July 22, 2025: LOGO REAL DE INSTITUCIÓN INTEGRADO - Sistema actualizado para usar logo subido en configuración
+- July 22, 2025: Recibos fiscales ahora usan logo real del "Colegio San Patricio" desde configuración del sistema
+- July 22, 2025: Hook useInstitution integrado en pagos.tsx y caja-conciliacion.tsx para logo e institución dinámicos
+- July 22, 2025: Logo fallback mantiene diseño circular "ISP" solo cuando no hay logo configurado
+- July 22, 2025: Sistema resuelve inconsistencia entre logo genérico y logo real de la escuela
 - July 17, 2025: DUPLICACIÓN ELIMINADA - Pestaña "Registro de Pagos Manual" removida por mejor UX
 - July 17, 2025: Solo se mantiene el modal del botón "Registrar pago" del header por mejor experiencia de usuario
 - July 17, 2025: Pestañas reorganizadas: "Lista de pagos" y "Conciliación" únicamente

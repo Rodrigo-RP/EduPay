@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useInstitution } from "@/hooks/use-institution";
 import { 
   DollarSign, 
   Banknote, 
@@ -29,6 +30,7 @@ import {
 export default function CajaConciliacion() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { logoUrl, institutionName } = useInstitution();
   const [showReceiptOptions, setShowReceiptOptions] = useState(false);
   const [currentReceiptHTML, setCurrentReceiptHTML] = useState('');
 
@@ -169,6 +171,14 @@ export default function CajaConciliacion() {
               margin-top: 2px;
               letter-spacing: 0.5px;
           }
+          .institution-logo {
+              width: 80px;
+              height: 80px;
+              border-radius: 50%;
+              object-fit: cover;
+              border: 3px solid #1e40af;
+              box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+          }
           .header h1 {
               color: #2563eb;
               margin: 0;
@@ -287,13 +297,16 @@ export default function CajaConciliacion() {
       <div class="receipt-container">
           <div class="header">
               <div class="logo-container">
-                  <div class="logo-circle">
-                      <div class="logo-text">ISP</div>
-                      <div class="logo-subtext">EDUCACIÓN</div>
-                  </div>
+                  ${logoUrl 
+                    ? `<img class="institution-logo" src="${logoUrl}" alt="Logo de la institución" />` 
+                    : `<div class="logo-circle">
+                          <div class="logo-text">ISP</div>
+                          <div class="logo-subtext">EDUCACIÓN</div>
+                       </div>`
+                  }
               </div>
               <h1>RECIBO FISCAL</h1>
-              <p>Instituto San Patricio</p>
+              <p>${institutionName || 'Instituto San Patricio'}</p>
               <p>RFC: ISP850101ABC</p>
               <p>Calle Principal #123, Col. Centro, CP 44100</p>
               <p>Guadalajara, Jalisco, México</p>

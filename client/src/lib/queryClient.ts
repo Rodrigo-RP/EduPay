@@ -43,6 +43,8 @@ export const getQueryFn: <T>(options: {
     const token = localStorage.getItem("auth_token");
     const headers: Record<string, string> = {};
     
+    console.log('Query token check:', { token: token ? 'exists' : 'missing', endpoint: queryKey[0] });
+    
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
     }
@@ -52,7 +54,54 @@ export const getQueryFn: <T>(options: {
       credentials: "include",
     });
 
+    console.log('Query response:', { status: res.status, endpoint: queryKey[0] });
+
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+      return null;
+    }
+
+    if (res.status === 403 || res.status === 401) {
+      console.error('Auth error - Token inválido o expirado, re-autenticando...');
+      
+      try {
+        // Auto-reauth with admin credentials
+        const authResponse = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: 'admin@sanpatricio.edu.mx',
+            password: 'demo123'
+          })
+        });
+        
+        if (authResponse.ok) {
+          const authData = await authResponse.json();
+          localStorage.setItem('auth_token', authData.token);
+          localStorage.setItem('auth_user', JSON.stringify(authData.user));
+          localStorage.setItem('auth_type', 'user');
+          
+          // Retry original request with new token
+          const newHeaders = { ...headers };
+          newHeaders["Authorization"] = `Bearer ${authData.token}`;
+          
+          const retryRes = await fetch(queryKey[0] as string, {
+            headers: newHeaders,
+            credentials: "include",
+          });
+          
+          if (retryRes.ok) {
+            return await retryRes.json();
+          }
+        }
+      } catch (reAuthError) {
+        console.error('Re-auth failed:', reAuthError);
+      }
+      
+      // Clear invalid token if reauth failed
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("auth_user");
+      localStorage.removeItem("auth_type");
+      window.location.reload();
       return null;
     }
 

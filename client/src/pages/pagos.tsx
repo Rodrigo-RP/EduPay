@@ -99,14 +99,8 @@ export default function Pagos() {
   const { data: paymentsData, isLoading: paymentsLoading, error: paymentsError } = useQuery({
     queryKey: ["/api/payments"],
     enabled: !!user?.campus_id,
-    retry: 3,
-    staleTime: 0,
-    onError: (error) => {
-      console.error('Error fetching payments:', error);
-    },
-    onSuccess: (data) => {
-      console.log('Payments loaded successfully:', data);
-    }
+    retry: 1,
+    staleTime: 0
   });
   
   console.log('Payments query state:', {

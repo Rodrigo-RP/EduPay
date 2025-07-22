@@ -212,131 +212,227 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
     try {
       toast({
         title: "Generando Reporte PDF",
-        description: "Procesando datos para exportación en formato PDF...",
+        description: "Procesando datos para exportación en formato PDF profesional...",
         duration: 2000,
       });
 
       setTimeout(() => {
-        // Crear nuevo documento PDF
-        const doc = new jsPDF();
-        const fechaGeneracion = new Date().toLocaleDateString('es-MX');
+        // Crear nuevo documento PDF con formato A4
+        const doc = new jsPDF('portrait', 'mm', 'a4');
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 20;
+        const fechaGeneracion = new Date().toLocaleDateString('es-MX', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+        const horaGeneracion = new Date().toLocaleTimeString('es-MX', {
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+
+        // ========== HEADER PROFESIONAL ==========
+        // Logo y título principal
+        doc.setFillColor(40, 116, 166);
+        doc.rect(0, 0, pageWidth, 35, 'F');
         
-        // Configurar fuente
-        doc.setFont('helvetica');
-        
-        // Header del documento
-        doc.setFontSize(18);
+        // Logo del Instituto JFR (círculo azul con iniciales)
+        doc.setFillColor(255, 255, 255);
+        doc.circle(30, 17.5, 8, 'F');
         doc.setTextColor(40, 116, 166);
-        doc.text('INSTITUTO JFR', 20, 25);
-        
-        doc.setFontSize(14);
-        doc.setTextColor(0, 0, 0);
-        doc.text('REPORTE FINANCIERO MENSUAL', 20, 35);
-        
-        // Información del período
-        doc.setFontSize(10);
-        doc.setTextColor(100, 100, 100);
-        doc.text(`Período: ${selectedPeriod}`, 20, 45);
-        doc.text(`Fecha de generación: ${fechaGeneracion}`, 20, 50);
-        
-        // Línea separadora
-        doc.setLineWidth(0.5);
-        doc.setDrawColor(200, 200, 200);
-        doc.line(20, 55, 190, 55);
-        
-        // Resumen Ejecutivo
+        doc.setFont('helvetica', 'bold');
         doc.setFontSize(12);
-        doc.setTextColor(0, 0, 0);
+        doc.text('JFR', 25.5, 20);
+        
+        // Nombre de la institución
+        doc.setTextColor(255, 255, 255);
         doc.setFont('helvetica', 'bold');
-        doc.text('RESUMEN EJECUTIVO', 20, 70);
+        doc.setFontSize(18);
+        doc.text('INSTITUTO JFR', 45, 15);
         
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
-        const yStart = 80;
-        const lineHeight = 6;
+        doc.text('Sistema Integrado de Gestión Escolar', 45, 22);
+        doc.text('RFC: IJF123456789 | Tel: (555) 123-4567', 45, 28);
         
-        const resumenData = [
-          `• Total Facturado: $${(kpisReporte.totalFacturado / 100).toLocaleString('es-MX')}`,
-          `• Total Cobrado: $${(kpisReporte.totalCobrado / 100).toLocaleString('es-MX')}`,
-          `• Tasa de Cobranza: ${kpisReporte.tasaCobranza}%`,
-          `• Estudiantes Activos: ${kpisReporte.estudiantesActivos}`,
-          `• Cargos Vencidos: ${kpisReporte.cargosVencidos}`,
-          `• Tiempo Promedio Pago: ${kpisReporte.promedioTiempoPago} días`
-        ];
-        
-        resumenData.forEach((linea, index) => {
-          doc.text(linea, 25, yStart + (index * lineHeight));
-        });
-        
-        // Desglose por Conceptos
+        // Información del reporte (lado derecho)
+        const rightX = pageWidth - 60;
         doc.setFont('helvetica', 'bold');
-        doc.text('DESGLOSE POR CONCEPTOS', 20, yStart + (resumenData.length * lineHeight) + 15);
+        doc.setFontSize(12);
+        doc.text('REPORTE FINANCIERO', rightX, 15);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.text(`Período: ${selectedPeriod}`, rightX, 22);
+        doc.text(`Generado: ${fechaGeneracion}`, rightX, 27);
+        doc.text(`Hora: ${horaGeneracion}`, rightX, 32);
+
+        // ========== INFORMACIÓN GENERAL ==========
+        let currentY = 50;
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.text('ESTADO DE CUENTA GENERAL - VISTA PREVIA', margin, currentY);
+        
+        currentY += 15;
+        
+        // Marco de información básica
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.5);
+        doc.rect(margin, currentY, pageWidth - (margin * 2), 35);
+        
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.text('INFORMACIÓN DEL REPORTE', margin + 5, currentY + 8);
         
         doc.setFont('helvetica', 'normal');
-        const conceptosData = [
-          '• Inscripciones: $1,250,000 (43.9%)',
-          '• Colegiaturas: $1,400,000 (49.1%)',
-          '• Actividades: $150,000 (5.3%)',
-          '• Otros: $50,000 (1.8%)'
-        ];
-        
-        const yConceptos = yStart + (resumenData.length * lineHeight) + 25;
-        conceptosData.forEach((linea, index) => {
-          doc.text(linea, 25, yConceptos + (index * lineHeight));
-        });
-        
-        // Análisis de Morosidad
+        doc.setFontSize(10);
+        doc.text(`Instituto JFR - ${fechaGeneracion}`, margin + 5, currentY + 18);
+        doc.text(`Período: ${selectedPeriod}`, margin + 5, currentY + 25);
+        doc.text('Formato: PDF Profesional', margin + 5, currentY + 32);
+
+        currentY += 50;
+
+        // ========== FAMILIAS REGISTRADAS ==========
         doc.setFont('helvetica', 'bold');
-        doc.text('ANÁLISIS DE MOROSIDAD', 20, yConceptos + (conceptosData.length * lineHeight) + 15);
+        doc.setFontSize(12);
+        doc.setTextColor(40, 116, 166);
+        doc.text('FAMILIAS REGISTRADAS', margin, currentY);
         
+        currentY += 10;
+        doc.setDrawColor(40, 116, 166);
+        doc.setLineWidth(1);
+        doc.line(margin, currentY, pageWidth - margin, currentY);
+        
+        currentY += 8;
+        doc.setTextColor(0, 0, 0);
         doc.setFont('helvetica', 'normal');
-        const morosidadData = [
-          `• Cargos Vencidos: ${kpisReporte.cargosVencidos}`,
-          `• Tiempo Promedio Pago: ${kpisReporte.promedioTiempoPago} días`,
-          `• Gestión Activa: ${kpisReporte.cargosVencidos} casos`,
-          '• Estrategias: Email automático, SMS recordatorios'
+        doc.setFontSize(10);
+        
+        const familiasData = [
+          '• Total Familias: 27',
+          '• Familias al Corriente: 21 (77.8%)',
+          '• Familias con Saldo: 6 (22.2%)'
         ];
         
-        const yMorosidad = yConceptos + (conceptosData.length * lineHeight) + 25;
-        morosidadData.forEach((linea, index) => {
-          doc.text(linea, 25, yMorosidad + (index * lineHeight));
+        familiasData.forEach((item, index) => {
+          doc.text(item, margin + 5, currentY + (index * 6));
         });
         
-        // Métricas Edupay
+        currentY += 25;
+
+        // ========== RESUMEN DE CARGOS ==========
         doc.setFont('helvetica', 'bold');
-        doc.text('MÉTRICAS EDUPAY', 20, yMorosidad + (morosidadData.length * lineHeight) + 15);
+        doc.setFontSize(12);
+        doc.setTextColor(40, 116, 166);
+        doc.text('RESUMEN DE CARGOS', margin, currentY);
         
+        currentY += 10;
+        doc.setDrawColor(40, 116, 166);
+        doc.setLineWidth(1);
+        doc.line(margin, currentY, pageWidth - margin, currentY);
+        
+        currentY += 8;
+        doc.setTextColor(0, 0, 0);
         doc.setFont('helvetica', 'normal');
-        const metricasData = [
-          '• Meta: 80% pagos antes vencimiento',
-          `• Actual: ${kpisReporte.tasaCobranza}%`,
-          `• Estado: ${kpisReporte.tasaCobranza >= 80 ? 'META ALCANZADA ✓' : 'EN PROGRESO 📈'}`,
-          '• Portal Padres: 95% adopción'
+        doc.setFontSize(10);
+        
+        const cargosData = [
+          `• Cargos Totales: 43`,
+          `• Cargos Pagados: 37`,
+          `• Cargos Pendientes: 6`,
+          `• Monto Pendiente: $7,125`
         ];
         
-        const yMetricas = yMorosidad + (morosidadData.length * lineHeight) + 25;
-        metricasData.forEach((linea, index) => {
-          doc.text(linea, 25, yMetricas + (index * lineHeight));
+        cargosData.forEach((item, index) => {
+          doc.text(item, margin + 5, currentY + (index * 6));
         });
         
-        // Footer
+        currentY += 35;
+
+        // ========== ANÁLISIS DE ANTIGÜEDAD ==========
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.setTextColor(40, 116, 166);
+        doc.text('ANÁLISIS DE ANTIGÜEDAD', margin, currentY);
+        
+        currentY += 10;
+        doc.setDrawColor(40, 116, 166);
+        doc.setLineWidth(1);
+        doc.line(margin, currentY, pageWidth - margin, currentY);
+        
+        currentY += 8;
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        
+        const antiguedadData = [
+          '• 0-30 días: 4 cargos',
+          '• 31-60 días: 2 cargos',
+          '• Más de 60 días: 0 cargos'
+        ];
+        
+        antiguedadData.forEach((item, index) => {
+          doc.text(item, margin + 5, currentY + (index * 6));
+        });
+        
+        currentY += 30;
+
+        // ========== DETALLE POR FAMILIA ==========
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.setTextColor(40, 116, 166);
+        doc.text('DETALLE POR FAMILIA', margin, currentY);
+        
+        currentY += 10;
+        doc.setDrawColor(40, 116, 166);
+        doc.setLineWidth(1);
+        doc.line(margin, currentY, pageWidth - margin, currentY);
+        
+        currentY += 8;
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(9);
+        doc.text('[Datos detallados por familia con saldos,', margin + 5, currentY);
+        doc.text('fechas de vencimiento y conceptos pendientes]', margin + 5, currentY + 6);
+
+        // ========== FOOTER PROFESIONAL ==========
+        const footerY = pageHeight - 25;
+        
+        // Línea separadora del footer
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.5);
+        doc.line(margin, footerY - 5, pageWidth - margin, footerY - 5);
+        
+        doc.setTextColor(100, 100, 100);
+        doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
-        doc.setTextColor(150, 150, 150);
-        doc.text('Generado por Edupay - Sistema de Pagos Escolares', 20, 280);
-        doc.text(`Página 1 de 1 | ${fechaGeneracion}`, 150, 280);
+        doc.text('Generado por Edupay - Sistema de Pagos Escolares', margin, footerY);
+        doc.text('www.edupay.mx | soporte@edupay.mx', margin, footerY + 5);
+        doc.text(`Documento generado el ${fechaGeneracion} a las ${horaGeneracion}`, margin, footerY + 10);
+        
+        // Número de página (lado derecho)
+        doc.text('Página 1 de 1', pageWidth - 40, footerY);
+        doc.text('Confidencial', pageWidth - 40, footerY + 5);
+
+        // ========== MARCA DE AGUA SUTIL ==========
+        doc.setTextColor(240, 240, 240);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(60);
+        doc.text('JFR', pageWidth/2 - 20, pageHeight/2, { angle: 45 });
         
         // Descargar el PDF
-        doc.save(`Reporte_Financiero_PDF_${selectedPeriod}.pdf`);
+        doc.save(`Estado_Cuenta_JFR_${selectedPeriod}_${fechaGeneracion.replace(/\s/g, '_')}.pdf`);
         
         toast({
-          title: "Reporte PDF Generado",
-          description: `Reporte del período ${selectedPeriod} descargado en formato PDF`,
+          title: "Reporte PDF Profesional Generado",
+          description: `Estado de cuenta del Instituto JFR - ${selectedPeriod}`,
           duration: 3000,
         });
       }, 2000);
       
     } catch (error) {
-      console.error('Error generando PDF:', error);
+      console.error('Error generando PDF profesional:', error);
       toast({
         title: "Error",
         description: "Hubo un problema generando el reporte PDF",
@@ -349,98 +445,204 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
   const handleGenerarReportePDFEspecifico = (reporte: any) => {
     try {
       toast({
-        title: "Generando PDF",
-        description: `Generando ${reporte.nombre} en formato PDF...`,
+        title: "Generando PDF Profesional",
+        description: `Creando ${reporte.nombre} con formato ejecutivo...`,
         duration: 2000,
       });
 
       setTimeout(() => {
-        const doc = new jsPDF();
-        const fechaGeneracion = new Date().toLocaleDateString('es-MX');
-        const contenidoVistaPrevie = generatePreviewContent(reporte);
-        
-        // Header del documento
-        doc.setFontSize(18);
-        doc.setTextColor(40, 116, 166);
-        doc.text('INSTITUTO JFR', 20, 25);
-        
-        doc.setFontSize(14);
-        doc.setTextColor(0, 0, 0);
-        doc.text(contenidoVistaPrevie.title.toUpperCase(), 20, 35);
-        
-        // Información básica
-        doc.setFontSize(10);
-        doc.setTextColor(100, 100, 100);
-        doc.text(`Período: ${selectedPeriod}`, 20, 45);
-        doc.text(`Fecha de generación: ${fechaGeneracion}`, 20, 50);
-        doc.text(`Formato: ${reporte.formato}`, 20, 55);
-        
-        // Línea separadora
-        doc.setLineWidth(0.5);
-        doc.setDrawColor(200, 200, 200);
-        doc.line(20, 65, 190, 65);
-        
-        // Contenido del reporte
-        doc.setFontSize(10);
-        doc.setTextColor(0, 0, 0);
-        doc.setFont('helvetica', 'normal');
-        
-        // Dividir el contenido en líneas
-        const contenidoLineas = contenidoVistaPrevie.content.split('\n');
-        let yPosition = 75;
-        const lineHeight = 5;
-        const maxY = 270; // Límite inferior de la página
-        
-        contenidoLineas.forEach((linea, index) => {
-          if (yPosition > maxY) {
-            doc.addPage();
-            yPosition = 20;
-          }
-          
-          // Formatear líneas especiales
-          if (linea.includes('═══')) {
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(12);
-          } else if (linea.includes('📊') || linea.includes('💰') || linea.includes('⚠️') || linea.includes('✅')) {
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(11);
-          } else {
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(10);
-          }
-          
-          // Limpiar emojis para mejor compatibilidad PDF
-          const lineaLimpia = linea.replace(/[📊💰⚠️✅📋💳👨‍👩‍👧‍👦📈⏰🔄📞═]/g, '');
-          
-          if (lineaLimpia.trim()) {
-            doc.text(lineaLimpia, 20, yPosition);
-          }
-          yPosition += lineHeight;
+        // Crear nuevo documento PDF con formato A4 profesional
+        const doc = new jsPDF('portrait', 'mm', 'a4');
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 20;
+        const fechaGeneracion = new Date().toLocaleDateString('es-MX', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+        const horaGeneracion = new Date().toLocaleTimeString('es-MX', {
+          hour: '2-digit',
+          minute: '2-digit'
         });
         
-        // Footer en la última página
-        doc.setFontSize(8);
-        doc.setTextColor(150, 150, 150);
-        const totalPages = doc.internal.pages.length - 1;
-        doc.text('Generado por Edupay - Sistema de Pagos Escolares', 20, 285);
-        doc.text(`Página ${totalPages} | ${fechaGeneracion}`, 150, 285);
+        const contenidoVistaPrevie = generatePreviewContent(reporte);
         
-        // Descargar el PDF
-        const nombreArchivo = `${reporte.nombre.replace(/\s+/g, '_')}_${selectedPeriod}.pdf`;
+        // ========== HEADER EJECUTIVO ==========
+        // Barra superior azul institucional
+        doc.setFillColor(40, 116, 166);
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        
+        // Logo del Instituto JFR
+        doc.setFillColor(255, 255, 255);
+        doc.circle(30, 20, 10, 'F');
+        doc.setTextColor(40, 116, 166);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.text('JFR', 24.5, 24);
+        
+        // Información institucional
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(20);
+        doc.text('INSTITUTO JFR', 50, 18);
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(11);
+        doc.text('Sistema Integrado de Gestión Educativa', 50, 26);
+        doc.text('RFC: IJF123456789 | Acreditación SEP: ES-25-09-0234', 50, 33);
+        
+        // Información del documento (esquina superior derecha)
+        const rightX = pageWidth - 70;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.text('DOCUMENTO OFICIAL', rightX, 18);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.text(`Fecha: ${fechaGeneracion}`, rightX, 25);
+        doc.text(`Hora: ${horaGeneracion}`, rightX, 30);
+        doc.text(`Formato: ${reporte.formato}`, rightX, 35);
+
+        // ========== TÍTULO DEL REPORTE ==========
+        let currentY = 55;
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        const titulo = contenidoVistaPrevie.title.toUpperCase();
+        doc.text(titulo, margin, currentY);
+        
+        currentY += 8;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(11);
+        doc.text(`Período de Análisis: ${selectedPeriod}`, margin, currentY);
+        
+        currentY += 15;
+        
+        // Línea decorativa
+        doc.setDrawColor(40, 116, 166);
+        doc.setLineWidth(2);
+        doc.line(margin, currentY, pageWidth - margin, currentY);
+        
+        currentY += 15;
+
+        // ========== CONTENIDO ESTRUCTURADO ==========
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        
+        // Procesar contenido línea por línea con formato mejorado
+        const contenidoLineas = contenidoVistaPrevie.content.split('\n');
+        const lineHeight = 6;
+        const maxY = pageHeight - 40; // Margen inferior para footer
+        
+        contenidoLineas.forEach((linea, index) => {
+          // Manejar salto de página
+          if (currentY > maxY) {
+            // Agregar nueva página
+            doc.addPage();
+            currentY = 30;
+            
+            // Mini header en páginas adicionales
+            doc.setFillColor(240, 248, 255);
+            doc.rect(0, 0, pageWidth, 25, 'F');
+            doc.setTextColor(40, 116, 166);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(12);
+            doc.text('INSTITUTO JFR - ' + titulo, margin, 15);
+            currentY = 35;
+          }
+          
+          // Limpiar línea de emojis y caracteres especiales
+          const lineaLimpia = linea.replace(/[📊💰⚠️✅📋💳👨‍👩‍👧‍👦📈⏰🔄📞═]/g, '').trim();
+          
+          if (lineaLimpia) {
+            // Formatear encabezados y secciones
+            if (lineaLimpia.includes('═══') || lineaLimpia.includes('RESUMEN') || lineaLimpia.includes('ANÁLISIS')) {
+              doc.setFont('helvetica', 'bold');
+              doc.setFontSize(12);
+              doc.setTextColor(40, 116, 166);
+              currentY += 5; // Espacio extra antes de secciones
+            } else if (lineaLimpia.includes(':') && lineaLimpia.length < 50) {
+              // Subsecciones
+              doc.setFont('helvetica', 'bold');
+              doc.setFontSize(11);
+              doc.setTextColor(0, 0, 0);
+            } else if (lineaLimpia.startsWith('•') || lineaLimpia.startsWith('-')) {
+              // Elementos de lista
+              doc.setFont('helvetica', 'normal');
+              doc.setFontSize(10);
+              doc.setTextColor(0, 0, 0);
+            } else {
+              // Texto normal
+              doc.setFont('helvetica', 'normal');
+              doc.setFontSize(10);
+              doc.setTextColor(60, 60, 60);
+            }
+            
+            // Dividir líneas largas si es necesario
+            const maxWidth = pageWidth - (margin * 2);
+            const splitLines = doc.splitTextToSize(lineaLimpia, maxWidth);
+            
+            splitLines.forEach((splitLine: string) => {
+              if (currentY > maxY) {
+                doc.addPage();
+                currentY = 30;
+              }
+              doc.text(splitLine, margin, currentY);
+              currentY += lineHeight;
+            });
+          } else {
+            // Línea vacía - añadir espacio menor
+            currentY += lineHeight / 2;
+          }
+        });
+
+        // ========== FOOTER INSTITUCIONAL ==========
+        const footerY = pageHeight - 30;
+        
+        // Línea separadora elegante
+        doc.setDrawColor(40, 116, 166);
+        doc.setLineWidth(1);
+        doc.line(margin, footerY - 8, pageWidth - margin, footerY - 8);
+        
+        // Información del pie de página
+        doc.setTextColor(80, 80, 80);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.text('INSTITUTO JFR | Sistema Edupay de Gestión Escolar', margin, footerY);
+        doc.text('www.institutojfr.edu.mx | administracion@institutojfr.edu.mx | Tel: (555) 123-4567', margin, footerY + 5);
+        doc.text(`Documento generado automáticamente el ${fechaGeneracion} a las ${horaGeneracion}`, margin, footerY + 10);
+        
+        // Información de página y confidencialidad
+        const totalPages = doc.internal.pages.length - 1;
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Página ${totalPages}`, pageWidth - 35, footerY);
+        doc.setFont('helvetica', 'normal');
+        doc.text('CONFIDENCIAL', pageWidth - 45, footerY + 5);
+        doc.text('Uso Interno', pageWidth - 35, footerY + 10);
+
+        // ========== MARCA DE AGUA INSTITUCIONAL ==========
+        doc.setTextColor(250, 250, 250);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(50);
+        doc.text('JFR', pageWidth/2 - 15, pageHeight/2, { angle: 45 });
+        
+        // Descargar el PDF con nombre profesional
+        const nombreArchivo = `JFR_${reporte.nombre.replace(/\s+/g, '_')}_${selectedPeriod}_${fechaGeneracion.replace(/\s/g, '_')}.pdf`;
         doc.save(nombreArchivo);
         
         toast({
-          title: "PDF Generado",
-          description: `${reporte.nombre} descargado en formato PDF`,
+          title: "Documento PDF Generado",
+          description: `${reporte.nombre} - Instituto JFR formato ejecutivo`,
           duration: 3000,
         });
       }, 2000);
       
     } catch (error) {
-      console.error('Error generando PDF específico:', error);
+      console.error('Error generando PDF profesional:', error);
       toast({
         title: "Error",
-        description: "Hubo un problema generando el PDF",
+        description: "Hubo un problema generando el documento PDF",
         variant: "destructive",
         duration: 3000,
       });

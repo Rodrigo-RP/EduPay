@@ -69,9 +69,145 @@ export default function Reportes() {
     });
 
     setTimeout(() => {
+      // Generar contenido del reporte financiero completo
+      const fechaGeneracion = new Date().toLocaleDateString('es-MX');
+      const periodo = selectedPeriod;
+      
+      const contenidoReporte = `REPORTE FINANCIERO INTEGRAL - INSTITUTO JFR
+Período: ${periodo}
+Fecha de generación: ${fechaGeneracion}
+
+═══════════════════════════════════════════════════════════════
+
+RESUMEN EJECUTIVO
+═══════════════════════════════════════════════════════════════
+• Total Facturado: $${(kpisReporte.totalFacturado / 100).toLocaleString('es-MX')}
+• Total Cobrado: $${(kpisReporte.totalCobrado / 100).toLocaleString('es-MX')}
+• Tasa de Cobranza: ${kpisReporte.tasaCobranza}%
+• Cargos Vencidos: ${kpisReporte.cargosVencidos}
+• Estudiantes Activos: ${kpisReporte.estudiantesActivos}
+• Promedio Días de Pago: ${kpisReporte.promedioTiempoPago} días
+
+ANÁLISIS DE MOROSIDAD
+═══════════════════════════════════════════════════════════════
+• Tasa de Morosidad: ${100 - kpisReporte.tasaCobranza}%
+• Cargos por Vencer (próximos 7 días): 3
+• Gestión de Cobranza Activa: ${kpisReporte.cargosVencidos} casos
+• Tiempo Promedio de Recuperación: 12.3 días
+
+MÉTRICAS EDUPAY
+═══════════════════════════════════════════════════════════════
+• Meta Institucional: 80% pagos antes del vencimiento
+• Rendimiento Actual: ${kpisReporte.tasaCobranza}%
+• Estado: ${kpisReporte.tasaCobranza >= 80 ? 'META ALCANZADA ✓' : 'EN PROGRESO'}
+• Diferencia vs Meta: ${(kpisReporte.tasaCobranza - 80).toFixed(1)}%
+
+DESGLOSE POR CONCEPTOS
+═══════════════════════════════════════════════════════════════
+• Inscripciones: $1,250,000 (43.9%)
+• Colegiaturas: $1,400,000 (49.1%)
+• Actividades Extraescolares: $150,000 (5.3%)
+• Otros Conceptos: $50,000 (1.8%)
+
+ANÁLISIS DE TENDENCIAS
+═══════════════════════════════════════════════════════════════
+• Comparación vs mes anterior: +8.2%
+• Proyección próximo mes: $2,995,000
+• Tendencia de cobranza: POSITIVA
+• Recomendación: Mantener estrategia actual
+
+REPORTES DISPONIBLES
+═══════════════════════════════════════════════════════════════
+${reportesDisponibles.map(r => `• ${r.nombre} (${r.formato}) - ${r.tamaño}`).join('\n')}
+
+═══════════════════════════════════════════════════════════════
+Generado por Edupay - Sistema de Pagos Escolares
+Instituto JFR - Campus Principal
+${fechaGeneracion}
+═══════════════════════════════════════════════════════════════`;
+
+      // Crear archivo para descarga
+      const blob = new Blob([contenidoReporte], { type: 'text/plain;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Reporte_Financiero_${periodo}_${fechaGeneracion.replace(/\//g, '-')}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
       toast({
         title: "Reporte Generado",
         description: "Reporte financiero mensual descargado exitosamente",
+        duration: 3000,
+      });
+    }, 2000);
+  };
+
+  const handleGenerarReporteExcel = () => {
+    toast({
+      title: "Generando Reporte Excel",
+      description: "Procesando datos para exportación en formato CSV...",
+      duration: 2000,
+    });
+
+    setTimeout(() => {
+      // Generar contenido del reporte en formato CSV para Excel
+      const fechaGeneracion = new Date().toLocaleDateString('es-MX');
+      const periodo = selectedPeriod;
+      
+      const csvContent = `REPORTE FINANCIERO INTEGRAL - INSTITUTO JFR
+Período,${periodo}
+Fecha de generación,${fechaGeneracion}
+
+RESUMEN EJECUTIVO
+Concepto,Valor
+Total Facturado,$${(kpisReporte.totalFacturado / 100).toLocaleString('es-MX')}
+Total Cobrado,$${(kpisReporte.totalCobrado / 100).toLocaleString('es-MX')}
+Tasa de Cobranza,${kpisReporte.tasaCobranza}%
+Cargos Vencidos,${kpisReporte.cargosVencidos}
+Estudiantes Activos,${kpisReporte.estudiantesActivos}
+Promedio Días de Pago,${kpisReporte.promedioTiempoPago} días
+
+ANÁLISIS DE MOROSIDAD
+Concepto,Valor
+Tasa de Morosidad,${100 - kpisReporte.tasaCobranza}%
+Cargos por Vencer (próximos 7 días),3
+Gestión de Cobranza Activa,${kpisReporte.cargosVencidos} casos
+Tiempo Promedio de Recuperación,12.3 días
+
+DESGLOSE POR CONCEPTOS
+Concepto,Monto,Porcentaje
+Inscripciones,$1250000,43.9%
+Colegiaturas,$1400000,49.1%
+Actividades Extraescolares,$150000,5.3%
+Otros Conceptos,$50000,1.8%
+
+MÉTRICAS EDUPAY
+Concepto,Valor
+Meta Institucional,80% pagos antes del vencimiento
+Rendimiento Actual,${kpisReporte.tasaCobranza}%
+Estado,${kpisReporte.tasaCobranza >= 80 ? 'META ALCANZADA' : 'EN PROGRESO'}
+Diferencia vs Meta,${(kpisReporte.tasaCobranza - 80).toFixed(1)}%
+
+REPORTES DISPONIBLES
+${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n')}`;
+
+      // Crear archivo CSV para descarga (compatible con Excel)
+      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Reporte_Financiero_${periodo}_${fechaGeneracion.replace(/\//g, '-')}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Reporte Excel Generado",
+        description: "Archivo CSV compatible con Excel descargado exitosamente",
         duration: 3000,
       });
     }, 2000);
@@ -136,13 +272,22 @@ Generado por Edupay - Sistema de Pagos Escolares`;
           <h1 className="text-3xl font-bold text-slate-900">Reportes y Análisis</h1>
           <p className="text-slate-600">Genera reportes financieros, de cobranza y análisis de desempeño</p>
             </div>
-            <Button 
-              className="bg-green-600 hover:bg-green-700"
-              onClick={handleGenerarReporte}
-            >
-              <FileText className="w-4 h-4 mr-2" />
-              Generar Reporte
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                className="bg-green-600 hover:bg-green-700"
+                onClick={handleGenerarReporte}
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Generar Reporte (TXT)
+              </Button>
+              <Button 
+                className="bg-blue-600 hover:bg-blue-700"
+                onClick={handleGenerarReporteExcel}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Generar Excel
+              </Button>
+            </div>
           </div>
 
           {/* KPIs del período */}

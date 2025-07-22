@@ -333,8 +333,8 @@ export default function Pagos() {
     const numeroRecibo = Math.floor(Math.random() * 999999) + 100000;
     
     // Logo dinámico del colegio o fallback
-    const logoElement = institution?.logo ? 
-      `<img src="${institution.logo}" alt="${institution.nombre}" style="height: 60px; width: auto; object-fit: contain;">` : 
+    const logoElement = logoUrl ? 
+      `<img src="${logoUrl}" alt="${institutionName}" style="height: 60px; width: auto; object-fit: contain;">` : 
       `<div style="width: 60px; height: 60px; background: linear-gradient(135deg, #1e3a8a, #3b82f6); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px; text-align: center; line-height: 1.2;">
         <div>
           <div style="font-size: 16px;">ISP</div>
@@ -520,10 +520,10 @@ export default function Pagos() {
           <div class="logo-section">
             ${logoElement}
             <div class="company-info">
-              <h1 class="company-name">${institution?.nombre || 'Instituto San Patricio'}</h1>
+              <h1 class="company-name">${institutionName || 'Instituto San Patricio'}</h1>
               <div class="receipt-type">RECIBO FISCAL ELECTRÓNICO</div>
               <div class="fiscal-info">
-                RFC: ${institution?.rfc || 'ISP851230ABC'} | Régimen: ${institution?.regimen || 'Personas Morales con Fines no Lucrativos'}
+                RFC: ISP851230ABC | Régimen: Personas Morales con Fines no Lucrativos
               </div>
             </div>
           </div>
@@ -604,7 +604,7 @@ export default function Pagos() {
         </div>
 
         <div class="footer">
-          <p><strong>${institution?.nombre || 'Instituto San Patricio'}</strong> - Sistema de Gestión de Pagos</p>
+          <p><strong>${institutionName || 'Instituto San Patricio'}</strong> - Sistema de Gestión de Pagos</p>
           <p>Este recibo fiscal cumple con los requisitos establecidos por el SAT | CFDI 4.0</p>
           <p>Generado el ${new Date().toLocaleString('es-MX')} | Folio: ${folio}</p>
         </div>

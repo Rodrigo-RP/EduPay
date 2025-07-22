@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -49,13 +49,13 @@ export default function Profile() {
     enabled: !!(user || guardian),
   });
 
-  // Profile form
+  // Profile form with static default values
   const profileForm = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      name: (profileData as any)?.name || (profileData as any)?.nombre_completo || "",
-      email: (profileData as any)?.email || "",
-      telefono: (profileData as any)?.telefono || "",
+      name: "",
+      email: "",
+      telefono: "",
     },
   });
 
@@ -69,14 +69,14 @@ export default function Profile() {
     },
   });
 
-  // Update profile defaults when data loads
-  if (profileData && !profileForm.formState.isDirty) {
-    profileForm.reset({
-      name: (profileData as any)?.name || (profileData as any)?.nombre_completo || "",
-      email: (profileData as any)?.email || "",
-      telefono: (profileData as any)?.telefono || "",
-    });
-  }
+  // Update form values when profile data is loaded
+  useEffect(() => {
+    if (profileData) {
+      profileForm.setValue("name", (profileData as any)?.name || (profileData as any)?.nombre_completo || "");
+      profileForm.setValue("email", (profileData as any)?.email || "");
+      profileForm.setValue("telefono", (profileData as any)?.telefono || "");
+    }
+  }, [profileData, profileForm.setValue]);
 
   // Profile update mutation
   const profileMutation = useMutation({

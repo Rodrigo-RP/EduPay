@@ -435,8 +435,8 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
         doc.text('fechas de vencimiento y conceptos pendientes]', margin + 5, currentY + 6);
 
         // ========== FOOTER PROFESIONAL ==========
-        // Asegurar espacio suficiente para el footer
-        const footerY = pageHeight - 30;
+        // Asegurar espacio suficiente para el footer - mayor separación
+        const footerY = pageHeight - 45;
         
         // Línea separadora del footer
         doc.setDrawColor(200, 200, 200);
@@ -610,7 +610,7 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
         // Procesar contenido línea por línea con formato mejorado
         const contenidoLineas = contenidoVistaPrevie.content.split('\n');
         const lineHeight = 6;
-        const maxY = pageHeight - 40; // Margen inferior para footer
+        const maxY = pageHeight - 80; // Margen inferior para footer - mayor espacio
         
         contenidoLineas.forEach((linea, index) => {
           // Manejar salto de página
@@ -675,8 +675,8 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
         });
 
         // ========== FOOTER INSTITUCIONAL ==========
-        // Asegurar que el footer esté en la posición correcta sin sobreescribir
-        const footerStartY = pageHeight - 35;
+        // Asegurar que el footer esté en la posición correcta sin sobreescribir - mayor separación
+        const footerStartY = pageHeight - 50;
         
         // Línea separadora elegante
         doc.setDrawColor(40, 116, 166);

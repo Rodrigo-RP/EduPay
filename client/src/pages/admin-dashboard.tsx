@@ -72,25 +72,58 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm">
-
-
-      <div className="p-6">
-        {/* Panel de Control - Título Principal */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900">Panel de Control - Campus Principal</h1>
-          <p className="text-slate-600 text-sm">Resumen ejecutivo de operaciones y finanzas</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 relative overflow-hidden">
+      {/* Decorative background elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <div className="absolute top-10 left-20 w-72 h-72 bg-gradient-to-br from-blue-400/10 to-cyan-400/10 rounded-full blur-3xl"></div>
+        <div className="absolute top-60 right-10 w-56 h-56 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full blur-2xl"></div>
+        <div className="absolute bottom-40 left-1/4 w-64 h-64 bg-gradient-to-br from-cyan-400/10 to-blue-400/10 rounded-full blur-3xl"></div>
+      </div>
+      
+      <div className="relative z-10 p-6">
+        {/* Header Premium */}
+        <div className="mb-10 relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-cyan-600/10 rounded-2xl blur-xl"></div>
+          <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl border border-white/50">
+            <div className="flex items-center gap-6">
+              <div className="relative">
+                <div className="absolute -inset-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl blur opacity-50"></div>
+                <div className="relative p-4 bg-gradient-to-r from-blue-100 to-cyan-100 rounded-xl">
+                  <BarChart3 className="w-10 h-10 text-blue-600 edupay-icon-bounce" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <h1 className="text-4xl font-bold edupay-text-gradient mb-2">Panel de Control</h1>
+                <p className="text-slate-600 text-lg">Resumen ejecutivo del Instituto JFR - Campus Principal</p>
+                <div className="flex items-center gap-4 mt-3">
+                  <div className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+                    ● Sistema Activo
+                  </div>
+                  <div className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                    Ciclo 2024-2025
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Decorative elements */}
+            <div className="absolute top-4 right-4 w-32 h-32 bg-gradient-to-br from-blue-200/20 to-cyan-200/20 rounded-full blur-2xl"></div>
+            <div className="absolute bottom-4 right-8 w-20 h-20 bg-gradient-to-br from-pink-200/20 to-purple-200/20 rounded-full blur-xl"></div>
+          </div>
         </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="w-5 h-5" />
-              KPIs Financieros - Ciclo 2024-2025
+        {/* KPI Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <Card className="lg:col-span-2 edupay-card-shadow edupay-card-hover animate-fade-scale">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-t-lg">
+            <CardTitle className="flex items-center gap-3 text-xl">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <BarChart3 className="w-6 h-6 text-blue-600" />
+              </div>
+              <span className="edupay-text-gradient">KPIs Financieros</span>
             </CardTitle>
-        <div className="text-sm text-slate-600">
-              Datos filtrados por nivel académico seleccionado
+            <div className="text-slate-600 ml-11">
+              Datos en tiempo real del ciclo escolar 2024-2025
             </div>
           </CardHeader>
           <CardContent className="p-6">

@@ -194,54 +194,89 @@ export default function Profile() {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Mi Perfil</h1>
-          <p className="text-slate-600">Administra tu información personal y configuración de seguridad</p>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 relative overflow-hidden">
+      {/* Decorative background elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-10 w-64 h-64 bg-gradient-to-br from-blue-400/10 to-cyan-400/10 rounded-full blur-3xl"></div>
+        <div className="absolute top-40 right-20 w-48 h-48 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full blur-2xl"></div>
+        <div className="absolute bottom-20 left-1/3 w-56 h-56 bg-gradient-to-br from-cyan-400/10 to-blue-400/10 rounded-full blur-3xl"></div>
       </div>
+      
+      <div className="container mx-auto p-6 max-w-4xl relative z-10">
+        <div className="flex items-center justify-between mb-8 animate-slide-up">
+          <div>
+            <h1 className="text-4xl font-bold edupay-text-gradient mb-2">Mi Perfil</h1>
+            <p className="text-slate-600 text-lg">Administra tu información personal y configuración de seguridad</p>
+          </div>
+          <div className="edupay-icon-bounce">
+            <User className="w-12 h-12 text-blue-500" />
+          </div>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Profile Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="w-5 h-5" />
-              Información Personal
+        <Card className="edupay-card-shadow edupay-card-hover animate-fade-scale">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-t-lg">
+            <CardTitle className="flex items-center gap-3 text-xl">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <User className="w-6 h-6 text-blue-600" />
+              </div>
+              <span className="edupay-text-gradient">Información Personal</span>
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-slate-600 ml-11">
               Actualiza tu información básica de contacto
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...profileForm}>
               <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
-                {/* Photo Upload */}
-                <div className="space-y-2">
-                  <Label>Foto de Perfil</Label>
-                  <div className="flex items-center gap-4">
-                    <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center overflow-hidden">
-                      {photoPreview || (profileData as any)?.foto_url ? (
-                        <img 
-                          src={photoPreview || (profileData as any)?.foto_url} 
-                          alt="Profile" 
-                          className="w-full h-full object-cover" 
-                        />
-                      ) : (
-                        <Camera className="w-8 h-8 text-slate-400" />
-                      )}
+                {/* Photo Upload Premium */}
+                <div className="space-y-4">
+                  <Label className="text-lg font-semibold text-slate-700">Foto de Perfil</Label>
+                  <div className="flex items-center gap-6 p-4 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl border border-slate-200">
+                    <div className="relative">
+                      <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-full flex items-center justify-center overflow-hidden shadow-lg ring-4 ring-white">
+                        {photoPreview || (profileData as any)?.foto_url ? (
+                          <img 
+                            src={photoPreview || (profileData as any)?.foto_url} 
+                            alt="Profile" 
+                            className="w-full h-full object-cover" 
+                          />
+                        ) : (
+                          <Camera className="w-10 h-10 text-blue-500" />
+                        )}
+                      </div>
+                      {/* Status indicator */}
+                      <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-white flex items-center justify-center">
+                        <Camera className="w-3 h-3 text-white" />
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById('photo-upload')?.click()}>
-                        <Camera className="w-4 h-4 mr-2" />
-                        Subir Foto
-                      </Button>
-                      {(photoPreview || (profileData as any)?.foto_url) && (
-                        <Button type="button" variant="outline" size="sm" onClick={handleRemovePhoto}>
-                          Quitar
+                    <div className="flex-1">
+                      <p className="text-sm text-slate-600 mb-3">Personaliza tu perfil con una foto profesional</p>
+                      <div className="flex gap-3">
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm" 
+                          className="bg-white hover:bg-blue-50 border-blue-200 text-blue-600 hover:text-blue-700 shadow-sm"
+                          onClick={() => document.getElementById('photo-upload')?.click()}
+                        >
+                          <Camera className="w-4 h-4 mr-2" />
+                          {photoPreview || (profileData as any)?.foto_url ? 'Cambiar Foto' : 'Subir Foto'}
                         </Button>
-                      )}
+                        {(photoPreview || (profileData as any)?.foto_url) && (
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm" 
+                            className="bg-red-50 hover:bg-red-100 border-red-200 text-red-600 hover:text-red-700 shadow-sm"
+                            onClick={handleRemovePhoto}
+                          >
+                            <X className="w-4 h-4 mr-2" />
+                            Quitar
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <input
@@ -260,7 +295,7 @@ export default function Profile() {
                     <FormItem>
                       <FormLabel>Nombre Completo</FormLabel>
                       <FormControl>
-                        <Input placeholder="Tu nombre completo" {...field} />
+                        <Input placeholder="Tu nombre completo" className="edupay-input-focus" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -276,7 +311,7 @@ export default function Profile() {
                       <FormControl>
                         <div className="relative">
                           <Mail className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                          <Input placeholder="tu@email.com" className="pl-10" {...field} />
+                          <Input placeholder="tu@email.com" className="pl-10 edupay-input-focus" {...field} />
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -293,7 +328,7 @@ export default function Profile() {
                       <FormControl>
                         <div className="relative">
                           <Phone className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                          <Input placeholder="+52 123 456 7890" className="pl-10" {...field} />
+                          <Input placeholder="+52 123 456 7890" className="pl-10 edupay-input-focus" {...field} />
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -303,7 +338,7 @@ export default function Profile() {
 
                 <Button 
                   type="submit" 
-                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  className="w-full edupay-button-primary"
                   disabled={profileMutation.isPending}
                 >
                   <Save className="w-4 h-4 mr-2" />
@@ -315,13 +350,15 @@ export default function Profile() {
         </Card>
 
         {/* Security Settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Lock className="w-5 h-5" />
-              Seguridad
+        <Card className="edupay-card-shadow edupay-card-hover animate-fade-scale">
+          <CardHeader className="bg-gradient-to-r from-red-50 to-pink-50 rounded-t-lg">
+            <CardTitle className="flex items-center gap-3 text-xl">
+              <div className="p-2 bg-red-100 rounded-lg">
+                <Lock className="w-6 h-6 text-red-600" />
+              </div>
+              <span className="bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent font-bold">Seguridad</span>
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-slate-600 ml-11">
               Cambia tu contraseña para mantener tu cuenta segura
             </CardDescription>
           </CardHeader>
@@ -335,7 +372,7 @@ export default function Profile() {
                     <FormItem>
                       <FormLabel>Contraseña Actual</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="Tu contraseña actual" {...field} />
+                        <Input type="password" placeholder="Tu contraseña actual" className="edupay-input-focus" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -349,7 +386,7 @@ export default function Profile() {
                     <FormItem>
                       <FormLabel>Nueva Contraseña</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="Mínimo 6 caracteres" {...field} />
+                        <Input type="password" placeholder="Mínimo 6 caracteres" className="edupay-input-focus" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -363,7 +400,7 @@ export default function Profile() {
                     <FormItem>
                       <FormLabel>Confirmar Nueva Contraseña</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="Repite la nueva contraseña" {...field} />
+                        <Input type="password" placeholder="Repite la nueva contraseña" className="edupay-input-focus" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -372,7 +409,7 @@ export default function Profile() {
 
                 <Button 
                   type="submit" 
-                  className="w-full bg-red-600 hover:bg-red-700"
+                  className="w-full edupay-button-danger"
                   disabled={passwordMutation.isPending}
                 >
                   <Lock className="w-4 h-4 mr-2" />
@@ -382,6 +419,7 @@ export default function Profile() {
             </Form>
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   );

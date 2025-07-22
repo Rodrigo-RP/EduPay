@@ -1207,126 +1207,191 @@ export default function Pagos() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">
-            {userRole === 'admisiones' ? 'Pagos de Inscripciones' : 
-             userRole === 'contador' ? 'Reportes de Pagos' : 'Gestión de Pagos'}
-          </h1>
-          <p className="text-slate-600">
-            {userRole === 'admisiones' 
-              ? 'Administra pagos de inscripciones, matrículas y becas para nuevos estudiantes'
-              : userRole === 'contador'
-              ? 'Consulta y analiza todos los pagos completados para reportes contables'
-              : 'Administra pagos recibidos, registra efectivo y concilia movimientos'
-            }
-          </p>
-          {userRole === 'admisiones' && (
-            <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center gap-2 text-green-700">
-                <i className="fas fa-user-graduate"></i>
-                <span className="text-sm font-medium">
-                  Perfil Admisiones - Solo puedes ver pagos relacionados con inscripciones, matrículas y becas
-                </span>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 relative overflow-hidden">
+      {/* Decorative background elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <div className="absolute top-10 left-20 w-72 h-72 bg-gradient-to-br from-blue-400/10 to-cyan-400/10 rounded-full blur-3xl"></div>
+        <div className="absolute top-60 right-10 w-56 h-56 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full blur-2xl"></div>
+        <div className="absolute bottom-40 left-1/4 w-64 h-64 bg-gradient-to-br from-cyan-400/10 to-blue-400/10 rounded-full blur-3xl"></div>
+      </div>
+      
+      <div className="max-w-7xl mx-auto p-6 space-y-6 relative z-10">
+        {/* Header Premium con diseño mejorado */}
+        <div className="mb-10 relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-cyan-600/10 rounded-3xl blur-xl"></div>
+          <div className="relative bg-white/90 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-white/60">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-6 flex-1">
+                <div className="relative">
+                  <div className="absolute -inset-3 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl blur opacity-40"></div>
+                  <div className="relative p-5 bg-gradient-to-r from-blue-100 to-cyan-100 rounded-2xl">
+                    <CreditCard className="w-12 h-12 text-blue-600 edupay-icon-bounce" />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h1 className="text-4xl font-bold edupay-text-gradient mb-3">
+                    {userRole === 'admisiones' ? 'Pagos de Inscripciones' : 
+                     userRole === 'contador' ? 'Reportes de Pagos' : 'Gestión de Pagos'}
+                  </h1>
+                  <p className="text-slate-600 text-lg mb-4">
+                    {userRole === 'admisiones' 
+                      ? 'Administra pagos de inscripciones, matrículas y becas para nuevos estudiantes'
+                      : userRole === 'contador'
+                      ? 'Consulta y analiza todos los pagos completados para reportes contables'
+                      : 'Administra pagos recibidos, registra efectivo y concilia movimientos'
+                    }
+                  </p>
+                  
+                  {userRole === 'admisiones' && (
+                    <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-400 rounded-lg">
+                      <div className="flex items-center gap-3 text-green-700">
+                        <User className="w-5 h-5" />
+                        <span className="font-medium">
+                          Perfil Admisiones - Solo puedes ver pagos relacionados con inscripciones, matrículas y becas
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {userRole === 'contador' && (
+                    <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 border-l-4 border-blue-400 rounded-lg">
+                      <div className="flex items-center gap-3 text-blue-700">
+                        <FileText className="w-5 h-5" />
+                        <span className="font-medium">
+                          Perfil Contador - Acceso completo de solo lectura para reportes contables
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
+              
+              {userRole !== 'contador' && (
+                <div className="flex flex-col gap-3 ml-6">
+                  <Button 
+                    className="edupay-button edupay-button-primary edupay-button-hover group px-6 py-3"
+                    onClick={() => setShowRegistrarPago(true)}
+                  >
+                    <Banknote className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
+                    Registrar Pago
+                  </Button>
+                  <div className="flex items-center gap-2 text-sm text-slate-600 bg-slate-100 px-3 py-2 rounded-lg">
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    Sistema Activo
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-          {userRole === 'contador' && (
-            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center gap-2 text-blue-700">
-                <i className="fas fa-calculator"></i>
-                <span className="text-sm font-medium">
-                  Perfil Contador - Acceso completo de solo lectura para reportes contables
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-        {userRole !== 'contador' && (
-          <div className="flex gap-3">
-            <Button 
-              className="bg-green-600 hover:bg-green-700"
-              onClick={() => setShowRegistrarPago(true)}
-            >
-              <Banknote className="w-4 h-4 mr-2" />
-              Registrar pago
-            </Button>
+            
+            {/* Decorative elements */}
+            <div className="absolute top-4 right-4 w-32 h-32 bg-gradient-to-br from-blue-200/20 to-cyan-200/20 rounded-full blur-2xl"></div>
+            <div className="absolute bottom-4 right-8 w-20 h-20 bg-gradient-to-br from-pink-200/20 to-purple-200/20 rounded-full blur-xl"></div>
           </div>
-        )}
-      </div>
+        </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600">Total del día</p>
-                <p className="text-2xl font-bold">$15,750</p>
-              </div>
-              <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
-                <DollarSign className="h-4 w-4 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600">Pagos completados</p>
-                <p className="text-2xl font-bold">24</p>
-              </div>
-              <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
-                <CheckCircle className="h-4 w-4 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600">Tasa de éxito</p>
-                <p className="text-2xl font-bold">94.2%</p>
-              </div>
-              <div className="h-8 w-8 bg-purple-100 rounded-full flex items-center justify-center">
-                <Receipt className="h-4 w-4 text-purple-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600">Pendientes</p>
-                <p className="text-2xl font-bold">3</p>
-              </div>
-              <div className="h-8 w-8 bg-orange-100 rounded-full flex items-center justify-center">
-                <Calendar className="h-4 w-4 text-orange-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Tabs defaultValue="lista" className="w-full">
-        <TabsList className={`grid w-full ${(userRole === 'admisiones' || userRole === 'contador') ? 'grid-cols-1' : 'grid-cols-2'}`}>
-          <TabsTrigger value="lista">Lista de pagos</TabsTrigger>
-          {userRole !== 'admisiones' && userRole !== 'contador' && (
-            <TabsTrigger value="conciliacion">Conciliación</TabsTrigger>
-          )}
-        </TabsList>
-
-        <TabsContent value="lista">
-          <Card>
-            <CardHeader>
+        {/* KPI Cards Premium */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="edupay-card-shadow edupay-card-hover group animate-fade-scale">
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
-                <CardTitle>Historial de pagos</CardTitle>
+                <div>
+                  <p className="text-sm font-medium text-slate-600 group-hover:text-slate-700 transition-colors">Total del día</p>
+                  <p className="text-2xl font-bold edupay-text-gradient">$15,750</p>
+                  <div className="text-xs text-green-600 mt-1">+12.5% vs ayer</div>
+                </div>
+                <div className="relative">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full blur opacity-20 group-hover:opacity-30 transition-opacity"></div>
+                  <div className="relative h-12 w-12 bg-gradient-to-r from-green-100 to-emerald-100 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <DollarSign className="h-6 w-6 text-green-600" />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="edupay-card-shadow edupay-card-hover group animate-fade-scale">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-600 group-hover:text-slate-700 transition-colors">Pagos completados</p>
+                  <p className="text-2xl font-bold edupay-text-gradient">24</p>
+                  <div className="text-xs text-blue-600 mt-1">+3 desde ayer</div>
+                </div>
+                <div className="relative">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full blur opacity-20 group-hover:opacity-30 transition-opacity"></div>
+                  <div className="relative h-12 w-12 bg-gradient-to-r from-blue-100 to-cyan-100 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <CheckCircle className="h-6 w-6 text-blue-600" />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="edupay-card-shadow edupay-card-hover group animate-fade-scale">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-600 group-hover:text-slate-700 transition-colors">Tasa de éxito</p>
+                  <p className="text-2xl font-bold edupay-text-gradient">94.2%</p>
+                  <div className="text-xs text-purple-600 mt-1">Excelente</div>
+                </div>
+                <div className="relative">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full blur opacity-20 group-hover:opacity-30 transition-opacity"></div>
+                  <div className="relative h-12 w-12 bg-gradient-to-r from-purple-100 to-pink-100 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Receipt className="h-6 w-6 text-purple-600" />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="edupay-card-shadow edupay-card-hover group animate-fade-scale">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-600 group-hover:text-slate-700 transition-colors">Pendientes</p>
+                  <p className="text-2xl font-bold edupay-text-gradient">3</p>
+                  <div className="text-xs text-orange-600 mt-1">Requieren atención</div>
+                </div>
+                <div className="relative">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-orange-500 to-amber-500 rounded-full blur opacity-20 group-hover:opacity-30 transition-opacity"></div>
+                  <div className="relative h-12 w-12 bg-gradient-to-r from-orange-100 to-amber-100 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Calendar className="h-6 w-6 text-orange-600" />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Tabs Section Premium */}
+        <Tabs defaultValue="lista" className="w-full">
+          <TabsList className={`grid w-full ${(userRole === 'admisiones' || userRole === 'contador') ? 'grid-cols-1' : 'grid-cols-2'} bg-white/80 backdrop-blur-sm border border-white/20 rounded-2xl p-2 shadow-lg`}>
+            <TabsTrigger 
+              value="lista" 
+              className="text-sm font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300"
+            >
+              Lista de pagos
+            </TabsTrigger>
+            {userRole !== 'admisiones' && userRole !== 'contador' && (
+              <TabsTrigger 
+                value="conciliacion"
+                className="text-sm font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300"
+              >
+                Conciliación
+              </TabsTrigger>
+            )}
+          </TabsList>
+
+          <TabsContent value="lista" className="mt-6">
+            <Card className="edupay-card-shadow edupay-card-hover border-0 bg-white/90 backdrop-blur-sm">
+            <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-t-lg">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-3 text-xl">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <CreditCard className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <span className="edupay-text-gradient">Historial de pagos</span>
+                </CardTitle>
                 <div className="flex gap-3">
                   <div className="flex items-center gap-2">
                     <Label className="text-sm whitespace-nowrap">Desde:</Label>
@@ -1945,6 +2010,7 @@ export default function Pagos() {
           </div>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

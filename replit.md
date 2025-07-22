@@ -167,6 +167,11 @@ Changelog:
 - July 22, 2025: Actualizado sistema de permisos: shared/permissions.ts, CSS personalizado y componentes
 - July 22, 2025: Migración completa de emails: superadmin@edupay.com, soporte@edupay.mx, URLs actualizadas
 - July 22, 2025: Verificación sistematica completada: 0 referencias restantes de marca anterior
+- July 22, 2025: LOGO INSTITUCIONAL REAL INTEGRADO EN REPORTES PDF - Sistema usa logo desde configuración institucional
+- July 22, 2025: Problema endpoint /api/uploads/logo.png resuelto - ahora usa logo real desde hook useInstitution
+- July 22, 2025: Prioridad al logo configurado en Configuración → Institución sobre logos genéricos embebidos
+- July 22, 2025: Compatibilidad con data URLs (base64) y URLs normales para máxima flexibilidad
+- July 22, 2025: Aplicado en ambas funciones de generación PDF: reporte principal y modal específico
 - July 17, 2025: DUPLICACIÓN ELIMINADA - Pestaña "Registro de Pagos Manual" removida por mejor UX
 - July 17, 2025: Solo se mantiene el modal del botón "Registrar pago" del header por mejor experiencia de usuario
 - July 17, 2025: Pestañas reorganizadas: "Lista de pagos" y "Conciliación" únicamente

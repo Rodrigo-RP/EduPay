@@ -329,19 +329,36 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
             try {
               // Usar fetch directo para URLs del servidor local
               if (logoSrc.startsWith('/api/')) {
+                console.log('Intentando cargar logo desde servidor:', logoSrc);
                 const response = await fetch(logoSrc, {
                   headers: {
                     'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
                   }
                 });
+                console.log('Respuesta del servidor:', response.status, response.ok);
+                
+                if (!response.ok) {
+                  throw new Error(`Error HTTP: ${response.status}`);
+                }
+                
                 const blob = await response.blob();
+                console.log('Blob obtenido:', blob.type, blob.size);
+                
                 const reader = new FileReader();
                 const logoBase64 = await new Promise<string>((resolve, reject) => {
-                  reader.onload = () => resolve(reader.result as string);
-                  reader.onerror = reject;
+                  reader.onload = () => {
+                    const result = reader.result as string;
+                    console.log('Base64 generado, longitud:', result.length);
+                    resolve(result);
+                  };
+                  reader.onerror = (error) => {
+                    console.log('Error en FileReader:', error);
+                    reject(error);
+                  };
                   reader.readAsDataURL(blob);
                 });
                 doc.addImage(logoBase64, 'PNG', 22, 9, 16, 16);
+                console.log('Logo agregado exitosamente al PDF');
               } else {
                 const logoBase64 = await loadImageAsBase64Improved(logoSrc);
                 doc.addImage(logoBase64, 'PNG', 22, 9, 16, 16);
@@ -626,19 +643,36 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
             try {
               // Usar fetch directo para URLs del servidor local
               if (logoSrc.startsWith('/api/')) {
+                console.log('Modal: Intentando cargar logo desde servidor:', logoSrc);
                 const response = await fetch(logoSrc, {
                   headers: {
                     'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
                   }
                 });
+                console.log('Modal: Respuesta del servidor:', response.status, response.ok);
+                
+                if (!response.ok) {
+                  throw new Error(`Error HTTP: ${response.status}`);
+                }
+                
                 const blob = await response.blob();
+                console.log('Modal: Blob obtenido:', blob.type, blob.size);
+                
                 const reader = new FileReader();
                 const logoBase64 = await new Promise<string>((resolve, reject) => {
-                  reader.onload = () => resolve(reader.result as string);
-                  reader.onerror = reject;
+                  reader.onload = () => {
+                    const result = reader.result as string;
+                    console.log('Modal: Base64 generado, longitud:', result.length);
+                    resolve(result);
+                  };
+                  reader.onerror = (error) => {
+                    console.log('Modal: Error en FileReader:', error);
+                    reject(error);
+                  };
                   reader.readAsDataURL(blob);
                 });
                 doc.addImage(logoBase64, 'PNG', 20, 12, 20, 20);
+                console.log('Modal: Logo agregado exitosamente al PDF');
               } else {
                 const logoBase64 = await loadImageAsBase64(logoSrc);
                 doc.addImage(logoBase64, 'PNG', 20, 12, 20, 20);

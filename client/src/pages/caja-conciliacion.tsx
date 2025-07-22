@@ -117,7 +117,7 @@ export default function CajaConciliacion() {
   <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Recibo Fiscal - EscuelaPay</title>
+      <title>Recibo Fiscal - Edupay</title>
       <style>
           body {
               font-family: Arial, sans-serif;
@@ -379,7 +379,7 @@ export default function CajaConciliacion() {
           </div>
   
           <div class="footer">
-              <p>Este recibo fue generado electrónicamente por EscuelaPay</p>
+              <p>Este recibo fue generado electrónicamente por Edupay</p>
               <p>Documento válido para efectos fiscales y contables</p>
               <p>Fecha de generación: ${new Date().toLocaleString('es-MX')}</p>
           </div>
@@ -449,7 +449,7 @@ export default function CajaConciliacion() {
             description: "El recibo se ha descargado como imagen PNG"
           });
         } else if (method === 'email') {
-          const subject = "Recibo de Pago - EscuelaPay";
+          const subject = "Recibo de Pago - Edupay";
           const body = "Adjunto el recibo de pago correspondiente.";
           const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
           window.open(mailtoUrl, '_blank');
@@ -459,7 +459,7 @@ export default function CajaConciliacion() {
             description: "Se abrió tu cliente de email para compartir el recibo"
           });
         } else if (method === 'whatsapp') {
-          const message = "Recibo de pago - EscuelaPay";
+          const message = "Recibo de pago - Edupay";
           const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
           window.open(whatsappUrl, '_blank');
           

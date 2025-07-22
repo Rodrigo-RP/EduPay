@@ -301,7 +301,7 @@ export default function TrainingModal({ open, onOpenChange }: TrainingModalProps
 <body>
     <div class="header">
         <h1>MANUAL DE CAPACITACIÓN</h1>
-        <div class="subtitle">EscuelaPay - Plataforma SaaS líder en pagos educativos</div>
+        <div class="subtitle">Edupay - Plataforma SaaS líder en pagos educativos</div>
     </div>
 
     <div class="module-info">
@@ -370,7 +370,7 @@ export default function TrainingModal({ open, onOpenChange }: TrainingModalProps
     </div>
 
     <div class="footer">
-        <p><strong>© 2025 EscuelaPay</strong> - Plataforma SaaS líder en pagos educativos</p>
+        <p><strong>© 2025 Edupay</strong> - Plataforma SaaS líder en pagos educativos</p>
         <p>Documento generado: ${new Date().toLocaleDateString('es-MX')}</p>
     </div>
 </body>
@@ -410,7 +410,7 @@ export default function TrainingModal({ open, onOpenChange }: TrainingModalProps
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BookOpen className="h-5 w-5" />
-            Capacitación EscuelaPay
+            Capacitación Edupay
           </DialogTitle>
         </DialogHeader>
 

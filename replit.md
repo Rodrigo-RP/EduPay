@@ -1,8 +1,8 @@
-# EscuelaPay - Plataforma SaaS de Pagos Escolares
+# Edupay - Plataforma SaaS de Pagos Escolares
 
 ## Overview
 
-EscuelaPay es una plataforma SaaS 100% enfocada en automatizar los pagos de colegiaturas para escuelas particulares. No es un ERP general ni LMS; está diseñado específicamente para reducir la carga operativa y la morosidad en las escuelas.
+Edupay es una plataforma SaaS 100% enfocada en automatizar los pagos de colegiaturas para escuelas particulares. No es un ERP general ni LMS; está diseñado específicamente para reducir la carga operativa y la morosidad en las escuelas.
 
 **Principales dolores que resuelve:**
 - Pagar colegiaturas es tedioso para papás → pago 1 clic
@@ -157,6 +157,10 @@ Changelog:
 - July 22, 2025: Sistema completamente funcional con 4 usuarios activos: admin, contador, caja, admisiones @jfr.edu.mx
 - July 22, 2025: MIGRACIÓN EXITOSA CONFIRMADA - Sistema funciona perfectamente con Instituto JFR, autenticación restaurada
 - July 22, 2025: Hook useInstitution restaurado a configuración normal con valores por defecto del Instituto JFR
+- July 22, 2025: REBRANDING COMPLETADO - Cambiado de "EscuelaPay" a "Edupay" en toda la plataforma
+- July 22, 2025: Actualizado frontend: páginas de login, portal padres, recibos fiscales, reportes con nueva marca "Edupay"
+- July 22, 2025: Actualizado backend: archivos de configuración, scripts de seed data, sistema de seguridad con nueva marca
+- July 22, 2025: Actualizada documentación: replit.md, títulos, descripciones y referencias de marca unificadas
 - July 17, 2025: DUPLICACIÓN ELIMINADA - Pestaña "Registro de Pagos Manual" removida por mejor UX
 - July 17, 2025: Solo se mantiene el modal del botón "Registrar pago" del header por mejor experiencia de usuario
 - July 17, 2025: Pestañas reorganizadas: "Lista de pagos" y "Conciliación" únicamente

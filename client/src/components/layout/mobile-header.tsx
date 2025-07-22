@@ -13,7 +13,7 @@ export default function MobileHeader({ schoolName, studentName }: MobileHeaderPr
               <i className="fas fa-graduation-cap text-white text-sm"></i>
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-slate-900">EscuelaPay</h1>
+              <h1 className="text-lg font-semibold text-slate-900">Edupay</h1>
               <p className="text-xs text-slate-500">{schoolName}</p>
             </div>
           </div>

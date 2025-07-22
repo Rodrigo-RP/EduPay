@@ -15,7 +15,7 @@ import {
 import bcrypt from "bcrypt";
 
 export async function seedDemoData() {
-  console.log("🌱 Creando datos demo para EscuelaPay...");
+  console.log("🌱 Creando datos demo para Edupay...");
 
   try {
     // 1. Crear tenants (grupos escolares)

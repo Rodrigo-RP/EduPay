@@ -67,7 +67,7 @@ export default function Login() {
       <div className="w-16 h-16 bg-primary-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <i className="fas fa-graduation-cap text-white text-2xl"></i>
           </div>
-          <h1 className="text-3xl font-bold text-slate-900">EscuelaPay</h1>
+          <h1 className="text-3xl font-bold text-slate-900">Edupay</h1>
           <p className="text-slate-600 mt-2">Plataforma de Pagos Escolares</p>
         </div>
 

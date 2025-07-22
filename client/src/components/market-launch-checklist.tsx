@@ -239,7 +239,7 @@ export default function MarketLaunchChecklist() {
   const handleCommercialLaunch = () => {
     toast({
       title: "¡Lanzamiento Comercial Iniciado!",
-      description: "EscuelaPay está oficialmente disponible para el mercado educativo mexicano",
+      description: "Edupay está oficialmente disponible para el mercado educativo mexicano",
       duration: 5000,
     });
   };

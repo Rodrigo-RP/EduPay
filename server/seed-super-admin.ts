@@ -17,7 +17,7 @@ export async function seedSuperAdminData() {
       await db.insert(users).values({
         email: 'superadmin@escuelapay.com',
         password_hash: hashedPassword,
-        name: 'Propietario EscuelaPay',
+        name: 'Propietario Edupay',
         role: 'super_admin',
         is_super_admin: true,
         platform_permissions: ['platform_management', 'security_monitoring', 'tenant_management']

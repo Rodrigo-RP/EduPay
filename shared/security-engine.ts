@@ -162,8 +162,8 @@ export class MultiFactorAuth {
    */
   static generateTOTPSecret(userEmail: string): TwoFactorSecret {
     const secret = speakeasy.generateSecret({
-      name: `EscuelaPay (${userEmail})`,
-      issuer: 'EscuelaPay',
+      name: `Edupay (${userEmail})`,
+      issuer: 'Edupay',
       length: 32
     });
 
@@ -265,14 +265,14 @@ export class TokenManager {
 
     const accessToken = jwt.sign(accessPayload, this.SECRET_KEY, {
       expiresIn: this.ACCESS_TOKEN_EXPIRY,
-      issuer: 'EscuelaPay',
-      audience: 'EscuelaPay-Users'
+      issuer: 'Edupay',
+      audience: 'Edupay-Users'
     });
 
     const refreshToken = jwt.sign(refreshPayload, this.SECRET_KEY, {
       expiresIn: this.REFRESH_TOKEN_EXPIRY,
-      issuer: 'EscuelaPay',
-      audience: 'EscuelaPay-Refresh'
+      issuer: 'Edupay',
+      audience: 'Edupay-Refresh'
     });
 
     return {
@@ -291,8 +291,8 @@ export class TokenManager {
   static verifyToken(token: string, expectedType: 'access' | 'refresh'): TokenPayload | null {
     try {
       const decoded = jwt.verify(token, this.SECRET_KEY, {
-        issuer: 'EscuelaPay',
-        audience: expectedType === 'access' ? 'EscuelaPay-Users' : 'EscuelaPay-Refresh'
+        issuer: 'Edupay',
+        audience: expectedType === 'access' ? 'Edupay-Users' : 'Edupay-Refresh'
       }) as any;
 
       if (decoded.type !== expectedType) {
@@ -677,7 +677,7 @@ export const SecurityConfig = {
   tokens: {
     accessExpiry: '15m',
     refreshExpiry: '7d',
-    issuer: 'EscuelaPay'
+    issuer: 'Edupay'
   },
   rateLimit: {
     windowMs: 15 * 60 * 1000, // 15 minutos

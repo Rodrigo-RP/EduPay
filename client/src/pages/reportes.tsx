@@ -91,7 +91,7 @@ DATOS INCLUIDOS:
 - Cargos vencidos: ${kpisReporte.cargosVencidos}
 - Estudiantes activos: ${kpisReporte.estudiantesActivos}
 
-Generado por EscuelaPay - Sistema de Pagos Escolares`;
+Generado por Edupay - Sistema de Pagos Escolares`;
 
     const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
     const url = window.URL.createObjectURL(blob);
@@ -193,7 +193,7 @@ Generado por EscuelaPay - Sistema de Pagos Escolares`;
 
             <Card className="border-green-200 bg-green-50">
               <CardHeader>
-                <CardTitle className="text-lg text-green-800">Meta EscuelaPay</CardTitle>
+                <CardTitle className="text-lg text-green-800">Meta Edupay</CardTitle>
               </CardHeader>
               <CardContent>
             <div className="text-center">

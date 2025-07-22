@@ -3719,7 +3719,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ` : ''}
             
             <div class="footer">
-              <p>Reporte generado por EscuelaPay - Sistema de Gestión Financiera Escolar</p>
+              <p>Reporte generado por Edupay - Sistema de Gestión Financiera Escolar</p>
             </div>
           </body>
           </html>

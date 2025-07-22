@@ -386,7 +386,7 @@ export default function ConfiguracionInicial() {
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-slate-900 mb-2">
-            Configuración inicial - EscuelaPay
+            Configuración inicial - Edupay
           </h1>
           <p className="text-slate-600">
             Configure su plataforma de pagos en menos de 1 hora

@@ -134,12 +134,12 @@ export default function ParentPortal() {
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="bg-gradient-to-r from-green-600 to-blue-600 text-white p-3 text-center">
-        <div className="text-lg font-bold">EscuelaPay - Portal Padres</div>
+        <div className="text-lg font-bold">Edupay - Portal Padres</div>
         <div className="text-green-100 text-sm">Paga en 3 clics o menos - Móvil primero</div>
       </div>
       
       <MobileHeader 
-        schoolName={currentStudent?.campus.nombre || "EscuelaPay"}
+        schoolName={currentStudent?.campus.nombre || "Edupay"}
         studentName={guardian?.nombre_completo || ""}
       />
 

@@ -315,30 +315,44 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
           console.log('No se pudo obtener logo desde configuración:', error);
         }
 
-        // Logo JFR base64 embebido (garantiza funcionamiento)
-        const logoJfrBase64 = 'data:image/svg+xml;base64,' + btoa(`
-          <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="20" cy="20" r="18" fill="#2874a6" stroke="#ffffff" stroke-width="2"/>
-            <text x="20" y="16" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="10" font-weight="bold">JFR</text>
-            <text x="20" y="28" text-anchor="middle" fill="#f4d03f" font-family="Arial, sans-serif" font-size="6" font-weight="bold">EDUCACIÓN</text>
-          </svg>
-        `);
-
-        // Intentar múltiples fuentes para el logo
-        const logoSources = [
-          logoFromConfig,
-          logoUrl,
-          localStorage.getItem('institution_logo'),
-          logoJfrBase64 // Logo embebido como fallback garantizado
-        ].filter(Boolean);
+        // Usar logo real desde configuración institucional
+        let logoToUse = logoUrl || logoFromConfig;
         
-        // Usar directamente el logo embebido para garantizar funcionamiento
-        try {
-          doc.addImage(logoJfrBase64, 'PNG', 22, 9, 16, 16);
-          logoCargoCorrecta = true;
-          console.log('Logo JFR embebido cargado exitosamente');
-        } catch (error) {
-          console.log('Error con logo embebido:', error);
+        if (logoToUse) {
+          try {
+            // Si es un data URL (base64), usarlo directamente
+            if (logoToUse.startsWith('data:')) {
+              doc.addImage(logoToUse, 'PNG', 22, 9, 16, 16);
+              logoCargoCorrecta = true;
+              console.log('Logo institucional real cargado desde configuración');
+            } else {
+              // Si es URL, convertir a base64
+              const logoBase64 = await loadImageAsBase64Improved(logoToUse);
+              doc.addImage(logoBase64, 'PNG', 22, 9, 16, 16);
+              logoCargoCorrecta = true;
+              console.log('Logo institucional convertido a base64 y cargado');
+            }
+          } catch (error) {
+            console.log('Error cargando logo institucional:', error);
+          }
+        }
+        
+        // Solo usar fallback si no hay logo institucional configurado
+        if (!logoCargoCorrecta && !logoToUse) {
+          try {
+            const logoFallback = 'data:image/svg+xml;base64,' + btoa(`
+              <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="20" cy="20" r="18" fill="#2874a6" stroke="#ffffff" stroke-width="2"/>
+                <text x="20" y="16" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="10" font-weight="bold">JFR</text>
+                <text x="20" y="28" text-anchor="middle" fill="#f4d03f" font-family="Arial, sans-serif" font-size="6" font-weight="bold">EDUCACIÓN</text>
+              </svg>
+            `);
+            doc.addImage(logoFallback, 'PNG', 22, 9, 16, 16);
+            logoCargoCorrecta = true;
+            console.log('Logo fallback usado como último recurso');
+          } catch (error) {
+            console.log('Error con logo fallback:', error);
+          }
         }
         
         // Si no se pudo cargar ningún logo, usar fallback
@@ -599,29 +613,44 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
         // Logo del Instituto JFR - implementación robusta
         let logoCargoCorrecta = false;
         
-        // Logo JFR base64 embebido para modal (garantiza funcionamiento)
-        const logoJfrBase64Modal = 'data:image/svg+xml;base64,' + btoa(`
-          <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="20" cy="20" r="18" fill="#2874a6" stroke="#ffffff" stroke-width="2"/>
-            <text x="20" y="16" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="10" font-weight="bold">JFR</text>
-            <text x="20" y="28" text-anchor="middle" fill="#f4d03f" font-family="Arial, sans-serif" font-size="6" font-weight="bold">EDUCACIÓN</text>
-          </svg>
-        `);
-
-        // Intentar múltiples fuentes para el logo
-        const logoSources = [
-          logoUrl,
-          localStorage.getItem('institution_logo'),
-          logoJfrBase64Modal // Logo embebido como garantía
-        ].filter(Boolean);
+        // Usar logo real desde configuración institucional en modal
+        let logoToUseModal = logoUrl;
         
-        // Usar directamente el logo embebido para modal (garantizado)
-        try {
-          doc.addImage(logoJfrBase64Modal, 'PNG', 20, 12, 20, 20);
-          logoCargoCorrecta = true;
-          console.log('Modal: Logo JFR embebido cargado exitosamente');
-        } catch (error) {
-          console.log('Modal: Error con logo embebido:', error);
+        if (logoToUseModal) {
+          try {
+            // Si es un data URL (base64), usarlo directamente
+            if (logoToUseModal.startsWith('data:')) {
+              doc.addImage(logoToUseModal, 'PNG', 20, 12, 20, 20);
+              logoCargoCorrecta = true;
+              console.log('Modal: Logo institucional real cargado desde configuración');
+            } else {
+              // Si es URL, convertir a base64
+              const logoBase64 = await loadImageAsBase64(logoToUseModal);
+              doc.addImage(logoBase64, 'PNG', 20, 12, 20, 20);
+              logoCargoCorrecta = true;
+              console.log('Modal: Logo institucional convertido a base64 y cargado');
+            }
+          } catch (error) {
+            console.log('Modal: Error cargando logo institucional:', error);
+          }
+        }
+        
+        // Solo usar fallback si no hay logo institucional configurado
+        if (!logoCargoCorrecta && !logoToUseModal) {
+          try {
+            const logoFallbackModal = 'data:image/svg+xml;base64,' + btoa(`
+              <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="20" cy="20" r="18" fill="#2874a6" stroke="#ffffff" stroke-width="2"/>
+                <text x="20" y="16" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="10" font-weight="bold">JFR</text>
+                <text x="20" y="28" text-anchor="middle" fill="#f4d03f" font-family="Arial, sans-serif" font-size="6" font-weight="bold">EDUCACIÓN</text>
+              </svg>
+            `);
+            doc.addImage(logoFallbackModal, 'PNG', 20, 12, 20, 20);
+            logoCargoCorrecta = true;
+            console.log('Modal: Logo fallback usado como último recurso');
+          } catch (error) {
+            console.log('Modal: Error con logo fallback:', error);
+          }
         }
         
         // Si no se pudo cargar ningún logo, usar fallback

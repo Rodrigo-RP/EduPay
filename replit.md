@@ -155,6 +155,8 @@ Changelog:
 - July 22, 2025: Hook useInstitution configurado con valores hardcodeados "Instituto JFR" para forzar migración
 - July 22, 2025: AUTENTICACIÓN RESTAURADA - Credenciales admin@jfr.edu.mx/demo123 funcionando correctamente
 - July 22, 2025: Sistema completamente funcional con 4 usuarios activos: admin, contador, caja, admisiones @jfr.edu.mx
+- July 22, 2025: MIGRACIÓN EXITOSA CONFIRMADA - Sistema funciona perfectamente con Instituto JFR, autenticación restaurada
+- July 22, 2025: Hook useInstitution restaurado a configuración normal con valores por defecto del Instituto JFR
 - July 17, 2025: DUPLICACIÓN ELIMINADA - Pestaña "Registro de Pagos Manual" removida por mejor UX
 - July 17, 2025: Solo se mantiene el modal del botón "Registrar pago" del header por mejor experiencia de usuario
 - July 17, 2025: Pestañas reorganizadas: "Lista de pagos" y "Conciliación" únicamente

@@ -12,19 +12,23 @@ interface InstitutionContextType {
 const InstitutionContext = createContext<InstitutionContextType | undefined>(undefined);
 
 export function InstitutionProvider({ children }: { children: ReactNode }) {
-  // FORZAR HARDCODED - NO USAR LOCALSTORAGE TEMPORAL
   const [institutionName, setInstitutionName] = useState<string>("Instituto JFR");
   const [campusName, setCampusName] = useState<string>("Campus Principal");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
-  // SOLUCIÓN TEMPORAL HARDCODED - Ignorar localStorage completamente
+  // Configuración normal con valores por defecto del Instituto JFR
   useEffect(() => {
-    // Limpiar localStorage completamente
-    localStorage.clear();
-    // Forzar valores hardcodeados
-    setInstitutionName('Instituto JFR');
-    setCampusName('Campus Principal');
-    console.log('🔧 HARDCODED: Instituto JFR forzado');
+    const savedInstitutionName = localStorage.getItem('institution_name') || 'Instituto JFR';
+    const savedCampusName = localStorage.getItem('campus_name') || 'Campus Principal';
+    const savedLogoUrl = localStorage.getItem('institution_logo');
+    
+    setInstitutionName(savedInstitutionName);
+    setCampusName(savedCampusName);
+    if (savedLogoUrl) setLogoUrl(savedLogoUrl);
+    
+    // Asegurar que localStorage tenga los valores correctos
+    localStorage.setItem('institution_name', savedInstitutionName);
+    localStorage.setItem('campus_name', savedCampusName);
   }, []);
 
   // Guardar en localStorage cuando cambien los valores

@@ -99,7 +99,7 @@ export default function ConfiguracionInicial() {
             id="nombre_legal"
             value={formData.nombre_legal}
             onChange={(e) => setFormData({...formData, nombre_legal: e.target.value})}
-            placeholder="Colegio San Patricio A.C."
+            placeholder="Instituto JFR A.C."
             required
           />
         </div>

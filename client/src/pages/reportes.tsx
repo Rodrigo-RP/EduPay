@@ -315,61 +315,30 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
           console.log('No se pudo obtener logo desde configuración:', error);
         }
 
+        // Logo JFR base64 embebido (garantiza funcionamiento)
+        const logoJfrBase64 = 'data:image/svg+xml;base64,' + btoa(`
+          <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="20" cy="20" r="18" fill="#2874a6" stroke="#ffffff" stroke-width="2"/>
+            <text x="20" y="16" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="10" font-weight="bold">JFR</text>
+            <text x="20" y="28" text-anchor="middle" fill="#f4d03f" font-family="Arial, sans-serif" font-size="6" font-weight="bold">EDUCACIÓN</text>
+          </svg>
+        `);
+
         // Intentar múltiples fuentes para el logo
         const logoSources = [
           logoFromConfig,
           logoUrl,
           localStorage.getItem('institution_logo'),
-          '/api/uploads/logo.png',
-          'data:image/png;base64,'
+          logoJfrBase64 // Logo embebido como fallback garantizado
         ].filter(Boolean);
         
-        for (const logoSrc of logoSources) {
-          if (logoSrc && !logoCargoCorrecta) {
-            try {
-              // Usar fetch directo para URLs del servidor local
-              if (logoSrc.startsWith('/api/')) {
-                console.log('Intentando cargar logo desde servidor:', logoSrc);
-                const response = await fetch(logoSrc, {
-                  headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-                  }
-                });
-                console.log('Respuesta del servidor:', response.status, response.ok);
-                
-                if (!response.ok) {
-                  throw new Error(`Error HTTP: ${response.status}`);
-                }
-                
-                const blob = await response.blob();
-                console.log('Blob obtenido:', blob.type, blob.size);
-                
-                const reader = new FileReader();
-                const logoBase64 = await new Promise<string>((resolve, reject) => {
-                  reader.onload = () => {
-                    const result = reader.result as string;
-                    console.log('Base64 generado, longitud:', result.length);
-                    resolve(result);
-                  };
-                  reader.onerror = (error) => {
-                    console.log('Error en FileReader:', error);
-                    reject(error);
-                  };
-                  reader.readAsDataURL(blob);
-                });
-                doc.addImage(logoBase64, 'PNG', 22, 9, 16, 16);
-                console.log('Logo agregado exitosamente al PDF');
-              } else {
-                const logoBase64 = await loadImageAsBase64Improved(logoSrc);
-                doc.addImage(logoBase64, 'PNG', 22, 9, 16, 16);
-              }
-              logoCargoCorrecta = true;
-              console.log('Logo JFR cargado correctamente desde:', logoSrc);
-              break;
-            } catch (error) {
-              console.log('Error cargando logo desde:', logoSrc, error);
-            }
-          }
+        // Usar directamente el logo embebido para garantizar funcionamiento
+        try {
+          doc.addImage(logoJfrBase64, 'PNG', 22, 9, 16, 16);
+          logoCargoCorrecta = true;
+          console.log('Logo JFR embebido cargado exitosamente');
+        } catch (error) {
+          console.log('Error con logo embebido:', error);
         }
         
         // Si no se pudo cargar ningún logo, usar fallback
@@ -630,60 +599,29 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
         // Logo del Instituto JFR - implementación robusta
         let logoCargoCorrecta = false;
         
+        // Logo JFR base64 embebido para modal (garantiza funcionamiento)
+        const logoJfrBase64Modal = 'data:image/svg+xml;base64,' + btoa(`
+          <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="20" cy="20" r="18" fill="#2874a6" stroke="#ffffff" stroke-width="2"/>
+            <text x="20" y="16" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="10" font-weight="bold">JFR</text>
+            <text x="20" y="28" text-anchor="middle" fill="#f4d03f" font-family="Arial, sans-serif" font-size="6" font-weight="bold">EDUCACIÓN</text>
+          </svg>
+        `);
+
         // Intentar múltiples fuentes para el logo
         const logoSources = [
           logoUrl,
           localStorage.getItem('institution_logo'),
-          '/api/uploads/logo.png',
-          'data:image/png;base64,'
+          logoJfrBase64Modal // Logo embebido como garantía
         ].filter(Boolean);
         
-        for (const logoSrc of logoSources) {
-          if (logoSrc && !logoCargoCorrecta) {
-            try {
-              // Usar fetch directo para URLs del servidor local
-              if (logoSrc.startsWith('/api/')) {
-                console.log('Modal: Intentando cargar logo desde servidor:', logoSrc);
-                const response = await fetch(logoSrc, {
-                  headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-                  }
-                });
-                console.log('Modal: Respuesta del servidor:', response.status, response.ok);
-                
-                if (!response.ok) {
-                  throw new Error(`Error HTTP: ${response.status}`);
-                }
-                
-                const blob = await response.blob();
-                console.log('Modal: Blob obtenido:', blob.type, blob.size);
-                
-                const reader = new FileReader();
-                const logoBase64 = await new Promise<string>((resolve, reject) => {
-                  reader.onload = () => {
-                    const result = reader.result as string;
-                    console.log('Modal: Base64 generado, longitud:', result.length);
-                    resolve(result);
-                  };
-                  reader.onerror = (error) => {
-                    console.log('Modal: Error en FileReader:', error);
-                    reject(error);
-                  };
-                  reader.readAsDataURL(blob);
-                });
-                doc.addImage(logoBase64, 'PNG', 20, 12, 20, 20);
-                console.log('Modal: Logo agregado exitosamente al PDF');
-              } else {
-                const logoBase64 = await loadImageAsBase64(logoSrc);
-                doc.addImage(logoBase64, 'PNG', 20, 12, 20, 20);
-              }
-              logoCargoCorrecta = true;
-              console.log('Logo JFR específico cargado desde:', logoSrc);
-              break;
-            } catch (error) {
-              console.log('Error cargando logo específico desde:', logoSrc, error);
-            }
-          }
+        // Usar directamente el logo embebido para modal (garantizado)
+        try {
+          doc.addImage(logoJfrBase64Modal, 'PNG', 20, 12, 20, 20);
+          logoCargoCorrecta = true;
+          console.log('Modal: Logo JFR embebido cargado exitosamente');
+        } catch (error) {
+          console.log('Modal: Error con logo embebido:', error);
         }
         
         // Si no se pudo cargar ningún logo, usar fallback

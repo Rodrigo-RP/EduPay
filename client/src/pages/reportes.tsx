@@ -257,24 +257,54 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
         doc.setFillColor(40, 116, 166);
         doc.rect(0, 0, pageWidth, 35, 'F');
         
-        // Logo del Instituto JFR
-        let logoBase64 = null;
-        if (logoUrl) {
-          try {
-            logoBase64 = await loadImageAsBase64(logoUrl);
-            doc.addImage(logoBase64, 'PNG', 22, 9, 16, 16);
-          } catch (error) {
-            console.log('Error cargando logo, usando fallback');
-            // Fallback con círculo y iniciales
-            doc.setFillColor(255, 255, 255);
-            doc.circle(30, 17.5, 8, 'F');
-            doc.setTextColor(40, 116, 166);
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(12);
-            doc.text('JFR', 25.5, 20);
+        // Logo del Instituto JFR - implementación robusta
+        let logoCargoCorrecta = false;
+        
+        // Intentar obtener logo desde configuración del sistema primero
+        let logoFromConfig = null;
+        try {
+          const configResponse = await fetch('/api/admin/settings/1', {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+            }
+          });
+          if (configResponse.ok) {
+            const config = await configResponse.json();
+            if (config.logo_url) {
+              logoFromConfig = config.logo_url;
+              console.log('Logo obtenido desde configuración:', logoFromConfig);
+            }
           }
-        } else {
-          // Fallback con círculo y iniciales
+        } catch (error) {
+          console.log('No se pudo obtener logo desde configuración:', error);
+        }
+
+        // Intentar múltiples fuentes para el logo
+        const logoSources = [
+          logoFromConfig,
+          logoUrl,
+          localStorage.getItem('institution_logo'),
+          '/api/uploads/logo.png',
+          'data:image/png;base64,'
+        ].filter(Boolean);
+        
+        for (const logoSrc of logoSources) {
+          if (logoSrc && !logoCargoCorrecta) {
+            try {
+              const logoBase64 = await loadImageAsBase64(logoSrc);
+              doc.addImage(logoBase64, 'PNG', 22, 9, 16, 16);
+              logoCargoCorrecta = true;
+              console.log('Logo JFR cargado correctamente desde:', logoSrc);
+              break;
+            } catch (error) {
+              console.log('Error cargando logo desde:', logoSrc);
+            }
+          }
+        }
+        
+        // Si no se pudo cargar ningún logo, usar fallback
+        if (!logoCargoCorrecta) {
+          console.log('Usando logo fallback JFR');
           doc.setFillColor(255, 255, 255);
           doc.circle(30, 17.5, 8, 'F');
           doc.setTextColor(40, 116, 166);
@@ -427,16 +457,11 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
         doc.setLineWidth(1);
         doc.line(margin, currentY, pageWidth - margin, currentY);
         
-        currentY += 8;
-        doc.setTextColor(0, 0, 0);
-        doc.setFont('helvetica', 'italic');
-        doc.setFontSize(9);
-        doc.text('[Datos detallados por familia con saldos,', margin + 5, currentY);
-        doc.text('fechas de vencimiento y conceptos pendientes]', margin + 5, currentY + 6);
+        currentY += 15; // Espacio extra sin texto problemático
 
         // ========== FOOTER PROFESIONAL ==========
         // Asegurar espacio suficiente para el footer - mayor separación
-        const footerY = pageHeight - 45;
+        const footerY = pageHeight - 60;
         
         // Línea separadora del footer
         doc.setDrawColor(200, 200, 200);
@@ -532,24 +557,34 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
         doc.setFillColor(40, 116, 166);
         doc.rect(0, 0, pageWidth, 40, 'F');
         
-        // Logo del Instituto JFR
-        let logoBase64 = null;
-        if (logoUrl) {
-          try {
-            logoBase64 = await loadImageAsBase64(logoUrl);
-            doc.addImage(logoBase64, 'PNG', 20, 12, 20, 20);
-          } catch (error) {
-            console.log('Error cargando logo, usando fallback');
-            // Fallback con círculo y iniciales
-            doc.setFillColor(255, 255, 255);
-            doc.circle(30, 20, 10, 'F');
-            doc.setTextColor(40, 116, 166);
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(14);
-            doc.text('JFR', 24.5, 24);
+        // Logo del Instituto JFR - implementación robusta
+        let logoCargoCorrecta = false;
+        
+        // Intentar múltiples fuentes para el logo
+        const logoSources = [
+          logoUrl,
+          localStorage.getItem('institution_logo'),
+          '/api/uploads/logo.png',
+          'data:image/png;base64,'
+        ].filter(Boolean);
+        
+        for (const logoSrc of logoSources) {
+          if (logoSrc && !logoCargoCorrecta) {
+            try {
+              const logoBase64 = await loadImageAsBase64(logoSrc);
+              doc.addImage(logoBase64, 'PNG', 20, 12, 20, 20);
+              logoCargoCorrecta = true;
+              console.log('Logo JFR específico cargado desde:', logoSrc);
+              break;
+            } catch (error) {
+              console.log('Error cargando logo específico desde:', logoSrc);
+            }
           }
-        } else {
-          // Fallback con círculo y iniciales
+        }
+        
+        // Si no se pudo cargar ningún logo, usar fallback
+        if (!logoCargoCorrecta) {
+          console.log('Usando logo fallback JFR específico');
           doc.setFillColor(255, 255, 255);
           doc.circle(30, 20, 10, 'F');
           doc.setTextColor(40, 116, 166);

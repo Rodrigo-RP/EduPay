@@ -236,6 +236,42 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
         });
       };
 
+      // Función mejorada para cargar imagen desde servidor local
+      const loadImageAsBase64Improved = (url: string): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          // Si es una URL del servidor local, usar fetch
+          if (url.startsWith('/api/') || url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1')) {
+            fetch(url, {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+              }
+            })
+            .then(response => response.blob())
+            .then(blob => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            })
+            .catch(reject);
+          } else {
+            // Para URLs externas, usar Image con canvas
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+              canvas.width = img.width;
+              canvas.height = img.height;
+              ctx?.drawImage(img, 0, 0);
+              resolve(canvas.toDataURL('image/png'));
+            };
+            img.onerror = reject;
+            img.src = url;
+          }
+        });
+      };
+
       setTimeout(async () => {
         // Crear nuevo documento PDF con formato A4
         const doc = new jsPDF('portrait', 'mm', 'a4');
@@ -291,13 +327,30 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
         for (const logoSrc of logoSources) {
           if (logoSrc && !logoCargoCorrecta) {
             try {
-              const logoBase64 = await loadImageAsBase64(logoSrc);
-              doc.addImage(logoBase64, 'PNG', 22, 9, 16, 16);
+              // Usar fetch directo para URLs del servidor local
+              if (logoSrc.startsWith('/api/')) {
+                const response = await fetch(logoSrc, {
+                  headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+                  }
+                });
+                const blob = await response.blob();
+                const reader = new FileReader();
+                const logoBase64 = await new Promise<string>((resolve, reject) => {
+                  reader.onload = () => resolve(reader.result as string);
+                  reader.onerror = reject;
+                  reader.readAsDataURL(blob);
+                });
+                doc.addImage(logoBase64, 'PNG', 22, 9, 16, 16);
+              } else {
+                const logoBase64 = await loadImageAsBase64Improved(logoSrc);
+                doc.addImage(logoBase64, 'PNG', 22, 9, 16, 16);
+              }
               logoCargoCorrecta = true;
               console.log('Logo JFR cargado correctamente desde:', logoSrc);
               break;
             } catch (error) {
-              console.log('Error cargando logo desde:', logoSrc);
+              console.log('Error cargando logo desde:', logoSrc, error);
             }
           }
         }
@@ -571,13 +624,30 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
         for (const logoSrc of logoSources) {
           if (logoSrc && !logoCargoCorrecta) {
             try {
-              const logoBase64 = await loadImageAsBase64(logoSrc);
-              doc.addImage(logoBase64, 'PNG', 20, 12, 20, 20);
+              // Usar fetch directo para URLs del servidor local
+              if (logoSrc.startsWith('/api/')) {
+                const response = await fetch(logoSrc, {
+                  headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+                  }
+                });
+                const blob = await response.blob();
+                const reader = new FileReader();
+                const logoBase64 = await new Promise<string>((resolve, reject) => {
+                  reader.onload = () => resolve(reader.result as string);
+                  reader.onerror = reject;
+                  reader.readAsDataURL(blob);
+                });
+                doc.addImage(logoBase64, 'PNG', 20, 12, 20, 20);
+              } else {
+                const logoBase64 = await loadImageAsBase64(logoSrc);
+                doc.addImage(logoBase64, 'PNG', 20, 12, 20, 20);
+              }
               logoCargoCorrecta = true;
               console.log('Logo JFR específico cargado desde:', logoSrc);
               break;
             } catch (error) {
-              console.log('Error cargando logo específico desde:', logoSrc);
+              console.log('Error cargando logo específico desde:', logoSrc, error);
             }
           }
         }

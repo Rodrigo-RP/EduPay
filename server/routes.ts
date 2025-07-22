@@ -3459,8 +3459,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.createApprovalWorkflowLog({
         approval_id: approval.id,
         action: 'created',
-        performed_by: user.id,
-        notes: `Solicitud de aprobación creada para: ${action_description}`
+        user_id: user.id,
+        details: `Solicitud de aprobación creada para: ${action_description}`
       });
 
       res.json({ 
@@ -3512,8 +3512,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.createApprovalWorkflowLog({
         approval_id,
         action: decision,
-        performed_by: user.id,
-        notes: notes || `Solicitud ${decision === 'approved' ? 'aprobada' : 'rechazada'} por ${user.name}`
+        user_id: user.id,
+        details: notes || `Solicitud ${decision === 'approved' ? 'aprobada' : 'rechazada'} por ${user.name}`
       });
 
       res.json({ 

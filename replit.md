@@ -141,14 +141,18 @@ Changelog:
 - July 17, 2025: Logo circular con gradiente azul, iniciales "ISP" y texto "EDUCACIÓN" dorado para mejor renderizado
 - July 17, 2025: Diseño optimizado para generación HTML-to-PDF manteniendo identidad visual profesional
 - July 22, 2025: LOGO REAL DE INSTITUCIÓN INTEGRADO - Sistema actualizado para usar logo subido en configuración
-- July 22, 2025: Recibos fiscales ahora usan logo real del "Colegio San Patricio" desde configuración del sistema
+- July 22, 2025: Recibos fiscales ahora usan logo real del "Instituto JFR" desde configuración del sistema
 - July 22, 2025: Hook useInstitution integrado en pagos.tsx y caja-conciliacion.tsx para logo e institución dinámicos
 - July 22, 2025: Logo fallback mantiene diseño circular "ISP" solo cuando no hay logo configurado
 - July 22, 2025: Sistema resuelve inconsistencia entre logo genérico y logo real de la escuela
 - July 22, 2025: ERROR CRÍTICO DE RECIBOS FISCALES RESUELTO - Variable "institution is not defined" corregida completamente
-- July 22, 2025: Recibos fiscales profesionales restaurados con logo dinámico del Colegio San Patricio funcionando
+- July 22, 2025: Recibos fiscales profesionales restaurados con logo dinámico del Instituto JFR funcionando
 - July 22, 2025: Hook useInstitution integrado correctamente usando logoUrl e institutionName en lugar de objeto institution
 - July 22, 2025: Formato HTML completo con información fiscal SAT, folio único, numeración automática y sección de firmas
+- July 22, 2025: MIGRACIÓN A INSTITUTO JFR COMPLETADA - Todas las referencias cambiadas de "Colegio San Patricio" a "Instituto JFR"
+- July 22, 2025: Usuarios de prueba actualizados: admin@jfr.edu.mx, contador@jfr.edu.mx, caja@jfr.edu.mx, admisiones@jfr.edu.mx
+- July 22, 2025: Base de datos, recibos fiscales y documentación actualizados con información del Instituto JFR
+- July 22, 2025: Hook useInstitution configurado con "Instituto JFR" como institución predeterminada
 - July 17, 2025: DUPLICACIÓN ELIMINADA - Pestaña "Registro de Pagos Manual" removida por mejor UX
 - July 17, 2025: Solo se mantiene el modal del botón "Registrar pago" del header por mejor experiencia de usuario
 - July 17, 2025: Pestañas reorganizadas: "Lista de pagos" y "Conciliación" únicamente
@@ -238,10 +242,10 @@ Changelog:
 - July 17, 2025: Rol 'admisiones' solo ve pagos de inscripción (Kinder $2,500, Primaria $2,800, Secundaria $3,200)
 - July 17, 2025: Rol 'contador' tiene acceso completo a todos los pagos para análisis financiero
 - July 17, 2025: Middleware authenticateToken funcionando con tokens JWT válidos y campus_id correcto
-- July 17, 2025: Credenciales contador@sanpatricio.edu.mx / demo123 completamente funcionales
+- July 17, 2025: Credenciales contador@jfr.edu.mx / demo123 completamente funcionales
 - July 17, 2025: Método getChargesByCampus agregado exitosamente al storage para dashboard contador
 - July 17, 2025: Endpoint /api/dashboard/contador totalmente funcional con datos reales del campus
-- July 17, 2025: Credenciales contador@sanpatricio.edu.mx / demo123 validadas y funcionando
+- July 17, 2025: Credenciales contador@jfr.edu.mx / demo123 validadas y funcionando
 - July 17, 2025: Dashboard contador muestra análisis financiero con datos auténticos del campus 24
 - July 17, 2025: Token JWT incluye campus_id en payload para consultas de datos por campus
 - July 17, 2025: Sistema de autenticación "auth_token" unificado funcionando correctamente

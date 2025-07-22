@@ -520,7 +520,7 @@ export default function Pagos() {
           <div class="logo-section">
             ${logoElement}
             <div class="company-info">
-              <h1 class="company-name">${institutionName || 'Instituto San Patricio'}</h1>
+              <h1 class="company-name">${institutionName || 'Instituto JFR'}</h1>
               <div class="receipt-type">RECIBO FISCAL ELECTRÓNICO</div>
               <div class="fiscal-info">
                 RFC: ISP851230ABC | Régimen: Personas Morales con Fines no Lucrativos
@@ -604,7 +604,7 @@ export default function Pagos() {
         </div>
 
         <div class="footer">
-          <p><strong>${institutionName || 'Instituto San Patricio'}</strong> - Sistema de Gestión de Pagos</p>
+          <p><strong>${institutionName || 'Instituto JFR'}</strong> - Sistema de Gestión de Pagos</p>
           <p>Este recibo fiscal cumple con los requisitos establecidos por el SAT | CFDI 4.0</p>
           <p>Generado el ${new Date().toLocaleString('es-MX')} | Folio: ${folio}</p>
         </div>

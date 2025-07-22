@@ -2078,7 +2078,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         {
           id: 1,
           name: "Director Campus",
-          email: "director@" + (schoolId === 16 ? "sanpatricio" : "montessori") + ".edu.mx",
+          email: "director@" + (schoolId === 16 ? "jfr" : "montessori") + ".edu.mx",
           role: "admin",
           campus_id: campuses[0]?.id || 1,
           status: "active",
@@ -2087,7 +2087,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         {
           id: 2,
           name: "Coordinador Académico",
-          email: "academico@" + (schoolId === 16 ? "sanpatricio" : "montessori") + ".edu.mx",
+          email: "academico@" + (schoolId === 16 ? "jfr" : "montessori") + ".edu.mx",
           role: "staff",
           campus_id: campuses[0]?.id || 1,
           status: "active",

@@ -19,9 +19,9 @@ export async function seedDemoData() {
 
   try {
     // 1. Crear tenants (grupos escolares)
-    const [tenantSanPatricio] = await db.insert(tenants).values({
-      nombre_legal: "Colegio San Patricio A.C.",
-      rfc: "CSP123456789",
+    const [tenantJFR] = await db.insert(tenants).values({
+      nombre_legal: "Instituto JFR A.C.",
+      rfc: "IJF123456789",
       timbrado_sat: "SAT001122334455",
       pac_proveedor: "FACTURAMA",
       pasarela_pagos: "STRIPE",
@@ -39,13 +39,13 @@ export async function seedDemoData() {
 
     // 2. Crear campus
     const [campusNorte] = await db.insert(campuses).values({
-      tenant_id: tenantSanPatricio.id,
+      tenant_id: tenantJFR.id,
       nombre: "Campus Norte",
       clave_sep: "21DPR0001K"
     }).returning();
 
     const [campusSur] = await db.insert(campuses).values({
-      tenant_id: tenantSanPatricio.id,
+      tenant_id: tenantJFR.id,
       nombre: "Campus Sur", 
       clave_sep: "21DPR0002L"
     }).returning();
@@ -70,7 +70,7 @@ export async function seedDemoData() {
     // Admin Campus
     await db.insert(users).values({
       campus_id: campusNorte.id,
-      email: "admin@sanpatricio.edu.mx",
+      email: "admin@jfr.edu.mx",
       password_hash: hashedPassword,
       role: "admin"
     });
@@ -78,7 +78,7 @@ export async function seedDemoData() {
     // Finanzas/Caja
     await db.insert(users).values({
       campus_id: campusNorte.id,
-      email: "caja@sanpatricio.edu.mx", 
+      email: "caja@jfr.edu.mx", 
       password_hash: hashedPassword,
       role: "caja"
     });

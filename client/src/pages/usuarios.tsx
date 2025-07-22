@@ -75,7 +75,7 @@ export default function Usuarios() {
     },
     {
       id: 4,
-      email: "contador@sanpatricio.edu.mx",
+      email: "contador@jfr.edu.mx",
       nombre_completo: "Jorge Luis Herrera",
       role: "CONTADOR",
       telefono: "55-4567-8901",
@@ -108,7 +108,7 @@ export default function Usuarios() {
     },
     {
       id: 7,
-      email: "admisiones@sanpatricio.edu.mx",
+      email: "admisiones@jfr.edu.mx",
       nombre_completo: "Carmen Rosa Martínez",
       role: "ADMISIONES",
       telefono: "55-7890-1234",

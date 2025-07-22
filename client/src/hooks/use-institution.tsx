@@ -12,7 +12,7 @@ interface InstitutionContextType {
 const InstitutionContext = createContext<InstitutionContextType | undefined>(undefined);
 
 export function InstitutionProvider({ children }: { children: ReactNode }) {
-  const [institutionName, setInstitutionName] = useState<string>("Colegio San Patricio");
+  const [institutionName, setInstitutionName] = useState<string>("Instituto JFR");
   const [campusName, setCampusName] = useState<string>("Campus Principal");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 

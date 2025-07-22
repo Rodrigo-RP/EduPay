@@ -157,6 +157,10 @@ Changelog:
 - July 22, 2025: Sistema completamente funcional con 4 usuarios activos: admin, contador, caja, admisiones @jfr.edu.mx
 - July 22, 2025: MIGRACIÓN EXITOSA CONFIRMADA - Sistema funciona perfectamente con Instituto JFR, autenticación restaurada
 - July 22, 2025: Hook useInstitution restaurado a configuración normal con valores por defecto del Instituto JFR
+- July 22, 2025: SISTEMA DE APROBACIONES COMPLETAMENTE REPARADO - Error crítico 500 resuelto definitivamente
+- July 22, 2025: Problema raíz identificado: discrepancia entre esquema "details" y tabla real "notes" en approval_workflow_logs
+- July 22, 2025: Esquema actualizado para coincidir con base de datos real: notes, additional_data, previous_status, new_status
+- July 22, 2025: Funcionalidad verificada: botones Aprobar/Rechazar funcionando correctamente con respuesta 200
 - July 22, 2025: REBRANDING COMPLETADO AL 100% - Cambiado de "EscuelaPay" a "Edupay" en toda la plataforma
 - July 22, 2025: Actualizado frontend: login.tsx, configuracion.tsx, index.html, training-modal.tsx, notificaciones.tsx
 - July 22, 2025: Actualizado backend: seed-demo-data.ts, seed-super-admin.ts, routes.ts, optimize-database.ts

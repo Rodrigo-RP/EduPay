@@ -3477,7 +3477,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = (req as any).user;
       const { approval_id, decision, notes } = req.body;
-      console.log('Decision request:', { approval_id, decision, notes, user_id: user.id });
 
       // Validate required fields
       if (!approval_id || !decision || !['approved', 'rejected'].includes(decision)) {
@@ -3485,28 +3484,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get the approval request
-      console.log('Getting approval by ID:', approval_id);
       const approval = await storage.getPendingApprovalById(approval_id);
       if (!approval) {
         return res.status(404).json({ message: "Solicitud de aprobación no encontrada" });
       }
-      console.log('Found approval:', approval);
 
       // Check if user can approve this type of action
-      console.log('Checking permissions for user:', user.id, 'action:', approval.action_type);
       const canApprove = await storage.checkUserCanApprove(user.id, approval.action_type);
       if (!canApprove) {
         return res.status(403).json({ message: "No tienes permisos para aprobar este tipo de acción" });
       }
-      console.log('User can approve');
 
       // Update the approval status
-      console.log('Updating approval status');
       await storage.updateApprovalStatus(approval_id, decision, user.id, notes);
-      console.log('Status updated');
 
       // Create notification for the requester
-      console.log('Creating notification');
       await storage.createApprovalNotification({
         approval_id,
         recipient_id: approval.requested_by,
@@ -3515,17 +3507,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: `Tu solicitud "${approval.action_description}" ha sido ${decision === 'approved' ? 'aprobada' : 'rechazada'}`,
         additional_data: notes ? JSON.stringify({ notes }) : undefined
       });
-      console.log('Notification created');
 
       // Log the decision
-      console.log('Creating workflow log');
       await storage.createApprovalWorkflowLog({
         approval_id,
         action: decision,
         user_id: user.id,
         notes: notes || `Solicitud ${decision === 'approved' ? 'aprobada' : 'rechazada'} por ${user.name}`
       });
-      console.log('Workflow log created');
 
       res.json({ 
         message: `Solicitud ${decision === 'approved' ? 'aprobada' : 'rechazada'} exitosamente`,
@@ -3533,7 +3522,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         decision
       });
     } catch (error: any) {
-      console.error('Error in decision endpoint:', error);
       res.status(500).json({ message: "Error procesando decisión: " + error.message });
     }
   });

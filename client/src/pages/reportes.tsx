@@ -7,10 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { FileText, Download, Eye, Calendar, BarChart3, TrendingUp, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useInstitution } from "@/hooks/use-institution";
 import jsPDF from 'jspdf';
 
 export default function Reportes() {
   const { toast } = useToast();
+  const { logoUrl, institutionName } = useInstitution();
   const [selectedPeriod, setSelectedPeriod] = useState("2025-01");
   const [selectedFormat, setSelectedFormat] = useState("detallado");
   const [previewReport, setPreviewReport] = useState<any>(null);
@@ -208,7 +210,7 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
     }, 2000);
   };
 
-  const handleGenerarReportePDF = () => {
+  const handleGenerarReportePDF = async () => {
     try {
       toast({
         title: "Generando Reporte PDF",
@@ -216,7 +218,25 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
         duration: 2000,
       });
 
-      setTimeout(() => {
+      // Función para cargar imagen como base64
+      const loadImageAsBase64 = (url: string): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx?.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+          };
+          img.onerror = reject;
+          img.src = url;
+        });
+      };
+
+      setTimeout(async () => {
         // Crear nuevo documento PDF con formato A4
         const doc = new jsPDF('portrait', 'mm', 'a4');
         const pageWidth = doc.internal.pageSize.getWidth();
@@ -237,13 +257,31 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
         doc.setFillColor(40, 116, 166);
         doc.rect(0, 0, pageWidth, 35, 'F');
         
-        // Logo del Instituto JFR (círculo azul con iniciales)
-        doc.setFillColor(255, 255, 255);
-        doc.circle(30, 17.5, 8, 'F');
-        doc.setTextColor(40, 116, 166);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.text('JFR', 25.5, 20);
+        // Logo del Instituto JFR
+        let logoBase64 = null;
+        if (logoUrl) {
+          try {
+            logoBase64 = await loadImageAsBase64(logoUrl);
+            doc.addImage(logoBase64, 'PNG', 22, 9, 16, 16);
+          } catch (error) {
+            console.log('Error cargando logo, usando fallback');
+            // Fallback con círculo y iniciales
+            doc.setFillColor(255, 255, 255);
+            doc.circle(30, 17.5, 8, 'F');
+            doc.setTextColor(40, 116, 166);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(12);
+            doc.text('JFR', 25.5, 20);
+          }
+        } else {
+          // Fallback con círculo y iniciales
+          doc.setFillColor(255, 255, 255);
+          doc.circle(30, 17.5, 8, 'F');
+          doc.setTextColor(40, 116, 166);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(12);
+          doc.text('JFR', 25.5, 20);
+        }
         
         // Nombre de la institución
         doc.setTextColor(255, 255, 255);
@@ -397,23 +435,26 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
         doc.text('fechas de vencimiento y conceptos pendientes]', margin + 5, currentY + 6);
 
         // ========== FOOTER PROFESIONAL ==========
-        const footerY = pageHeight - 25;
+        // Asegurar espacio suficiente para el footer
+        const footerY = pageHeight - 30;
         
         // Línea separadora del footer
         doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.5);
-        doc.line(margin, footerY - 5, pageWidth - margin, footerY - 5);
+        doc.line(margin, footerY - 8, pageWidth - margin, footerY - 8);
         
+        // Información del lado izquierdo
         doc.setTextColor(100, 100, 100);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
         doc.text('Generado por Edupay - Sistema de Pagos Escolares', margin, footerY);
-        doc.text('www.edupay.mx | soporte@edupay.mx', margin, footerY + 5);
-        doc.text(`Documento generado el ${fechaGeneracion} a las ${horaGeneracion}`, margin, footerY + 10);
+        doc.text('www.edupay.mx | soporte@edupay.mx', margin, footerY + 4);
+        doc.text(`Documento generado el ${fechaGeneracion} a las ${horaGeneracion}`, margin, footerY + 8);
         
-        // Número de página (lado derecho)
-        doc.text('Página 1 de 1', pageWidth - 40, footerY);
-        doc.text('Confidencial', pageWidth - 40, footerY + 5);
+        // Información del lado derecho (bien separada)
+        doc.text('Página 1 de 1', pageWidth - 50, footerY);
+        doc.text('Confidencial', pageWidth - 50, footerY + 4);
+        doc.text('Uso Interno', pageWidth - 50, footerY + 8);
 
         // ========== MARCA DE AGUA SUTIL ==========
         doc.setTextColor(240, 240, 240);
@@ -442,7 +483,7 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
     }
   };
 
-  const handleGenerarReportePDFEspecifico = (reporte: any) => {
+  const handleGenerarReportePDFEspecifico = async (reporte: any) => {
     try {
       toast({
         title: "Generando PDF Profesional",
@@ -450,7 +491,25 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
         duration: 2000,
       });
 
-      setTimeout(() => {
+      // Función para cargar imagen como base64
+      const loadImageAsBase64 = (url: string): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx?.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+          };
+          img.onerror = reject;
+          img.src = url;
+        });
+      };
+
+      setTimeout(async () => {
         // Crear nuevo documento PDF con formato A4 profesional
         const doc = new jsPDF('portrait', 'mm', 'a4');
         const pageWidth = doc.internal.pageSize.getWidth();
@@ -474,12 +533,30 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
         doc.rect(0, 0, pageWidth, 40, 'F');
         
         // Logo del Instituto JFR
-        doc.setFillColor(255, 255, 255);
-        doc.circle(30, 20, 10, 'F');
-        doc.setTextColor(40, 116, 166);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(14);
-        doc.text('JFR', 24.5, 24);
+        let logoBase64 = null;
+        if (logoUrl) {
+          try {
+            logoBase64 = await loadImageAsBase64(logoUrl);
+            doc.addImage(logoBase64, 'PNG', 20, 12, 20, 20);
+          } catch (error) {
+            console.log('Error cargando logo, usando fallback');
+            // Fallback con círculo y iniciales
+            doc.setFillColor(255, 255, 255);
+            doc.circle(30, 20, 10, 'F');
+            doc.setTextColor(40, 116, 166);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.text('JFR', 24.5, 24);
+          }
+        } else {
+          // Fallback con círculo y iniciales
+          doc.setFillColor(255, 255, 255);
+          doc.circle(30, 20, 10, 'F');
+          doc.setTextColor(40, 116, 166);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(14);
+          doc.text('JFR', 24.5, 24);
+        }
         
         // Información institucional
         doc.setTextColor(255, 255, 255);
@@ -598,28 +675,29 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
         });
 
         // ========== FOOTER INSTITUCIONAL ==========
-        const footerY = pageHeight - 30;
+        // Asegurar que el footer esté en la posición correcta sin sobreescribir
+        const footerStartY = pageHeight - 35;
         
         // Línea separadora elegante
         doc.setDrawColor(40, 116, 166);
         doc.setLineWidth(1);
-        doc.line(margin, footerY - 8, pageWidth - margin, footerY - 8);
+        doc.line(margin, footerStartY - 3, pageWidth - margin, footerStartY - 3);
         
-        // Información del pie de página
+        // Información del pie de página (lado izquierdo)
         doc.setTextColor(80, 80, 80);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
-        doc.text('INSTITUTO JFR | Sistema Edupay de Gestión Escolar', margin, footerY);
-        doc.text('www.institutojfr.edu.mx | administracion@institutojfr.edu.mx | Tel: (555) 123-4567', margin, footerY + 5);
-        doc.text(`Documento generado automáticamente el ${fechaGeneracion} a las ${horaGeneracion}`, margin, footerY + 10);
+        doc.text('INSTITUTO JFR | Sistema Edupay de Gestión Escolar', margin, footerStartY + 2);
+        doc.text('www.institutojfr.edu.mx | administracion@institutojfr.edu.mx', margin, footerStartY + 7);
+        doc.text(`Documento generado el ${fechaGeneracion} a las ${horaGeneracion}`, margin, footerStartY + 12);
         
-        // Información de página y confidencialidad
+        // Información de página y confidencialidad (lado derecho, bien separada)
         const totalPages = doc.internal.pages.length - 1;
         doc.setFont('helvetica', 'bold');
-        doc.text(`Página ${totalPages}`, pageWidth - 35, footerY);
+        doc.text(`Página ${totalPages}`, pageWidth - 45, footerStartY + 2);
         doc.setFont('helvetica', 'normal');
-        doc.text('CONFIDENCIAL', pageWidth - 45, footerY + 5);
-        doc.text('Uso Interno', pageWidth - 35, footerY + 10);
+        doc.text('CONFIDENCIAL', pageWidth - 45, footerStartY + 7);
+        doc.text('Uso Interno', pageWidth - 45, footerStartY + 12);
 
         // ========== MARCA DE AGUA INSTITUCIONAL ==========
         doc.setTextColor(250, 250, 250);

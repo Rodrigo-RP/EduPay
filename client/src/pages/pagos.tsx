@@ -47,10 +47,7 @@ export default function Pagos() {
   const getUserDisplayName = () => {
     if (!user) return "";
     
-    // Si hay nombre y apellido en el usuario, usarlos
-    if (user.firstName && user.lastName) {
-      return `${user.firstName} ${user.lastName}`;
-    }
+    // Obtener nombre del usuario
     
     // Si no, extraer nombre del email o usar el rol
     if (user.email) {
@@ -224,7 +221,7 @@ export default function Pagos() {
 
 
   // Transformar los datos de la API al formato esperado por el frontend
-  const transformedPagos = paymentsData?.map(payment => {
+  const transformedPagos = paymentsData?.map((payment: any) => {
     const transformedPayment = {
       id: payment.id,
       estudiante: payment.charge?.student?.nombre_completo || 'Sin estudiante',
@@ -252,7 +249,7 @@ export default function Pagos() {
   }) || [];
 
   // Filtrar pagos según criterios Y rol del usuario
-  const filteredPagos = transformedPagos.filter(pago => {
+  const filteredPagos = transformedPagos.filter((pago: any) => {
     // Filtros básicos existentes
     const methodMatch = selectedMethod === "all" || pago.metodo === selectedMethod;
     const statusMatch = selectedStatus === "all" || pago.estado === selectedStatus;
@@ -1216,166 +1213,115 @@ export default function Pagos() {
       </div>
       
       <div className="max-w-7xl mx-auto p-6 space-y-6 relative z-10">
-        {/* Header Premium con diseño mejorado */}
-        <div className="mb-10 relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-cyan-600/10 rounded-3xl blur-xl"></div>
-          <div className="relative bg-white/90 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-white/60">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-6 flex-1">
-                <div className="relative">
-                  <div className="absolute -inset-3 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl blur opacity-40"></div>
-                  <div className="relative p-5 bg-gradient-to-r from-blue-100 to-cyan-100 rounded-2xl">
-                    <CreditCard className="w-12 h-12 text-blue-600 edupay-icon-bounce" />
-                  </div>
+        {/* Header simplificado como en la imagen */}
+        <div className="mb-8 relative">
+          <div className="relative bg-white/95 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white/40">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="relative p-4 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-2xl">
+                  <CreditCard className="w-8 h-8 text-blue-600" />
                 </div>
-                <div className="flex-1">
-                  <h1 className="text-4xl font-bold edupay-text-gradient mb-3">
-                    {userRole === 'admisiones' ? 'Pagos de Inscripciones' : 
-                     userRole === 'contador' ? 'Reportes de Pagos' : 'Gestión de Pagos'}
-                  </h1>
-                  <p className="text-slate-600 text-lg mb-4">
-                    {userRole === 'admisiones' 
-                      ? 'Administra pagos de inscripciones, matrículas y becas para nuevos estudiantes'
-                      : userRole === 'contador'
-                      ? 'Consulta y analiza todos los pagos completados para reportes contables'
-                      : 'Administra pagos recibidos, registra efectivo y concilia movimientos'
-                    }
-                  </p>
-                  
-                  {userRole === 'admisiones' && (
-                    <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-400 rounded-lg">
-                      <div className="flex items-center gap-3 text-green-700">
-                        <User className="w-5 h-5" />
-                        <span className="font-medium">
-                          Perfil Admisiones - Solo puedes ver pagos relacionados con inscripciones, matrículas y becas
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                  {userRole === 'contador' && (
-                    <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 border-l-4 border-blue-400 rounded-lg">
-                      <div className="flex items-center gap-3 text-blue-700">
-                        <FileText className="w-5 h-5" />
-                        <span className="font-medium">
-                          Perfil Contador - Acceso completo de solo lectura para reportes contables
-                        </span>
-                      </div>
-                    </div>
-                  )}
+                <div>
+                  <h1 className="text-3xl font-bold text-blue-600 mb-1">Gestión de Pagos</h1>
+                  <p className="text-slate-600">Administra pagos recibidos, registra efectivo y concilia movimientos</p>
                 </div>
               </div>
               
               {userRole !== 'contador' && (
-                <div className="flex flex-col gap-3 ml-6">
+                <div className="flex items-center gap-4">
                   <Button 
-                    className="edupay-button edupay-button-primary edupay-button-hover group px-6 py-3"
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex items-center gap-2"
                     onClick={() => setShowRegistrarPago(true)}
                   >
-                    <Banknote className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
+                    <CreditCard className="w-4 h-4" />
                     Registrar Pago
                   </Button>
-                  <div className="flex items-center gap-2 text-sm text-slate-600 bg-slate-100 px-3 py-2 rounded-lg">
+                  <div className="flex items-center gap-2 text-sm text-slate-600">
                     <CheckCircle className="w-4 h-4 text-green-500" />
                     Sistema Activo
                   </div>
                 </div>
               )}
             </div>
-            
-            {/* Decorative elements */}
-            <div className="absolute top-4 right-4 w-32 h-32 bg-gradient-to-br from-blue-200/20 to-cyan-200/20 rounded-full blur-2xl"></div>
-            <div className="absolute bottom-4 right-8 w-20 h-20 bg-gradient-to-br from-pink-200/20 to-purple-200/20 rounded-full blur-xl"></div>
           </div>
         </div>
 
-        {/* KPI Cards Premium */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="edupay-card-shadow edupay-card-hover group animate-fade-scale">
-            <CardContent className="p-6">
+        {/* KPI Cards como en la imagen de referencia */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+            <CardContent className="p-0">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600 group-hover:text-slate-700 transition-colors">Total del día</p>
-                  <p className="text-2xl font-bold edupay-text-gradient">$15,750</p>
+                  <p className="text-sm text-slate-600 mb-1">Total del día</p>
+                  <p className="text-2xl font-bold text-blue-600">$15,750</p>
                   <div className="text-xs text-green-600 mt-1">+12.5% vs ayer</div>
                 </div>
-                <div className="relative">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full blur opacity-20 group-hover:opacity-30 transition-opacity"></div>
-                  <div className="relative h-12 w-12 bg-gradient-to-r from-green-100 to-emerald-100 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <DollarSign className="h-6 w-6 text-green-600" />
-                  </div>
+                <div className="text-green-500">
+                  <DollarSign className="h-8 w-8" />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="edupay-card-shadow edupay-card-hover group animate-fade-scale">
-            <CardContent className="p-6">
+          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+            <CardContent className="p-0">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600 group-hover:text-slate-700 transition-colors">Pagos completados</p>
-                  <p className="text-2xl font-bold edupay-text-gradient">24</p>
+                  <p className="text-sm text-slate-600 mb-1">Pagos completados</p>
+                  <p className="text-2xl font-bold text-blue-600">24</p>
                   <div className="text-xs text-blue-600 mt-1">+3 desde ayer</div>
                 </div>
-                <div className="relative">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full blur opacity-20 group-hover:opacity-30 transition-opacity"></div>
-                  <div className="relative h-12 w-12 bg-gradient-to-r from-blue-100 to-cyan-100 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <CheckCircle className="h-6 w-6 text-blue-600" />
-                  </div>
+                <div className="text-blue-500">
+                  <CheckCircle className="h-8 w-8" />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="edupay-card-shadow edupay-card-hover group animate-fade-scale">
-            <CardContent className="p-6">
+          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+            <CardContent className="p-0">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600 group-hover:text-slate-700 transition-colors">Tasa de éxito</p>
-                  <p className="text-2xl font-bold edupay-text-gradient">94.2%</p>
+                  <p className="text-sm text-slate-600 mb-1">Tasa de éxito</p>
+                  <p className="text-2xl font-bold text-blue-600">94.2%</p>
                   <div className="text-xs text-purple-600 mt-1">Excelente</div>
                 </div>
-                <div className="relative">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full blur opacity-20 group-hover:opacity-30 transition-opacity"></div>
-                  <div className="relative h-12 w-12 bg-gradient-to-r from-purple-100 to-pink-100 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Receipt className="h-6 w-6 text-purple-600" />
-                  </div>
+                <div className="text-purple-500">
+                  <Receipt className="h-8 w-8" />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="edupay-card-shadow edupay-card-hover group animate-fade-scale">
-            <CardContent className="p-6">
+          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+            <CardContent className="p-0">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600 group-hover:text-slate-700 transition-colors">Pendientes</p>
-                  <p className="text-2xl font-bold edupay-text-gradient">3</p>
+                  <p className="text-sm text-slate-600 mb-1">Pendientes</p>
+                  <p className="text-2xl font-bold text-blue-600">3</p>
                   <div className="text-xs text-orange-600 mt-1">Requieren atención</div>
                 </div>
-                <div className="relative">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-orange-500 to-amber-500 rounded-full blur opacity-20 group-hover:opacity-30 transition-opacity"></div>
-                  <div className="relative h-12 w-12 bg-gradient-to-r from-orange-100 to-amber-100 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Calendar className="h-6 w-6 text-orange-600" />
-                  </div>
+                <div className="text-orange-500">
+                  <Calendar className="h-8 w-8" />
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Tabs Section Premium */}
+        {/* Tabs como en la imagen de referencia */}
         <Tabs defaultValue="lista" className="w-full">
-          <TabsList className={`grid w-full ${(userRole === 'admisiones' || userRole === 'contador') ? 'grid-cols-1' : 'grid-cols-2'} bg-white/80 backdrop-blur-sm border border-white/20 rounded-2xl p-2 shadow-lg`}>
+          <TabsList className={`grid w-full ${(userRole === 'admisiones' || userRole === 'contador') ? 'grid-cols-1' : 'grid-cols-2'} bg-transparent p-0 gap-2 h-auto`}>
             <TabsTrigger 
               value="lista" 
-              className="text-sm font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300"
+              className="rounded-full px-8 py-3 text-sm font-medium data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=inactive]:bg-white data-[state=inactive]:text-slate-600 data-[state=inactive]:shadow-md transition-all duration-300"
             >
               Lista de pagos
             </TabsTrigger>
             {userRole !== 'admisiones' && userRole !== 'contador' && (
               <TabsTrigger 
                 value="conciliacion"
-                className="text-sm font-semibold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300"
+                className="rounded-full px-8 py-3 text-sm font-medium data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=inactive]:bg-white data-[state=inactive]:text-slate-600 data-[state=inactive]:shadow-md transition-all duration-300"
               >
                 Conciliación
               </TabsTrigger>
@@ -1383,75 +1329,77 @@ export default function Pagos() {
           </TabsList>
 
           <TabsContent value="lista" className="mt-6">
-            <Card className="edupay-card-shadow edupay-card-hover border-0 bg-white/90 backdrop-blur-sm">
-            <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-t-lg">
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-3 text-xl">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <CreditCard className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <span className="edupay-text-gradient">Historial de pagos</span>
-                </CardTitle>
-                <div className="flex gap-3">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-sm whitespace-nowrap">Desde:</Label>
-                    <Input 
-                      type="date" 
-                      value={dateFrom}
-                      onChange={(e) => setDateFrom(e.target.value)}
-                      className="w-[140px]"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Label className="text-sm whitespace-nowrap">Hasta:</Label>
-                    <Input 
-                      type="date" 
-                      value={dateTo}
-                      onChange={(e) => setDateTo(e.target.value)}
-                      className="w-[140px]"
-                    />
-                  </div>
-                  <Select value={selectedMethod} onValueChange={setSelectedMethod}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue placeholder="Método" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="TARJETA">Tarjeta</SelectItem>
-                      <SelectItem value="EFECTIVO">Efectivo</SelectItem>
-                      <SelectItem value="SPEI">SPEI</SelectItem>
-                      <SelectItem value="PAYPAL">PayPal</SelectItem>
-                      <SelectItem value="OXXOPAY">OXXO Pay</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue placeholder="Estado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="completado">Completados</SelectItem>
-                      <SelectItem value="pendiente">Pendientes</SelectItem>
-                      <SelectItem value="fallido">Fallidos</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {(dateFrom || dateTo) && (
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        setDateFrom("");
-                        setDateTo("");
-                      }}
-                      className="text-xs"
-                    >
-                      Limpiar fechas
-                    </Button>
-                  )}
+            {/* Historial de pagos simplificado como en la imagen */}
+            <div className="bg-white rounded-2xl p-6 shadow-lg">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <CreditCard className="w-6 h-6 text-blue-600" />
                 </div>
+                <h3 className="text-xl font-semibold text-slate-800">Historial de pagos</h3>
               </div>
-            </CardHeader>
-            <CardContent>
+              
+              {/* Filtros en línea horizontal como en la imagen */}
+              <div className="flex items-center gap-4 mb-6 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm text-slate-600">Desde:</Label>
+                  <Input 
+                    type="date" 
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="w-36 text-sm"
+                    placeholder="dd/mm/aaaa"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm text-slate-600">Hasta:</Label>
+                  <Input 
+                    type="date" 
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="w-36 text-sm"
+                    placeholder="dd/mm/aaaa"
+                  />
+                </div>
+                <Select value={selectedMethod} onValueChange={setSelectedMethod}>
+                  <SelectTrigger className="w-32 text-sm">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="TARJETA">Tarjeta</SelectItem>
+                    <SelectItem value="EFECTIVO">Efectivo</SelectItem>
+                    <SelectItem value="SPEI">SPEI</SelectItem>
+                    <SelectItem value="PAYPAL">PayPal</SelectItem>
+                    <SelectItem value="OXXOPAY">OXXO Pay</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                  <SelectTrigger className="w-32 text-sm">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="completado">Completados</SelectItem>
+                    <SelectItem value="pendiente">Pendientes</SelectItem>
+                    <SelectItem value="fallido">Fallidos</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(dateFrom || dateTo) && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setDateFrom("");
+                      setDateTo("");
+                    }}
+                    className="text-xs"
+                  >
+                    Limpiar fechas
+                  </Button>
+                )}
+              </div>
+              
+              {/* Contenido de la tabla de pagos */}
               {/* Gráficos de Análisis Visual */}
               <div className="mb-6">
                 <h4 className="font-medium mb-4 flex items-center gap-2">
@@ -1509,7 +1457,7 @@ export default function Pagos() {
                     )}
                   </div>
                 ) : (
-                  filteredPagos.map((pago) => (
+                  filteredPagos.map((pago: any) => (
                     <div key={pago.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50">
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center gap-3">
@@ -1554,9 +1502,8 @@ export default function Pagos() {
                   ))
                 )}
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </div>
+          </TabsContent>
 
 
 

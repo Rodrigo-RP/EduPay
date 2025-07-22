@@ -582,8 +582,8 @@ Fecha: ${reporte.fecha}
 
         {/* Modal de Vista Previa */}
         <Dialog open={showPreview} onOpenChange={setShowPreview}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
-            <DialogHeader>
+          <DialogContent className="max-w-4xl h-[85vh] flex flex-col">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle className="flex items-center gap-2 text-xl">
                 <FileText className="w-6 h-6 text-blue-600" />
                 {previewReport && generatePreviewContent(previewReport).title}
@@ -593,13 +593,13 @@ Fecha: ${reporte.fecha}
               </DialogDescription>
             </DialogHeader>
             
-            <div className="overflow-y-auto max-h-[60vh] p-4 bg-slate-50 rounded-lg border">
+            <div className="flex-1 overflow-y-auto p-4 bg-slate-50 rounded-lg border my-4">
               <pre className="whitespace-pre-wrap font-mono text-sm text-slate-800 leading-relaxed">
                 {previewReport && generatePreviewContent(previewReport).content}
               </pre>
             </div>
             
-            <div className="flex justify-between items-center pt-4 border-t">
+            <div className="flex-shrink-0 flex justify-between items-center pt-4 border-t bg-white">
               <div className="text-sm text-slate-600">
                 Para obtener el reporte completo, utiliza el botón "Descargar"
               </div>

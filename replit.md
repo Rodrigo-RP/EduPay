@@ -145,6 +145,10 @@ Changelog:
 - July 22, 2025: Hook useInstitution integrado en pagos.tsx y caja-conciliacion.tsx para logo e institución dinámicos
 - July 22, 2025: Logo fallback mantiene diseño circular "ISP" solo cuando no hay logo configurado
 - July 22, 2025: Sistema resuelve inconsistencia entre logo genérico y logo real de la escuela
+- July 22, 2025: ERROR CRÍTICO DE RECIBOS FISCALES RESUELTO - Variable "institution is not defined" corregida completamente
+- July 22, 2025: Recibos fiscales profesionales restaurados con logo dinámico del Colegio San Patricio funcionando
+- July 22, 2025: Hook useInstitution integrado correctamente usando logoUrl e institutionName en lugar de objeto institution
+- July 22, 2025: Formato HTML completo con información fiscal SAT, folio único, numeración automática y sección de firmas
 - July 17, 2025: DUPLICACIÓN ELIMINADA - Pestaña "Registro de Pagos Manual" removida por mejor UX
 - July 17, 2025: Solo se mantiene el modal del botón "Registrar pago" del header por mejor experiencia de usuario
 - July 17, 2025: Pestañas reorganizadas: "Lista de pagos" y "Conciliación" únicamente

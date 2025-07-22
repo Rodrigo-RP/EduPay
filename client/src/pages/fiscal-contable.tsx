@@ -535,7 +535,7 @@ export default function FiscalContable() {
           <Card>
             <CardContent className="p-4 text-center">
               <FileText className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold">{estadisticasSAT?.facturas_emitidas || 0}</div>
+          <div className="text-2xl font-bold">{(estadisticasSAT as any)?.facturas_emitidas || 0}</div>
           <div className="text-sm text-slate-600">Facturas emitidas</div>
             </CardContent>
           </Card>
@@ -543,7 +543,7 @@ export default function FiscalContable() {
           <Card>
             <CardContent className="p-4 text-center">
               <AlertCircle className="w-8 h-8 text-orange-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold">{estadisticasSAT?.facturas_canceladas || 0}</div>
+          <div className="text-2xl font-bold">{(estadisticasSAT as any)?.facturas_canceladas || 0}</div>
           <div className="text-sm text-slate-600">Facturas canceladas</div>
             </CardContent>
           </Card>
@@ -551,7 +551,7 @@ export default function FiscalContable() {
           <Card>
             <CardContent className="p-4 text-center">
               <Receipt className="w-8 h-8 text-green-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold">${((estadisticasSAT?.ingresos_declarados || 0) / 100).toLocaleString()}</div>
+          <div className="text-2xl font-bold">${(((estadisticasSAT as any)?.ingresos_declarados || 0) / 100).toLocaleString()}</div>
           <div className="text-sm text-slate-600">Ingresos declarados</div>
             </CardContent>
           </Card>

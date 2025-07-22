@@ -221,7 +221,7 @@ export default function Pagos() {
 
 
   // Transformar los datos de la API al formato esperado por el frontend
-  const transformedPagos = paymentsData?.map((payment: any) => {
+  const transformedPagos = (paymentsData || []).map((payment: any) => {
     const transformedPayment = {
       id: payment.id,
       estudiante: payment.charge?.student?.nombre_completo || 'Sin estudiante',

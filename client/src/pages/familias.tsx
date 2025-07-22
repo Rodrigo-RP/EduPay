@@ -401,7 +401,11 @@ export default function Familias() {
       contacto_emergencia_telefono: "",
       contacto_emergencia_relacion: "",
       observaciones: "",
-      estatus: "activo"
+      estatus: "activo",
+      usuario: "",
+      password: "",
+      id_referencia_padre: "",
+      id_referencia_madre: ""
     });
     
     // Resetear datos fiscales múltiples
@@ -721,7 +725,11 @@ export default function Familias() {
       contacto_emergencia_telefono: familia.contacto_emergencia_telefono || "",
       contacto_emergencia_relacion: familia.contacto_emergencia_relacion || "",
       observaciones: familia.observaciones || "",
-      estatus: familia.estatus || "activo"
+      estatus: familia.estatus || "activo",
+      usuario: familia.usuario || "",
+      password: familia.password || "",
+      id_referencia_padre: familia.id_referencia_padre || "",
+      id_referencia_madre: familia.id_referencia_madre || ""
     });
     
     // Cargar múltiples datos fiscales si existen
@@ -1010,7 +1018,7 @@ export default function Familias() {
                         </Badge>
                       </div>
                       <h4 className="font-medium text-slate-900 mb-2">
-                        Familia {familia.apellido_paterno} {familia.apellido_materno}
+                        Familia {familia.padre_nombre || "Sin nombre"}
                       </h4>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -1776,8 +1784,19 @@ export default function Familias() {
                       <Label htmlFor="padre_nombre">Nombre Completo *</Label>
                       <Input
                         id="padre_nombre"
-                        value={formData.padre_nombre}
-                        onChange={(e) => handleInputChange("padre_nombre", e.target.value)}
+                        value={combineNames(formData.padre_nombres, formData.padre_primer_apellido, formData.padre_segundo_apellido)}
+                        onChange={(e) => {
+                          const nombreParts = e.target.value.split(' ');
+                          const nombres = nombreParts[0] || '';
+                          const primerApellido = nombreParts[1] || '';
+                          const segundoApellido = nombreParts.slice(2).join(' ') || '';
+                          setFormData(prev => ({
+                            ...prev,
+                            padre_nombres: nombres,
+                            padre_primer_apellido: primerApellido,
+                            padre_segundo_apellido: segundoApellido
+                          }));
+                        }}
                         placeholder="Nombre completo del padre/tutor"
                         required
                       />
@@ -1831,8 +1850,19 @@ export default function Familias() {
                       <Label htmlFor="madre_nombre">Nombre Completo</Label>
                       <Input
                         id="madre_nombre"
-                        value={formData.madre_nombre}
-                        onChange={(e) => handleInputChange("madre_nombre", e.target.value)}
+                        value={combineNames(formData.madre_nombres, formData.madre_primer_apellido, formData.madre_segundo_apellido)}
+                        onChange={(e) => {
+                          const nombreParts = e.target.value.split(' ');
+                          const nombres = nombreParts[0] || '';
+                          const primerApellido = nombreParts[1] || '';
+                          const segundoApellido = nombreParts.slice(2).join(' ') || '';
+                          setFormData(prev => ({
+                            ...prev,
+                            madre_nombres: nombres,
+                            madre_primer_apellido: primerApellido,
+                            madre_segundo_apellido: segundoApellido
+                          }));
+                        }}
                         placeholder="Nombre completo de la madre/tutora"
                       />
                     </div>
@@ -2396,7 +2426,7 @@ export default function Familias() {
                 </h3>
                 <div className="space-y-2">
                   {viewingFamily.estudiantes_vinculados && viewingFamily.estudiantes_vinculados.length > 0 ? (
-                    viewingFamily.estudiantes_vinculados.map((estudiante, index) => (
+                    viewingFamily.estudiantes_vinculados.map((estudiante: any, index: number) => (
                       <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border">
                         <div>
                           <p className="font-medium">{estudiante.nombre}</p>

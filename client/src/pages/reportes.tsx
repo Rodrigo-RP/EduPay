@@ -1011,9 +1011,9 @@ ${reporte.nombre.toUpperCase()}
 ${reporte.descripcion}
 
 Período: ${selectedPeriod}
-Formato: ${reporte.formato}
-Tamaño: ${reporte.tamaño}
-Fecha: ${reporte.fecha}
+Formato: ${(reporte as any).formato || 'PDF'}
+Tamaño: ${(reporte as any).tamaño || '100 KB'}
+Fecha: ${(reporte as any).fecha || new Date().toLocaleDateString('es-MX')}
 
 📊 Contenido del reporte disponible
    para descarga completa.
@@ -1245,7 +1245,7 @@ Fecha: ${reporte.fecha}
                 {previewReport && generatePreviewContent(previewReport).title}
               </DialogTitle>
               <DialogDescription>
-                Vista previa del contenido del reporte - {previewReport?.formato}
+                Vista previa del contenido del reporte - {(previewReport as any)?.formato || 'PDF'}
               </DialogDescription>
             </DialogHeader>
             

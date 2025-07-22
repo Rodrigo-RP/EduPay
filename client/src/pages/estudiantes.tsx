@@ -507,7 +507,10 @@ export default function Estudiantes() {
       alergias: student.alergias || "",
       medicamentos: student.medicamentos || "",
       contacto_emergencia: student.contacto_emergencia || "",
-      telefono_emergencia: student.telefono_emergencia || ""
+      telefono_emergencia: student.telefono_emergencia || "",
+      usuario: student.usuario || "",
+      password: student.password || "",
+      id_referencia: student.id_referencia || ""
     });
     setEditingStudent(student);
     setShowEditModal(true);

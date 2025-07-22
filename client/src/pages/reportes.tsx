@@ -1,133 +1,124 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, Download, FileText, TrendingUp, PieChart, Calendar, DollarSign } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { FileText, Download, Eye, Calendar, BarChart3, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Reportes() {
-  const [selectedPeriod, setSelectedPeriod] = useState("2025-01");
   const { toast } = useToast();
+  const [selectedPeriod, setSelectedPeriod] = useState("2025-01");
+  const [selectedFormat, setSelectedFormat] = useState("detallado");
 
-  // Datos demo para reportes
-  const reportesDisponibles = [
-    {
-      id: 1,
-      nombre: "Reporte de Pagos Mensuales",
-      tipo: "PAGOS",
-      descripcion: "Detalle de todos los pagos recibidos en el período",
-      fecha_generacion: "2025-01-20",
-      formato: "Excel",
-      tamaño: "2.5 MB"
-    },
-    {
-      id: 2,
-      nombre: "Reporte de Morosidad",
-      tipo: "MOROSIDAD",
-      descripcion: "Análisis de cargos vencidos y gestión de cobranza",
-      fecha_generacion: "2025-01-20",
-      formato: "PDF",
-      tamaño: "1.8 MB"
-    },
-    {
-      id: 3,
-      nombre: "Conciliación Bancaria Enero",
-      tipo: "CONCILIACION",
-      descripcion: "Conciliación entre pagos recibidos y movimientos bancarios",
-      fecha_generacion: "2025-01-19",
-      formato: "Excel",
-      tamaño: "856 KB"
-    },
-    {
-      id: 4,
-      nombre: "CFDI Emitidos - Enero 2025",
-      tipo: "FISCAL",
-      descripcion: "Listado de facturas CFDI emitidas para cumplimiento SAT",
-      fecha_generacion: "2025-01-18",
-      formato: "Excel",
-      tamaño: "1.2 MB"
-    }
-  ];
-
+  // KPIs simulados del reporte
   const kpisReporte = {
-    totalFacturado: 2850000,
-    totalCobrado: 2137500,
+    totalFacturado: 2850000, // centavos
+    totalCobrado: 2137500,   // centavos  
     tasaCobranza: 75,
     cargosVencidos: 6,
     estudiantesActivos: 4,
     promedioTiempoPago: 8.5
   };
 
+  // Reportes disponibles simulados
+  const reportesDisponibles = [
+    { 
+      id: 1, 
+      nombre: "Reporte Financiero Mensual", 
+      descripcion: "Análisis completo de ingresos, pagos y morosidad del período",
+      formato: "PDF/TXT", 
+      tamaño: "245 KB", 
+      fecha: "22/01/2025",
+      status: "disponible"
+    },
+    { 
+      id: 2, 
+      nombre: "Estado de Cuenta General", 
+      descripcion: "Listado detallado de cargos, pagos y saldos pendientes por familia",
+      formato: "Excel", 
+      tamaño: "89 KB", 
+      fecha: "21/01/2025",
+      status: "disponible"
+    },
+    { 
+      id: 3, 
+      nombre: "Análisis de Cobranza", 
+      descripcion: "Métricas de efectividad de cobranza y seguimiento de cartera vencida",
+      formato: "PDF", 
+      tamaño: "156 KB", 
+      fecha: "20/01/2025",
+      status: "disponible"
+    }
+  ];
+
   const handleGenerarReporte = () => {
     toast({
       title: "Generando Reporte",
-      description: "Procesando datos del período seleccionado...",
+      description: "Procesando datos financieros del período...",
       duration: 2000,
     });
 
     setTimeout(() => {
-      // Generar contenido del reporte financiero completo
+      // Generar contenido del reporte
       const fechaGeneracion = new Date().toLocaleDateString('es-MX');
       const periodo = selectedPeriod;
       
-      const contenidoReporte = `REPORTE FINANCIERO INTEGRAL - INSTITUTO JFR
+      const contenido = `REPORTE FINANCIERO INTEGRAL - INSTITUTO JFR
 Período: ${periodo}
 Fecha de generación: ${fechaGeneracion}
 
-═══════════════════════════════════════════════════════════════
-
+═══════════════════════════════════════════════════════
 RESUMEN EJECUTIVO
-═══════════════════════════════════════════════════════════════
-• Total Facturado: $${(kpisReporte.totalFacturado / 100).toLocaleString('es-MX')}
-• Total Cobrado: $${(kpisReporte.totalCobrado / 100).toLocaleString('es-MX')}
-• Tasa de Cobranza: ${kpisReporte.tasaCobranza}%
-• Cargos Vencidos: ${kpisReporte.cargosVencidos}
-• Estudiantes Activos: ${kpisReporte.estudiantesActivos}
-• Promedio Días de Pago: ${kpisReporte.promedioTiempoPago} días
+═══════════════════════════════════════════════════════
 
+Total Facturado: $${(kpisReporte.totalFacturado / 100).toLocaleString('es-MX')}
+Total Cobrado: $${(kpisReporte.totalCobrado / 100).toLocaleString('es-MX')}
+Tasa de Cobranza: ${kpisReporte.tasaCobranza}%
+Cargos Vencidos: ${kpisReporte.cargosVencidos}
+Estudiantes Activos: ${kpisReporte.estudiantesActivos}
+Promedio Días de Pago: ${kpisReporte.promedioTiempoPago} días
+
+═══════════════════════════════════════════════════════
 ANÁLISIS DE MOROSIDAD
-═══════════════════════════════════════════════════════════════
-• Tasa de Morosidad: ${100 - kpisReporte.tasaCobranza}%
-• Cargos por Vencer (próximos 7 días): 3
-• Gestión de Cobranza Activa: ${kpisReporte.cargosVencidos} casos
-• Tiempo Promedio de Recuperación: 12.3 días
+═══════════════════════════════════════════════════════
 
-MÉTRICAS EDUPAY
-═══════════════════════════════════════════════════════════════
-• Meta Institucional: 80% pagos antes del vencimiento
-• Rendimiento Actual: ${kpisReporte.tasaCobranza}%
-• Estado: ${kpisReporte.tasaCobranza >= 80 ? 'META ALCANZADA ✓' : 'EN PROGRESO'}
-• Diferencia vs Meta: ${(kpisReporte.tasaCobranza - 80).toFixed(1)}%
+Tasa de Morosidad: ${100 - kpisReporte.tasaCobranza}%
+Cargos por Vencer (próximos 7 días): 3
+Gestión de Cobranza Activa: ${kpisReporte.cargosVencidos} casos
+Tiempo Promedio de Recuperación: 12.3 días
 
+═══════════════════════════════════════════════════════
 DESGLOSE POR CONCEPTOS
-═══════════════════════════════════════════════════════════════
-• Inscripciones: $1,250,000 (43.9%)
-• Colegiaturas: $1,400,000 (49.1%)
-• Actividades Extraescolares: $150,000 (5.3%)
-• Otros Conceptos: $50,000 (1.8%)
+═══════════════════════════════════════════════════════
 
-ANÁLISIS DE TENDENCIAS
-═══════════════════════════════════════════════════════════════
-• Comparación vs mes anterior: +8.2%
-• Proyección próximo mes: $2,995,000
-• Tendencia de cobranza: POSITIVA
-• Recomendación: Mantener estrategia actual
+Inscripciones: $1,250,000 (43.9%)
+Colegiaturas: $1,400,000 (49.1%)
+Actividades Extraescolares: $150,000 (5.3%)
+Otros Conceptos: $50,000 (1.8%)
 
+═══════════════════════════════════════════════════════
+MÉTRICAS EDUPAY
+═══════════════════════════════════════════════════════
+
+Meta Institucional: 80% pagos antes del vencimiento
+Rendimiento Actual: ${kpisReporte.tasaCobranza}%
+Estado: ${kpisReporte.tasaCobranza >= 80 ? 'META ALCANZADA' : 'EN PROGRESO'}
+Diferencia vs Meta: ${(kpisReporte.tasaCobranza - 80).toFixed(1)}%
+
+═══════════════════════════════════════════════════════
 REPORTES DISPONIBLES
-═══════════════════════════════════════════════════════════════
-${reportesDisponibles.map(r => `• ${r.nombre} (${r.formato}) - ${r.tamaño}`).join('\n')}
+═══════════════════════════════════════════════════════
 
-═══════════════════════════════════════════════════════════════
+${reportesDisponibles.map(r => `${r.nombre} - ${r.formato} - ${r.tamaño}`).join('\n')}
+
+---
 Generado por Edupay - Sistema de Pagos Escolares
-Instituto JFR - Campus Principal
-${fechaGeneracion}
-═══════════════════════════════════════════════════════════════`;
+Instituto JFR - ${fechaGeneracion}`;
 
       // Crear archivo para descarga
-      const blob = new Blob([contenidoReporte], { type: 'text/plain;charset=utf-8' });
+      const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -246,391 +237,205 @@ Generado por Edupay - Sistema de Pagos Escolares`;
     });
   };
 
-  const handleAnalisisTendencias = () => {
-    toast({
-      title: "Generando Análisis",
-      description: "Procesando tendencias de pago de los últimos 12 meses...",
-      duration: 3000,
-    });
-  };
-
-  const handleDistribucionMetodos = () => {
-    toast({
-      title: "Generando Gráfico",
-      description: "Analizando distribución de métodos de pago...",
-      duration: 3000,
-    });
-  };
-
   return (
-    <div >
-      <div >
-        
-        <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Reportes y Análisis</h1>
-          <p className="text-slate-600">Genera reportes financieros, de cobranza y análisis de desempeño</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+      {/* Header Moderno */}
+      <div className="bg-white shadow-lg border-b-4 border-gradient-to-r from-blue-600 to-indigo-600">
+        <div className="container mx-auto px-6 py-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl">
+                <FileText className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+                  Reportes y Análisis
+                </h1>
+                <p className="text-slate-600 text-lg">Sistema integral de reportes financieros - Instituto JFR</p>
+              </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <Button 
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 px-6 py-3"
                 onClick={handleGenerarReporte}
               >
-                <FileText className="w-4 h-4 mr-2" />
-                Generar Reporte (TXT)
+                <FileText className="w-5 h-5 mr-2" />
+                Generar Reporte TXT
               </Button>
               <Button 
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 px-6 py-3"
                 onClick={handleGenerarReporteExcel}
               >
-                <Download className="w-4 h-4 mr-2" />
+                <Download className="w-5 h-5 mr-2" />
                 Generar Excel
               </Button>
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* KPIs del período */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <Card className="border-blue-200 bg-blue-50">
-              <CardHeader>
-                <CardTitle className="text-lg text-blue-800">Resumen Financiero</CardTitle>
-              </CardHeader>
-              <CardContent>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                    <span className="text-sm">Total facturado:</span>
-                    <span className="font-semibold">${(kpisReporte.totalFacturado / 100).toLocaleString()}</span>
-                  </div>
-              <div className="flex justify-between">
-                    <span className="text-sm">Total cobrado:</span>
-                    <span className="font-semibold text-green-600">${(kpisReporte.totalCobrado / 100).toLocaleString()}</span>
-                  </div>
-              <div className="flex justify-between">
-                    <span className="text-sm">Tasa de cobranza:</span>
-                    <span className="font-semibold">{kpisReporte.tasaCobranza}%</span>
-                  </div>
+      {/* Container Principal */}
+      <div className="container mx-auto px-6 py-8">
+        {/* Filtros de período */}
+        <div className="mb-8">
+          <Card className="bg-white shadow-md border-l-4 border-blue-500">
+            <CardContent className="p-6">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-blue-600" />
+                  <label className="text-sm font-medium text-slate-700">Período:</label>
+                  <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="2025-01">Enero 2025</SelectItem>
+                      <SelectItem value="2024-12">Diciembre 2024</SelectItem>
+                      <SelectItem value="2024-11">Noviembre 2024</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-orange-200 bg-orange-50">
-              <CardHeader>
-                <CardTitle className="text-lg text-orange-800">Morosidad</CardTitle>
-              </CardHeader>
-              <CardContent>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                    <span className="text-sm">Cargos vencidos:</span>
-                    <span className="font-semibold text-red-600">{kpisReporte.cargosVencidos}</span>
-                  </div>
-              <div className="flex justify-between">
-                    <span className="text-sm">Tasa de morosidad:</span>
-                    <span className="font-semibold">{100 - kpisReporte.tasaCobranza}%</span>
-                  </div>
-              <div className="flex justify-between">
-                    <span className="text-sm">Promedio días pago:</span>
-                    <span className="font-semibold">{kpisReporte.promedioTiempoPago} días</span>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-indigo-600" />
+                  <label className="text-sm font-medium text-slate-700">Formato:</label>
+                  <Select value={selectedFormat} onValueChange={setSelectedFormat}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="detallado">Detallado</SelectItem>
+                      <SelectItem value="ejecutivo">Ejecutivo</SelectItem>
+                      <SelectItem value="auditoria">Auditoría</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-            <Card className="border-green-200 bg-green-50">
-              <CardHeader>
-                <CardTitle className="text-lg text-green-800">Meta Edupay</CardTitle>
-              </CardHeader>
-              <CardContent>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-green-600 mb-1">80%</div>
-              <div className="text-sm text-green-700 mb-2">Meta pagos antes vencimiento</div>
-              <div className="text-xl font-bold text-blue-600">{kpisReporte.tasaCobranza}%</div>
-              <div className="text-xs text-slate-500">Actual</div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Tabs defaultValue="generados" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="generados">Reportes generados</TabsTrigger>
-              <TabsTrigger value="financieros">Reportes financieros</TabsTrigger>
-              <TabsTrigger value="operativos">Reportes operativos</TabsTrigger>
-              <TabsTrigger value="personalizados">Personalizados</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="generados">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Reportes disponibles para descarga</CardTitle>
-                </CardHeader>
-                <CardContent>
+        {/* KPIs del período - Diseño Mejorado */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card className="border-l-4 border-blue-500 bg-gradient-to-br from-blue-50 to-blue-100 shadow-lg hover:shadow-xl transition-shadow duration-300">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg text-blue-800 flex items-center gap-2">
+                <TrendingUp className="w-5 h-5" />
+                Resumen Financiero
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="space-y-4">
-                    {reportesDisponibles.map((reporte) => (
-                  <div key={reporte.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <FileText className="w-6 h-6 text-blue-600" />
-                          </div>
-                      <div>
-                            <h3 className="font-medium">{reporte.nombre}</h3>
-                        <p className="text-sm text-slate-600">{reporte.descripcion}</p>
-                        <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
-                              <span>Generado: {reporte.fecha_generacion}</span>
-                              <span>Formato: {reporte.formato}</span>
-                              <span>Tamaño: {reporte.tamaño}</span>
-                            </div>
-                          </div>
-                        </div>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => handleDescargarReporte(reporte)}
-                    >
-                          <Download className="w-4 h-4 mr-2" />
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-600">Total facturado:</span>
+                  <span className="font-bold text-lg text-slate-800">${(kpisReporte.totalFacturado / 100).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-600">Total cobrado:</span>
+                  <span className="font-bold text-lg text-green-600">${(kpisReporte.totalCobrado / 100).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-600">Tasa de cobranza:</span>
+                  <Badge className="bg-blue-600">{kpisReporte.tasaCobranza}%</Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-orange-500 bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg hover:shadow-xl transition-shadow duration-300">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg text-orange-800 flex items-center gap-2">
+                <BarChart3 className="w-5 h-5" />
+                Análisis de Morosidad
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-600">Cargos vencidos:</span>
+                  <Badge variant="destructive">{kpisReporte.cargosVencidos}</Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-600">Tasa de morosidad:</span>
+                  <span className="font-bold text-lg text-orange-600">{100 - kpisReporte.tasaCobranza}%</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-600">Promedio días pago:</span>
+                  <span className="font-bold text-lg text-slate-800">{kpisReporte.promedioTiempoPago} días</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-green-500 bg-gradient-to-br from-green-50 to-emerald-100 shadow-lg hover:shadow-xl transition-shadow duration-300">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg text-green-800 flex items-center gap-2">
+                <TrendingUp className="w-5 h-5" />
+                Meta Edupay
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center space-y-3">
+                <div className="text-4xl font-bold text-green-600">80%</div>
+                <div className="text-sm text-green-700 font-medium">Meta pagos antes vencimiento</div>
+                <div className="text-3xl font-bold text-blue-600">{kpisReporte.tasaCobranza}%</div>
+                <Badge className={kpisReporte.tasaCobranza >= 80 ? "bg-green-600" : "bg-yellow-600"}>
+                  {kpisReporte.tasaCobranza >= 80 ? "META ALCANZADA" : "EN PROGRESO"}
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Reportes Disponibles */}
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-2xl text-slate-800">Reportes Disponibles</CardTitle>
+            <CardDescription>
+              Descarga reportes generados previamente o crea nuevos análisis
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {reportesDisponibles.map((reporte) => (
+                <Card key={reporte.id} className="border-2 hover:border-blue-300 transition-colors duration-200">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base text-slate-800">{reporte.nombre}</CardTitle>
+                    <CardDescription className="text-sm">{reporte.descripcion}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-600">Formato:</span>
+                        <Badge variant="outline">{reporte.formato}</Badge>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-600">Tamaño:</span>
+                        <span className="font-medium">{reporte.tamaño}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-600">Fecha:</span>
+                        <span className="font-medium">{reporte.fecha}</span>
+                      </div>
+                      <div className="flex gap-2 pt-2">
+                        <Button 
+                          size="sm" 
+                          className="flex-1 bg-blue-600 hover:bg-blue-700"
+                          onClick={() => handleDescargarReporte(reporte)}
+                        >
+                          <Download className="w-4 h-4 mr-1" />
                           Descargar
                         </Button>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="financieros">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <DollarSign className="w-5 h-5" />
-                      Reportes de Ingresos
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                <div className="space-y-4">
-                  <div>
-                        <Label>Período</Label>
-                        <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="2025-01">Enero 2025</SelectItem>
-                            <SelectItem value="2024-12">Diciembre 2024</SelectItem>
-                            <SelectItem value="2024-11">Noviembre 2024</SelectItem>
-                            <SelectItem value="2024-anual">Año 2024</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                  <div className="space-y-2">
-                    <Button 
-                      className="w-full" 
-                      variant="outline"
-                      onClick={handleGenerarReporte}
-                    >
-                          <BarChart3 className="w-4 h-4 mr-2" />
-                          Reporte de Ingresos por Concepto
-                        </Button>
-                    <Button 
-                      className="w-full" 
-                      variant="outline"
-                      onClick={handleAnalisisTendencias}
-                    >
-                          <TrendingUp className="w-4 h-4 mr-2" />
-                          Análisis de Tendencias de Pago
-                        </Button>
-                    <Button 
-                      className="w-full" 
-                      variant="outline"
-                      onClick={handleDistribucionMetodos}
-                    >
-                          <PieChart className="w-4 h-4 mr-2" />
-                          Distribución por Método de Pago
+                        <Button size="sm" variant="outline">
+                          <Eye className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <FileText className="w-5 h-5" />
-                      Reportes Fiscales
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                <div className="space-y-4">
-                  <div>
-                        <Label>Tipo de reporte fiscal</Label>
-                        <Select defaultValue="cfdi">
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="cfdi">CFDI Emitidos</SelectItem>
-                            <SelectItem value="cancelados">CFDI Cancelados</SelectItem>
-                            <SelectItem value="sat-mensual">Reporte Mensual SAT</SelectItem>
-                            <SelectItem value="iva">Declaración IVA</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                  <div className="space-y-2">
-                    <Button className="w-full bg-blue-600 hover:bg-blue-700">
-                          Generar Reporte CFDI
-                        </Button>
-                    <Button className="w-full" variant="outline">
-                          Exportar para Contador
-                        </Button>
-                    <Button className="w-full" variant="outline">
-                          Reporte Cumplimiento SAT
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="operativos">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Reportes de Cobranza</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                <div className="space-y-3">
-                  <Button className="w-full" variant="outline">
-                        Reporte de Morosidad Detallado
-                      </Button>
-                  <Button className="w-full" variant="outline">
-                        Análisis de Cartera Vencida
-                      </Button>
-                  <Button className="w-full" variant="outline">
-                        Eficacia de Recordatorios
-                      </Button>
-                  <Button className="w-full" variant="outline">
-                        Proyección de Cobranza
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Reportes Académicos</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                <div className="space-y-3">
-                  <Button className="w-full" variant="outline">
-                        Listado de Estudiantes por Status
-                      </Button>
-                  <Button className="w-full" variant="outline">
-                        Reporte de Becas Otorgadas
-                      </Button>
-                  <Button className="w-full" variant="outline">
-                        Análisis de Descuentos
-                      </Button>
-                  <Button className="w-full" variant="outline">
-                        Estadísticas por Campus
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="personalizados">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Crear reporte personalizado</CardTitle>
-                </CardHeader>
-                <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                      <Label>Nombre del reporte</Label>
-                      <Input placeholder="Mi reporte personalizado" />
-                    </div>
-                <div>
-                      <Label>Formato de salida</Label>
-                      <Select defaultValue="excel">
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="excel">Excel (.xlsx)</SelectItem>
-                          <SelectItem value="pdf">PDF</SelectItem>
-                          <SelectItem value="csv">CSV</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                <div>
-                      <Label>Rango de fechas</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                        <Input type="date" />
-                        <Input type="date" />
-                      </div>
-                    </div>
-                <div>
-                      <Label>Filtros</Label>
-                      <Select>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar filtros..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="grado">Por grado</SelectItem>
-                          <SelectItem value="status">Por status de pago</SelectItem>
-                          <SelectItem value="metodo">Por método de pago</SelectItem>
-                          <SelectItem value="concepto">Por concepto</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-              <div className="mt-6">
-                    <Label>Campos a incluir</Label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
-                      <label className="flex items-center space-x-2">
-                        <input type="checkbox" defaultChecked />
-                        <span className="text-sm">Estudiante</span>
-                      </label>
-                      <label className="flex items-center space-x-2">
-                        <input type="checkbox" defaultChecked />
-                        <span className="text-sm">Monto</span>
-                      </label>
-                      <label className="flex items-center space-x-2">
-                        <input type="checkbox" defaultChecked />
-                        <span className="text-sm">Fecha pago</span>
-                      </label>
-                      <label className="flex items-center space-x-2">
-                        <input type="checkbox" />
-                        <span className="text-sm">Método pago</span>
-                      </label>
-                      <label className="flex items-center space-x-2">
-                        <input type="checkbox" />
-                        <span className="text-sm">CFDI</span>
-                      </label>
-                      <label className="flex items-center space-x-2">
-                        <input type="checkbox" />
-                        <span className="text-sm">Responsable</span>
-                      </label>
-                      <label className="flex items-center space-x-2">
-                        <input type="checkbox" />
-                        <span className="text-sm">Campus</span>
-                      </label>
-                      <label className="flex items-center space-x-2">
-                        <input type="checkbox" />
-                        <span className="text-sm">Becas</span>
-                      </label>
-                    </div>
-                  </div>
-              <Button className="mt-6 bg-purple-600 hover:bg-purple-700">
-                    Generar reporte personalizado
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

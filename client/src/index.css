@@ -73,7 +73,93 @@
   --success-600: hsl(160, 84%, 35%);
   --warning-500: hsl(43, 96%, 56%);
   --danger-500: hsl(0, 84%, 60%);
-  --danger-600: hsl(0, 84%, 55%);
+}
+
+/* Animaciones modernas para la interfaz */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+/* Utilidades personalizadas */
+.animate-slide-up {
+  animation: slideInUp 0.6s ease-out;
+}
+
+.animate-fade-scale {
+  animation: fadeInScale 0.4s ease-out;
+}
+
+.glass-effect {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.gradient-border {
+  border-image: linear-gradient(45deg, #3b82f6, #6366f1) 1;
+}
+
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+.shimmer-loading {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Estilos mejorados para botones */
+.btn-modern {
+  @apply px-6 py-3 rounded-lg font-medium transition-all duration-200 transform;
+}
+
+.btn-modern:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Tarjetas con efecto de profundidad */
+.card-modern {
+  @apply bg-white rounded-xl shadow-sm border border-slate-200;
+  transition: all 0.3s ease;
+}
+
+.card-modern:hover {
+  @apply shadow-lg border-slate-300;
+  transform: translateY(-1px);
 }
 
 .dark {

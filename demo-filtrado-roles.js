@@ -9,17 +9,17 @@ const BASE_URL = 'http://localhost:5000';
 // Datos de usuarios para pruebas
 const USUARIOS_PRUEBA = {
   admisiones: {
-    email: "admisiones@sanpatricio.edu.mx",
+    email: "admisiones@jfr.edu.mx",
     password: "demo123",
     rol: "admisiones"
   },
   caja: {
-    email: "caja@sanpatricio.edu.mx", 
+    email: "caja@jfr.edu.mx", 
     password: "demo123",
     rol: "caja"
   },
   admin: {
-    email: "admin@sanpatricio.edu.mx",
+    email: "admin@jfr.edu.mx",
     password: "demo123", 
     rol: "admin"
   },

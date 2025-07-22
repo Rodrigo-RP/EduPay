@@ -42,7 +42,7 @@ export default function Usuarios() {
   const usuarios = [
     {
       id: 1,
-      email: "admin@sanpatricio.edu.mx",
+      email: "admin@jfr.edu.mx",
       nombre_completo: "María Elena Rodríguez",
       role: "SUPER_ADMIN",
       telefono: "55-1234-5678",
@@ -53,7 +53,7 @@ export default function Usuarios() {
     },
     {
       id: 2,
-      email: "direccion@sanpatricio.edu.mx", 
+      email: "direccion@jfr.edu.mx", 
       nombre_completo: "Carlos Alberto Méndez",
       role: "ADMIN_CAMPUS",
       telefono: "55-2345-6789",
@@ -64,7 +64,7 @@ export default function Usuarios() {
     },
     {
       id: 3,
-      email: "caja1@sanpatricio.edu.mx",
+      email: "caja1@jfr.edu.mx",
       nombre_completo: "Ana Patricia López",
       role: "CAJA",
       telefono: "55-3456-7890",
@@ -86,7 +86,7 @@ export default function Usuarios() {
     },
     {
       id: 5,
-      email: "caja2@sanpatricio.edu.mx",
+      email: "caja2@jfr.edu.mx",
       nombre_completo: "Laura Beatriz Silva",
       role: "CAJA",
       telefono: "55-5678-9012",
@@ -97,7 +97,7 @@ export default function Usuarios() {
     },
     {
       id: 6,
-      email: "finanzas@sanpatricio.edu.mx",
+      email: "finanzas@jfr.edu.mx",
       nombre_completo: "Roberto Carlos Vega",
       role: "ADMIN_CAMPUS",
       telefono: "55-6789-0123",
@@ -119,7 +119,7 @@ export default function Usuarios() {
     },
     {
       id: 8,
-      email: "asistente@sanpatricio.edu.mx",
+      email: "asistente@jfr.edu.mx",
       nombre_completo: "Patricia Fernández Ruiz",
       role: "ASISTENTE",
       telefono: "55-8901-2345",
@@ -130,7 +130,7 @@ export default function Usuarios() {
     },
     {
       id: 9,
-      email: "admisiones.norte@sanpatricio.edu.mx",
+      email: "admisiones.norte@jfr.edu.mx",
       nombre_completo: "Luis Alberto Sánchez",
       role: "ADMISIONES",
       telefono: "55-9012-3456",
@@ -141,7 +141,7 @@ export default function Usuarios() {
     },
     {
       id: 11,
-      email: "asistente.norte@sanpatricio.edu.mx",
+      email: "asistente.norte@jfr.edu.mx",
       nombre_completo: "Rosa María García",
       role: "ASISTENTE",
       telefono: "55-7890-1234",
@@ -152,7 +152,7 @@ export default function Usuarios() {
     },
     {
       id: 12,
-      email: "sistemas@sanpatricio.edu.mx",
+      email: "sistemas@jfr.edu.mx",
       nombre_completo: "Daniel Eduardo Torres",
       role: "SUPER_ADMIN",
       telefono: "55-8901-2345",
@@ -471,7 +471,7 @@ export default function Usuarios() {
                     <Label>Email</Label>
                     <Input 
                       type="email" 
-                      placeholder="usuario@sanpatricio.edu.mx"
+                      placeholder="usuario@jfr.edu.mx"
                       value={formData.email}
                       onChange={(e) => handleInputChange("email", e.target.value)}
                     />

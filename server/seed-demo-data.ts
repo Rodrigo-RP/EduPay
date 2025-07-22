@@ -536,8 +536,8 @@ export async function seedDemoData() {
     console.log("✅ DATOS DEMO COMPLETOS CREADOS EXITOSAMENTE!");
     console.log("\n📧 USUARIOS DEMO CREADOS:");
     console.log("🔧 Super Admin: superadmin@escuelapay.com / demo123");
-    console.log("🏫 Admin Campus: admin@sanpatricio.edu.mx / demo123");
-    console.log("💰 Caja: caja@sanpatricio.edu.mx / demo123");
+    console.log("🏫 Admin Campus: admin@jfr.edu.mx / demo123");
+    console.log("💰 Caja: caja@jfr.edu.mx / demo123");
     console.log("📊 Contador: contador@contabilidad.com / demo123");
     console.log("👨‍👩‍👧‍👦 PADRES DE FAMILIA:");
     console.log("👨 Carlos Pérez: carlos.perez@gmail.com / demo123 (1 hijo)");

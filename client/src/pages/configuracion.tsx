@@ -302,11 +302,11 @@ export default function Configuracion() {
                     </div>
                 <div>
                       <Label>Email institucional</Label>
-                      <Input defaultValue="admin@sanpatricio.edu.mx" />
+                      <Input defaultValue="admin@jfr.edu.mx" />
                     </div>
                 <div>
                       <Label>Sitio web</Label>
-                      <Input defaultValue="www.sanpatricio.edu.mx" />
+                      <Input defaultValue="www.jfr.edu.mx" />
                     </div>
                 <div className="md:col-span-2">
                       <Label>Logo de la institución</Label>

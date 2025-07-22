@@ -20,7 +20,7 @@ export default function SwitchToSchool() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            email: 'admin@sanpatricio.edu.mx',
+            email: 'admin@jfr.edu.mx',
             password: 'demo123'
           })
         });

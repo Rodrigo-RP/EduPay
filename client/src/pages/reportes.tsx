@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { FileText, Download, Eye, Calendar, BarChart3, TrendingUp, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import jsPDF from 'jspdf';
 
 export default function Reportes() {
   const { toast } = useToast();
@@ -205,6 +206,245 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
         duration: 3000,
       });
     }, 2000);
+  };
+
+  const handleGenerarReportePDF = () => {
+    try {
+      toast({
+        title: "Generando Reporte PDF",
+        description: "Procesando datos para exportación en formato PDF...",
+        duration: 2000,
+      });
+
+      setTimeout(() => {
+        // Crear nuevo documento PDF
+        const doc = new jsPDF();
+        const fechaGeneracion = new Date().toLocaleDateString('es-MX');
+        
+        // Configurar fuente
+        doc.setFont('helvetica');
+        
+        // Header del documento
+        doc.setFontSize(18);
+        doc.setTextColor(40, 116, 166);
+        doc.text('INSTITUTO JFR', 20, 25);
+        
+        doc.setFontSize(14);
+        doc.setTextColor(0, 0, 0);
+        doc.text('REPORTE FINANCIERO MENSUAL', 20, 35);
+        
+        // Información del período
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Período: ${selectedPeriod}`, 20, 45);
+        doc.text(`Fecha de generación: ${fechaGeneracion}`, 20, 50);
+        
+        // Línea separadora
+        doc.setLineWidth(0.5);
+        doc.setDrawColor(200, 200, 200);
+        doc.line(20, 55, 190, 55);
+        
+        // Resumen Ejecutivo
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'bold');
+        doc.text('RESUMEN EJECUTIVO', 20, 70);
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        const yStart = 80;
+        const lineHeight = 6;
+        
+        const resumenData = [
+          `• Total Facturado: $${(kpisReporte.totalFacturado / 100).toLocaleString('es-MX')}`,
+          `• Total Cobrado: $${(kpisReporte.totalCobrado / 100).toLocaleString('es-MX')}`,
+          `• Tasa de Cobranza: ${kpisReporte.tasaCobranza}%`,
+          `• Estudiantes Activos: ${kpisReporte.estudiantesActivos}`,
+          `• Cargos Vencidos: ${kpisReporte.cargosVencidos}`,
+          `• Tiempo Promedio Pago: ${kpisReporte.promedioTiempoPago} días`
+        ];
+        
+        resumenData.forEach((linea, index) => {
+          doc.text(linea, 25, yStart + (index * lineHeight));
+        });
+        
+        // Desglose por Conceptos
+        doc.setFont('helvetica', 'bold');
+        doc.text('DESGLOSE POR CONCEPTOS', 20, yStart + (resumenData.length * lineHeight) + 15);
+        
+        doc.setFont('helvetica', 'normal');
+        const conceptosData = [
+          '• Inscripciones: $1,250,000 (43.9%)',
+          '• Colegiaturas: $1,400,000 (49.1%)',
+          '• Actividades: $150,000 (5.3%)',
+          '• Otros: $50,000 (1.8%)'
+        ];
+        
+        const yConceptos = yStart + (resumenData.length * lineHeight) + 25;
+        conceptosData.forEach((linea, index) => {
+          doc.text(linea, 25, yConceptos + (index * lineHeight));
+        });
+        
+        // Análisis de Morosidad
+        doc.setFont('helvetica', 'bold');
+        doc.text('ANÁLISIS DE MOROSIDAD', 20, yConceptos + (conceptosData.length * lineHeight) + 15);
+        
+        doc.setFont('helvetica', 'normal');
+        const morosidadData = [
+          `• Cargos Vencidos: ${kpisReporte.cargosVencidos}`,
+          `• Tiempo Promedio Pago: ${kpisReporte.promedioTiempoPago} días`,
+          `• Gestión Activa: ${kpisReporte.cargosVencidos} casos`,
+          '• Estrategias: Email automático, SMS recordatorios'
+        ];
+        
+        const yMorosidad = yConceptos + (conceptosData.length * lineHeight) + 25;
+        morosidadData.forEach((linea, index) => {
+          doc.text(linea, 25, yMorosidad + (index * lineHeight));
+        });
+        
+        // Métricas Edupay
+        doc.setFont('helvetica', 'bold');
+        doc.text('MÉTRICAS EDUPAY', 20, yMorosidad + (morosidadData.length * lineHeight) + 15);
+        
+        doc.setFont('helvetica', 'normal');
+        const metricasData = [
+          '• Meta: 80% pagos antes vencimiento',
+          `• Actual: ${kpisReporte.tasaCobranza}%`,
+          `• Estado: ${kpisReporte.tasaCobranza >= 80 ? 'META ALCANZADA ✓' : 'EN PROGRESO 📈'}`,
+          '• Portal Padres: 95% adopción'
+        ];
+        
+        const yMetricas = yMorosidad + (morosidadData.length * lineHeight) + 25;
+        metricasData.forEach((linea, index) => {
+          doc.text(linea, 25, yMetricas + (index * lineHeight));
+        });
+        
+        // Footer
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text('Generado por Edupay - Sistema de Pagos Escolares', 20, 280);
+        doc.text(`Página 1 de 1 | ${fechaGeneracion}`, 150, 280);
+        
+        // Descargar el PDF
+        doc.save(`Reporte_Financiero_PDF_${selectedPeriod}.pdf`);
+        
+        toast({
+          title: "Reporte PDF Generado",
+          description: `Reporte del período ${selectedPeriod} descargado en formato PDF`,
+          duration: 3000,
+        });
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Error generando PDF:', error);
+      toast({
+        title: "Error",
+        description: "Hubo un problema generando el reporte PDF",
+        variant: "destructive",
+        duration: 3000,
+      });
+    }
+  };
+
+  const handleGenerarReportePDFEspecifico = (reporte: any) => {
+    try {
+      toast({
+        title: "Generando PDF",
+        description: `Generando ${reporte.nombre} en formato PDF...`,
+        duration: 2000,
+      });
+
+      setTimeout(() => {
+        const doc = new jsPDF();
+        const fechaGeneracion = new Date().toLocaleDateString('es-MX');
+        const contenidoVistaPrevie = generatePreviewContent(reporte);
+        
+        // Header del documento
+        doc.setFontSize(18);
+        doc.setTextColor(40, 116, 166);
+        doc.text('INSTITUTO JFR', 20, 25);
+        
+        doc.setFontSize(14);
+        doc.setTextColor(0, 0, 0);
+        doc.text(contenidoVistaPrevie.title.toUpperCase(), 20, 35);
+        
+        // Información básica
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Período: ${selectedPeriod}`, 20, 45);
+        doc.text(`Fecha de generación: ${fechaGeneracion}`, 20, 50);
+        doc.text(`Formato: ${reporte.formato}`, 20, 55);
+        
+        // Línea separadora
+        doc.setLineWidth(0.5);
+        doc.setDrawColor(200, 200, 200);
+        doc.line(20, 65, 190, 65);
+        
+        // Contenido del reporte
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'normal');
+        
+        // Dividir el contenido en líneas
+        const contenidoLineas = contenidoVistaPrevie.content.split('\n');
+        let yPosition = 75;
+        const lineHeight = 5;
+        const maxY = 270; // Límite inferior de la página
+        
+        contenidoLineas.forEach((linea, index) => {
+          if (yPosition > maxY) {
+            doc.addPage();
+            yPosition = 20;
+          }
+          
+          // Formatear líneas especiales
+          if (linea.includes('═══')) {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(12);
+          } else if (linea.includes('📊') || linea.includes('💰') || linea.includes('⚠️') || linea.includes('✅')) {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+          } else {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+          }
+          
+          // Limpiar emojis para mejor compatibilidad PDF
+          const lineaLimpia = linea.replace(/[📊💰⚠️✅📋💳👨‍👩‍👧‍👦📈⏰🔄📞═]/g, '');
+          
+          if (lineaLimpia.trim()) {
+            doc.text(lineaLimpia, 20, yPosition);
+          }
+          yPosition += lineHeight;
+        });
+        
+        // Footer en la última página
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        const totalPages = doc.internal.pages.length - 1;
+        doc.text('Generado por Edupay - Sistema de Pagos Escolares', 20, 285);
+        doc.text(`Página ${totalPages} | ${fechaGeneracion}`, 150, 285);
+        
+        // Descargar el PDF
+        const nombreArchivo = `${reporte.nombre.replace(/\s+/g, '_')}_${selectedPeriod}.pdf`;
+        doc.save(nombreArchivo);
+        
+        toast({
+          title: "PDF Generado",
+          description: `${reporte.nombre} descargado en formato PDF`,
+          duration: 3000,
+        });
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Error generando PDF específico:', error);
+      toast({
+        title: "Error",
+        description: "Hubo un problema generando el PDF",
+        variant: "destructive",
+        duration: 3000,
+      });
+    }
   };
 
   const handleDescargarReporte = (reporte: any) => {
@@ -407,6 +647,13 @@ Fecha: ${reporte.fecha}
               >
                 <Download className="w-5 h-5 mr-2" />
                 Generar Excel
+              </Button>
+              <Button 
+                className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 px-6 py-3"
+                onClick={handleGenerarReportePDF}
+              >
+                <FileText className="w-5 h-5 mr-2" />
+                Generar PDF
               </Button>
             </div>
           </div>
@@ -621,7 +868,19 @@ Fecha: ${reporte.fecha}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   <Download className="w-4 h-4 mr-2" />
-                  Descargar Completo
+                  Descargar TXT
+                </Button>
+                <Button 
+                  onClick={() => {
+                    if (previewReport) {
+                      handleGenerarReportePDFEspecifico(previewReport);
+                      setShowPreview(false);
+                    }
+                  }}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Descargar PDF
                 </Button>
               </div>
             </div>

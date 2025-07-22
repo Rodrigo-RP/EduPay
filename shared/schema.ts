@@ -618,9 +618,10 @@ export const approval_workflow_logs = pgTable("approval_workflow_logs", {
   approval_id: integer("approval_id").references(() => pending_approvals.id, { onDelete: "cascade" }).notNull(),
   user_id: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
   action: varchar("action", { length: 100 }).notNull(), // 'created', 'approved', 'rejected', 'expired', 'viewed', 'commented'
-  details: text("details"), // Detalles adicionales de la acción
-  ip_address: varchar("ip_address", { length: 45 }),
-  user_agent: text("user_agent"),
+  notes: text("notes"), // Detalles adicionales de la acción
+  additional_data: text("additional_data"), // Datos adicionales en formato JSON
+  previous_status: varchar("previous_status", { length: 50 }),
+  new_status: varchar("new_status", { length: 50 }),
   created_at: timestamp("created_at").defaultNow(),
 });
 

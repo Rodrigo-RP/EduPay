@@ -93,8 +93,8 @@ export default function AdminDashboard() {
               Datos filtrados por nivel académico seleccionado
             </div>
           </CardHeader>
-          <CardContent>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <CardContent className="p-6">
+        <div className="grid grid-cols-2 gap-6">
               <KPICard
                 icon={DollarSign}
                 label="Total Facturado"

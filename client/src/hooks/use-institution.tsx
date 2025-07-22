@@ -16,14 +16,16 @@ export function InstitutionProvider({ children }: { children: ReactNode }) {
   const [campusName, setCampusName] = useState<string>("Campus Principal");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
-  // Cargar datos desde localStorage al inicializar
+  // Migración forzada a Instituto JFR y carga de datos
   useEffect(() => {
-    const savedInstitutionName = localStorage.getItem('institution_name');
-    const savedCampusName = localStorage.getItem('campus_name');
+    // Forzar migración: limpiar datos anteriores y establecer Instituto JFR
+    localStorage.setItem('institution_name', 'Instituto JFR');
+    localStorage.setItem('campus_name', 'Campus Principal');
+    setInstitutionName('Instituto JFR');
+    setCampusName('Campus Principal');
+    
+    // Cargar logo si existe
     const savedLogoUrl = localStorage.getItem('institution_logo');
-
-    if (savedInstitutionName) setInstitutionName(savedInstitutionName);
-    if (savedCampusName) setCampusName(savedCampusName);
     if (savedLogoUrl) setLogoUrl(savedLogoUrl);
   }, []);
 

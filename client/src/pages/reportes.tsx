@@ -1040,14 +1040,6 @@ Fecha: ${reporte.fecha}
                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
                   <p className="text-slate-600 font-medium text-lg">Sistema Integral de Reportes Financieros</p>
                 </div>
-                <div className="flex items-center gap-2 pt-1">
-                  <div className="px-4 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-full">
-                    <span className="text-sm font-semibold text-blue-700">Instituto JFR</span>
-                  </div>
-                  <div className="px-4 py-1 bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-full">
-                    <span className="text-sm font-semibold text-emerald-700">Plataforma Edupay</span>
-                  </div>
-                </div>
               </div>
             </div>
             <div className="flex gap-3">

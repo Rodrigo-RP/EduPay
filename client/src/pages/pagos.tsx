@@ -97,8 +97,16 @@ export default function Pagos() {
   
   // Cargar datos reales de pagos desde la API
   const { data: paymentsData, isLoading: paymentsLoading, error: paymentsError } = useQuery({
-    queryKey: ["/api/payments", user?.campus_id],
+    queryKey: ["/api/payments"],
     enabled: !!user?.campus_id,
+    retry: 3,
+    staleTime: 0,
+    onError: (error) => {
+      console.error('Error fetching payments:', error);
+    },
+    onSuccess: (data) => {
+      console.log('Payments loaded successfully:', data);
+    }
   });
   
   console.log('Payments query state:', {

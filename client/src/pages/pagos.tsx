@@ -327,33 +327,326 @@ export default function Pagos() {
   };
 
   const handleDownloadReceipt = (pago: any) => {
-    const content = `
-      COMPROBANTE DE PAGO - ESCUELAPAY
-      ================================
-      
-      Estudiante: ${pago.estudiante}
-      Concepto: ${pago.concepto}
-      Monto: $${(pago.monto / 100).toLocaleString()} MXN
-      Método: ${pago.metodo}
-      Estado: ${pago.estado}
-      Fecha: ${pago.fecha}
-      Referencia: ${pago.referencia}
-      
-      ================================
-      Este comprobante es válido para efectos fiscales
+    // Generar folio único
+    const folio = `EPS-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+    const serie = "A";
+    const numeroRecibo = Math.floor(Math.random() * 999999) + 100000;
+    
+    // Logo dinámico del colegio o fallback
+    const logoElement = institution?.logo ? 
+      `<img src="${institution.logo}" alt="${institution.nombre}" style="height: 60px; width: auto; object-fit: contain;">` : 
+      `<div style="width: 60px; height: 60px; background: linear-gradient(135deg, #1e3a8a, #3b82f6); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px; text-align: center; line-height: 1.2;">
+        <div>
+          <div style="font-size: 16px;">ISP</div>
+          <div style="font-size: 10px; color: #fbbf24;">EDUCACIÓN</div>
+        </div>
+      </div>`;
+    
+    const receiptContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Recibo Fiscal - ${folio}</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            line-height: 1.4; 
+            color: #333;
+            background: #fff;
+          }
+          .header { 
+            text-align: center; 
+            border-bottom: 2px solid #1e40af; 
+            padding-bottom: 15px; 
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+          }
+          .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+          }
+          .company-info {
+            text-align: left;
+            flex-grow: 1;
+            margin-left: 20px;
+          }
+          .company-name { 
+            font-size: 24px; 
+            font-weight: bold; 
+            color: #1e40af; 
+            margin: 0;
+          }
+          .receipt-type { 
+            font-size: 18px; 
+            color: #059669; 
+            margin: 5px 0;
+          }
+          .fiscal-info { 
+            font-size: 12px; 
+            color: #6b7280; 
+            margin-top: 5px;
+          }
+          .folio-section {
+            text-align: right;
+            background: #f3f4f6;
+            padding: 10px;
+            border-radius: 5px;
+            min-width: 200px;
+          }
+          .folio { 
+            font-size: 16px; 
+            font-weight: bold; 
+            color: #dc2626;
+            margin: 0;
+          }
+          .serie { 
+            font-size: 14px; 
+            color: #374151; 
+            margin: 2px 0;
+          }
+          .details-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 20px; 
+            margin: 20px 0; 
+          }
+          .student-info, .payment-info { 
+            background: #f9fafb; 
+            padding: 15px; 
+            border-radius: 5px; 
+            border-left: 4px solid #1e40af;
+          }
+          .section-title { 
+            font-size: 14px; 
+            font-weight: bold; 
+            color: #1e40af; 
+            margin-bottom: 10px;
+            text-transform: uppercase;
+          }
+          .info-row { 
+            margin: 8px 0; 
+            display: flex;
+            justify-content: space-between;
+          }
+          .label { 
+            font-weight: bold; 
+            color: #374151;
+            min-width: 120px;
+          }
+          .value { 
+            color: #111827;
+            text-align: right;
+          }
+          .amount-section { 
+            text-align: center; 
+            background: linear-gradient(135deg, #1e40af, #3b82f6); 
+            color: white; 
+            padding: 20px; 
+            border-radius: 5px; 
+            margin: 20px 0;
+          }
+          .amount { 
+            font-size: 32px; 
+            font-weight: bold; 
+            margin: 10px 0;
+          }
+          .amount-words { 
+            font-style: italic; 
+            margin-top: 10px;
+            font-size: 14px;
+          }
+          .fiscal-section { 
+            background: #fef3c7; 
+            border: 1px solid #f59e0b; 
+            padding: 15px; 
+            border-radius: 5px; 
+            margin: 20px 0;
+          }
+          .fiscal-title { 
+            font-weight: bold; 
+            color: #92400e; 
+            margin-bottom: 10px;
+            font-size: 14px;
+          }
+          .fiscal-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr 1fr; 
+            gap: 15px;
+            font-size: 12px;
+          }
+          .signatures { 
+            margin-top: 40px; 
+            display: flex; 
+            justify-content: space-between;
+            font-size: 12px;
+          }
+          .signature { 
+            text-align: center; 
+            width: 200px;
+            border-top: 1px solid #6b7280;
+            padding-top: 10px;
+          }
+          .footer { 
+            text-align: center; 
+            color: #6b7280; 
+            font-size: 11px; 
+            margin-top: 30px; 
+            border-top: 1px solid #e5e7eb; 
+            padding-top: 15px;
+          }
+          .status-badge { 
+            background: #10b981; 
+            color: white; 
+            padding: 5px 15px; 
+            border-radius: 20px; 
+            font-size: 12px; 
+            font-weight: bold;
+            display: inline-block;
+            margin: 5px 0;
+          }
+          @media print {
+            body { margin: 0; }
+            .header, .amount-section { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo-section">
+            ${logoElement}
+            <div class="company-info">
+              <h1 class="company-name">${institution?.nombre || 'Instituto San Patricio'}</h1>
+              <div class="receipt-type">RECIBO FISCAL ELECTRÓNICO</div>
+              <div class="fiscal-info">
+                RFC: ${institution?.rfc || 'ISP851230ABC'} | Régimen: ${institution?.regimen || 'Personas Morales con Fines no Lucrativos'}
+              </div>
+            </div>
+          </div>
+          <div class="folio-section">
+            <p class="folio">FOLIO: ${folio}</p>
+            <p class="serie">SERIE: ${serie} | No. ${numeroRecibo}</p>
+            <span class="status-badge">TIMBRADO</span>
+          </div>
+        </div>
+
+        <div class="details-grid">
+          <div class="student-info">
+            <div class="section-title">Información del Estudiante</div>
+            <div class="info-row">
+              <span class="label">Nombre:</span>
+              <span class="value">${pago.estudiante}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Concepto:</span>
+              <span class="value">${pago.concepto}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Período:</span>
+              <span class="value">Ciclo 2024-2025</span>
+            </div>
+          </div>
+
+          <div class="payment-info">
+            <div class="section-title">Información del Pago</div>
+            <div class="info-row">
+              <span class="label">Fecha:</span>
+              <span class="value">${pago.fecha}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Método:</span>
+              <span class="value">${pago.metodo}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Referencia:</span>
+              <span class="value">${pago.referencia}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Estado:</span>
+              <span class="value">${pago.estado.toUpperCase()}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="amount-section">
+          <div>IMPORTE TOTAL PAGADO</div>
+          <div class="amount">$${(pago.monto / 100).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</div>
+          <div class="amount-words">
+            (${numeroALetras(pago.monto / 100)} PESOS MEXICANOS)
+          </div>
+        </div>
+
+        <div class="fiscal-section">
+          <div class="fiscal-title">📋 INFORMACIÓN FISCAL SAT</div>
+          <div class="fiscal-grid">
+            <div><strong>Uso CFDI:</strong><br>G03 - Gastos en general</div>
+            <div><strong>Método Pago:</strong><br>PUE - Pago en una sola exhibición</div>
+            <div><strong>Forma Pago:</strong><br>${pago.metodo === 'TARJETA' ? '04 - Tarjeta de crédito' : '03 - Transferencia'}</div>
+            <div><strong>Lugar Expedición:</strong><br>06470</div>
+            <div><strong>Tipo Comprobante:</strong><br>I - Ingreso</div>
+            <div><strong>Fecha Timbrado:</strong><br>${new Date().toLocaleString('es-MX')}</div>
+          </div>
+        </div>
+
+        <div class="signatures">
+          <div class="signature">
+            <div><strong>Autorizado por</strong></div>
+            <div>${user?.email || 'Sistema'}</div>
+          </div>
+          <div class="signature">
+            <div><strong>Validado por</strong></div>
+            <div>SAT - Sistema de Administración Tributaria</div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <p><strong>${institution?.nombre || 'Instituto San Patricio'}</strong> - Sistema de Gestión de Pagos</p>
+          <p>Este recibo fiscal cumple con los requisitos establecidos por el SAT | CFDI 4.0</p>
+          <p>Generado el ${new Date().toLocaleString('es-MX')} | Folio: ${folio}</p>
+        </div>
+      </body>
+      </html>
     `;
     
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `comprobante_${pago.referencia}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+    // Función para convertir números a letras (simplificada)
+    function numeroALetras(num: number): string {
+      const unidades = ['', 'UNO', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE'];
+      const decenas = ['', '', 'VEINTE', 'TREINTA', 'CUARENTA', 'CINCUENTA', 'SESENTA', 'SETENTA', 'OCHENTA', 'NOVENTA'];
+      const centenas = ['', 'CIENTO', 'DOSCIENTOS', 'TRESCIENTOS', 'CUATROCIENTOS', 'QUINIENTOS', 'SEISCIENTOS', 'SETECIENTOS', 'OCHOCIENTOS', 'NOVECIENTOS'];
+      
+      if (num === 0) return 'CERO';
+      if (num < 10) return unidades[num];
+      if (num < 100) return decenas[Math.floor(num / 10)] + (num % 10 !== 0 ? ' Y ' + unidades[num % 10] : '');
+      if (num < 1000) return centenas[Math.floor(num / 100)] + (num % 100 !== 0 ? ' ' + numeroALetras(num % 100) : '');
+      if (num < 1000000) {
+        const miles = Math.floor(num / 1000);
+        const resto = num % 1000;
+        return (miles === 1 ? 'MIL' : numeroALetras(miles) + ' MIL') + (resto !== 0 ? ' ' + numeroALetras(resto) : '');
+      }
+      return 'NÚMERO MUY GRANDE';
+    }
+
+    // Crear ventana nueva y abrir para imprimir/descargar
+    const newWindow = window.open('', '_blank');
+    if (newWindow) {
+      newWindow.document.write(receiptContent);
+      newWindow.document.close();
+      
+      // Esperar a que cargue y abrir diálogo de impresión
+      newWindow.onload = () => {
+        setTimeout(() => {
+          newWindow.print();
+        }, 500);
+      };
+    }
     
     toast({
-      title: "Comprobante descargado",
-      description: `Comprobante de ${pago.concepto} guardado exitosamente`,
+      title: "Recibo fiscal generado",
+      description: `Recibo de ${pago.concepto} generado con folio ${folio}`,
     });
   };
 

@@ -4,13 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Download, Eye, Calendar, BarChart3, TrendingUp } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { FileText, Download, Eye, Calendar, BarChart3, TrendingUp, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Reportes() {
   const { toast } = useToast();
   const [selectedPeriod, setSelectedPeriod] = useState("2025-01");
   const [selectedFormat, setSelectedFormat] = useState("detallado");
+  const [previewReport, setPreviewReport] = useState<any>(null);
+  const [showPreview, setShowPreview] = useState(false);
 
   // KPIs simulados del reporte
   const kpisReporte = {
@@ -237,6 +240,142 @@ Generado por Edupay - Sistema de Pagos Escolares`;
     });
   };
 
+  const handlePreviewReport = (reporte: any) => {
+    setPreviewReport(reporte);
+    setShowPreview(true);
+    
+    toast({
+      title: "Vista Previa",
+      description: `Mostrando vista previa de ${reporte.nombre}`,
+      duration: 2000,
+    });
+  };
+
+  const generatePreviewContent = (reporte: any) => {
+    const fechaGeneracion = new Date().toLocaleDateString('es-MX');
+    
+    switch(reporte.id) {
+      case 1: // Reporte Financiero Mensual
+        return {
+          title: "Reporte Financiero Mensual - Vista Previa",
+          content: `
+══════════════════════════════════════
+INSTITUTO JFR - REPORTE FINANCIERO
+══════════════════════════════════════
+Período: ${selectedPeriod}
+Fecha: ${fechaGeneracion}
+
+📊 RESUMEN EJECUTIVO
+• Total Facturado: $${(kpisReporte.totalFacturado / 100).toLocaleString('es-MX')}
+• Total Cobrado: $${(kpisReporte.totalCobrado / 100).toLocaleString('es-MX')}
+• Tasa de Cobranza: ${kpisReporte.tasaCobranza}%
+• Estudiantes Activos: ${kpisReporte.estudiantesActivos}
+
+💰 DESGLOSE POR CONCEPTOS
+• Inscripciones: $1,250,000 (43.9%)
+• Colegiaturas: $1,400,000 (49.1%)
+• Actividades: $150,000 (5.3%)
+• Otros: $50,000 (1.8%)
+
+⚠️ ANÁLISIS DE MOROSIDAD
+• Cargos Vencidos: ${kpisReporte.cargosVencidos}
+• Tiempo Promedio Pago: ${kpisReporte.promedioTiempoPago} días
+• Gestión Activa: ${kpisReporte.cargosVencidos} casos
+
+✅ MÉTRICAS EDUPAY
+• Meta: 80% pagos antes vencimiento
+• Actual: ${kpisReporte.tasaCobranza}%
+• Estado: ${kpisReporte.tasaCobranza >= 80 ? 'META ALCANZADA ✓' : 'EN PROGRESO 📈'}
+          `
+        };
+      
+      case 2: // Estado de Cuenta General
+        return {
+          title: "Estado de Cuenta General - Vista Previa",
+          content: `
+══════════════════════════════════════
+ESTADO DE CUENTA GENERAL
+══════════════════════════════════════
+Instituto JFR - ${fechaGeneracion}
+
+📋 FAMILIAS REGISTRADAS
+• Total Familias: 27
+• Familias al Corriente: 21 (77.8%)
+• Familias con Saldo: 6 (22.2%)
+
+💳 RESUMEN DE CARGOS
+• Cargos Totales: 43
+• Cargos Pagados: 37
+• Cargos Pendientes: 6
+• Monto Pendiente: $${((kpisReporte.totalFacturado - kpisReporte.totalCobrado) / 100).toLocaleString('es-MX')}
+
+👨‍👩‍👧‍👦 DETALLE POR FAMILIA
+[Datos detallados por familia con saldos, 
+ fechas de vencimiento y conceptos pendientes]
+
+📊 ANÁLISIS DE ANTIGÜEDAD
+• 0-30 días: 4 cargos
+• 31-60 días: 2 cargos
+• Más de 60 días: 0 cargos
+          `
+        };
+      
+      case 3: // Análisis de Cobranza
+        return {
+          title: "Análisis de Cobranza - Vista Previa",
+          content: `
+══════════════════════════════════════
+ANÁLISIS DE COBRANZA
+══════════════════════════════════════
+Instituto JFR - Período ${selectedPeriod}
+
+📈 MÉTRICAS DE EFECTIVIDAD
+• Tasa de Cobranza: ${kpisReporte.tasaCobranza}%
+• Tiempo Promedio Recuperación: 12.3 días
+• Efectividad de Recordatorios: 85%
+• Respuesta a Llamadas: 72%
+
+⏰ ANÁLISIS TEMPORAL
+• Pagos Antes Vencimiento: ${Math.round(kpisReporte.tasaCobranza * 0.8)}%
+• Pagos en Fecha: ${Math.round(kpisReporte.tasaCobranza * 0.15)}%
+• Pagos Tardíos: ${Math.round(kpisReporte.tasaCobranza * 0.05)}%
+
+🔄 GESTIÓN DE CARTERA
+• Casos Activos: ${kpisReporte.cargosVencidos}
+• Casos Resueltos: ${Math.max(0, 15 - kpisReporte.cargosVencidos)}
+• Tasa de Recuperación: 89%
+• Tiempo Promedio Gestión: 8.5 días
+
+📞 ESTRATEGIAS DE COBRANZA
+• Email Recordatorios: Activo
+• SMS Automáticos: Activo  
+• Llamadas Programadas: Activo
+• Portal Padres: 95% adopción
+          `
+        };
+      
+      default:
+        return {
+          title: "Vista Previa del Reporte",
+          content: `
+══════════════════════════════════════
+${reporte.nombre.toUpperCase()}
+══════════════════════════════════════
+
+${reporte.descripcion}
+
+Período: ${selectedPeriod}
+Formato: ${reporte.formato}
+Tamaño: ${reporte.tamaño}
+Fecha: ${reporte.fecha}
+
+📊 Contenido del reporte disponible
+   para descarga completa.
+          `
+        };
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       {/* Header Moderno */}
@@ -425,7 +564,11 @@ Generado por Edupay - Sistema de Pagos Escolares`;
                           <Download className="w-4 h-4 mr-1" />
                           Descargar
                         </Button>
-                        <Button size="sm" variant="outline">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handlePreviewReport(reporte)}
+                        >
                           <Eye className="w-4 h-4" />
                         </Button>
                       </div>
@@ -436,6 +579,54 @@ Generado por Edupay - Sistema de Pagos Escolares`;
             </div>
           </CardContent>
         </Card>
+
+        {/* Modal de Vista Previa */}
+        <Dialog open={showPreview} onOpenChange={setShowPreview}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-xl">
+                <FileText className="w-6 h-6 text-blue-600" />
+                {previewReport && generatePreviewContent(previewReport).title}
+              </DialogTitle>
+              <DialogDescription>
+                Vista previa del contenido del reporte - {previewReport?.formato}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="overflow-y-auto max-h-[60vh] p-4 bg-slate-50 rounded-lg border">
+              <pre className="whitespace-pre-wrap font-mono text-sm text-slate-800 leading-relaxed">
+                {previewReport && generatePreviewContent(previewReport).content}
+              </pre>
+            </div>
+            
+            <div className="flex justify-between items-center pt-4 border-t">
+              <div className="text-sm text-slate-600">
+                Para obtener el reporte completo, utiliza el botón "Descargar"
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowPreview(false)}
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Cerrar
+                </Button>
+                <Button 
+                  onClick={() => {
+                    if (previewReport) {
+                      handleDescargarReporte(previewReport);
+                      setShowPreview(false);
+                    }
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Descargar Completo
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

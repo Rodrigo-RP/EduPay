@@ -102,12 +102,13 @@ export default function Aprobaciones() {
   // Decision mutation
   const decisionMutation = useMutation({
     mutationFn: async (data: { approval_id: number; decision: string; notes?: string }) => {
-      return await apiRequest('/api/approvals/decision', 'POST', data);
+      const response = await apiRequest('POST', '/api/approvals/decision', data);
+      return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       toast({
         title: "Decisión procesada",
-        description: data.message,
+        description: data.message || "Decisión procesada exitosamente",
         variant: "default"
       });
       queryClient.invalidateQueries({ queryKey: ['/api/approvals/pending'] });
@@ -130,7 +131,7 @@ export default function Aprobaciones() {
   // Mark notification as read
   const markAsReadMutation = useMutation({
     mutationFn: async (id: number) => {
-      return await apiRequest(`/api/approvals/notifications/${id}/read`, 'POST');
+      return await apiRequest('POST', `/api/approvals/notifications/${id}/read`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/approvals/notifications'] });
@@ -228,7 +229,7 @@ export default function Aprobaciones() {
           <TabsTrigger value="pending" className="flex items-center space-x-2">
             <Clock className="w-4 h-4" />
             <span>Pendientes de Aprobación</span>
-            {pendingApprovals && pendingApprovals.length > 0 && (
+            {pendingApprovals && Array.isArray(pendingApprovals) && pendingApprovals.length > 0 && (
               <Badge variant="secondary" className="ml-2">
                 {pendingApprovals.length}
               </Badge>
@@ -241,7 +242,7 @@ export default function Aprobaciones() {
           <TabsTrigger value="notifications" className="flex items-center space-x-2">
             <MessageSquare className="w-4 h-4" />
             <span>Notificaciones</span>
-            {notifications && notifications.filter((n: ApprovalNotification) => !n.is_read).length > 0 && (
+            {notifications && Array.isArray(notifications) && notifications.filter((n: ApprovalNotification) => !n.is_read).length > 0 && (
               <Badge variant="destructive" className="ml-2">
                 {notifications.filter((n: ApprovalNotification) => !n.is_read).length}
               </Badge>
@@ -266,7 +267,7 @@ export default function Aprobaciones() {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                   <p className="mt-2 text-gray-600">Cargando aprobaciones...</p>
                 </div>
-              ) : !pendingApprovals || pendingApprovals.length === 0 ? (
+              ) : !pendingApprovals || !Array.isArray(pendingApprovals) || pendingApprovals.length === 0 ? (
                 <div className="text-center py-8">
                   <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
                   <p className="text-gray-600">No hay solicitudes pendientes de aprobación</p>
@@ -285,7 +286,7 @@ export default function Aprobaciones() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {pendingApprovals.map((approval: PendingApproval) => (
+                    {Array.isArray(pendingApprovals) && pendingApprovals.map((approval: PendingApproval) => (
                       <TableRow key={approval.id}>
                         <TableCell className="font-medium">
                           {getActionTypeLabel(approval.action_type)}
@@ -349,7 +350,7 @@ export default function Aprobaciones() {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                   <p className="mt-2 text-gray-600">Cargando solicitudes...</p>
                 </div>
-              ) : !myRequests || myRequests.length === 0 ? (
+              ) : !myRequests || !Array.isArray(myRequests) || myRequests.length === 0 ? (
                 <div className="text-center py-8">
                   <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-600">No has enviado solicitudes de aprobación</p>
@@ -366,7 +367,7 @@ export default function Aprobaciones() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {myRequests.map((request: PendingApproval) => (
+                    {Array.isArray(myRequests) && myRequests.map((request: PendingApproval) => (
                       <TableRow key={request.id}>
                         <TableCell className="font-medium">
                           {getActionTypeLabel(request.action_type)}
@@ -401,14 +402,14 @@ export default function Aprobaciones() {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                   <p className="mt-2 text-gray-600">Cargando notificaciones...</p>
                 </div>
-              ) : !notifications || notifications.length === 0 ? (
+              ) : !notifications || !Array.isArray(notifications) || notifications.length === 0 ? (
                 <div className="text-center py-8">
                   <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-600">No hay notificaciones</p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {notifications.map((notification: ApprovalNotification) => (
+                  {Array.isArray(notifications) && notifications.map((notification: ApprovalNotification) => (
                     <div
                       key={notification.id}
                       className={`p-4 rounded-lg border ${

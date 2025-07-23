@@ -43,10 +43,7 @@ export default function Cargos() {
   // Mutación para generar cargos
   const generateChargesMutation = useMutation({
     mutationFn: async (formData: any) => {
-      return await apiRequest("/api/charges/generate", {
-        method: "POST",
-        body: formData
-      });
+      return await apiRequest("POST", "/api/charges/generate", formData);
     },
     onSuccess: () => {
       toast({

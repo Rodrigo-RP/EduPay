@@ -977,7 +977,7 @@ export default function Usuarios() {
                   </div>
 
                   {/* Restricciones */}
-                  {getRolePermissions(selectedUserForPermissions.role.toLowerCase() as UserRole)?.restrictions.length > 0 && (
+                  {getRolePermissions(selectedUserForPermissions.role.toLowerCase() as UserRole)?.restrictions && getRolePermissions(selectedUserForPermissions.role.toLowerCase() as UserRole)?.restrictions.length > 0 && (
                     <div>
                       <h4 className="font-semibold mb-3 flex items-center gap-2 text-red-700">
                         <AlertTriangle className="w-4 h-4" />

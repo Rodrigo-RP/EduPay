@@ -48,19 +48,19 @@ export default function EmisionCargos() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="text-center">
             <div className="text-2xl font-bold text-blue-600">
-                  {estadisticas?.alumnos_activos || 0}
+                  {(estadisticas as any)?.alumnos_activos || 0}
                 </div>
             <div className="text-sm text-blue-700">Alumnos activos</div>
               </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-green-600">
-                  {estadisticas?.conceptos_configurados || 0}
+                  {(estadisticas as any)?.conceptos_configurados || 0}
                 </div>
             <div className="text-sm text-green-700">Conceptos configurados</div>
               </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-purple-600">
-                  ${((estadisticas?.monto_estimado || 0) / 100).toLocaleString()}
+                  ${(((estadisticas as any)?.monto_estimado || 0) / 100).toLocaleString()}
                 </div>
             <div className="text-sm text-purple-700">Monto estimado MXN</div>
               </div>
@@ -307,19 +307,19 @@ export default function EmisionCargos() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="text-center">
             <div className="text-2xl font-bold text-red-600">
-                  {morosos?.total_morosos || 0}
+                  {(morosos as any)?.total_morosos || 0}
                 </div>
             <div className="text-sm text-red-700">Alumnos morosos</div>
               </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-orange-600">
-                  ${((morosos?.monto_vencido || 0) / 100).toLocaleString()}
+                  ${(((morosos as any)?.monto_vencido || 0) / 100).toLocaleString()}
                 </div>
             <div className="text-sm text-orange-700">Monto vencido MXN</div>
               </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-purple-600">
-                  {morosos?.dias_promedio_mora || 0}
+                  {(morosos as any)?.dias_promedio_mora || 0}
                 </div>
             <div className="text-sm text-purple-700">Días promedio mora</div>
               </div>
@@ -614,7 +614,7 @@ export default function EmisionCargos() {
                       acc[nivel].total += item.precio;
                       return acc;
                     }, {} as Record<string, {count: number, total: number}>)
-                  ).map(([nivel, data]) => (
+                  ).map(([nivel, data]: [string, any]) => (
                     <div key={nivel} className="text-center">
                       <div className="text-xs text-slate-600">{nivel}</div>
                       <div className="font-medium">{data.count} estudiantes</div>

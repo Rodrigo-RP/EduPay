@@ -65,7 +65,7 @@ export default function FiscalContable() {
           <Card>
             <CardContent className="p-4 text-center">
               <FileText className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold">{estadisticasCFDI?.total_emitidos || 0}</div>
+          <div className="text-2xl font-bold">{(estadisticasCFDI as any)?.total_emitidos || 0}</div>
           <div className="text-sm text-slate-600">CFDI emitidos</div>
             </CardContent>
           </Card>
@@ -73,7 +73,7 @@ export default function FiscalContable() {
           <Card>
             <CardContent className="p-4 text-center">
               <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold">{estadisticasCFDI?.validados || 0}</div>
+          <div className="text-2xl font-bold">{(estadisticasCFDI as any)?.validados || 0}</div>
           <div className="text-sm text-slate-600">Validados SAT</div>
             </CardContent>
           </Card>
@@ -81,7 +81,7 @@ export default function FiscalContable() {
           <Card>
             <CardContent className="p-4 text-center">
               <AlertCircle className="w-8 h-8 text-red-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold">{estadisticasCFDI?.cancelados || 0}</div>
+          <div className="text-2xl font-bold">{(estadisticasCFDI as any)?.cancelados || 0}</div>
           <div className="text-sm text-slate-600">Cancelados</div>
             </CardContent>
           </Card>
@@ -89,7 +89,7 @@ export default function FiscalContable() {
           <Card>
             <CardContent className="p-4 text-center">
               <Receipt className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold">${((estadisticasCFDI?.monto_total || 0) / 100).toLocaleString()}</div>
+          <div className="text-2xl font-bold">${(((estadisticasCFDI as any)?.monto_total || 0) / 100).toLocaleString()}</div>
           <div className="text-sm text-slate-600">Monto facturado</div>
             </CardContent>
           </Card>

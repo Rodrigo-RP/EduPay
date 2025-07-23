@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,12 +8,420 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, TrendingDown, Clock, DollarSign, Users, Phone, Mail, Calendar, Search, Filter, Ban, PieChart } from "lucide-react";
+import { AlertTriangle, TrendingDown, Clock, DollarSign, Users, Phone, Mail, Calendar, Search, Filter, Ban, PieChart, Download, FileText, Eye, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useInstitution } from "@/hooks/use-institution";
 import { PieChartComponent } from "@/components/PieChartComponent";
 
-export default function CuentasPorCobrar() {
+// Componente de Reportes de Cobranza
+const ReportesCobranza = () => {
   const { toast } = useToast();
+  const { logoUrl, institutionName } = useInstitution();
+  const [selectedPeriod, setSelectedPeriod] = useState("2025-01");
+  const [selectedFormat, setSelectedFormat] = useState("detallado");
+
+  // Reportes disponibles para cuentas por cobrar
+  const reportesDisponibles = [
+    {
+      id: 1,
+      nombre: "Antigüedad de Saldos",
+      descripcion: "Análisis detallado por rangos de días vencidos",
+      formato: "PDF",
+      tamaño: "189 KB",
+      fecha: "23/01/2025",
+      status: "disponible"
+    },
+    {
+      id: 2,
+      nombre: "Cartera Vencida",
+      descripcion: "Reporte de cuentas morosas y vencidas",
+      formato: "Excel",
+      tamaño: "156 KB",
+      fecha: "23/01/2025",
+      status: "disponible"
+    },
+    {
+      id: 3,
+      nombre: "Eficiencia de Cobranza",
+      descripcion: "Métricas de gestión y recuperación",
+      formato: "PDF",
+      tamaño: "201 KB",
+      fecha: "22/01/2025",
+      status: "disponible"
+    },
+    {
+      id: 4,
+      nombre: "Seguimiento de Promesas",
+      descripcion: "Control de fechas compromiso de pago",
+      formato: "Excel",
+      tamaño: "134 KB",
+      fecha: "22/01/2025",
+      status: "disponible"
+    },
+    {
+      id: 5,
+      nombre: "Análisis de Morosidad",
+      descripcion: "Tendencias y patrones de comportamiento",
+      formato: "PDF",
+      tamaño: "245 KB",
+      fecha: "21/01/2025",
+      status: "disponible"
+    },
+    {
+      id: 6,
+      nombre: "Reporte Ejecutivo Cobranza",
+      descripcion: "Resumen gerencial de gestión",
+      formato: "PDF",
+      tamaño: "178 KB",
+      fecha: "20/01/2025",
+      status: "disponible"
+    }
+  ];
+
+  // KPIs para reportes de cobranza
+  const kpisCobranza = {
+    totalPorCobrar: 4200000, // en centavos
+    cuentasVencidas: 15,
+    cuentasMorosas: 8,
+    tasaRecuperacion: 73.2,
+    tiempoPromedioCobranza: 18.5,
+    eficienciaGestion: 89.1
+  };
+
+  const handleGenerarReporte = () => {
+    toast({
+      title: "Generando Reporte de Cobranza",
+      description: "Procesando datos de cartera por cobrar...",
+      duration: 2000,
+    });
+
+    setTimeout(() => {
+      const fechaGeneracion = new Date().toLocaleDateString('es-MX');
+      const periodo = selectedPeriod;
+      
+      const contenido = `REPORTE DE CUENTAS POR COBRAR - ${institutionName || 'INSTITUTO JFR'}
+Período: ${periodo}
+Fecha de generación: ${fechaGeneracion}
+
+═══════════════════════════════════════════════════════
+RESUMEN EJECUTIVO DE COBRANZA
+═══════════════════════════════════════════════════════
+
+Total por Cobrar: $${(kpisCobranza.totalPorCobrar / 100).toLocaleString('es-MX')}
+Cuentas Vencidas: ${kpisCobranza.cuentasVencidas}
+Cuentas Morosas: ${kpisCobranza.cuentasMorosas}
+Tasa de Recuperación: ${kpisCobranza.tasaRecuperacion}%
+Tiempo Promedio Cobranza: ${kpisCobranza.tiempoPromedioCobranza} días
+Eficiencia de Gestión: ${kpisCobranza.eficienciaGestion}%
+
+═══════════════════════════════════════════════════════
+ANTIGÜEDAD DE SALDOS
+═══════════════════════════════════════════════════════
+
+0-30 días: $1,680,000 (40.0%)
+31-60 días: $1,260,000 (30.0%)
+61-90 días: $840,000 (20.0%)
+Más de 90 días: $420,000 (10.0%)
+
+═══════════════════════════════════════════════════════
+ANÁLISIS POR NIVEL ACADÉMICO
+═══════════════════════════════════════════════════════
+
+Kinder: $945,000 (22.5%)
+Primaria: $1,470,000 (35.0%)
+Secundaria: $1,155,000 (27.5%)
+Bachillerato: $630,000 (15.0%)
+
+═══════════════════════════════════════════════════════
+GESTIÓN DE COBRANZA ACTIVA
+═══════════════════════════════════════════════════════
+
+Casos en Seguimiento: ${kpisCobranza.cuentasVencidas} cuentas
+Promesas de Pago Activas: 12 compromisos
+Tasa de Cumplimiento: 78.5%
+Gestión Telefónica: 45 llamadas realizadas
+Notificaciones Enviadas: 89 emails/SMS
+
+═══════════════════════════════════════════════════════
+REPORTES DISPONIBLES
+═══════════════════════════════════════════════════════
+
+${reportesDisponibles.map(r => `${r.nombre} - ${r.formato} - ${r.tamaño}`).join('\n')}
+
+---
+Generado por Edupay - Sistema de Pagos Escolares
+${institutionName || 'Instituto JFR'} - ${fechaGeneracion}`;
+
+      const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${institutionName?.replace(/\s/g, '_') || 'JFR'}_Reporte_Cobranza_${periodo}_${fechaGeneracion.replace(/\//g, '-')}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "✅ Reporte Generado Exitosamente",
+        description: `Reporte de cobranza del período ${periodo} descargado correctamente`,
+        duration: 4000,
+      });
+    }, 2000);
+  };
+
+  const handleGenerarReporteExcel = () => {
+    toast({
+      title: "Generando Reporte Excel",
+      description: "Procesando datos para exportación CSV...",
+      duration: 2000,
+    });
+
+    setTimeout(() => {
+      const fechaGeneracion = new Date().toLocaleDateString('es-MX');
+      const periodo = selectedPeriod;
+      
+      const csvContent = `REPORTE DE CUENTAS POR COBRAR - ${institutionName || 'INSTITUTO JFR'}
+Período,${periodo}
+Fecha de generación,${fechaGeneracion}
+
+RESUMEN EJECUTIVO
+Concepto,Valor
+Total por Cobrar,$${(kpisCobranza.totalPorCobrar / 100).toLocaleString('es-MX')}
+Cuentas Vencidas,${kpisCobranza.cuentasVencidas}
+Cuentas Morosas,${kpisCobranza.cuentasMorosas}
+Tasa de Recuperación,${kpisCobranza.tasaRecuperacion}%
+Tiempo Promedio Cobranza,${kpisCobranza.tiempoPromedioCobranza} días
+Eficiencia de Gestión,${kpisCobranza.eficienciaGestion}%
+
+ANTIGÜEDAD DE SALDOS
+Rango,Monto,Porcentaje
+0-30 días,$1680000,40.0%
+31-60 días,$1260000,30.0%
+61-90 días,$840000,20.0%
+Más de 90 días,$420000,10.0%
+
+ANÁLISIS POR NIVEL
+Nivel,Monto,Porcentaje
+Kinder,$945000,22.5%
+Primaria,$1470000,35.0%
+Secundaria,$1155000,27.5%
+Bachillerato,$630000,15.0%`;
+
+      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${institutionName?.replace(/\s/g, '_') || 'JFR'}_Reporte_Cobranza_${periodo}_${fechaGeneracion.replace(/\//g, '-')}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "✅ Reporte Excel Generado",
+        description: `Archivo CSV compatible con Excel descargado exitosamente`,
+        duration: 4000,
+      });
+    }, 2000);
+  };
+
+  const handleDescargarReporte = (reporte: any) => {
+    toast({
+      title: "Descargando Reporte",
+      description: `Preparando ${reporte.nombre} en formato ${reporte.formato}...`,
+      duration: 2000,
+    });
+
+    setTimeout(() => {
+      const contenido = `${reporte.nombre.toUpperCase()}
+${institutionName || 'INSTITUTO JFR'}
+Generado: ${new Date().toLocaleDateString('es-MX')}
+
+${reporte.descripcion}
+
+Este es un reporte especializado de cuentas por cobrar 
+que incluye análisis detallado según el tipo solicitado.
+
+Datos procesados del período ${selectedPeriod}
+Formato: ${reporte.formato}
+Estado: ${reporte.status}`;
+
+      const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${reporte.nombre.replace(/\s/g, '_')}_${new Date().toLocaleDateString('es-MX').replace(/\//g, '-')}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "✅ Reporte Descargado",
+        description: `${reporte.nombre} descargado exitosamente`,
+        duration: 3000,
+      });
+    }, 2000);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Filtros de período */}
+      <Card className="bg-white shadow-md border-l-4 border-orange-500">
+        <CardContent className="p-6">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-orange-600" />
+              <label className="text-sm font-medium text-slate-700">Período:</label>
+              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2025-01">Enero 2025</SelectItem>
+                  <SelectItem value="2024-12">Diciembre 2024</SelectItem>
+                  <SelectItem value="2024-11">Noviembre 2024</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-orange-600" />
+              <label className="text-sm font-medium text-slate-700">Formato:</label>
+              <Select value={selectedFormat} onValueChange={setSelectedFormat}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="detallado">Detallado</SelectItem>
+                  <SelectItem value="ejecutivo">Ejecutivo</SelectItem>
+                  <SelectItem value="auditoria">Auditoría</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* KPIs del período */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-red-800 text-lg">Total por Cobrar</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center space-y-2">
+              <div className="text-3xl font-bold text-red-600">
+                ${(kpisCobranza.totalPorCobrar / 100).toLocaleString('es-MX')}
+              </div>
+              <div className="text-sm text-red-700">{kpisCobranza.cuentasVencidas} cuentas vencidas</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-yellow-800 text-lg">Tasa de Recuperación</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center space-y-2">
+              <div className="text-3xl font-bold text-yellow-600">{kpisCobranza.tasaRecuperacion}%</div>
+              <div className="text-sm text-yellow-700">{kpisCobranza.tiempoPromedioCobranza} días promedio</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-orange-800 text-lg">Eficiencia de Gestión</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center space-y-2">
+              <div className="text-3xl font-bold text-orange-600">{kpisCobranza.eficienciaGestion}%</div>
+              <div className="text-sm text-orange-700">{kpisCobranza.cuentasMorosas} casos morosos</div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Botones de generación */}
+      <div className="flex flex-wrap gap-3">
+        <Button 
+          onClick={handleGenerarReporte}
+          className="bg-orange-600 hover:bg-orange-700"
+        >
+          <Download className="w-4 h-4 mr-2" />
+          Generar Reporte TXT
+        </Button>
+        <Button 
+          onClick={handleGenerarReporteExcel}
+          variant="outline"
+          className="border-orange-600 text-orange-600 hover:bg-orange-50"
+        >
+          <Download className="w-4 h-4 mr-2" />
+          Generar Excel (CSV)
+        </Button>
+      </div>
+
+      {/* Reportes Disponibles */}
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-2xl text-slate-800">Reportes de Cobranza Disponibles</CardTitle>
+          <CardDescription>
+            Descarga reportes especializados de gestión de cartera por cobrar
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {reportesDisponibles.map((reporte) => (
+              <Card key={reporte.id} className="border-2 hover:border-orange-300 transition-colors duration-200">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base text-slate-800">{reporte.nombre}</CardTitle>
+                  <CardDescription className="text-sm">{reporte.descripcion}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600">Formato:</span>
+                      <Badge variant="outline">{reporte.formato}</Badge>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600">Tamaño:</span>
+                      <span className="font-medium">{reporte.tamaño}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600">Fecha:</span>
+                      <span className="font-medium">{reporte.fecha}</span>
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      <Button 
+                        size="sm" 
+                        className="flex-1 bg-orange-600 hover:bg-orange-700"
+                        onClick={() => handleDescargarReporte(reporte)}
+                      >
+                        <Download className="w-4 h-4 mr-1" />
+                        Descargar
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="border-orange-600 text-orange-600 hover:bg-orange-50"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default function CuentasPorCobrar() {
   const [selectedEstado, setSelectedEstado] = useState("all");
   const [selectedDiasVencido, setSelectedDiasVencido] = useState("all");
   const [selectedConcepto, setSelectedConcepto] = useState("all");
@@ -23,6 +431,12 @@ export default function CuentasPorCobrar() {
   const [fechaFin, setFechaFin] = useState("");
   const [showCompromiseModal, setShowCompromiseModal] = useState(false);
   const [selectedCuenta, setSelectedCuenta] = useState<any>(null);
+  
+  // Estados para reportes
+  const [selectedPeriod, setSelectedPeriod] = useState("2025-01");
+  const [selectedFormat, setSelectedFormat] = useState("detallado");
+  const { toast } = useToast();
+  const { logoUrl, institutionName } = useInstitution();
 
 
   // Colores para gráficos
@@ -856,27 +1270,7 @@ export default function CuentasPorCobrar() {
         </TabsContent>
 
         <TabsContent value="reportes">
-          <Card>
-            <CardHeader>
-              <CardTitle>Reportes de cobranza</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <Button variant="outline" className="h-20 flex flex-col">
-                  <DollarSign className="w-6 h-6 mb-2" />
-                  <span>Antigüedad de Saldos</span>
-                </Button>
-                <Button variant="outline" className="h-20 flex flex-col">
-                  <AlertTriangle className="w-6 h-6 mb-2" />
-                  <span>Cartera Vencida</span>
-                </Button>
-                <Button variant="outline" className="h-20 flex flex-col">
-                  <TrendingDown className="w-6 h-6 mb-2" />
-                  <span>Eficiencia Cobranza</span>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <ReportesCobranza />
         </TabsContent>
 
         {/* Modal para establecer fecha compromiso */}

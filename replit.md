@@ -214,6 +214,13 @@ Changelog:
 - July 23, 2025: Filtros por fecha inicio/fin, búsqueda por nombre de estudiante/familia, y selección de formato
 - July 23, 2025: Diseño compacto estilo horizontal similar a interfaces modernas de filtrado
 - July 23, 2025: Botón "Limpiar" automático cuando hay filtros activos, integración completa en reportes
+- July 23, 2025: BOTONES EYE DE REPORTES COMPLETAMENTE FUNCIONALES - Sistema completo de vista previa y descarga implementado
+- July 23, 2025: Modal de vista previa con datos reales organizados en tablas y métricas ejecutivas por tipo de reporte
+- July 23, 2025: Funcionalidad de descarga real: Excel/CSV con BOM UTF-8, PDF/HTML con impresión automática
+- July 23, 2025: Botones Eye en cuentas individuales muestran detalles completos con alertas y notificaciones toast
+- July 23, 2025: 6 reportes específicos con contenido auténtico: Antigüedad Saldos, Cartera Vencida, Eficiencia Cobranza, etc.
+- July 23, 2025: Integración logo institucional dinámico del Instituto JFR en reportes HTML/PDF descargables
+- July 23, 2025: Modal con DialogDescription agregado para cumplir estándares de accesibilidad completos
 - July 22, 2025: Problema endpoint /api/uploads/logo.png resuelto - ahora usa logo real desde hook useInstitution
 - July 22, 2025: Prioridad al logo configurado en Configuración → Institución sobre logos genéricos embebidos
 - July 22, 2025: Compatibilidad con data URLs (base64) y URLs normales para máxima flexibilidad

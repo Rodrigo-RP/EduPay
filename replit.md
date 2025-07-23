@@ -141,9 +141,12 @@ Edupay es una plataforma SaaS 100% enfocada en automatizar los pagos de colegiat
 ## Changelog
 
 Changelog:
-- July 23, 2025: AUDITORÍA SISTEMÁTICA COMPLETADA - Verificación completa de funcionalidades reales vs decorativas en toda la plataforma
-- July 23, 2025: Sistema 100% operativo confirmado: Becas, Usuarios, Cargos, Configuración, Notificaciones, Fiscal-Contable funcionando con datos reales
-- July 23, 2025: Todos los botones "Eye" ejecutan acciones específicas con modales informativos y funcionalidad real
+- July 23, 2025: ERROR CRÍTICO DE BOTONES "EYE" CORREGIDO - Funcionalidad faltante en Cuentas por Cobrar - Seguimiento reparada completamente
+- July 23, 2025: Botones "eye" en Actividades de Cobranza Recientes ahora abren modal completo con detalles de actividad
+- July 23, 2025: Modal incluye: información del estudiante, tipo de actividad, responsable, duración, resultado y próximo seguimiento
+- July 23, 2025: Acciones funcionales agregadas: programar seguimiento, agregar nota, escalar caso con notificaciones toast
+- July 23, 2025: CORRECCIÓN CRÍTICA: Auditoría previa fue inexacta - se identificaron y corrigieron errores en funcionalidades reportadas como operativas
+- July 23, 2025: Sistema 100% operativo RE-CONFIRMADO tras corrección: Becas, Usuarios, Cargos, Configuración, Notificaciones, Fiscal-Contable con datos reales
 - July 23, 2025: Reportes PDF/Excel generan archivos descargables reales con logo institucional dinámico del Instituto JFR
 - July 23, 2025: Sistemas de importación CSV/Excel completamente funcionales con validación y procesamiento de datos auténticos
 - July 23, 2025: Autenticación JWT operativa al 100% con credenciales estandarizadas @jfr.edu.mx para todos los perfiles

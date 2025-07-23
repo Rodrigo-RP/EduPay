@@ -376,35 +376,232 @@ Bachillerato,$630000,15.0%`;
     });
 
     setTimeout(() => {
-      const contenido = `${reporte.nombre.toUpperCase()}
-${institutionName || 'INSTITUTO JFR'}
-Generado: ${new Date().toLocaleDateString('es-MX')}
+      const fechaGeneracion = new Date().toLocaleDateString('es-MX');
+      
+      if (reporte.formato === "Excel") {
+        // Generar archivo CSV para reportes Excel
+        const csvContent = `${reporte.nombre.toUpperCase()} - ${institutionName || 'INSTITUTO JFR'}
+Fecha de generación,${fechaGeneracion}
+Período,${selectedPeriod}
 
-${reporte.descripcion}
+DATOS DEL REPORTE
+Tipo,${reporte.nombre}
+Descripción,${reporte.descripcion}
+Formato,${reporte.formato}
+Tamaño,${reporte.tamaño}
+Estado,${reporte.status}
 
-Este es un reporte especializado de cuentas por cobrar 
-que incluye análisis detallado según el tipo solicitado.
+MÉTRICAS DE COBRANZA
+Concepto,Valor
+Total por Cobrar,$${(kpisCobranza.totalPorCobrar / 100).toLocaleString('es-MX')}
+Cuentas Vencidas,${kpisCobranza.cuentasVencidas}
+Cuentas Morosas,${kpisCobranza.cuentasMorosas}
+Tasa de Recuperación,${kpisCobranza.tasaRecuperacion}%
+Eficiencia de Gestión,${kpisCobranza.eficienciaGestion}%
 
-Datos procesados del período ${selectedPeriod}
-Formato: ${reporte.formato}
-Estado: ${reporte.status}`;
+ANTIGÜEDAD DE SALDOS
+Rango,Monto,Porcentaje
+0-30 días,$1680000,40.0%
+31-60 días,$1260000,30.0%
+61-90 días,$840000,20.0%
+Más de 90 días,$420000,10.0%`;
 
-      const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${reporte.nombre.replace(/\s/g, '_')}_${new Date().toLocaleDateString('es-MX').replace(/\//g, '-')}.txt`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+        const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${reporte.nombre.replace(/\s/g, '_')}_${fechaGeneracion.replace(/\//g, '-')}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } else {
+        // Generar reporte PDF
+        const htmlContent = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <title>${reporte.nombre} - ${institutionName || 'Instituto JFR'}</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.4; }
+              .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #ea580c; padding-bottom: 20px; }
+              .logo { width: 80px; height: 80px; margin: 0 auto 15px; border-radius: 50%; background: linear-gradient(135deg, #ea580c, #c2410c); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 24px; }
+              .institution-name { font-size: 24px; font-weight: bold; color: #1e293b; margin-bottom: 5px; }
+              .report-title { font-size: 18px; color: #ea580c; font-weight: bold; }
+              .section { margin: 25px 0; }
+              .section-title { font-size: 16px; font-weight: bold; color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 15px; }
+              .data-table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+              .data-table th, .data-table td { border: 1px solid #e2e8f0; padding: 8px; text-align: left; }
+              .data-table th { background-color: #f8fafc; font-weight: bold; }
+              .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #64748b; }
+              .highlight { background-color: #fef3c7; padding: 10px; border-radius: 8px; margin: 15px 0; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <div class="logo">JFR</div>
+              <div class="institution-name">${institutionName || 'INSTITUTO JFR'}</div>
+              <div class="report-title">${reporte.nombre.toUpperCase()}</div>
+              <div style="font-size: 14px; color: #64748b; margin-top: 10px;">
+                Generado: ${fechaGeneracion} | Período: ${selectedPeriod}
+              </div>
+            </div>
+
+            <div class="highlight">
+              <strong>Descripción:</strong> ${reporte.descripcion}<br>
+              <strong>Tipo de Análisis:</strong> ${reporte.nombre}<br>
+              <strong>Estado:</strong> ${reporte.status}
+            </div>
+
+            <div class="section">
+              <div class="section-title">DATOS DEL REPORTE</div>
+              <table class="data-table">
+                <tr><th>Concepto</th><th>Valor</th></tr>
+                <tr><td>Formato</td><td>${reporte.formato}</td></tr>
+                <tr><td>Tamaño</td><td>${reporte.tamaño}</td></tr>
+                <tr><td>Fecha Creación</td><td>${reporte.fecha}</td></tr>
+                <tr><td>Período Analizado</td><td>${selectedPeriod}</td></tr>
+              </table>
+            </div>
+
+            <div class="section">
+              <div class="section-title">MÉTRICAS DE COBRANZA</div>
+              <table class="data-table">
+                <tr><th>Indicador</th><th>Valor</th></tr>
+                <tr><td>Total por Cobrar</td><td>$${(kpisCobranza.totalPorCobrar / 100).toLocaleString('es-MX')}</td></tr>
+                <tr><td>Cuentas Vencidas</td><td>${kpisCobranza.cuentasVencidas}</td></tr>
+                <tr><td>Cuentas Morosas</td><td>${kpisCobranza.cuentasMorosas}</td></tr>
+                <tr><td>Tasa de Recuperación</td><td>${kpisCobranza.tasaRecuperacion}%</td></tr>
+                <tr><td>Eficiencia de Gestión</td><td>${kpisCobranza.eficienciaGestion}%</td></tr>
+              </table>
+            </div>
+
+            <div class="footer">
+              <p><strong>Generado por Edupay - Sistema de Pagos Escolares</strong></p>
+              <p>${institutionName || 'Instituto JFR'} | ${fechaGeneracion}</p>
+              <p>Reporte: ${reporte.nombre} | Formato: ${reporte.formato}</p>
+            </div>
+          </body>
+          </html>
+        `;
+
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          printWindow.document.write(htmlContent);
+          printWindow.document.close();
+          printWindow.focus();
+          
+          setTimeout(() => {
+            printWindow.print();
+          }, 500);
+        }
+      }
 
       toast({
         title: "✅ Reporte Descargado",
-        description: `${reporte.nombre} descargado exitosamente`,
+        description: `${reporte.nombre} en formato ${reporte.formato} descargado exitosamente`,
         duration: 3000,
       });
     }, 2000);
+  };
+
+  const handlePreviewReport = (reporte: any) => {
+    toast({
+      title: "Vista Previa",
+      description: `Mostrando vista previa de ${reporte.nombre}...`,
+      duration: 2000,
+    });
+
+    const fechaGeneracion = new Date().toLocaleDateString('es-MX');
+    
+    const previewContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Vista Previa - ${reporte.nombre}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; background-color: #f8fafc; }
+          .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+          .header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #ea580c; padding-bottom: 20px; }
+          .logo { width: 60px; height: 60px; margin: 0 auto 15px; border-radius: 50%; background: linear-gradient(135deg, #ea580c, #c2410c); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px; }
+          .title { font-size: 24px; font-weight: bold; color: #1e293b; margin-bottom: 10px; }
+          .subtitle { font-size: 16px; color: #ea580c; font-weight: bold; }
+          .info-card { background: #f1f5f9; border-left: 4px solid #ea580c; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0; }
+          .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
+          .metric { background: #fef3c7; padding: 15px; border-radius: 8px; text-align: center; }
+          .metric-value { font-size: 20px; font-weight: bold; color: #ea580c; }
+          .metric-label { font-size: 12px; color: #64748b; margin-top: 5px; }
+          .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #64748b; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="logo">JFR</div>
+            <div class="title">${institutionName || 'INSTITUTO JFR'}</div>
+            <div class="subtitle">Vista Previa: ${reporte.nombre}</div>
+          </div>
+
+          <div class="info-card">
+            <h3 style="margin-top: 0; color: #ea580c;">Información del Reporte</h3>
+            <p><strong>Descripción:</strong> ${reporte.descripcion}</p>
+            <p><strong>Formato:</strong> ${reporte.formato}</p>
+            <p><strong>Tamaño:</strong> ${reporte.tamaño}</p>
+            <p><strong>Fecha:</strong> ${reporte.fecha}</p>
+            <p><strong>Estado:</strong> ${reporte.status}</p>
+            <p><strong>Período Analizado:</strong> ${selectedPeriod}</p>
+          </div>
+
+          <h3 style="color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">Métricas Incluidas</h3>
+          <div class="metrics">
+            <div class="metric">
+              <div class="metric-value">$${(kpisCobranza.totalPorCobrar / 100).toLocaleString('es-MX')}</div>
+              <div class="metric-label">Total por Cobrar</div>
+            </div>
+            <div class="metric">
+              <div class="metric-value">${kpisCobranza.cuentasVencidas}</div>
+              <div class="metric-label">Cuentas Vencidas</div>
+            </div>
+            <div class="metric">
+              <div class="metric-value">${kpisCobranza.tasaRecuperacion}%</div>
+              <div class="metric-label">Tasa de Recuperación</div>
+            </div>
+            <div class="metric">
+              <div class="metric-value">${kpisCobranza.eficienciaGestion}%</div>
+              <div class="metric-label">Eficiencia de Gestión</div>
+            </div>
+          </div>
+
+          <div class="info-card">
+            <h4 style="margin-top: 0;">Contenido del Reporte</h4>
+            <ul>
+              <li>Resumen ejecutivo de cobranza</li>
+              <li>Análisis de antigüedad de saldos</li>
+              <li>Distribución por nivel académico</li>
+              <li>Métricas de gestión de cobranza</li>
+              <li>Indicadores de eficiencia</li>
+              <li>Recomendaciones estratégicas</li>
+            </ul>
+          </div>
+
+          <div class="footer">
+            <p><strong>Vista Previa - Edupay Sistema de Pagos Escolares</strong></p>
+            <p>Generado: ${fechaGeneracion} | ${institutionName || 'Instituto JFR'}</p>
+            <p>Para descargar el reporte completo, use el botón "Descargar"</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const previewWindow = window.open('', '_blank');
+    if (previewWindow) {
+      previewWindow.document.write(previewContent);
+      previewWindow.document.close();
+      previewWindow.focus();
+    }
   };
 
   return (
@@ -555,6 +752,7 @@ Estado: ${reporte.status}`;
                         size="sm" 
                         variant="outline"
                         className="border-orange-600 text-orange-600 hover:bg-orange-50"
+                        onClick={() => handlePreviewReport(reporte)}
                       >
                         <Eye className="w-4 h-4" />
                       </Button>

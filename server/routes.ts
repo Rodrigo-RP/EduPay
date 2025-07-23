@@ -649,6 +649,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get accounts receivable with detailed student and guardian information
+  app.get("/api/accounts-receivable", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user?.campus_id;
+      
+      if (!campusId) {
+        return res.status(400).json({ message: "Campus ID requerido" });
+      }
+      
+      const accountsReceivable = await storage.getAccountsReceivableByCampus(campusId);
+      res.json(accountsReceivable);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error fetching accounts receivable: " + error.message });
+    }
+  });
+
   // Get scholarships (real data from database)
   app.get("/api/scholarships", authenticateToken, async (req, res) => {
     try {

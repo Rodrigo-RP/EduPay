@@ -255,6 +255,94 @@ export class DatabaseStorage implements IStorage {
     return results.map((row: any) => row.charges);
   }
 
+  async getAccountsReceivableByCampus(campusId: number): Promise<any[]> {
+    const results = await db
+      .select({
+        charge_id: charges.id,
+        student_id: students.id,
+        student_name: sql<string>`CONCAT(${students.nombres}, ' ', ${students.primer_apellido}, ' ', COALESCE(${students.segundo_apellido}, ''))`,
+        student_grade: students.grado,
+        student_level: students.nivel_academico,
+        concept_name: concepts.nombre,
+        charge_amount: charges.monto_base_centavos,
+        discount_amount: sql<number>`COALESCE(${charges.monto_base_centavos} * ${charges.beca_aplicada} / 100, 0)`,
+        late_fee_amount: sql<number>`COALESCE(${charges.recargo_aplicado_centavos}, 0)`,
+        amount_paid: sql<number>`COALESCE((SELECT SUM(${payments.monto_centavos}) FROM ${payments} WHERE ${payments.charge_id} = ${charges.id}), 0)`,
+        charge_date: charges.fecha_emision,
+        due_date: charges.fecha_vencimiento,
+        status: charges.estado,
+        guardian_name: sql<string>`CONCAT(${guardians.nombres}, ' ', ${guardians.primer_apellido}, ' ', COALESCE(${guardians.segundo_apellido}, ''))`,
+        guardian_phone: guardians.telefono,
+        guardian_email: guardians.email
+      })
+      .from(charges)
+      .innerJoin(students, eq(charges.student_id, students.id))
+      .innerJoin(concepts, eq(charges.concept_id, concepts.id))
+      .innerJoin(student_guardian, eq(students.id, student_guardian.student_id))
+      .innerJoin(guardians, eq(student_guardian.guardian_id, guardians.id))
+      .where(
+        and(
+          eq(students.campus_id, campusId),
+          eq(student_guardian.is_primary, true) // Solo responsable principal
+        )
+      )
+      .orderBy(desc(charges.fecha_vencimiento));
+
+    return results.map(row => {
+      const baseAmount = row.charge_amount;
+      const discount = row.discount_amount;
+      const lateFee = row.late_fee_amount;
+      const amountPaid = row.amount_paid;
+      const totalAmount = baseAmount - discount + lateFee;
+      const pendingAmount = totalAmount - amountPaid;
+      
+      // Calcular días vencidos
+      const dueDate = new Date(row.due_date);
+      const today = new Date();
+      const daysOverdue = Math.max(0, Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)));
+      
+      // Determinar estado de cobranza
+      let collectionStatus = "AL_DIA";
+      if (row.status === "pagado") {
+        collectionStatus = "PAGADO";
+      } else if (pendingAmount > 0) {
+        if (daysOverdue > 30) {
+          collectionStatus = "MOROSO";
+        } else if (daysOverdue > 0) {
+          collectionStatus = "VENCIDO";
+        } else if (amountPaid > 0) {
+          collectionStatus = "PARCIAL";
+        } else {
+          collectionStatus = "PENDIENTE";
+        }
+      }
+
+      return {
+        id: row.charge_id,
+        estudiante: row.student_name,
+        responsable: row.guardian_name,
+        telefono: row.guardian_phone,
+        email: row.guardian_email,
+        nivel_escolar: row.student_level || "NO_DEFINIDO",
+        grado: row.student_grade,
+        concepto: row.concept_name,
+        fecha_cargo: row.charge_date,
+        monto_inicial_centavos: baseAmount,
+        descuentos_centavos: discount,
+        recargos_centavos: lateFee,
+        total_pagado_centavos: amountPaid,
+        pendiente_pagar_centavos: pendingAmount,
+        dias_vencido: daysOverdue,
+        estado_cobranza: collectionStatus,
+        fecha_vencimiento: row.due_date,
+        fecha_compromiso: null, // Por ahora null, se puede agregar después
+        cuenta_habilitada: pendingAmount <= 0,
+        fecha_ultimo_seguimiento: row.charge_date,
+        observaciones_cobranza: `Cargo generado el ${row.charge_date}`
+      };
+    });
+  }
+
   async getPendingChargesByGuardian(guardianId: number): Promise<(Charge & { student: Student; concept: Concept })[]> {
     return await db
       .select({

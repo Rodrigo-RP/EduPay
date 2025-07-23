@@ -11,6 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { AlertTriangle, TrendingDown, Clock, DollarSign, Users, Phone, Mail, Calendar, Search, Filter, Ban, PieChart, Download, FileText, Eye, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useInstitution } from "@/hooks/use-institution";
+import { useAuth } from "@/hooks/use-auth";
+import { useQuery } from "@tanstack/react-query";
 import jsPDF from 'jspdf';
 import { PieChartComponent } from "@/components/PieChartComponent";
 
@@ -835,6 +837,46 @@ export default function CuentasPorCobrar() {
   const [selectedFormat, setSelectedFormat] = useState("detallado");
   const { toast } = useToast();
   const { logoUrl, institutionName } = useInstitution();
+  const { user } = useAuth();
+
+  // Obtener datos reales de cuentas por cobrar
+  const { data: cuentasPorCobrarData = [], isLoading, error } = useQuery({
+    queryKey: ["/api/accounts-receivable"],
+    enabled: !!user?.campus_id,
+    retry: 1,
+    staleTime: 0
+  });
+
+  // Mostrar estado de carga si está cargando
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600">Cargando cuentas por cobrar...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Mostrar error si hay problemas con la API
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-slate-900 mb-2">Error al cargar datos</h2>
+          <p className="text-slate-600 mb-4">No se pudieron cargar las cuentas por cobrar</p>
+          <Button onClick={() => window.location.reload()}>
+            Intentar nuevamente
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Usar datos reales de la API cuando estén disponibles
+  const cuentasPorCobrar = cuentasPorCobrarData.length > 0 ? cuentasPorCobrarData : cuentasPorCobrarBackup;
 
   // Lista de conceptos del catálogo de productos  
   const conceptosCatalogo = [
@@ -881,8 +923,8 @@ export default function CuentasPorCobrar() {
 
 
 
-  // Datos demo expandidos de cuentas por cobrar con todos los conceptos
-  const cuentasPorCobrar = [
+  // Usar datos reales de la API o datos de respaldo si hay error
+  const cuentasPorCobrarBackup = [
     {
       id: 1,
       estudiante: "Carlos Pérez Méndez",

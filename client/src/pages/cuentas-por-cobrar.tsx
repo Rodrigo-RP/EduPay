@@ -22,6 +22,7 @@ export default function CuentasPorCobrar() {
     fechaInicio: "",
     fechaFin: "",
     estudiante: "",
+    concepto: "todas",
     formato: "detallado"
   });
   
@@ -45,8 +46,8 @@ export default function CuentasPorCobrar() {
   });
   const [tipoReporte, setTipoReporte] = useState("ejecutivo");
 
-  // Datos de prueba específicos de la imagen
-  const cuentas = [
+  // Datos de prueba específicos de la imagen con diferentes conceptos
+  const cuentasTodas = [
     {
       id: 1,
       estudiante: "María González Pérez",
@@ -76,8 +77,82 @@ export default function CuentasPorCobrar() {
       estado_cobranza: "Al corriente",
       dias_vencido: 0,
       familia: "Ramírez López"
+    },
+    {
+      id: 4,
+      estudiante: "Carlos Eduardo Díaz",
+      nivel_academico: "Primaria",
+      concepto: "Reinscripción",
+      pendiente_pagar_centavos: 150000,
+      estado_cobranza: "Vencido",
+      dias_vencido: 22,
+      familia: "Díaz Herrera"
+    },
+    {
+      id: 5,
+      estudiante: "Patricia Fernández Silva",
+      nivel_academico: "Secundaria",
+      concepto: "Seguro Escolar",
+      pendiente_pagar_centavos: 85000,
+      estado_cobranza: "Por vencer",
+      dias_vencido: 0,
+      familia: "Fernández Silva"
+    },
+    {
+      id: 6,
+      estudiante: "Roberto Jiménez Castro",
+      nivel_academico: "Bachillerato",
+      concepto: "Libros",
+      pendiente_pagar_centavos: 120000,
+      estado_cobranza: "Vencido",
+      dias_vencido: 8,
+      familia: "Jiménez Castro"
+    },
+    {
+      id: 7,
+      estudiante: "Valeria Torres Mendoza",
+      nivel_academico: "Kinder",
+      concepto: "Otros",
+      pendiente_pagar_centavos: 95000,
+      estado_cobranza: "Al corriente",
+      dias_vencido: 0,
+      familia: "Torres Mendoza"
     }
   ];
+
+  // Función para filtrar cuentas según los criterios seleccionados
+  const cuentasFiltradas = cuentasTodas.filter(cuenta => {
+    // Filtro por concepto
+    if (filtros.concepto !== "todas") {
+      const conceptoMap: { [key: string]: string[] } = {
+        "colegiaturas": ["Colegiatura"],
+        "inscripciones": ["Inscripción"],
+        "reinscripciones": ["Reinscripción"],
+        "seguro_escolar": ["Seguro Escolar"],
+        "libros": ["Libros"],
+        "otros": ["Otros"]
+      };
+      
+      const conceptosPermitidos = conceptoMap[filtros.concepto] || [];
+      if (!conceptosPermitidos.includes(cuenta.concepto)) {
+        return false;
+      }
+    }
+
+    // Filtro por estudiante/familia
+    if (filtros.estudiante) {
+      const terminoBusqueda = filtros.estudiante.toLowerCase();
+      if (!cuenta.estudiante.toLowerCase().includes(terminoBusqueda) && 
+          !cuenta.familia.toLowerCase().includes(terminoBusqueda)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  // Usar cuentas filtradas para el resto de la lógica
+  const cuentas = cuentasFiltradas;
 
   // Reportes específicos de la imagen
   const reportesCobranza = [
@@ -211,7 +286,7 @@ export default function CuentasPorCobrar() {
   };
 
   // Variables para filtros
-  const hayFiltrosActivos = filtros.fechaInicio || filtros.fechaFin || filtros.estudiante;
+  const hayFiltrosActivos = filtros.fechaInicio || filtros.fechaFin || filtros.estudiante || (filtros.concepto !== "todas");
 
   // Función para limpiar filtros
   const limpiarFiltros = () => {
@@ -219,6 +294,7 @@ export default function CuentasPorCobrar() {
       fechaInicio: "",
       fechaFin: "",
       estudiante: "",
+      concepto: "todas",
       formato: "detallado"
     });
   };
@@ -587,7 +663,7 @@ export default function CuentasPorCobrar() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div>
                   <label className="text-sm font-medium">Fecha Inicio</label>
                   <Input
@@ -615,6 +691,23 @@ export default function CuentasPorCobrar() {
                       className="pl-10"
                     />
                   </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Concepto</label>
+                  <Select value={filtros.concepto} onValueChange={(value) => setFiltros({...filtros, concepto: value})}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todas">Todas las categorías</SelectItem>
+                      <SelectItem value="colegiaturas">Colegiaturas</SelectItem>
+                      <SelectItem value="inscripciones">Inscripciones</SelectItem>
+                      <SelectItem value="reinscripciones">Reinscripciones</SelectItem>
+                      <SelectItem value="seguro_escolar">Seguro Escolar</SelectItem>
+                      <SelectItem value="libros">Libros</SelectItem>
+                      <SelectItem value="otros">Otros</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Formato</label>

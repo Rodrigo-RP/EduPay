@@ -24,9 +24,6 @@ export default function CuentasPorCobrar() {
   
   const [reporteSeleccionado, setReporteSeleccionado] = useState<any>(null);
   const [modalVistaPrevia, setModalVistaPrevia] = useState(false);
-  
-  const [reporteSeleccionado, setReporteSeleccionado] = useState<any>(null);
-  const [modalVistaPrevia, setModalVistaPrevia] = useState(false);
 
   // Datos de prueba específicos de la imagen
   const cuentas = [

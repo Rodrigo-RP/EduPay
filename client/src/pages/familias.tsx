@@ -968,7 +968,7 @@ export default function Familias() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Total familias</p>
-                  <p className="text-lg md:text-2xl font-bold text-blue-600 truncate">{estadisticas.total}</p>
+                  <p className="text-base md:text-xl font-bold text-blue-600">{estadisticas.total}</p>
                   <div className="text-xs text-green-600 mt-1">Registradas</div>
                 </div>
                 <div className="text-blue-500 flex-shrink-0">
@@ -983,7 +983,7 @@ export default function Familias() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Familias activas</p>
-                  <p className="text-lg md:text-2xl font-bold text-blue-600 truncate">{estadisticas.activas}</p>
+                  <p className="text-base md:text-xl font-bold text-blue-600">{estadisticas.activas}</p>
                   <div className="text-xs text-green-600 mt-1">Estado saludable</div>
                 </div>
                 <div className="text-green-500 flex-shrink-0">
@@ -998,7 +998,7 @@ export default function Familias() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Saldo total pendiente</p>
-                  <p className="text-lg md:text-2xl font-bold text-blue-600 truncate">${(estadisticas.saldoTotal / 100).toLocaleString()}</p>
+                  <p className="text-sm md:text-lg font-bold text-blue-600 break-words">${(estadisticas.saldoTotal / 100).toLocaleString()}</p>
                   <div className="text-xs text-orange-600 mt-1">Por cobrar</div>
                 </div>
                 <div className="text-orange-500 flex-shrink-0">
@@ -1013,7 +1013,7 @@ export default function Familias() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Promedio hijos</p>
-                  <p className="text-lg md:text-2xl font-bold text-blue-600 truncate">{estadisticas.promedioHijos.toFixed(1)}</p>
+                  <p className="text-base md:text-xl font-bold text-blue-600">{estadisticas.promedioHijos.toFixed(1)}</p>
                   <div className="text-xs text-blue-600 mt-1">Por familia</div>
                 </div>
                 <div className="text-purple-500 flex-shrink-0">

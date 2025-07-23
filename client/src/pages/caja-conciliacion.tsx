@@ -964,7 +964,7 @@ export default function CajaConciliacion() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Efectivo del día</p>
-                  <p className="text-lg md:text-2xl font-bold text-green-600 truncate">$8,450</p>
+                  <p className="text-sm md:text-lg font-bold text-green-600 break-words">$8,450</p>
                   <div className="text-xs text-green-600 mt-1">5 pagos registrados</div>
                 </div>
                 <div className="text-green-500 flex-shrink-0">
@@ -979,7 +979,7 @@ export default function CajaConciliacion() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Transferencias</p>
-                  <p className="text-lg md:text-2xl font-bold text-blue-600 truncate">$24,300</p>
+                  <p className="text-sm md:text-lg font-bold text-blue-600 break-words">$24,300</p>
                   <div className="text-xs text-blue-600 mt-1">12 movimientos</div>
                 </div>
                 <div className="text-blue-500 flex-shrink-0">
@@ -994,7 +994,7 @@ export default function CajaConciliacion() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Por conciliar</p>
-                  <p className="text-lg md:text-2xl font-bold text-orange-600 truncate">3</p>
+                  <p className="text-base md:text-xl font-bold text-orange-600">3</p>
                   <div className="text-xs text-orange-600 mt-1">Pendientes</div>
                 </div>
                 <div className="text-orange-500 flex-shrink-0">
@@ -1009,7 +1009,7 @@ export default function CajaConciliacion() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Total del día</p>
-                  <p className="text-lg md:text-2xl font-bold text-purple-600 truncate">$32,750</p>
+                  <p className="text-sm md:text-lg font-bold text-purple-600 break-words">$32,750</p>
                   <div className="text-xs text-green-600 mt-1">+8.2% vs ayer</div>
                 </div>
                 <div className="text-purple-500 flex-shrink-0">

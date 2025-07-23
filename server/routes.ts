@@ -117,6 +117,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(secureCors);
   app.use(sanitizeInput);
   app.use(integrityCheck);
+
+  // Serve static HTML file for cuentas por cobrar - BYPASS DE AUTENTICACIÓN
+  app.get("/cuentas-completo", (req, res) => {
+    res.sendFile(require("path").join(__dirname, "../client/cuentas-simple.html"));
+  });
   
   // Rate limiting estricto para APIs críticas
   app.use('/api/security', rateLimits.api);

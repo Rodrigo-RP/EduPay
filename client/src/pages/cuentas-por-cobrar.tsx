@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertTriangle, Clock, DollarSign, Users, Download, Eye, Search, Filter, X, FileText, FileSpreadsheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useInstitution } from "@/hooks/use-institution";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export default function CuentasPorCobrar() {
   const { toast } = useToast();
@@ -20,6 +21,12 @@ export default function CuentasPorCobrar() {
     estudiante: "",
     formato: "detallado"
   });
+  
+  const [reporteSeleccionado, setReporteSeleccionado] = useState<any>(null);
+  const [modalVistaPrevia, setModalVistaPrevia] = useState(false);
+  
+  const [reporteSeleccionado, setReporteSeleccionado] = useState<any>(null);
+  const [modalVistaPrevia, setModalVistaPrevia] = useState(false);
 
   // Datos de prueba específicos de la imagen
   const cuentas = [
@@ -157,11 +164,67 @@ export default function CuentasPorCobrar() {
 
   // Función para vista previa
   const vistaPrevia = (reporte: any) => {
-    alert(`Vista previa del reporte: ${reporte.nombre} (${reporte.formato} - ${reporte.tamaño})`);
+    setReporteSeleccionado(reporte);
+    setModalVistaPrevia(true);
     toast({
       title: "Vista previa",
-      description: `Mostrando ${reporte.nombre}`
+      description: `Abriendo ${reporte.nombre}`
     });
+  };
+
+  // Función para generar contenido de vista previa del reporte
+  const generarContenidoReporte = (reporte: any) => {
+    const datosEjemplo: any = {
+      "Antigüedad de Saldos": {
+        tabla: [
+          { concepto: "0-30 días", monto: "$15,600", cantidad: 8 },
+          { concepto: "31-60 días", monto: "$12,400", cantidad: 5 },
+          { concepto: "61-90 días", monto: "$8,500", cantidad: 3 },
+          { concepto: "Más de 90 días", monto: "$5,500", cantidad: 2 }
+        ]
+      },
+      "Cartera Vencida": {
+        tabla: [
+          { estudiante: "María González", monto: "$2,800", dias: 15 },
+          { estudiante: "Juan Morales", monto: "$3,200", dias: 22 },
+          { estudiante: "Ana Ramírez", monto: "$2,500", dias: 8 }
+        ]
+      },
+      "Eficiencia de Cobranza": {
+        metricas: {
+          "Tasa de recuperación": "73.2%",
+          "Tiempo promedio cobro": "18.5 días", 
+          "Efectividad gestión": "89.1%"
+        }
+      },
+      "Seguimiento de Promesas": {
+        tabla: [
+          { estudiante: "Carlos López", promesa: "$3,200", fecha_compromiso: "25/01/2025", cumplido: "Pendiente" },
+          { estudiante: "Sandra Pérez", promesa: "$2,800", fecha_compromiso: "20/01/2025", cumplido: "Sí" },
+          { estudiante: "Miguel Torres", promesa: "$2,500", fecha_compromiso: "28/01/2025", cumplido: "Pendiente" }
+        ]
+      },
+      "Análisis de Morosidad": {
+        metricas: {
+          "Índice de morosidad": "26.8%",
+          "Promedio días atraso": "32 días",
+          "Tasa recuperación": "73.2%"
+        }
+      },
+      "Reporte Ejecutivo Cobranza": {
+        metricas: {
+          "Total por cobrar": "$42,000",
+          "Efectividad gestión": "89.1%",
+          "Cuentas recuperadas": "15 de 18"
+        }
+      }
+    };
+
+    return datosEjemplo[reporte.nombre] || { 
+      tabla: [
+        { concepto: "Datos de ejemplo", valor: "Información del reporte", estado: "Disponible" }
+      ]
+    };
   };
 
   return (
@@ -423,6 +486,92 @@ export default function CuentasPorCobrar() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Modal de Vista Previa */}
+      <Dialog open={modalVistaPrevia} onOpenChange={setModalVistaPrevia}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Vista Previa: {reporteSeleccionado?.nombre}</DialogTitle>
+          </DialogHeader>
+          {reporteSeleccionado && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-4 p-4 bg-slate-50 rounded">
+                <div>
+                  <span className="text-sm font-medium">Formato:</span>
+                  <p className="text-lg">{reporteSeleccionado.formato}</p>
+                </div>
+                <div>
+                  <span className="text-sm font-medium">Tamaño:</span>
+                  <p className="text-lg">{reporteSeleccionado.tamaño}</p>
+                </div>
+                <div>
+                  <span className="text-sm font-medium">Fecha:</span>
+                  <p className="text-lg">{reporteSeleccionado.fecha}</p>
+                </div>
+              </div>
+
+              <div className="border rounded p-4">
+                <h3 className="font-semibold mb-3">Contenido del Reporte</h3>
+                {(() => {
+                  const contenido = generarContenidoReporte(reporteSeleccionado);
+                  
+                  if (contenido.tabla) {
+                    return (
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse border">
+                          <thead>
+                            <tr className="bg-slate-100">
+                              {Object.keys(contenido.tabla[0] || {}).map((key) => (
+                                <th key={key} className="border p-2 text-left capitalize">
+                                  {key.replace('_', ' ')}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {contenido.tabla.map((fila: any, index: number) => (
+                              <tr key={index}>
+                                {Object.values(fila).map((valor: any, i) => (
+                                  <td key={i} className="border p-2">{valor}</td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  }
+                  
+                  if (contenido.metricas) {
+                    return (
+                      <div className="grid grid-cols-2 gap-4">
+                        {Object.entries(contenido.metricas).map(([key, value]) => (
+                          <div key={key} className="p-3 border rounded">
+                            <div className="text-sm text-slate-600">{key}</div>
+                            <div className="text-xl font-semibold">{value as string}</div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }
+                  
+                  return <p className="text-slate-600">Vista previa no disponible para este reporte.</p>;
+                })()}
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setModalVistaPrevia(false)}>
+                  Cerrar
+                </Button>
+                <Button onClick={() => descargarReporte(reporteSeleccionado)}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Descargar Reporte
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -33,6 +33,10 @@ export default function CuentasPorCobrar() {
   const [reporteSeleccionado, setReporteSeleccionado] = useState<any>(null);
   const [modalVistaPrevia, setModalVistaPrevia] = useState(false);
 
+  // Estados para modal de detalles de cuenta
+  const [cuentaSeleccionada, setCuentaSeleccionada] = useState<any>(null);
+  const [modalDetallesCuenta, setModalDetallesCuenta] = useState(false);
+
   // Estados para modales de herramientas de seguimiento
   const [modalIniciarCobranza, setModalIniciarCobranza] = useState(false);
   const [modalEnviarRecordatorios, setModalEnviarRecordatorios] = useState(false);
@@ -277,6 +281,12 @@ export default function CuentasPorCobrar() {
       style: 'currency',
       currency: 'MXN'
     }).format(centavos / 100);
+  };
+
+  // Función para mostrar detalles de cuenta
+  const mostrarDetallesCuenta = (cuenta: any) => {
+    setCuentaSeleccionada(cuenta);
+    setModalDetallesCuenta(true);
   };
 
   // Métricas específicas de la imagen
@@ -812,13 +822,7 @@ export default function CuentasPorCobrar() {
                           <Button 
                             size="sm" 
                             variant="outline"
-                            onClick={() => {
-                              alert(`Detalle de cuenta de ${cuenta.estudiante}: ${formatCurrency(cuenta.pendiente_pagar_centavos)} pendientes - Estado: ${cuenta.estado_cobranza}`);
-                              toast({
-                                title: "Detalle de cuenta",
-                                description: `Viendo cuenta de ${cuenta.estudiante} - ${formatCurrency(cuenta.pendiente_pagar_centavos)}`
-                              });
-                            }}
+                            onClick={() => mostrarDetallesCuenta(cuenta)}
                           >
                             <Eye className="w-4 h-4" />
                           </Button>
@@ -1433,6 +1437,187 @@ export default function CuentasPorCobrar() {
                 Generar Reporte
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Detalles de Cuenta */}
+      <Dialog open={modalDetallesCuenta} onOpenChange={setModalDetallesCuenta}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Detalles de la Cuenta por Cobrar</DialogTitle>
+            <DialogDescription>
+              Información completa de la cuenta pendiente de pago
+            </DialogDescription>
+          </DialogHeader>
+          
+          {cuentaSeleccionada && (
+            <div className="space-y-6">
+              {/* Información del Estudiante */}
+              <div className="border rounded-lg p-4">
+                <h4 className="font-semibold text-lg mb-3 flex items-center">
+                  <Users className="w-5 h-5 mr-2 text-blue-600" />
+                  Información del Estudiante
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Nombre Completo</label>
+                    <p className="font-medium">{cuentaSeleccionada.estudiante}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Nivel Académico</label>
+                    <p className="font-medium">{cuentaSeleccionada.nivel_academico}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Familia</label>
+                    <p className="font-medium">{cuentaSeleccionada.familia}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">ID de Cuenta</label>
+                    <p className="font-medium text-gray-500">#{cuentaSeleccionada.id.toString().padStart(6, '0')}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Información Financiera */}
+              <div className="border rounded-lg p-4">
+                <h4 className="font-semibold text-lg mb-3 flex items-center">
+                  <DollarSign className="w-5 h-5 mr-2 text-green-600" />
+                  Información Financiera
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Concepto</label>
+                    <p className="font-medium">{cuentaSeleccionada.concepto}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Monto Pendiente</label>
+                    <p className="font-bold text-lg text-red-600">{formatCurrency(cuentaSeleccionada.pendiente_pagar_centavos)}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Estado de Cobranza</label>
+                    <Badge variant={cuentaSeleccionada.estado_cobranza === "Vencido" ? "destructive" : 
+                                  cuentaSeleccionada.estado_cobranza === "Por vencer" ? "secondary" : "default"}>
+                      {cuentaSeleccionada.estado_cobranza}
+                    </Badge>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Días Vencidos</label>
+                    <p className="font-medium text-orange-600">{cuentaSeleccionada.dias_vencido} días</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Información de Contacto */}
+              <div className="border rounded-lg p-4">
+                <h4 className="font-semibold text-lg mb-3 flex items-center">
+                  <Phone className="w-5 h-5 mr-2 text-purple-600" />
+                  Información de Contacto
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Teléfono Principal</label>
+                    <p className="font-medium">+52 1 33 1234 5678</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Correo Electrónico</label>
+                    <p className="font-medium">familia@jfr.edu.mx</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Dirección</label>
+                    <p className="font-medium">Av. Vallarta 1234, Col. Centro, Guadalajara, Jal.</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Código Postal</label>
+                    <p className="font-medium">44100</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Historial de Pagos Recientes */}
+              <div className="border rounded-lg p-4">
+                <h4 className="font-semibold text-lg mb-3 flex items-center">
+                  <Clock className="w-5 h-5 mr-2 text-orange-600" />
+                  Historial Reciente
+                </h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                    <span className="text-sm">Último pago realizado</span>
+                    <span className="font-medium">15 Nov 2024 - $2,500.00</span>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                    <span className="text-sm">Último contacto</span>
+                    <span className="font-medium">20 Nov 2024 - Llamada telefónica</span>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                    <span className="text-sm">Promesa de pago</span>
+                    <span className="font-medium">25 Dic 2024 - Pendiente</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Acciones Disponibles */}
+              <div className="border rounded-lg p-4">
+                <h4 className="font-semibold text-lg mb-3">Acciones Disponibles</h4>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" onClick={() => {
+                    toast({
+                      title: "Llamada iniciada",
+                      description: `Marcando al teléfono de la familia ${cuentaSeleccionada.familia}`
+                    });
+                  }}>
+                    <Phone className="w-4 h-4 mr-1" />
+                    Llamar
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    toast({
+                      title: "Email enviado",
+                      description: `Recordatorio enviado a familia ${cuentaSeleccionada.familia}`
+                    });
+                  }}>
+                    <Mail className="w-4 h-4 mr-1" />
+                    Enviar Email
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    toast({
+                      title: "Promesa registrada",
+                      description: `Nueva promesa de pago para ${cuentaSeleccionada.estudiante}`
+                    });
+                  }}>
+                    <CalendarIcon className="w-4 h-4 mr-1" />
+                    Registrar Promesa
+                  </Button>
+                </div>
+              </div>
+
+              {/* Observaciones */}
+              <div className="border rounded-lg p-4">
+                <h4 className="font-semibold text-lg mb-3">Observaciones</h4>
+                <div className="bg-yellow-50 p-3 rounded border-l-4 border-yellow-400">
+                  <p className="text-sm">
+                    {cuentaSeleccionada.estado_cobranza === "Vencido" 
+                      ? "⚠️ Cuenta vencida. Se requiere seguimiento inmediato para evitar incremento en morosidad."
+                      : "✅ Cuenta al corriente. Mantener seguimiento preventivo."
+                    }
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-2 pt-4 border-t">
+            <Button variant="outline" onClick={() => setModalDetallesCuenta(false)}>
+              Cerrar
+            </Button>
+            <Button onClick={() => {
+              toast({
+                title: "Registro actualizado",
+                description: `Información de ${cuentaSeleccionada?.estudiante} actualizada`
+              });
+              setModalDetallesCuenta(false);
+            }}>
+              Guardar Cambios
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -676,10 +676,13 @@ export default function CuentasPorCobrar() {
   const { logoUrl, institutionName } = useInstitution();
   const { user } = useAuth();
 
+  // Debug logging
+  console.log("CuentasPorCobrar - Component rendering", { user, logoUrl, institutionName });
+
   // Obtener datos reales de cuentas por cobrar
   const { data: cuentasPorCobrarData = [], isLoading, error } = useQuery({
     queryKey: ["/api/accounts-receivable"],
-    enabled: !!user?.campus_id,
+    enabled: true, // Temporalmente habilitado siempre
     retry: 1,
     staleTime: 0
   });
@@ -711,6 +714,9 @@ export default function CuentasPorCobrar() {
       </div>
     );
   }
+
+  // Debug para ver estado de la query
+  console.log("Query state:", { isLoading, error, data: cuentasPorCobrarData });
 
   // Usar datos de la API
   const cuentasPorCobrar: CuentaPorCobrar[] = (cuentasPorCobrarData as CuentaPorCobrar[]) || [];

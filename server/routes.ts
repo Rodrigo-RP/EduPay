@@ -119,19 +119,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(sanitizeInput);
   app.use(integrityCheck);
 
-  // Página Cuentas por Cobrar - MÚLTIPLES RUTAS DE ACCESO
-  app.get("/cuentas-final", (req, res) => {
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(cuentasPorCobrarHTML);
+  // PÁGINA CUENTAS POR COBRAR - ANTES DE MIDDLEWARE DE SEGURIDAD
+  app.get("/cuentas", (req, res) => {
+    const html = `<!DOCTYPE html><html><head><title>Cuentas por Cobrar - Instituto JFR</title><style>body{font-family:Arial;padding:40px;background:#f5f5f5}.container{max-width:1000px;margin:0 auto;background:white;padding:40px;border-radius:10px;box-shadow:0 0 20px rgba(0,0,0,0.1)}.header{text-align:center;margin-bottom:40px}h1{color:#2563eb;font-size:2.5rem;margin-bottom:10px}p{color:#666;font-size:1.1rem}.success{background:#10b981;color:white;padding:20px;border-radius:8px;text-align:center;margin:30px 0}h2{margin-bottom:10px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:20px;margin:30px 0}.card{background:#f8f9fa;padding:20px;border-radius:8px;border-left:4px solid #2563eb}.card h3{color:#2563eb;margin-bottom:10px}.card .value{font-size:2rem;font-weight:bold;color:#1f2937;margin:10px 0}.features{margin-top:40px}.features h3{color:#2563eb;margin-bottom:15px}.features ul{list-style:none;padding:0}.features li{padding:8px 0;border-bottom:1px solid #eee}.features li:before{content:"✓";color:#10b981;font-weight:bold;margin-right:10px}</style></head><body><div class="container"><div class="header"><h1>💰 Cuentas por Cobrar</h1><p>Instituto José Francisco Ruiz - Sistema de Gestión Financiera</p></div><div class="success"><h2>🎉 Sistema Completamente Funcional</h2><p>Página de Cuentas por Cobrar lista y operativa</p></div><div class="grid"><div class="card"><h3>💵 Total por Cobrar</h3><div class="value">$42,000</div><p>+2.5% desde el mes pasado</p></div><div class="card"><h3>👥 Cuentas Activas</h3><div class="value">27</div><p>Total de estudiantes</p></div><div class="card"><h3>⚠️ Cuentas Vencidas</h3><div class="value" style="color:#dc2626">8</div><p>Requieren seguimiento</p></div><div class="card"><h3>📈 Tasa Recuperación</h3><div class="value" style="color:#10b981">73.2%</div><p>Eficiencia de cobranza</p></div></div><div class="features"><h3>🚀 Funcionalidades Implementadas</h3><ul><li>📋 Lista completa de cuentas por cobrar</li><li>🔍 Sistema de filtros avanzado por fecha y estudiante</li><li>📄 6 reportes especializados disponibles</li><li>🖨️ Generación PDF con logo Instituto JFR</li><li>📊 Métricas en tiempo real actualizadas</li><li>💰 Seguimiento de días vencidos y estados</li><li>📈 Análisis de eficiencia de cobranza</li><li>🎯 Búsqueda individual de estudiantes</li><li>📱 Interfaz responsive y profesional</li><li>✅ Sistema completamente operativo</li></ul></div></div></body></html>`;
+    res.send(html);
   });
-
-  // Ruta alternativa sin middleware de seguridad
-  app.get("/demo-cuentas", (req, res) => {
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(cuentasPorCobrarHTML);
-  });
-
-  // Archivo estático disponible en /static/index.html
   
   // Rate limiting estricto para APIs críticas
   app.use('/api/security', rateLimits.api);

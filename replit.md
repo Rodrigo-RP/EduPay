@@ -210,10 +210,12 @@ Changelog:
 - July 23, 2025: BOTONES DE DESCARGA OCULTOS EN IMPRESIÓN - Sección "Opciones de Descarga" eliminada de versión PDF/impresa
 - July 23, 2025: CSS @media print implementado para ocultar botones al imprimir manteniendo solo contenido profesional
 - July 23, 2025: Reportes PDF optimizados sin elementos interactivos para presentación institucional limpia
-- July 23, 2025: SISTEMA DE FILTRADO AVANZADO IMPLEMENTADO - Barra de filtros compacta y horizontal
-- July 23, 2025: Filtros por fecha inicio/fin, búsqueda por nombre de estudiante/familia, y selección de formato
-- July 23, 2025: Diseño compacto estilo horizontal similar a interfaces modernas de filtrado
-- July 23, 2025: Botón "Limpiar" automático cuando hay filtros activos, integración completa en reportes
+- July 23, 2025: FILTRO DE CONCEPTOS COMPLETAMENTE FUNCIONAL - Filtro desplegable con 7 categorías específicas implementado
+- July 23, 2025: Categorías de filtrado: Todas las categorías, Colegiaturas, Inscripciones, Reinscripciones, Seguro Escolar, Libros, Otros
+- July 23, 2025: Base de datos expandida con 7 cuentas diferentes incluyendo todos los conceptos de pago para testing completo
+- July 23, 2025: Lógica de filtrado funcional integrada con filtros existentes (fecha, estudiante/familia, formato)
+- July 23, 2025: Diseño responsive con grid de 5 columnas adaptándose automáticamente a pantallas móviles
+- July 23, 2025: Botón "Limpiar Filtros" actualizado para incluir el nuevo filtro de conceptos
 - July 23, 2025: BOTONES EYE DE REPORTES COMPLETAMENTE FUNCIONALES - Sistema completo de vista previa y descarga implementado
 - July 23, 2025: Modal de vista previa con datos reales organizados en tablas y métricas ejecutivas por tipo de reporte
 - July 23, 2025: Funcionalidad de descarga real: Excel/CSV con BOM UTF-8, PDF/HTML con impresión automática

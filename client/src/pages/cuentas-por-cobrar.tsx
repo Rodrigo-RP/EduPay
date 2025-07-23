@@ -238,7 +238,11 @@ Bachillerato,$630000,15.0%`;
       const fechaGeneracion = new Date().toLocaleDateString('es-MX');
       const periodo = selectedPeriod;
       
-      // Crear contenido HTML para PDF
+      // Crear contenido HTML para PDF con logo dinámico
+      const logoElement = logoUrl 
+        ? `<img src="${logoUrl}" alt="Logo ${institutionName}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin: 0 auto 15px; display: block;">`
+        : `<div class="logo-fallback">JFR</div>`;
+
       const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -248,7 +252,7 @@ Bachillerato,$630000,15.0%`;
           <style>
             body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.4; }
             .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #ea580c; padding-bottom: 20px; }
-            .logo { width: 80px; height: 80px; margin: 0 auto 15px; border-radius: 50%; background: linear-gradient(135deg, #ea580c, #c2410c); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 24px; }
+            .logo-fallback { width: 80px; height: 80px; margin: 0 auto 15px; border-radius: 50%; background: linear-gradient(135deg, #ea580c, #c2410c); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 24px; }
             .institution-name { font-size: 24px; font-weight: bold; color: #1e293b; margin-bottom: 5px; }
             .report-title { font-size: 18px; color: #ea580c; font-weight: bold; }
             .section { margin: 25px 0; }
@@ -268,7 +272,7 @@ Bachillerato,$630000,15.0%`;
         </head>
         <body>
           <div class="header">
-            <div class="logo">JFR</div>
+            ${logoElement}
             <div class="institution-name">${institutionName || 'INSTITUTO JFR'}</div>
             <div class="report-title">REPORTE DE CUENTAS POR COBRAR</div>
             <div style="font-size: 14px; color: #64748b; margin-top: 10px;">
@@ -417,6 +421,10 @@ Más de 90 días,$420000,10.0%`;
         window.URL.revokeObjectURL(url);
       } else {
         // Generar reporte PDF
+        const logoElement = logoUrl 
+          ? `<img src="${logoUrl}" alt="Logo ${institutionName}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin: 0 auto 15px; display: block;">`
+          : `<div class="logo-fallback">JFR</div>`;
+
         const htmlContent = `
           <!DOCTYPE html>
           <html>
@@ -426,7 +434,7 @@ Más de 90 días,$420000,10.0%`;
             <style>
               body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.4; }
               .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #ea580c; padding-bottom: 20px; }
-              .logo { width: 80px; height: 80px; margin: 0 auto 15px; border-radius: 50%; background: linear-gradient(135deg, #ea580c, #c2410c); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 24px; }
+              .logo-fallback { width: 80px; height: 80px; margin: 0 auto 15px; border-radius: 50%; background: linear-gradient(135deg, #ea580c, #c2410c); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 24px; }
               .institution-name { font-size: 24px; font-weight: bold; color: #1e293b; margin-bottom: 5px; }
               .report-title { font-size: 18px; color: #ea580c; font-weight: bold; }
               .section { margin: 25px 0; }
@@ -440,7 +448,7 @@ Más de 90 días,$420000,10.0%`;
           </head>
           <body>
             <div class="header">
-              <div class="logo">JFR</div>
+              ${logoElement}
               <div class="institution-name">${institutionName || 'INSTITUTO JFR'}</div>
               <div class="report-title">${reporte.nombre.toUpperCase()}</div>
               <div style="font-size: 14px; color: #64748b; margin-top: 10px;">
@@ -515,6 +523,10 @@ Más de 90 días,$420000,10.0%`;
 
     const fechaGeneracion = new Date().toLocaleDateString('es-MX');
     
+    const logoElement = logoUrl 
+      ? `<img src="${logoUrl}" alt="Logo ${institutionName}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; margin: 0 auto 15px; display: block;">`
+      : `<div class="logo-fallback">JFR</div>`;
+
     const previewContent = `
       <!DOCTYPE html>
       <html>
@@ -525,7 +537,7 @@ Más de 90 días,$420000,10.0%`;
           body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; background-color: #f8fafc; }
           .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
           .header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #ea580c; padding-bottom: 20px; }
-          .logo { width: 60px; height: 60px; margin: 0 auto 15px; border-radius: 50%; background: linear-gradient(135deg, #ea580c, #c2410c); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px; }
+          .logo-fallback { width: 60px; height: 60px; margin: 0 auto 15px; border-radius: 50%; background: linear-gradient(135deg, #ea580c, #c2410c); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px; }
           .title { font-size: 24px; font-weight: bold; color: #1e293b; margin-bottom: 10px; }
           .subtitle { font-size: 16px; color: #ea580c; font-weight: bold; }
           .info-card { background: #f1f5f9; border-left: 4px solid #ea580c; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0; }
@@ -539,7 +551,7 @@ Más de 90 días,$420000,10.0%`;
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">JFR</div>
+            ${logoElement}
             <div class="title">${institutionName || 'INSTITUTO JFR'}</div>
             <div class="subtitle">Vista Previa: ${reporte.nombre}</div>
           </div>

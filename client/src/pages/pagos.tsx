@@ -1212,18 +1212,18 @@ export default function Pagos() {
         <div className="absolute bottom-40 left-1/4 w-64 h-64 bg-gradient-to-br from-cyan-400/10 to-blue-400/10 rounded-full blur-3xl"></div>
       </div>
       
-      <div className="max-w-7xl mx-auto p-6 space-y-6 relative z-10">
+      <div className="max-w-7xl mx-auto px-4 py-6 md:px-6 space-y-4 md:space-y-6 relative z-10">
         {/* Header simplificado como en la imagen */}
-        <div className="mb-8 relative">
-          <div className="relative bg-white/95 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white/40">
+        <div className="mb-6 md:mb-8 relative">
+          <div className="relative bg-white/95 backdrop-blur-sm rounded-xl md:rounded-2xl p-4 md:p-6 shadow-xl border border-white/40">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="relative p-4 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-2xl">
                   <CreditCard className="w-8 h-8 text-blue-600" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-blue-600 mb-1">Gestión de Pagos</h1>
-                  <p className="text-slate-600">Administra pagos recibidos, registra efectivo y concilia movimientos</p>
+                  <h1 className="text-xl md:text-3xl font-bold text-blue-600 mb-1">Gestión de Pagos</h1>
+                  <p className="text-sm md:text-base text-slate-600">Administra pagos recibidos, registra efectivo y concilia movimientos</p>
                 </div>
               </div>
               
@@ -1247,62 +1247,62 @@ export default function Pagos() {
         </div>
 
         {/* KPI Cards como en la imagen de referencia */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-4 md:mb-6">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
             <CardContent className="p-0">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600 mb-1">Total del día</p>
-                  <p className="text-2xl font-bold text-blue-600">$15,750</p>
+                  <p className="text-xs md:text-sm text-slate-600 mb-1">Total del día</p>
+                  <p className="text-xl md:text-2xl font-bold text-blue-600">$15,750</p>
                   <div className="text-xs text-green-600 mt-1">+12.5% vs ayer</div>
                 </div>
                 <div className="text-green-500">
-                  <DollarSign className="h-8 w-8" />
+                  <DollarSign className="h-6 w-6 md:h-8 md:w-8" />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
             <CardContent className="p-0">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600 mb-1">Pagos completados</p>
-                  <p className="text-2xl font-bold text-blue-600">24</p>
+                  <p className="text-xs md:text-sm text-slate-600 mb-1">Pagos completados</p>
+                  <p className="text-xl md:text-2xl font-bold text-blue-600">24</p>
                   <div className="text-xs text-blue-600 mt-1">+3 desde ayer</div>
                 </div>
                 <div className="text-blue-500">
-                  <CheckCircle className="h-8 w-8" />
+                  <CheckCircle className="h-6 w-6 md:h-8 md:w-8" />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
             <CardContent className="p-0">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600 mb-1">Tasa de éxito</p>
-                  <p className="text-2xl font-bold text-blue-600">94.2%</p>
+                  <p className="text-xs md:text-sm text-slate-600 mb-1">Tasa de éxito</p>
+                  <p className="text-xl md:text-2xl font-bold text-blue-600">94.2%</p>
                   <div className="text-xs text-purple-600 mt-1">Excelente</div>
                 </div>
                 <div className="text-purple-500">
-                  <Receipt className="h-8 w-8" />
+                  <Receipt className="h-6 w-6 md:h-8 md:w-8" />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
             <CardContent className="p-0">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600 mb-1">Pendientes</p>
-                  <p className="text-2xl font-bold text-blue-600">3</p>
+                  <p className="text-xs md:text-sm text-slate-600 mb-1">Pendientes</p>
+                  <p className="text-xl md:text-2xl font-bold text-blue-600">3</p>
                   <div className="text-xs text-orange-600 mt-1">Requieren atención</div>
                 </div>
                 <div className="text-orange-500">
-                  <Calendar className="h-8 w-8" />
+                  <Calendar className="h-6 w-6 md:h-8 md:w-8" />
                 </div>
               </div>
             </CardContent>

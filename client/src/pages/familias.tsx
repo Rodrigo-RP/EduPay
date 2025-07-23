@@ -932,18 +932,18 @@ export default function Familias() {
         <div className="absolute bottom-40 left-1/4 w-64 h-64 bg-gradient-to-br from-cyan-400/10 to-blue-400/10 rounded-full blur-3xl"></div>
       </div>
       
-      <div className="relative z-10 p-6">
+      <div className="relative z-10 px-4 py-6 md:px-6">
         {/* Header Premium como en Dashboard */}
-        <div className="mb-8 relative">
-          <div className="relative bg-white/95 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white/40">
+        <div className="mb-6 md:mb-8 relative">
+          <div className="relative bg-white/95 backdrop-blur-sm rounded-xl md:rounded-2xl p-4 md:p-6 shadow-xl border border-white/40">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="relative p-4 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-2xl">
                   <Home className="w-8 h-8 text-blue-600" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-blue-600 mb-1">Gestión de Familias</h1>
-                  <p className="text-slate-600">Administra datos de padres, tutores y información de facturación</p>
+                  <h1 className="text-xl md:text-3xl font-bold text-blue-600 mb-1">Gestión de Familias</h1>
+                  <p className="text-sm md:text-base text-slate-600">Administra datos de padres, tutores y información de facturación</p>
                 </div>
               </div>
               
@@ -962,62 +962,62 @@ export default function Familias() {
         </div>
 
         {/* KPI Cards como en el Dashboard */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
             <CardContent className="p-0">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600 mb-1">Total familias</p>
-                  <p className="text-2xl font-bold text-blue-600">{estadisticas.total}</p>
+                  <p className="text-xs md:text-sm text-slate-600 mb-1">Total familias</p>
+                  <p className="text-xl md:text-2xl font-bold text-blue-600">{estadisticas.total}</p>
                   <div className="text-xs text-green-600 mt-1">Registradas</div>
                 </div>
                 <div className="text-blue-500">
-                  <Home className="h-8 w-8" />
+                  <Home className="h-6 w-6 md:h-8 md:w-8" />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
             <CardContent className="p-0">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600 mb-1">Familias activas</p>
-                  <p className="text-2xl font-bold text-blue-600">{estadisticas.activas}</p>
+                  <p className="text-xs md:text-sm text-slate-600 mb-1">Familias activas</p>
+                  <p className="text-xl md:text-2xl font-bold text-blue-600">{estadisticas.activas}</p>
                   <div className="text-xs text-green-600 mt-1">Estado saludable</div>
                 </div>
                 <div className="text-green-500">
-                  <Users className="h-8 w-8" />
+                  <Users className="h-6 w-6 md:h-8 md:w-8" />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
             <CardContent className="p-0">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600 mb-1">Saldo total pendiente</p>
-                  <p className="text-2xl font-bold text-blue-600">${(estadisticas.saldoTotal / 100).toLocaleString()}</p>
+                  <p className="text-xs md:text-sm text-slate-600 mb-1">Saldo total pendiente</p>
+                  <p className="text-xl md:text-2xl font-bold text-blue-600">${(estadisticas.saldoTotal / 100).toLocaleString()}</p>
                   <div className="text-xs text-orange-600 mt-1">Por cobrar</div>
                 </div>
                 <div className="text-orange-500">
-                  <CreditCard className="h-8 w-8" />
+                  <CreditCard className="h-6 w-6 md:h-8 md:w-8" />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
             <CardContent className="p-0">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600 mb-1">Promedio hijos</p>
-                  <p className="text-2xl font-bold text-blue-600">{estadisticas.promedioHijos.toFixed(1)}</p>
+                  <p className="text-xs md:text-sm text-slate-600 mb-1">Promedio hijos</p>
+                  <p className="text-xl md:text-2xl font-bold text-blue-600">{estadisticas.promedioHijos.toFixed(1)}</p>
                   <div className="text-xs text-blue-600 mt-1">Por familia</div>
                 </div>
                 <div className="text-purple-500">
-                  <UserCheck className="h-8 w-8" />
+                  <UserCheck className="h-6 w-6 md:h-8 md:w-8" />
                 </div>
               </div>
             </CardContent>
@@ -1025,7 +1025,7 @@ export default function Familias() {
         </div>
 
         {/* Filtros */}
-        <Card className="bg-white rounded-2xl shadow-lg border-0 mb-6">
+        <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 mb-4 md:mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-blue-600">
               <Search className="w-5 h-5" />
@@ -1033,7 +1033,7 @@ export default function Familias() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
             <div className="md:col-span-2">
               <Label htmlFor="search">Buscar familia</Label>
               <div className="relative">
@@ -1057,7 +1057,7 @@ export default function Familias() {
       </Card>
 
         {/* Lista de familias */}
-        <Card className="bg-white rounded-2xl shadow-lg border-0">
+        <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-blue-600">
               <Home className="w-5 h-5" />

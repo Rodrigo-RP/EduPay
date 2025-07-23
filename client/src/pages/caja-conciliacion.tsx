@@ -935,18 +935,18 @@ export default function CajaConciliacion() {
         <div className="absolute bottom-40 left-1/4 w-64 h-64 bg-gradient-to-br from-cyan-400/10 to-blue-400/10 rounded-full blur-3xl"></div>
       </div>
       
-      <div className="max-w-7xl mx-auto p-6 space-y-6 relative z-10">
+      <div className="max-w-7xl mx-auto px-4 py-6 md:px-6 space-y-4 md:space-y-6 relative z-10">
         {/* Header profesional como en el Dashboard */}
-        <div className="mb-8 relative">
-          <div className="relative bg-white/95 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white/40">
+        <div className="mb-6 md:mb-8 relative">
+          <div className="relative bg-white/95 backdrop-blur-sm rounded-xl md:rounded-2xl p-4 md:p-6 shadow-xl border border-white/40">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="relative p-4 bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl">
                   <Banknote className="w-8 h-8 text-green-600" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-green-600 mb-1">Caja y Conciliación</h1>
-                  <p className="text-slate-600">Registro de pagos manual, control bancario y conciliación automática</p>
+                  <h1 className="text-xl md:text-3xl font-bold text-green-600 mb-1">Caja y Conciliación</h1>
+                  <p className="text-sm md:text-base text-slate-600">Registro de pagos manual, control bancario y conciliación automática</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 text-sm text-slate-600">
@@ -958,13 +958,13 @@ export default function CajaConciliacion() {
         </div>
 
         {/* KPI Cards como en el Dashboard */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-4 md:mb-6">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
             <CardContent className="p-0">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600 mb-1">Efectivo del día</p>
-                  <p className="text-2xl font-bold text-green-600">$8,450</p>
+                  <p className="text-xs md:text-sm text-slate-600 mb-1">Efectivo del día</p>
+                  <p className="text-xl md:text-2xl font-bold text-green-600">$8,450</p>
                   <div className="text-xs text-green-600 mt-1">5 pagos registrados</div>
                 </div>
                 <div className="p-3 bg-green-100 rounded-xl">
@@ -974,12 +974,12 @@ export default function CajaConciliacion() {
             </CardContent>
           </Card>
           
-          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
             <CardContent className="p-0">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600 mb-1">Transferencias</p>
-                  <p className="text-2xl font-bold text-blue-600">$24,300</p>
+                  <p className="text-xs md:text-sm text-slate-600 mb-1">Transferencias</p>
+                  <p className="text-xl md:text-2xl font-bold text-blue-600">$24,300</p>
                   <div className="text-xs text-blue-600 mt-1">12 movimientos</div>
                 </div>
                 <div className="p-3 bg-blue-100 rounded-xl">
@@ -989,12 +989,12 @@ export default function CajaConciliacion() {
             </CardContent>
           </Card>
           
-          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
             <CardContent className="p-0">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600 mb-1">Por conciliar</p>
-                  <p className="text-2xl font-bold text-orange-600">3</p>
+                  <p className="text-xs md:text-sm text-slate-600 mb-1">Por conciliar</p>
+                  <p className="text-xl md:text-2xl font-bold text-orange-600">3</p>
                   <div className="text-xs text-orange-600 mt-1">Pendientes</div>
                 </div>
                 <div className="p-3 bg-orange-100 rounded-xl">
@@ -1004,12 +1004,12 @@ export default function CajaConciliacion() {
             </CardContent>
           </Card>
           
-          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
             <CardContent className="p-0">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600 mb-1">Total del día</p>
-                  <p className="text-2xl font-bold text-purple-600">$32,750</p>
+                  <p className="text-xs md:text-sm text-slate-600 mb-1">Total del día</p>
+                  <p className="text-xl md:text-2xl font-bold text-purple-600">$32,750</p>
                   <div className="text-xs text-green-600 mt-1">+8.2% vs ayer</div>
                 </div>
                 <div className="p-3 bg-purple-100 rounded-xl">

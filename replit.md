@@ -118,6 +118,11 @@ Edupay es una plataforma SaaS 100% enfocada en automatizar los pagos de colegiat
 ## Changelog
 
 Changelog:
+- July 23, 2025: CORRECCIÓN CRÍTICA DE DESBORDAMIENTO DE ÍCONOS EN KPI CARDS - Problema visual en versión web resuelto
+- July 23, 2025: Íconos de KPI cards ya no se salen del marco: padding reducido p-3 md:p-5, flex con gap-2 + flex-shrink-0
+- July 23, 2025: Aplicado systematically en Estudiantes, Familias, Pagos y Caja-Conciliación: íconos h-5 w-5 md:h-7 md:w-7
+- July 23, 2025: Texto con flex-1 min-w-0 y truncate para manejo correcto del overflow en números largos
+- July 23, 2025: Sistema responsive completo manteniendo diseño profesional del Dashboard limpio
 - July 23, 2025: DISEÑO CONSISTENTE DE DASHBOARD APLICADO A TODA LA PLATAFORMA - Transformación completa de interfaz
 - July 23, 2025: Página de Caja y Conciliación rediseñada con diseño limpio del Dashboard: KPI cards coloridas, fondos gradientes, cards rounded-2xl
 - July 23, 2025: Header profesional con gradientes sutiles, íconos en círculos coloridos (verde para Caja), espaciado generoso p-6

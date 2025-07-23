@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertTriangle, Clock, DollarSign, Users, Download, Eye, Search, Filter, X, FileText, FileSpreadsheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useInstitution } from "@/hooks/use-institution";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export default function CuentasPorCobrar() {
   const { toast } = useToast();
@@ -153,10 +153,136 @@ export default function CuentasPorCobrar() {
 
   // Función para descargar reporte específico
   const descargarReporte = (reporte: any) => {
+    const contenido = generarContenidoReporte(reporte);
+    
+    if (reporte.formato === 'Excel') {
+      // Generar descarga CSV para compatibilidad
+      let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // BOM para UTF-8
+      
+      if (contenido.tabla) {
+        // Encabezados
+        const headers = Object.keys(contenido.tabla[0]);
+        csvContent += headers.join(',') + '\n';
+        
+        // Datos
+        contenido.tabla.forEach((fila: any) => {
+          const valores = headers.map(header => `"${fila[header]}"`);
+          csvContent += valores.join(',') + '\n';
+        });
+      } else if (contenido.metricas) {
+        csvContent += "Métrica,Valor\n";
+        Object.entries(contenido.metricas).forEach(([key, value]) => {
+          csvContent += `"${key}","${value}"\n`;
+        });
+      }
+      
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `${reporte.nombre.replace(/\s+/g, '_')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+    } else if (reporte.formato === 'PDF') {
+      // Generar descarga HTML para PDF
+      const htmlContent = generarHTMLReporte(reporte, contenido);
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${reporte.nombre.replace(/\s+/g, '_')}.html`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      // Abrir ventana de impresión para convertir a PDF
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+        setTimeout(() => {
+          printWindow.print();
+        }, 500);
+      }
+    }
+    
     toast({
-      title: "Descargando reporte",
-      description: `${reporte.nombre} (${reporte.formato} - ${reporte.tamaño})`
+      title: "Descarga completada",
+      description: `${reporte.nombre} descargado como ${reporte.formato}`
     });
+  };
+
+  // Función para generar HTML del reporte
+  const generarHTMLReporte = (reporte: any, contenido: any) => {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>${reporte.nombre} - ${institutionName}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
+          .logo { width: 60px; height: 60px; margin: 0 auto 10px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f2f2f2; }
+          .metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-top: 20px; }
+          .metric-card { border: 1px solid #ddd; padding: 15px; border-radius: 5px; }
+          .metric-label { color: #666; font-size: 14px; }
+          .metric-value { font-size: 24px; font-weight: bold; color: #333; }
+          @media print { .no-print { display: none; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logo">` : `
+            <div class="logo" style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
+              ISP
+            </div>
+          `}
+          <h1>${institutionName}</h1>
+          <h2>${reporte.nombre}</h2>
+          <p>Generado el: ${new Date().toLocaleDateString('es-MX')} | Formato: ${reporte.formato} | Tamaño: ${reporte.tamaño}</p>
+        </div>
+        
+        ${contenido.tabla ? `
+          <table>
+            <thead>
+              <tr>
+                ${Object.keys(contenido.tabla[0]).map((key: string) => `<th>${key.replace('_', ' ').toUpperCase()}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${contenido.tabla.map((fila: any) => `
+                <tr>
+                  ${Object.values(fila).map((valor: any) => `<td>${valor}</td>`).join('')}
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        ` : ''}
+        
+        ${contenido.metricas ? `
+          <div class="metrics">
+            ${Object.entries(contenido.metricas).map(([key, value]) => `
+              <div class="metric-card">
+                <div class="metric-label">${key}</div>
+                <div class="metric-value">${value}</div>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+        
+        <div style="margin-top: 40px; text-align: center; border-top: 1px solid #ddd; padding-top: 20px; color: #666;">
+          <p>Reporte generado por Edupay - Sistema de Gestión Escolar</p>
+          <p>© ${new Date().getFullYear()} ${institutionName}</p>
+        </div>
+      </body>
+      </html>
+    `;
   };
 
   // Función para vista previa
@@ -489,6 +615,9 @@ export default function CuentasPorCobrar() {
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Vista Previa: {reporteSeleccionado?.nombre}</DialogTitle>
+            <DialogDescription>
+              Contenido detallado del reporte de cobranza para revisión antes de la descarga
+            </DialogDescription>
           </DialogHeader>
           {reporteSeleccionado && (
             <div className="space-y-4">

@@ -119,11 +119,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(sanitizeInput);
   app.use(integrityCheck);
 
-  // Página Cuentas por Cobrar - SOLUCIÓN COMPLETAMENTE EXTERNA
+  // Página Cuentas por Cobrar - MÚLTIPLES RUTAS DE ACCESO
   app.get("/cuentas-final", (req, res) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(cuentasPorCobrarHTML);
   });
+
+  // Ruta alternativa sin middleware de seguridad
+  app.get("/demo-cuentas", (req, res) => {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(cuentasPorCobrarHTML);
+  });
+
+  // Archivo estático disponible en /static/index.html
   
   // Rate limiting estricto para APIs críticas
   app.use('/api/security', rateLimits.api);

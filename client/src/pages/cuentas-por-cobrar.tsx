@@ -334,7 +334,14 @@ export default function CuentasPorCobrar() {
                         </td>
                         <td className="p-2">{cuenta.dias_vencido}</td>
                         <td className="p-2">
-                          <Button size="sm" variant="outline">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => toast({
+                              title: "Detalle de cuenta",
+                              description: `Viendo cuenta de ${cuenta.estudiante} - ${formatCurrency(cuenta.pendiente_pagar_centavos)}`
+                            })}
+                          >
                             <Eye className="w-4 h-4" />
                           </Button>
                         </td>

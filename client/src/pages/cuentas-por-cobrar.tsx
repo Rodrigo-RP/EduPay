@@ -1408,9 +1408,8 @@ export default function CuentasPorCobrar() {
       </Card>
 
       <Tabs defaultValue="lista" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="lista">Lista de cuentas</TabsTrigger>
-          <TabsTrigger value="conceptos">Buscar concepto</TabsTrigger>
           <TabsTrigger value="seguimiento">Seguimiento</TabsTrigger>
           <TabsTrigger value="reportes">Reportes</TabsTrigger>
         </TabsList>
@@ -1632,84 +1631,7 @@ export default function CuentasPorCobrar() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="conceptos" className="space-y-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2">
-                <Search className="w-5 h-5" />
-                Catálogo de Conceptos
-              </CardTitle>
-              <CardDescription>
-                Lista completa de conceptos de pago disponibles en el sistema
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4">
-                {conceptosCatalogo.map((concepto) => (
-                  <Card key={concepto.id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <Badge variant="outline" className="text-xs">
-                              {concepto.codigo}
-                            </Badge>
-                            <Badge className={`text-xs ${
-                              concepto.categoria === 'COLEGIATURAS' ? 'bg-blue-100 text-blue-800' :
-                              concepto.categoria === 'INSCRIPCIONES' ? 'bg-green-100 text-green-800' :
-                              concepto.categoria === 'REINSCRIPCIONES' ? 'bg-orange-100 text-orange-800' :
-                              concepto.categoria === 'SEGURO_ESCOLAR' ? 'bg-purple-100 text-purple-800' :
-                              concepto.categoria === 'LIBROS' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                              {concepto.categoria.replace('_', ' ')}
-                            </Badge>
-                          </div>
-                          <h3 className="font-semibold text-slate-900 mb-1">
-                            {concepto.nombre}
-                          </h3>
-                          <p className="text-sm text-slate-600">
-                            {concepto.descripcion}
-                          </p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedConcepto(concepto.nombre.toLowerCase());
-                              toast({
-                                title: "Filtro aplicado",
-                                description: `Mostrando cuentas del concepto: ${concepto.nombre}`,
-                                duration: 2000,
-                              });
-                            }}
-                          >
-                            <Search className="w-4 h-4 mr-1" />
-                            Filtrar
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            className="bg-orange-600 hover:bg-orange-700"
-                            onClick={() => {
-                              toast({
-                                title: "Vista previa del concepto",
-                                description: `${concepto.nombre} - ${concepto.descripcion}`,
-                                duration: 3000,
-                              });
-                            }}
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+
 
         <TabsContent value="seguimiento">
           <Card>

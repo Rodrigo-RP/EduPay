@@ -121,6 +121,8 @@ Changelog:
 - July 23, 2025: VISUALIZACIÓN COMPLETA DE CANTIDADES IMPLEMENTADA - Removido truncate, ajustado tamaño de fuente
 - July 23, 2025: Números simples: text-base md:text-xl, cantidades monetarias: text-sm md:text-lg con break-words
 - July 23, 2025: Sistema permite ver cantidades completas sin cortes (...) en todas las KPI cards
+- July 23, 2025: CORRECCIÓN FINAL: whitespace-nowrap fuerza cantidades en una sola línea sin saltos
+- July 23, 2025: Números simples: text-lg md:text-xl, cantidades largas: text-xs md:text-sm para máxima compatibilidad
 - July 23, 2025: CORRECCIÓN CRÍTICA DE DESBORDAMIENTO DE ÍCONOS EN KPI CARDS - Problema visual en versión web resuelto
 - July 23, 2025: Íconos de KPI cards ya no se salen del marco: padding reducido p-3 md:p-5, flex con gap-2 + flex-shrink-0
 - July 23, 2025: Aplicado systematically en Estudiantes, Familias, Pagos y Caja-Conciliación: íconos h-5 w-5 md:h-7 md:w-7

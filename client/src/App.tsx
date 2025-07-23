@@ -24,6 +24,7 @@ import Usuarios from "@/pages/usuarios";
 import Cargos from "@/pages/cargos";
 import Pagos from "@/pages/pagos";
 import CuentasPorCobrar from "@/pages/cuentas-por-cobrar";
+import CuentasPorCobrarStandalone from "@/pages/cuentas-por-cobrar-standalone";
 import CatalogoProductos from "@/pages/catalogo-productos";
 import Becas from "@/pages/becas";
 import Notificaciones from "@/pages/notificaciones";
@@ -103,6 +104,7 @@ function AuthenticatedRoutes() {
             <Route path="/cargos" component={Cargos} />
             <Route path="/pagos" component={Pagos} />
             <Route path="/cuentas-por-cobrar" component={CuentasPorCobrar} />
+            <Route path="/cuentas-standalone" component={CuentasPorCobrarStandalone} />
             <Route path="/catalogo-productos" component={CatalogoProductos} />
             <Route path="/becas" component={Becas} />
             <Route path="/notificaciones" component={Notificaciones} />
@@ -140,6 +142,7 @@ function App() {
             <TooltipProvider>
               <div className="min-h-screen bg-slate-50">
                 <Switch>
+                  <Route path="/cuentas-standalone" component={CuentasPorCobrarStandalone} />
                   <Route component={AuthenticatedRoutes} />
                 </Switch>
                 <Toaster />

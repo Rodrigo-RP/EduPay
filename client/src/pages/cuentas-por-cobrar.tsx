@@ -1230,7 +1230,12 @@ export default function CuentasPorCobrar() {
     }
   ];
 
-  const filteredCuentas = cuentasPorCobrar.filter(cuenta => {
+  const cuentasFiltradas = cuentasPorCobrar.filter(cuenta => {
+    // Filtro por nombre de estudiante (búsqueda real)
+    if (filtroNombre && !cuenta.estudiante.toLowerCase().includes(filtroNombre.toLowerCase())) {
+      return false;
+    }
+    
     const matchesEstado = selectedEstado === "all" || cuenta.estado_cobranza === selectedEstado;
     const matchesDias = selectedDiasVencido === "all" || 
       (selectedDiasVencido === "0-7" && cuenta.dias_vencido >= 0 && cuenta.dias_vencido <= 7) ||
@@ -1238,7 +1243,6 @@ export default function CuentasPorCobrar() {
       (selectedDiasVencido === "31+" && cuenta.dias_vencido > 30);
     const matchesConcepto = selectedConcepto === "all" || cuenta.concepto.toLowerCase().includes(selectedConcepto.toLowerCase());
     const matchesNivel = selectedNivel === "all" || cuenta.nivel_escolar === selectedNivel;
-    const matchesEstudiante = selectedEstudiante === "all" || cuenta.estudiante.toLowerCase().includes(selectedEstudiante.toLowerCase());
     
     let matchesFecha = true;
     if (fechaInicio && fechaFin) {
@@ -1248,7 +1252,7 @@ export default function CuentasPorCobrar() {
       matchesFecha = fechaCargo >= inicio && fechaCargo <= fin;
     }
     
-    return matchesEstado && matchesDias && matchesConcepto && matchesNivel && matchesEstudiante && matchesFecha;
+    return matchesEstado && matchesDias && matchesConcepto && matchesNivel && matchesFecha;
   });
 
   const estadisticas = {

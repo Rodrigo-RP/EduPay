@@ -963,61 +963,61 @@ export default function Familias() {
 
         {/* KPI Cards como en el Dashboard */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
-          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-3 md:p-5">
             <CardContent className="p-0">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Total familias</p>
-                  <p className="text-xl md:text-2xl font-bold text-blue-600">{estadisticas.total}</p>
+                  <p className="text-lg md:text-2xl font-bold text-blue-600 truncate">{estadisticas.total}</p>
                   <div className="text-xs text-green-600 mt-1">Registradas</div>
                 </div>
-                <div className="text-blue-500">
-                  <Home className="h-6 w-6 md:h-8 md:w-8" />
+                <div className="text-blue-500 flex-shrink-0">
+                  <Home className="h-5 w-5 md:h-7 md:w-7" />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-3 md:p-5">
             <CardContent className="p-0">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Familias activas</p>
-                  <p className="text-xl md:text-2xl font-bold text-blue-600">{estadisticas.activas}</p>
+                  <p className="text-lg md:text-2xl font-bold text-blue-600 truncate">{estadisticas.activas}</p>
                   <div className="text-xs text-green-600 mt-1">Estado saludable</div>
                 </div>
-                <div className="text-green-500">
-                  <Users className="h-6 w-6 md:h-8 md:w-8" />
+                <div className="text-green-500 flex-shrink-0">
+                  <Users className="h-5 w-5 md:h-7 md:w-7" />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-3 md:p-5">
             <CardContent className="p-0">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Saldo total pendiente</p>
-                  <p className="text-xl md:text-2xl font-bold text-blue-600">${(estadisticas.saldoTotal / 100).toLocaleString()}</p>
+                  <p className="text-lg md:text-2xl font-bold text-blue-600 truncate">${(estadisticas.saldoTotal / 100).toLocaleString()}</p>
                   <div className="text-xs text-orange-600 mt-1">Por cobrar</div>
                 </div>
-                <div className="text-orange-500">
-                  <CreditCard className="h-6 w-6 md:h-8 md:w-8" />
+                <div className="text-orange-500 flex-shrink-0">
+                  <CreditCard className="h-5 w-5 md:h-7 md:w-7" />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-3 md:p-5">
             <CardContent className="p-0">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Promedio hijos</p>
-                  <p className="text-xl md:text-2xl font-bold text-blue-600">{estadisticas.promedioHijos.toFixed(1)}</p>
+                  <p className="text-lg md:text-2xl font-bold text-blue-600 truncate">{estadisticas.promedioHijos.toFixed(1)}</p>
                   <div className="text-xs text-blue-600 mt-1">Por familia</div>
                 </div>
-                <div className="text-purple-500">
-                  <UserCheck className="h-6 w-6 md:h-8 md:w-8" />
+                <div className="text-purple-500 flex-shrink-0">
+                  <UserCheck className="h-5 w-5 md:h-7 md:w-7" />
                 </div>
               </div>
             </CardContent>

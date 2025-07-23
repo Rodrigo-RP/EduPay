@@ -959,61 +959,61 @@ export default function CajaConciliacion() {
 
         {/* KPI Cards como en el Dashboard */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-4 md:mb-6">
-          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-3 md:p-5">
             <CardContent className="p-0">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Efectivo del día</p>
-                  <p className="text-xl md:text-2xl font-bold text-green-600">$8,450</p>
+                  <p className="text-lg md:text-2xl font-bold text-green-600 truncate">$8,450</p>
                   <div className="text-xs text-green-600 mt-1">5 pagos registrados</div>
                 </div>
-                <div className="p-3 bg-green-100 rounded-xl">
-                  <Banknote className="h-6 w-6 text-green-600" />
+                <div className="text-green-500 flex-shrink-0">
+                  <Banknote className="h-5 w-5 md:h-7 md:w-7" />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-3 md:p-5">
             <CardContent className="p-0">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Transferencias</p>
-                  <p className="text-xl md:text-2xl font-bold text-blue-600">$24,300</p>
+                  <p className="text-lg md:text-2xl font-bold text-blue-600 truncate">$24,300</p>
                   <div className="text-xs text-blue-600 mt-1">12 movimientos</div>
                 </div>
-                <div className="p-3 bg-blue-100 rounded-xl">
-                  <RefreshCw className="h-6 w-6 text-blue-600" />
+                <div className="text-blue-500 flex-shrink-0">
+                  <RefreshCw className="h-5 w-5 md:h-7 md:w-7" />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-3 md:p-5">
             <CardContent className="p-0">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Por conciliar</p>
-                  <p className="text-xl md:text-2xl font-bold text-orange-600">3</p>
+                  <p className="text-lg md:text-2xl font-bold text-orange-600 truncate">3</p>
                   <div className="text-xs text-orange-600 mt-1">Pendientes</div>
                 </div>
-                <div className="p-3 bg-orange-100 rounded-xl">
-                  <Clock className="h-6 w-6 text-orange-600" />
+                <div className="text-orange-500 flex-shrink-0">
+                  <Clock className="h-5 w-5 md:h-7 md:w-7" />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-3 md:p-5">
             <CardContent className="p-0">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Total del día</p>
-                  <p className="text-xl md:text-2xl font-bold text-purple-600">$32,750</p>
+                  <p className="text-lg md:text-2xl font-bold text-purple-600 truncate">$32,750</p>
                   <div className="text-xs text-green-600 mt-1">+8.2% vs ayer</div>
                 </div>
-                <div className="p-3 bg-purple-100 rounded-xl">
-                  <Calculator className="h-6 w-6 text-purple-600" />
+                <div className="text-purple-500 flex-shrink-0">
+                  <Calculator className="h-5 w-5 md:h-7 md:w-7" />
                 </div>
               </div>
             </CardContent>

@@ -1248,61 +1248,61 @@ export default function Pagos() {
 
         {/* KPI Cards como en la imagen de referencia */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-4 md:mb-6">
-          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-3 md:p-5">
             <CardContent className="p-0">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Total del día</p>
-                  <p className="text-xl md:text-2xl font-bold text-blue-600">$15,750</p>
+                  <p className="text-lg md:text-2xl font-bold text-blue-600 truncate">$15,750</p>
                   <div className="text-xs text-green-600 mt-1">+12.5% vs ayer</div>
                 </div>
-                <div className="text-green-500">
-                  <DollarSign className="h-6 w-6 md:h-8 md:w-8" />
+                <div className="text-green-500 flex-shrink-0">
+                  <DollarSign className="h-5 w-5 md:h-7 md:w-7" />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-3 md:p-5">
             <CardContent className="p-0">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Pagos completados</p>
-                  <p className="text-xl md:text-2xl font-bold text-blue-600">24</p>
+                  <p className="text-lg md:text-2xl font-bold text-blue-600 truncate">24</p>
                   <div className="text-xs text-blue-600 mt-1">+3 desde ayer</div>
                 </div>
-                <div className="text-blue-500">
-                  <CheckCircle className="h-6 w-6 md:h-8 md:w-8" />
+                <div className="text-blue-500 flex-shrink-0">
+                  <CheckCircle className="h-5 w-5 md:h-7 md:w-7" />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-3 md:p-5">
             <CardContent className="p-0">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Tasa de éxito</p>
-                  <p className="text-xl md:text-2xl font-bold text-blue-600">94.2%</p>
+                  <p className="text-lg md:text-2xl font-bold text-blue-600 truncate">94.2%</p>
                   <div className="text-xs text-purple-600 mt-1">Excelente</div>
                 </div>
-                <div className="text-purple-500">
-                  <Receipt className="h-6 w-6 md:h-8 md:w-8" />
+                <div className="text-purple-500 flex-shrink-0">
+                  <Receipt className="h-5 w-5 md:h-7 md:w-7" />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-4 md:p-6">
+          <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-3 md:p-5">
             <CardContent className="p-0">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Pendientes</p>
-                  <p className="text-xl md:text-2xl font-bold text-blue-600">3</p>
+                  <p className="text-lg md:text-2xl font-bold text-blue-600 truncate">3</p>
                   <div className="text-xs text-orange-600 mt-1">Requieren atención</div>
                 </div>
-                <div className="text-orange-500">
-                  <Calendar className="h-6 w-6 md:h-8 md:w-8" />
+                <div className="text-orange-500 flex-shrink-0">
+                  <Calendar className="h-5 w-5 md:h-7 md:w-7" />
                 </div>
               </div>
             </CardContent>

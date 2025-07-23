@@ -175,6 +175,10 @@ Changelog:
 - July 23, 2025: Filtros por período (Enero 2025, Diciembre 2024, Noviembre 2024) y formato (Detallado, Ejecutivo, Auditoría)
 - July 23, 2025: Reportes PDF con diseño profesional, logo institucional dinámico, tablas de datos y métricas ejecutivas
 - July 23, 2025: Integración completa con hook useInstitution para logo e institución dinámicos del Instituto JFR
+- July 23, 2025: SISTEMA DE FILTRADO AVANZADO IMPLEMENTADO - Barra de filtros compacta y horizontal
+- July 23, 2025: Filtros por fecha inicio/fin, búsqueda por nombre de estudiante/familia, y selección de formato
+- July 23, 2025: Diseño compacto estilo horizontal similar a interfaces modernas de filtrado
+- July 23, 2025: Botón "Limpiar" automático cuando hay filtros activos, integración completa en reportes
 - July 22, 2025: Problema endpoint /api/uploads/logo.png resuelto - ahora usa logo real desde hook useInstitution
 - July 22, 2025: Prioridad al logo configurado en Configuración → Institución sobre logos genéricos embebidos
 - July 22, 2025: Compatibilidad con data URLs (base64) y URLs normales para máxima flexibilidad

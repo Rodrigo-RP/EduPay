@@ -624,94 +624,73 @@ Más de 90 días,$420000,10.0%`;
 
   return (
     <div className="space-y-6">
-      {/* Filtros avanzados */}
-      <Card className="bg-white shadow-md border-l-4 border-orange-500">
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Fecha de Inicio */}
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-slate-700 flex items-center gap-1">
-                <Calendar className="w-4 h-4 text-orange-600" />
-                Fecha Inicio:
-              </label>
-              <Input
-                type="date"
-                value={fechaInicio}
-                onChange={(e) => setFechaInicio(e.target.value)}
-                className="border-orange-200 focus:border-orange-500"
-                placeholder="Seleccione fecha inicial"
-              />
-            </div>
-
-            {/* Fecha Final */}
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-slate-700 flex items-center gap-1">
-                <Calendar className="w-4 h-4 text-orange-600" />
-                Fecha Final:
-              </label>
-              <Input
-                type="date"
-                value={fechaFin}
-                onChange={(e) => setFechaFin(e.target.value)}
-                className="border-orange-200 focus:border-orange-500"
-                placeholder="Seleccione fecha final"
-              />
-            </div>
-
-            {/* Búsqueda por Nombre */}
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-slate-700 flex items-center gap-1">
-                <Search className="w-4 h-4 text-orange-600" />
-                Alumno/Familia:
-              </label>
-              <Input
-                type="text"
-                value={filtroNombre}
-                onChange={(e) => setFiltroNombre(e.target.value)}
-                className="border-orange-200 focus:border-orange-500"
-                placeholder="Buscar por nombre o apellido..."
-              />
-            </div>
-
-            {/* Formato de Reporte */}
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-slate-700 flex items-center gap-1">
-                <BarChart3 className="w-4 h-4 text-orange-600" />
-                Formato:
-              </label>
-              <Select value={selectedFormat} onValueChange={setSelectedFormat}>
-                <SelectTrigger className="border-orange-200 focus:border-orange-500">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="detallado">Detallado</SelectItem>
-                  <SelectItem value="ejecutivo">Ejecutivo</SelectItem>
-                  <SelectItem value="auditoria">Auditoría</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      {/* Filtros de búsqueda compactos */}
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Filter className="w-4 h-4 text-gray-600" />
+          <span className="text-sm font-medium text-gray-700">Filtros de búsqueda</span>
+        </div>
+        
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Campo de búsqueda por estudiante */}
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <Input
+              type="text"
+              value={filtroNombre}
+              onChange={(e) => setFiltroNombre(e.target.value)}
+              className="pl-10 w-48 h-9 text-sm border-gray-300 focus:border-orange-500"
+              placeholder="Buscar estudiante..."
+            />
           </div>
 
-          {/* Botón de limpiar filtros */}
+          {/* Fecha inicio */}
+          <Input
+            type="date"
+            value={fechaInicio}
+            onChange={(e) => setFechaInicio(e.target.value)}
+            className="w-36 h-9 text-sm border-gray-300 focus:border-orange-500"
+            placeholder="dd/mm/aaaa"
+          />
+
+          {/* Fecha fin */}
+          <Input
+            type="date"
+            value={fechaFin}
+            onChange={(e) => setFechaFin(e.target.value)}
+            className="w-36 h-9 text-sm border-gray-300 focus:border-orange-500"
+            placeholder="dd/mm/aaaa"
+          />
+
+          {/* Selector de formato */}
+          <Select value={selectedFormat} onValueChange={setSelectedFormat}>
+            <SelectTrigger className="w-32 h-9 text-sm border-gray-300 focus:border-orange-500">
+              <SelectValue placeholder="Formato" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="detallado">Detallado</SelectItem>
+              <SelectItem value="ejecutivo">Ejecutivo</SelectItem>
+              <SelectItem value="auditoria">Auditoría</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Botón limpiar */}
           {(fechaInicio || fechaFin || filtroNombre) && (
-            <div className="mt-4 flex justify-end">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => {
-                  setFechaInicio("");
-                  setFechaFin("");
-                  setFiltroNombre("");
-                }}
-                className="text-orange-600 border-orange-600 hover:bg-orange-50"
-              >
-                <Filter className="w-4 h-4 mr-2" />
-                Limpiar Filtros
-              </Button>
-            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                setFechaInicio("");
+                setFechaFin("");
+                setFiltroNombre("");
+              }}
+              className="h-9 px-3 text-sm text-gray-600 border-gray-300 hover:bg-gray-100"
+            >
+              Limpiar
+            </Button>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* KPIs del período */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

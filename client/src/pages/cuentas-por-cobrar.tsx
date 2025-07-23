@@ -369,11 +369,69 @@ Bachillerato,$630000,15.0%`;
             </table>
           </div>
 
+          <div class="section" style="text-align: center; margin: 30px 0;">
+            <div class="section-title">OPCIONES DE DESCARGA</div>
+            <div style="margin: 20px 0;">
+              <button onclick="downloadExcel()" style="background: #16a34a; color: white; padding: 12px 24px; border: none; border-radius: 6px; margin: 0 10px; cursor: pointer; font-size: 14px;">
+                📊 Descargar Excel
+              </button>
+              <button onclick="downloadPDF()" style="background: #dc2626; color: white; padding: 12px 24px; border: none; border-radius: 6px; margin: 0 10px; cursor: pointer; font-size: 14px;">
+                📄 Descargar PDF
+              </button>
+              <button onclick="window.print()" style="background: #ea580c; color: white; padding: 12px 24px; border: none; border-radius: 6px; margin: 0 10px; cursor: pointer; font-size: 14px;">
+                🖨️ Imprimir
+              </button>
+            </div>
+          </div>
+
           <div class="footer">
             <p><strong>Generado por Edupay - Sistema de Pagos Escolares</strong></p>
             <p>${institutionName || 'Instituto JFR'} | ${fechaGeneracion} | Formato: ${selectedFormat}</p>
             <p>Este reporte contiene información confidencial del proceso de cobranza institucional</p>
           </div>
+
+          <script>
+            function downloadExcel() {
+              const csvContent = \`REPORTE DE CUENTAS POR COBRAR - ${institutionName || 'INSTITUTO JFR'}
+Fecha de generación,${fechaGeneracion}
+Período,${periodoTexto}
+
+RESUMEN EJECUTIVO
+Total por Cobrar,$${(kpisCobranza.totalPorCobrar / 100).toLocaleString('es-MX')}
+Cuentas Vencidas,${kpisCobranza.cuentasVencidas}
+Cuentas Morosas,${kpisCobranza.cuentasMorosas}
+Tasa de Recuperación,${kpisCobranza.tasaRecuperacion}%
+Eficiencia de Gestión,${kpisCobranza.eficienciaGestion}%
+
+ANTIGÜEDAD DE SALDOS
+Rango,Monto,Porcentaje
+0-30 días,$1680000,40.0%
+31-60 días,$1260000,30.0%
+61-90 días,$840000,20.0%
+Más de 90 días,$420000,10.0%
+
+ANÁLISIS POR NIVEL ACADÉMICO
+Nivel,Monto por Cobrar,Porcentaje
+Kinder,$945000,22.5%
+Primaria,$1470000,35.0%
+Secundaria,$1155000,27.5%
+Bachillerato,$630000,15.0%\`;
+
+              const blob = new Blob(['\\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' });
+              const url = window.URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = 'Reporte_Cuentas_por_Cobrar_${fechaGeneracion.replace(/\\//g, '-')}.csv';
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              window.URL.revokeObjectURL(url);
+            }
+
+            function downloadPDF() {
+              window.print();
+            }
+          </script>
         </body>
         </html>
       `;

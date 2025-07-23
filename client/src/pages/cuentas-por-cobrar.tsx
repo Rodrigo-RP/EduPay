@@ -78,130 +78,108 @@ export default function CuentasPorCobrar() {
     },
     {
       nombre: "Reporte Ejecutivo",
-      descripcion: "Resumen ejecutivo para dirección"
+      descripcion: "Resumen ejecutivo para directivos"
     }
   ];
 
-  const limpiarFiltros = () => {
-    setFiltros({
-      fechaInicio: "",
-      fechaFin: "",
-      estudiante: "",
-      formato: "detallado"
-    });
-    toast({
-      title: "Filtros limpiados",
-      description: "Se han restablecido todos los filtros."
-    });
-  };
-
-  const hayFiltrosActivos = filtros.fechaInicio || filtros.fechaFin || filtros.estudiante;
-
-  const formatearMonto = (centavos: number) => {
+  // Función para formatear moneda
+  const formatCurrency = (centavos: number) => {
     return new Intl.NumberFormat('es-MX', {
       style: 'currency',
       currency: 'MXN'
     }).format(centavos / 100);
   };
 
-  const getEstadoBadge = (estado: string) => {
-    switch (estado) {
-      case "Vencido":
-        return <Badge variant="destructive">{estado}</Badge>;
-      case "Por vencer":
-        return <Badge variant="default">{estado}</Badge>;
-      case "Al corriente":
-        return <Badge variant="outline" className="text-green-600 border-green-600">{estado}</Badge>;
-      default:
-        return <Badge variant="secondary">{estado}</Badge>;
-    }
-  };
+  // Calcular métricas
+  const totalPorCobrar = cuentas.reduce((sum, c) => sum + c.pendiente_pagar_centavos, 0);
+  const cuentasVencidas = cuentas.filter(c => c.estado_cobranza === "Vencido").length;
 
+  // Función para generar reporte PDF
   const generarReportePDF = (nombreReporte: string) => {
-    const logoSrc = logoUrl || "";
-    const institucion = institutionName || "Instituto José Francisco Ruiz";
+    const logoFallback = `<div style="width: 80px; height: 80px; margin-right: 20px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 24px;">JFR</div>`;
     
-    const htmlContent = `
+    const reporteHTML = `
       <!DOCTYPE html>
       <html>
       <head>
-        <title>${nombreReporte} - ${institucion}</title>
+        <meta charset="UTF-8">
+        <title>Reporte - ${nombreReporte}</title>
         <style>
-          @media print {
-            .no-print { display: none !important; }
-          }
-          body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #2563eb; padding-bottom: 20px; }
-          .logo { max-height: 80px; margin-bottom: 10px; }
-          .title { color: #2563eb; font-size: 24px; margin: 10px 0; }
-          .subtitle { color: #666; font-size: 14px; }
-          .content { margin: 30px 0; }
-          .metrics { display: flex; justify-content: space-around; margin: 20px 0; }
-          .metric { text-align: center; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
-          .metric-value { font-size: 24px; font-weight: bold; color: #2563eb; }
+          body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+          .header { display: flex; align-items: center; margin-bottom: 30px; border-bottom: 2px solid #2563eb; padding-bottom: 20px; }
+          .institution-info h1 { color: #1e40af; margin: 0; font-size: 24px; }
+          .institution-info p { color: #64748b; margin: 5px 0; }
+          .report-title { text-align: center; color: #1e40af; font-size: 20px; margin: 20px 0; }
+          .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 30px 0; }
+          .metric-card { border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; text-align: center; }
+          .metric-value { font-size: 24px; font-weight: bold; color: #1e40af; }
+          .metric-label { color: #64748b; font-size: 14px; }
           .table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-          .table th, .table td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-          .table th { background-color: #f8f9fa; font-weight: bold; }
-          .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #666; }
+          .table th, .table td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; }
+          .table th { background-color: #f8fafc; color: #1e40af; font-weight: bold; }
+          .footer { margin-top: 40px; text-align: center; color: #64748b; font-size: 12px; border-top: 1px solid #e2e8f0; padding-top: 20px; }
+          @media print { .no-print { display: none !important; } }
         </style>
       </head>
       <body>
         <div class="header">
-          ${logoSrc ? `<img src="${logoSrc}" alt="Logo" class="logo" />` : ''}
-          <h1 class="title">${nombreReporte}</h1>
-          <p class="subtitle">${institucion}</p>
-          <p class="subtitle">Generado el ${new Date().toLocaleDateString('es-MX')}</p>
+          ${logoFallback}
+          <div class="institution-info">
+            <h1>Instituto JFR</h1>
+            <p>RFC: IJF180615AB3</p>
+            <p>Reporte generado: ${new Date().toLocaleDateString('es-MX')}</p>
+          </div>
         </div>
         
-        <div class="content">
-          <div class="metrics">
-            <div class="metric">
-              <div class="metric-value">$42,000</div>
-              <div>Total por Cobrar</div>
-            </div>
-            <div class="metric">
-              <div class="metric-value">27</div>
-              <div>Cuentas Activas</div>
-            </div>
-            <div class="metric">
-              <div class="metric-value">73.2%</div>
-              <div>Tasa Recuperación</div>
-            </div>
-            <div class="metric">
-              <div class="metric-value">89.1%</div>
-              <div>Eficiencia Gestión</div>
-            </div>
+        <h2 class="report-title">${nombreReporte}</h2>
+        
+        <div class="metrics">
+          <div class="metric-card">
+            <div class="metric-value">${formatCurrency(totalPorCobrar)}</div>
+            <div class="metric-label">Total por Cobrar</div>
           </div>
-
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Estudiante</th>
-                <th>Nivel</th>
-                <th>Concepto</th>
-                <th>Monto</th>
-                <th>Estado</th>
-                <th>Días Vencido</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${cuentas.map(cuenta => `
-                <tr>
-                  <td>${cuenta.estudiante}</td>
-                  <td>${cuenta.nivel_academico}</td>
-                  <td>${cuenta.concepto}</td>
-                  <td>${formatearMonto(cuenta.pendiente_pagar_centavos)}</td>
-                  <td>${cuenta.estado_cobranza}</td>
-                  <td>${cuenta.dias_vencido}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+          <div class="metric-card">
+            <div class="metric-value">${cuentas.length}</div>
+            <div class="metric-label">Total Cuentas</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">${cuentasVencidas}</div>
+            <div class="metric-label">Cuentas Vencidas</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">73.2%</div>
+            <div class="metric-label">Tasa Recuperación</div>
+          </div>
         </div>
-
+        
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Estudiante</th>
+              <th>Nivel</th>
+              <th>Concepto</th>
+              <th>Pendiente</th>
+              <th>Estado</th>
+              <th>Días Vencido</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${cuentas.map(cuenta => `
+              <tr>
+                <td>${cuenta.estudiante}</td>
+                <td>${cuenta.nivel_academico}</td>
+                <td>${cuenta.concepto}</td>
+                <td>${formatCurrency(cuenta.pendiente_pagar_centavos)}</td>
+                <td>${cuenta.estado_cobranza}</td>
+                <td>${cuenta.dias_vencido}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        
         <div class="footer">
-          <p>Reporte generado por ${institucion} - Sistema de Gestión Financiera</p>
-          <p>Fecha: ${new Date().toLocaleDateString('es-MX')} ${new Date().toLocaleTimeString('es-MX')}</p>
+          <p>Documento generado por Edupay - Sistema de Gestión Escolar</p>
+          <p>Fecha y hora: ${new Date().toLocaleString('es-MX')}</p>
         </div>
       </body>
       </html>
@@ -209,40 +187,45 @@ export default function CuentasPorCobrar() {
 
     const ventana = window.open('', '_blank');
     if (ventana) {
-      ventana.document.write(htmlContent);
+      ventana.document.write(reporteHTML);
       ventana.document.close();
-      setTimeout(() => {
-        ventana.print();
-      }, 1000);
+      ventana.print();
     }
 
     toast({
       title: "Reporte generado",
-      description: `${nombreReporte} generado exitosamente.`
+      description: `${nombreReporte} listo para descarga`
+    });
+  };
+
+  // Variables para filtros
+  const hayFiltrosActivos = filtros.fechaInicio || filtros.fechaFin || filtros.estudiante;
+
+  // Función para limpiar filtros
+  const limpiarFiltros = () => {
+    setFiltros({
+      fechaInicio: "",
+      fechaFin: "",
+      estudiante: "",
+      formato: "detallado"
     });
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Cuentas por Cobrar</h1>
-          <p className="text-muted-foreground">
-            Gestión y seguimiento de cartera de clientes - {institutionName || "Instituto José Francisco Ruiz"}
-          </p>
-        </div>
+        <h1 className="text-3xl font-bold text-gray-900">Cuentas por Cobrar</h1>
       </div>
 
       {/* Métricas principales */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total por Cobrar</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$42,000</div>
+            <div className="text-2xl font-bold">{formatCurrency(totalPorCobrar)}</div>
             <p className="text-xs text-muted-foreground">+2.5% desde el mes pasado</p>
           </CardContent>
         </Card>
@@ -253,8 +236,8 @@ export default function CuentasPorCobrar() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">27</div>
-            <p className="text-xs text-muted-foreground">Total de estudiantes</p>
+            <div className="text-2xl font-bold">{cuentas.length}</div>
+            <p className="text-xs text-muted-foreground">Total de cuentas</p>
           </CardContent>
         </Card>
 
@@ -264,14 +247,14 @@ export default function CuentasPorCobrar() {
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">8</div>
+            <div className="text-2xl font-bold text-red-600">{cuentasVencidas}</div>
             <p className="text-xs text-muted-foreground">Requieren seguimiento</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tasa Recuperación</CardTitle>
+            <CardTitle className="text-sm font-medium">Tasa de Recuperación</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -281,100 +264,120 @@ export default function CuentasPorCobrar() {
         </Card>
       </div>
 
-      {/* Barra de filtros */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filtros de Búsqueda</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-4 items-end">
-            <div className="flex-1 min-w-[200px]">
-              <label className="text-sm font-medium">Fecha Inicio</label>
-              <Input
-                type="date"
-                value={filtros.fechaInicio}
-                onChange={(e) => setFiltros(prev => ({ ...prev, fechaInicio: e.target.value }))}
-              />
-            </div>
-            <div className="flex-1 min-w-[200px]">
-              <label className="text-sm font-medium">Fecha Fin</label>
-              <Input
-                type="date"
-                value={filtros.fechaFin}
-                onChange={(e) => setFiltros(prev => ({ ...prev, fechaFin: e.target.value }))}
-              />
-            </div>
-            <div className="flex-1 min-w-[200px]">
-              <label className="text-sm font-medium">Buscar Estudiante/Familia</label>
-              <Input
-                placeholder="Nombre del estudiante o familia..."
-                value={filtros.estudiante}
-                onChange={(e) => setFiltros(prev => ({ ...prev, estudiante: e.target.value }))}
-              />
-            </div>
-            <div className="flex-1 min-w-[150px]">
-              <label className="text-sm font-medium">Formato</label>
-              <Select value={filtros.formato} onValueChange={(value) => setFiltros(prev => ({ ...prev, formato: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="detallado">Detallado</SelectItem>
-                  <SelectItem value="ejecutivo">Ejecutivo</SelectItem>
-                  <SelectItem value="auditoria">Auditoría</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {hayFiltrosActivos && (
-              <Button onClick={limpiarFiltros} variant="outline" size="sm">
-                <X className="w-4 h-4 mr-1" />
-                Limpiar
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Pestañas principales */}
-      <Tabs defaultValue="cuentas" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="cuentas">Lista de Cuentas</TabsTrigger>
+      <Tabs defaultValue="lista" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="lista">Lista de Cuentas</TabsTrigger>
           <TabsTrigger value="seguimiento">Seguimiento</TabsTrigger>
           <TabsTrigger value="reportes">Reportes</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="cuentas" className="space-y-4">
+        <TabsContent value="lista" className="space-y-4">
+          {/* Barra de filtros */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Filter className="w-5 h-5" />
+                Filtros Avanzados
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Fecha Inicio</label>
+                  <Input
+                    type="date"
+                    value={filtros.fechaInicio}
+                    onChange={(e) => setFiltros({...filtros, fechaInicio: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Fecha Fin</label>
+                  <Input
+                    type="date"
+                    value={filtros.fechaFin}
+                    onChange={(e) => setFiltros({...filtros, fechaFin: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Buscar Estudiante/Familia</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      placeholder="Nombre del estudiante o familia"
+                      value={filtros.estudiante}
+                      onChange={(e) => setFiltros({...filtros, estudiante: e.target.value})}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Formato</label>
+                  <Select value={filtros.formato} onValueChange={(value) => setFiltros({...filtros, formato: value})}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="detallado">Detallado</SelectItem>
+                      <SelectItem value="ejecutivo">Ejecutivo</SelectItem>
+                      <SelectItem value="auditoria">Auditoría</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              {hayFiltrosActivos && (
+                <div className="mt-4 flex justify-end">
+                  <Button variant="outline" size="sm" onClick={limpiarFiltros}>
+                    <X className="w-4 h-4 mr-1" />
+                    Limpiar Filtros
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Lista de cuentas */}
           <Card>
             <CardHeader>
               <CardTitle>Cuentas por Cobrar</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {cuentas.map((cuenta) => (
-                  <div key={cuenta.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold">{cuenta.estudiante}</h3>
-                        <Badge variant="outline">{cuenta.nivel_academico}</Badge>
-                      </div>
-                      <div className="text-sm text-slate-600">
-                        <span>{cuenta.concepto} • Familia: {cuenta.familia}</span>
-                        {cuenta.dias_vencido > 0 && (
-                          <span className="text-red-600 ml-2">• {cuenta.dias_vencido} días vencido</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <div className="font-semibold">{formatearMonto(cuenta.pendiente_pagar_centavos)}</div>
-                        {getEstadoBadge(cuenta.estado_cobranza)}
-                      </div>
-                      <Button size="sm" variant="outline">
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-2">Estudiante</th>
+                      <th className="text-left p-2">Nivel</th>
+                      <th className="text-left p-2">Concepto</th>
+                      <th className="text-left p-2">Pendiente</th>
+                      <th className="text-left p-2">Estado</th>
+                      <th className="text-left p-2">Días Vencido</th>
+                      <th className="text-left p-2">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cuentas.map((cuenta) => (
+                      <tr key={cuenta.id} className="border-b">
+                        <td className="p-2">{cuenta.estudiante}</td>
+                        <td className="p-2">{cuenta.nivel_academico}</td>
+                        <td className="p-2">{cuenta.concepto}</td>
+                        <td className="p-2 font-semibold">{formatCurrency(cuenta.pendiente_pagar_centavos)}</td>
+                        <td className="p-2">
+                          <Badge variant={cuenta.estado_cobranza === "Vencido" ? "destructive" : 
+                                        cuenta.estado_cobranza === "Por vencer" ? "secondary" : "default"}>
+                            {cuenta.estado_cobranza}
+                          </Badge>
+                        </td>
+                        <td className="p-2">{cuenta.dias_vencido}</td>
+                        <td className="p-2">
+                          <Button size="sm" variant="outline">
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </CardContent>
           </Card>

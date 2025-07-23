@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -100,10 +100,10 @@ const ReportesCobranza = () => {
 
     setTimeout(() => {
       const fechaGeneracion = new Date().toLocaleDateString('es-MX');
-      const periodo = selectedPeriod;
+      const periodoTexto = fechaInicio && fechaFin ? `${fechaInicio} a ${fechaFin}` : "Período completo";
       
       const contenido = `REPORTE DE CUENTAS POR COBRAR - ${institutionName || 'INSTITUTO JFR'}
-Período: ${periodo}
+Período: ${periodoTexto}
 Fecha de generación: ${fechaGeneracion}
 
 ═══════════════════════════════════════════════════════
@@ -159,7 +159,7 @@ ${institutionName || 'Instituto JFR'} - ${fechaGeneracion}`;
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${institutionName?.replace(/\s/g, '_') || 'JFR'}_Reporte_Cobranza_${periodo}_${fechaGeneracion.replace(/\//g, '-')}.txt`;
+      link.download = `${institutionName?.replace(/\s/g, '_') || 'JFR'}_Reporte_Cobranza_${periodoTexto}_${fechaGeneracion.replace(/\//g, '-')}.txt`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -167,7 +167,7 @@ ${institutionName || 'Instituto JFR'} - ${fechaGeneracion}`;
 
       toast({
         title: "✅ Reporte Generado Exitosamente",
-        description: `Reporte de cobranza del período ${periodo} descargado correctamente`,
+        description: `Reporte de cobranza del período ${periodoTexto} descargado correctamente`,
         duration: 4000,
       });
     }, 2000);
@@ -182,10 +182,10 @@ ${institutionName || 'Instituto JFR'} - ${fechaGeneracion}`;
 
     setTimeout(() => {
       const fechaGeneracion = new Date().toLocaleDateString('es-MX');
-      const periodo = selectedPeriod;
+      const periodoTexto = fechaInicio && fechaFin ? `${fechaInicio} a ${fechaFin}` : "Período completo";
       
       const csvContent = `REPORTE DE CUENTAS POR COBRAR - ${institutionName || 'INSTITUTO JFR'}
-Período,${periodo}
+Período,${periodoTexto}
 Fecha de generación,${fechaGeneracion}
 
 RESUMEN EJECUTIVO
@@ -215,7 +215,7 @@ Bachillerato,$630000,15.0%`;
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${institutionName?.replace(/\s/g, '_') || 'JFR'}_Reporte_Cobranza_${periodo}_${fechaGeneracion.replace(/\//g, '-')}.csv`;
+      link.download = `${institutionName?.replace(/\s/g, '_') || 'JFR'}_Reporte_Cobranza_${periodoTexto}_${fechaGeneracion.replace(/\//g, '-')}.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -238,7 +238,7 @@ Bachillerato,$630000,15.0%`;
 
     setTimeout(() => {
       const fechaGeneracion = new Date().toLocaleDateString('es-MX');
-      const periodo = selectedPeriod;
+      const periodoTexto = fechaInicio && fechaFin ? `${fechaInicio} a ${fechaFin}` : "Período completo";
       
       // Crear contenido HTML para PDF con logo dinámico
       const logoElement = logoUrl 
@@ -826,6 +826,7 @@ export default function CuentasPorCobrar() {
   const [selectedEstudiante, setSelectedEstudiante] = useState("all");
   const [fechaInicio, setFechaInicio] = useState("");
   const [fechaFin, setFechaFin] = useState("");
+  const [filtroNombre, setFiltroNombre] = useState("");
   const [showCompromiseModal, setShowCompromiseModal] = useState(false);
   const [selectedCuenta, setSelectedCuenta] = useState<any>(null);
   
@@ -834,6 +835,22 @@ export default function CuentasPorCobrar() {
   const [selectedFormat, setSelectedFormat] = useState("detallado");
   const { toast } = useToast();
   const { logoUrl, institutionName } = useInstitution();
+
+  // Lista de conceptos del catálogo de productos  
+  const conceptosCatalogo = [
+    { id: 1, codigo: "COL-2025", nombre: "Colegiatura Mensual", categoria: "COLEGIATURAS", descripcion: "Pago mensual de colegiatura para servicios educativos" },
+    { id: 2, codigo: "INS-2025", nombre: "Inscripción Anual", categoria: "INSCRIPCIONES", descripcion: "Pago único anual por inscripción al ciclo escolar" },
+    { id: 3, codigo: "REINS-2025", nombre: "Reinscripción", categoria: "REINSCRIPCIONES", descripcion: "Proceso de reinscripción para ciclo escolar siguiente" },
+    { id: 4, codigo: "SEG-ESC-2025", nombre: "Seguro Escolar", categoria: "SEGURO_ESCOLAR", descripcion: "Seguro contra accidentes escolares para estudiantes" },
+    { id: 5, codigo: "LIB-2025", nombre: "Paquete de Libros", categoria: "LIBROS", descripcion: "Set completo de libros de texto por nivel académico" },
+    { id: 6, codigo: "UNI-2025", nombre: "Uniforme Escolar", categoria: "OTROS", descripcion: "Uniforme completo oficial de la institución" },
+    { id: 7, codigo: "LAB-2025", nombre: "Laboratorio", categoria: "OTROS", descripcion: "Uso de laboratorios de ciencias y computación" },
+    { id: 8, codigo: "TRA-2025", nombre: "Transporte Escolar", categoria: "OTROS", descripcion: "Servicio de transporte escolar ida y vuelta" },
+    { id: 9, codigo: "COM-2025", nombre: "Comedor Escolar", categoria: "OTROS", descripcion: "Servicio de alimentación en el plantel educativo" },
+    { id: 10, codigo: "EXT-2025", nombre: "Actividades Extraescolares", categoria: "OTROS", descripcion: "Deportes, música, arte y actividades complementarias" }
+  ];
+
+
 
 
   // Colores para gráficos
@@ -1387,8 +1404,9 @@ export default function CuentasPorCobrar() {
       </Card>
 
       <Tabs defaultValue="lista" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="lista">Lista de cuentas</TabsTrigger>
+          <TabsTrigger value="conceptos">Buscar concepto</TabsTrigger>
           <TabsTrigger value="seguimiento">Seguimiento</TabsTrigger>
           <TabsTrigger value="reportes">Reportes</TabsTrigger>
         </TabsList>
@@ -1409,8 +1427,8 @@ export default function CuentasPorCobrar() {
                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
                       placeholder="Buscar estudiante..."
-                      value={selectedEstudiante === "all" ? "" : selectedEstudiante}
-                      onChange={(e) => setSelectedEstudiante(e.target.value || "all")}
+                      value={filtroNombre}
+                      onChange={(e) => setFiltroNombre(e.target.value)}
                       className="pl-10 h-9"
                     />
                   </div>
@@ -1461,7 +1479,7 @@ export default function CuentasPorCobrar() {
                       setSelectedEstado("all");
                       setSelectedConcepto("all");
                       setSelectedNivel("all");
-                      setSelectedEstudiante("all");
+                      setFiltroNombre("");
                       setFechaInicio("");
                       setFechaFin("");
                     }}
@@ -1527,7 +1545,7 @@ export default function CuentasPorCobrar() {
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Cuentas por cobrar ({filteredCuentas.length})</CardTitle>
+              <CardTitle className="text-lg">Cuentas por cobrar ({cuentasFiltradas.length})</CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <div className="overflow-x-auto">
@@ -1546,7 +1564,7 @@ export default function CuentasPorCobrar() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredCuentas.map((cuenta) => (
+                    {cuentasFiltradas.map((cuenta) => (
                       <tr key={cuenta.id} className={`border-b hover:bg-slate-50 ${getPrioridadColor(cuenta.dias_vencido, cuenta.estado_cobranza, cuenta.cuenta_habilitada)}`}>
                         <td className="p-2">
                           <div>
@@ -1605,6 +1623,85 @@ export default function CuentasPorCobrar() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="conceptos" className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2">
+                <Search className="w-5 h-5" />
+                Catálogo de Conceptos
+              </CardTitle>
+              <CardDescription>
+                Lista completa de conceptos de pago disponibles en el sistema
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4">
+                {conceptosCatalogo.map((concepto) => (
+                  <Card key={concepto.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Badge variant="outline" className="text-xs">
+                              {concepto.codigo}
+                            </Badge>
+                            <Badge className={`text-xs ${
+                              concepto.categoria === 'COLEGIATURAS' ? 'bg-blue-100 text-blue-800' :
+                              concepto.categoria === 'INSCRIPCIONES' ? 'bg-green-100 text-green-800' :
+                              concepto.categoria === 'REINSCRIPCIONES' ? 'bg-orange-100 text-orange-800' :
+                              concepto.categoria === 'SEGURO_ESCOLAR' ? 'bg-purple-100 text-purple-800' :
+                              concepto.categoria === 'LIBROS' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {concepto.categoria.replace('_', ' ')}
+                            </Badge>
+                          </div>
+                          <h3 className="font-semibold text-slate-900 mb-1">
+                            {concepto.nombre}
+                          </h3>
+                          <p className="text-sm text-slate-600">
+                            {concepto.descripcion}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedConcepto(concepto.nombre.toLowerCase());
+                              toast({
+                                title: "Filtro aplicado",
+                                description: `Mostrando cuentas del concepto: ${concepto.nombre}`,
+                                duration: 2000,
+                              });
+                            }}
+                          >
+                            <Search className="w-4 h-4 mr-1" />
+                            Filtrar
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            className="bg-orange-600 hover:bg-orange-700"
+                            onClick={() => {
+                              toast({
+                                title: "Vista previa del concepto",
+                                description: `${concepto.nombre} - ${concepto.descripcion}`,
+                                duration: 3000,
+                              });
+                            }}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             </CardContent>
           </Card>

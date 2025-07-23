@@ -5,13 +5,17 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, Clock, DollarSign, Users, Download, Eye, Search, Filter, X, FileText, FileSpreadsheet, Phone, Mail } from "lucide-react";
+import { AlertTriangle, Clock, DollarSign, Users, Download, Eye, Search, Filter, X, FileText, FileSpreadsheet, Phone, Mail, Calendar as CalendarIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useInstitution } from "@/hooks/use-institution";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 export default function CuentasPorCobrar() {
   const { toast } = useToast();
@@ -19,8 +23,8 @@ export default function CuentasPorCobrar() {
   
   // Estados locales
   const [filtros, setFiltros] = useState({
-    fechaInicio: "",
-    fechaFin: "",
+    fechaInicio: undefined as Date | undefined,
+    fechaFin: undefined as Date | undefined,
     estudiante: "",
     concepto: "todas",
     formato: "detallado"
@@ -291,8 +295,8 @@ export default function CuentasPorCobrar() {
   // Función para limpiar filtros
   const limpiarFiltros = () => {
     setFiltros({
-      fechaInicio: "",
-      fechaFin: "",
+      fechaInicio: undefined,
+      fechaFin: undefined,
       estudiante: "",
       concepto: "todas",
       formato: "detallado"
@@ -666,19 +670,55 @@ export default function CuentasPorCobrar() {
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div>
                   <label className="text-sm font-medium">Fecha Inicio</label>
-                  <Input
-                    type="date"
-                    value={filtros.fechaInicio}
-                    onChange={(e) => setFiltros({...filtros, fechaInicio: e.target.value})}
-                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {filtros.fechaInicio ? format(filtros.fechaInicio, "dd/MM/yyyy", { locale: es }) : "dd/mm/aaaa"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={filtros.fechaInicio}
+                        onSelect={(date) => setFiltros({...filtros, fechaInicio: date})}
+                        disabled={(date) =>
+                          date > new Date() || date < new Date("1900-01-01")
+                        }
+                        initialFocus
+                        locale={es}
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Fecha Fin</label>
-                  <Input
-                    type="date"
-                    value={filtros.fechaFin}
-                    onChange={(e) => setFiltros({...filtros, fechaFin: e.target.value})}
-                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {filtros.fechaFin ? format(filtros.fechaFin, "dd/MM/yyyy", { locale: es }) : "dd/mm/aaaa"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={filtros.fechaFin}
+                        onSelect={(date) => setFiltros({...filtros, fechaFin: date})}
+                        disabled={(date) =>
+                          date > new Date() || date < new Date("1900-01-01")
+                        }
+                        initialFocus
+                        locale={es}
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Buscar Estudiante/Familia</label>

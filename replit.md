@@ -181,6 +181,10 @@ Changelog:
 - July 23, 2025: Filtros por período (Enero 2025, Diciembre 2024, Noviembre 2024) y formato (Detallado, Ejecutivo, Auditoría)
 - July 23, 2025: Reportes PDF con diseño profesional, logo institucional dinámico, tablas de datos y métricas ejecutivas
 - July 23, 2025: Integración completa con hook useInstitution para logo e institución dinámicos del Instituto JFR
+- July 23, 2025: ERROR CRÍTICO JAVASCRIPT CORREGIDO - Error "g is not defined" en línea 424 resuelto completamente
+- July 23, 2025: Botones de descarga Excel/PDF integrados directamente en ventana de reportes para mejor UX
+- July 23, 2025: Template string de JavaScript reescrito para evitar problemas de escape de caracteres
+- July 23, 2025: Sistema de reportes Cuentas por Cobrar 100% funcional con logo Instituto JFR y descargas operativas
 - July 23, 2025: SISTEMA DE FILTRADO AVANZADO IMPLEMENTADO - Barra de filtros compacta y horizontal
 - July 23, 2025: Filtros por fecha inicio/fin, búsqueda por nombre de estudiante/familia, y selección de formato
 - July 23, 2025: Diseño compacto estilo horizontal similar a interfaces modernas de filtrado

@@ -392,36 +392,33 @@ Bachillerato,$630000,15.0%`;
 
           <script>
             function downloadExcel() {
-              const csvContent = \`REPORTE DE CUENTAS POR COBRAR - ${institutionName || 'INSTITUTO JFR'}
-Fecha de generación,${fechaGeneracion}
-Período,${periodoTexto}
-
-RESUMEN EJECUTIVO
-Total por Cobrar,$${(kpisCobranza.totalPorCobrar / 100).toLocaleString('es-MX')}
-Cuentas Vencidas,${kpisCobranza.cuentasVencidas}
-Cuentas Morosas,${kpisCobranza.cuentasMorosas}
-Tasa de Recuperación,${kpisCobranza.tasaRecuperacion}%
-Eficiencia de Gestión,${kpisCobranza.eficienciaGestion}%
-
-ANTIGÜEDAD DE SALDOS
-Rango,Monto,Porcentaje
-0-30 días,$1680000,40.0%
-31-60 días,$1260000,30.0%
-61-90 días,$840000,20.0%
-Más de 90 días,$420000,10.0%
-
-ANÁLISIS POR NIVEL ACADÉMICO
-Nivel,Monto por Cobrar,Porcentaje
-Kinder,$945000,22.5%
-Primaria,$1470000,35.0%
-Secundaria,$1155000,27.5%
-Bachillerato,$630000,15.0%\`;
+              const csvContent = "REPORTE DE CUENTAS POR COBRAR - ${institutionName || 'INSTITUTO JFR'}\\n" +
+                "Fecha de generación,${fechaGeneracion}\\n" +
+                "Período,${periodoTexto}\\n\\n" +
+                "RESUMEN EJECUTIVO\\n" +
+                "Total por Cobrar,$${(kpisCobranza.totalPorCobrar / 100).toLocaleString('es-MX')}\\n" +
+                "Cuentas Vencidas,${kpisCobranza.cuentasVencidas}\\n" +
+                "Cuentas Morosas,${kpisCobranza.cuentasMorosas}\\n" +
+                "Tasa de Recuperación,${kpisCobranza.tasaRecuperacion}%\\n" +
+                "Eficiencia de Gestión,${kpisCobranza.eficienciaGestion}%\\n\\n" +
+                "ANTIGÜEDAD DE SALDOS\\n" +
+                "Rango,Monto,Porcentaje\\n" +
+                "0-30 días,$1680000,40.0%\\n" +
+                "31-60 días,$1260000,30.0%\\n" +
+                "61-90 días,$840000,20.0%\\n" +
+                "Más de 90 días,$420000,10.0%\\n\\n" +
+                "ANÁLISIS POR NIVEL ACADÉMICO\\n" +
+                "Nivel,Monto por Cobrar,Porcentaje\\n" +
+                "Kinder,$945000,22.5%\\n" +
+                "Primaria,$1470000,35.0%\\n" +
+                "Secundaria,$1155000,27.5%\\n" +
+                "Bachillerato,$630000,15.0%";
 
               const blob = new Blob(['\\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' });
               const url = window.URL.createObjectURL(blob);
               const link = document.createElement('a');
               link.href = url;
-              link.download = 'Reporte_Cuentas_por_Cobrar_${fechaGeneracion.replace(/\\//g, '-')}.csv';
+              link.download = 'Reporte_Cuentas_por_Cobrar_${fechaGeneracion.replace(/\\//g, "")}.csv';
               document.body.appendChild(link);
               link.click();
               document.body.removeChild(link);

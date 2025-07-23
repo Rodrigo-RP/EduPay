@@ -157,6 +157,7 @@ export default function CuentasPorCobrar() {
 
   // Función para vista previa
   const vistaPrevia = (reporte: any) => {
+    alert(`Vista previa del reporte: ${reporte.nombre} (${reporte.formato} - ${reporte.tamaño})`);
     toast({
       title: "Vista previa",
       description: `Mostrando ${reporte.nombre}`
@@ -337,10 +338,13 @@ export default function CuentasPorCobrar() {
                           <Button 
                             size="sm" 
                             variant="outline"
-                            onClick={() => toast({
-                              title: "Detalle de cuenta",
-                              description: `Viendo cuenta de ${cuenta.estudiante} - ${formatCurrency(cuenta.pendiente_pagar_centavos)}`
-                            })}
+                            onClick={() => {
+                              alert(`Detalle de cuenta de ${cuenta.estudiante}: ${formatCurrency(cuenta.pendiente_pagar_centavos)} pendientes - Estado: ${cuenta.estado_cobranza}`);
+                              toast({
+                                title: "Detalle de cuenta",
+                                description: `Viendo cuenta de ${cuenta.estudiante} - ${formatCurrency(cuenta.pendiente_pagar_centavos)}`
+                              });
+                            }}
                           >
                             <Eye className="w-4 h-4" />
                           </Button>

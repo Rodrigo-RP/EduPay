@@ -185,6 +185,9 @@ Changelog:
 - July 23, 2025: Botones de descarga Excel/PDF integrados directamente en ventana de reportes para mejor UX
 - July 23, 2025: Template string de JavaScript reescrito para evitar problemas de escape de caracteres
 - July 23, 2025: Sistema de reportes Cuentas por Cobrar 100% funcional con logo Instituto JFR y descargas operativas
+- July 23, 2025: BOTONES DE DESCARGA OCULTOS EN IMPRESIÓN - Sección "Opciones de Descarga" eliminada de versión PDF/impresa
+- July 23, 2025: CSS @media print implementado para ocultar botones al imprimir manteniendo solo contenido profesional
+- July 23, 2025: Reportes PDF optimizados sin elementos interactivos para presentación institucional limpia
 - July 23, 2025: SISTEMA DE FILTRADO AVANZADO IMPLEMENTADO - Barra de filtros compacta y horizontal
 - July 23, 2025: Filtros por fecha inicio/fin, búsqueda por nombre de estudiante/familia, y selección de formato
 - July 23, 2025: Diseño compacto estilo horizontal similar a interfaces modernas de filtrado

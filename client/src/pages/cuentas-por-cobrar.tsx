@@ -294,6 +294,7 @@ Bachillerato,$630000,15.0%`;
             .red { color: #dc2626; }
             .yellow { color: #ca8a04; }
             .orange { color: #ea580c; }
+            @media print { .no-print { display: none !important; } }
           </style>
         </head>
         <body>
@@ -369,7 +370,7 @@ Bachillerato,$630000,15.0%`;
             </table>
           </div>
 
-          <div class="section" style="text-align: center; margin: 30px 0;">
+          <div class="section no-print" style="text-align: center; margin: 30px 0;">
             <div class="section-title">OPCIONES DE DESCARGA</div>
             <div style="margin: 20px 0;">
               <button onclick="downloadExcel()" style="background: #16a34a; color: white; padding: 12px 24px; border: none; border-radius: 6px; margin: 0 10px; cursor: pointer; font-size: 14px;">

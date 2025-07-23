@@ -91,7 +91,7 @@ export default function Login() {
                     <Input
                       id="guardian-email"
                       type="email"
-                      placeholder="tu@email.com"
+                      placeholder="padre@jfr.edu.mx"
                       value={guardianEmail}
                       onChange={(e) => setGuardianEmail(e.target.value)}
                       required

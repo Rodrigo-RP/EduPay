@@ -1253,7 +1253,7 @@ export default function Pagos() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Total del día</p>
-                  <p className="text-sm md:text-lg font-bold text-blue-600 break-words">$15,750</p>
+                  <p className="text-sm md:text-base font-bold text-blue-600 whitespace-nowrap">$15,750</p>
                   <div className="text-xs text-green-600 mt-1">+12.5% vs ayer</div>
                 </div>
                 <div className="text-green-500 flex-shrink-0">
@@ -1268,7 +1268,7 @@ export default function Pagos() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Pagos completados</p>
-                  <p className="text-base md:text-xl font-bold text-blue-600">24</p>
+                  <p className="text-lg md:text-xl font-bold text-blue-600 whitespace-nowrap">24</p>
                   <div className="text-xs text-blue-600 mt-1">+3 desde ayer</div>
                 </div>
                 <div className="text-blue-500 flex-shrink-0">
@@ -1283,7 +1283,7 @@ export default function Pagos() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Tasa de éxito</p>
-                  <p className="text-base md:text-xl font-bold text-blue-600">94.2%</p>
+                  <p className="text-lg md:text-xl font-bold text-blue-600 whitespace-nowrap">94.2%</p>
                   <div className="text-xs text-purple-600 mt-1">Excelente</div>
                 </div>
                 <div className="text-purple-500 flex-shrink-0">
@@ -1298,7 +1298,7 @@ export default function Pagos() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Pendientes</p>
-                  <p className="text-base md:text-xl font-bold text-blue-600">3</p>
+                  <p className="text-lg md:text-xl font-bold text-blue-600 whitespace-nowrap">3</p>
                   <div className="text-xs text-orange-600 mt-1">Requieren atención</div>
                 </div>
                 <div className="text-orange-500 flex-shrink-0">

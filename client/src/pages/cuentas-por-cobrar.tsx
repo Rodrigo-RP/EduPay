@@ -41,6 +41,30 @@ export default function CuentasPorCobrar() {
   const [actividadSeleccionada, setActividadSeleccionada] = useState<any>(null);
   const [modalDetallesActividad, setModalDetallesActividad] = useState(false);
 
+  // Estados para modales de acciones de seguimiento
+  const [modalProgramarSeguimiento, setModalProgramarSeguimiento] = useState(false);
+  const [modalAgregarNota, setModalAgregarNota] = useState(false);
+  const [modalEscalarCaso, setModalEscalarCaso] = useState(false);
+  
+  // Estados para formularios de seguimiento
+  const [seguimientoData, setSeguimientoData] = useState({
+    tipo: "llamada",
+    fecha: "",
+    hora: "",
+    observaciones: ""
+  });
+  const [notaData, setNotaData] = useState({
+    titulo: "",
+    contenido: "",
+    prioridad: "normal"
+  });
+  const [escalacionData, setEscalacionData] = useState({
+    motivo: "",
+    supervisor: "",
+    urgencia: "media",
+    detalles: ""
+  });
+
   // Estados para modales de herramientas de seguimiento
   const [modalIniciarCobranza, setModalIniciarCobranza] = useState(false);
   const [modalEnviarRecordatorios, setModalEnviarRecordatorios] = useState(false);
@@ -525,6 +549,54 @@ export default function CuentasPorCobrar() {
       });
       setModalRegistrarPromesa(false);
       setPromesaData({ estudiante: "", fecha: "", monto: "", observaciones: "" });
+    }
+  };
+
+  // Funciones para acciones de seguimiento
+  const programarSeguimiento = () => {
+    if (seguimientoData.fecha && seguimientoData.hora) {
+      toast({
+        title: "Seguimiento programado",
+        description: `Actividad de ${seguimientoData.tipo} programada para ${seguimientoData.fecha} a las ${seguimientoData.hora}`
+      });
+      setModalProgramarSeguimiento(false);
+      setSeguimientoData({
+        tipo: "llamada",
+        fecha: "",
+        hora: "",
+        observaciones: ""
+      });
+    }
+  };
+
+  const agregarNota = () => {
+    if (notaData.titulo && notaData.contenido) {
+      toast({
+        title: "Nota agregada",
+        description: `Nota "${notaData.titulo}" registrada en el expediente`
+      });
+      setModalAgregarNota(false);
+      setNotaData({
+        titulo: "",
+        contenido: "",
+        prioridad: "normal"
+      });
+    }
+  };
+
+  const escalarCaso = () => {
+    if (escalacionData.motivo && escalacionData.supervisor) {
+      toast({
+        title: "Caso escalado",
+        description: `Caso escalado a ${escalacionData.supervisor} con urgencia ${escalacionData.urgencia}`
+      });
+      setModalEscalarCaso(false);
+      setEscalacionData({
+        motivo: "",
+        supervisor: "",
+        urgencia: "media",
+        detalles: ""
+      });
     }
   };
 
@@ -1730,30 +1802,15 @@ export default function CuentasPorCobrar() {
               <div className="border rounded-lg p-4">
                 <h4 className="font-semibold text-lg mb-3">Acciones de Seguimiento</h4>
                 <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="outline" onClick={() => {
-                    toast({
-                      title: "Seguimiento programado",
-                      description: `Nueva actividad programada para ${actividadSeleccionada.estudiante}`
-                    });
-                  }}>
+                  <Button size="sm" variant="outline" onClick={() => setModalProgramarSeguimiento(true)}>
                     <CalendarIcon className="w-4 h-4 mr-1" />
                     Programar Seguimiento
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => {
-                    toast({
-                      title: "Nota agregada",
-                      description: "Observación adicional registrada en el expediente"
-                    });
-                  }}>
+                  <Button size="sm" variant="outline" onClick={() => setModalAgregarNota(true)}>
                     <FileText className="w-4 h-4 mr-1" />
                     Agregar Nota
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => {
-                    toast({
-                      title: "Escalación iniciada",
-                      description: "Caso escalado a supervisor para revisión"
-                    });
-                  }}>
+                  <Button size="sm" variant="outline" onClick={() => setModalEscalarCaso(true)}>
                     <AlertTriangle className="w-4 h-4 mr-1" />
                     Escalar Caso
                   </Button>
@@ -1774,6 +1831,215 @@ export default function CuentasPorCobrar() {
               setModalDetallesActividad(false);
             }}>
               Guardar Cambios
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Programar Seguimiento */}
+      <Dialog open={modalProgramarSeguimiento} onOpenChange={setModalProgramarSeguimiento}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Programar Seguimiento</DialogTitle>
+            <DialogDescription>
+              Programa una nueva actividad de seguimiento
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Tipo de Actividad</label>
+              <select 
+                className="w-full border rounded-lg px-3 py-2"
+                value={seguimientoData.tipo}
+                onChange={(e) => setSeguimientoData({...seguimientoData, tipo: e.target.value})}
+              >
+                <option value="llamada">Llamada telefónica</option>
+                <option value="email">Envío de email</option>
+                <option value="visita">Visita presencial</option>
+                <option value="whatsapp">Mensaje WhatsApp</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Fecha</label>
+                <input 
+                  type="date"
+                  className="w-full border rounded-lg px-3 py-2"
+                  value={seguimientoData.fecha}
+                  onChange={(e) => setSeguimientoData({...seguimientoData, fecha: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Hora</label>
+                <input 
+                  type="time"
+                  className="w-full border rounded-lg px-3 py-2"
+                  value={seguimientoData.hora}
+                  onChange={(e) => setSeguimientoData({...seguimientoData, hora: e.target.value})}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Observaciones</label>
+              <textarea 
+                className="w-full border rounded-lg px-3 py-2"
+                rows={3}
+                placeholder="Detalles adicionales sobre el seguimiento..."
+                value={seguimientoData.observaciones}
+                onChange={(e) => setSeguimientoData({...seguimientoData, observaciones: e.target.value})}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-2 pt-4 border-t">
+            <Button variant="outline" onClick={() => setModalProgramarSeguimiento(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={programarSeguimiento}>
+              <CalendarIcon className="w-4 h-4 mr-1" />
+              Programar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Agregar Nota */}
+      <Dialog open={modalAgregarNota} onOpenChange={setModalAgregarNota}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Agregar Nota</DialogTitle>
+            <DialogDescription>
+              Registra una observación en el expediente del estudiante
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Título de la Nota</label>
+              <input 
+                type="text"
+                className="w-full border rounded-lg px-3 py-2"
+                placeholder="Resumen breve de la nota..."
+                value={notaData.titulo}
+                onChange={(e) => setNotaData({...notaData, titulo: e.target.value})}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Prioridad</label>
+              <select 
+                className="w-full border rounded-lg px-3 py-2"
+                value={notaData.prioridad}
+                onChange={(e) => setNotaData({...notaData, prioridad: e.target.value})}
+              >
+                <option value="baja">Baja</option>
+                <option value="normal">Normal</option>
+                <option value="alta">Alta</option>
+                <option value="urgente">Urgente</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Contenido</label>
+              <textarea 
+                className="w-full border rounded-lg px-3 py-2"
+                rows={4}
+                placeholder="Describe los detalles de la observación..."
+                value={notaData.contenido}
+                onChange={(e) => setNotaData({...notaData, contenido: e.target.value})}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-2 pt-4 border-t">
+            <Button variant="outline" onClick={() => setModalAgregarNota(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={agregarNota}>
+              <FileText className="w-4 h-4 mr-1" />
+              Guardar Nota
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Escalar Caso */}
+      <Dialog open={modalEscalarCaso} onOpenChange={setModalEscalarCaso}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Escalar Caso</DialogTitle>
+            <DialogDescription>
+              Escala el caso a un supervisor para revisión adicional
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Motivo de Escalación</label>
+              <select 
+                className="w-full border rounded-lg px-3 py-2"
+                value={escalacionData.motivo}
+                onChange={(e) => setEscalacionData({...escalacionData, motivo: e.target.value})}
+              >
+                <option value="">Seleccionar motivo...</option>
+                <option value="sin_respuesta">Sin respuesta del deudor</option>
+                <option value="monto_alto">Monto alto por cobrar</option>
+                <option value="cliente_dificil">Cliente difícil</option>
+                <option value="situacion_legal">Posible situación legal</option>
+                <option value="otros">Otros</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Supervisor Asignado</label>
+              <select 
+                className="w-full border rounded-lg px-3 py-2"
+                value={escalacionData.supervisor}
+                onChange={(e) => setEscalacionData({...escalacionData, supervisor: e.target.value})}
+              >
+                <option value="">Seleccionar supervisor...</option>
+                <option value="Ana García">Ana García - Jefe de Cobranza</option>
+                <option value="Carlos Mendoza">Carlos Mendoza - Director Financiero</option>
+                <option value="María López">María López - Gerente de Cuentas</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Nivel de Urgencia</label>
+              <select 
+                className="w-full border rounded-lg px-3 py-2"
+                value={escalacionData.urgencia}
+                onChange={(e) => setEscalacionData({...escalacionData, urgencia: e.target.value})}
+              >
+                <option value="baja">Baja</option>
+                <option value="media">Media</option>
+                <option value="alta">Alta</option>
+                <option value="critica">Crítica</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Detalles Adicionales</label>
+              <textarea 
+                className="w-full border rounded-lg px-3 py-2"
+                rows={3}
+                placeholder="Proporciona contexto adicional para la escalación..."
+                value={escalacionData.detalles}
+                onChange={(e) => setEscalacionData({...escalacionData, detalles: e.target.value})}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-2 pt-4 border-t">
+            <Button variant="outline" onClick={() => setModalEscalarCaso(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={escalarCaso} className="bg-red-600 hover:bg-red-700 text-white">
+              <AlertTriangle className="w-4 h-4 mr-1" />
+              Escalar Caso
             </Button>
           </div>
         </DialogContent>

@@ -924,55 +924,115 @@ export default function Familias() {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Gestión de Familias</h1>
-          <p className="text-slate-600">Administra datos de padres, tutores y información de facturación</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 relative overflow-hidden">
+      {/* Decorative background elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <div className="absolute top-10 left-20 w-72 h-72 bg-gradient-to-br from-blue-400/10 to-cyan-400/10 rounded-full blur-3xl"></div>
+        <div className="absolute top-60 right-10 w-56 h-56 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full blur-2xl"></div>
+        <div className="absolute bottom-40 left-1/4 w-64 h-64 bg-gradient-to-br from-cyan-400/10 to-blue-400/10 rounded-full blur-3xl"></div>
+      </div>
+      
+      <div className="relative z-10 p-6">
+        {/* Header Premium como en Dashboard */}
+        <div className="mb-8 relative">
+          <div className="relative bg-white/95 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white/40">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="relative p-4 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-2xl">
+                  <Home className="w-8 h-8 text-blue-600" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-blue-600 mb-1">Gestión de Familias</h1>
+                  <p className="text-slate-600">Administra datos de padres, tutores y información de facturación</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-4">
+                <Button onClick={() => setShowAddModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex items-center gap-2">
+                  <Plus className="w-4 h-4" />
+                  Agregar Familia
+                </Button>
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <UserCheck className="w-4 h-4 text-green-500" />
+                  Sistema Activo
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <Button onClick={() => setShowAddModal(true)} className="bg-blue-600 hover:bg-blue-700">
-          <Plus className="w-4 h-4 mr-2" />
-          Agregar Familia
-        </Button>
-      </div>
 
-      {/* Estadísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <Home className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-            <div className="text-2xl font-bold">{estadisticas.total}</div>
-            <div className="text-sm text-slate-600">Total familias</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <Users className="w-8 h-8 text-green-600 mx-auto mb-2" />
-            <div className="text-2xl font-bold">{estadisticas.activas}</div>
-            <div className="text-sm text-slate-600">Familias activas</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <CreditCard className="w-8 h-8 text-orange-600 mx-auto mb-2" />
-            <div className="text-2xl font-bold">${(estadisticas.saldoTotal / 100).toLocaleString()}</div>
-            <div className="text-sm text-slate-600">Saldo total pendiente</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold">{estadisticas.promedioHijos.toFixed(1)}</div>
-            <div className="text-sm text-slate-600">Promedio hijos por familia</div>
-          </CardContent>
-        </Card>
-      </div>
+        {/* KPI Cards como en el Dashboard */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Total familias</p>
+                  <p className="text-2xl font-bold text-blue-600">{estadisticas.total}</p>
+                  <div className="text-xs text-green-600 mt-1">Registradas</div>
+                </div>
+                <div className="text-blue-500">
+                  <Home className="h-8 w-8" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Familias activas</p>
+                  <p className="text-2xl font-bold text-blue-600">{estadisticas.activas}</p>
+                  <div className="text-xs text-green-600 mt-1">Estado saludable</div>
+                </div>
+                <div className="text-green-500">
+                  <Users className="h-8 w-8" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Saldo total pendiente</p>
+                  <p className="text-2xl font-bold text-blue-600">${(estadisticas.saldoTotal / 100).toLocaleString()}</p>
+                  <div className="text-xs text-orange-600 mt-1">Por cobrar</div>
+                </div>
+                <div className="text-orange-500">
+                  <CreditCard className="h-8 w-8" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Promedio hijos</p>
+                  <p className="text-2xl font-bold text-blue-600">{estadisticas.promedioHijos.toFixed(1)}</p>
+                  <div className="text-xs text-blue-600 mt-1">Por familia</div>
+                </div>
+                <div className="text-purple-500">
+                  <UserCheck className="h-8 w-8" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-      {/* Filtros */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Búsqueda de familias</CardTitle>
-        </CardHeader>
-        <CardContent>
+        {/* Filtros */}
+        <Card className="bg-white rounded-2xl shadow-lg border-0 mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-blue-600">
+              <Search className="w-5 h-5" />
+              Búsqueda de familias
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
               <Label htmlFor="search">Buscar familia</Label>
@@ -996,30 +1056,34 @@ export default function Familias() {
         </CardContent>
       </Card>
 
-      {/* Lista de familias */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Lista de familias ({filteredFamilias.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {filteredFamilias.map((familia) => (
-              <div key={familia.id} className="border rounded-lg p-4 hover:bg-slate-50">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start space-x-4">
-                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                      <Home className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-lg">{familia.numero_familia}</h3>
-                        <Badge variant={familia.estatus === 'activo' ? 'default' : 'secondary'}>
-                          {familia.estatus}
-                        </Badge>
+        {/* Lista de familias */}
+        <Card className="bg-white rounded-2xl shadow-lg border-0">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-blue-600">
+              <Home className="w-5 h-5" />
+              Lista de familias ({filteredFamilias.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {filteredFamilias.map((familia) => (
+                <div key={familia.id} className="p-6 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors border-l-4 border-blue-500">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start space-x-4">
+                      <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-2xl flex items-center justify-center">
+                        <Home className="w-8 h-8 text-blue-600" />
                       </div>
-                      <h4 className="font-medium text-slate-900 mb-2">
-                        Familia {familia.padre_nombre || "Sin nombre"}
-                      </h4>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="font-bold text-xl text-slate-900">{familia.numero_familia}</h3>
+                          <Badge variant={familia.estatus === 'activo' ? 'default' : 'secondary'}
+                                 className={familia.estatus === 'activo' ? 'bg-green-100 text-green-800 border-green-200' : ''}>
+                            {familia.estatus}
+                          </Badge>
+                        </div>
+                        <h4 className="font-semibold text-lg text-blue-600 mb-3">
+                          Familia {familia.padre_nombre || "Sin nombre"}
+                        </h4>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                         <div>
@@ -2489,6 +2553,7 @@ export default function Familias() {
           )}
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

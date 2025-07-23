@@ -538,10 +538,12 @@ export default function CajaConciliacion() {
 
     return (
       <div className="space-y-6">
-        <Card className="border-green-200 bg-green-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-green-800">
-              <Banknote className="w-5 h-5" />
+        <Card className="bg-white rounded-2xl shadow-lg border-0">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-3 text-green-600 text-xl">
+              <div className="p-3 bg-green-100 rounded-xl">
+                <Banknote className="w-5 h-5" />
+              </div>
               Registro de pago en efectivo
             </CardTitle>
           </CardHeader>
@@ -678,10 +680,12 @@ export default function CajaConciliacion() {
 
     return (
       <div className="space-y-6">
-        <Card className="border-blue-200 bg-blue-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-blue-800">
-              <FileCheck className="w-5 h-5" />
+        <Card className="bg-white rounded-2xl shadow-lg border-0">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-3 text-blue-600 text-xl">
+              <div className="p-3 bg-blue-100 rounded-xl">
+                <FileCheck className="w-5 h-5" />
+              </div>
               Registro de transferencias bancarias
             </CardTitle>
           </CardHeader>
@@ -807,44 +811,54 @@ export default function CajaConciliacion() {
       <div className="space-y-6">
         {/* KPIs de conciliación */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4 text-center">
-              <DollarSign className="w-8 h-8 text-green-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold">${((estadisticasConciliacion?.ingresos_dia || 0) / 100).toLocaleString()}</div>
-          <div className="text-sm text-slate-600">Ingresos del día</div>
+          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+            <CardContent className="p-0 text-center">
+              <div className="p-3 bg-green-100 rounded-xl inline-block mb-3">
+                <DollarSign className="w-6 h-6 text-green-600" />
+              </div>
+              <div className="text-2xl font-bold text-green-600">${((estadisticasConciliacion?.ingresos_dia || 0) / 100).toLocaleString()}</div>
+              <div className="text-sm text-slate-600">Ingresos del día</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-4 text-center">
-              <CheckCircle className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold">{estadisticasConciliacion?.movimientos_conciliados || 0}</div>
-          <div className="text-sm text-slate-600">Conciliados</div>
+          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+            <CardContent className="p-0 text-center">
+              <div className="p-3 bg-blue-100 rounded-xl inline-block mb-3">
+                <CheckCircle className="w-6 h-6 text-blue-600" />
+              </div>
+              <div className="text-2xl font-bold text-blue-600">{estadisticasConciliacion?.movimientos_conciliados || 0}</div>
+              <div className="text-sm text-slate-600">Conciliados</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-4 text-center">
-              <Clock className="w-8 h-8 text-orange-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold">{estadisticasConciliacion?.movimientos_pendientes || 0}</div>
-          <div className="text-sm text-slate-600">Pendientes</div>
+          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+            <CardContent className="p-0 text-center">
+              <div className="p-3 bg-orange-100 rounded-xl inline-block mb-3">
+                <Clock className="w-6 h-6 text-orange-600" />
+              </div>
+              <div className="text-2xl font-bold text-orange-600">{estadisticasConciliacion?.movimientos_pendientes || 0}</div>
+              <div className="text-sm text-slate-600">Pendientes</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-4 text-center">
-              <AlertTriangle className="w-8 h-8 text-red-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold">{estadisticasConciliacion?.diferencias || 0}</div>
-          <div className="text-sm text-slate-600">Diferencias</div>
+          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+            <CardContent className="p-0 text-center">
+              <div className="p-3 bg-red-100 rounded-xl inline-block mb-3">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+              </div>
+              <div className="text-2xl font-bold text-red-600">{estadisticasConciliacion?.diferencias || 0}</div>
+              <div className="text-sm text-slate-600">Diferencias</div>
             </CardContent>
           </Card>
         </div>
 
         {/* Acciones de conciliación */}
-        <Card className="border-purple-200 bg-purple-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-purple-800">
-              <RefreshCw className="w-5 h-5" />
+        <Card className="bg-white rounded-2xl shadow-lg border-0">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-3 text-purple-600 text-xl">
+              <div className="p-3 bg-purple-100 rounded-xl">
+                <RefreshCw className="w-5 h-5" />
+              </div>
               Conciliación automática de bancos
             </CardTitle>
           </CardHeader>
@@ -913,23 +927,116 @@ export default function CajaConciliacion() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
-            Caja y conciliación
-          </h1>
-          <p className="text-slate-600">
-            Registro de pagos manual, control bancario y conciliación automática
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 relative overflow-hidden">
+      {/* Decorative background elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <div className="absolute top-10 left-20 w-72 h-72 bg-gradient-to-br from-blue-400/10 to-cyan-400/10 rounded-full blur-3xl"></div>
+        <div className="absolute top-60 right-10 w-56 h-56 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full blur-2xl"></div>
+        <div className="absolute bottom-40 left-1/4 w-64 h-64 bg-gradient-to-br from-cyan-400/10 to-blue-400/10 rounded-full blur-3xl"></div>
+      </div>
+      
+      <div className="max-w-7xl mx-auto p-6 space-y-6 relative z-10">
+        {/* Header profesional como en el Dashboard */}
+        <div className="mb-8 relative">
+          <div className="relative bg-white/95 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white/40">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="relative p-4 bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl">
+                  <Banknote className="w-8 h-8 text-green-600" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-green-600 mb-1">Caja y Conciliación</h1>
+                  <p className="text-slate-600">Registro de pagos manual, control bancario y conciliación automática</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                Sistema Activo
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* KPI Cards como en el Dashboard */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Efectivo del día</p>
+                  <p className="text-2xl font-bold text-green-600">$8,450</p>
+                  <div className="text-xs text-green-600 mt-1">5 pagos registrados</div>
+                </div>
+                <div className="p-3 bg-green-100 rounded-xl">
+                  <Banknote className="h-6 w-6 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Transferencias</p>
+                  <p className="text-2xl font-bold text-blue-600">$24,300</p>
+                  <div className="text-xs text-blue-600 mt-1">12 movimientos</div>
+                </div>
+                <div className="p-3 bg-blue-100 rounded-xl">
+                  <RefreshCw className="h-6 w-6 text-blue-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Por conciliar</p>
+                  <p className="text-2xl font-bold text-orange-600">3</p>
+                  <div className="text-xs text-orange-600 mt-1">Pendientes</div>
+                </div>
+                <div className="p-3 bg-orange-100 rounded-xl">
+                  <Clock className="h-6 w-6 text-orange-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Total del día</p>
+                  <p className="text-2xl font-bold text-purple-600">$32,750</p>
+                  <div className="text-xs text-green-600 mt-1">+8.2% vs ayer</div>
+                </div>
+                <div className="p-3 bg-purple-100 rounded-xl">
+                  <Calculator className="h-6 w-6 text-purple-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <Tabs defaultValue="efectivo" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="efectivo">Registro de Pagos Manual</TabsTrigger>
-            <TabsTrigger value="bancarios">Control bancario</TabsTrigger>
-            <TabsTrigger value="conciliacion">Conciliación automática</TabsTrigger>
-          </TabsList>
+          <div className="relative bg-white/95 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/40">
+            <TabsList className="grid w-full grid-cols-3 bg-slate-100 rounded-xl">
+              <TabsTrigger value="efectivo" className="data-[state=active]:bg-white data-[state=active]:text-green-600 data-[state=active]:shadow-sm rounded-lg">
+                <Banknote className="w-4 h-4 mr-2" />
+                Registro de Pagos Manual
+              </TabsTrigger>
+              <TabsTrigger value="bancarios" className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm rounded-lg">
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Control bancario
+              </TabsTrigger>
+              <TabsTrigger value="conciliacion" className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-sm rounded-lg">
+                <Calculator className="w-4 h-4 mr-2" />
+                Conciliación automática
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="efectivo">
             <PagoEfectivo />

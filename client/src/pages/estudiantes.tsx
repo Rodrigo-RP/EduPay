@@ -890,54 +890,115 @@ export default function Estudiantes() {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Gestión de Estudiantes</h1>
-          <p className="text-slate-600">Administra alumnos, responsables y información académica</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 relative overflow-hidden">
+      {/* Decorative background elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <div className="absolute top-10 left-20 w-72 h-72 bg-gradient-to-br from-blue-400/10 to-cyan-400/10 rounded-full blur-3xl"></div>
+        <div className="absolute top-60 right-10 w-56 h-56 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full blur-2xl"></div>
+        <div className="absolute bottom-40 left-1/4 w-64 h-64 bg-gradient-to-br from-cyan-400/10 to-blue-400/10 rounded-full blur-3xl"></div>
+      </div>
+      
+      <div className="relative z-10 p-6">
+        {/* Header Premium como en Dashboard */}
+        <div className="mb-8 relative">
+          <div className="relative bg-white/95 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white/40">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="relative p-4 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-2xl">
+                  <Users className="w-8 h-8 text-blue-600" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-blue-600 mb-1">Gestión de Estudiantes</h1>
+                  <p className="text-slate-600">Administra alumnos, responsables y información académica</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-4">
+                <Button onClick={() => setShowAddModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex items-center gap-2">
+                  <Plus className="w-4 h-4" />
+                  Agregar Estudiante
+                </Button>
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <UserCheck className="w-4 h-4 text-green-500" />
+                  Sistema Activo
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <Button onClick={() => setShowAddModal(true)} className="bg-blue-600 hover:bg-blue-700">
-          <Plus className="w-4 h-4 mr-2" />
-          Agregar Estudiante
-        </Button>
-      </div>
 
-      {/* Estadísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <Users className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-            <div className="text-2xl font-bold">{estadisticas.total}</div>
-            <div className="text-sm text-slate-600">Total estudiantes</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <UserCheck className="w-8 h-8 text-green-600 mx-auto mb-2" />
-            <div className="text-2xl font-bold">{estadisticas.activos}</div>
-            <div className="text-sm text-slate-600">Estudiantes activos</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold">${(estadisticas.saldoPendiente / 100).toLocaleString()}</div>
-            <div className="text-sm text-slate-600">Saldo pendiente total</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold">${(estadisticas.promedioSaldo / 100).toLocaleString()}</div>
-            <div className="text-sm text-slate-600">Promedio por estudiante</div>
-          </CardContent>
-        </Card>
-      </div>
+        {/* KPI Cards como en el Dashboard */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Total estudiantes</p>
+                  <p className="text-2xl font-bold text-blue-600">{estadisticas.total}</p>
+                  <div className="text-xs text-green-600 mt-1">+{estadisticas.activos} activos</div>
+                </div>
+                <div className="text-blue-500">
+                  <Users className="h-8 w-8" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Estudiantes activos</p>
+                  <p className="text-2xl font-bold text-blue-600">{estadisticas.activos}</p>
+                  <div className="text-xs text-green-600 mt-1">Estado saludable</div>
+                </div>
+                <div className="text-green-500">
+                  <UserCheck className="h-8 w-8" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Saldo pendiente total</p>
+                  <p className="text-2xl font-bold text-blue-600">${(estadisticas.saldoPendiente / 100).toLocaleString()}</p>
+                  <div className="text-xs text-orange-600 mt-1">Por cobrar</div>
+                </div>
+                <div className="text-orange-500">
+                  <AlertTriangle className="h-8 w-8" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white rounded-2xl shadow-lg border-0 p-6">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Promedio por estudiante</p>
+                  <p className="text-2xl font-bold text-blue-600">${(estadisticas.promedioSaldo / 100).toLocaleString()}</p>
+                  <div className="text-xs text-blue-600 mt-1">Promedio general</div>
+                </div>
+                <div className="text-purple-500">
+                  <FileSpreadsheet className="h-8 w-8" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-      {/* Filtros */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Filtros y búsqueda</CardTitle>
-        </CardHeader>
-        <CardContent>
+        {/* Filtros */}
+        <Card className="bg-white rounded-2xl shadow-lg border-0 mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-blue-600">
+              <Search className="w-5 h-5" />
+              Filtros y búsqueda
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <Label htmlFor="search">Buscar estudiante</Label>
@@ -1012,50 +1073,57 @@ export default function Estudiantes() {
         </CardContent>
       </Card>
 
-      {/* Lista de estudiantes */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Lista de estudiantes ({filteredStudents.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {filteredStudents.map((student) => (
-              <div key={student.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                    <span className="text-blue-600 font-semibold">
-                      {student.nombre_completo.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                    </span>
+        {/* Lista de estudiantes */}
+        <Card className="bg-white rounded-2xl shadow-lg border-0">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-blue-600">
+              <Users className="w-5 h-5" />
+              Lista de estudiantes ({filteredStudents.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {filteredStudents.map((student) => (
+                <div key={student.id} className="flex items-center justify-between p-6 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors border-l-4 border-blue-500">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-2xl flex items-center justify-center">
+                      <span className="text-blue-600 font-bold text-lg">
+                        {student.nombre_completo.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                      </span>
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg text-slate-900">{student.nombre_completo}</h3>
+                      <p className="text-sm text-slate-600 font-medium">{student.grado} {student.grupo} • CURP: {student.curp}</p>
+                      <p className="text-xs text-slate-500">Responsable: {student.responsable} • {student.telefono}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-medium">{student.nombre_completo}</h3>
-                    <p className="text-sm text-slate-600">{student.grado} {student.grupo} • CURP: {student.curp}</p>
-                    <p className="text-xs text-slate-500">Responsable: {student.responsable} • {student.telefono}</p>
+                  <div className="flex items-center space-x-4">
+                    <div className="text-right">
+                      <div className="text-xl font-bold text-blue-600">${(student.saldo_pendiente / 100).toLocaleString()}</div>
+                      <div className="text-xs text-slate-500">Saldo pendiente</div>
+                    </div>
+                    <Badge variant={student.status === 'activo' ? 'default' : 'secondary'} 
+                           className={student.status === 'activo' ? 'bg-green-100 text-green-800 border-green-200' : ''}>
+                      {student.status}
+                    </Badge>
+                    <div className="flex space-x-2">
+                      <Button size="sm" variant="outline" onClick={() => loadStudentForView(student)} 
+                              title="Ver información del estudiante"
+                              className="rounded-lg border-blue-200 hover:bg-blue-50">
+                        <Eye className="w-4 h-4 text-blue-600" />
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleDelete(student.id)} 
+                              title="Eliminar estudiante"
+                              className="rounded-lg border-red-200 hover:bg-red-50 text-red-600 hover:text-red-700">
+                        <UserX className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <div className="text-right">
-                    <div className="font-semibold">${(student.saldo_pendiente / 100).toLocaleString()}</div>
-                    <div className="text-xs text-slate-500">Saldo pendiente</div>
-                  </div>
-                  <Badge variant={student.status === 'activo' ? 'default' : 'secondary'}>
-                    {student.status}
-                  </Badge>
-                  <div className="flex space-x-1">
-                    <Button size="sm" variant="outline" onClick={() => loadStudentForView(student)} title="Ver información del estudiante">
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleDelete(student.id)} title="Eliminar estudiante"
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50">
-                      <UserX className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
       {/* Modal para agregar/editar estudiante */}
       <Dialog open={showAddModal || showEditModal} onOpenChange={(open) => {
@@ -2114,6 +2182,7 @@ export default function Estudiantes() {
           </div>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

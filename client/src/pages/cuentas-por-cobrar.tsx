@@ -36,6 +36,10 @@ export default function CuentasPorCobrar() {
   // Estados para modal de detalles de cuenta
   const [cuentaSeleccionada, setCuentaSeleccionada] = useState<any>(null);
   const [modalDetallesCuenta, setModalDetallesCuenta] = useState(false);
+  
+  // Estados para modal de detalles de actividad
+  const [actividadSeleccionada, setActividadSeleccionada] = useState<any>(null);
+  const [modalDetallesActividad, setModalDetallesActividad] = useState(false);
 
   // Estados para modales de herramientas de seguimiento
   const [modalIniciarCobranza, setModalIniciarCobranza] = useState(false);
@@ -287,6 +291,26 @@ export default function CuentasPorCobrar() {
   const mostrarDetallesCuenta = (cuenta: any) => {
     setCuentaSeleccionada(cuenta);
     setModalDetallesCuenta(true);
+  };
+
+  // Función para mostrar detalles de actividad de cobranza
+  const verDetallesActividad = (actividad: any) => {
+    setActividadSeleccionada({
+      ...actividad,
+      id: Math.floor(Math.random() * 1000),
+      responsable: "Ana García - Administradora",
+      duracion: actividad.tipo === 'llamada' ? "8 minutos" : "N/A",
+      resultado: actividad.tipo === 'llamada' ? "Promesa de pago para viernes" : 
+                 actividad.tipo === 'email' ? "Email entregado correctamente" :
+                 actividad.tipo === 'promesa' ? "Compromiso registrado exitosamente" :
+                 "Pago aplicado y verificado",
+      seguimiento: actividad.tipo === 'promesa' ? "Llamar el viernes a las 10:00 AM" : "No requerido",
+      observaciones_completas: `Detalles completos de la actividad con ${actividad.estudiante}. ` +
+                              `Método de contacto: ${actividad.tipo}. ` +
+                              `Estado actual: ${actividad.descripcion}. ` +
+                              `Próxima acción programada según protocolo establecido.`
+    });
+    setModalDetallesActividad(true);
   };
 
   // Métricas específicas de la imagen
@@ -955,7 +979,11 @@ export default function CuentasPorCobrar() {
                       <p className="text-sm font-medium">{actividad.monto}</p>
                       <p className="text-xs text-muted-foreground">{actividad.fecha}</p>
                     </div>
-                    <Button size="sm" variant="outline">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => verDetallesActividad(actividad)}
+                    >
                       <Eye className="w-4 h-4" />
                     </Button>
                   </div>
@@ -1615,6 +1643,135 @@ export default function CuentasPorCobrar() {
                 description: `Información de ${cuentaSeleccionada?.estudiante} actualizada`
               });
               setModalDetallesCuenta(false);
+            }}>
+              Guardar Cambios
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Detalles de Actividad */}
+      <Dialog open={modalDetallesActividad} onOpenChange={setModalDetallesActividad}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Detalles de Actividad de Cobranza</DialogTitle>
+            <DialogDescription>
+              Información completa sobre la actividad realizada
+            </DialogDescription>
+          </DialogHeader>
+          
+          {actividadSeleccionada && (
+            <div className="space-y-4">
+              {/* Información Principal */}
+              <div className="border rounded-lg p-4">
+                <h4 className="font-semibold text-lg mb-3 flex items-center">
+                  {actividadSeleccionada.tipo === 'llamada' && <Phone className="w-5 h-5 mr-2 text-blue-600" />}
+                  {actividadSeleccionada.tipo === 'email' && <Mail className="w-5 h-5 mr-2 text-green-600" />}
+                  {actividadSeleccionada.tipo === 'promesa' && <Users className="w-5 h-5 mr-2 text-yellow-600" />}
+                  {actividadSeleccionada.tipo === 'pago' && <DollarSign className="w-5 h-5 mr-2 text-green-600" />}
+                  Información de la Actividad
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Estudiante</label>
+                    <p className="font-medium">{actividadSeleccionada.estudiante}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Tipo de Actividad</label>
+                    <Badge variant="outline" className="capitalize">
+                      {actividadSeleccionada.tipo}
+                    </Badge>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Fecha y Hora</label>
+                    <p className="font-medium">{actividadSeleccionada.fecha}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Monto Involucrado</label>
+                    <p className="font-bold text-lg text-blue-600">{actividadSeleccionada.monto}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Detalles de Ejecución */}
+              <div className="border rounded-lg p-4">
+                <h4 className="font-semibold text-lg mb-3">Detalles de Ejecución</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Responsable</label>
+                    <p className="font-medium">{actividadSeleccionada.responsable}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Duración</label>
+                    <p className="font-medium">{actividadSeleccionada.duracion}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Resultado</label>
+                    <p className="font-medium text-green-600">{actividadSeleccionada.resultado}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Próximo Seguimiento</label>
+                    <p className="font-medium">{actividadSeleccionada.seguimiento}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Descripción Completa */}
+              <div className="border rounded-lg p-4">
+                <h4 className="font-semibold text-lg mb-3">Descripción Completa</h4>
+                <div className="bg-gray-50 p-3 rounded">
+                  <p className="text-sm leading-relaxed">
+                    {actividadSeleccionada.observaciones_completas}
+                  </p>
+                </div>
+              </div>
+
+              {/* Acciones de Seguimiento */}
+              <div className="border rounded-lg p-4">
+                <h4 className="font-semibold text-lg mb-3">Acciones de Seguimiento</h4>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" onClick={() => {
+                    toast({
+                      title: "Seguimiento programado",
+                      description: `Nueva actividad programada para ${actividadSeleccionada.estudiante}`
+                    });
+                  }}>
+                    <CalendarIcon className="w-4 h-4 mr-1" />
+                    Programar Seguimiento
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    toast({
+                      title: "Nota agregada",
+                      description: "Observación adicional registrada en el expediente"
+                    });
+                  }}>
+                    <FileText className="w-4 h-4 mr-1" />
+                    Agregar Nota
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    toast({
+                      title: "Escalación iniciada",
+                      description: "Caso escalado a supervisor para revisión"
+                    });
+                  }}>
+                    <AlertTriangle className="w-4 h-4 mr-1" />
+                    Escalar Caso
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-2 pt-4 border-t">
+            <Button variant="outline" onClick={() => setModalDetallesActividad(false)}>
+              Cerrar
+            </Button>
+            <Button onClick={() => {
+              toast({
+                title: "Actividad actualizada",
+                description: `Detalles de actividad de ${actividadSeleccionada?.estudiante} actualizados`
+              });
+              setModalDetallesActividad(false);
             }}>
               Guardar Cambios
             </Button>

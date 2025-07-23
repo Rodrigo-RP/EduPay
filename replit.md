@@ -216,6 +216,12 @@ Changelog:
 - July 23, 2025: Lógica de filtrado funcional integrada con filtros existentes (fecha, estudiante/familia, formato)
 - July 23, 2025: Diseño responsive con grid de 5 columnas adaptándose automáticamente a pantallas móviles
 - July 23, 2025: Botón "Limpiar Filtros" actualizado para incluir el nuevo filtro de conceptos
+- July 23, 2025: CALENDARIO INTUITIVO PARA FILTROS DE FECHA IMPLEMENTADO - Selectores de fecha completamente rediseñados
+- July 23, 2025: Componentes de calendario desplegables reemplazan inputs de fecha tipo text para mejor UX
+- July 23, 2025: Calendarios popup con formato dd/mm/aaaa y localización completa en español usando date-fns
+- July 23, 2025: Validación de fechas integrada: rango desde 1900 hasta fecha actual para evitar fechas inválidas
+- July 23, 2025: Integración con react-day-picker y componentes Shadcn/ui (Popover, Calendar) para diseño profesional
+- July 23, 2025: Botones con icono de calendario y placeholder "dd/mm/aaaa" para guía visual clara al usuario
 - July 23, 2025: BOTONES EYE DE REPORTES COMPLETAMENTE FUNCIONALES - Sistema completo de vista previa y descarga implementado
 - July 23, 2025: Modal de vista previa con datos reales organizados en tablas y métricas ejecutivas por tipo de reporte
 - July 23, 2025: Funcionalidad de descarga real: Excel/CSV con BOM UTF-8, PDF/HTML con impresión automática

@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AlertTriangle, TrendingDown, Clock, DollarSign, Users, Phone, Mail, Calendar, Search, Filter, Ban, PieChart, Download, FileText, Eye, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useInstitution } from "@/hooks/use-institution";
+import jsPDF from 'jspdf';
 import { PieChartComponent } from "@/components/PieChartComponent";
 
 // Componente de Reportes de Cobranza
@@ -226,6 +227,147 @@ Bachillerato,$630000,15.0%`;
     }, 2000);
   };
 
+  const handleGenerarReportePDF = () => {
+    toast({
+      title: "Generando Reporte PDF",
+      description: "Creando documento PDF profesional...",
+      duration: 2000,
+    });
+
+    setTimeout(() => {
+      const fechaGeneracion = new Date().toLocaleDateString('es-MX');
+      const periodo = selectedPeriod;
+      
+      // Crear contenido HTML para PDF
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Reporte de Cuentas por Cobrar - ${institutionName || 'Instituto JFR'}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.4; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #ea580c; padding-bottom: 20px; }
+            .logo { width: 80px; height: 80px; margin: 0 auto 15px; border-radius: 50%; background: linear-gradient(135deg, #ea580c, #c2410c); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 24px; }
+            .institution-name { font-size: 24px; font-weight: bold; color: #1e293b; margin-bottom: 5px; }
+            .report-title { font-size: 18px; color: #ea580c; font-weight: bold; }
+            .section { margin: 25px 0; }
+            .section-title { font-size: 16px; font-weight: bold; color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 15px; }
+            .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin: 20px 0; }
+            .kpi-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; text-align: center; }
+            .kpi-value { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
+            .kpi-label { font-size: 12px; color: #64748b; }
+            .data-table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+            .data-table th, .data-table td { border: 1px solid #e2e8f0; padding: 8px; text-align: left; }
+            .data-table th { background-color: #f8fafc; font-weight: bold; }
+            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #64748b; }
+            .red { color: #dc2626; }
+            .yellow { color: #ca8a04; }
+            .orange { color: #ea580c; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo">JFR</div>
+            <div class="institution-name">${institutionName || 'INSTITUTO JFR'}</div>
+            <div class="report-title">REPORTE DE CUENTAS POR COBRAR</div>
+            <div style="font-size: 14px; color: #64748b; margin-top: 10px;">
+              Período: ${periodo} | Generado: ${fechaGeneracion}
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">RESUMEN EJECUTIVO DE COBRANZA</div>
+            <div class="kpi-grid">
+              <div class="kpi-card">
+                <div class="kpi-value red">$${(kpisCobranza.totalPorCobrar / 100).toLocaleString('es-MX')}</div>
+                <div class="kpi-label">Total por Cobrar</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-value yellow">${kpisCobranza.tasaRecuperacion}%</div>
+                <div class="kpi-label">Tasa de Recuperación</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-value orange">${kpisCobranza.eficienciaGestion}%</div>
+                <div class="kpi-label">Eficiencia de Gestión</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">INDICADORES CLAVE</div>
+            <table class="data-table">
+              <tr><th>Concepto</th><th>Valor</th></tr>
+              <tr><td>Cuentas Vencidas</td><td>${kpisCobranza.cuentasVencidas}</td></tr>
+              <tr><td>Cuentas Morosas</td><td>${kpisCobranza.cuentasMorosas}</td></tr>
+              <tr><td>Tiempo Promedio Cobranza</td><td>${kpisCobranza.tiempoPromedioCobranza} días</td></tr>
+              <tr><td>Casos en Seguimiento</td><td>15 cuentas</td></tr>
+              <tr><td>Promesas de Pago Activas</td><td>12 compromisos</td></tr>
+            </table>
+          </div>
+
+          <div class="section">
+            <div class="section-title">ANTIGÜEDAD DE SALDOS</div>
+            <table class="data-table">
+              <tr><th>Rango de Días</th><th>Monto</th><th>Porcentaje</th></tr>
+              <tr><td>0-30 días</td><td>$1,680,000</td><td>40.0%</td></tr>
+              <tr><td>31-60 días</td><td>$1,260,000</td><td>30.0%</td></tr>
+              <tr><td>61-90 días</td><td>$840,000</td><td>20.0%</td></tr>
+              <tr><td>Más de 90 días</td><td>$420,000</td><td>10.0%</td></tr>
+            </table>
+          </div>
+
+          <div class="section">
+            <div class="section-title">ANÁLISIS POR NIVEL ACADÉMICO</div>
+            <table class="data-table">
+              <tr><th>Nivel</th><th>Monto por Cobrar</th><th>Porcentaje</th></tr>
+              <tr><td>Kinder</td><td>$945,000</td><td>22.5%</td></tr>
+              <tr><td>Primaria</td><td>$1,470,000</td><td>35.0%</td></tr>
+              <tr><td>Secundaria</td><td>$1,155,000</td><td>27.5%</td></tr>
+              <tr><td>Bachillerato</td><td>$630,000</td><td>15.0%</td></tr>
+            </table>
+          </div>
+
+          <div class="section">
+            <div class="section-title">GESTIÓN DE COBRANZA ACTIVA</div>
+            <table class="data-table">
+              <tr><th>Actividad</th><th>Cantidad</th><th>Resultado</th></tr>
+              <tr><td>Llamadas Realizadas</td><td>45</td><td>78% contacto efectivo</td></tr>
+              <tr><td>Emails Enviados</td><td>89</td><td>65% tasa de apertura</td></tr>
+              <tr><td>SMS Enviados</td><td>67</td><td>92% entregados</td></tr>
+              <tr><td>Visitas Programadas</td><td>8</td><td>6 realizadas</td></tr>
+            </table>
+          </div>
+
+          <div class="footer">
+            <p><strong>Generado por Edupay - Sistema de Pagos Escolares</strong></p>
+            <p>${institutionName || 'Instituto JFR'} | ${fechaGeneracion} | Formato: ${selectedFormat}</p>
+            <p>Este reporte contiene información confidencial del proceso de cobranza institucional</p>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Abrir ventana de impresión para generar PDF
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+        printWindow.focus();
+        
+        setTimeout(() => {
+          printWindow.print();
+        }, 500);
+      }
+
+      toast({
+        title: "✅ Reporte PDF Generado",
+        description: `Reporte de cobranza ${selectedFormat} abierto para descarga en PDF`,
+        duration: 4000,
+      });
+    }, 2000);
+  };
+
   const handleDescargarReporte = (reporte: any) => {
     toast({
       title: "Descargando Reporte",
@@ -360,6 +502,13 @@ Estado: ${reporte.status}`;
         >
           <Download className="w-4 h-4 mr-2" />
           Generar Excel (CSV)
+        </Button>
+        <Button 
+          onClick={handleGenerarReportePDF}
+          className="bg-red-600 hover:bg-red-700"
+        >
+          <FileText className="w-4 h-4 mr-2" />
+          Generar PDF
         </Button>
       </div>
 

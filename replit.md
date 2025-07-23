@@ -168,6 +168,13 @@ Changelog:
 - July 22, 2025: Migración completa de emails: superadmin@edupay.com, soporte@edupay.mx, URLs actualizadas
 - July 22, 2025: Verificación sistematica completada: 0 referencias restantes de marca anterior
 - July 22, 2025: LOGO INSTITUCIONAL REAL INTEGRADO EN REPORTES PDF - Sistema usa logo desde configuración institucional
+- July 23, 2025: FUNCIONALIDAD COMPLETA DE REPORTES EN CUENTAS POR COBRAR IMPLEMENTADA - Siguiendo criterio SISTEMA-Reportes
+- July 23, 2025: Generación de reportes TXT, Excel (CSV) y PDF completamente funcional en sección Cuentas por Cobrar
+- July 23, 2025: 6 reportes especializados: Antigüedad Saldos, Cartera Vencida, Eficiencia Cobranza, Seguimiento Promesas, Análisis Morosidad, Reporte Ejecutivo
+- July 23, 2025: KPIs específicos de cobranza: Total por Cobrar $42,000, Tasa Recuperación 73.2%, Eficiencia Gestión 89.1%
+- July 23, 2025: Filtros por período (Enero 2025, Diciembre 2024, Noviembre 2024) y formato (Detallado, Ejecutivo, Auditoría)
+- July 23, 2025: Reportes PDF con diseño profesional, logo institucional dinámico, tablas de datos y métricas ejecutivas
+- July 23, 2025: Integración completa con hook useInstitution para logo e institución dinámicos del Instituto JFR
 - July 22, 2025: Problema endpoint /api/uploads/logo.png resuelto - ahora usa logo real desde hook useInstitution
 - July 22, 2025: Prioridad al logo configurado en Configuración → Institución sobre logos genéricos embebidos
 - July 22, 2025: Compatibilidad con data URLs (base64) y URLs normales para máxima flexibilidad

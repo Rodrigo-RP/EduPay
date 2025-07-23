@@ -1437,12 +1437,19 @@ export default function CuentasPorCobrar() {
                   </div>
                 </div>
                 <div>
-                  <Input
-                    placeholder="Buscar concepto..."
-                    value={selectedConcepto === "all" ? "" : selectedConcepto}
-                    onChange={(e) => setSelectedConcepto(e.target.value || "all")}
-                    className="h-9"
-                  />
+                  <Select value={selectedConcepto} onValueChange={setSelectedConcepto}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Buscar concepto..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los conceptos</SelectItem>
+                      {Array.from(new Set(cuentasPorCobrar.map(cuenta => cuenta.concepto))).sort().map((concepto) => (
+                        <SelectItem key={concepto} value={concepto.toLowerCase()}>
+                          {concepto}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Select value={selectedNivel} onValueChange={setSelectedNivel}>

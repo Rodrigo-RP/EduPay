@@ -24,6 +24,7 @@ import multer from "multer";
 import * as XLSX from "xlsx";
 import { optimizeDatabase, checkQueryPerformance, cleanupObsoleteData, runMaintenanceTask } from "./optimize-database";
 import { seedAdmissionsData } from "./seed-admissions-data";
+import { cuentasPorCobrarHTML } from "./static-pages";
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
 
@@ -118,9 +119,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(sanitizeInput);
   app.use(integrityCheck);
 
-  // Serve static HTML file for cuentas por cobrar - BYPASS DE AUTENTICACIÓN
-  app.get("/cuentas-completo", (req, res) => {
-    res.sendFile(require("path").join(__dirname, "../client/cuentas-simple.html"));
+  // Página Cuentas por Cobrar - SOLUCIÓN COMPLETAMENTE EXTERNA
+  app.get("/cuentas-final", (req, res) => {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(cuentasPorCobrarHTML);
   });
   
   // Rate limiting estricto para APIs críticas

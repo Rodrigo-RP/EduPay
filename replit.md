@@ -228,6 +228,14 @@ Changelog:
 - July 23, 2025: Tabla de seguimiento prioritario con cuentas por días vencidos y próximas acciones planificadas
 - July 23, 2025: Botones funcionales de contacto (teléfono) y registro de pago para cada cuenta prioritaria
 - July 23, 2025: Sistema integrado con notificaciones toast para feedback inmediato de acciones ejecutadas
+- July 23, 2025: MODALES FUNCIONALES COMPLETOS PARA HERRAMIENTAS DE SEGUIMIENTO - Sistema profesional de gestión de cobranza
+- July 23, 2025: Modal "Iniciar Cobranza": selección múltiple de cuentas vencidas con checkboxes y procesamiento automático
+- July 23, 2025: Modal "Enviar Recordatorios": configuración de tipo (email, SMS, WhatsApp, llamada) con resumen de familias
+- July 23, 2025: Modal "Registrar Promesa": formulario completo con estudiante, fecha, monto y observaciones
+- July 23, 2025: Modal "Reporte de Gestión": 4 tipos de reportes (ejecutivo, detallado, actividades, promesas) con contenido específico
+- July 23, 2025: Todos los modales incluyen validaciones, estados de formulario y notificaciones toast profesionales
+- July 23, 2025: Integración completa con datos reales del sistema y formateo de moneda mexicana
+- July 23, 2025: Componentes Shadcn/ui implementados: Dialog, Select, Checkbox, Textarea, Label para UX profesional
 - July 22, 2025: Problema endpoint /api/uploads/logo.png resuelto - ahora usa logo real desde hook useInstitution
 - July 22, 2025: Prioridad al logo configurado en Configuración → Institución sobre logos genéricos embebidos
 - July 22, 2025: Compatibilidad con data URLs (base64) y URLs normales para máxima flexibilidad

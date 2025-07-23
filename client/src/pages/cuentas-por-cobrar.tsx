@@ -9,6 +9,9 @@ import { AlertTriangle, Clock, DollarSign, Users, Download, Eye, Search, Filter,
 import { useToast } from "@/hooks/use-toast";
 import { useInstitution } from "@/hooks/use-institution";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 export default function CuentasPorCobrar() {
   const { toast } = useToast();
@@ -24,6 +27,23 @@ export default function CuentasPorCobrar() {
   
   const [reporteSeleccionado, setReporteSeleccionado] = useState<any>(null);
   const [modalVistaPrevia, setModalVistaPrevia] = useState(false);
+
+  // Estados para modales de herramientas de seguimiento
+  const [modalIniciarCobranza, setModalIniciarCobranza] = useState(false);
+  const [modalEnviarRecordatorios, setModalEnviarRecordatorios] = useState(false);
+  const [modalRegistrarPromesa, setModalRegistrarPromesa] = useState(false);
+  const [modalReporteGestion, setModalReporteGestion] = useState(false);
+
+  // Estados para formularios
+  const [cobranzaSeleccionada, setCobranzaSeleccionada] = useState<string[]>([]);
+  const [tipoRecordatorio, setTipoRecordatorio] = useState("email");
+  const [promesaData, setPromesaData] = useState({
+    estudiante: "",
+    fecha: "",
+    monto: "",
+    observaciones: ""
+  });
+  const [tipoReporte, setTipoReporte] = useState("ejecutivo");
 
   // Datos de prueba específicos de la imagen
   const cuentas = [
@@ -352,33 +372,58 @@ export default function CuentasPorCobrar() {
     `;
   };
 
-  // Funciones para seguimiento de cobranza
-  const iniciarCobranza = () => {
+  // Funciones para modales de herramientas de seguimiento
+  const abrirModalIniciarCobranza = () => {
+    setModalIniciarCobranza(true);
+  };
+
+  const procesarCobranza = () => {
+    const cuentasSeleccionadas = cobranzaSeleccionada.length;
     toast({
-      title: "Cobranza iniciada",
-      description: "Proceso de cobranza automático iniciado para 12 cuentas pendientes"
+      title: "Cobranza procesada",
+      description: `Proceso iniciado para ${cuentasSeleccionadas} cuentas seleccionadas`
     });
+    setModalIniciarCobranza(false);
+    setCobranzaSeleccionada([]);
+  };
+
+  const abrirModalEnviarRecordatorios = () => {
+    setModalEnviarRecordatorios(true);
   };
 
   const enviarRecordatorios = () => {
     toast({
       title: "Recordatorios enviados", 
-      description: "Se enviaron 8 recordatorios por email y SMS a familias con pagos pendientes"
+      description: `Recordatorios enviados por ${tipoRecordatorio} a familias seleccionadas`
     });
+    setModalEnviarRecordatorios(false);
   };
 
-  const registrarPromesa = () => {
-    toast({
-      title: "Promesa registrada",
-      description: "Nueva promesa de pago registrada para seguimiento"
-    });
+  const abrirModalRegistrarPromesa = () => {
+    setModalRegistrarPromesa(true);
   };
 
-  const generarReporteCobranza = () => {
+  const guardarPromesa = () => {
+    if (promesaData.estudiante && promesaData.fecha && promesaData.monto) {
+      toast({
+        title: "Promesa registrada",
+        description: `Promesa de pago de ${promesaData.monto} registrada para ${promesaData.estudiante}`
+      });
+      setModalRegistrarPromesa(false);
+      setPromesaData({ estudiante: "", fecha: "", monto: "", observaciones: "" });
+    }
+  };
+
+  const abrirModalReporteGestion = () => {
+    setModalReporteGestion(true);
+  };
+
+  const generarReporteGestion = () => {
     toast({
       title: "Generando reporte",
-      description: "Preparando reporte de gestión de cobranza..."
+      description: `Generando reporte ${tipoReporte} de gestión de cobranza...`
     });
+    setModalReporteGestion(false);
   };
 
   const contactarFamilia = (cuenta: any) => {
@@ -709,7 +754,7 @@ export default function CuentasPorCobrar() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Button 
                   className="h-20 flex-col space-y-2"
-                  onClick={() => iniciarCobranza()}
+                  onClick={() => abrirModalIniciarCobranza()}
                 >
                   <AlertTriangle className="w-6 h-6" />
                   <span>Iniciar Cobranza</span>
@@ -718,7 +763,7 @@ export default function CuentasPorCobrar() {
                 <Button 
                   variant="outline" 
                   className="h-20 flex-col space-y-2"
-                  onClick={() => enviarRecordatorios()}
+                  onClick={() => abrirModalEnviarRecordatorios()}
                 >
                   <Clock className="w-6 h-6" />
                   <span>Enviar Recordatorios</span>
@@ -727,7 +772,7 @@ export default function CuentasPorCobrar() {
                 <Button 
                   variant="outline" 
                   className="h-20 flex-col space-y-2"
-                  onClick={() => registrarPromesa()}
+                  onClick={() => abrirModalRegistrarPromesa()}
                 >
                   <Users className="w-6 h-6" />
                   <span>Registrar Promesa</span>
@@ -736,7 +781,7 @@ export default function CuentasPorCobrar() {
                 <Button 
                   variant="outline" 
                   className="h-20 flex-col space-y-2"
-                  onClick={() => generarReporteCobranza()}
+                  onClick={() => abrirModalReporteGestion()}
                 >
                   <FileText className="w-6 h-6" />
                   <span>Reporte de Gestión</span>
@@ -980,6 +1025,282 @@ export default function CuentasPorCobrar() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Iniciar Cobranza */}
+      <Dialog open={modalIniciarCobranza} onOpenChange={setModalIniciarCobranza}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Iniciar Proceso de Cobranza</DialogTitle>
+            <DialogDescription>
+              Seleccione las cuentas para iniciar el proceso automático de cobranza
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="border rounded-lg p-4">
+              <h4 className="font-medium mb-3">Cuentas Disponibles para Cobranza</h4>
+              <div className="space-y-2">
+                {cuentas.filter(c => c.estado_cobranza === "Vencido").map((cuenta) => (
+                  <div key={cuenta.id} className="flex items-center space-x-2">
+                    <Checkbox 
+                      id={`cuenta-${cuenta.id}`}
+                      checked={cobranzaSeleccionada.includes(cuenta.id.toString())}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setCobranzaSeleccionada([...cobranzaSeleccionada, cuenta.id.toString()]);
+                        } else {
+                          setCobranzaSeleccionada(cobranzaSeleccionada.filter(id => id !== cuenta.id.toString()));
+                        }
+                      }}
+                    />
+                    <Label htmlFor={`cuenta-${cuenta.id}`} className="flex-1">
+                      <div className="flex justify-between">
+                        <span>{cuenta.estudiante}</span>
+                        <span className="text-red-600 font-medium">{formatCurrency(cuenta.pendiente_pagar_centavos)}</span>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {cuenta.concepto} - {cuenta.dias_vencido} días vencido
+                      </div>
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <p className="text-sm text-blue-700">
+                Se iniciará proceso de cobranza automático que incluye: envío de notificaciones, 
+                programación de llamadas y registro de actividades de seguimiento.
+              </p>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setModalIniciarCobranza(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={procesarCobranza} disabled={cobranzaSeleccionada.length === 0}>
+                Iniciar Cobranza ({cobranzaSeleccionada.length} seleccionadas)
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Enviar Recordatorios */}
+      <Dialog open={modalEnviarRecordatorios} onOpenChange={setModalEnviarRecordatorios}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Enviar Recordatorios</DialogTitle>
+            <DialogDescription>
+              Configure el tipo de recordatorio para familias con pagos pendientes
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="tipo-recordatorio">Tipo de Recordatorio</Label>
+              <Select value={tipoRecordatorio} onValueChange={setTipoRecordatorio}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="email">Correo Electrónico</SelectItem>
+                  <SelectItem value="sms">SMS</SelectItem>
+                  <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                  <SelectItem value="llamada">Llamada Telefónica</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="border rounded-lg p-4">
+              <h4 className="font-medium mb-2">Resumen del Envío</h4>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span>Familias con pagos pendientes:</span>
+                  <span className="font-medium">8</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Método seleccionado:</span>
+                  <span className="font-medium capitalize">{tipoRecordatorio}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Tiempo estimado:</span>
+                  <span className="font-medium">2-5 minutos</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 p-4 rounded-lg">
+              <p className="text-sm text-yellow-700">
+                Los recordatorios se enviarán automáticamente y se registrarán en el historial de actividades.
+              </p>
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setModalEnviarRecordatorios(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={enviarRecordatorios}>
+                Enviar Recordatorios
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Registrar Promesa */}
+      <Dialog open={modalRegistrarPromesa} onOpenChange={setModalRegistrarPromesa}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Registrar Promesa de Pago</DialogTitle>
+            <DialogDescription>
+              Capture el compromiso de pago acordado con la familia
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="estudiante-promesa">Estudiante</Label>
+              <Select 
+                value={promesaData.estudiante} 
+                onValueChange={(value) => setPromesaData({...promesaData, estudiante: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar estudiante" />
+                </SelectTrigger>
+                <SelectContent>
+                  {cuentas.map((cuenta) => (
+                    <SelectItem key={cuenta.id} value={cuenta.estudiante}>
+                      {cuenta.estudiante} - {formatCurrency(cuenta.pendiente_pagar_centavos)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="fecha-promesa">Fecha Comprometida</Label>
+              <Input 
+                id="fecha-promesa"
+                type="date"
+                value={promesaData.fecha}
+                onChange={(e) => setPromesaData({...promesaData, fecha: e.target.value})}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="monto-promesa">Monto Comprometido</Label>
+              <Input 
+                id="monto-promesa"
+                placeholder="$0.00"
+                value={promesaData.monto}
+                onChange={(e) => setPromesaData({...promesaData, monto: e.target.value})}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="observaciones-promesa">Observaciones</Label>
+              <Textarea 
+                id="observaciones-promesa"
+                placeholder="Detalles del acuerdo, condiciones especiales, etc."
+                value={promesaData.observaciones}
+                onChange={(e) => setPromesaData({...promesaData, observaciones: e.target.value})}
+              />
+            </div>
+
+            <div className="bg-green-50 p-4 rounded-lg">
+              <p className="text-sm text-green-700">
+                La promesa se registrará en el sistema y se programará seguimiento automático para la fecha indicada.
+              </p>
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setModalRegistrarPromesa(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={guardarPromesa}>
+                Registrar Promesa
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Reporte de Gestión */}
+      <Dialog open={modalReporteGestion} onOpenChange={setModalReporteGestion}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Generar Reporte de Gestión</DialogTitle>
+            <DialogDescription>
+              Configure el reporte de actividades de cobranza
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="tipo-reporte">Tipo de Reporte</Label>
+              <Select value={tipoReporte} onValueChange={setTipoReporte}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ejecutivo">Reporte Ejecutivo</SelectItem>
+                  <SelectItem value="detallado">Reporte Detallado</SelectItem>
+                  <SelectItem value="actividades">Registro de Actividades</SelectItem>
+                  <SelectItem value="promesas">Seguimiento de Promesas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="border rounded-lg p-4">
+              <h4 className="font-medium mb-2">Contenido del Reporte</h4>
+              <div className="space-y-2 text-sm">
+                {tipoReporte === "ejecutivo" && (
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Resumen de cobranza del período</li>
+                    <li>KPIs de gestión y recuperación</li>
+                    <li>Top 10 cuentas prioritarias</li>
+                    <li>Recomendaciones estratégicas</li>
+                  </ul>
+                )}
+                {tipoReporte === "detallado" && (
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Lista completa de actividades</li>
+                    <li>Detalle por estudiante y familia</li>
+                    <li>Historial de contactos</li>
+                    <li>Estado actual de cada cuenta</li>
+                  </ul>
+                )}
+                {tipoReporte === "actividades" && (
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Registro cronológico de acciones</li>
+                    <li>Llamadas, emails y mensajes</li>
+                    <li>Tiempo invertido por cuenta</li>
+                    <li>Resultados obtenidos</li>
+                  </ul>
+                )}
+                {tipoReporte === "promesas" && (
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Promesas de pago activas</li>
+                    <li>Fechas de vencimiento</li>
+                    <li>Tasa de cumplimiento histórica</li>
+                    <li>Seguimiento pendiente</li>
+                  </ul>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <p className="text-sm text-blue-700">
+                El reporte se generará en formato PDF y estará listo para descarga en unos segundos.
+              </p>
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setModalReporteGestion(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={generarReporteGestion}>
+                Generar Reporte
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, Clock, DollarSign, Users, Download, Eye, Search, Filter, X, FileText, FileSpreadsheet } from "lucide-react";
+import { AlertTriangle, Clock, DollarSign, Users, Download, Eye, Search, Filter, X, FileText, FileSpreadsheet, Phone, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useInstitution } from "@/hooks/use-institution";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -102,6 +102,73 @@ export default function CuentasPorCobrar() {
       formato: "PDF",
       tamaño: "164 KB",
       fecha: "23/01/2025"
+    }
+  ];
+
+  // Datos para seguimiento de cobranza
+  const actividadesCobranza = [
+    {
+      id: 1,
+      estudiante: "María González Ramírez",
+      tipo: "llamada",
+      descripcion: "Llamada telefónica - Compromiso de pago para el viernes",
+      monto: "$2,800",
+      fecha: "Hoy 10:30 AM",
+      estado: "pendiente"
+    },
+    {
+      id: 2,
+      estudiante: "Juan Carlos Morales",
+      tipo: "email",
+      descripcion: "Recordatorio enviado por correo electrónico",
+      monto: "$3,200",
+      fecha: "Ayer 2:15 PM",
+      estado: "enviado"
+    },
+    {
+      id: 3,
+      estudiante: "Ana Patricia Ramírez",
+      tipo: "promesa",
+      descripcion: "Promesa de pago registrada para el 30 de enero",
+      monto: "$2,500",
+      fecha: "25 Ene 4:45 PM",
+      estado: "prometido"
+    },
+    {
+      id: 4,
+      estudiante: "Carlos Mendoza López",
+      tipo: "pago",
+      descripcion: "Pago parcial recibido - Resta $1,500",
+      monto: "$1,000",
+      fecha: "24 Ene 11:20 AM",
+      estado: "pagado"
+    }
+  ];
+
+  const cuentasPrioritarias = [
+    {
+      id: 1,
+      estudiante: "María González Ramírez",
+      dias_vencido: 45,
+      monto: 280000,
+      ultimo_contacto: "20 Ene 2025",
+      proxima_accion: "Llamada de seguimiento"
+    },
+    {
+      id: 2,
+      estudiante: "Roberto Silva Martínez",
+      dias_vencido: 32,
+      monto: 350000,
+      ultimo_contacto: "18 Ene 2025",
+      proxima_accion: "Envío de carta"
+    },
+    {
+      id: 3,
+      estudiante: "Carmen López Hernández",
+      dias_vencido: 28,
+      monto: 180000,
+      ultimo_contacto: "22 Ene 2025",
+      proxima_accion: "Reunión presencial"
     }
   ];
 
@@ -283,6 +350,49 @@ export default function CuentasPorCobrar() {
       </body>
       </html>
     `;
+  };
+
+  // Funciones para seguimiento de cobranza
+  const iniciarCobranza = () => {
+    toast({
+      title: "Cobranza iniciada",
+      description: "Proceso de cobranza automático iniciado para 12 cuentas pendientes"
+    });
+  };
+
+  const enviarRecordatorios = () => {
+    toast({
+      title: "Recordatorios enviados", 
+      description: "Se enviaron 8 recordatorios por email y SMS a familias con pagos pendientes"
+    });
+  };
+
+  const registrarPromesa = () => {
+    toast({
+      title: "Promesa registrada",
+      description: "Nueva promesa de pago registrada para seguimiento"
+    });
+  };
+
+  const generarReporteCobranza = () => {
+    toast({
+      title: "Generando reporte",
+      description: "Preparando reporte de gestión de cobranza..."
+    });
+  };
+
+  const contactarFamilia = (cuenta: any) => {
+    toast({
+      title: "Contactando familia",
+      description: `Iniciando contacto con familia de ${cuenta.estudiante}`
+    });
+  };
+
+  const registrarPago = (cuenta: any) => {
+    toast({
+      title: "Registrando pago",
+      description: `Abriendo registro de pago para ${cuenta.estudiante}`
+    });
   };
 
   // Función para vista previa
@@ -544,13 +654,187 @@ export default function CuentasPorCobrar() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="seguimiento" className="space-y-4">
+        <TabsContent value="seguimiento" className="space-y-6">
+          {/* Controles de Seguimiento */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <div className="p-2 bg-orange-100 rounded-lg">
+                    <Clock className="w-5 h-5 text-orange-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Recordatorios Pendientes</h3>
+                    <p className="text-2xl font-bold text-orange-600">12</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Users className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Promesas de Pago</h3>
+                    <p className="text-2xl font-bold text-blue-600">8</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <DollarSign className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Recuperado Hoy</h3>
+                    <p className="text-2xl font-bold text-green-600">$8,500</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Herramientas de Gestión */}
           <Card>
             <CardHeader>
-              <CardTitle>Seguimiento de Cobranza</CardTitle>
+              <CardTitle>Herramientas de Seguimiento</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-slate-600">Herramientas de seguimiento y gestión de cobranza en desarrollo.</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Button 
+                  className="h-20 flex-col space-y-2"
+                  onClick={() => iniciarCobranza()}
+                >
+                  <AlertTriangle className="w-6 h-6" />
+                  <span>Iniciar Cobranza</span>
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  className="h-20 flex-col space-y-2"
+                  onClick={() => enviarRecordatorios()}
+                >
+                  <Clock className="w-6 h-6" />
+                  <span>Enviar Recordatorios</span>
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  className="h-20 flex-col space-y-2"
+                  onClick={() => registrarPromesa()}
+                >
+                  <Users className="w-6 h-6" />
+                  <span>Registrar Promesa</span>
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  className="h-20 flex-col space-y-2"
+                  onClick={() => generarReporteCobranza()}
+                >
+                  <FileText className="w-6 h-6" />
+                  <span>Reporte de Gestión</span>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Actividades Recientes */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Actividades de Cobranza Recientes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {actividadesCobranza.map((actividad, index) => (
+                  <div key={index} className="flex items-center space-x-4 p-3 border rounded-lg">
+                    <div className={`p-2 rounded-lg ${
+                      actividad.tipo === 'llamada' ? 'bg-blue-100' :
+                      actividad.tipo === 'email' ? 'bg-green-100' :
+                      actividad.tipo === 'promesa' ? 'bg-yellow-100' :
+                      'bg-gray-100'
+                    }`}>
+                      {actividad.tipo === 'llamada' && <Phone className="w-4 h-4 text-blue-600" />}
+                      {actividad.tipo === 'email' && <Mail className="w-4 h-4 text-green-600" />}
+                      {actividad.tipo === 'promesa' && <Users className="w-4 h-4 text-yellow-600" />}
+                      {actividad.tipo === 'pago' && <DollarSign className="w-4 h-4 text-green-600" />}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium">{actividad.estudiante}</p>
+                      <p className="text-sm text-muted-foreground">{actividad.descripcion}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium">{actividad.monto}</p>
+                      <p className="text-xs text-muted-foreground">{actividad.fecha}</p>
+                    </div>
+                    <Button size="sm" variant="outline">
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Lista de Seguimiento Prioritario */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Seguimiento Prioritario</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-2">Estudiante</th>
+                      <th className="text-left p-2">Días Vencido</th>
+                      <th className="text-left p-2">Monto</th>
+                      <th className="text-left p-2">Último Contacto</th>
+                      <th className="text-left p-2">Próxima Acción</th>
+                      <th className="text-left p-2">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cuentasPrioritarias.map((cuenta) => (
+                      <tr key={cuenta.id} className="border-b">
+                        <td className="p-2 font-medium">{cuenta.estudiante}</td>
+                        <td className="p-2">
+                          <Badge variant={cuenta.dias_vencido > 30 ? "destructive" : "secondary"}>
+                            {cuenta.dias_vencido} días
+                          </Badge>
+                        </td>
+                        <td className="p-2">{formatCurrency(cuenta.monto)}</td>
+                        <td className="p-2 text-sm text-muted-foreground">{cuenta.ultimo_contacto}</td>
+                        <td className="p-2 text-sm">{cuenta.proxima_accion}</td>
+                        <td className="p-2">
+                          <div className="flex space-x-1">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => contactarFamilia(cuenta)}
+                            >
+                              <Phone className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => registrarPago(cuenta)}
+                            >
+                              <DollarSign className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

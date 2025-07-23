@@ -221,6 +221,13 @@ Changelog:
 - July 23, 2025: 6 reportes específicos con contenido auténtico: Antigüedad Saldos, Cartera Vencida, Eficiencia Cobranza, etc.
 - July 23, 2025: Integración logo institucional dinámico del Instituto JFR en reportes HTML/PDF descargables
 - July 23, 2025: Modal con DialogDescription agregado para cumplir estándares de accesibilidad completos
+- July 23, 2025: PESTAÑA SEGUIMIENTO DE COBRANZA COMPLETAMENTE IMPLEMENTADA - Herramientas profesionales de gestión
+- July 23, 2025: Métricas en tiempo real: 12 recordatorios pendientes, 8 promesas de pago, $8,500 recuperado hoy
+- July 23, 2025: 4 herramientas principales: Iniciar Cobranza, Enviar Recordatorios, Registrar Promesa, Reporte de Gestión
+- July 23, 2025: Timeline de actividades recientes con iconos diferenciados: llamadas, emails, promesas, pagos
+- July 23, 2025: Tabla de seguimiento prioritario con cuentas por días vencidos y próximas acciones planificadas
+- July 23, 2025: Botones funcionales de contacto (teléfono) y registro de pago para cada cuenta prioritaria
+- July 23, 2025: Sistema integrado con notificaciones toast para feedback inmediato de acciones ejecutadas
 - July 22, 2025: Problema endpoint /api/uploads/logo.png resuelto - ahora usa logo real desde hook useInstitution
 - July 22, 2025: Prioridad al logo configurado en Configuración → Institución sobre logos genéricos embebidos
 - July 22, 2025: Compatibilidad con data URLs (base64) y URLs normales para máxima flexibilidad

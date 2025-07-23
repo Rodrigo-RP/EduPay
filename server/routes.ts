@@ -33,15 +33,32 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
   fileFilter: (req, file, cb) => {
-    const allowedTypes = [
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-      'application/vnd.ms-excel', // .xls
-      'text/csv' // .csv
-    ];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
+    // For profile photos, allow images
+    if (req.path === '/api/profile/photo') {
+      const allowedTypes = [
+        'image/jpeg',
+        'image/jpg', 
+        'image/png',
+        'image/gif',
+        'image/webp'
+      ];
+      if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Solo se permiten archivos de imagen (JPEG, PNG, GIF, WebP)'));
+      }
     } else {
-      cb(new Error('Solo se permiten archivos Excel (.xlsx, .xls) o CSV (.csv)'));
+      // For other uploads, allow Excel/CSV
+      const allowedTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+        'application/vnd.ms-excel', // .xls
+        'text/csv' // .csv
+      ];
+      if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Solo se permiten archivos Excel (.xlsx, .xls) o CSV (.csv)'));
+      }
     }
   }
 });
@@ -1909,6 +1926,245 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error testing payment rule:", error);
       res.status(500).json({ error: "Failed to test payment rule" });
+    }
+  });
+
+  // ===== PROFILE MANAGEMENT ROUTES =====
+  
+  // Get user profile
+  app.get("/api/profile", authenticateToken, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      const userData = await storage.getUserById(userId);
+      
+      if (!userData) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+      
+      // Remove sensitive data
+      const { password_hash, twofa_secret, ...safeUser } = userData;
+      
+      res.json(safeUser);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error obteniendo perfil: " + error.message });
+    }
+  });
+
+  // Update user profile
+  app.put("/api/profile", authenticateToken, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      const { name, email, telefono } = req.body;
+
+      // Get current user data
+      const currentUser = await storage.getUserById(userId);
+      if (!currentUser) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+
+      // Validate email uniqueness if changed
+      if (email && email !== currentUser.email) {
+        const existingUser = await storage.getUserByEmail(email);
+        if (existingUser && existingUser.id !== userId) {
+          return res.status(400).json({ message: "El email ya está en uso" });
+        }
+      }
+
+      // Update user profile
+      const updateData = {
+        ...currentUser,
+        name: name || currentUser.name,
+        email: email || currentUser.email,
+        telefono: telefono || currentUser.telefono,
+        updated_at: new Date()
+      };
+
+      const updatedUser = await storage.updateUser(userId, updateData);
+      if (!updatedUser) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+
+      const { password_hash, twofa_secret, ...safeUser } = updatedUser;
+      res.json(safeUser);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error actualizando perfil: " + error.message });
+    }
+  });
+
+  // Update user password
+  app.put("/api/profile/password", authenticateToken, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      const { currentPassword, newPassword } = req.body;
+
+      // Get current user
+      const user = await storage.getUserById(userId);
+      if (!user) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+
+      // Verify current password
+      const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password_hash);
+      if (!isCurrentPasswordValid) {
+        return res.status(400).json({ message: "Contraseña actual incorrecta" });
+      }
+
+      // Hash new password
+      const newPasswordHash = await bcrypt.hash(newPassword, 10);
+
+      // Update password
+      const updateData = {
+        ...user,
+        password_hash: newPasswordHash,
+        updated_at: new Date()
+      };
+
+      await storage.updateUser(userId, updateData);
+      res.json({ message: "Contraseña actualizada exitosamente" });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error actualizando contraseña: " + error.message });
+    }
+  });
+
+  // Update profile photo
+  app.put("/api/profile/photo", authenticateToken, upload.single('photo'), async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      
+      if (!req.file) {
+        return res.status(400).json({ message: "No se subió ninguna imagen" });
+      }
+
+      // Get current user
+      const user = await storage.getUserById(userId);
+      if (!user) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+
+      // Convert image to base64 data URL
+      const imageBuffer = req.file.buffer;
+      const base64Image = `data:${req.file.mimetype};base64,${imageBuffer.toString('base64')}`;
+
+      // Update user photo URL
+      const updateData = {
+        ...user,
+        foto_url: base64Image,
+        updated_at: new Date()
+      };
+
+      await storage.updateUser(userId, updateData);
+
+      res.json({ 
+        message: "Foto de perfil actualizada exitosamente",
+        foto_url: base64Image 
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error actualizando foto: " + error.message });
+    }
+  });
+
+  // Get guardian profile
+  app.get("/api/guardian/profile", authenticateToken, async (req, res) => {
+    try {
+      const guardianId = (req as any).guardianId;
+      if (!guardianId) {
+        return res.status(401).json({ message: "Acceso no autorizado" });
+      }
+
+      const guardian = await storage.getGuardian(guardianId);
+      
+      if (!guardian) {
+        return res.status(404).json({ message: "Tutor no encontrado" });
+      }
+
+      // Remove sensitive data
+      const { password_hash, ...safeGuardian } = guardian;
+      
+      res.json(safeGuardian);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error obteniendo perfil: " + error.message });
+    }
+  });
+
+  // Update guardian profile
+  app.put("/api/guardian/profile", authenticateToken, async (req, res) => {
+    try {
+      const guardianId = (req as any).guardianId;
+      if (!guardianId) {
+        return res.status(401).json({ message: "Acceso no autorizado" });
+      }
+
+      const { nombre_completo, email, telefono, rfc } = req.body;
+
+      // Get current guardian
+      const currentGuardian = await storage.getGuardian(guardianId);
+      if (!currentGuardian) {
+        return res.status(404).json({ message: "Tutor no encontrado" });
+      }
+
+      // Validate email uniqueness if changed
+      if (email && email !== currentGuardian.email) {
+        const existingGuardian = await storage.getGuardianByEmail(email);
+        if (existingGuardian && existingGuardian.id !== guardianId) {
+          return res.status(400).json({ message: "El email ya está en uso" });
+        }
+      }
+
+      // Update guardian profile via storage method
+      await storage.updateGuardianProfile(guardianId, {
+        nombre_completo,
+        email,
+        telefono
+      });
+
+      // Get updated guardian
+      const updatedGuardian = await storage.getGuardian(guardianId);
+      if (!updatedGuardian) {
+        return res.status(404).json({ message: "Tutor no encontrado" });
+      }
+
+      const { password_hash, ...safeGuardian } = updatedGuardian;
+      res.json(safeGuardian);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error actualizando perfil: " + error.message });
+    }
+  });
+
+  // Update guardian password
+  app.put("/api/guardian/profile/password", authenticateToken, async (req, res) => {
+    try {
+      const guardianId = (req as any).guardianId;
+      if (!guardianId) {
+        return res.status(401).json({ message: "Acceso no autorizado" });
+      }
+
+      const { currentPassword, newPassword } = req.body;
+
+      // Get current guardian
+      const guardian = await storage.getGuardian(guardianId);
+      if (!guardian) {
+        return res.status(404).json({ message: "Tutor no encontrado" });
+      }
+
+      // Verify current password
+      if (!guardian.password_hash) {
+        return res.status(400).json({ message: "No hay contraseña configurada" });
+      }
+
+      const isCurrentPasswordValid = await bcrypt.compare(currentPassword, guardian.password_hash);
+      if (!isCurrentPasswordValid) {
+        return res.status(400).json({ message: "Contraseña actual incorrecta" });
+      }
+
+      // Hash new password and update
+      const newPasswordHash = await bcrypt.hash(newPassword, 10);
+      await storage.updateGuardianProfile(guardianId, {
+        password_hash: newPasswordHash
+      });
+
+      res.json({ message: "Contraseña actualizada exitosamente" });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error actualizando contraseña: " + error.message });
     }
   });
 

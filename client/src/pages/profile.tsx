@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { User, Mail, Phone, Lock, Camera, Save, X } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { User, Mail, Phone, Lock, Camera, Save, X, Upload, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
@@ -38,6 +40,10 @@ export default function Profile() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isGuardian = !!guardian;
   const profileEndpoint = isGuardian ? "/api/guardian/profile" : "/api/profile";
@@ -49,7 +55,7 @@ export default function Profile() {
     enabled: !!(user || guardian),
   });
 
-  // Profile form with static default values
+  // Profile form
   const profileForm = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
@@ -72,42 +78,48 @@ export default function Profile() {
   // Update form values when profile data is loaded
   useEffect(() => {
     if (profileData) {
-      profileForm.setValue("name", (profileData as any)?.name || (profileData as any)?.nombre_completo || "");
+      const name = isGuardian 
+        ? (profileData as any)?.nombre_completo 
+        : (profileData as any)?.name;
+      
+      profileForm.setValue("name", name || "");
       profileForm.setValue("email", (profileData as any)?.email || "");
       profileForm.setValue("telefono", (profileData as any)?.telefono || "");
+      
+      // Set photo preview if exists
+      if ((profileData as any)?.foto_url) {
+        setPhotoPreview((profileData as any).foto_url);
+      }
     }
-  }, [profileData, profileForm.setValue]);
+  }, [profileData, profileForm, isGuardian]);
 
   // Profile update mutation
   const profileMutation = useMutation({
-    mutationFn: async (data: ProfileForm & { foto_url?: string }) => {
-      const payload = isGuardian 
-        ? { nombre_completo: data.name, email: data.email, telefono: data.telefono, foto_url: data.foto_url }
-        : { name: data.name, email: data.email, telefono: data.telefono, foto_url: data.foto_url };
+    mutationFn: async (data: ProfileForm) => {
+      const payload = isGuardian ? {
+        nombre_completo: data.name,
+        email: data.email,
+        telefono: data.telefono,
+      } : data;
 
-      const response = await apiRequest("PUT", profileEndpoint, payload);
-      return response.json();
+      return apiRequest(profileEndpoint, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+        headers: { "Content-Type": "application/json" },
+      });
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       toast({
-        title: "✅ Perfil actualizado exitosamente",
-        description: "Tu información personal ha sido guardada correctamente.",
-        duration: 3000,
+        title: "✅ Perfil actualizado",
+        description: "Los datos de tu perfil se han guardado correctamente.",
       });
       queryClient.invalidateQueries({ queryKey: [profileEndpoint] });
-      // Update auth context if needed
-      if (data.profile) {
-        // Update localStorage with new profile data
-        const authUser = JSON.parse(localStorage.getItem("auth_user") || "{}");
-        localStorage.setItem("auth_user", JSON.stringify({ ...authUser, ...data.profile }));
-      }
     },
     onError: (error: any) => {
       toast({
-        title: "❌ Error al actualizar perfil",
-        description: error.message || "Hubo un problema al actualizar tu información. Intenta nuevamente.",
+        title: "❌ Error",
+        description: error.message || "No se pudo actualizar el perfil",
         variant: "destructive",
-        duration: 4000,
       });
     },
   });
@@ -115,325 +127,415 @@ export default function Profile() {
   // Password update mutation
   const passwordMutation = useMutation({
     mutationFn: async (data: PasswordForm) => {
-      const response = await apiRequest("PUT", passwordEndpoint, {
-        currentPassword: data.currentPassword,
-        newPassword: data.newPassword,
+      return apiRequest(passwordEndpoint, {
+        method: "PUT",
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" },
       });
-      return response.json();
     },
     onSuccess: () => {
       toast({
-        title: "✅ Contraseña actualizada exitosamente",
-        description: "Tu nueva contraseña ha sido configurada correctamente.",
-        duration: 3000,
+        title: "✅ Contraseña actualizada",
+        description: "Tu contraseña se ha cambiado correctamente.",
       });
       passwordForm.reset();
     },
     onError: (error: any) => {
       toast({
-        title: "❌ Error al cambiar contraseña",
-        description: error.message || "La contraseña actual es incorrecta. Verifica e intenta nuevamente.",
+        title: "❌ Error",
+        description: error.message || "No se pudo actualizar la contraseña",
         variant: "destructive",
-        duration: 4000,
       });
     },
   });
 
-  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  // Photo upload mutation
+  const photoMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('photo', file);
 
-    // Validate file size (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
+      const response = await fetch('/api/profile/photo', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Error uploading photo');
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
       toast({
-        title: "❌ Archivo muy grande",
-        description: "La imagen no debe superar los 5MB. Selecciona una imagen más pequeña.",
+        title: "✅ Foto actualizada",
+        description: "Tu foto de perfil se ha actualizado correctamente.",
+      });
+      setPhotoPreview(data.foto_url);
+      queryClient.invalidateQueries({ queryKey: [profileEndpoint] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "❌ Error",
+        description: error.message || "No se pudo actualizar la foto",
         variant: "destructive",
-        duration: 4000,
       });
-      return;
-    }
+    },
+  });
 
-    // Validate file type
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      toast({
-        title: "❌ Formato no válido",
-        description: "Solo se permiten archivos JPG, PNG o WebP. Selecciona una imagen válida.",
-        variant: "destructive",
-        duration: 4000,
-      });
-      return;
-    }
-
-    // Create preview
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const photoDataUrl = e.target?.result as string;
-      setPhotoPreview(photoDataUrl);
-      
-      toast({
-        title: "✅ Foto cargada correctamente",
-        description: "Imagen cargada exitosamente. Recuerda guardar los cambios para aplicar.",
-        duration: 3000,
-      });
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleRemovePhoto = () => {
-    setPhotoPreview(null);
-    const fileInput = document.getElementById('photo-upload') as HTMLInputElement;
-    if (fileInput) fileInput.value = '';
-  };
-
+  // Handle form submissions
   const onProfileSubmit = (data: ProfileForm) => {
-    profileMutation.mutate({
-      ...data,
-      foto_url: photoPreview || undefined,
-    });
+    profileMutation.mutate(data);
   };
 
   const onPasswordSubmit = (data: PasswordForm) => {
     passwordMutation.mutate(data);
   };
 
+  // Handle photo selection
+  const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "❌ Error",
+          description: "Por favor selecciona un archivo de imagen válido",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "❌ Error",
+          description: "La imagen debe ser menor a 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Show preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPhotoPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+
+      // Upload photo
+      photoMutation.mutate(file);
+    }
+  };
+
+  // Get user initials for avatar fallback
+  const getUserInitials = () => {
+    const name = isGuardian 
+      ? (profileData as any)?.nombre_completo 
+      : (profileData as any)?.name || "Usuario";
+    
+    return name
+      .split(' ')
+      .map((word: string) => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+  };
+
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-spin w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full" />
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 relative overflow-hidden">
-      {/* Decorative background elements */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-64 h-64 bg-gradient-to-br from-blue-400/10 to-cyan-400/10 rounded-full blur-3xl"></div>
-        <div className="absolute top-40 right-20 w-48 h-48 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full blur-2xl"></div>
-        <div className="absolute bottom-20 left-1/3 w-56 h-56 bg-gradient-to-br from-cyan-400/10 to-blue-400/10 rounded-full blur-3xl"></div>
-      </div>
-      
-      <div className="container mx-auto p-6 max-w-4xl relative z-10">
-        <div className="flex items-center justify-between mb-8 animate-slide-up">
-          <div>
-            <h1 className="text-4xl font-bold edupay-text-gradient mb-2">Mi Perfil</h1>
-            <p className="text-slate-600 text-lg">Administra tu información personal y configuración de seguridad</p>
-          </div>
-          <div className="edupay-icon-bounce">
-            <User className="w-12 h-12 text-blue-500" />
-          </div>
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex items-center gap-4 mb-6">
+        <div className="relative">
+          <Avatar className="w-20 h-20">
+            <AvatarImage src={photoPreview || (profileData as any)?.foto_url} />
+            <AvatarFallback className="text-lg font-semibold">
+              {getUserInitials()}
+            </AvatarFallback>
+          </Avatar>
+          <Button
+            size="sm"
+            variant="outline"
+            className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 p-0"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={photoMutation.isPending}
+          >
+            {photoMutation.isPending ? (
+              <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Camera className="w-4 h-4" />
+            )}
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handlePhotoSelect}
+            className="hidden"
+          />
         </div>
+        <div>
+          <h1 className="text-2xl font-bold">Mi Perfil</h1>
+          <p className="text-muted-foreground">
+            Gestiona tu información personal y configuración de cuenta
+          </p>
+        </div>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Profile Information */}
-        <Card className="edupay-card-shadow edupay-card-hover animate-fade-scale">
-          <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-t-lg">
-            <CardTitle className="flex items-center gap-3 text-xl">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <User className="w-6 h-6 text-blue-600" />
-              </div>
-              <span className="edupay-text-gradient">Información Personal</span>
-            </CardTitle>
-            <CardDescription className="text-slate-600 ml-11">
-              Actualiza tu información básica de contacto
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...profileForm}>
-              <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
-                {/* Photo Upload Premium */}
-                <div className="space-y-4">
-                  <Label className="text-lg font-semibold text-slate-700">Foto de Perfil</Label>
-                  <div className="flex items-center gap-6 p-4 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl border border-slate-200">
-                    <div className="relative">
-                      <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-full flex items-center justify-center overflow-hidden shadow-lg ring-4 ring-white">
-                        {photoPreview || (profileData as any)?.foto_url ? (
-                          <img 
-                            src={photoPreview || (profileData as any)?.foto_url} 
-                            alt="Profile" 
-                            className="w-full h-full object-cover" 
+      <Tabs defaultValue="profile" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="profile">Información Personal</TabsTrigger>
+          <TabsTrigger value="password">Cambiar Contraseña</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="profile" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="w-5 h-5" />
+                Información Personal
+              </CardTitle>
+              <CardDescription>
+                Actualiza tu información de contacto y datos personales
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form {...profileForm}>
+                <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
+                  <FormField
+                    control={profileForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nombre Completo</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="Tu nombre completo"
+                            className="max-w-md"
                           />
-                        ) : (
-                          <Camera className="w-10 h-10 text-blue-500" />
-                        )}
-                      </div>
-                      {/* Status indicator */}
-                      <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-white flex items-center justify-center">
-                        <Camera className="w-3 h-3 text-white" />
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-slate-600 mb-3">Personaliza tu perfil con una foto profesional</p>
-                      <div className="flex gap-3">
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          size="sm" 
-                          className="bg-white hover:bg-blue-50 border-blue-200 text-blue-600 hover:text-blue-700 shadow-sm"
-                          onClick={() => document.getElementById('photo-upload')?.click()}
-                        >
-                          <Camera className="w-4 h-4 mr-2" />
-                          {photoPreview || (profileData as any)?.foto_url ? 'Cambiar Foto' : 'Subir Foto'}
-                        </Button>
-                        {(photoPreview || (profileData as any)?.foto_url) && (
-                          <Button 
-                            type="button" 
-                            variant="outline" 
-                            size="sm" 
-                            className="bg-red-50 hover:bg-red-100 border-red-200 text-red-600 hover:text-red-700 shadow-sm"
-                            onClick={handleRemovePhoto}
-                          >
-                            <X className="w-4 h-4 mr-2" />
-                            Quitar
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <input
-                    id="photo-upload"
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handlePhotoUpload}
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
 
-                <FormField
-                  control={profileForm.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nombre Completo</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Tu nombre completo" className="edupay-input-focus" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <FormField
+                    control={profileForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-2">
+                          <Mail className="w-4 h-4" />
+                          Correo Electrónico
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="email"
+                            placeholder="tu@email.com"
+                            className="max-w-md"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={profileForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Correo Electrónico</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Mail className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                          <Input placeholder="tu@email.com" className="pl-10 edupay-input-focus" {...field} />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <FormField
+                    control={profileForm.control}
+                    name="telefono"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-2">
+                          <Phone className="w-4 h-4" />
+                          Teléfono
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="+52 55 1234 5678"
+                            className="max-w-md"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={profileForm.control}
-                  name="telefono"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Teléfono (Opcional)</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Phone className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                          <Input placeholder="+52 123 456 7890" className="pl-10 edupay-input-focus" {...field} />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <div className="flex gap-2 pt-4">
+                    <Button
+                      type="submit"
+                      disabled={profileMutation.isPending}
+                      className="flex items-center gap-2"
+                    >
+                      {profileMutation.isPending ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Save className="w-4 h-4" />
+                      )}
+                      Guardar Cambios
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-                <Button 
-                  type="submit" 
-                  className="w-full edupay-button-primary"
-                  disabled={profileMutation.isPending}
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  {profileMutation.isPending ? "Guardando..." : "Guardar Cambios"}
-                </Button>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
+        <TabsContent value="password" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Lock className="w-5 h-5" />
+                Cambiar Contraseña
+              </CardTitle>
+              <CardDescription>
+                Actualiza tu contraseña para mantener tu cuenta segura
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form {...passwordForm}>
+                <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
+                  <FormField
+                    control={passwordForm.control}
+                    name="currentPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Contraseña Actual</FormLabel>
+                        <FormControl>
+                          <div className="relative max-w-md">
+                            <Input
+                              {...field}
+                              type={showCurrentPassword ? "text" : "password"}
+                              placeholder="Tu contraseña actual"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                              onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                            >
+                              {showCurrentPassword ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-        {/* Security Settings */}
-        <Card className="edupay-card-shadow edupay-card-hover animate-fade-scale">
-          <CardHeader className="bg-gradient-to-r from-red-50 to-pink-50 rounded-t-lg">
-            <CardTitle className="flex items-center gap-3 text-xl">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <Lock className="w-6 h-6 text-red-600" />
-              </div>
-              <span className="bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent font-bold">Seguridad</span>
-            </CardTitle>
-            <CardDescription className="text-slate-600 ml-11">
-              Cambia tu contraseña para mantener tu cuenta segura
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...passwordForm}>
-              <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
-                <FormField
-                  control={passwordForm.control}
-                  name="currentPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Contraseña Actual</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="Tu contraseña actual" className="edupay-input-focus" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <FormField
+                    control={passwordForm.control}
+                    name="newPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nueva Contraseña</FormLabel>
+                        <FormControl>
+                          <div className="relative max-w-md">
+                            <Input
+                              {...field}
+                              type={showNewPassword ? "text" : "password"}
+                              placeholder="Tu nueva contraseña"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                              onClick={() => setShowNewPassword(!showNewPassword)}
+                            >
+                              {showNewPassword ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={passwordForm.control}
-                  name="newPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nueva Contraseña</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="Mínimo 6 caracteres" className="edupay-input-focus" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <FormField
+                    control={passwordForm.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Confirmar Nueva Contraseña</FormLabel>
+                        <FormControl>
+                          <div className="relative max-w-md">
+                            <Input
+                              {...field}
+                              type={showConfirmPassword ? "text" : "password"}
+                              placeholder="Confirma tu nueva contraseña"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            >
+                              {showConfirmPassword ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={passwordForm.control}
-                  name="confirmPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Confirmar Nueva Contraseña</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="Repite la nueva contraseña" className="edupay-input-focus" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <Button 
-                  type="submit" 
-                  className="w-full edupay-button-danger"
-                  disabled={passwordMutation.isPending}
-                >
-                  <Lock className="w-4 h-4 mr-2" />
-                  {passwordMutation.isPending ? "Actualizando..." : "Cambiar Contraseña"}
-                </Button>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
-        </div>
-      </div>
+                  <div className="flex gap-2 pt-4">
+                    <Button
+                      type="submit"
+                      disabled={passwordMutation.isPending}
+                      className="flex items-center gap-2"
+                    >
+                      {passwordMutation.isPending ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Lock className="w-4 h-4" />
+                      )}
+                      Cambiar Contraseña
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => passwordForm.reset()}
+                      className="flex items-center gap-2"
+                    >
+                      <X className="w-4 h-4" />
+                      Cancelar
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

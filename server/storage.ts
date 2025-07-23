@@ -19,8 +19,10 @@ import bcrypt from "bcrypt";
 export interface IStorage {
   // Authentication
   getUser(id: number): Promise<User | undefined>;
+  getUserById(id: number): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, updates: Partial<User>): Promise<User | undefined>;
   
   // Super Admin operations
   createSuperAdmin(admin: InsertUser): Promise<User>;
@@ -113,6 +115,11 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
+  async getUserById(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
   async createUser(insertUser: InsertUser): Promise<User> {
     const hashedPassword = await bcrypt.hash(insertUser.password_hash, 10);
     const [user] = await db
@@ -120,6 +127,15 @@ export class DatabaseStorage implements IStorage {
       .values({ ...insertUser, password_hash: hashedPassword })
       .returning();
     return user;
+  }
+
+  async updateUser(id: number, updates: Partial<User>): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set(updates)
+      .where(eq(users.id, id))
+      .returning();
+    return user || undefined;
   }
 
   async getGuardian(id: number): Promise<Guardian | undefined> {

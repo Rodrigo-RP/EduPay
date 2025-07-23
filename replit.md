@@ -161,6 +161,12 @@ Changelog:
 - July 22, 2025: Problema raíz identificado: discrepancia entre esquema "details" y tabla real "notes" en approval_workflow_logs
 - July 22, 2025: Esquema actualizado para coincidir con base de datos real: notes, additional_data, previous_status, new_status
 - July 22, 2025: Funcionalidad verificada: botones Aprobar/Rechazar funcionando correctamente con respuesta 200
+- July 23, 2025: CONCEPTOS DEL CATÁLOGO RESTAURADOS DESPUÉS DE RECREACIÓN LIMPIA - 10 conceptos oficiales completamente funcionales
+- July 23, 2025: Cuentas por Cobrar completamente rediseñada eliminando duplicación "Buscar estudiante" según solicitud del usuario
+- July 23, 2025: Búsqueda individual de estudiantes integrada exitosamente en filtros principales para mayor eficiencia
+- July 23, 2025: Estructura simplificada de 4 a 3 pestañas: Lista de cuentas, Seguimiento, Reportes
+- July 23, 2025: Todos los errores TypeScript corregidos mediante recreación limpia con tipos explícitos y consistentes
+- July 23, 2025: Conceptos restaurados: Colegiaturas, Inscripciones, Reinscripciones, Seguro Escolar, Libros, Otros (10 total)
 - July 22, 2025: REBRANDING COMPLETADO AL 100% - Cambiado de "EscuelaPay" a "Edupay" en toda la plataforma
 - July 22, 2025: Actualizado frontend: login.tsx, configuracion.tsx, index.html, training-modal.tsx, notificaciones.tsx
 - July 22, 2025: Actualizado backend: seed-demo-data.ts, seed-super-admin.ts, routes.ts, optimize-database.ts

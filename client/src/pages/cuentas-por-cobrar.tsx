@@ -91,6 +91,20 @@ export default function CuentasPorCobrar() {
   // Usar datos de la API
   const cuentasPorCobrar: CuentaPorCobrar[] = cuentasPorCobrarData;
 
+  // Lista de conceptos del catálogo de productos (restaurados)
+  const conceptosCatalogo = [
+    { id: 1, codigo: "COL-2025", nombre: "Colegiatura Mensual", categoria: "COLEGIATURAS", descripcion: "Pago mensual de colegiatura para servicios educativos" },
+    { id: 2, codigo: "INS-2025", nombre: "Inscripción Anual", categoria: "INSCRIPCIONES", descripcion: "Pago único anual por inscripción al ciclo escolar" },
+    { id: 3, codigo: "REINS-2025", nombre: "Reinscripción", categoria: "REINSCRIPCIONES", descripcion: "Proceso de reinscripción para ciclo escolar siguiente" },
+    { id: 4, codigo: "SEG-ESC-2025", nombre: "Seguro Escolar", categoria: "SEGURO_ESCOLAR", descripcion: "Seguro contra accidentes escolares para estudiantes" },
+    { id: 5, codigo: "LIB-2025", nombre: "Paquete de Libros", categoria: "LIBROS", descripcion: "Set completo de libros de texto por nivel académico" },
+    { id: 6, codigo: "UNI-2025", nombre: "Uniforme Escolar", categoria: "OTROS", descripcion: "Uniforme completo oficial de la institución" },
+    { id: 7, codigo: "LAB-2025", nombre: "Laboratorio", categoria: "OTROS", descripcion: "Uso de laboratorios de ciencias y computación" },
+    { id: 8, codigo: "TRA-2025", nombre: "Transporte Escolar", categoria: "OTROS", descripcion: "Servicio de transporte escolar ida y vuelta" },
+    { id: 9, codigo: "COM-2025", nombre: "Comedor Escolar", categoria: "OTROS", descripcion: "Servicio de alimentación en el plantel educativo" },
+    { id: 10, codigo: "EXT-2025", nombre: "Actividades Extraescolares", categoria: "OTROS", descripcion: "Deportes, música, arte y actividades complementarias" }
+  ];
+
   // Función para filtrar las cuentas
   const filtrarCuentas = (cuentas: CuentaPorCobrar[]) => {
     return cuentas.filter((cuenta) => {

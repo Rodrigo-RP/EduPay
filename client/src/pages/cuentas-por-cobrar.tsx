@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,10 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle, TrendingDown, Clock, DollarSign, Users, Search, Download, Eye } from "lucide-react";
+import { AlertTriangle, Clock, DollarSign, Users, Download, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useInstitution } from "@/hooks/use-institution";
-import { useAuth } from "@/hooks/use-auth";
 
 // Tipos de datos
 interface CuentaPorCobrar {
@@ -35,7 +33,6 @@ export default function CuentasPorCobrar() {
 
   const { toast } = useToast();
   const { logoUrl, institutionName } = useInstitution();
-  const { user } = useAuth();
 
   // Datos de prueba
   const cuentasPorCobrarData = [
@@ -104,196 +101,6 @@ export default function CuentasPorCobrar() {
       case "PARCIAL": return "bg-purple-100 text-purple-800";
       default: return "bg-gray-100 text-gray-800";
     }
-  };
-
-  // Función para generar reporte PDF con logo institucional
-  const handleGenerarReporte = (reporte: any) => {
-    try {
-      // Crear contenido HTML del reporte
-      const reporteHTML = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <title>Reporte - ${reporte.nombre}</title>
-          <style>
-            body { 
-              font-family: Arial, sans-serif; 
-              margin: 0; 
-              padding: 20px; 
-              line-height: 1.6;
-            }
-            .header { 
-              display: flex; 
-              align-items: center; 
-              margin-bottom: 30px; 
-              border-bottom: 2px solid #2563eb;
-              padding-bottom: 20px;
-            }
-            .logo { 
-              width: 80px; 
-              height: 80px; 
-              margin-right: 20px; 
-            }
-            .institution-info h1 { 
-              color: #1e40af; 
-              margin: 0; 
-              font-size: 24px; 
-            }
-            .institution-info p { 
-              color: #64748b; 
-              margin: 5px 0; 
-            }
-            .report-title { 
-              text-align: center; 
-              color: #1e40af; 
-              font-size: 20px; 
-              margin: 20px 0; 
-            }
-            .metrics { 
-              display: grid; 
-              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
-              gap: 20px; 
-              margin: 30px 0; 
-            }
-            .metric-card { 
-              border: 1px solid #e2e8f0; 
-              padding: 15px; 
-              border-radius: 8px; 
-              text-align: center; 
-            }
-            .metric-value { 
-              font-size: 24px; 
-              font-weight: bold; 
-              color: #1e40af; 
-            }
-            .metric-label { 
-              color: #64748b; 
-              font-size: 14px; 
-            }
-            .table { 
-              width: 100%; 
-              border-collapse: collapse; 
-              margin: 20px 0; 
-            }
-            .table th, .table td { 
-              border: 1px solid #e2e8f0; 
-              padding: 10px; 
-              text-align: left; 
-            }
-            .table th { 
-              background-color: #f8fafc; 
-              color: #1e40af; 
-              font-weight: bold; 
-            }
-            .footer { 
-              margin-top: 40px; 
-              text-align: center; 
-              color: #64748b; 
-              font-size: 12px; 
-              border-top: 1px solid #e2e8f0; 
-              padding-top: 20px; 
-            }
-            @media print {
-              .no-print { display: none !important; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logo" />` : `
-              <div class="logo" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 24px;">
-                ISP
-              </div>
-            `}
-            <div class="institution-info">
-              <h1>${institutionName || 'Instituto JFR'}</h1>
-              <p>RFC: IJF180615AB3</p>
-              <p>Reporte generado: ${new Date().toLocaleDateString('es-MX')}</p>
-            </div>
-          </div>
-
-          <h2 class="report-title">${reporte.nombre}</h2>
-          
-          <div class="metrics">
-            <div class="metric-card">
-              <div class="metric-value">${formatCurrency(totalPorCobrar)}</div>
-              <div class="metric-label">Total por Cobrar</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-value">${formatCurrency(totalVencido)}</div>
-              <div class="metric-label">Total Vencido</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-value">${cuentasFiltradas.length}</div>
-              <div class="metric-label">Total Cuentas</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-value">73.2%</div>
-              <div class="metric-label">Tasa Recuperación</div>
-            </div>
-          </div>
-
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Estudiante</th>
-                <th>Nivel</th>
-                <th>Concepto</th>
-                <th>Pendiente</th>
-                <th>Estado</th>
-                <th>Días Vencido</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${cuentasFiltradas.map(cuenta => `
-                <tr>
-                  <td>${cuenta.estudiante}</td>
-                  <td>${cuenta.nivel_academico}</td>
-                  <td>${cuenta.concepto}</td>
-                  <td>${formatCurrency(cuenta.pendiente_pagar_centavos)}</td>
-                  <td>${cuenta.estado_cobranza}</td>
-                  <td>${cuenta.dias_vencido}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-
-          <div class="footer">
-            <p>Documento generado por Edupay - Sistema de Gestión Escolar</p>
-            <p>Fecha y hora: ${new Date().toLocaleString('es-MX')}</p>
-          </div>
-        </body>
-        </html>
-      `;
-
-      // Crear ventana para imprimir/descargar
-      const ventana = window.open('', '_blank');
-      if (ventana) {
-        ventana.document.write(reporteHTML);
-        ventana.document.close();
-        ventana.print();
-      }
-
-      toast({
-        title: "Reporte generado",
-        description: `${reporte.nombre} listo para descarga`
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "No se pudo generar el reporte",
-        variant: "destructive"
-      });
-    }
-  };
-
-  // Función para vista previa del reporte
-  const handleVistaPrevia = (reporte: any) => {
-    toast({
-      title: "Vista previa",
-      description: `Mostrando vista previa de ${reporte.nombre}`
-    });
   };
 
   return (
@@ -366,55 +173,6 @@ export default function CuentasPorCobrar() {
         </TabsList>
 
         <TabsContent value="lista" className="space-y-6">
-          {/* Filtros */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Filtros</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="estado">Estado</Label>
-                  <Select value={selectedEstado} onValueChange={setSelectedEstado}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar estado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos los estados</SelectItem>
-                      <SelectItem value="CORRIENTE">Corriente</SelectItem>
-                      <SelectItem value="VENCIDO">Vencido</SelectItem>
-                      <SelectItem value="MOROSO">Moroso</SelectItem>
-                      <SelectItem value="PAGADO">Pagado</SelectItem>
-                      <SelectItem value="PARCIAL">Parcial</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="nombre">Buscar Estudiante</Label>
-                  <Input
-                    id="nombre"
-                    placeholder="Nombre del estudiante..."
-                    value={filtroNombre}
-                    onChange={(e) => setFiltroNombre(e.target.value)}
-                  />
-                </div>
-
-                <div className="flex items-end">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setSelectedEstado("all");
-                      setFiltroNombre("");
-                    }}
-                  >
-                    Limpiar
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Lista de cuentas */}
           <Card>
             <CardHeader>
@@ -590,7 +348,101 @@ export default function CuentasPorCobrar() {
                           <Button 
                             size="sm" 
                             className="flex-1"
-                            onClick={() => handleGenerarReporte(reporte)}
+                            onClick={() => {
+                              const reporteHTML = `
+                                <!DOCTYPE html>
+                                <html>
+                                <head>
+                                  <meta charset="UTF-8">
+                                  <title>Reporte - ${reporte.nombre}</title>
+                                  <style>
+                                    body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+                                    .header { display: flex; align-items: center; margin-bottom: 30px; border-bottom: 2px solid #2563eb; padding-bottom: 20px; }
+                                    .logo { width: 80px; height: 80px; margin-right: 20px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 24px; }
+                                    .institution-info h1 { color: #1e40af; margin: 0; font-size: 24px; }
+                                    .institution-info p { color: #64748b; margin: 5px 0; }
+                                    .report-title { text-align: center; color: #1e40af; font-size: 20px; margin: 20px 0; }
+                                    .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 30px 0; }
+                                    .metric-card { border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; text-align: center; }
+                                    .metric-value { font-size: 24px; font-weight: bold; color: #1e40af; }
+                                    .metric-label { color: #64748b; font-size: 14px; }
+                                    .table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                                    .table th, .table td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; }
+                                    .table th { background-color: #f8fafc; color: #1e40af; font-weight: bold; }
+                                    .footer { margin-top: 40px; text-align: center; color: #64748b; font-size: 12px; border-top: 1px solid #e2e8f0; padding-top: 20px; }
+                                    @media print { .no-print { display: none !important; } }
+                                  </style>
+                                </head>
+                                <body>
+                                  <div class="header">
+                                    ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logo" />` : `<div class="logo">JFR</div>`}
+                                    <div class="institution-info">
+                                      <h1>${institutionName || 'Instituto JFR'}</h1>
+                                      <p>RFC: IJF180615AB3</p>
+                                      <p>Reporte generado: ${new Date().toLocaleDateString('es-MX')}</p>
+                                    </div>
+                                  </div>
+                                  <h2 class="report-title">${reporte.nombre}</h2>
+                                  <div class="metrics">
+                                    <div class="metric-card">
+                                      <div class="metric-value">${formatCurrency(totalPorCobrar)}</div>
+                                      <div class="metric-label">Total por Cobrar</div>
+                                    </div>
+                                    <div class="metric-card">
+                                      <div class="metric-value">${formatCurrency(totalVencido)}</div>
+                                      <div class="metric-label">Total Vencido</div>
+                                    </div>
+                                    <div class="metric-card">
+                                      <div class="metric-value">${cuentasFiltradas.length}</div>
+                                      <div class="metric-label">Total Cuentas</div>
+                                    </div>
+                                    <div class="metric-card">
+                                      <div class="metric-value">73.2%</div>
+                                      <div class="metric-label">Tasa Recuperación</div>
+                                    </div>
+                                  </div>
+                                  <table class="table">
+                                    <thead>
+                                      <tr>
+                                        <th>Estudiante</th>
+                                        <th>Nivel</th>
+                                        <th>Concepto</th>
+                                        <th>Pendiente</th>
+                                        <th>Estado</th>
+                                        <th>Días Vencido</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      ${cuentasFiltradas.map(cuenta => `
+                                        <tr>
+                                          <td>${cuenta.estudiante}</td>
+                                          <td>${cuenta.nivel_academico}</td>
+                                          <td>${cuenta.concepto}</td>
+                                          <td>${formatCurrency(cuenta.pendiente_pagar_centavos)}</td>
+                                          <td>${cuenta.estado_cobranza}</td>
+                                          <td>${cuenta.dias_vencido}</td>
+                                        </tr>
+                                      `).join('')}
+                                    </tbody>
+                                  </table>
+                                  <div class="footer">
+                                    <p>Documento generado por Edupay - Sistema de Gestión Escolar</p>
+                                    <p>Fecha y hora: ${new Date().toLocaleString('es-MX')}</p>
+                                  </div>
+                                </body>
+                                </html>
+                              `;
+                              const ventana = window.open('', '_blank');
+                              if (ventana) {
+                                ventana.document.write(reporteHTML);
+                                ventana.document.close();
+                                ventana.print();
+                              }
+                              toast({
+                                title: "Reporte generado",
+                                description: `${reporte.nombre} listo para descarga`
+                              });
+                            }}
                           >
                             <Download className="w-4 h-4 mr-1" />
                             Descargar
@@ -598,7 +450,12 @@ export default function CuentasPorCobrar() {
                           <Button 
                             size="sm" 
                             variant="outline"
-                            onClick={() => handleVistaPrevia(reporte)}
+                            onClick={() => {
+                              toast({
+                                title: "Vista previa",
+                                description: `Mostrando vista previa de ${reporte.nombre}`
+                              });
+                            }}
                           >
                             <Eye className="w-4 h-4" />
                           </Button>

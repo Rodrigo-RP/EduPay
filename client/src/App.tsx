@@ -42,6 +42,7 @@ import ReportesFinancieros from "@/pages/reportes-financieros";
 import ReportesAdmisiones from "@/pages/reportes-admisiones";
 import RoleBasedDashboard from "@/components/RoleBasedDashboard";
 import Profile from "@/pages/profile";
+import MigrationRefeerence from "@/pages/migration-refeerence";
 
 function AuthenticatedRoutes() {
   const { user, guardian, isLoading } = useAuth();
@@ -124,6 +125,7 @@ function AuthenticatedRoutes() {
             <Route path="/demo-aprobaciones" component={DemoAprobaciones} />
             <Route path="/dashboard-admisiones" component={DashboardAdmisiones} />
             <Route path="/dashboard-caja" component={DashboardCaja} />
+            <Route path="/migration-refeerence" component={MigrationRefeerence} />
             <Route path="/profile" component={Profile} />
             <Route component={NotFound} />
           </Switch>

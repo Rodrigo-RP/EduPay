@@ -4365,5 +4365,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // MIGRATION API ROUTES - Para que Refeerence pueda migrar EDUPAY desde Replit
+  app.use('/api/migration', (await import('./replit-migration-api')).default);
+
   return httpServer;
 }

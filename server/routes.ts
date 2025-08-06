@@ -5153,10 +5153,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updates: { concepto, dia_vencimiento, mes_aplicacion, activo }
       });
 
+      // Fix HTML entity encoding issue
+      const cleanedMesAplicacion = typeof mes_aplicacion === 'string' 
+        ? mes_aplicacion.replace(/&quot;/g, '"') 
+        : mes_aplicacion;
+
       const updates = {
         concepto,
         dia_vencimiento: parseInt(dia_vencimiento) || dia_vencimiento,
-        mes_aplicacion: Array.isArray(mes_aplicacion) ? JSON.stringify(mes_aplicacion) : mes_aplicacion,
+        mes_aplicacion: Array.isArray(cleanedMesAplicacion) ? JSON.stringify(cleanedMesAplicacion) : cleanedMesAplicacion,
         activo: activo !== undefined ? activo : true
       };
 

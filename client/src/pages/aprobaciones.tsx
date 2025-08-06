@@ -245,6 +245,28 @@ export default function Aprobaciones() {
     });
   };
 
+  const renderApprovalData = (dataString: string) => {
+    try {
+      const data = JSON.parse(dataString);
+      if (typeof data === 'object' && data !== null) {
+        return (
+          <div className="space-y-1">
+            {Object.entries(data).map(([key, value]) => (
+              <div key={key} className="flex justify-between">
+                <span className="font-medium text-gray-700">{getTranslatedFieldName(key)}:</span>
+                <span className="text-gray-900">{String(value)}</span>
+              </div>
+            ))}
+          </div>
+        );
+      } else {
+        return <span className="text-gray-700">{String(data)}</span>;
+      }
+    } catch {
+      return <span className="text-gray-500">Datos no válidos</span>;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">

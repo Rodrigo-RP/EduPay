@@ -22,6 +22,7 @@ export default function Estudiantes() {
   const [selectedSeccion, setSelectedSeccion] = useState("all");
   const [selectedCicloEscolar, setSelectedCicloEscolar] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [selectedCodigoPostal, setSelectedCodigoPostal] = useState("all");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [gruposPersonalizados, setGruposPersonalizados] = useState(["A", "B", "C", "D", "E", "F", "G", "H"]);
   const [editandoGrupos, setEditandoGrupos] = useState(false);
@@ -443,6 +444,15 @@ export default function Estudiantes() {
   const secciones = Array.from(new Set(estudiantes.map((e: any) => e.nivel_escolar).filter(Boolean))) as string[];
   const ciclosEscolares = Array.from(new Set(estudiantes.map((e: any) => e.ciclo_escolar || '2024-2025').filter(Boolean))) as string[];
   const statusOptions = Array.from(new Set(estudiantes.map((e: any) => e.status).filter(Boolean))) as string[];
+  const codigosPostales = Array.from(new Set(
+    estudiantes.map((e: any) => 
+      e.codigo_postal || 
+      e.cp || 
+      e.direccion_codigo_postal || 
+      e.postal_code ||
+      (e.direccion && e.direccion.match && e.direccion.match(/\b\d{5}\b/))?.[0]
+    ).filter(Boolean)
+  )) as string[];
 
   const filteredEstudiantes = estudiantes.filter((estudiante: any) => {
     const matchSearch = !searchTerm || 
@@ -456,8 +466,14 @@ export default function Estudiantes() {
     const matchSeccion = selectedSeccion === "all" || estudiante.nivel_escolar === selectedSeccion;
     const matchCiclo = selectedCicloEscolar === "all" || (estudiante.ciclo_escolar || '2024-2025') === selectedCicloEscolar;
     const matchStatus = selectedStatus === "all" || estudiante.status === selectedStatus;
+    const matchCodigoPostal = selectedCodigoPostal === "all" || 
+      estudiante.codigo_postal === selectedCodigoPostal ||
+      estudiante.cp === selectedCodigoPostal ||
+      estudiante.direccion_codigo_postal === selectedCodigoPostal ||
+      estudiante.postal_code === selectedCodigoPostal ||
+      (estudiante.direccion && estudiante.direccion.includes && estudiante.direccion.includes(selectedCodigoPostal));
     
-    return matchSearch && matchGrado && matchGrupo && matchSeccion && matchCiclo && matchStatus;
+    return matchSearch && matchGrado && matchGrupo && matchSeccion && matchCiclo && matchStatus && matchCodigoPostal;
   });
 
   if (error) {
@@ -562,7 +578,7 @@ export default function Estudiantes() {
             </div>
 
             {/* Filtros rápidos (siempre visibles) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Sección Educativa</Label>
                 <Select value={selectedSeccion} onValueChange={setSelectedSeccion}>
@@ -622,6 +638,21 @@ export default function Estudiantes() {
                     <SelectItem value="egresado">Egresado</SelectItem>
                     {statusOptions.filter(status => !['activo', 'inactivo', 'suspendido', 'egresado'].includes(status)).map((status) => (
                       <SelectItem key={status} value={status}>{status}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Código Postal</Label>
+                <Select value={selectedCodigoPostal} onValueChange={setSelectedCodigoPostal}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Todas las zonas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las zonas</SelectItem>
+                    {codigosPostales.sort().map((cp) => (
+                      <SelectItem key={cp} value={cp}>CP {cp}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

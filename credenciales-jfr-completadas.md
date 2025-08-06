@@ -2,7 +2,7 @@
 
 ## ✅ CONFIGURACIÓN FINALIZADA EXITOSAMENTE
 
-### 🏢 **Instituto José Francisco Ruiz Massieu** 
+### 🏢 **Instituto JFR** 
 - Tenant ID: 24
 - RFC: IJF060101ABC  
 - Campus Principal ID: 39
@@ -76,4 +76,4 @@
 
 ---
 
-**El Instituto José Francisco Ruiz Massieu ya puede comenzar a usar el sistema completo de EDUPAY**
+**El Instituto JFR ya puede comenzar a usar el sistema completo de EDUPAY**

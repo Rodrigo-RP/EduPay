@@ -3,7 +3,7 @@
 ## ✅ CONFIGURACIÓN COMPLETADA
 
 ### 🏢 Institución Creada
-- **Nombre Legal**: Instituto José Francisco Ruiz Massieu
+- **Nombre Legal**: Instituto JFR
 - **RFC**: IJF060101ABC
 - **PAC Provider**: Facturama JFR
 
@@ -74,4 +74,4 @@
 **Email**: rodrigorp@institutojfr.edu.mx
 **Password**: [REDACTED]
 
-El sistema está listo para recibir datos reales del Instituto José Francisco Ruiz Massieu.
+El sistema está listo para recibir datos reales del Instituto JFR.

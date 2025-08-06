@@ -26,6 +26,8 @@ export function InstitutionProvider({ children }: { children: ReactNode }) {
       return response.json();
     },
     retry: 1,
+    staleTime: 0, // Siempre refrescar datos
+    cacheTime: 0, // No mantener cache
     enabled: !!localStorage.getItem('auth_token') // Solo ejecutar si hay token
   });
 
@@ -41,7 +43,7 @@ export function InstitutionProvider({ children }: { children: ReactNode }) {
           .replace(/&#x2F;/g, '/')
           .replace(/&quot;/g, '"')
           .replace(/&amp;/g, '&');
-        console.log('Logo URL decodificada:', decodedUrl.substring(0, 50) + '...');
+        console.log('🖼️ Logo URL procesada, longitud:', decodedUrl.length);
         setLogoUrl(decodedUrl);
       } else {
         setLogoUrl(null);

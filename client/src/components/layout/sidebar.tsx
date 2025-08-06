@@ -290,16 +290,16 @@ export default function Sidebar() {
       <div className="p-6">
         <div className="flex items-center space-x-3">
           <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
-            {logoUrl && logoUrl.length > 10 ? (
+            {logoUrl && logoUrl.length > 50 && logoUrl.includes('data:image') ? (
               <img 
                 src={logoUrl} 
                 alt="Logo institucional" 
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover rounded-xl"
+                style={{ display: 'block', maxWidth: '100%', maxHeight: '100%' }}
                 onError={(e) => {
-                  console.error('Error cargando logo:', e);
-                  e.currentTarget.style.display = 'none';
+                  console.error('Error al cargar logo institucional');
                 }}
-                onLoad={() => console.log('Logo cargado exitosamente')}
+                onLoad={() => console.log('✅ Logo institucional mostrado correctamente')}
               />
             ) : (
               <i className="fas fa-university text-white text-lg"></i>

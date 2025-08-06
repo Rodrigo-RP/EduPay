@@ -5142,6 +5142,255 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(response);
   });
 
+  // Payment Configuration - Complete System Endpoints
+  
+  // Get all concepts
+  app.get("/api/concepts", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user.campus_id;
+      const conceptsList = await db
+        .select()
+        .from(concepts)
+        .where(eq(concepts.campus_id, campusId));
+      
+      res.json(conceptsList);
+    } catch (error: any) {
+      console.error("Error fetching concepts:", error);
+      res.status(500).json({ message: "Error fetching concepts: " + error.message });
+    }
+  });
+
+  // Create new concept
+  app.post("/api/concepts", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user.campus_id;
+      const { nombre, tipo, periodicidad, monto_centavos, iva } = req.body;
+      
+      const [newConcept] = await db
+        .insert(concepts)
+        .values({
+          campus_id: campusId,
+          nombre,
+          tipo,
+          periodicidad,
+          monto_centavos,
+          iva: iva !== undefined ? iva : false
+        })
+        .returning();
+      
+      res.status(201).json(newConcept);
+    } catch (error: any) {
+      console.error("Error creating concept:", error);
+      res.status(500).json({ message: "Error creating concept: " + error.message });
+    }
+  });
+
+  // Get complete due dates configuration
+  app.get("/api/payment-config/due-dates-complete", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user.campus_id;
+      
+      // Using left join to get concept names
+      const dueDatesComplete = await db
+        .select({
+          id: payment_due_dates.id,
+          concepto_id: payment_due_dates.concepto,
+          concepto_nombre: concepts.nombre,
+          dia_vencimiento: payment_due_dates.dia_vencimiento,
+          meses_aplicacion: payment_due_dates.mes_aplicacion,
+          activo: payment_due_dates.activo
+        })
+        .from(payment_due_dates)
+        .leftJoin(concepts, eq(payment_due_dates.concepto, concepts.nombre))
+        .where(eq(payment_due_dates.campus_id, campusId));
+      
+      // Parse meses_aplicacion from JSON string to array
+      const processedData = dueDatesComplete.map(item => ({
+        ...item,
+        meses_aplicacion: typeof item.meses_aplicacion === 'string' 
+          ? (item.meses_aplicacion === 'todos' ? ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'] : JSON.parse(item.meses_aplicacion))
+          : item.meses_aplicacion || []
+      }));
+      
+      res.json(processedData);
+    } catch (error: any) {
+      console.error("Error fetching complete due dates:", error);
+      res.status(500).json({ message: "Error fetching due dates: " + error.message });
+    }
+  });
+
+  // Create complete due date
+  app.post("/api/payment-config/due-dates-complete", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user.campus_id;
+      const { concepto_id, dia_vencimiento, meses_aplicacion, activo } = req.body;
+      
+      // Find the concept name by ID
+      const [conceptData] = await db
+        .select({ nombre: concepts.nombre })
+        .from(concepts)
+        .where(eq(concepts.id, concepto_id))
+        .limit(1);
+
+      if (!conceptData) {
+        return res.status(400).json({ message: "Concepto no encontrado" });
+      }
+      
+      const [newDueDate] = await db
+        .insert(payment_due_dates)
+        .values({
+          campus_id: campusId,
+          concepto: conceptData.nombre,
+          dia_vencimiento,
+          mes_aplicacion: meses_aplicacion.length === 12 ? 'todos' : JSON.stringify(meses_aplicacion),
+          activo: activo !== undefined ? activo : true
+        })
+        .returning();
+      
+      res.status(201).json(newDueDate);
+    } catch (error: any) {
+      console.error("Error creating due date:", error);
+      res.status(500).json({ message: "Error creating due date: " + error.message });
+    }
+  });
+
+  // Update complete due date
+  app.put("/api/payment-config/due-dates-complete/:id", authenticateToken, async (req, res) => {
+    try {
+      const dueDateId = parseInt(req.params.id);
+      const { concepto_id, dia_vencimiento, meses_aplicacion, activo } = req.body;
+      
+      // Find the concept name by ID if provided
+      let conceptName = null;
+      if (concepto_id) {
+        const [conceptData] = await db
+          .select({ nombre: concepts.nombre })
+          .from(concepts)
+          .where(eq(concepts.id, concepto_id))
+          .limit(1);
+        
+        if (conceptData) {
+          conceptName = conceptData.nombre;
+        }
+      }
+      
+      const updateData: any = {};
+      if (conceptName) updateData.concepto = conceptName;
+      if (dia_vencimiento) updateData.dia_vencimiento = dia_vencimiento;
+      if (meses_aplicacion) updateData.mes_aplicacion = meses_aplicacion.length === 12 ? 'todos' : JSON.stringify(meses_aplicacion);
+      if (activo !== undefined) updateData.activo = activo;
+      updateData.updated_at = new Date();
+      
+      const [updated] = await db
+        .update(payment_due_dates)
+        .set(updateData)
+        .where(eq(payment_due_dates.id, dueDateId))
+        .returning();
+      
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating due date:", error);
+      res.status(500).json({ message: "Error updating due date: " + error.message });
+    }
+  });
+
+  // Delete complete due date
+  app.delete("/api/payment-config/due-dates-complete/:id", authenticateToken, async (req, res) => {
+    try {
+      const dueDateId = parseInt(req.params.id);
+      
+      await db
+        .delete(payment_due_dates)
+        .where(eq(payment_due_dates.id, dueDateId));
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting due date:", error);
+      res.status(500).json({ message: "Error deleting due date: " + error.message });
+    }
+  });
+
+  // Get complete surcharge rules
+  app.get("/api/payment-config/surcharge-rules-complete", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user.campus_id;
+      
+      // Note: Based on DB schema, payment_surcharge_rules doesn't exist, using a mock structure
+      // We'll need to create the actual table or use a different approach
+      const surchargeRulesComplete = [
+        // Mock data structure for now
+        {
+          id: 1,
+          concepto_id: 1,
+          concepto_nombre: "Colegiatura Mensual",
+          dias_gracia: 5,
+          porcentaje_recargo: 10,
+          tipo_calculo: 'porcentaje_fijo',
+          activo: true
+        }
+      ];
+      
+      res.json(surchargeRulesComplete);
+    } catch (error: any) {
+      console.error("Error fetching complete surcharge rules:", error);
+      res.status(500).json({ message: "Error fetching surcharge rules: " + error.message });
+    }
+  });
+
+  // Create complete surcharge rule - Placeholder
+  app.post("/api/payment-config/surcharge-rules-complete", authenticateToken, async (req, res) => {
+    try {
+      // Placeholder implementation - surcharge rules table needs to be created
+      const { concepto_id, dias_gracia, porcentaje_recargo, tipo_calculo, activo } = req.body;
+      
+      const newRule = {
+        id: Math.floor(Math.random() * 1000),
+        concepto_id,
+        dias_gracia: dias_gracia || 0,
+        porcentaje_recargo,
+        tipo_calculo: tipo_calculo || 'porcentaje_fijo',
+        activo: activo !== undefined ? activo : true
+      };
+      
+      res.status(201).json(newRule);
+    } catch (error: any) {
+      console.error("Error creating surcharge rule:", error);
+      res.status(500).json({ message: "Error creating surcharge rule: " + error.message });
+    }
+  });
+
+  // Update complete surcharge rule - Placeholder
+  app.put("/api/payment-config/surcharge-rules-complete/:id", authenticateToken, async (req, res) => {
+    try {
+      const ruleId = parseInt(req.params.id);
+      const { concepto_id, dias_gracia, porcentaje_recargo, tipo_calculo, activo } = req.body;
+      
+      const updated = {
+        id: ruleId,
+        concepto_id,
+        dias_gracia,
+        porcentaje_recargo,
+        tipo_calculo,
+        activo
+      };
+      
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating surcharge rule:", error);
+      res.status(500).json({ message: "Error updating surcharge rule: " + error.message });
+    }
+  });
+
+  // Delete complete surcharge rule - Placeholder
+  app.delete("/api/payment-config/surcharge-rules-complete/:id", authenticateToken, async (req, res) => {
+    try {
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting surcharge rule:", error);
+      res.status(500).json({ message: "Error deleting surcharge rule: " + error.message });
+    }
+  });
+
   // TEST endpoint - verify requests reach server
   app.post("/api/test-create", authenticateToken, async (req, res) => {
     console.log("🧪 TEST ENDPOINT - Request received with body:", JSON.stringify(req.body, null, 2));

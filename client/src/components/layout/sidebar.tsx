@@ -162,6 +162,15 @@ export default function Sidebar() {
       module: MODULES.SETTINGS,
       action: ACTIONS.CONFIGURE
     },
+    { 
+      icon: "fas fa-calendar-check", 
+      label: "Configuración de Pagos", 
+      href: "/configuracion-pagos-completa", 
+      active: location === "/configuracion-pagos-completa",
+      category: "sistema",
+      module: MODULES.SETTINGS,
+      action: ACTIONS.CONFIGURE
+    },
 
 
     { 

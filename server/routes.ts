@@ -960,10 +960,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/students", authenticateToken, async (req, res) => {
     try {
       const studentData = req.body;
+      const user = (req as any).user;
+      
+      // Add campus_id from authenticated user if not provided
+      if (!studentData.campus_id) {
+        studentData.campus_id = user.campus_id;
+      }
+      
       const student = await storage.createStudent(studentData);
       
       // Notify real-time update
-      const user = (req as any).user;
       wsManager.notifyStudentUpdate(student, 'create', {
         campus_id: studentData.campus_id || user.campus_id,
         tenant_id: user.tenant_id,
@@ -973,6 +979,183 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(student);
     } catch (error: any) {
       res.status(500).json({ message: "Error creating student: " + error.message });
+    }
+  });
+
+  // Export students to Excel/CSV
+  app.get("/api/admin/students/:campusId/export", authenticateToken, async (req, res) => {
+    try {
+      const campusId = parseInt(req.params.campusId);
+      const format = req.query.format as string || 'xlsx';
+      
+      const students = await storage.getStudentsByCampus(campusId);
+      
+      // Transform data for export
+      const exportData = students.map(student => ({
+        'ID': student.id,
+        'CURP': student.curp || '',
+        'Nombre Completo': student.nombre_completo,
+        'Grado': student.grado || '',
+        'Grupo': student.grupo || '',
+        'Estatus': student.status,
+        'Fecha de Registro': student.created_at ? new Date(student.created_at).toLocaleDateString('es-MX') : ''
+      }));
+
+      if (format === 'csv') {
+        // CSV Export
+        const csvHeader = Object.keys(exportData[0] || {}).join(',');
+        const csvRows = exportData.map(row => 
+          Object.values(row).map(value => `"${value}"`).join(',')
+        );
+        const csvContent = [csvHeader, ...csvRows].join('\n');
+        
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="estudiantes_${new Date().toISOString().split('T')[0]}.csv"`);
+        res.send('\uFEFF' + csvContent); // BOM for UTF-8
+      } else {
+        // Excel Export
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        
+        // Auto-adjust column widths
+        const colWidths = Object.keys(exportData[0] || {}).map(key => ({
+          wch: Math.max(key.length, 15)
+        }));
+        ws['!cols'] = colWidths;
+        
+        XLSX.utils.book_append_sheet(wb, ws, 'Estudiantes');
+        
+        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="estudiantes_${new Date().toISOString().split('T')[0]}.xlsx"`);
+        res.send(buffer);
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: "Error exporting students: " + error.message });
+    }
+  });
+
+  // Import students from Excel/CSV
+  app.post("/api/admin/students/import", authenticateToken, upload.single('file'), async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const file = req.file;
+      
+      if (!file) {
+        return res.status(400).json({ message: "No se proporcionó archivo" });
+      }
+
+      let jsonData: any[] = [];
+      
+      // Process file based on type
+      if (file.mimetype === 'text/csv') {
+        // Parse CSV
+        const csvContent = file.buffer.toString('utf-8').replace(/^\uFEFF/, ''); // Remove BOM
+        const lines = csvContent.split('\n').filter(line => line.trim());
+        
+        if (lines.length < 2) {
+          return res.status(400).json({ message: "El archivo CSV debe tener al menos una fila de encabezados y una fila de datos" });
+        }
+        
+        const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
+        
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(',').map(v => v.replace(/"/g, '').trim());
+          const obj: any = {};
+          headers.forEach((header, index) => {
+            obj[header] = values[index] || '';
+          });
+          if (obj['Nombre Completo'] || obj['CURP']) { // Only add rows with essential data
+            jsonData.push(obj);
+          }
+        }
+      } else {
+        // Parse Excel
+        const workbook = XLSX.read(file.buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        jsonData = XLSX.utils.sheet_to_json(sheet);
+      }
+
+      if (jsonData.length === 0) {
+        return res.status(400).json({ message: "No se encontraron datos válidos en el archivo" });
+      }
+
+      // Transform and validate data
+      const studentsToCreate = [];
+      const errors = [];
+
+      for (let i = 0; i < jsonData.length; i++) {
+        const row = jsonData[i];
+        const rowNum = i + 2; // Account for header row
+        
+        try {
+          // Map column names (flexible mapping)
+          const studentData = {
+            campus_id: user.campus_id,
+            curp: row['CURP'] || row['curp'] || '',
+            nombre_completo: row['Nombre Completo'] || row['nombre_completo'] || row['Nombre'] || '',
+            grado: row['Grado'] || row['grado'] || '',
+            grupo: row['Grupo'] || row['grupo'] || '',
+            status: row['Estatus'] || row['status'] || row['Status'] || 'activo'
+          };
+
+          // Validate required fields
+          if (!studentData.nombre_completo.trim()) {
+            errors.push(`Fila ${rowNum}: Nombre completo es requerido`);
+            continue;
+          }
+
+          // Validate CURP format if provided
+          if (studentData.curp && studentData.curp.length !== 18) {
+            errors.push(`Fila ${rowNum}: CURP debe tener 18 caracteres`);
+            continue;
+          }
+
+          studentsToCreate.push(studentData);
+        } catch (error) {
+          errors.push(`Fila ${rowNum}: Error procesando datos`);
+        }
+      }
+
+      if (errors.length > 0 && studentsToCreate.length === 0) {
+        return res.status(400).json({ 
+          message: "No se pudieron procesar los datos",
+          errors: errors 
+        });
+      }
+
+      // Create students in batch
+      const createdStudents = [];
+      const creationErrors = [];
+
+      for (const studentData of studentsToCreate) {
+        try {
+          const student = await storage.createStudent(studentData);
+          createdStudents.push(student);
+          
+          // Notify real-time update
+          wsManager.notifyStudentUpdate(student, 'create', {
+            campus_id: user.campus_id,
+            tenant_id: user.tenant_id,
+            created_by: user.id
+          });
+        } catch (error: any) {
+          creationErrors.push(`Error creando estudiante ${studentData.nombre_completo}: ${error.message}`);
+        }
+      }
+
+      res.json({
+        message: `Importación completada`,
+        total_processed: jsonData.length,
+        successful: createdStudents.length,
+        errors: [...errors, ...creationErrors],
+        created_students: createdStudents
+      });
+
+    } catch (error: any) {
+      res.status(500).json({ message: "Error importing students: " + error.message });
     }
   });
 

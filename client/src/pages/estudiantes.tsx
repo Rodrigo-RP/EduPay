@@ -98,6 +98,49 @@ export default function Estudiantes() {
     }
   });
 
+  // Mutación para importar estudiantes
+  const importStudentsMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch('/api/admin/students/import', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Error en la importación');
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/students/1'] });
+      toast({
+        title: "Importación completada",
+        description: `${data.successful} estudiantes importados exitosamente`
+      });
+      setImportFile(null);
+      setIsImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error en la importación",
+        description: error.message,
+        variant: "destructive"
+      });
+      setIsImporting(false);
+    }
+  });
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
       ...prev,
@@ -172,6 +215,87 @@ export default function Estudiantes() {
     setShowEditModal(true);
   };
 
+  // Funciones para exportar
+  const handleExport = async (format: 'xlsx' | 'csv') => {
+    try {
+      const response = await fetch(`/api/admin/students/1/export?format=${format}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error al exportar');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `estudiantes_${new Date().toISOString().split('T')[0]}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: "Exportación exitosa",
+        description: `Archivo ${format.toUpperCase()} descargado correctamente`
+      });
+    } catch (error) {
+      toast({
+        title: "Error al exportar",
+        description: "No se pudo exportar el archivo",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Función para manejar la selección de archivo
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setImportFile(file);
+    }
+  };
+
+  // Función para iniciar importación
+  const handleImport = () => {
+    if (importFile) {
+      setIsImporting(true);
+      importStudentsMutation.mutate(importFile);
+    }
+  };
+
+  // Función para descargar plantilla
+  const downloadTemplate = () => {
+    const templateData = [
+      ['Nombre Completo', 'CURP', 'Grado', 'Grupo', 'Estatus'],
+      ['Juan Pérez García', 'PEGJ120101HDFRRN09', '1° Primaria', 'A', 'activo'],
+      ['María López Hernández', 'LOHM130202MDFPRR08', '2° Primaria', 'B', 'activo'],
+      ['Carlos Martínez Ruiz', 'MARC140303HDFRRR07', 'Kinder 3', 'A', 'becado']
+    ];
+    
+    const csvContent = templateData.map(row => 
+      row.map(cell => `"${cell}"`).join(',')
+    ).join('\n');
+    
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'plantilla_estudiantes.csv';
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    
+    toast({
+      title: "Plantilla descargada",
+      description: "Usa esta plantilla como ejemplo para importar estudiantes"
+    });
+  };
+
   // Filtros para estudiantes
   const grados = [...new Set(estudiantes.map((e: any) => e.grado).filter(Boolean))];
   const grupos = [...new Set(estudiantes.map((e: any) => e.grupo).filter(Boolean))];
@@ -223,13 +347,39 @@ export default function Estudiantes() {
             <Plus className="h-4 w-4 mr-2" />
             Agregar estudiante
           </Button>
-          <Button variant="outline">
-            <FileSpreadsheet className="h-4 w-4 mr-2" />
+          <Button 
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isImporting}
+          >
+            {isImporting ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4 mr-2" />
+            )}
             Importar masivo
           </Button>
-          <Button variant="outline">
+          <Button 
+            variant="outline"
+            onClick={() => handleExport('xlsx')}
+          >
             <Download className="h-4 w-4 mr-2" />
-            Exportar
+            Exportar Excel
+          </Button>
+          <Button 
+            variant="outline"
+            onClick={() => handleExport('csv')}
+          >
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            Exportar CSV
+          </Button>
+          <Button 
+            variant="ghost"
+            onClick={downloadTemplate}
+            className="text-gray-600"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Plantilla
           </Button>
         </div>
       </div>
@@ -523,6 +673,75 @@ export default function Estudiantes() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Input oculto para selección de archivos */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".xlsx,.xls,.csv"
+        onChange={handleFileSelect}
+        style={{ display: 'none' }}
+      />
+
+      {/* Modal de confirmación de importación */}
+      {importFile && (
+        <Dialog open={!!importFile} onOpenChange={() => {setImportFile(null); if (fileInputRef.current) fileInputRef.current.value = '';}}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirmar importación</DialogTitle>
+              <DialogDescription>
+                ¿Deseas importar el archivo "{importFile.name}"?
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h4 className="font-semibold mb-2">Formato esperado:</h4>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li>• <strong>Nombre Completo</strong> (requerido)</li>
+                  <li>• <strong>CURP</strong> (opcional, debe tener 18 caracteres)</li>
+                  <li>• <strong>Grado</strong> (opcional)</li>
+                  <li>• <strong>Grupo</strong> (opcional)</li>
+                  <li>• <strong>Estatus</strong> (opcional, por defecto: activo)</li>
+                </ul>
+              </div>
+              
+              {isImporting && (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Procesando archivo...</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setImportFile(null);
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }}
+                disabled={isImporting}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleImport}
+                disabled={isImporting}
+              >
+                {isImporting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Importando...
+                  </>
+                ) : (
+                  'Confirmar importación'
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

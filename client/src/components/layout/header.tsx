@@ -96,7 +96,13 @@ export default function Header() {
                   {user?.email || guardian?.email}
                 </p>
                 <p className="text-xs text-slate-500">
-                  {user ? "Administrador" : "Padre/Tutor"}
+                  {user ? (user.role === 'administrador_general' ? 'Administrador General' : 
+                          user.role === 'administrador_campus' ? 'Administrador Campus' :
+                          user.role === 'contador_general' ? 'Contador General' :
+                          user.role === 'auxiliar_contable' ? 'Auxiliar Contable' :
+                          user.role === 'admisiones' ? 'Admisiones' :
+                          user.role === 'asistente' ? 'Asistente' :
+                          'Administrador') : "Padre/Tutor"}
                 </p>
               </div>
 

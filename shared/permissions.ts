@@ -92,7 +92,8 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.SETTINGS, action: ACTIONS.CONFIGURE, scope: 'all', description: 'Configurar cualquier ajuste' },
       { module: MODULES.FINANCIAL, action: ACTIONS.READ, scope: 'all', description: 'Ver análisis financiero de todas las escuelas' },
       { module: MODULES.SECURITY, action: ACTIONS.CONFIGURE, scope: 'all', description: 'Configurar seguridad del sistema' },
-      { module: MODULES.SYSTEM, action: ACTIONS.CONFIGURE, scope: 'all', description: 'Configurar parámetros del sistema' }
+      { module: MODULES.SYSTEM, action: ACTIONS.CONFIGURE, scope: 'all', description: 'Configurar parámetros del sistema' },
+      { module: MODULES.SYSTEM, action: ACTIONS.APPROVE, scope: 'all', description: 'Aprobar solicitudes del sistema' }
     ],
     restrictions: []
   },

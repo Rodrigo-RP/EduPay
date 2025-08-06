@@ -467,15 +467,20 @@ export default function Estudiantes() {
     'Preparatoria'
   ];
   
+  // Grados organizados por sección educativa para mejor identificación
+  const gradosPorSeccion = {
+    'Kinder': ['1° Kinder', '2° Kinder', '3° Kinder'],
+    'Primaria': ['1° Primaria', '2° Primaria', '3° Primaria', '4° Primaria', '5° Primaria', '6° Primaria'],
+    'Secundaria': ['7° (1° Secundaria)', '8° (2° Secundaria)', '9° (3° Secundaria)'],
+    'Preparatoria': ['1° Semestre', '2° Semestre', '3° Semestre', '4° Semestre', '5° Semestre', '6° Semestre']
+  };
+
+  // Lista ordenada de todos los grados para filtros
   const gradosEducativos = [
-    // Kinder (solo 1°, 2°, 3°)
-    '1° Kinder', '2° Kinder', '3° Kinder',
-    // Primaria (1° a 6°)
-    '1° Primaria', '2° Primaria', '3° Primaria', '4° Primaria', '5° Primaria', '6° Primaria',
-    // Secundaria (7°, 8°, 9°)
-    '7° (1° Secundaria)', '8° (2° Secundaria)', '9° (3° Secundaria)',
-    // Preparatoria (por semestres)
-    '1° Semestre', '2° Semestre', '3° Semestre', '4° Semestre', '5° Semestre', '6° Semestre'
+    ...gradosPorSeccion['Kinder'],
+    ...gradosPorSeccion['Primaria'],
+    ...gradosPorSeccion['Secundaria'],
+    ...gradosPorSeccion['Preparatoria']
   ];
   
   const gruposEducativos = [
@@ -662,9 +667,31 @@ export default function Estudiantes() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos los grados</SelectItem>
-                    {grados.sort().map((grado) => (
-                      <SelectItem key={grado} value={grado}>{grado}</SelectItem>
+                    {Object.entries(gradosPorSeccion).map(([seccion, gradosSeccion]) => (
+                      <div key={seccion}>
+                        <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase bg-gray-100 sticky top-0">
+                          {seccion}
+                        </div>
+                        {gradosSeccion.map((grado) => (
+                          <SelectItem key={grado} value={grado} className="pl-4">
+                            {grado}
+                          </SelectItem>
+                        ))}
+                      </div>
                     ))}
+                    {/* Mostrar grados adicionales de la base de datos si los hay */}
+                    {gradosBD.filter(grado => !gradosEducativos.includes(grado)).length > 0 && (
+                      <div>
+                        <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase bg-gray-100 sticky top-0">
+                          Otros
+                        </div>
+                        {gradosBD.filter(grado => !gradosEducativos.includes(grado)).map((grado) => (
+                          <SelectItem key={grado} value={grado} className="pl-4">
+                            {grado}
+                          </SelectItem>
+                        ))}
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -1285,8 +1312,17 @@ export default function Estudiantes() {
                         <SelectValue placeholder="Seleccionar grado" />
                       </SelectTrigger>
                       <SelectContent>
-                        {gradosEducativos.map((grado) => (
-                          <SelectItem key={grado} value={grado}>{grado}</SelectItem>
+                        {Object.entries(gradosPorSeccion).map(([seccion, grados]) => (
+                          <div key={seccion}>
+                            <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase bg-gray-100 sticky top-0">
+                              {seccion}
+                            </div>
+                            {grados.map((grado) => (
+                              <SelectItem key={grado} value={grado} className="pl-4">
+                                {grado}
+                              </SelectItem>
+                            ))}
+                          </div>
                         ))}
                       </SelectContent>
                     </Select>

@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useInstitution } from "@/hooks/use-institution";
+import { apiRequest } from "@/lib/queryClient";
 import { Calendar, Bell, Key, Mail, Settings, Shield, School, CreditCard, Database, Palette, Globe, Users, FileText, Upload } from "lucide-react";
 
 export default function Configuracion() {
@@ -97,22 +98,15 @@ export default function Configuracion() {
         nombre_legal: institutionName
       };
 
-      const response = await fetch('/api/institutional-info', {
+      await apiRequest('/api/institutional-info', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(institutionalData),
+        body: institutionalData,
       });
 
-      if (response.ok) {
-        toast({
-          title: "Cambios guardados",
-          description: "La configuración institucional se ha actualizado correctamente.",
-        });
-      } else {
-        throw new Error('Error al guardar');
-      }
+      toast({
+        title: "Cambios guardados",
+        description: "La configuración institucional se ha actualizado correctamente.",
+      });
     } catch (error) {
       console.error('Error saving institutional info:', error);
       toast({

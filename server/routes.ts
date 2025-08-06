@@ -5168,10 +5168,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       console.log("🚀 Processed create data:", JSON.stringify(dueDateData, null, 2));
+      console.log("🚀 About to call storage.createPaymentDueDate...");
 
       const createdDueDate = await storage.createPaymentDueDate(dueDateData);
       
-      console.log("🚀 Successfully created payment due date:", createdDueDate);
+      console.log("🚀 Storage returned created due date:", createdDueDate);
+      
+      // Verify creation by querying database
+      const verification = await db
+        .select()
+        .from(payment_due_dates)
+        .where(eq(payment_due_dates.id, createdDueDate.id));
+      
+      console.log("🚀 Verification query result:", verification);
       res.status(201).json({ message: "Fecha de vencimiento creada correctamente", data: createdDueDate });
     } catch (error: any) {
       console.error("🚀 Error creating payment due date:", error);

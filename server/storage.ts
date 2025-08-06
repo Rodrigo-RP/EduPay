@@ -1061,11 +1061,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPaymentDueDate(dueDate: InsertPaymentDueDate): Promise<PaymentDueDate> {
-    const [newDueDate] = await db
-      .insert(payment_due_dates)
-      .values(dueDate)
-      .returning();
-    return newDueDate;
+    console.log("🔧 Storage createPaymentDueDate - Input data:", JSON.stringify(dueDate, null, 2));
+    
+    try {
+      const [newDueDate] = await db
+        .insert(payment_due_dates)
+        .values(dueDate)
+        .returning();
+      
+      console.log("🔧 Storage createPaymentDueDate - Result:", JSON.stringify(newDueDate, null, 2));
+      
+      // Immediate verification
+      const verification = await db
+        .select()
+        .from(payment_due_dates)
+        .where(eq(payment_due_dates.id, newDueDate.id));
+      
+      console.log("🔧 Storage createPaymentDueDate - Verification:", JSON.stringify(verification, null, 2));
+      
+      return newDueDate;
+    } catch (error) {
+      console.error("🔧 Storage createPaymentDueDate - Error:", error);
+      throw error;
+    }
   }
 
   async updatePaymentDueDate(id: number, updates: Partial<PaymentDueDate>): Promise<PaymentDueDate | undefined> {

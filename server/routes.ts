@@ -70,7 +70,7 @@ const authenticateToken = async (req: any, res: any, next: any) => {
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    return res.sendStatus(401);
+    return res.status(401).json({ message: 'Token requerido' });
   }
 
   try {
@@ -78,7 +78,7 @@ const authenticateToken = async (req: any, res: any, next: any) => {
     req.user = decoded;
     next();
   } catch (error) {
-    return res.sendStatus(403);
+    return res.status(403).json({ message: 'Token inválido' });
   }
 };
 

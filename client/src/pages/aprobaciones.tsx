@@ -127,8 +127,7 @@ export default function Aprobaciones() {
   // Decision mutation
   const decisionMutation = useMutation({
     mutationFn: async (data: { approval_id: number; decision: string; notes?: string }) => {
-      const response = await apiRequest('POST', '/api/approvals/decision', data);
-      return response.json();
+      return await apiRequest('POST', '/api/approvals/decision', data);
     },
     onSuccess: (data: any) => {
       toast({
@@ -156,7 +155,7 @@ export default function Aprobaciones() {
   // Mark notification as read
   const markAsReadMutation = useMutation({
     mutationFn: async (id: number) => {
-      return await apiRequest('POST', `/api/approvals/notifications/${id}/read`);
+      return await apiRequest('POST', `/api/approvals/notifications/${id}/read`, {});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/approvals/notifications'] });

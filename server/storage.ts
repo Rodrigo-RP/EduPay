@@ -1056,25 +1056,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updatePaymentDueDate(id: number, updates: Partial<PaymentDueDate>): Promise<PaymentDueDate | undefined> {
-    console.log("Storage updatePaymentDueDate - ID:", id);
-    console.log("Storage updatePaymentDueDate - Updates:", updates);
+    console.log("🔧 Storage updatePaymentDueDate - ID:", id);
+    console.log("🔧 Storage updatePaymentDueDate - Updates:", JSON.stringify(updates, null, 2));
     
-    const [updated] = await db
-      .update(payment_due_dates)
-      .set({ ...updates, updated_at: new Date() })
-      .where(eq(payment_due_dates.id, id))
-      .returning();
-    
-    console.log("Storage updatePaymentDueDate - Result:", updated);
-    
-    // Verificar si realmente se actualizó
-    const verification = await db
-      .select()
-      .from(payment_due_dates)
-      .where(eq(payment_due_dates.id, id));
-    console.log("Storage updatePaymentDueDate - Verification:", verification);
-    
-    return updated || undefined;
+    try {
+      const [updated] = await db
+        .update(payment_due_dates)
+        .set({ ...updates, updated_at: new Date() })
+        .where(eq(payment_due_dates.id, id))
+        .returning();
+      
+      console.log("🔧 Storage updatePaymentDueDate - Result:", JSON.stringify(updated, null, 2));
+      
+      // Verificar si realmente se actualizó
+      const verification = await db
+        .select()
+        .from(payment_due_dates)
+        .where(eq(payment_due_dates.id, id));
+      console.log("🔧 Storage updatePaymentDueDate - Verification:", JSON.stringify(verification, null, 2));
+      
+      return updated || undefined;
+    } catch (error) {
+      console.error("🔧 Storage updatePaymentDueDate - Error:", error);
+      throw error;
+    }
   }
 
   async deletePaymentDueDate(id: number): Promise<boolean> {

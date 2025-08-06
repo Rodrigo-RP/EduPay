@@ -47,7 +47,7 @@ class WebSocketManager {
       const connectionKey = `${clientIP}-${currentTime}`;
       
       const currentConnections = this.connectionAttempts.get(connectionKey) || 0;
-      if (currentConnections > 10) { // Max 10 connections per minute per IP
+      if (currentConnections > 50) { // Max 50 connections per minute per IP
         console.log(`🚫 Rate limit exceeded for IP: ${clientIP}`);
         ws.close(1013, 'Too many connections');
         return;
@@ -144,7 +144,7 @@ class WebSocketManager {
       const [user] = await db
         .select()
         .from(users)
-        .where(eq(users.id, decoded.userId))
+        .where(eq(users.id, decoded.id))
         .limit(1);
 
       if (!user || !user.is_active) {

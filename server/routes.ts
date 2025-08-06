@@ -15,7 +15,7 @@ import securityMiddleware, {
 
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { insertUserSchema, insertGuardianSchema, insertChargeSchema, insertPaymentSchema, insertInstitutionalInfoSchema, students, guardians, student_guardian, payment_rules, late_fee_calculations, payments, charges, concepts, institutional_credentials, institutional_info, users } from "@shared/schema";
+import { insertUserSchema, insertGuardianSchema, insertChargeSchema, insertPaymentSchema, insertInstitutionalInfoSchema, students, guardians, student_guardian, payment_rules, late_fee_calculations, payments, charges, concepts, institutional_credentials, institutional_info, users, scholarships } from "@shared/schema";
 import { NotificationSystem as ServerNotificationSystem } from './notification-system';
 import { db } from "./db";
 import { eq, and, gte, lt } from "drizzle-orm";
@@ -3813,6 +3813,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update the approval status
       await storage.updateApprovalStatus(approval_id, decision, user.id, notes);
 
+      // If approved, execute the actual changes
+      if (decision === 'approved') {
+        try {
+          await executeApprovedChange(approval);
+          // Log successful execution
+          await storage.createApprovalWorkflowLog({
+            approval_id,
+            action: 'changes_applied',
+            user_id: user.id,
+            notes: `Cambios aplicados exitosamente al sistema`
+          });
+        } catch (executeError: any) {
+          console.error('Error ejecutando cambio aprobado:', executeError);
+          // Log the execution error but don't fail the approval
+          await storage.createApprovalWorkflowLog({
+            approval_id,
+            action: 'execution_failed',
+            user_id: user.id,
+            notes: `Error ejecutando cambio: ${executeError.message}`
+          });
+        }
+      }
+
       // Create notification for the requester
       await storage.createApprovalNotification({
         approval_id,
@@ -3898,6 +3921,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Error verificando requisitos de aprobación: " + error.message });
     }
   });
+
+  // Function to execute approved changes
+  async function executeApprovedChange(approval: any) {
+    const { action_type, entity_type, entity_id, requested_data } = approval;
+    const requestedData = JSON.parse(requested_data);
+
+    switch (action_type) {
+      case 'modify_scholarship':
+        if (entity_type === 'scholarship' && entity_id) {
+          // Update scholarship percentage
+          await db.update(scholarships)
+            .set({ percentage: requestedData.percentage })
+            .where(eq(scholarships.id, entity_id));
+        }
+        break;
+
+      case 'modify_price':
+        if (entity_type === 'concept' && entity_id) {
+          // Update concept price
+          await db.update(concepts)
+            .set({ amount: requestedData.amount })
+            .where(eq(concepts.id, entity_id));
+        }
+        break;
+
+      case 'modify_charge_amount':
+        if (entity_type === 'charge' && entity_id) {
+          // Update charge amount
+          await db.update(charges)
+            .set({ amount: requestedData.amount })
+            .where(eq(charges.id, entity_id));
+        }
+        break;
+
+      case 'delete_charge':
+        if (entity_type === 'charge' && entity_id) {
+          // Delete the charge
+          await db.delete(charges)
+            .where(eq(charges.id, entity_id));
+        }
+        break;
+
+      case 'delete_concept':
+        if (entity_type === 'concept' && entity_id) {
+          // Delete the concept (only if no charges exist)
+          await db.delete(concepts)
+            .where(eq(concepts.id, entity_id));
+        }
+        break;
+
+      case 'modify_payment_due_date':
+        if (entity_type === 'charge' && entity_id) {
+          // Update charge due date
+          await db.update(charges)
+            .set({ due_date: new Date(requestedData.due_date) })
+            .where(eq(charges.id, entity_id));
+        }
+        break;
+
+      case 'cancel_payment':
+        if (entity_type === 'payment' && entity_id) {
+          // Update payment status to cancelled
+          await db.update(payments)
+            .set({ status: 'cancelled' })
+            .where(eq(payments.id, entity_id));
+        }
+        break;
+
+      case 'refund_payment':
+        if (entity_type === 'payment' && entity_id) {
+          // Update payment status to refunded
+          await db.update(payments)
+            .set({ status: 'refunded' })
+            .where(eq(payments.id, entity_id));
+        }
+        break;
+
+      default:
+        throw new Error(`Tipo de acción no soportado: ${action_type}`);
+    }
+  }
 
   // ==================== REPORTES FINANCIEROS ====================
   

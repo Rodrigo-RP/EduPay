@@ -105,10 +105,15 @@ export const platform_profiles = pgTable("platform_profiles", {
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
-// STUDENTS - Adaptado a estructura Excel "Concentrado_Estudiante y Padre"
+// STUDENTS - Adaptado a estructura Excel "Concentrado_Estudiante y Padre" + campos institucionales
 export const students = pgTable("students", {
   id: serial("id").primaryKey(),
   campus_id: integer("campus_id").references(() => campuses.id, { onDelete: "cascade" }),
+  
+  // Campos institucionales importantes
+  id_referencia: varchar("id_referencia", { length: 50 }), // ID de Reference/Matricula
+  username: varchar("username", { length: 100 }), // Usuario del alumno
+  password_hash: varchar("password_hash", { length: 255 }), // Contraseña del alumno
   
   // Campos de nombres (columnas 8-10 Excel)
   nombres: varchar("nombres", { length: 255 }).notNull(),
@@ -136,9 +141,14 @@ export const students = pgTable("students", {
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
-// GUARDIANS - Adaptado a estructura Excel "Concentrado_Estudiante y Padre" (columnas 1-7)
+// GUARDIANS - Adaptado a estructura Excel "Concentrado_Estudiante y Padre" (columnas 1-7) + separación padre/madre
 export const guardians = pgTable("guardians", {
   id: serial("id").primaryKey(),
+  
+  // Tipo de guardian (padre, madre, tutor)
+  tipo_guardian: varchar("tipo_guardian", { length: 20 }).default("padre"), // 'padre', 'madre', 'tutor'
+  es_padre: boolean("es_padre").default(false),
+  es_madre: boolean("es_madre").default(false),
   
   // Contacto (columna 1 Excel)
   correo_institucional_familiar: varchar("correo_institucional_familiar", { length: 255 }).notNull(),

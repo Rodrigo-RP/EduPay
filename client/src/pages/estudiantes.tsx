@@ -47,8 +47,13 @@ export default function Estudiantes() {
     }
   });
 
-  // Formulario adaptado a estructura Excel "Concentrado_Estudiante y Padre"
+  // Formulario adaptado a estructura Excel "Concentrado_Estudiante y Padre" + campos institucionales
   const [formData, setFormData] = useState({
+    // DATOS INSTITUCIONALES DEL ESTUDIANTE
+    estudiante_id_referencia: "",
+    estudiante_username: "",
+    estudiante_password: "",
+    
     // PADRE DE FAMILIA (columnas 1-7 Excel)
     padre_correo_institucional_familiar: "",
     padre_nombres: "",
@@ -57,6 +62,15 @@ export default function Estudiantes() {
     padre_curp: "",
     padre_celular: "",
     padre_telefono_casa_oficina: "",
+    
+    // MADRE DE FAMILIA (campos adicionales)
+    madre_correo_institucional_familiar: "",
+    madre_nombres: "",
+    madre_apellido_paterno: "",
+    madre_apellido_materno: "",
+    madre_curp: "",
+    madre_celular: "",
+    madre_telefono_casa_oficina: "",
     
     // ESTUDIANTE (columnas 8-20 Excel)
     estudiante_nombres: "",
@@ -161,6 +175,11 @@ export default function Estudiantes() {
 
   const resetForm = () => {
     setFormData({
+      // DATOS INSTITUCIONALES DEL ESTUDIANTE
+      estudiante_id_referencia: "",
+      estudiante_username: "",
+      estudiante_password: "",
+      
       // PADRE DE FAMILIA
       padre_correo_institucional_familiar: "",
       padre_nombres: "",
@@ -169,6 +188,15 @@ export default function Estudiantes() {
       padre_curp: "",
       padre_celular: "",
       padre_telefono_casa_oficina: "",
+      
+      // MADRE DE FAMILIA
+      madre_correo_institucional_familiar: "",
+      madre_nombres: "",
+      madre_apellido_paterno: "",
+      madre_apellido_materno: "",
+      madre_curp: "",
+      madre_celular: "",
+      madre_telefono_casa_oficina: "",
       
       // ESTUDIANTE
       estudiante_nombres: "",
@@ -196,6 +224,11 @@ export default function Estudiantes() {
   const loadStudentForEdit = (student: any) => {
     setEditingStudent(student);
     setFormData({
+      // DATOS INSTITUCIONALES DEL ESTUDIANTE
+      estudiante_id_referencia: student.id_referencia || "",
+      estudiante_username: student.username || "",
+      estudiante_password: "", // No cargar contraseña por seguridad
+      
       // PADRE DE FAMILIA - datos del responsable existente
       padre_correo_institucional_familiar: "",
       padre_nombres: "",
@@ -204,6 +237,15 @@ export default function Estudiantes() {
       padre_curp: "",
       padre_celular: "",
       padre_telefono_casa_oficina: "",
+      
+      // MADRE DE FAMILIA
+      madre_correo_institucional_familiar: "",
+      madre_nombres: "",
+      madre_apellido_paterno: "",
+      madre_apellido_materno: "",
+      madre_curp: "",
+      madre_celular: "",
+      madre_telefono_casa_oficina: "",
       
       // ESTUDIANTE - datos del estudiante existente
       estudiante_nombres: student.nombres || "",
@@ -268,13 +310,23 @@ export default function Estudiantes() {
     }
   };
 
-  // Función para descargar plantilla - estructura Excel "Concentrado_Estudiante y Padre"
+  // Función para descargar plantilla - estructura Excel "Concentrado_Estudiante y Padre" + campos institucionales
   const downloadTemplate = () => {
     const templateData = [
       // Encabezados principales
-      ['PADRE DE FAMILIA', '', '', '', '', '', '', 'ESTUDIANTE', '', '', '', '', '', '', '', '', '', '', '', ''],
+      ['DATOS INSTITUCIONALES', '', '', 'PADRE DE FAMILIA', '', '', '', '', '', '', 'MADRE DE FAMILIA', '', '', '', '', '', '', 'ESTUDIANTE', '', '', '', '', '', '', '', '', '', '', '', ''],
       // Campos específicos
       [
+        'ID Reference/Matricula',
+        'Usuario alumno',
+        'Contraseña alumno',
+        'Correo institucional familiar',
+        'Nombre(s)',
+        'Apellido paterno', 
+        'Apellido Materno',
+        'CURP',
+        'Celular',
+        'Telefono casa/oficina',
         'Correo institucional familiar',
         'Nombre(s)',
         'Apellido paterno', 
@@ -597,6 +649,47 @@ export default function Estudiantes() {
           </DialogHeader>
 
           <div className="space-y-6">
+            {/* SECCIÓN: DATOS INSTITUCIONALES DEL ESTUDIANTE */}
+            <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+              <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                <span className="w-6 h-6 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs font-bold">0</span>
+                DATOS INSTITUCIONALES
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="estudiante_id_referencia">ID de Reference/Matrícula *</Label>
+                  <Input
+                    id="estudiante_id_referencia"
+                    value={formData.estudiante_id_referencia}
+                    onChange={(e) => handleInputChange('estudiante_id_referencia', e.target.value)}
+                    placeholder="Ej: EST-2024-001"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="estudiante_username">Usuario del alumno *</Label>
+                  <Input
+                    id="estudiante_username"
+                    value={formData.estudiante_username}
+                    onChange={(e) => handleInputChange('estudiante_username', e.target.value)}
+                    placeholder="Ej: maria.perez"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="estudiante_password">Contraseña del alumno *</Label>
+                  <Input
+                    id="estudiante_password"
+                    type="password"
+                    value={formData.estudiante_password}
+                    onChange={(e) => handleInputChange('estudiante_password', e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                  />
+                </div>
+              </div>
+            </div>
+            
             {/* SECCIÓN: PADRE DE FAMILIA (Columnas 1-7 Excel) */}
             <div className="bg-blue-50 p-4 rounded-lg space-y-4">
               <h3 className="font-semibold text-blue-800 flex items-center gap-2">
@@ -678,11 +771,97 @@ export default function Estudiantes() {
                 </div>
               </div>
             </div>
+            
+            {/* SECCIÓN: MADRE DE FAMILIA */}
+            <div className="bg-pink-50 p-4 rounded-lg space-y-4">
+              <h3 className="font-semibold text-pink-800 flex items-center gap-2">
+                <span className="w-6 h-6 bg-pink-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                MADRE DE FAMILIA
+              </h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="madre_correo_institucional_familiar">Correo institucional familiar</Label>
+                  <Input
+                    id="madre_correo_institucional_familiar"
+                    type="email"
+                    value={formData.madre_correo_institucional_familiar}
+                    onChange={(e) => handleInputChange('madre_correo_institucional_familiar', e.target.value)}
+                    placeholder="Ej: madre.ana@institutojfr.edu.mx"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="madre_nombres">Nombre(s)</Label>
+                    <Input
+                      id="madre_nombres"
+                      value={formData.madre_nombres}
+                      onChange={(e) => handleInputChange('madre_nombres', e.target.value)}
+                      placeholder="Ej: Ana Cristina"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="madre_apellido_paterno">Apellido paterno</Label>
+                    <Input
+                      id="madre_apellido_paterno"
+                      value={formData.madre_apellido_paterno}
+                      onChange={(e) => handleInputChange('madre_apellido_paterno', e.target.value)}
+                      placeholder="Ej: Martínez"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="madre_apellido_materno">Apellido Materno</Label>
+                    <Input
+                      id="madre_apellido_materno"
+                      value={formData.madre_apellido_materno}
+                      onChange={(e) => handleInputChange('madre_apellido_materno', e.target.value)}
+                      placeholder="Ej: Hernández"
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="madre_curp">CURP de la Madre</Label>
+                    <Input
+                      id="madre_curp"
+                      value={formData.madre_curp}
+                      onChange={(e) => handleInputChange('madre_curp', e.target.value.toUpperCase())}
+                      placeholder="Ej: MAHA750820MDFRRR05"
+                      maxLength={18}
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="madre_celular">Celular</Label>
+                    <Input
+                      id="madre_celular"
+                      value={formData.madre_celular}
+                      onChange={(e) => handleInputChange('madre_celular', e.target.value)}
+                      placeholder="Ej: 5559876543"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="madre_telefono_casa_oficina">Teléfono casa/oficina</Label>
+                    <Input
+                      id="madre_telefono_casa_oficina"
+                      value={formData.madre_telefono_casa_oficina}
+                      onChange={(e) => handleInputChange('madre_telefono_casa_oficina', e.target.value)}
+                      placeholder="Ej: 5512345678"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* SECCIÓN: ESTUDIANTE (Columnas 8-20 Excel) */}
             <div className="bg-green-50 p-4 rounded-lg space-y-4">
               <h3 className="font-semibold text-green-800 flex items-center gap-2">
-                <span className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                <span className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</span>
                 ESTUDIANTE
               </h3>
               

@@ -100,7 +100,7 @@ export default function Configuracion() {
 
       await apiRequest('/api/institutional-info', {
         method: 'POST',
-        body: institutionalData,
+        body: JSON.stringify(institutionalData),
       });
 
       toast({

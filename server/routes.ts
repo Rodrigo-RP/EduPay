@@ -16,6 +16,7 @@ import securityMiddleware, {
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { insertUserSchema, insertGuardianSchema, insertChargeSchema, insertPaymentSchema, students, guardians, student_guardian, payment_rules, late_fee_calculations, payments, charges, concepts, institutional_credentials } from "@shared/schema";
+import { NotificationSystem as ServerNotificationSystem } from './notification-system';
 import { db } from "./db";
 import { eq, and, gte, lt } from "drizzle-orm";
 import { getAcademicLevel } from "@shared/academic-levels";
@@ -4505,6 +4506,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error deleting institutional credential:", error);
       res.status(500).json({ message: "Error deleting credential: " + error.message });
+    }
+  });
+
+  // Get credential expiration notifications
+  app.get("/api/profile/credential-notifications", authenticateToken, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const campusId = (req as any).user.campus_id;
+      
+      const notifications = await ServerNotificationSystem.checkExpiringCredentials(userId, campusId);
+      res.json(notifications);
+    } catch (error: any) {
+      console.error("Error fetching credential notifications:", error);
+      res.status(500).json({ message: "Error fetching notifications: " + error.message });
+    }
+  });
+
+  // Get notification statistics
+  app.get("/api/profile/notification-stats", authenticateToken, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const campusId = (req as any).user.campus_id;
+      
+      const stats = await ServerNotificationSystem.getNotificationStats(userId, campusId);
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Error fetching notification stats:", error);
+      res.status(500).json({ message: "Error fetching stats: " + error.message });
+    }
+  });
+
+  // Mark notification as seen
+  app.post("/api/profile/credential-notifications/:id/seen", authenticateToken, async (req, res) => {
+    try {
+      const credentialId = parseInt(req.params.id);
+      await ServerNotificationSystem.markNotificationSeen(credentialId);
+      res.json({ message: "Notification marked as seen" });
+    } catch (error: any) {
+      console.error("Error marking notification as seen:", error);
+      res.status(500).json({ message: "Error marking notification: " + error.message });
     }
   });
 

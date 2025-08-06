@@ -13,10 +13,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, Mail, Phone, Lock, Camera, Save, X, Upload, Eye, EyeOff, Building2, Calendar, Shield, Plus, Edit, Trash2 } from "lucide-react";
+import { User, Mail, Phone, Lock, Camera, Save, X, Upload, Eye, EyeOff, Building2, Calendar, Shield, Plus, Edit, Trash2, Bell } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
+import { CredentialNotifications, CredentialNotificationsBadge } from "@/components/credential-notifications";
 
 // Profile form schema
 const profileSchema = z.object({
@@ -448,6 +449,13 @@ export default function Profile() {
           <TabsTrigger value="password">Cambiar Contraseña</TabsTrigger>
           {canViewInstitutional && (
             <TabsTrigger value="institutional">Información Institucional</TabsTrigger>
+          )}
+          {canViewInstitutional && (
+            <TabsTrigger value="notifications" className="flex items-center gap-2">
+              <Bell className="w-4 h-4" />
+              Notificaciones
+              <CredentialNotificationsBadge />
+            </TabsTrigger>
           )}
         </TabsList>
 
@@ -914,6 +922,25 @@ export default function Profile() {
                 </Form>
               </DialogContent>
             </Dialog>
+          </TabsContent>
+        )}
+
+        {canViewInstitutional && (
+          <TabsContent value="notifications" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Bell className="w-5 h-5" />
+                  Notificaciones de Credenciales
+                </CardTitle>
+                <CardDescription>
+                  Alertas sobre credenciales institucionales próximas a vencer
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <CredentialNotifications />
+              </CardContent>
+            </Card>
           </TabsContent>
         )}
       </Tabs>

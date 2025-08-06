@@ -15,7 +15,7 @@ import securityMiddleware, {
 
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { insertUserSchema, insertGuardianSchema, insertChargeSchema, insertPaymentSchema, students, guardians, student_guardian, payment_rules, late_fee_calculations, payments, charges, concepts, institutional_credentials } from "@shared/schema";
+import { insertUserSchema, insertGuardianSchema, insertChargeSchema, insertPaymentSchema, insertInstitutionalInfoSchema, students, guardians, student_guardian, payment_rules, late_fee_calculations, payments, charges, concepts, institutional_credentials, institutional_info } from "@shared/schema";
 import { NotificationSystem as ServerNotificationSystem } from './notification-system';
 import { db } from "./db";
 import { eq, and, gte, lt } from "drizzle-orm";
@@ -4525,6 +4525,127 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error deleting institutional credential:", error);
       res.status(500).json({ message: "Error deleting credential: " + error.message });
+    }
+  });
+
+  // INSTITUTIONAL INFO ROUTES
+  
+  // Get institutional info by campus
+  app.get("/api/profile/institutional-info", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user.campus_id;
+      
+      const institutionalInfoData = await db.select()
+        .from(institutional_info)
+        .where(eq(institutional_info.campus_id, campusId));
+      
+      res.json(institutionalInfoData);
+    } catch (error: any) {
+      console.error("Error fetching institutional info:", error);
+      res.status(500).json({ message: "Error fetching institutional info: " + error.message });
+    }
+  });
+
+  // Create or update institutional info for a section
+  app.post("/api/profile/institutional-info", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user.campus_id;
+      const { seccion_educativa, rfc, cct } = req.body;
+      
+      // Check if record exists for this campus and section
+      const existing = await db.select()
+        .from(institutional_info)
+        .where(and(
+          eq(institutional_info.campus_id, campusId),
+          eq(institutional_info.seccion_educativa, seccion_educativa)
+        ));
+      
+      if (existing.length > 0) {
+        // Update existing record
+        const updated = await db.update(institutional_info)
+          .set({ rfc, cct, updated_at: new Date() })
+          .where(and(
+            eq(institutional_info.campus_id, campusId),
+            eq(institutional_info.seccion_educativa, seccion_educativa)
+          ))
+          .returning();
+        
+        res.json(updated[0]);
+      } else {
+        // Create new record
+        const created = await db.insert(institutional_info)
+          .values({
+            campus_id: campusId,
+            seccion_educativa,
+            rfc,
+            cct,
+          })
+          .returning();
+        
+        res.status(201).json(created[0]);
+      }
+    } catch (error: any) {
+      console.error("Error saving institutional info:", error);
+      res.status(500).json({ message: "Error saving institutional info: " + error.message });
+    }
+  });
+
+  // Update institutional info for a section
+  app.put("/api/profile/institutional-info/:id", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user.campus_id;
+      const infoId = parseInt(req.params.id);
+      const { seccion_educativa, rfc, cct } = req.body;
+      
+      // Check if record belongs to user's campus
+      const existing = await db.select()
+        .from(institutional_info)
+        .where(and(
+          eq(institutional_info.id, infoId),
+          eq(institutional_info.campus_id, campusId)
+        ));
+      
+      if (existing.length === 0) {
+        return res.status(404).json({ message: "Información institucional no encontrada" });
+      }
+      
+      const updated = await db.update(institutional_info)
+        .set({ seccion_educativa, rfc, cct, updated_at: new Date() })
+        .where(eq(institutional_info.id, infoId))
+        .returning();
+      
+      res.json(updated[0]);
+    } catch (error: any) {
+      console.error("Error updating institutional info:", error);
+      res.status(500).json({ message: "Error updating institutional info: " + error.message });
+    }
+  });
+
+  // Delete institutional info
+  app.delete("/api/profile/institutional-info/:id", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user.campus_id;
+      const infoId = parseInt(req.params.id);
+      
+      // Check if record belongs to user's campus
+      const existing = await db.select()
+        .from(institutional_info)
+        .where(and(
+          eq(institutional_info.id, infoId),
+          eq(institutional_info.campus_id, campusId)
+        ));
+      
+      if (existing.length === 0) {
+        return res.status(404).json({ message: "Información institucional no encontrada" });
+      }
+      
+      await db.delete(institutional_info)
+        .where(eq(institutional_info.id, infoId));
+      
+      res.json({ message: "Información institucional eliminada correctamente" });
+    } catch (error: any) {
+      console.error("Error deleting institutional info:", error);
+      res.status(500).json({ message: "Error deleting institutional info: " + error.message });
     }
   });
 

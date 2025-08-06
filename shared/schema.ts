@@ -59,6 +59,17 @@ export const institutional_credentials = pgTable("institutional_credentials", {
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
+// INSTITUTIONAL INFO - Información institucional por secciones educativas
+export const institutional_info = pgTable("institutional_info", {
+  id: serial("id").primaryKey(),
+  campus_id: integer("campus_id").references(() => campuses.id, { onDelete: "cascade" }),
+  seccion_educativa: varchar("seccion_educativa", { length: 50 }).notNull(), // 'KINDER', 'PRIMARIA', 'SECUNDARIA', 'BACHILLERATO'
+  rfc: varchar("rfc", { length: 13 }),
+  cct: varchar("cct", { length: 20 }), // Clave de Centro de Trabajo
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
 // PLATFORM PROFILES (Support and Implementation users)
 export const platform_profiles = pgTable("platform_profiles", {
   id: serial("id").primaryKey(),
@@ -386,6 +397,11 @@ export const insertPaymentSchema = createInsertSchema(payments).omit({
   created_at: true,
   updated_at: true,
 });
+export const insertInstitutionalInfoSchema = createInsertSchema(institutional_info).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+});
 
 // TYPES
 export type InsertTenant = z.infer<typeof insertTenantSchema>;
@@ -396,6 +412,7 @@ export type InsertGuardian = z.infer<typeof insertGuardianSchema>;
 export type InsertConcept = z.infer<typeof insertConceptSchema>;
 export type InsertCharge = z.infer<typeof insertChargeSchema>;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+export type InsertInstitutionalInfo = z.infer<typeof insertInstitutionalInfoSchema>;
 
 export type Tenant = typeof tenants.$inferSelect;
 export type Campus = typeof campuses.$inferSelect;
@@ -407,6 +424,7 @@ export type Charge = typeof charges.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
 export type PaymentMethod = typeof payment_methods.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;
+export type InstitutionalInfo = typeof institutional_info.$inferSelect;
 
 // PAYMENT RULES TABLES
 export const payment_rules = pgTable("payment_rules", {

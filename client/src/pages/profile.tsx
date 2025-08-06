@@ -45,9 +45,17 @@ const institutionalCredentialSchema = z.object({
   expiration_date: z.string().optional(),
 });
 
+// Institutional info schema
+const institutionalInfoSchema = z.object({
+  seccion_educativa: z.string().min(1, "Sección educativa requerida"),
+  rfc: z.string().optional(),
+  cct: z.string().optional(),
+});
+
 type ProfileForm = z.infer<typeof profileSchema>;
 type PasswordForm = z.infer<typeof passwordSchema>;
 type InstitutionalCredentialForm = z.infer<typeof institutionalCredentialSchema>;
+type InstitutionalInfoForm = z.infer<typeof institutionalInfoSchema>;
 
 export default function Profile() {
   const { user, guardian } = useAuth();
@@ -60,6 +68,8 @@ export default function Profile() {
   const [showCredentialPassword, setShowCredentialPassword] = useState<{[key: number]: boolean}>({});
   const [isCredentialDialogOpen, setIsCredentialDialogOpen] = useState(false);
   const [editingCredential, setEditingCredential] = useState<any>(null);
+  const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
+  const [editingInfo, setEditingInfo] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isGuardian = !!guardian;
@@ -78,6 +88,12 @@ export default function Profile() {
   // Fetch institutional credentials for admin users
   const { data: institutionalCredentials, isLoading: isLoadingCredentials } = useQuery({
     queryKey: ["/api/profile/institutional-credentials"],
+    enabled: canViewInstitutional,
+  });
+
+  // Fetch institutional info for admin users
+  const { data: institutionalInfo, isLoading: isLoadingInfo } = useQuery({
+    queryKey: ["/api/profile/institutional-info"],
     enabled: canViewInstitutional,
   });
 
@@ -110,6 +126,16 @@ export default function Profile() {
       username: "",
       password: "",
       expiration_date: "",
+    },
+  });
+
+  // Institutional info form
+  const infoForm = useForm<InstitutionalInfoForm>({
+    resolver: zodResolver(institutionalInfoSchema),
+    defaultValues: {
+      seccion_educativa: "",
+      rfc: "",
+      cct: "",
     },
   });
 
@@ -279,6 +305,62 @@ export default function Profile() {
     },
   });
 
+  // Institutional info mutations
+  const infoMutation = useMutation({
+    mutationFn: async (data: InstitutionalInfoForm) => {
+      const endpoint = editingInfo 
+        ? `/api/profile/institutional-info/${editingInfo.id}`
+        : "/api/profile/institutional-info";
+      const method = editingInfo ? "PUT" : "POST";
+      
+      return apiRequest(endpoint, {
+        method,
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "✅ Información guardada",
+        description: editingInfo 
+          ? "La información institucional se ha actualizado correctamente."
+          : "La información institucional se ha guardado correctamente.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/profile/institutional-info"] });
+      setIsInfoDialogOpen(false);
+      setEditingInfo(null);
+      infoForm.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "❌ Error",
+        description: error.message || "No se pudo guardar la información",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteInfoMutation = useMutation({
+    mutationFn: async (infoId: number) => {
+      return apiRequest(`/api/profile/institutional-info/${infoId}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "✅ Información eliminada",
+        description: "La información institucional se ha eliminado correctamente.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/profile/institutional-info"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "❌ Error",
+        description: error.message || "No se pudo eliminar la información",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Handle form submissions
   const onProfileSubmit = (data: ProfileForm) => {
     profileMutation.mutate(data);
@@ -290,6 +372,10 @@ export default function Profile() {
 
   const onCredentialSubmit = (data: InstitutionalCredentialForm) => {
     credentialMutation.mutate(data);
+  };
+
+  const onInfoSubmit = (data: InstitutionalInfoForm) => {
+    infoMutation.mutate(data);
   };
 
   // Helper functions for institutional credentials
@@ -315,6 +401,39 @@ export default function Profile() {
     setEditingCredential(null);
     credentialForm.reset();
     setIsCredentialDialogOpen(true);
+  };
+
+  // Helper functions for institutional info
+  const handleEditInfo = (info: any) => {
+    setEditingInfo(info);
+    infoForm.reset({
+      seccion_educativa: info.seccion_educativa,
+      rfc: info.rfc || "",
+      cct: info.cct || "",
+    });
+    setIsInfoDialogOpen(true);
+  };
+
+  const handleDeleteInfo = (infoId: number) => {
+    if (confirm("¿Estás seguro de que deseas eliminar esta información?")) {
+      deleteInfoMutation.mutate(infoId);
+    }
+  };
+
+  const handleAddInfo = () => {
+    setEditingInfo(null);
+    infoForm.reset();
+    setIsInfoDialogOpen(true);
+  };
+
+  const getSectionLabel = (section: string) => {
+    const sections: { [key: string]: string } = {
+      "KINDER": "Kinder / Preescolar",
+      "PRIMARIA": "Primaria",
+      "SECUNDARIA": "Secundaria",
+      "BACHILLERATO": "Bachillerato / Preparatoria",
+    };
+    return sections[section] || section;
   };
 
   const getCredentialTypeLabel = (type: string) => {
@@ -791,6 +910,83 @@ export default function Profile() {
               </CardContent>
             </Card>
 
+            {/* RFC/CCT Management Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="w-5 h-5" />
+                  RFC y CCT por Sección Educativa
+                </CardTitle>
+                <CardDescription>
+                  Gestiona los códigos RFC y CCT para cada sección educativa del instituto.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-between items-center mb-6">
+                  <div className="text-sm text-muted-foreground">
+                    {Array.isArray(institutionalInfo) ? institutionalInfo.length : 0} secciones configuradas
+                  </div>
+                  <Button onClick={handleAddInfo} className="flex items-center gap-2">
+                    <Plus className="w-4 h-4" />
+                    Agregar Sección
+                  </Button>
+                </div>
+
+                {isLoadingInfo ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin w-6 h-6 border-4 border-primary border-t-transparent rounded-full" />
+                  </div>
+                ) : Array.isArray(institutionalInfo) && institutionalInfo.length > 0 ? (
+                  <div className="space-y-4">
+                    {institutionalInfo.map((info: any) => (
+                      <div key={info.id} className="border rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Building2 className="w-5 h-5 text-muted-foreground" />
+                            <div>
+                              <h3 className="font-medium">
+                                {getSectionLabel(info.seccion_educativa)}
+                              </h3>
+                              <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                                <span>RFC: {info.rfc || "No especificado"}</span>
+                                <span>CCT: {info.cct || "No especificado"}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditInfo(info)}
+                              className="flex items-center gap-1"
+                            >
+                              <Edit className="w-4 h-4" />
+                              Editar
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteInfo(info.id)}
+                              className="flex items-center gap-1 text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Eliminar
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Building2 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>No hay información institucional configurada</p>
+                    <p className="text-sm mt-2">Agrega RFC y CCT para cada sección educativa</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Dialog para agregar/editar credenciales */}
             <Dialog open={isCredentialDialogOpen} onOpenChange={setIsCredentialDialogOpen}>
               <DialogContent className="sm:max-w-md">
@@ -916,6 +1112,107 @@ export default function Profile() {
                           <Save className="w-4 h-4" />
                         )}
                         {editingCredential ? "Actualizar" : "Guardar"}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+
+            {/* Dialog para agregar/editar información institucional */}
+            <Dialog open={isInfoDialogOpen} onOpenChange={setIsInfoDialogOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>
+                    {editingInfo ? "Editar Información" : "Agregar Información"}
+                  </DialogTitle>
+                  <DialogDescription>
+                    Configura el RFC y CCT para una sección educativa específica.
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <Form {...infoForm}>
+                  <form onSubmit={infoForm.handleSubmit(onInfoSubmit)} className="space-y-4">
+                    <FormField
+                      control={infoForm.control}
+                      name="seccion_educativa"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Sección Educativa</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecciona la sección" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="KINDER">Kinder / Preescolar</SelectItem>
+                              <SelectItem value="PRIMARIA">Primaria</SelectItem>
+                              <SelectItem value="SECUNDARIA">Secundaria</SelectItem>
+                              <SelectItem value="BACHILLERATO">Bachillerato / Preparatoria</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={infoForm.control}
+                      name="rfc"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>RFC</FormLabel>
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              placeholder="RFC de la sección educativa"
+                              maxLength={13}
+                              style={{ textTransform: 'uppercase' }}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={infoForm.control}
+                      name="cct"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>CCT</FormLabel>
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              placeholder="Clave de Centro de Trabajo"
+                              maxLength={20}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <DialogFooter>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsInfoDialogOpen(false)}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={infoMutation.isPending}
+                        className="flex items-center gap-2"
+                      >
+                        {infoMutation.isPending ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Save className="w-4 h-4" />
+                        )}
+                        {editingInfo ? "Actualizar" : "Guardar"}
                       </Button>
                     </DialogFooter>
                   </form>

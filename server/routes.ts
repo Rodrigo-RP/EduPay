@@ -15,7 +15,7 @@ import securityMiddleware, {
 
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { insertUserSchema, insertGuardianSchema, insertChargeSchema, insertPaymentSchema, insertInstitutionalInfoSchema, students, guardians, student_guardian, payment_rules, late_fee_calculations, payments, charges, concepts, institutional_credentials, institutional_info, users, scholarships } from "@shared/schema";
+import { insertUserSchema, insertGuardianSchema, insertChargeSchema, insertPaymentSchema, insertInstitutionalInfoSchema, students, guardians, student_guardian, payment_rules, late_fee_calculations, payments, charges, concepts, institutional_credentials, institutional_info, users, scholarships, payment_due_dates } from "@shared/schema";
 import { canEditUser, UserRole } from "@shared/permissions";
 import { NotificationSystem as ServerNotificationSystem } from './notification-system';
 import { wsManager } from './websocket-manager';
@@ -5104,29 +5104,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PAYMENT CONFIGURATION ROUTES
   // ========================================
 
-  // Get payment due dates configuration
+  // Get payment due dates configuration - ALWAYS FRESH DATA
   app.get("/api/payment-config/due-dates", authenticateToken, async (req, res) => {
-    try {
-      const campusId = (req as any).user.campus_id;
-      console.log("🔍 GET due-dates request for campus:", campusId);
-      
-      const dueDates = await storage.getPaymentDueDatesByCampus(campusId);
-      
-      // Force complete no-cache response with timestamp
-      res.set({
-        'Cache-Control': 'no-cache, no-store, must-revalidate, proxy-revalidate, max-age=0',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-        'Last-Modified': new Date().toUTCString(),
-        'ETag': `W/"${Date.now()}"` // Dynamic ETag to force refresh
-      });
-      
-      console.log("🔍 Sending fresh due-dates data:", JSON.stringify(dueDates, null, 2));
-      res.status(200).json(dueDates); // Force 200 status
-    } catch (error: any) {
-      console.error("Error fetching payment due dates:", error);
-      res.status(500).json({ message: "Error fetching payment due dates: " + error.message });
-    }
+    const campusId = (req as any).user.campus_id;
+    console.log("🔍 FRESH GET due-dates for campus:", campusId);
+    
+    // Get fresh data directly from database
+    const dueDates = await db
+      .select()
+      .from(payment_due_dates)
+      .where(eq(payment_due_dates.campus_id, campusId));
+    
+    // Fix HTML encoding and force fresh response
+    const cleanedDueDates = dueDates.map(dueDate => ({
+      ...dueDate,
+      mes_aplicacion: typeof dueDate.mes_aplicacion === 'string' 
+        ? dueDate.mes_aplicacion.replace(/&quot;/g, '"') 
+        : dueDate.mes_aplicacion
+    }));
+    
+    console.log("🔍 FRESH data from DB:", JSON.stringify(cleanedDueDates, null, 2));
+    
+    // Disable ALL caching
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0',
+      'Pragma': 'no-cache',
+      'Expires': '-1',
+      'Surrogate-Control': 'no-store',
+      'X-Accel-Expires': '0'
+    });
+    
+    res.json(cleanedDueDates);
   });
 
   // Create payment due date configuration

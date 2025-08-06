@@ -62,9 +62,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await apiRequest("POST", "/api/auth/login", {
-        email,
-        password,
+      const response = await apiRequest("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({
+          email,
+          password,
+        })
       });
       
       const data = await response.json();
@@ -82,9 +85,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const guardianLogin = async (email: string, password: string) => {
     try {
-      const response = await apiRequest("POST", "/api/auth/guardian-login", {
-        email,
-        password,
+      const response = await apiRequest("/api/auth/guardian-login", {
+        method: "POST",
+        body: JSON.stringify({
+          email,
+          password,
+        })
       });
       
       const data = await response.json();

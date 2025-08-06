@@ -387,7 +387,6 @@ export default function ConfiguracionPagos() {
                           id="todos"
                           checked={nuevaFecha.mes_aplicacion.includes("todos")}
                           onCheckedChange={(checked) => {
-                            console.log("Checkbox 'todos' clicked:", checked);
                             if (checked) {
                               setNuevaFecha(prev => ({ ...prev, mes_aplicacion: ["todos"] }));
                             } else {
@@ -420,7 +419,6 @@ export default function ConfiguracionPagos() {
                             checked={nuevaFecha.mes_aplicacion.includes(mes.value)}
                             disabled={nuevaFecha.mes_aplicacion.includes("todos")}
                             onCheckedChange={(checked) => {
-                              console.log(`Checkbox '${mes.value}' clicked:`, checked, "Current state:", nuevaFecha.mes_aplicacion);
                               if (checked) {
                                 setNuevaFecha(prev => ({ 
                                   ...prev, 

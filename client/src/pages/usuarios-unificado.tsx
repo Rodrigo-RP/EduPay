@@ -149,8 +149,9 @@ export default function UsuariosUnificado() {
       custom_permissions: []
     };
     
-    // Agregar a la lista
-    setUsuarios(prevUsuarios => [...prevUsuarios, newUser]);
+    // TODO: Crear usuario vía API
+    // await createUser(newUser);
+    refetchUsers();
     
     const credentials = {
       username: username,
@@ -592,14 +593,10 @@ export default function UsuariosUnificado() {
                   return;
                 }
                 
-                // Actualizar el usuario en la lista
-                setUsuarios(prevUsuarios => 
-                  prevUsuarios.map(usuario => 
-                    usuario.id === editingUser.id 
-                      ? { ...usuario, ...formData }
-                      : usuario
-                  )
-                );
+                // Actualizar el usuario vía API y refrescar la lista
+                // TODO: Implementar endpoint para actualizar usuario
+                // await updateUser(editingUser.id, formData);
+                refetchUsers();
                 
                 toast({
                   title: "Usuario actualizado",
@@ -710,10 +707,9 @@ export default function UsuariosUnificado() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDeleteModal(false)}>Cancelar</Button>
             <Button variant="destructive" onClick={() => {
-              // Eliminar usuario de la lista
-              setUsuarios(prevUsuarios => 
-                prevUsuarios.filter(usuario => usuario.id !== userToDelete.id)
-              );
+              // TODO: Eliminar usuario vía API
+              // await deleteUser(userToDelete.id);
+              refetchUsers();
               
               toast({
                 title: "Usuario eliminado",

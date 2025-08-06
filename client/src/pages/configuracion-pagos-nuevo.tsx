@@ -155,14 +155,15 @@ export default function ConfiguracionPagos() {
     },
     onSuccess: (data) => {
       console.log("saveFechaMutation onSuccess - Data received:", data);
-      // Force clear cache and refetch
+      
+      // Force complete cache clear and immediate refetch
       queryClient.removeQueries({ queryKey: ["/api/payment-config/due-dates"] });
       queryClient.invalidateQueries({ queryKey: ["/api/payment-config/due-dates"] });
       
-      // Force immediate refresh
+      // Force window reload to bypass all caches
       setTimeout(() => {
-        queryClient.refetchQueries({ queryKey: ["/api/payment-config/due-dates"] });
-      }, 50);
+        window.location.reload();
+      }, 100);
       
       setShowFechaModal(false);
       setEditingFecha(null);

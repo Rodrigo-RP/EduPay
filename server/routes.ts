@@ -493,14 +493,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Campus ID requerido" });
       }
 
-      // Validate request body
-      const validatedData = insertUserSchema.omit({ id: true, created_at: true, updated_at: true }).parse({
-        ...req.body,
+      // Validate request body first
+      const { name, email, password_hash, role, telefono, foto_url, twofa_secret, is_active, is_super_admin, platform_permissions, custom_permissions } = req.body;
+      
+      // Prepare user data with required fields
+      const userData = {
+        name,
+        email,
+        password_hash,
+        role,
         campus_id: campusId,
-        tenant_id: user.tenant_id
-      });
+        tenant_id: user.tenant_id,
+        telefono: telefono || null,
+        foto_url: foto_url || null,
+        twofa_secret: twofa_secret || null,
+        is_active: is_active !== undefined ? is_active : true,
+        is_super_admin: is_super_admin || false,
+        platform_permissions: platform_permissions || [],
+        custom_permissions: custom_permissions || []
+      };
 
-      const newUser = await storage.createUser(validatedData);
+      const newUser = await storage.createUser(userData);
       res.status(201).json(newUser);
     } catch (error: any) {
       console.error('Error creating user:', error);
@@ -700,8 +713,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get user data to ensure we have tenant_id and campus_id
       const userData = await storage.getUserById(user.id);
-      if (!userData) {
-        return res.status(404).json({ message: "Usuario no encontrado" });
+      if (!userData || !userData.campus_id || !userData.tenant_id) {
+        return res.status(404).json({ message: "Usuario no encontrado o datos incompletos" });
       }
 
       const institutionalData = {
@@ -4100,7 +4113,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (entity_type === 'scholarship' && entity_id) {
           // Update scholarship percentage
           await db.update(scholarships)
-            .set({ percentage: requestedData.percentage })
+            .set({ porcentaje_aplicado: requestedData.percentage })
             .where(eq(scholarships.id, entity_id));
         }
         break;
@@ -4109,7 +4122,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (entity_type === 'concept' && entity_id) {
           // Update concept price
           await db.update(concepts)
-            .set({ amount: requestedData.amount })
+            .set({ monto_centavos: requestedData.amount })
             .where(eq(concepts.id, entity_id));
         }
         break;
@@ -4118,7 +4131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (entity_type === 'charge' && entity_id) {
           // Update charge amount
           await db.update(charges)
-            .set({ amount: requestedData.amount })
+            .set({ monto_base_centavos: requestedData.amount })
             .where(eq(charges.id, entity_id));
         }
         break;
@@ -4143,7 +4156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (entity_type === 'charge' && entity_id) {
           // Update charge due date
           await db.update(charges)
-            .set({ due_date: new Date(requestedData.due_date) })
+            .set({ fecha_vencimiento: requestedData.due_date })
             .where(eq(charges.id, entity_id));
         }
         break;
@@ -4152,7 +4165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (entity_type === 'payment' && entity_id) {
           // Update payment status to cancelled
           await db.update(payments)
-            .set({ status: 'cancelled' })
+            .set({ estado: 'cancelled' })
             .where(eq(payments.id, entity_id));
         }
         break;
@@ -4161,7 +4174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (entity_type === 'payment' && entity_id) {
           // Update payment status to refunded
           await db.update(payments)
-            .set({ status: 'refunded' })
+            .set({ estado: 'refunded' })
             .where(eq(payments.id, entity_id));
         }
         break;

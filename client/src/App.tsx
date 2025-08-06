@@ -3,9 +3,11 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { AcademicFilterProvider } from "@/hooks/use-academic-filter";
 import { InstitutionProvider } from "@/hooks/use-institution";
+import { GraduationCap } from "lucide-react";
 import Header from "@/components/layout/header";
 import Sidebar from "@/components/layout/sidebar";
 import ParentPortal from "@/pages/parent-portal";
@@ -59,16 +61,23 @@ function AuthenticatedRoutes() {
     return <Login />;
   }
 
-  // SaaS routing - different interfaces based on user type
+  // Redirect guardians to mobile app notice (should not happen in SaaS version)
   if (guardian) {
     return (
-      <Switch>
-        <Route path="/" component={ParentPortal} />
-        <Route path="/parent" component={ParentPortal} />
-        <Route path="/checkout" component={ParentPortal} />
-        <Route path="/profile" component={Profile} />
-        <Route component={NotFound} />
-      </Switch>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+        <div className="max-w-md text-center">
+          <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <GraduationCap className="w-8 h-8 text-blue-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900 mb-4">Aplicación Móvil Requerida</h1>
+          <p className="text-slate-600 mb-6">
+            Los padres de familia deben utilizar la aplicación móvil dedicada de Edupay para acceder a sus servicios.
+          </p>
+          <Button onClick={() => window.location.href = "/"} variant="outline">
+            Ir al Portal Administrativo
+          </Button>
+        </div>
+      </div>
     );
   }
 

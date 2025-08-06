@@ -329,11 +329,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = (req as any).user?.id;
       const { name, email, telefono, foto_url } = req.body;
       
+      // Get current user data
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
       const updates: any = {};
       if (name !== undefined) updates.name = name;
-      if (email !== undefined) updates.email = email;
       if (telefono !== undefined) updates.telefono = telefono;
       if (foto_url !== undefined) updates.foto_url = foto_url;
+      
+      // Check if email is being changed and if it's already in use
+      if (email !== undefined && email !== currentUser.email) {
+        const existingUser = await storage.getUserByEmail(email);
+        if (existingUser && existingUser.id !== userId) {
+          return res.status(400).json({ 
+            message: "Este email ya está en uso por otro usuario" 
+          });
+        }
+        updates.email = email;
+      }
       
       await storage.updateUserProfile(userId, updates);
       
@@ -341,12 +357,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedUser = await storage.getUser(userId);
       if (updatedUser) {
         const { password_hash, ...profile } = updatedUser;
-        res.json({ message: "Profile updated successfully", profile });
+        res.json({ message: "Perfil actualizado exitosamente", profile });
       } else {
-        res.status(404).json({ message: "User not found" });
+        res.status(404).json({ message: "Usuario no encontrado" });
       }
     } catch (error: any) {
-      res.status(500).json({ message: "Error updating profile: " + error.message });
+      console.error("Error updating profile:", error);
+      res.status(500).json({ 
+        message: "Error actualizando perfil: " + (error.message || "Error desconocido")
+      });
     }
   });
 

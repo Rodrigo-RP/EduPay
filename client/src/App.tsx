@@ -20,7 +20,7 @@ import CajaConciliacion from "@/pages/caja-conciliacion";
 import FiscalContable from "@/pages/fiscal-contable";
 import Estudiantes from "@/pages/estudiantes";
 import Familias from "@/pages/familias";
-import Usuarios from "@/pages/usuarios";
+import UsuariosUnificado from "@/pages/usuarios-unificado";
 import Cargos from "@/pages/cargos";
 import Pagos from "@/pages/pagos";
 import CuentasPorCobrar from "@/pages/cuentas-por-cobrar";
@@ -101,7 +101,7 @@ function AuthenticatedRoutes() {
             <Route path="/dashboard-caja" component={DashboardCaja} />
             <Route path="/estudiantes" component={Estudiantes} />
             <Route path="/familias" component={Familias} />
-            <Route path="/usuarios" component={Usuarios} />
+            <Route path="/usuarios" component={UsuariosUnificado} />
             <Route path="/cargos" component={Cargos} />
             <Route path="/pagos" component={Pagos} />
             <Route path="/cuentas-por-cobrar" component={CuentasPorCobrar} />

@@ -31,13 +31,14 @@ export const users = pgTable("users", {
   email: varchar("email", { length: 255 }).notNull().unique(),
   password_hash: varchar("password_hash", { length: 255 }).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
-  role: varchar("role", { length: 50 }).notNull(), // 'super_admin', 'admin', 'caja', 'contador', 'admisiones', 'asistente', 'support', 'implementation'
+  role: varchar("role", { length: 50 }).notNull(), // 'administrador_general', 'administrador_campus', 'contador_general', 'auxiliar_contable', 'asistente', 'admisiones'
   telefono: varchar("telefono", { length: 20 }),
   foto_url: varchar("foto_url", { length: 500 }),
   twofa_secret: varchar("twofa_secret", { length: 255 }),
   is_active: boolean("is_active").default(true),
   is_super_admin: boolean("is_super_admin").default(false),
   platform_permissions: text("platform_permissions").array(),
+  custom_permissions: text("custom_permissions").array(), // Permisos personalizados asignados por el administrador general
   last_login_at: timestamp("last_login_at"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
@@ -738,3 +739,5 @@ export const insertInstitutionalCredentialSchema = createInsertSchema(institutio
 // Types for institutional credentials
 export type InstitutionalCredential = typeof institutional_credentials.$inferSelect;
 export type InsertInstitutionalCredential = z.infer<typeof insertInstitutionalCredentialSchema>;
+
+

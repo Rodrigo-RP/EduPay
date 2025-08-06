@@ -45,7 +45,7 @@ export default function Sidebar() {
 
     { 
       icon: "fas fa-user-cog", 
-      label: "Usuarios", 
+      label: "Gestión de Usuarios", 
       href: "/usuarios", 
       active: location === "/usuarios",
       category: "administrativo",

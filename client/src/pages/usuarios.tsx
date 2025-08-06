@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Users, Plus, Edit, Trash2, UserCheck, UserX, Shield, Mail, AlertTriangle, Key, Settings, Eye, User } from "lucide-react";
-import { ROLE_PERMISSIONS, hasPermission, getRolePermissions, UserRole } from "@shared/permissions";
+import { USER_ROLES, PERMISSIONS, hasPermission, getUserPermissions, getRoleDisplayName, getRoleDescription, UserRole } from "@shared/user-roles";
 
 export default function Usuarios() {
   const { toast } = useToast();
@@ -38,90 +38,97 @@ export default function Usuarios() {
     activo: true
   });
 
-  // Datos demo de usuarios del sistema
+  // Datos demo de usuarios del sistema con nuevos roles
   const usuarios = [
     {
       id: 1,
       email: "admin@jfr.edu.mx",
       nombre_completo: "María Elena Rodríguez",
-      role: "SUPER_ADMIN",
+      role: "administrador_general",
       telefono: "55-1234-5678",
       activo: true,
       campus: "Campus Principal",
       ultimo_acceso: "2025-01-20 08:30",
-      created_at: "2024-08-01"
+      created_at: "2024-08-01",
+      custom_permissions: []
     },
     {
       id: 2,
       email: "direccion@jfr.edu.mx", 
       nombre_completo: "Carlos Alberto Méndez",
-      role: "ADMIN_CAMPUS",
+      role: "administrador_campus",
       telefono: "55-2345-6789",
       activo: true,
       campus: "Campus Principal",
       ultimo_acceso: "2025-01-20 09:15",
-      created_at: "2024-08-15"
+      created_at: "2024-08-15",
+      custom_permissions: []
     },
     {
       id: 3,
-      email: "caja1@jfr.edu.mx",
+      email: "auxiliar1@jfr.edu.mx",
       nombre_completo: "Ana Patricia López",
-      role: "CAJA",
+      role: "auxiliar_contable",
       telefono: "55-3456-7890",
       activo: true,
       campus: "Campus Principal",
       ultimo_acceso: "2025-01-20 10:45",
-      created_at: "2024-09-01"
+      created_at: "2024-09-01",
+      custom_permissions: []
     },
     {
       id: 4,
       email: "contador@jfr.edu.mx",
       nombre_completo: "Jorge Luis Herrera",
-      role: "CONTADOR",
+      role: "contador_general",
       telefono: "55-4567-8901",
       activo: true,
       campus: "Campus Principal",
       ultimo_acceso: "2025-01-19 16:30",
-      created_at: "2024-09-15"
+      created_at: "2024-09-15",
+      custom_permissions: []
     },
     {
       id: 5,
-      email: "caja2@jfr.edu.mx",
+      email: "auxiliar2@jfr.edu.mx",
       nombre_completo: "Laura Beatriz Silva",
-      role: "CAJA",
+      role: "auxiliar_contable",
       telefono: "55-5678-9012",
       activo: false,
       campus: "Campus Principal",
       ultimo_acceso: "2025-01-10 14:20",
-      created_at: "2024-10-01"
+      created_at: "2024-10-01",
+      custom_permissions: []
     },
     {
       id: 6,
-      email: "finanzas@jfr.edu.mx",
+      email: "admin2@jfr.edu.mx",
       nombre_completo: "Roberto Carlos Vega",
-      role: "ADMIN_CAMPUS",
+      role: "administrador_campus",
       telefono: "55-6789-0123",
       activo: true,
       campus: "Campus Norte",
       ultimo_acceso: "2025-01-20 11:30",
-      created_at: "2024-08-20"
+      created_at: "2024-08-20",
+      custom_permissions: []
     },
     {
       id: 7,
       email: "admisiones@jfr.edu.mx",
       nombre_completo: "Carmen Rosa Martínez",
-      role: "ADMISIONES",
+      role: "admisiones",
       telefono: "55-7890-1234",
       activo: true,
       campus: "Campus Principal",
       ultimo_acceso: "2025-01-20 13:15",
-      created_at: "2024-11-01"
+      created_at: "2024-11-01",
+      custom_permissions: []
     },
     {
       id: 8,
       email: "asistente@jfr.edu.mx",
       nombre_completo: "Patricia Fernández Ruiz",
-      role: "ASISTENTE",
+      role: "asistente",
       telefono: "55-8901-2345",
       activo: true,
       campus: "Campus Principal",

@@ -1056,11 +1056,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updatePaymentDueDate(id: number, updates: Partial<PaymentDueDate>): Promise<PaymentDueDate | undefined> {
+    console.log("Storage updatePaymentDueDate - ID:", id);
+    console.log("Storage updatePaymentDueDate - Updates:", updates);
+    
     const [updated] = await db
       .update(payment_due_dates)
       .set({ ...updates, updated_at: new Date() })
       .where(eq(payment_due_dates.id, id))
       .returning();
+    
+    console.log("Storage updatePaymentDueDate - Result:", updated);
     return updated || undefined;
   }
 

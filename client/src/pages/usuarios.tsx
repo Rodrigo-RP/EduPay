@@ -12,10 +12,12 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Users, Plus, Edit, Trash2, UserCheck, UserX, Shield, Mail, AlertTriangle, Key, Settings, Eye, User } from "lucide-react";
 import { USER_ROLES, PERMISSIONS, hasPermission, getUserPermissions, getRoleDisplayName, getRoleDescription, UserRole } from "@shared/user-roles";
+import { useInstitution } from "@/hooks/use-institution";
 
 export default function Usuarios() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { logoUrl, institutionName } = useInstitution();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
@@ -418,10 +420,26 @@ export default function Usuarios() {
         
         <div className="p-6">
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Gestión de Usuarios</h1>
-          <p className="text-slate-600">Administra usuarios del sistema, roles y permisos</p>
+        <div className="flex items-center gap-4">
+          {logoUrl && logoUrl.length > 50 && logoUrl.includes('data:image') ? (
+            <div className="w-12 h-12 bg-blue-100 rounded-xl overflow-hidden flex items-center justify-center border-2 border-blue-200">
+              <img 
+                src={logoUrl} 
+                alt="Logo institucional" 
+                className="w-full h-full object-cover"
+                style={{ display: 'block', maxWidth: '100%', maxHeight: '100%' }}
+              />
             </div>
+          ) : (
+            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+              <Users className="w-6 h-6 text-blue-600" />
+            </div>
+          )}
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Gestión de Usuarios</h1>
+            <p className="text-slate-600">Administra usuarios del sistema, roles y permisos</p>
+          </div>
+        </div>
             
             {/* Pestañas */}
             <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">

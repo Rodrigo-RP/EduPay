@@ -15,7 +15,12 @@ export default function RoleBasedDashboard() {
 
   switch (userRole) {
     case 'super_admin':
+    case 'administrador_general':
     case 'admin':
+      return <AdminDashboard />;
+    
+    case 'administrador_campus':
+      // Dashboard administrativo con funciones de campus
       return <AdminDashboard />;
     
     case 'admisiones':
@@ -24,8 +29,13 @@ export default function RoleBasedDashboard() {
     case 'caja':
       return <DashboardCaja />;
     
+    case 'contador_general':
     case 'contador':
       // Dashboard enfocado en reportes financieros y contables
+      return <DashboardContador />;
+    
+    case 'auxiliar_contable':
+      // Dashboard contable con acceso limitado
       return <DashboardContador />;
     
     case 'asistente':

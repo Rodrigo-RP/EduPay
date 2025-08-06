@@ -1219,7 +1219,16 @@ export default function Pagos() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="relative p-4 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-2xl">
-                  <CreditCard className="w-8 h-8 text-blue-600" />
+                  {logoUrl && logoUrl.length > 50 && logoUrl.includes('data:image') ? (
+                    <img 
+                      src={logoUrl} 
+                      alt="Logo institucional" 
+                      className="w-8 h-8 object-cover rounded-lg"
+                      style={{ display: 'block', maxWidth: '100%', maxHeight: '100%' }}
+                    />
+                  ) : (
+                    <CreditCard className="w-8 h-8 text-blue-600" />
+                  )}
                 </div>
                 <div>
                   <h1 className="text-xl md:text-3xl font-bold text-blue-600 mb-1">Gestión de Pagos</h1>

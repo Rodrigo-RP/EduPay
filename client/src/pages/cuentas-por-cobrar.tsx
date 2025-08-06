@@ -694,7 +694,23 @@ export default function CuentasPorCobrar() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Cuentas por Cobrar</h1>
+        <div className="flex items-center gap-4">
+          {logoUrl && logoUrl.length > 50 && logoUrl.includes('data:image') ? (
+            <div className="w-12 h-12 bg-red-100 rounded-xl overflow-hidden flex items-center justify-center border-2 border-red-200">
+              <img 
+                src={logoUrl} 
+                alt="Logo institucional" 
+                className="w-full h-full object-cover"
+                style={{ display: 'block', maxWidth: '100%', maxHeight: '100%' }}
+              />
+            </div>
+          ) : (
+            <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+              <DollarSign className="w-6 h-6 text-red-600" />
+            </div>
+          )}
+          <h1 className="text-3xl font-bold text-gray-900">Cuentas por Cobrar</h1>
+        </div>
       </div>
 
       {/* Métricas principales */}

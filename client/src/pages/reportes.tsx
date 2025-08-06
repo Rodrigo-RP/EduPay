@@ -1030,7 +1030,16 @@ Fecha: ${(reporte as any).fecha || new Date().toLocaleDateString('es-MX')}
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="p-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl">
-                <FileText className="w-8 h-8 text-white" />
+                {logoUrl && logoUrl.length > 50 && logoUrl.includes('data:image') ? (
+                  <img 
+                    src={logoUrl} 
+                    alt="Logo institucional" 
+                    className="w-8 h-8 object-cover rounded-lg"
+                    style={{ display: 'block', maxWidth: '100%', maxHeight: '100%', filter: 'brightness(0) invert(1)' }}
+                  />
+                ) : (
+                  <FileText className="w-8 h-8 text-white" />
+                )}
               </div>
               <div className="space-y-2">
                 <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">

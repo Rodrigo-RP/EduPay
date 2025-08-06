@@ -9,8 +9,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, Mail, Phone, Lock, Camera, Save, X, Upload, Eye, EyeOff } from "lucide-react";
+import { User, Mail, Phone, Lock, Camera, Save, X, Upload, Eye, EyeOff, Building2, Calendar, Shield, Plus, Edit, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
@@ -32,8 +35,18 @@ const passwordSchema = z.object({
   path: ["confirmPassword"],
 });
 
+// Institutional credentials schema
+const institutionalCredentialSchema = z.object({
+  credential_type: z.string().min(1, "Tipo de credencial requerido"),
+  credential_name: z.string().optional(),
+  username: z.string().optional(),
+  password: z.string().optional(),
+  expiration_date: z.string().optional(),
+});
+
 type ProfileForm = z.infer<typeof profileSchema>;
 type PasswordForm = z.infer<typeof passwordSchema>;
+type InstitutionalCredentialForm = z.infer<typeof institutionalCredentialSchema>;
 
 export default function Profile() {
   const { user, guardian } = useAuth();
@@ -43,16 +56,28 @@ export default function Profile() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showCredentialPassword, setShowCredentialPassword] = useState<{[key: number]: boolean}>({});
+  const [isCredentialDialogOpen, setIsCredentialDialogOpen] = useState(false);
+  const [editingCredential, setEditingCredential] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isGuardian = !!guardian;
   const profileEndpoint = isGuardian ? "/api/guardian/profile" : "/api/profile";
   const passwordEndpoint = isGuardian ? "/api/guardian/profile/password" : "/api/profile/password";
+  
+  // Only show institutional tab for admin users (not guardians)
+  const canViewInstitutional = !isGuardian && (user?.role === 'admin' || user?.role === 'super_admin');
 
   // Fetch current profile data
   const { data: profileData, isLoading } = useQuery({
     queryKey: [profileEndpoint],
     enabled: !!(user || guardian),
+  });
+
+  // Fetch institutional credentials for admin users
+  const { data: institutionalCredentials, isLoading: isLoadingCredentials } = useQuery({
+    queryKey: ["/api/profile/institutional-credentials"],
+    enabled: canViewInstitutional,
   });
 
   // Profile form
@@ -72,6 +97,18 @@ export default function Profile() {
       currentPassword: "",
       newPassword: "",
       confirmPassword: "",
+    },
+  });
+
+  // Institutional credential form
+  const credentialForm = useForm<InstitutionalCredentialForm>({
+    resolver: zodResolver(institutionalCredentialSchema),
+    defaultValues: {
+      credential_type: "",
+      credential_name: "",
+      username: "",
+      password: "",
+      expiration_date: "",
     },
   });
 
@@ -187,6 +224,63 @@ export default function Profile() {
     },
   });
 
+  // Institutional credential mutations
+  const credentialMutation = useMutation({
+    mutationFn: async (data: InstitutionalCredentialForm) => {
+      const endpoint = editingCredential 
+        ? `/api/profile/institutional-credentials/${editingCredential.id}`
+        : "/api/profile/institutional-credentials";
+      const method = editingCredential ? "PUT" : "POST";
+      
+      return apiRequest(endpoint, {
+        method,
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "✅ Credencial guardada",
+        description: editingCredential 
+          ? "Las credenciales se han actualizado correctamente."
+          : "Las credenciales se han guardado correctamente.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/profile/institutional-credentials"] });
+      setIsCredentialDialogOpen(false);
+      setEditingCredential(null);
+      credentialForm.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "❌ Error",
+        description: error.message || "No se pudieron guardar las credenciales",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteCredentialMutation = useMutation({
+    mutationFn: async (credentialId: number) => {
+      return apiRequest(`/api/profile/institutional-credentials/${credentialId}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "✅ Credencial eliminada",
+        description: "Las credenciales se han eliminado correctamente.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/profile/institutional-credentials"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "❌ Error",
+        description: error.message || "No se pudo eliminar la credencial",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Handle form submissions
   const onProfileSubmit = (data: ProfileForm) => {
     profileMutation.mutate(data);
@@ -194,6 +288,64 @@ export default function Profile() {
 
   const onPasswordSubmit = (data: PasswordForm) => {
     passwordMutation.mutate(data);
+  };
+
+  const onCredentialSubmit = (data: InstitutionalCredentialForm) => {
+    credentialMutation.mutate(data);
+  };
+
+  // Helper functions for institutional credentials
+  const handleEditCredential = (credential: any) => {
+    setEditingCredential(credential);
+    credentialForm.reset({
+      credential_type: credential.credential_type,
+      credential_name: credential.credential_name || "",
+      username: credential.username || "",
+      password: "", // Don't pre-fill password for security
+      expiration_date: credential.expiration_date || "",
+    });
+    setIsCredentialDialogOpen(true);
+  };
+
+  const handleDeleteCredential = (credentialId: number) => {
+    if (confirm("¿Estás seguro de que deseas eliminar esta credencial?")) {
+      deleteCredentialMutation.mutate(credentialId);
+    }
+  };
+
+  const handleAddCredential = () => {
+    setEditingCredential(null);
+    credentialForm.reset();
+    setIsCredentialDialogOpen(true);
+  };
+
+  const getCredentialTypeLabel = (type: string) => {
+    const types: { [key: string]: string } = {
+      firma_electronica: "Firma Electrónica",
+      sellos_digitales: "Sellos Digitales",
+      idse: "IDSE",
+      tarjeta_patronal: "Tarjeta Patronal",
+      infonavit: "INFONAVIT",
+      otra: "Otra",
+    };
+    return types[type] || type;
+  };
+
+  const getExpirationStatus = (expirationDate: string) => {
+    if (!expirationDate) return null;
+    
+    const today = new Date();
+    const expDate = new Date(expirationDate);
+    const diffTime = expDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) {
+      return { status: "expired", label: "Vencida", color: "bg-red-100 text-red-800" };
+    } else if (diffDays <= 15) {
+      return { status: "expiring", label: `Vence en ${diffDays} días`, color: "bg-yellow-100 text-yellow-800" };
+    } else {
+      return { status: "active", label: "Vigente", color: "bg-green-100 text-green-800" };
+    }
   };
 
   // Handle photo selection
@@ -297,6 +449,9 @@ export default function Profile() {
         <TabsList>
           <TabsTrigger value="profile">Información Personal</TabsTrigger>
           <TabsTrigger value="password">Cambiar Contraseña</TabsTrigger>
+          {canViewInstitutional && (
+            <TabsTrigger value="institutional">Información Institucional</TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="profile" className="space-y-4">
@@ -535,6 +690,235 @@ export default function Profile() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {canViewInstitutional && (
+          <TabsContent value="institutional" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="w-5 h-5" />
+                  Información Institucional
+                </CardTitle>
+                <CardDescription>
+                  Gestiona las credenciales institucionales del campus. Recibe notificaciones automáticas 15 días antes del vencimiento.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-between items-center mb-6">
+                  <div className="text-sm text-muted-foreground">
+                    {institutionalCredentials?.length || 0} credenciales guardadas
+                  </div>
+                  <Button onClick={handleAddCredential} className="flex items-center gap-2">
+                    <Plus className="w-4 h-4" />
+                    Agregar Credencial
+                  </Button>
+                </div>
+
+                {isLoadingCredentials ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin w-6 h-6 border-4 border-primary border-t-transparent rounded-full" />
+                  </div>
+                ) : institutionalCredentials && institutionalCredentials.length > 0 ? (
+                  <div className="space-y-4">
+                    {institutionalCredentials.map((credential: any) => {
+                      const expirationStatus = getExpirationStatus(credential.expiration_date);
+                      return (
+                        <div key={credential.id} className="border rounded-lg p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <Shield className="w-5 h-5 text-muted-foreground" />
+                              <div>
+                                <h3 className="font-medium">
+                                  {credential.credential_type === 'otra' 
+                                    ? credential.credential_name || 'Otra credencial'
+                                    : getCredentialTypeLabel(credential.credential_type)
+                                  }
+                                </h3>
+                                <p className="text-sm text-muted-foreground">
+                                  Usuario: {credential.username || "No especificado"}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {expirationStatus && (
+                                <Badge variant="secondary" className={expirationStatus.color}>
+                                  {expirationStatus.label}
+                                </Badge>
+                              )}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEditCredential(credential)}
+                                className="flex items-center gap-1"
+                              >
+                                <Edit className="w-3 h-3" />
+                                Editar
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDeleteCredential(credential.id)}
+                                className="flex items-center gap-1 text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                Eliminar
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          {credential.expiration_date && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Calendar className="w-4 h-4 text-muted-foreground" />
+                              <span>Vence: {new Date(credential.expiration_date).toLocaleDateString('es-ES')}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Shield className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>No hay credenciales institucionales guardadas</p>
+                    <p className="text-sm">Agrega credenciales para recibir notificaciones de vencimiento</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Dialog para agregar/editar credenciales */}
+            <Dialog open={isCredentialDialogOpen} onOpenChange={setIsCredentialDialogOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>
+                    {editingCredential ? "Editar Credencial" : "Agregar Credencial"}
+                  </DialogTitle>
+                  <DialogDescription>
+                    Ingresa los datos de la credencial institucional. Recibirás notificaciones 15 días antes del vencimiento.
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <Form {...credentialForm}>
+                  <form onSubmit={credentialForm.handleSubmit(onCredentialSubmit)} className="space-y-4">
+                    <FormField
+                      control={credentialForm.control}
+                      name="credential_type"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Tipo de Credencial</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecciona el tipo" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="firma_electronica">Firma Electrónica</SelectItem>
+                              <SelectItem value="sellos_digitales">Sellos Digitales</SelectItem>
+                              <SelectItem value="idse">IDSE</SelectItem>
+                              <SelectItem value="tarjeta_patronal">Tarjeta Patronal</SelectItem>
+                              <SelectItem value="infonavit">INFONAVIT</SelectItem>
+                              <SelectItem value="otra">Otra</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {credentialForm.watch("credential_type") === "otra" && (
+                      <FormField
+                        control={credentialForm.control}
+                        name="credential_name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Nombre de la Credencial</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Especifica el nombre" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+
+                    <FormField
+                      control={credentialForm.control}
+                      name="username"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Usuario</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Usuario o email de acceso" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={credentialForm.control}
+                      name="password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Contraseña</FormLabel>
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              type="password" 
+                              placeholder={editingCredential ? "Dejar vacío para mantener actual" : "Contraseña"}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={credentialForm.control}
+                      name="expiration_date"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Fecha de Vencimiento</FormLabel>
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              type="date"
+                              className="max-w-xs"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <DialogFooter>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsCredentialDialogOpen(false)}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={credentialMutation.isPending}
+                        className="flex items-center gap-2"
+                      >
+                        {credentialMutation.isPending ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Save className="w-4 h-4" />
+                        )}
+                        {editingCredential ? "Actualizar" : "Guardar"}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

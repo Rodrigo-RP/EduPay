@@ -4365,6 +4365,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // INSTITUTIONAL CREDENTIALS ROUTES
+  // Get institutional credentials for current user
+  app.get("/api/profile/institutional-credentials", authenticateToken, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const campusId = (req as any).user.campus_id;
+      
+      const credentials = await db.select()
+        .from(institutional_credentials)
+        .where(and(
+          eq(institutional_credentials.user_id, userId),
+          eq(institutional_credentials.campus_id, campusId),
+          eq(institutional_credentials.is_active, true)
+        ));
+      
+      // Don't return encrypted passwords
+      const safeCredentials = credentials.map(cred => ({
+        ...cred,
+        password_encrypted: undefined
+      }));
+      
+      res.json(safeCredentials);
+    } catch (error: any) {
+      console.error("Error fetching institutional credentials:", error);
+      res.status(500).json({ message: "Error fetching credentials: " + error.message });
+    }
+  });
+
+  // Create new institutional credential
+  app.post("/api/profile/institutional-credentials", authenticateToken, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const campusId = (req as any).user.campus_id;
+      const { credential_type, credential_name, username, password, expiration_date } = req.body;
+      
+      // Encrypt password if provided
+      let password_encrypted = null;
+      if (password) {
+        password_encrypted = await bcrypt.hash(password, 12);
+      }
+      
+      const credential = await db.insert(institutional_credentials).values({
+        user_id: userId,
+        campus_id: campusId,
+        credential_type,
+        credential_name,
+        username,
+        password_encrypted,
+        expiration_date: expiration_date || null,
+      }).returning();
+      
+      // Don't return encrypted password
+      const safeCredential = {
+        ...credential[0],
+        password_encrypted: undefined
+      };
+      
+      res.status(201).json(safeCredential);
+    } catch (error: any) {
+      console.error("Error creating institutional credential:", error);
+      res.status(500).json({ message: "Error creating credential: " + error.message });
+    }
+  });
+
+  // Update institutional credential
+  app.put("/api/profile/institutional-credentials/:id", authenticateToken, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const credentialId = parseInt(req.params.id);
+      const { credential_type, credential_name, username, password, expiration_date } = req.body;
+      
+      // Check if credential belongs to user
+      const existing = await db.select()
+        .from(institutional_credentials)
+        .where(and(
+          eq(institutional_credentials.id, credentialId),
+          eq(institutional_credentials.user_id, userId)
+        ));
+      
+      if (existing.length === 0) {
+        return res.status(404).json({ message: "Credential not found" });
+      }
+      
+      // Prepare update data
+      const updateData: any = {
+        credential_type,
+        credential_name,
+        username,
+        expiration_date: expiration_date || null,
+        updated_at: new Date(),
+      };
+      
+      // Only update password if provided
+      if (password) {
+        updateData.password_encrypted = await bcrypt.hash(password, 12);
+      }
+      
+      const updated = await db.update(institutional_credentials)
+        .set(updateData)
+        .where(eq(institutional_credentials.id, credentialId))
+        .returning();
+      
+      // Don't return encrypted password
+      const safeCredential = {
+        ...updated[0],
+        password_encrypted: undefined
+      };
+      
+      res.json(safeCredential);
+    } catch (error: any) {
+      console.error("Error updating institutional credential:", error);
+      res.status(500).json({ message: "Error updating credential: " + error.message });
+    }
+  });
+
+  // Delete institutional credential
+  app.delete("/api/profile/institutional-credentials/:id", authenticateToken, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const credentialId = parseInt(req.params.id);
+      
+      // Check if credential belongs to user
+      const existing = await db.select()
+        .from(institutional_credentials)
+        .where(and(
+          eq(institutional_credentials.id, credentialId),
+          eq(institutional_credentials.user_id, userId)
+        ));
+      
+      if (existing.length === 0) {
+        return res.status(404).json({ message: "Credential not found" });
+      }
+      
+      await db.delete(institutional_credentials)
+        .where(eq(institutional_credentials.id, credentialId));
+      
+      res.json({ message: "Credential deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting institutional credential:", error);
+      res.status(500).json({ message: "Error deleting credential: " + error.message });
+    }
+  });
+
   // MIGRATION API ROUTES - Para que Refeerence pueda migrar EDUPAY desde Replit
   app.use('/api/migration', (await import('./replit-migration-api')).default);
 

@@ -43,6 +43,23 @@ export const users = pgTable("users", {
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
+// INSTITUTIONAL CREDENTIALS - Credenciales institucionales para administradores
+export const institutional_credentials = pgTable("institutional_credentials", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+  campus_id: integer("campus_id").references(() => campuses.id, { onDelete: "cascade" }),
+  credential_type: varchar("credential_type", { length: 50 }).notNull(), // 'firma_electronica', 'sellos_digitales', 'idse', 'tarjeta_patronal', 'infonavit', 'otra'
+  credential_name: varchar("credential_name", { length: 255 }), // Nombre personalizado para "Otra"
+  username: varchar("username", { length: 255 }),
+  password_encrypted: varchar("password_encrypted", { length: 500 }), // Encrypted password
+  expiration_date: date("expiration_date"),
+  notification_sent: boolean("notification_sent").default(false),
+  last_notification_date: timestamp("last_notification_date"),
+  is_active: boolean("is_active").default(true),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
 // PLATFORM PROFILES (Support and Implementation users)
 export const platform_profiles = pgTable("platform_profiles", {
   id: serial("id").primaryKey(),
@@ -693,3 +710,14 @@ export type ApprovalNotification = typeof approval_notifications.$inferSelect;
 export type InsertApprovalNotification = z.infer<typeof insertApprovalNotificationSchema>;
 export type ApprovalWorkflowLog = typeof approval_workflow_logs.$inferSelect;
 export type InsertApprovalWorkflowLog = z.infer<typeof insertApprovalWorkflowLogSchema>;
+
+// Insert schema for institutional credentials
+export const insertInstitutionalCredentialSchema = createInsertSchema(institutional_credentials).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+});
+
+// Types for institutional credentials
+export type InstitutionalCredential = typeof institutional_credentials.$inferSelect;
+export type InsertInstitutionalCredential = z.infer<typeof insertInstitutionalCredentialSchema>;

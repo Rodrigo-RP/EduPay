@@ -459,11 +459,50 @@ export default function Estudiantes() {
     });
   };
 
-  // Filtros para estudiantes
-  const grados = Array.from(new Set(estudiantes.map((e: any) => e.grado).filter(Boolean))) as string[];
-  const grupos = Array.from(new Set(estudiantes.map((e: any) => e.grupo).filter(Boolean))) as string[];
-  const secciones = Array.from(new Set(estudiantes.map((e: any) => e.nivel_escolar).filter(Boolean))) as string[];
-  const ciclosEscolares = Array.from(new Set(estudiantes.map((e: any) => e.ciclo_escolar || '2024-2025').filter(Boolean))) as string[];
+  // Filtros predefinidos para estudiantes con opciones específicas del sistema educativo mexicano
+  const seccionesEducativas = [
+    'Kinder',
+    'Primaria', 
+    'Secundaria',
+    'Preparatoria'
+  ];
+  
+  const gradosEducativos = [
+    // Kinder
+    '1° Kinder', '2° Kinder', '3° Kinder',
+    // Primaria
+    '1°', '2°', '3°', '4°', '5°', '6°',
+    // Secundaria 
+    '1° Sec', '2° Sec', '3° Sec',
+    // Preparatoria
+    '1° Prep', '2° Prep', '3° Prep'
+  ];
+  
+  const gruposEducativos = [
+    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'
+  ];
+  
+  const ciclosEducativos = [
+    '2024-2025',
+    '2025-2026', 
+    '2026-2027',
+    '2027-2028',
+    '2028-2029',
+    '2023-2024',
+    '2022-2023'
+  ];
+
+  // Mantener opciones dinámicas de la base de datos como fallback
+  const gradosBD = Array.from(new Set(estudiantes.map((e: any) => e.grado).filter(Boolean))) as string[];
+  const gruposBD = Array.from(new Set(estudiantes.map((e: any) => e.grupo).filter(Boolean))) as string[];
+  const seccionesBD = Array.from(new Set(estudiantes.map((e: any) => e.nivel_escolar).filter(Boolean))) as string[];
+  const ciclosEscolaresBD = Array.from(new Set(estudiantes.map((e: any) => e.ciclo_escolar || '2024-2025').filter(Boolean))) as string[];
+  
+  // Combinar opciones predefinidas con las de la base de datos (sin duplicados)
+  const grados = Array.from(new Set([...gradosEducativos, ...gradosBD]));
+  const grupos = Array.from(new Set([...gruposEducativos, ...gruposBD])); 
+  const secciones = Array.from(new Set([...seccionesEducativas, ...seccionesBD]));
+  const ciclosEscolares = Array.from(new Set([...ciclosEducativos, ...ciclosEscolaresBD]));
   const statusOptions = Array.from(new Set(estudiantes.map((e: any) => e.status).filter(Boolean))) as string[];
   const codigosPostales = Array.from(new Set(
     estudiantes.map((e: any) => 
@@ -1246,12 +1285,9 @@ export default function Estudiantes() {
                         <SelectValue placeholder="Seleccionar grado" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1°">1°</SelectItem>
-                        <SelectItem value="2°">2°</SelectItem>
-                        <SelectItem value="3°">3°</SelectItem>
-                        <SelectItem value="4°">4°</SelectItem>
-                        <SelectItem value="5°">5°</SelectItem>
-                        <SelectItem value="6°">6°</SelectItem>
+                        {gradosEducativos.map((grado) => (
+                          <SelectItem key={grado} value={grado}>{grado}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1262,8 +1298,8 @@ export default function Estudiantes() {
                         <SelectValue placeholder="Seleccionar grupo" />
                       </SelectTrigger>
                       <SelectContent>
-                        {gruposPersonalizados.map(grupo => (
-                          <SelectItem key={grupo} value={grupo}>{grupo}</SelectItem>
+                        {gruposEducativos.map((grupo) => (
+                          <SelectItem key={grupo} value={grupo}>Grupo {grupo}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

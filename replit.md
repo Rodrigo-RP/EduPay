@@ -27,6 +27,7 @@ Estado actual: Sistema 100% funcional con nuevas funcionalidades implementadas:
 - ✅ 18 alumnos reales importados exitosamente (primaria, secundaria, preparatoria)
 - ✅ Login mejorado con botón mostrar/ocultar contraseña implementado
 - ✅ Sistema de autenticación completamente funcional sin errores JSON
+- 🔄 reCAPTCHA preparado para implementar (pendiente claves de Google)
 
 ## System Architecture
 

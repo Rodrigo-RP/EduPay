@@ -34,7 +34,10 @@ class WebSocketManager {
   private campusClients: Map<number, Set<number>> = new Map(); // campus_id -> user_ids
 
   initialize(server: Server) {
-    this.wss = new WebSocketServer({ server });
+    this.wss = new WebSocketServer({ 
+      server,
+      path: '/ws/realtime'  // Use a specific path to avoid conflicts with Vite's HMR WebSocket
+    });
     
     this.wss.on('connection', (ws: AuthenticatedSocket, req) => {
       console.log('🔌 Nueva conexión WebSocket');

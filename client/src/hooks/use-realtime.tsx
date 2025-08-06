@@ -51,7 +51,7 @@ export function useRealTime(options: UseRealTimeOptions = {}) {
     setConnectionStatus('connecting');
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}`;
+    const wsUrl = `${protocol}//${window.location.host}/ws/realtime`;
     
     try {
       wsRef.current = new WebSocket(wsUrl);

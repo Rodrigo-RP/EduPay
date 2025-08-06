@@ -685,7 +685,6 @@ export class DatabaseStorage implements IStorage {
         tenant_id: pending_approvals.tenant_id,
         requested_by: pending_approvals.requested_by,
         action_type: pending_approvals.action_type,
-
         entity_type: pending_approvals.entity_type,
         entity_id: pending_approvals.entity_id,
         original_data: pending_approvals.original_data,
@@ -713,8 +712,50 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(pending_approvals.created_at));
+
+    // Enrich approvals with student information when available
+    const enrichedApprovals = await Promise.all(
+      approvals.map(async (approval) => {
+        try {
+          // Parse original and requested data to extract student information
+          const originalData = JSON.parse(approval.original_data || '{}');
+          const requestedData = JSON.parse(approval.requested_data || '{}');
+          
+          let studentInfo = null;
+          
+          // Try to find student information from the data
+          if (originalData.student || requestedData.student) {
+            const studentName = originalData.student || requestedData.student;
+            
+            // Search for student by name
+            const student = await db
+              .select({
+                id: students.id,
+                nombre_completo: students.nombre_completo,
+                grado: students.grado,
+                grupo: students.grupo,
+                curp: students.curp
+              })
+              .from(students)
+              .where(eq(students.nombre_completo, studentName))
+              .limit(1);
+            
+            if (student.length > 0) {
+              studentInfo = student[0];
+            }
+          }
+          
+          return {
+            ...approval,
+            student_info: studentInfo
+          } as any;
+        } catch (error) {
+          return approval as any;
+        }
+      })
+    );
     
-    return approvals;
+    return enrichedApprovals;
   }
 
   async getPendingApprovalsByRequester(userId: number): Promise<PendingApproval[]> {
@@ -786,7 +827,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllApprovalsHistory(): Promise<any[]> {
-    // Get all approvals with requester information
+    // Get all approvals with requester information and student data when applicable
     const allApprovals = await db
       .select({
         id: pending_approvals.id,
@@ -809,7 +850,7 @@ export class DatabaseStorage implements IStorage {
         requester_name: users.name,
         requester_email: users.email,
         requester_role: users.role,
-        action_description: pending_approvals.reason // Using reason as description for now
+        action_description: pending_approvals.reason
       })
       .from(pending_approvals)
       .leftJoin(users, eq(pending_approvals.requested_by, users.id))
@@ -819,8 +860,50 @@ export class DatabaseStorage implements IStorage {
       )
       .orderBy(desc(pending_approvals.updated_at))
       .limit(50); // Limit to recent 50 records
+
+    // Enrich approvals with student information when available
+    const enrichedApprovals = await Promise.all(
+      allApprovals.map(async (approval) => {
+        try {
+          // Parse original and requested data to extract student information
+          const originalData = JSON.parse(approval.original_data || '{}');
+          const requestedData = JSON.parse(approval.requested_data || '{}');
+          
+          let studentInfo = null;
+          
+          // Try to find student information from the data
+          if (originalData.student || requestedData.student) {
+            const studentName = originalData.student || requestedData.student;
+            
+            // Search for student by name
+            const student = await db
+              .select({
+                id: students.id,
+                nombre_completo: students.nombre_completo,
+                grado: students.grado,
+                grupo: students.grupo,
+                curp: students.curp
+              })
+              .from(students)
+              .where(eq(students.nombre_completo, studentName))
+              .limit(1);
+            
+            if (student.length > 0) {
+              studentInfo = student[0];
+            }
+          }
+          
+          return {
+            ...approval,
+            student_info: studentInfo
+          };
+        } catch (error) {
+          return approval;
+        }
+      })
+    );
     
-    return allApprovals;
+    return enrichedApprovals;
   }
 
   async checkUserCanApprove(userId: number, actionType: string): Promise<boolean> {

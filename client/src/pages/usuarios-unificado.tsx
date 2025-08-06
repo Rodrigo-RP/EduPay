@@ -202,13 +202,10 @@ export default function UsuariosUnificado() {
 
   // Función para mostrar modal de permisos
   const handleShowPermissions = (user: any) => {
-    console.log('Usuario seleccionado:', user);
-    console.log('Rol del usuario:', user.role);
     setSelectedUserForPermissions(user);
     // Inicializar permisos personalizados con los permisos por defecto del rol + permisos custom existentes
     const userCustomPermissions = user.custom_permissions || [];
     const allPermissions = getUserPermissions(user.role as UserRole, userCustomPermissions);
-    console.log('Permisos calculados:', allPermissions);
     setCustomPermissions(allPermissions);
     setShowPermissionsModal(true);
   };

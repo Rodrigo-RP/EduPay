@@ -31,27 +31,20 @@ export function InstitutionProvider({ children }: { children: ReactNode }) {
 
   // Actualizar estado cuando se cargan los datos
   useEffect(() => {
-    console.log('🔍 Datos institucionales recibidos:', institutionalData);
     if (institutionalData && Object.keys(institutionalData).length > 0) {
       setInstitutionName(institutionalData.nombre_legal || 'Instituto JFR');
       setCampusName('Campus Principal');
       
-      // Log específico para logo
-      console.log('🖼️ Logo URL de la base de datos:', institutionalData.logo_url);
-      
       if (institutionalData.logo_url && institutionalData.logo_url.trim() !== '') {
         setLogoUrl(institutionalData.logo_url);
-        console.log('✅ Logo cargado desde BD:', institutionalData.logo_url.substring(0, 50) + '...');
       } else {
         setLogoUrl('/logo-jfr.svg');
-        console.log('⚠️ No hay logo en BD, usando logo por defecto');
       }
     } else {
       // Valores por defecto
       setInstitutionName('Instituto JFR');
       setCampusName('Campus Principal');
       setLogoUrl('/logo-jfr.svg');
-      console.log('🏠 Usando valores por defecto');
     }
   }, [institutionalData]);
 

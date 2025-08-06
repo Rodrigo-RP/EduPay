@@ -16,6 +16,7 @@ import securityMiddleware, {
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { insertUserSchema, insertGuardianSchema, insertChargeSchema, insertPaymentSchema, insertInstitutionalInfoSchema, students, guardians, student_guardian, payment_rules, late_fee_calculations, payments, charges, concepts, institutional_credentials, institutional_info, users, scholarships } from "@shared/schema";
+import { canEditUser, UserRole } from "@shared/permissions";
 import { NotificationSystem as ServerNotificationSystem } from './notification-system';
 import { db } from "./db";
 import { eq, and, gte, lt } from "drizzle-orm";
@@ -496,6 +497,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate request body first
       const { name, email, password_hash, role, telefono, foto_url, twofa_secret, is_active, is_super_admin, platform_permissions, custom_permissions } = req.body;
       
+      // SEGURIDAD: Verificar que el usuario actual puede crear usuarios con el rol especificado
+      if (user.role !== 'super_admin' && !canEditUser(user.role as UserRole, role as UserRole)) {
+        return res.status(403).json({ 
+          message: "No tienes permisos para crear usuarios con este rol",
+          detail: `Un ${user.role} no puede crear usuarios con rol ${role}`
+        });
+      }
+      
       // Prepare user data with required fields
       const userData = {
         name,
@@ -539,6 +548,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!existingUser || existingUser.campus_id !== user.campus_id) {
         return res.status(404).json({ message: "Usuario no encontrado" });
       }
+      
+      // SEGURIDAD: Verificar que el usuario actual puede editar al usuario objetivo
+      if (user.role !== 'super_admin' && !canEditUser(user.role as UserRole, existingUser.role as UserRole)) {
+        return res.status(403).json({ 
+          message: "No tienes permisos para editar este usuario",
+          detail: `Un ${user.role} no puede editar usuarios con rol ${existingUser.role}`
+        });
+      }
 
       // Remove fields that shouldn't be updated via this endpoint
       const { id, campus_id, tenant_id, created_at, updated_at, password_hash, ...updateData } = req.body;
@@ -574,6 +591,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Prevent deleting yourself
       if (userId === user.id) {
         return res.status(400).json({ message: "No puedes eliminar tu propia cuenta" });
+      }
+      
+      // SEGURIDAD: Verificar que el usuario actual puede eliminar al usuario objetivo
+      if (user.role !== 'super_admin' && !canEditUser(user.role as UserRole, existingUser.role as UserRole)) {
+        return res.status(403).json({ 
+          message: "No tienes permisos para eliminar este usuario",
+          detail: `Un ${user.role} no puede eliminar usuarios con rol ${existingUser.role}`
+        });
       }
 
       const deleted = await storage.deleteUser(userId);

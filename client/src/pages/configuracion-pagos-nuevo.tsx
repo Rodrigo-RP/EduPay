@@ -165,13 +165,21 @@ export default function ConfiguracionPagos() {
     onSuccess: (data) => {
       console.log("saveFechaMutation onSuccess - Data received:", data);
       
-      // Force cache refresh for this specific query only
+      // Force complete cache refresh and re-render
       setCacheKey(Date.now()); // Force new cache key
+      queryClient.removeQueries({ queryKey: ["/api/payment-config/due-dates"] });
+      
+      // Reset form and close modal
+      setNuevaFecha({ concepto: "", dia_vencimiento: "", mes_aplicacion: "todos" });
+      setMesesSeleccionados([]);
+      setAplicaTodosLosMeses(true);
+      setEditingFecha(null);
+      setShowFechaModal(false);
       
       // Refresh data immediately
       setTimeout(() => {
         refetchFechas();
-      }, 100);
+      }, 200);
       
       setShowFechaModal(false);
       setEditingFecha(null);

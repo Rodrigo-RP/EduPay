@@ -5146,7 +5146,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/payment-config/due-dates", authenticateToken, async (req, res) => {
     try {
       console.log("🚀 POST /api/payment-config/due-dates - Request received");
+      console.log("🚀 POST /api/payment-config/due-dates - Full request body:", JSON.stringify(req.body, null, 2));
       const campusId = (req as any).user.campus_id;
+      console.log("🚀 POST /api/payment-config/due-dates - Campus ID:", campusId);
       const { concepto, dia_vencimiento, mes_aplicacion, activo } = req.body;
       
       console.log("🚀 Creating payment due date:", {

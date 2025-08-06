@@ -1041,10 +1041,23 @@ export class DatabaseStorage implements IStorage {
 
   // Payment Due Dates Configuration
   async getPaymentDueDatesByCampus(campusId: number): Promise<PaymentDueDate[]> {
-    return await db
+    console.log("🔧 Storage getPaymentDueDatesByCampus - Campus ID:", campusId);
+    const dueDates = await db
       .select()
       .from(payment_due_dates)
       .where(eq(payment_due_dates.campus_id, campusId));
+    
+    // Fix HTML entity encoding when reading from database
+    const cleanedDueDates = dueDates.map(dueDate => ({
+      ...dueDate,
+      mes_aplicacion: typeof dueDate.mes_aplicacion === 'string' 
+        ? dueDate.mes_aplicacion.replace(/&quot;/g, '"') 
+        : dueDate.mes_aplicacion
+    }));
+    
+    console.log("🔧 Storage getPaymentDueDatesByCampus - Raw result:", JSON.stringify(dueDates, null, 2));
+    console.log("🔧 Storage getPaymentDueDatesByCampus - Cleaned result:", JSON.stringify(cleanedDueDates, null, 2));
+    return cleanedDueDates;
   }
 
   async createPaymentDueDate(dueDate: InsertPaymentDueDate): Promise<PaymentDueDate> {

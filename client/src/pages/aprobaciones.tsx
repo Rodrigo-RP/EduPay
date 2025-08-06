@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
@@ -39,7 +40,9 @@ import {
   Shield,
   FileText,
   Calendar,
-  User
+  User,
+  Search,
+  X
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -83,6 +86,7 @@ export default function Aprobaciones() {
   const [showDecisionDialog, setShowDecisionDialog] = useState(false);
   const [decisionNotes, setDecisionNotes] = useState("");
   const [currentDecision, setCurrentDecision] = useState<'approved' | 'rejected' | null>(null);
+  const [historySearchFilter, setHistorySearchFilter] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -266,6 +270,34 @@ export default function Aprobaciones() {
       return <span className="text-gray-500">Datos no válidos</span>;
     }
   };
+
+  // Filter history based on search term
+  const filteredHistory = allHistory && Array.isArray(allHistory) ? allHistory.filter((approval: PendingApproval) => {
+    if (!historySearchFilter.trim()) return true;
+    
+    const searchTerm = historySearchFilter.toLowerCase();
+    const studentInfo = (approval as any).student_info;
+    
+    // Search in student name
+    if (studentInfo?.nombre_completo?.toLowerCase().includes(searchTerm)) return true;
+    
+    // Search in requester name
+    if ((approval as any).requester_name?.toLowerCase().includes(searchTerm)) return true;
+    
+    // Search in action description
+    if (approval.action_description?.toLowerCase().includes(searchTerm)) return true;
+    
+    // Search in reason
+    if (approval.reason?.toLowerCase().includes(searchTerm)) return true;
+    
+    // Search in approval notes
+    if (approval.approval_notes?.toLowerCase().includes(searchTerm)) return true;
+    
+    // Search in action type
+    if (getActionTypeLabel(approval.action_type).toLowerCase().includes(searchTerm)) return true;
+    
+    return false;
+  }) : [];
 
   return (
     <div className="space-y-6">
@@ -509,6 +541,34 @@ export default function Aprobaciones() {
               <CardDescription>
                 Historial completo de todas las solicitudes con mensajes y observaciones del administrador
               </CardDescription>
+              
+              {/* Search Filter */}
+              <div className="mt-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Buscar por nombre del alumno, familia, solicitud o motivo..."
+                    value={historySearchFilter}
+                    onChange={(e) => setHistorySearchFilter(e.target.value)}
+                    className="pl-10 pr-10"
+                  />
+                  {historySearchFilter && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setHistorySearchFilter("")}
+                      className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+                {historySearchFilter && (
+                  <p className="text-sm text-gray-600 mt-2">
+                    Mostrando {filteredHistory.length} resultado(s) para "{historySearchFilter}"
+                  </p>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               {loadingHistory ? (
@@ -521,9 +581,21 @@ export default function Aprobaciones() {
                   <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-600">No hay historial de aprobaciones</p>
                 </div>
+              ) : filteredHistory.length === 0 ? (
+                <div className="text-center py-8">
+                  <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600">No se encontraron resultados para "{historySearchFilter}"</p>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setHistorySearchFilter("")}
+                    className="mt-2"
+                  >
+                    Limpiar filtro
+                  </Button>
+                </div>
               ) : (
                 <div className="space-y-4">
-                  {Array.isArray(allHistory) && allHistory.map((approval: PendingApproval) => (
+                  {filteredHistory.map((approval: PendingApproval) => (
                     <Card key={approval.id} className="border-l-4 border-l-blue-500">
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between">

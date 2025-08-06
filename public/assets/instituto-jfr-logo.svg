@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Fondo circular -->
+  <circle cx="100" cy="100" r="95" fill="#1e40af" stroke="#1e3a8a" stroke-width="3"/>
+  
+  <!-- Escudo central -->
+  <rect x="50" y="40" width="100" height="120" rx="10" fill="#ffffff" stroke="#1e3a8a" stroke-width="2"/>
+  
+  <!-- Libro abierto -->
+  <path d="M70 60 L130 60 L125 80 L105 75 L95 75 L75 80 Z" fill="#1e40af"/>
+  <line x1="100" y1="60" x2="100" y2="80" stroke="#ffffff" stroke-width="2"/>
+  
+  <!-- Antorcha del conocimiento -->
+  <rect x="95" y="85" width="10" height="30" fill="#dc2626"/>
+  <ellipse cx="100" cy="85" rx="8" ry="6" fill="#fbbf24"/>
+  <path d="M92 79 Q100 75 108 79 Q100 83 92 79" fill="#f59e0b"/>
+  
+  <!-- Texto JFR -->
+  <text x="100" y="135" text-anchor="middle" font-family="serif" font-size="24" font-weight="bold" fill="#1e3a8a">JFR</text>
+  
+  <!-- Año de fundación -->
+  <text x="100" y="150" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#1e3a8a">EST. 1960</text>
+  
+  <!-- Rama de laurel izquierda -->
+  <path d="M35 100 Q45 90 50 100 Q45 110 35 100" fill="#16a34a" opacity="0.8"/>
+  <path d="M30 110 Q40 100 45 110 Q40 120 30 110" fill="#16a34a" opacity="0.8"/>
+  
+  <!-- Rama de laurel derecha -->
+  <path d="M165 100 Q155 90 150 100 Q155 110 165 100" fill="#16a34a" opacity="0.8"/>
+  <path d="M170 110 Q160 100 155 110 Q160 120 170 110" fill="#16a34a" opacity="0.8"/>
+  
+  <!-- Texto circular superior -->
+  <path id="top-circle" d="M 50 50 A 50 50 0 0 1 150 50" fill="none"/>
+  <text font-family="sans-serif" font-size="11" fill="#ffffff" font-weight="bold">
+    <textPath href="#top-circle">INSTITUTO JOSÉ FRANCISCO</textPath>
+  </text>
+  
+  <!-- Texto circular inferior -->
+  <path id="bottom-circle" d="M 150 150 A 50 50 0 0 1 50 150" fill="none"/>
+  <text font-family="sans-serif" font-size="11" fill="#ffffff" font-weight="bold">
+    <textPath href="#bottom-circle">RUIZ MASSIEU A.C.</textPath>
+  </text>
+</svg>

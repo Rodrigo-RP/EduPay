@@ -23,6 +23,7 @@ export default function Estudiantes() {
   const [selectedCicloEscolar, setSelectedCicloEscolar] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedCodigoPostal, setSelectedCodigoPostal] = useState("all");
+  const [selectedEdadRango, setSelectedEdadRango] = useState("all");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [gruposPersonalizados, setGruposPersonalizados] = useState(["A", "B", "C", "D", "E", "F", "G", "H"]);
   const [editandoGrupos, setEditandoGrupos] = useState(false);
@@ -497,6 +498,71 @@ export default function Estudiantes() {
     '2022-2023'
   ];
 
+  // Rangos de edad para filtros inteligentes
+  const rangoEdadOptions = [
+    { value: '3-5', label: '3-5 años (Kinder)' },
+    { value: '6-12', label: '6-12 años (Primaria)' },
+    { value: '13-15', label: '13-15 años (Secundaria)' },
+    { value: '16-18', label: '16-18 años (Preparatoria)' },
+    { value: '19+', label: '19+ años' }
+  ];
+
+  // Función para calcular edad desde fecha de nacimiento
+  const calcularEdad = (fechaNacimiento: string) => {
+    if (!fechaNacimiento) return null;
+    const hoy = new Date();
+    const fechaNac = new Date(fechaNacimiento);
+    let edad = hoy.getFullYear() - fechaNac.getFullYear();
+    const mes = hoy.getMonth() - fechaNac.getMonth();
+    if (mes < 0 || (mes === 0 && hoy.getDate() < fechaNac.getDate())) {
+      edad--;
+    }
+    return edad;
+  };
+
+  // Función para verificar si una edad está en el rango seleccionado
+  const estaEnRangoEdad = (edad: number | null, rango: string) => {
+    if (!edad) return false;
+    switch (rango) {
+      case '3-5': return edad >= 3 && edad <= 5;
+      case '6-12': return edad >= 6 && edad <= 12;
+      case '13-15': return edad >= 13 && edad <= 15;
+      case '16-18': return edad >= 16 && edad <= 18;
+      case '19+': return edad >= 19;
+      default: return true;
+    }
+  };
+
+  // Filtros predefinidos inteligentes
+  const aplicarFiltroPredefinido = (tipo: string) => {
+    // Limpiar filtros actuales
+    setSearchTerm("");
+    setSelectedGrado("all");
+    setSelectedGrupo("all");
+    setSelectedSeccion("all");
+    setSelectedCicloEscolar("all");
+    setSelectedCodigoPostal("all");
+    setSelectedEdadRango("all");
+    
+    switch (tipo) {
+      case 'activos':
+        setSelectedStatus('activo');
+        break;
+      case 'nuevos':
+        // Filtrar por ciclo escolar actual y activos
+        setSelectedStatus('activo');
+        setSelectedCicloEscolar('2024-2025');
+        break;
+      case 'pendientes':
+        // Filtrar por status que indique documentos pendientes
+        setSelectedStatus('pendiente_documentos');
+        break;
+      case 'todos':
+        setSelectedStatus("all");
+        break;
+    }
+  };
+
   // Mantener opciones dinámicas de la base de datos como fallback
   const gradosBD = Array.from(new Set(estudiantes.map((e: any) => e.grado).filter(Boolean))) as string[];
   const gruposBD = Array.from(new Set(estudiantes.map((e: any) => e.grupo).filter(Boolean))) as string[];
@@ -538,7 +604,11 @@ export default function Estudiantes() {
       estudiante.postal_code === selectedCodigoPostal ||
       (estudiante.direccion && estudiante.direccion.includes && estudiante.direccion.includes(selectedCodigoPostal));
     
-    return matchSearch && matchGrado && matchGrupo && matchSeccion && matchCiclo && matchStatus && matchCodigoPostal;
+    // Filtro por rango de edad
+    const edad = calcularEdad(estudiante.fecha_nacimiento || estudiante.estudiante_fecha_nacimiento);
+    const matchEdad = selectedEdadRango === "all" || estaEnRangoEdad(edad, selectedEdadRango);
+    
+    return matchSearch && matchGrado && matchGrupo && matchSeccion && matchCiclo && matchStatus && matchCodigoPostal && matchEdad;
   });
 
   if (error) {
@@ -640,6 +710,49 @@ export default function Estudiantes() {
                 <Settings className="h-4 w-4" />
                 {showAdvancedFilters ? 'Ocultar filtros' : 'Más filtros'}
               </Button>
+            </div>
+
+            {/* Filtros predefinidos inteligentes */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium text-gray-700">Filtros rápidos</Label>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant={selectedStatus === "all" && selectedCicloEscolar === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => aplicarFiltroPredefinido('todos')}
+                  className="text-xs"
+                >
+                  <Users className="h-3 w-3 mr-1" />
+                  Todos los estudiantes
+                </Button>
+                <Button
+                  variant={selectedStatus === "activo" && selectedCicloEscolar === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => aplicarFiltroPredefinido('activos')}
+                  className="text-xs bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                >
+                  <UserCheck className="h-3 w-3 mr-1" />
+                  Solo activos
+                </Button>
+                <Button
+                  variant={selectedStatus === "activo" && selectedCicloEscolar === "2024-2025" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => aplicarFiltroPredefinido('nuevos')}
+                  className="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Nuevos ingresos
+                </Button>
+                <Button
+                  variant={selectedStatus === "pendiente_documentos" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => aplicarFiltroPredefinido('pendientes')}
+                  className="text-xs bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200"
+                >
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  Pendientes documentos
+                </Button>
+              </div>
             </div>
 
             {/* Filtros rápidos (siempre visibles) */}
@@ -766,6 +879,21 @@ export default function Estudiantes() {
                   </div>
 
                   <div className="space-y-1">
+                    <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Rango de Edad</Label>
+                    <Select value={selectedEdadRango} onValueChange={setSelectedEdadRango}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Todas las edades" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas las edades</SelectItem>
+                        {rangoEdadOptions.map((rango) => (
+                          <SelectItem key={rango.value} value={rango.value}>{rango.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1">
                     <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Acciones rápidas</Label>
                     <div className="flex gap-2">
                       <Button
@@ -778,6 +906,8 @@ export default function Estudiantes() {
                           setSelectedSeccion("all");
                           setSelectedCicloEscolar("all");
                           setSelectedStatus("all");
+                          setSelectedCodigoPostal("all");
+                          setSelectedEdadRango("all");
                         }}
                         className="text-xs"
                       >
@@ -790,7 +920,7 @@ export default function Estudiantes() {
             )}
 
             {/* Resumen de filtros activos */}
-            {(searchTerm || selectedGrado !== "all" || selectedGrupo !== "all" || selectedSeccion !== "all" || selectedCicloEscolar !== "all" || selectedStatus !== "all") && (
+            {(searchTerm || selectedGrado !== "all" || selectedGrupo !== "all" || selectedSeccion !== "all" || selectedCicloEscolar !== "all" || selectedStatus !== "all" || selectedCodigoPostal !== "all" || selectedEdadRango !== "all") && (
               <div className="flex items-center gap-2 text-sm text-gray-600 bg-blue-50 p-2 rounded-md">
                 <span className="font-medium">Filtros activos:</span>
                 {searchTerm && <Badge variant="secondary">Búsqueda: {searchTerm}</Badge>}
@@ -799,6 +929,8 @@ export default function Estudiantes() {
                 {selectedGrupo !== "all" && <Badge variant="secondary">Grupo: {selectedGrupo}</Badge>}
                 {selectedCicloEscolar !== "all" && <Badge variant="secondary">Ciclo: {selectedCicloEscolar}</Badge>}
                 {selectedStatus !== "all" && <Badge variant="secondary">Estatus: {selectedStatus}</Badge>}
+                {selectedCodigoPostal !== "all" && <Badge variant="secondary">CP: {selectedCodigoPostal}</Badge>}
+                {selectedEdadRango !== "all" && <Badge variant="secondary">Edad: {rangoEdadOptions.find(r => r.value === selectedEdadRango)?.label}</Badge>}
                 <span className="ml-auto font-medium text-blue-600">
                   {filteredEstudiantes.length} de {estudiantes.length} estudiantes
                 </span>

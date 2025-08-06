@@ -104,10 +104,12 @@ export default function Estudiantes() {
       const formData = new FormData();
       formData.append('file', file);
       
+      const token = localStorage.getItem('auth_token');
+      
       const response = await fetch('/api/admin/students/import', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${token}`
         },
         body: formData
       });
@@ -218,15 +220,7 @@ export default function Estudiantes() {
   // Funciones para exportar
   const handleExport = async (format: 'xlsx' | 'csv') => {
     try {
-      const response = await fetch(`/api/admin/students/1/export?format=${format}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Error al exportar');
-      }
+      const response = await apiRequest(`/api/admin/students/1/export?format=${format}`);
       
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);

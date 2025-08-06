@@ -128,6 +128,8 @@ export default function ConfiguracionPagos() {
   // Create/Update mutations for fechas
   const saveFechaMutation = useMutation({
     mutationFn: (data: any) => {
+      console.log("Frontend: Enviando datos:", data);
+      
       const payload = {
         concepto: data.concepto,
         dia_vencimiento: parseInt(data.dia_vencimiento),
@@ -135,20 +137,31 @@ export default function ConfiguracionPagos() {
         activo: true
       };
 
+      console.log("Frontend: Payload procesado:", payload);
+
       if (editingFecha) {
+        console.log("Frontend: Actualizando fecha ID:", editingFecha.id);
         return apiRequest(`/api/payment-config/due-dates/${editingFecha.id}`, {
           method: "PUT",
           body: JSON.stringify(payload),
         });
       } else {
+        console.log("Frontend: Creando nueva fecha");
         return apiRequest("/api/payment-config/due-dates", {
           method: "POST",
           body: JSON.stringify(payload),
         });
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("saveFechaMutation onSuccess - Data received:", data);
       queryClient.invalidateQueries({ queryKey: ["/api/payment-config/due-dates"] });
+      
+      // Force refresh data
+      setTimeout(() => {
+        queryClient.refetchQueries({ queryKey: ["/api/payment-config/due-dates"] });
+      }, 100);
+      
       setShowFechaModal(false);
       setEditingFecha(null);
       setNuevaFecha({ concepto: "", dia_vencimiento: "", mes_aplicacion: "todos" });
@@ -270,6 +283,8 @@ export default function ConfiguracionPagos() {
       mes_aplicacion
     };
 
+    console.log("handleGuardarFecha: Payload final:", payload);
+    console.log("handleGuardarFecha: Estado actual editing:", editingFecha);
     saveFechaMutation.mutate(payload);
   };
 

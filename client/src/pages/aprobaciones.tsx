@@ -48,16 +48,20 @@ interface PendingApproval {
   campus_id: number;
   requested_by: number;
   action_type: string;
-  action_description: string;
-  current_value?: string;
-  proposed_value?: string;
+  action_description?: string;
+  entity_type: string;
+  entity_id: number;
+  original_data: string;
+  requested_data: string;
   reason: string;
-  additional_data?: string;
   status: string;
+  priority: string;
   created_at: string;
   updated_at: string;
   approved_by?: number;
   approval_notes?: string;
+  requester_name?: string;
+  requester_role?: string;
 }
 
 interface ApprovalNotification {
@@ -229,7 +233,7 @@ export default function Aprobaciones() {
       </div>
 
       <Tabs defaultValue="pending" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="pending" className="flex items-center space-x-2">
             <Clock className="w-4 h-4" />
             <span>Pendientes de Aprobación</span>
@@ -242,6 +246,10 @@ export default function Aprobaciones() {
           <TabsTrigger value="requests" className="flex items-center space-x-2">
             <FileText className="w-4 h-4" />
             <span>Mis Solicitudes</span>
+          </TabsTrigger>
+          <TabsTrigger value="observations" className="flex items-center space-x-2">
+            <Eye className="w-4 h-4" />
+            <span>Observaciones</span>
           </TabsTrigger>
           <TabsTrigger value="notifications" className="flex items-center space-x-2">
             <MessageSquare className="w-4 h-4" />

@@ -86,6 +86,26 @@ export default function Aprobaciones() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const getTranslatedFieldName = (key: string) => {
+    const translations: { [key: string]: string } = {
+      'percentage': 'Porcentaje',
+      'student': 'Estudiante',
+      'concept': 'Concepto',
+      'amount': 'Monto',
+      'price': 'Precio',
+      'description': 'Descripción',
+      'date': 'Fecha',
+      'status': 'Estado',
+      'reason': 'Razón',
+      'type': 'Tipo',
+      'value': 'Valor',
+      'name': 'Nombre',
+      'email': 'Correo',
+      'role': 'Rol'
+    };
+    return translations[key.toLowerCase()] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
   // Fetch pending approvals (as approver)
   const { data: pendingApprovals, isLoading: loadingPending } = useQuery({
     queryKey: ['/api/approvals/pending'],
@@ -322,20 +342,26 @@ export default function Aprobaciones() {
                           </TableCell>
                           <TableCell className="text-gray-600 max-w-32">
                             <div className="text-sm">
-                              {Object.entries(originalData).map(([key, value]) => (
-                                <div key={key} className="truncate">
-                                  <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span> {String(value)}
-                                </div>
-                              ))}
+                              {Object.entries(originalData).map(([key, value]) => {
+                                const translatedKey = getTranslatedFieldName(key);
+                                return (
+                                  <div key={key} className="truncate">
+                                    <span className="font-medium">{translatedKey}:</span> {String(value)}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </TableCell>
                           <TableCell className="font-medium text-blue-600 max-w-32">
                             <div className="text-sm">
-                              {Object.entries(requestedData).map(([key, value]) => (
-                                <div key={key} className="truncate">
-                                  <span className="font-semibold capitalize">{key.replace(/_/g, ' ')}:</span> {String(value)}
-                                </div>
-                              ))}
+                              {Object.entries(requestedData).map(([key, value]) => {
+                                const translatedKey = getTranslatedFieldName(key);
+                                return (
+                                  <div key={key} className="truncate">
+                                    <span className="font-semibold">{translatedKey}:</span> {String(value)}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -559,7 +585,7 @@ export default function Aprobaciones() {
                           <div className="space-y-1">
                             {Object.entries(data).map(([key, value]) => (
                               <div key={key} className="flex justify-between">
-                                <span className="font-medium text-gray-700 capitalize">{key.replace(/_/g, ' ')}:</span>
+                                <span className="font-medium text-gray-700">{getTranslatedFieldName(key)}:</span>
                                 <span className="text-gray-900">{String(value)}</span>
                               </div>
                             ))}
@@ -581,7 +607,7 @@ export default function Aprobaciones() {
                           <div className="space-y-1">
                             {Object.entries(data).map(([key, value]) => (
                               <div key={key} className="flex justify-between">
-                                <span className="font-medium text-blue-700 capitalize">{key.replace(/_/g, ' ')}:</span>
+                                <span className="font-medium text-blue-700">{getTranslatedFieldName(key)}:</span>
                                 <span className="text-blue-900 font-semibold">{String(value)}</span>
                               </div>
                             ))}

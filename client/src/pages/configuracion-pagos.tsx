@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar, Clock, Percent, DollarSign, AlertTriangle, CheckCircle2, Settings, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -16,7 +17,7 @@ interface FechaVencimiento {
   id: string;
   concepto: string;
   dia_vencimiento: number;
-  mes_aplicacion: string;
+  mes_aplicacion: string | string[];
   activo: boolean;
 }
 
@@ -112,7 +113,7 @@ export default function ConfiguracionPagos() {
   const [nuevaFecha, setNuevaFecha] = useState({
     concepto: "",
     dia_vencimiento: "",
-    mes_aplicacion: "todos"
+    mes_aplicacion: ["todos"] as string[]
   });
 
   const [nuevoRecargo, setNuevoRecargo] = useState({
@@ -140,7 +141,9 @@ export default function ConfiguracionPagos() {
       id: Date.now().toString(),
       concepto: nuevaFecha.concepto,
       dia_vencimiento: parseInt(nuevaFecha.dia_vencimiento),
-      mes_aplicacion: nuevaFecha.mes_aplicacion,
+      mes_aplicacion: nuevaFecha.mes_aplicacion.length === 1 && nuevaFecha.mes_aplicacion[0] === "todos" 
+        ? "todos" 
+        : nuevaFecha.mes_aplicacion,
       activo: true
     };
 
@@ -160,7 +163,7 @@ export default function ConfiguracionPagos() {
       });
     }
 
-    setNuevaFecha({ concepto: "", dia_vencimiento: "", mes_aplicacion: "todos" });
+    setNuevaFecha({ concepto: "", dia_vencimiento: "", mes_aplicacion: ["todos"] });
     setEditingFecha(null);
     setShowFechaModal(false);
   };
@@ -241,7 +244,7 @@ export default function ConfiguracionPagos() {
     setNuevaFecha({
       concepto: fecha.concepto,
       dia_vencimiento: fecha.dia_vencimiento.toString(),
-      mes_aplicacion: fecha.mes_aplicacion
+      mes_aplicacion: Array.isArray(fecha.mes_aplicacion) ? fecha.mes_aplicacion : [fecha.mes_aplicacion]
     });
     setShowFechaModal(true);
   };
@@ -336,7 +339,7 @@ export default function ConfiguracionPagos() {
               <DialogTrigger asChild>
                 <Button onClick={() => {
                   setEditingFecha(null);
-                  setNuevaFecha({ concepto: "", dia_vencimiento: "", mes_aplicacion: "todos" });
+                  setNuevaFecha({ concepto: "", dia_vencimiento: "", mes_aplicacion: ["todos"] });
                 }}>
                   <Plus className="h-4 w-4 mr-2" />
                   Nueva Fecha
@@ -378,29 +381,63 @@ export default function ConfiguracionPagos() {
                   </div>
                   <div>
                     <Label htmlFor="mes">Meses de Aplicación</Label>
-                    <Select 
-                      value={nuevaFecha.mes_aplicacion} 
-                      onValueChange={(value) => setNuevaFecha(prev => ({ ...prev, mes_aplicacion: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="todos">Todos los meses</SelectItem>
-                        <SelectItem value="enero">Solo Enero</SelectItem>
-                        <SelectItem value="febrero">Solo Febrero</SelectItem>
-                        <SelectItem value="marzo">Solo Marzo</SelectItem>
-                        <SelectItem value="abril">Solo Abril</SelectItem>
-                        <SelectItem value="mayo">Solo Mayo</SelectItem>
-                        <SelectItem value="junio">Solo Junio</SelectItem>
-                        <SelectItem value="julio">Solo Julio</SelectItem>
-                        <SelectItem value="agosto">Solo Agosto</SelectItem>
-                        <SelectItem value="septiembre">Solo Septiembre</SelectItem>
-                        <SelectItem value="octubre">Solo Octubre</SelectItem>
-                        <SelectItem value="noviembre">Solo Noviembre</SelectItem>
-                        <SelectItem value="diciembre">Solo Diciembre</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="grid grid-cols-2 gap-2 mt-2 p-3 border rounded-lg">
+                      <div className="flex items-center space-x-2 col-span-2">
+                        <Checkbox
+                          id="todos"
+                          checked={nuevaFecha.mes_aplicacion.includes("todos")}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setNuevaFecha(prev => ({ ...prev, mes_aplicacion: ["todos"] }));
+                            } else {
+                              setNuevaFecha(prev => ({ ...prev, mes_aplicacion: [] }));
+                            }
+                          }}
+                        />
+                        <label htmlFor="todos" className="text-sm font-medium">
+                          Todos los meses
+                        </label>
+                      </div>
+                      
+                      {[
+                        { value: "enero", label: "Enero" },
+                        { value: "febrero", label: "Febrero" },
+                        { value: "marzo", label: "Marzo" },
+                        { value: "abril", label: "Abril" },
+                        { value: "mayo", label: "Mayo" },
+                        { value: "junio", label: "Junio" },
+                        { value: "julio", label: "Julio" },
+                        { value: "agosto", label: "Agosto" },
+                        { value: "septiembre", label: "Septiembre" },
+                        { value: "octubre", label: "Octubre" },
+                        { value: "noviembre", label: "Noviembre" },
+                        { value: "diciembre", label: "Diciembre" }
+                      ].map((mes) => (
+                        <div key={mes.value} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={mes.value}
+                            checked={nuevaFecha.mes_aplicacion.includes(mes.value)}
+                            disabled={nuevaFecha.mes_aplicacion.includes("todos")}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setNuevaFecha(prev => ({ 
+                                  ...prev, 
+                                  mes_aplicacion: prev.mes_aplicacion.filter(m => m !== "todos").concat(mes.value)
+                                }));
+                              } else {
+                                setNuevaFecha(prev => ({ 
+                                  ...prev, 
+                                  mes_aplicacion: prev.mes_aplicacion.filter(m => m !== mes.value)
+                                }));
+                              }
+                            }}
+                          />
+                          <label htmlFor={mes.value} className="text-sm">
+                            {mes.label}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                   <div className="flex gap-2 pt-4">
                     <Button onClick={handleGuardarFecha} className="flex-1">
@@ -429,7 +466,17 @@ export default function ConfiguracionPagos() {
                 <CardContent className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-slate-500" />
-                    <span className="text-sm">Día {fecha.dia_vencimiento} de {fecha.mes_aplicacion}</span>
+                    <span className="text-sm">
+                      Día {fecha.dia_vencimiento} de {
+                        Array.isArray(fecha.mes_aplicacion) 
+                          ? (fecha.mes_aplicacion.includes("todos") 
+                            ? "todos los meses" 
+                            : fecha.mes_aplicacion.join(", "))
+                          : fecha.mes_aplicacion === "todos" 
+                          ? "todos los meses" 
+                          : fecha.mes_aplicacion
+                      }
+                    </span>
                   </div>
                   <div className="flex gap-2">
                     <Button

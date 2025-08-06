@@ -3,6 +3,7 @@ import {
   charges, payments, payment_methods, invoices, scholarships, discounts,
   security_events, platform_metrics, system_health, pending_approvals,
   approval_notifications, approval_workflow_logs, institutional_settings,
+  payment_due_dates, surcharge_rules,
   type User, type InsertUser, type Guardian, type InsertGuardian, 
   type Student, type InsertStudent, type Charge, type InsertCharge,
   type Payment, type InsertPayment, type Campus, type InsertCampus,
@@ -11,7 +12,9 @@ import {
   type SystemHealth, type PendingApproval, type InsertPendingApproval,
   type ApprovalNotification, type InsertApprovalNotification,
   type ApprovalWorkflowLog, type InsertApprovalWorkflowLog,
-  type InstitutionalSettings, type InsertInstitutionalSettings
+  type InstitutionalSettings, type InsertInstitutionalSettings,
+  type PaymentDueDate, type InsertPaymentDueDate,
+  type SurchargeRule, type InsertSurchargeRule
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
@@ -111,6 +114,17 @@ export interface IStorage {
   getInstitutionalSettings(campusId: number): Promise<InstitutionalSettings | undefined>;
   saveInstitutionalSettings(settings: InsertInstitutionalSettings): Promise<InstitutionalSettings>;
   updateInstitutionalSettings(campusId: number, updates: Partial<InstitutionalSettings>): Promise<InstitutionalSettings | undefined>;
+  
+  // Payment configuration operations
+  getPaymentDueDatesByCampus(campusId: number): Promise<PaymentDueDate[]>;
+  createPaymentDueDate(dueDate: InsertPaymentDueDate): Promise<PaymentDueDate>;
+  updatePaymentDueDate(id: number, updates: Partial<PaymentDueDate>): Promise<PaymentDueDate | undefined>;
+  deletePaymentDueDate(id: number): Promise<boolean>;
+  
+  getSurchargeRulesByCampus(campusId: number): Promise<SurchargeRule[]>;
+  createSurchargeRule(rule: InsertSurchargeRule): Promise<SurchargeRule>;
+  updateSurchargeRule(id: number, updates: Partial<SurchargeRule>): Promise<SurchargeRule | undefined>;
+  deleteSurchargeRule(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1023,6 +1037,70 @@ export class DatabaseStorage implements IStorage {
       .where(eq(institutional_settings.campus_id, campusId))
       .returning();
     return updated || undefined;
+  }
+
+  // Payment Due Dates Configuration
+  async getPaymentDueDatesByCampus(campusId: number): Promise<PaymentDueDate[]> {
+    return await db
+      .select()
+      .from(payment_due_dates)
+      .where(eq(payment_due_dates.campus_id, campusId));
+  }
+
+  async createPaymentDueDate(dueDate: InsertPaymentDueDate): Promise<PaymentDueDate> {
+    const [newDueDate] = await db
+      .insert(payment_due_dates)
+      .values(dueDate)
+      .returning();
+    return newDueDate;
+  }
+
+  async updatePaymentDueDate(id: number, updates: Partial<PaymentDueDate>): Promise<PaymentDueDate | undefined> {
+    const [updated] = await db
+      .update(payment_due_dates)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(payment_due_dates.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deletePaymentDueDate(id: number): Promise<boolean> {
+    const result = await db
+      .delete(payment_due_dates)
+      .where(eq(payment_due_dates.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Surcharge Rules Configuration
+  async getSurchargeRulesByCampus(campusId: number): Promise<SurchargeRule[]> {
+    return await db
+      .select()
+      .from(surcharge_rules)
+      .where(eq(surcharge_rules.campus_id, campusId));
+  }
+
+  async createSurchargeRule(rule: InsertSurchargeRule): Promise<SurchargeRule> {
+    const [newRule] = await db
+      .insert(surcharge_rules)
+      .values(rule)
+      .returning();
+    return newRule;
+  }
+
+  async updateSurchargeRule(id: number, updates: Partial<SurchargeRule>): Promise<SurchargeRule | undefined> {
+    const [updated] = await db
+      .update(surcharge_rules)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(surcharge_rules.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteSurchargeRule(id: number): Promise<boolean> {
+    const result = await db
+      .delete(surcharge_rules)
+      .where(eq(surcharge_rules.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
   }
 }
 

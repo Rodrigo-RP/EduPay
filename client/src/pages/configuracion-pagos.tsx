@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,103 +12,146 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
 
 interface FechaVencimiento {
-  id: string;
+  id: number;
   concepto: string;
   dia_vencimiento: number;
-  mes_aplicacion: string | string[];
+  mes_aplicacion: string;
   activo: boolean;
+  campus_id?: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface ReglaRecargo {
-  id: string;
+  id: number;
   nombre: string;
   tipo: 'porcentaje' | 'fijo' | 'progresivo';
   dias_gracia: number;
   porcentaje?: number;
-  monto_fijo?: number;
-  reglas_progresivas?: Array<{
-    dias_desde: number;
-    dias_hasta: number;
-    porcentaje: number;
-  }>;
+  monto_fijo_centavos?: number;
+  reglas_progresivas?: string;
   aplica_fines_semana: boolean;
   aplica_festivos: boolean;
-  monto_maximo?: number;
+  monto_maximo_centavos?: number;
   activo: boolean;
+  campus_id?: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export default function ConfiguracionPagos() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [showFechaModal, setShowFechaModal] = useState(false);
   const [showRecargoModal, setShowRecargoModal] = useState(false);
   const [editingFecha, setEditingFecha] = useState<FechaVencimiento | null>(null);
   const [editingRecargo, setEditingRecargo] = useState<ReglaRecargo | null>(null);
 
-  // Datos demo de fechas de vencimiento
-  const [fechasVencimiento, setFechasVencimiento] = useState<FechaVencimiento[]>([
-    {
-      id: "1",
-      concepto: "Colegiatura",
-      dia_vencimiento: 10,
-      mes_aplicacion: "todos",
-      activo: true
-    },
-    {
-      id: "2", 
-      concepto: "Inscripción",
-      dia_vencimiento: 15,
-      mes_aplicacion: "agosto",
-      activo: true
-    },
-    {
-      id: "3",
-      concepto: "Reinscripción",
-      dia_vencimiento: 20,
-      mes_aplicacion: "febrero",
-      activo: true
-    }
-  ]);
+  // Fetch fechas de vencimiento desde la API
+  const { data: fechasVencimiento = [], isLoading: loadingFechas } = useQuery({
+    queryKey: ["/api/payment-config/due-dates"],
+    enabled: !!user?.campus_id,
+  });
 
-  // Datos demo de reglas de recargo
-  const [reglasRecargo, setReglasRecargo] = useState<ReglaRecargo[]>([
-    {
-      id: "1",
-      nombre: "Estándar Mexicano",
-      tipo: "porcentaje",
-      dias_gracia: 5,
-      porcentaje: 3,
-      aplica_fines_semana: false,
-      aplica_festivos: false,
-      monto_maximo: 500000,
-      activo: true
+  // Fetch reglas de recargo desde la API
+  const { data: reglasRecargo = [], isLoading: loadingReglas } = useQuery({
+    queryKey: ["/api/payment-config/surcharge-rules"],
+    enabled: !!user?.campus_id,
+  });
+
+  // Mutations para fechas de vencimiento
+  const createFechaMutation = useMutation({
+    mutationFn: (data: Omit<FechaVencimiento, 'id'>) => apiRequest("/api/payment-config/due-dates", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-config/due-dates"] });
+      setShowFechaModal(false);
+      toast({
+        title: "Fecha actualizada",
+        description: "La configuración de vencimiento se actualizó correctamente",
+      });
     },
-    {
-      id: "2",
-      nombre: "Recargo Fijo Básico",
-      tipo: "fijo",
-      dias_gracia: 3,
-      monto_fijo: 20000,
-      aplica_fines_semana: false,
-      aplica_festivos: false,
-      activo: true
+  });
+
+  const updateFechaMutation = useMutation({
+    mutationFn: ({ id, ...data }: FechaVencimiento) => apiRequest(`/api/payment-config/due-dates/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-config/due-dates"] });
+      setShowFechaModal(false);
+      toast({
+        title: "Fecha actualizada",
+        description: "La configuración de vencimiento se actualizó correctamente",
+      });
     },
-    {
-      id: "3",
-      nombre: "Progresivo por Días",
-      tipo: "progresivo",
-      dias_gracia: 7,
-      reglas_progresivas: [
-        { dias_desde: 1, dias_hasta: 15, porcentaje: 1 },
-        { dias_desde: 16, dias_hasta: 30, porcentaje: 2 },
-        { dias_desde: 31, dias_hasta: 999, porcentaje: 3 }
-      ],
-      aplica_fines_semana: false,
-      aplica_festivos: false,
-      activo: false
-    }
-  ]);
+  });
+
+  const deleteFechaMutation = useMutation({
+    mutationFn: (id: number) => apiRequest(`/api/payment-config/due-dates/${id}`, {
+      method: "DELETE",
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-config/due-dates"] });
+      toast({
+        title: "Fecha eliminada",
+        description: "La configuración de vencimiento se eliminó correctamente",
+      });
+    },
+  });
+
+  // Mutations para reglas de recargo
+  const createReglaMutation = useMutation({
+    mutationFn: (data: Omit<ReglaRecargo, 'id'>) => apiRequest("/api/payment-config/surcharge-rules", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-config/surcharge-rules"] });
+      setShowRecargoModal(false);
+      toast({
+        title: "Regla actualizada",
+        description: "La configuración de recargo se actualizó correctamente",
+      });
+    },
+  });
+
+  const updateReglaMutation = useMutation({
+    mutationFn: ({ id, ...data }: ReglaRecargo) => apiRequest(`/api/payment-config/surcharge-rules/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-config/surcharge-rules"] });
+      setShowRecargoModal(false);
+      toast({
+        title: "Regla actualizada",
+        description: "La configuración de recargo se actualizó correctamente",
+      });
+    },
+  });
+
+  const deleteReglaMutation = useMutation({
+    mutationFn: (id: number) => apiRequest(`/api/payment-config/surcharge-rules/${id}`, {
+      method: "DELETE",
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-config/surcharge-rules"] });
+      toast({
+        title: "Regla eliminada",
+        description: "La configuración de recargo se eliminó correctamente",
+      });
+    },
+  });
 
   const [nuevaFecha, setNuevaFecha] = useState({
     concepto: "",

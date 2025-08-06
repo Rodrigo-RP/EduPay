@@ -5130,6 +5130,184 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========================================
+  // PAYMENT CONFIGURATION ROUTES
+  // ========================================
+
+  // Get payment due dates configuration
+  app.get("/api/payment-config/due-dates", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user.campus_id;
+      const dueDates = await storage.getPaymentDueDatesByCampus(campusId);
+      res.json(dueDates);
+    } catch (error: any) {
+      console.error("Error fetching payment due dates:", error);
+      res.status(500).json({ message: "Error fetching payment due dates: " + error.message });
+    }
+  });
+
+  // Create or update payment due date configuration
+  app.post("/api/payment-config/due-dates", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user.campus_id;
+      const { concepto, dia_vencimiento, mes_aplicacion, activo } = req.body;
+      
+      const dueDateData = {
+        campus_id: campusId,
+        concepto,
+        dia_vencimiento,
+        mes_aplicacion: Array.isArray(mes_aplicacion) ? JSON.stringify(mes_aplicacion) : mes_aplicacion,
+        activo
+      };
+
+      const createdDueDate = await storage.createPaymentDueDate(dueDateData);
+      res.status(201).json(createdDueDate);
+    } catch (error: any) {
+      console.error("Error creating payment due date:", error);
+      res.status(500).json({ message: "Error creating payment due date: " + error.message });
+    }
+  });
+
+  // Update payment due date configuration
+  app.put("/api/payment-config/due-dates/:id", authenticateToken, async (req, res) => {
+    try {
+      const dueDateId = parseInt(req.params.id);
+      const { concepto, dia_vencimiento, mes_aplicacion, activo } = req.body;
+      
+      const updates = {
+        concepto,
+        dia_vencimiento,
+        mes_aplicacion: Array.isArray(mes_aplicacion) ? JSON.stringify(mes_aplicacion) : mes_aplicacion,
+        activo
+      };
+
+      const updatedDueDate = await storage.updatePaymentDueDate(dueDateId, updates);
+      
+      if (!updatedDueDate) {
+        return res.status(404).json({ message: "Fecha de vencimiento no encontrada" });
+      }
+      
+      res.json(updatedDueDate);
+    } catch (error: any) {
+      console.error("Error updating payment due date:", error);
+      res.status(500).json({ message: "Error updating payment due date: " + error.message });
+    }
+  });
+
+  // Delete payment due date configuration
+  app.delete("/api/payment-config/due-dates/:id", authenticateToken, async (req, res) => {
+    try {
+      const dueDateId = parseInt(req.params.id);
+      const deleted = await storage.deletePaymentDueDate(dueDateId);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Fecha de vencimiento no encontrada" });
+      }
+      
+      res.json({ message: "Fecha de vencimiento eliminada correctamente" });
+    } catch (error: any) {
+      console.error("Error deleting payment due date:", error);
+      res.status(500).json({ message: "Error deleting payment due date: " + error.message });
+    }
+  });
+
+  // Get surcharge rules configuration
+  app.get("/api/payment-config/surcharge-rules", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user.campus_id;
+      const rules = await storage.getSurchargeRulesByCampus(campusId);
+      res.json(rules);
+    } catch (error: any) {
+      console.error("Error fetching surcharge rules:", error);
+      res.status(500).json({ message: "Error fetching surcharge rules: " + error.message });
+    }
+  });
+
+  // Create surcharge rule
+  app.post("/api/payment-config/surcharge-rules", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user.campus_id;
+      const { 
+        nombre, tipo, dias_gracia, porcentaje, monto_fijo_centavos, 
+        reglas_progresivas, aplica_fines_semana, aplica_festivos, 
+        monto_maximo_centavos, activo 
+      } = req.body;
+      
+      const ruleData = {
+        campus_id: campusId,
+        nombre,
+        tipo,
+        dias_gracia,
+        porcentaje,
+        monto_fijo_centavos,
+        reglas_progresivas: reglas_progresivas ? JSON.stringify(reglas_progresivas) : null,
+        aplica_fines_semana,
+        aplica_festivos,
+        monto_maximo_centavos,
+        activo
+      };
+
+      const createdRule = await storage.createSurchargeRule(ruleData);
+      res.status(201).json(createdRule);
+    } catch (error: any) {
+      console.error("Error creating surcharge rule:", error);
+      res.status(500).json({ message: "Error creating surcharge rule: " + error.message });
+    }
+  });
+
+  // Update surcharge rule
+  app.put("/api/payment-config/surcharge-rules/:id", authenticateToken, async (req, res) => {
+    try {
+      const ruleId = parseInt(req.params.id);
+      const { 
+        nombre, tipo, dias_gracia, porcentaje, monto_fijo_centavos, 
+        reglas_progresivas, aplica_fines_semana, aplica_festivos, 
+        monto_maximo_centavos, activo 
+      } = req.body;
+      
+      const updates = {
+        nombre,
+        tipo,
+        dias_gracia,
+        porcentaje,
+        monto_fijo_centavos,
+        reglas_progresivas: reglas_progresivas ? JSON.stringify(reglas_progresivas) : null,
+        aplica_fines_semana,
+        aplica_festivos,
+        monto_maximo_centavos,
+        activo
+      };
+
+      const updatedRule = await storage.updateSurchargeRule(ruleId, updates);
+      
+      if (!updatedRule) {
+        return res.status(404).json({ message: "Regla de recargo no encontrada" });
+      }
+      
+      res.json(updatedRule);
+    } catch (error: any) {
+      console.error("Error updating surcharge rule:", error);
+      res.status(500).json({ message: "Error updating surcharge rule: " + error.message });
+    }
+  });
+
+  // Delete surcharge rule
+  app.delete("/api/payment-config/surcharge-rules/:id", authenticateToken, async (req, res) => {
+    try {
+      const ruleId = parseInt(req.params.id);
+      const deleted = await storage.deleteSurchargeRule(ruleId);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Regla de recargo no encontrada" });
+      }
+      
+      res.json({ message: "Regla de recargo eliminada correctamente" });
+    } catch (error: any) {
+      console.error("Error deleting surcharge rule:", error);
+      res.status(500).json({ message: "Error deleting surcharge rule: " + error.message });
+    }
+  });
+
   // MIGRATION API ROUTES - Para que Refeerence pueda migrar EDUPAY desde Replit
   app.use('/api/migration', (await import('./replit-migration-api')).default);
 

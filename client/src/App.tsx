@@ -37,6 +37,7 @@ import AsignacionPrecios from "@/pages/asignacion-precios";
 import ImportacionDatos from "@/pages/importacion-datos";
 
 import ConfiguracionPagos from "@/pages/configuracion-pagos";
+import ConfiguracionPagosNuevo from "@/pages/configuracion-pagos-nuevo";
 import Aprobaciones from "@/pages/aprobaciones";
 import DemoAprobaciones from "@/pages/demo-aprobaciones";
 import DashboardAdmisiones from "@/pages/dashboard-admisiones";
@@ -122,7 +123,7 @@ function AuthenticatedRoutes() {
             <Route path="/reportes" component={Reportes} />
             <Route path="/configuracion" component={Configuracion} />
             <Route path="/configuracion-inicial" component={ConfiguracionInicial} />
-            <Route path="/configuracion-pagos" component={ConfiguracionPagos} />
+            <Route path="/configuracion-pagos" component={ConfiguracionPagosNuevo} />
             <Route path="/emision-cargos" component={EmisionCargos} />
             <Route path="/asignacion-precios" component={AsignacionPrecios} />
             <Route path="/importacion-datos" component={ImportacionDatos} />

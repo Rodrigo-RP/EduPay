@@ -520,6 +520,51 @@ export const lateFeeCalculationsRelations = relations(late_fee_calculations, ({ 
   }),
 }));
 
+// PAYMENT DUE DATES CONFIG
+export const payment_due_dates = pgTable("payment_due_dates", {
+  id: serial("id").primaryKey(),
+  campus_id: integer("campus_id").references(() => campuses.id).notNull(),
+  concepto: text("concepto").notNull(),
+  dia_vencimiento: integer("dia_vencimiento").notNull(),
+  mes_aplicacion: text("mes_aplicacion").notNull(), // JSON array or "todos"
+  activo: boolean("activo").default(true).notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// SURCHARGE RULES CONFIG
+export const surcharge_rules = pgTable("surcharge_rules", {
+  id: serial("id").primaryKey(),
+  campus_id: integer("campus_id").references(() => campuses.id).notNull(),
+  nombre: text("nombre").notNull(),
+  tipo: text("tipo").notNull(), // 'porcentaje', 'fijo', 'progresivo'
+  dias_gracia: integer("dias_gracia").default(0).notNull(),
+  porcentaje: numeric("porcentaje", { precision: 5, scale: 2 }), // Para tipo 'porcentaje'
+  monto_fijo_centavos: integer("monto_fijo_centavos"), // Para tipo 'fijo' 
+  reglas_progresivas: text("reglas_progresivas"), // JSON para tipo 'progresivo'
+  aplica_fines_semana: boolean("aplica_fines_semana").default(false).notNull(),
+  aplica_festivos: boolean("aplica_festivos").default(false).notNull(),
+  monto_maximo_centavos: integer("monto_maximo_centavos"),
+  activo: boolean("activo").default(true).notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Relations
+export const paymentDueDatesRelations = relations(payment_due_dates, ({ one }) => ({
+  campus: one(campuses, {
+    fields: [payment_due_dates.campus_id],
+    references: [campuses.id],
+  }),
+}));
+
+export const surchargeRulesRelations = relations(surcharge_rules, ({ one }) => ({
+  campus: one(campuses, {
+    fields: [surcharge_rules.campus_id],
+    references: [campuses.id],
+  }),
+}));
+
 // Insert schemas for payment rules
 export const insertPaymentRuleSchema = createInsertSchema(payment_rules).omit({
   id: true,
@@ -532,11 +577,29 @@ export const insertLateFeeCalculationSchema = createInsertSchema(late_fee_calcul
   created_at: true,
 });
 
+// Insert schemas for new tables
+export const insertPaymentDueDateSchema = createInsertSchema(payment_due_dates).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+});
+
+export const insertSurchargeRuleSchema = createInsertSchema(surcharge_rules).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+});
+
 // Types for payment rules
 export type PaymentRule = typeof payment_rules.$inferSelect;
 export type InsertPaymentRule = z.infer<typeof insertPaymentRuleSchema>;
 export type LateFeeCalculation = typeof late_fee_calculations.$inferSelect;
 export type InsertLateFeeCalculation = z.infer<typeof insertLateFeeCalculationSchema>;
+
+export type PaymentDueDate = typeof payment_due_dates.$inferSelect;
+export type InsertPaymentDueDate = z.infer<typeof insertPaymentDueDateSchema>;
+export type SurchargeRule = typeof surcharge_rules.$inferSelect;
+export type InsertSurchargeRule = z.infer<typeof insertSurchargeRuleSchema>;
 
 // ========================================
 // SUPER ADMIN PLATFORM MANAGEMENT TABLES

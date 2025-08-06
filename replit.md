@@ -100,6 +100,9 @@ Estado actual: Sistema 100% funcional con nuevas funcionalidades implementadas:
 - ✅ Hook useInstitution modificado para cargar logo desde API en lugar de localStorage
 - ✅ API endpoints actualizados para manejar logo_url en GET y POST operations
 - ✅ Sistema de logo institucional completamente funcional entre todos los usuarios
+- ✅ PROBLEMA HTML ENTITIES RESUELTO: Decodificación automática de &#x2F; a / implementada
+- ✅ Logo institucional visible correctamente en sidebar para administrador general
+- ✅ Sistema de cache optimizado para actualizaciones inmediatas de logo
 - 🔄 reCAPTCHA preparado para implementar (pendiente claves de Google)
 
 ## System Architecture

@@ -14,10 +14,13 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Users, Plus, Edit, Trash2, UserCheck, UserX, Shield, Mail, AlertTriangle, Key, Settings, Eye, User, Search, Filter, Download, Copy, RefreshCw } from "lucide-react";
 import { USER_ROLES, PERMISSIONS, hasPermission, getUserPermissions, getRoleDisplayName, getRoleDescription, UserRole } from "@shared/user-roles";
+import { canEditUser, getEditableRoles, ROLE_HIERARCHY } from "@shared/permissions";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function UsuariosUnificado() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user: currentUser } = useAuth();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
@@ -104,12 +107,18 @@ export default function UsuariosUnificado() {
     }
   };
 
-  // Filtrar usuarios
+  // Filtrar usuarios con validación de jerarquía
   const filteredUsers = usuarios.filter(user => {
     const matchesSearch = user.nombre_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = selectedRole === "all" || user.role === selectedRole;
-    return matchesSearch && matchesRole;
+    
+    // Solo mostrar usuarios que el usuario actual puede ver/gestionar
+    const canViewUser = currentUser?.role === 'super_admin' || 
+                       canEditUser(currentUser?.role as UserRole, user.role as UserRole) ||
+                       currentUser?.role === user.role; // Puede ver usuarios del mismo nivel
+    
+    return matchesSearch && matchesRole && canViewUser;
   });
 
   // Función para generar contraseña automática
@@ -426,56 +435,68 @@ export default function UsuariosUnificado() {
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const newPassword = generatePassword();
-                      const username = generateUsername(user.nombre_completo);
-                      setGeneratedCredentials({
-                        username: username,
-                        password: newPassword,
-                        email: user.email,
-                        nombre_completo: user.nombre_completo,
-                        role: user.role
-                      });
-                      setShowCredentialsModal(true);
-                      toast({
-                        title: "Credenciales regeneradas",
-                        description: `Se han generado nuevas credenciales para ${user.nombre_completo}`,
-                      });
-                    }}
-                    title="Regenerar credenciales"
-                  >
-                    <Key className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleShowPermissions(user)}
-                    title="Gestionar permisos"
-                  >
-                    <Shield className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEditUserModal(user)}
-                    title="Editar usuario"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setUserToDelete(user);
-                      setShowDeleteModal(true);
-                    }}
-                    title="Eliminar usuario"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  {/* Solo mostrar botones si el usuario actual puede editar al usuario objetivo */}
+                  {(currentUser?.role === 'super_admin' || canEditUser(currentUser?.role as UserRole, user.role as UserRole)) && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const newPassword = generatePassword();
+                          const username = generateUsername(user.nombre_completo);
+                          setGeneratedCredentials({
+                            username: username,
+                            password: newPassword,
+                            email: user.email,
+                            nombre_completo: user.nombre_completo,
+                            role: user.role
+                          });
+                          setShowCredentialsModal(true);
+                          toast({
+                            title: "Credenciales regeneradas",
+                            description: `Se han generado nuevas credenciales para ${user.nombre_completo}`,
+                          });
+                        }}
+                        title="Regenerar credenciales"
+                      >
+                        <Key className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleShowPermissions(user)}
+                        title="Gestionar permisos"
+                      >
+                        <Shield className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditUserModal(user)}
+                        title="Editar usuario"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setUserToDelete(user);
+                          setShowDeleteModal(true);
+                        }}
+                        title="Eliminar usuario"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </>
+                  )}
+                  
+                  {/* Botón de solo lectura para usuarios que no se pueden editar */}
+                  {currentUser?.role !== 'super_admin' && !canEditUser(currentUser?.role as UserRole, user.role as UserRole) && (
+                    <div className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded">
+                      Solo lectura
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

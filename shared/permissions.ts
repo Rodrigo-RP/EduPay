@@ -5,6 +5,46 @@
 
 export type UserRole = 'super_admin' | 'administrador_general' | 'administrador_campus' | 'contador_general' | 'auxiliar_contable' | 'asistente' | 'admisiones';
 
+/**
+ * JERARQUÍA DE ROLES - Define qué roles pueden editar a otros roles
+ * Un rol más alto en la jerarquía puede editar roles más bajos
+ */
+export const ROLE_HIERARCHY: Record<UserRole, number> = {
+  'super_admin': 7,           // Máximo nivel - puede editar todos
+  'administrador_general': 6, // Puede editar administrador_campus hacia abajo
+  'administrador_campus': 5,  // Puede editar contador_general hacia abajo
+  'contador_general': 4,      // Puede editar auxiliar_contable hacia abajo
+  'auxiliar_contable': 3,     // Puede editar asistente hacia abajo
+  'asistente': 2,             // Puede editar admisiones
+  'admisiones': 1             // Nivel más bajo - no puede editar otros
+};
+
+/**
+ * Verifica si un usuario puede editar a otro usuario basado en la jerarquía de roles
+ */
+export function canEditUser(editorRole: UserRole, targetRole: UserRole): boolean {
+  const editorLevel = ROLE_HIERARCHY[editorRole] || 0;
+  const targetLevel = ROLE_HIERARCHY[targetRole] || 0;
+  
+  // Solo puede editar usuarios de nivel inferior o igual (pero no del mismo nivel si es administrador)
+  if (editorRole === 'administrador_campus' && targetRole === 'administrador_general') {
+    return false; // Administrador de campus NO puede editar al administrador general
+  }
+  
+  return editorLevel > targetLevel;
+}
+
+/**
+ * Obtiene los roles que un usuario puede crear/editar
+ */
+export function getEditableRoles(userRole: UserRole): UserRole[] {
+  const userLevel = ROLE_HIERARCHY[userRole] || 0;
+  
+  return Object.entries(ROLE_HIERARCHY)
+    .filter(([role, level]) => userLevel > level)
+    .map(([role]) => role as UserRole);
+}
+
 export interface Permission {
   module: string;
   action: string;
@@ -169,7 +209,9 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
     restrictions: [
       'Cambios financieros requieren aprobación del Administrador General',
       'No puede eliminar estudiantes sin aprobación',
-      'No puede crear usuarios Super Admin',
+      'No puede crear usuarios Super Admin o Administrador General',
+      'No puede editar usuarios de nivel superior (Administrador General, Super Admin)',
+      'Solo puede gestionar usuarios de su campus y de nivel inferior',
       'No puede ver información de otros campus'
     ]
   },

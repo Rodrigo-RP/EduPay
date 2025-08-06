@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import KPICard from "@/components/kpi-card";
 import { useAuth } from "@/hooks/use-auth";
 import { useRoleBasedData } from "@/hooks/useRoleBasedData";
+import { useInstitution } from "@/hooks/use-institution";
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { 
@@ -33,6 +34,7 @@ interface Student {
 export default function AdminDashboard() {
   const { user } = useAuth();
   const { userRole } = useRoleBasedData();
+  const { institutionName, logoUrl } = useInstitution();
   const [, setLocation] = useLocation();
   const campusId = 1;
 
@@ -88,13 +90,22 @@ export default function AdminDashboard() {
             <div className="flex items-center gap-6">
               <div className="relative">
                 <div className="absolute -inset-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl blur opacity-50"></div>
-                <div className="relative p-4 bg-gradient-to-r from-blue-100 to-cyan-100 rounded-xl">
-                  <BarChart3 className="w-10 h-10 text-blue-600 edupay-icon-bounce" />
+                <div className="relative w-16 h-16 bg-gradient-to-r from-blue-100 to-cyan-100 rounded-xl overflow-hidden flex items-center justify-center">
+                  {logoUrl && logoUrl.length > 50 && logoUrl.includes('data:image') ? (
+                    <img 
+                      src={logoUrl} 
+                      alt="Logo institucional" 
+                      className="w-full h-full object-cover rounded-xl"
+                      style={{ display: 'block', maxWidth: '100%', maxHeight: '100%' }}
+                    />
+                  ) : (
+                    <BarChart3 className="w-10 h-10 text-blue-600 edupay-icon-bounce" />
+                  )}
                 </div>
               </div>
               <div className="flex-1">
                 <h1 className="text-4xl font-bold edupay-text-gradient mb-2">Panel de Control</h1>
-                <p className="text-slate-600 text-lg">Resumen ejecutivo del Instituto JFR - Campus Principal</p>
+                <p className="text-slate-600 text-lg">Resumen ejecutivo del {institutionName} - Campus Principal</p>
                 <div className="flex items-center gap-4 mt-3">
                   <div className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
                     ● Sistema Activo

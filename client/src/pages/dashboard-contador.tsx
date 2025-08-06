@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { useInstitution } from "@/hooks/use-institution";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ interface DashboardData {
 
 export default function DashboardContador() {
   const { user } = useAuth();
+  const { institutionName, logoUrl } = useInstitution();
   const [selectedPeriod, setSelectedPeriod] = useState("current");
 
   const { data: dashboardData, isLoading } = useQuery<DashboardData>({
@@ -84,9 +86,24 @@ export default function DashboardContador() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard Contador</h1>
-          <p className="text-sm text-gray-500">Análisis financiero y reportes contables</p>
+        <div className="flex items-center gap-4">
+          {logoUrl && logoUrl.length > 50 && logoUrl.includes('data:image') ? (
+            <div className="w-12 h-12 rounded-xl overflow-hidden border-2 border-purple-200">
+              <img 
+                src={logoUrl} 
+                alt="Logo institucional" 
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+              <Calculator className="w-6 h-6 text-purple-600" />
+            </div>
+          )}
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Dashboard Contador</h1>
+            <p className="text-sm text-gray-500">Análisis financiero y reportes contables • {institutionName}</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="secondary" className="bg-blue-100 text-blue-800">

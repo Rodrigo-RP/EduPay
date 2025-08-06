@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRoleBasedData } from "@/hooks/useRoleBasedData";
+import { useInstitution } from "@/hooks/use-institution";
 import { 
   Users, 
   UserPlus, 
@@ -27,6 +28,7 @@ export default function DashboardAdmisiones() {
     getDashboardTitle,
     getDashboardDescription 
   } = useRoleBasedData();
+  const { institutionName, logoUrl } = useInstitution();
 
   // Obtener datos de estudiantes
   const { data: students = [], isLoading: studentsLoading } = useQuery({
@@ -103,9 +105,26 @@ export default function DashboardAdmisiones() {
     <div className="space-y-6">
       {/* Header personalizado para Admisiones */}
       <div className="border-b pb-4">
-        <h1 className="text-3xl font-bold text-gray-900">{getDashboardTitle}</h1>
-        <p className="text-gray-600 mt-1">{getDashboardDescription}</p>
-        <div className="flex items-center gap-2 mt-2">
+        <div className="flex items-center gap-4 mb-3">
+          {logoUrl && logoUrl.length > 50 && logoUrl.includes('data:image') ? (
+            <div className="w-12 h-12 rounded-xl overflow-hidden border-2 border-blue-200">
+              <img 
+                src={logoUrl} 
+                alt="Logo institucional" 
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+              <GraduationCap className="w-6 h-6 text-blue-600" />
+            </div>
+          )}
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">{getDashboardTitle}</h1>
+            <p className="text-gray-600">{getDashboardDescription}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
           <Badge variant="secondary" className="bg-blue-100 text-blue-800">
             <GraduationCap className="w-3 h-3 mr-1" />
             Admisiones
@@ -114,6 +133,11 @@ export default function DashboardAdmisiones() {
             <Calendar className="w-3 h-3 mr-1" />
             Ciclo Escolar 2025-2026
           </Badge>
+          {institutionName && (
+            <Badge variant="outline" className="text-gray-600">
+              {institutionName}
+            </Badge>
+          )}
         </div>
       </div>
 

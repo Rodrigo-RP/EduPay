@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useInstitution } from "@/hooks/use-institution";
 import { 
   DollarSign, 
   CreditCard, 
@@ -15,6 +16,8 @@ import {
 } from 'lucide-react';
 
 export default function DashboardCaja() {
+  const { institutionName, logoUrl } = useInstitution();
+  
   // Obtener datos de pagos - enfoque en transacciones y cobranza
   const { data: payments = [], isLoading: paymentsLoading } = useQuery({
     queryKey: ['/api/payments'],
@@ -65,9 +68,24 @@ export default function DashboardCaja() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard Caja</h1>
-          <p className="text-gray-600">Gestión de pagos y cobranza</p>
+        <div className="flex items-center gap-4">
+          {logoUrl && logoUrl.length > 50 && logoUrl.includes('data:image') ? (
+            <div className="w-12 h-12 rounded-xl overflow-hidden border-2 border-green-200">
+              <img 
+                src={logoUrl} 
+                alt="Logo institucional" 
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+              <CreditCard className="w-6 h-6 text-green-600" />
+            </div>
+          )}
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Dashboard Caja</h1>
+            <p className="text-gray-600">Gestión de pagos y cobranza • {institutionName}</p>
+          </div>
         </div>
         <Button onClick={() => window.location.href = '/pagos'}>
           <CreditCard className="mr-2 h-4 w-4" />

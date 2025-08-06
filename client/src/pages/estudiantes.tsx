@@ -95,6 +95,13 @@ export default function Estudiantes() {
     estudiante_grupo: "",
     estudiante_turno: "",
     
+    // DIRECCIÓN FAMILIAR (Nueva sección - Ficha Técnica)
+    direccion_calle: "",
+    direccion_colonia: "",
+    direccion_codigo_postal: "",
+    direccion_ciudad: "",
+    direccion_estado: "",
+    
     status: "activo"
   });
 
@@ -225,6 +232,13 @@ export default function Estudiantes() {
       estudiante_grupo: "",
       estudiante_turno: "",
       
+      // DIRECCIÓN FAMILIAR (Nueva sección - Ficha Técnica)
+      direccion_calle: "",
+      direccion_colonia: "",
+      direccion_codigo_postal: "",
+      direccion_ciudad: "",
+      direccion_estado: "",
+      
       status: "activo"
     });
   };
@@ -277,6 +291,13 @@ export default function Estudiantes() {
       estudiante_grado: student.grado || "",
       estudiante_grupo: student.grupo || "",
       estudiante_turno: student.turno || "",
+      
+      // DIRECCIÓN FAMILIAR (campos existentes o vacíos)
+      direccion_calle: student.direccion_calle || "",
+      direccion_colonia: student.direccion_colonia || "",
+      direccion_codigo_postal: student.direccion_codigo_postal || student.cp || "",
+      direccion_ciudad: student.direccion_ciudad || "",
+      direccion_estado: student.direccion_estado || "",
       
       status: student.status || "activo"
     });
@@ -1246,6 +1267,110 @@ export default function Estudiantes() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SECCIÓN: DIRECCIÓN FAMILIAR (Nueva Ficha Técnica) */}
+            <div className="bg-orange-50 p-4 rounded-lg space-y-4">
+              <h3 className="font-semibold text-orange-800 flex items-center gap-2">
+                <span className="w-6 h-6 bg-orange-600 text-white rounded-full flex items-center justify-center text-xs font-bold">4</span>
+                DIRECCIÓN FAMILIAR
+              </h3>
+              
+              <div className="space-y-4">
+                <div className="p-3 bg-orange-100 rounded">
+                  <p className="text-xs text-orange-700 mb-3">
+                    📍 Información del domicilio familiar para análisis geográfico y zona de procedencia
+                  </p>
+                  
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <Label htmlFor="direccion_calle">Calle y número *</Label>
+                      <Input
+                        id="direccion_calle"
+                        value={formData.direccion_calle}
+                        onChange={(e) => handleInputChange('direccion_calle', e.target.value)}
+                        placeholder="Ej: Av. Benito Juárez #123"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <Label htmlFor="direccion_colonia">Colonia/Fraccionamiento *</Label>
+                      <Input
+                        id="direccion_colonia"
+                        value={formData.direccion_colonia}
+                        onChange={(e) => handleInputChange('direccion_colonia', e.target.value)}
+                        placeholder="Ej: Centro"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="direccion_codigo_postal">Código Postal *</Label>
+                      <Input
+                        id="direccion_codigo_postal"
+                        value={formData.direccion_codigo_postal}
+                        onChange={(e) => handleInputChange('direccion_codigo_postal', e.target.value)}
+                        placeholder="Ej: 77500"
+                        maxLength={5}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <Label htmlFor="direccion_ciudad">Ciudad/Municipio *</Label>
+                      <Input
+                        id="direccion_ciudad"
+                        value={formData.direccion_ciudad}
+                        onChange={(e) => handleInputChange('direccion_ciudad', e.target.value)}
+                        placeholder="Ej: Comalcalco"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="direccion_estado">Estado *</Label>
+                      <Select value={formData.direccion_estado} onValueChange={(value) => handleInputChange('direccion_estado', value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar estado" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Aguascalientes">Aguascalientes</SelectItem>
+                          <SelectItem value="Baja California">Baja California</SelectItem>
+                          <SelectItem value="Baja California Sur">Baja California Sur</SelectItem>
+                          <SelectItem value="Campeche">Campeche</SelectItem>
+                          <SelectItem value="Chiapas">Chiapas</SelectItem>
+                          <SelectItem value="Chihuahua">Chihuahua</SelectItem>
+                          <SelectItem value="Ciudad de México">Ciudad de México</SelectItem>
+                          <SelectItem value="Coahuila">Coahuila</SelectItem>
+                          <SelectItem value="Colima">Colima</SelectItem>
+                          <SelectItem value="Durango">Durango</SelectItem>
+                          <SelectItem value="Estado de México">Estado de México</SelectItem>
+                          <SelectItem value="Guanajuato">Guanajuato</SelectItem>
+                          <SelectItem value="Guerrero">Guerrero</SelectItem>
+                          <SelectItem value="Hidalgo">Hidalgo</SelectItem>
+                          <SelectItem value="Jalisco">Jalisco</SelectItem>
+                          <SelectItem value="Michoacán">Michoacán</SelectItem>
+                          <SelectItem value="Morelos">Morelos</SelectItem>
+                          <SelectItem value="Nayarit">Nayarit</SelectItem>
+                          <SelectItem value="Nuevo León">Nuevo León</SelectItem>
+                          <SelectItem value="Oaxaca">Oaxaca</SelectItem>
+                          <SelectItem value="Puebla">Puebla</SelectItem>
+                          <SelectItem value="Querétaro">Querétaro</SelectItem>
+                          <SelectItem value="Quintana Roo">Quintana Roo</SelectItem>
+                          <SelectItem value="San Luis Potosí">San Luis Potosí</SelectItem>
+                          <SelectItem value="Sinaloa">Sinaloa</SelectItem>
+                          <SelectItem value="Sonora">Sonora</SelectItem>
+                          <SelectItem value="Tabasco">Tabasco</SelectItem>
+                          <SelectItem value="Tamaulipas">Tamaulipas</SelectItem>
+                          <SelectItem value="Tlaxcala">Tlaxcala</SelectItem>
+                          <SelectItem value="Veracruz">Veracruz</SelectItem>
+                          <SelectItem value="Yucatán">Yucatán</SelectItem>
+                          <SelectItem value="Zacatecas">Zacatecas</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
               </div>

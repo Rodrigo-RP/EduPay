@@ -321,16 +321,20 @@ export default function Aprobaciones() {
                             </div>
                           </TableCell>
                           <TableCell className="text-gray-600 max-w-32">
-                            <div className="text-sm truncate">
+                            <div className="text-sm">
                               {Object.entries(originalData).map(([key, value]) => (
-                                <div key={key}>{key}: {String(value)}</div>
+                                <div key={key} className="truncate">
+                                  <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span> {String(value)}
+                                </div>
                               ))}
                             </div>
                           </TableCell>
                           <TableCell className="font-medium text-blue-600 max-w-32">
-                            <div className="text-sm truncate">
+                            <div className="text-sm">
                               {Object.entries(requestedData).map(([key, value]) => (
-                                <div key={key}>{key}: {String(value)}</div>
+                                <div key={key} className="truncate">
+                                  <span className="font-semibold capitalize">{key.replace(/_/g, ' ')}:</span> {String(value)}
+                                </div>
                               ))}
                             </div>
                           </TableCell>
@@ -547,18 +551,46 @@ export default function Aprobaciones() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-medium text-gray-700">Datos Actuales</Label>
-                  <div className="bg-gray-50 p-3 rounded text-sm">
-                    <pre className="whitespace-pre-wrap text-gray-800">
-                      {JSON.stringify(JSON.parse(selectedApproval.original_data), null, 2)}
-                    </pre>
+                  <div className="bg-gray-50 p-3 rounded">
+                    {(() => {
+                      try {
+                        const data = JSON.parse(selectedApproval.original_data);
+                        return (
+                          <div className="space-y-1">
+                            {Object.entries(data).map(([key, value]) => (
+                              <div key={key} className="flex justify-between">
+                                <span className="font-medium text-gray-700 capitalize">{key.replace(/_/g, ' ')}:</span>
+                                <span className="text-gray-900">{String(value)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      } catch {
+                        return <span className="text-gray-500">No hay datos disponibles</span>;
+                      }
+                    })()}
                   </div>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-gray-700">Datos Solicitados</Label>
-                  <div className="bg-blue-50 p-3 rounded text-sm">
-                    <pre className="whitespace-pre-wrap text-blue-800">
-                      {JSON.stringify(JSON.parse(selectedApproval.requested_data), null, 2)}
-                    </pre>
+                  <div className="bg-blue-50 p-3 rounded">
+                    {(() => {
+                      try {
+                        const data = JSON.parse(selectedApproval.requested_data);
+                        return (
+                          <div className="space-y-1">
+                            {Object.entries(data).map(([key, value]) => (
+                              <div key={key} className="flex justify-between">
+                                <span className="font-medium text-blue-700 capitalize">{key.replace(/_/g, ' ')}:</span>
+                                <span className="text-blue-900 font-semibold">{String(value)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      } catch {
+                        return <span className="text-blue-500">No hay datos disponibles</span>;
+                      }
+                    })()}
                   </div>
                 </div>
               </div>

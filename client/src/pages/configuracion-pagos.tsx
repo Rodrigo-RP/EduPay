@@ -113,7 +113,7 @@ export default function ConfiguracionPagos() {
   const [nuevaFecha, setNuevaFecha] = useState({
     concepto: "",
     dia_vencimiento: "",
-    mes_aplicacion: ["todos"] as string[]
+    mes_aplicacion: [] as string[]
   });
 
   const [nuevoRecargo, setNuevoRecargo] = useState({
@@ -128,10 +128,10 @@ export default function ConfiguracionPagos() {
   });
 
   const handleGuardarFecha = () => {
-    if (!nuevaFecha.concepto || !nuevaFecha.dia_vencimiento) {
+    if (!nuevaFecha.concepto || !nuevaFecha.dia_vencimiento || nuevaFecha.mes_aplicacion.length === 0) {
       toast({
         title: "Error",
-        description: "Completa todos los campos requeridos",
+        description: "Completa todos los campos requeridos y selecciona al menos un mes",
         variant: "destructive"
       });
       return;
@@ -141,7 +141,7 @@ export default function ConfiguracionPagos() {
       id: Date.now().toString(),
       concepto: nuevaFecha.concepto,
       dia_vencimiento: parseInt(nuevaFecha.dia_vencimiento),
-      mes_aplicacion: nuevaFecha.mes_aplicacion.length === 1 && nuevaFecha.mes_aplicacion[0] === "todos" 
+      mes_aplicacion: nuevaFecha.mes_aplicacion.includes("todos") 
         ? "todos" 
         : nuevaFecha.mes_aplicacion,
       activo: true
@@ -163,7 +163,7 @@ export default function ConfiguracionPagos() {
       });
     }
 
-    setNuevaFecha({ concepto: "", dia_vencimiento: "", mes_aplicacion: ["todos"] });
+    setNuevaFecha({ concepto: "", dia_vencimiento: "", mes_aplicacion: [] });
     setEditingFecha(null);
     setShowFechaModal(false);
   };
@@ -339,7 +339,7 @@ export default function ConfiguracionPagos() {
               <DialogTrigger asChild>
                 <Button onClick={() => {
                   setEditingFecha(null);
-                  setNuevaFecha({ concepto: "", dia_vencimiento: "", mes_aplicacion: ["todos"] });
+                  setNuevaFecha({ concepto: "", dia_vencimiento: "", mes_aplicacion: [] });
                 }}>
                   <Plus className="h-4 w-4 mr-2" />
                   Nueva Fecha

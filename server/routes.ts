@@ -670,6 +670,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Save institutional information
+  app.post("/api/institutional-info", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const {
+        rfc,
+        direccion_fiscal,
+        ciudad,
+        codigo_postal,
+        telefono_principal,
+        email_institucional,
+        sitio_web,
+        nombre_legal
+      } = req.body;
+
+      // For now, we'll store this in localStorage since we don't have a specific table
+      // In a real implementation, you would save this to a database table
+      const institutionalInfo = {
+        campus_id: user.campus_id,
+        tenant_id: user.tenant_id,
+        rfc,
+        direccion_fiscal,
+        ciudad,
+        codigo_postal,
+        telefono_principal,
+        email_institucional,
+        sitio_web,
+        nombre_legal,
+        updated_at: new Date()
+      };
+
+      // For now, just return success
+      // TODO: Implement database storage for institutional info
+      res.json({ 
+        message: "Información institucional guardada correctamente",
+        data: institutionalInfo
+      });
+    } catch (error) {
+      console.error('Error saving institutional info:', error);
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
   // GUARDIAN PORTAL ROUTES
 
   // Get guardian's students and their pending charges

@@ -15,6 +15,15 @@ export default function Configuracion() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [autoGenerationEnabled, setAutoGenerationEnabled] = useState(true);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  
+  // Estados para información institucional
+  const [rfc, setRfc] = useState("CSP123456789");
+  const [direccionFiscal, setDireccionFiscal] = useState("Av. Reforma 123, Col. Centro");
+  const [ciudad, setCiudad] = useState("Ciudad de México");
+  const [codigoPostal, setCodigoPostal] = useState("06000");
+  const [telefonoPrincipal, setTelefonoPrincipal] = useState("55-1234-5678");
+  const [emailInstitucional, setEmailInstitucional] = useState("admin@jfr.edu.mx");
+  const [sitioWeb, setSitioWeb] = useState("www.jfr.edu.mx");
   const { toast } = useToast();
   const { 
     institutionName, 
@@ -74,12 +83,44 @@ export default function Configuracion() {
     });
   };
 
-  const handleSaveChanges = () => {
-    // Los cambios ya se aplican en tiempo real, solo mostrar confirmación
-    toast({
-      title: "Cambios guardados",
-      description: "La configuración de la institución se ha actualizado correctamente.",
-    });
+  const handleSaveChanges = async () => {
+    try {
+      // Guardar información institucional
+      const institutionalData = {
+        rfc,
+        direccion_fiscal: direccionFiscal,
+        ciudad,
+        codigo_postal: codigoPostal,
+        telefono_principal: telefonoPrincipal,
+        email_institucional: emailInstitucional,
+        sitio_web: sitioWeb,
+        nombre_legal: institutionName
+      };
+
+      const response = await fetch('/api/institutional-info', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(institutionalData),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Cambios guardados",
+          description: "La configuración institucional se ha actualizado correctamente.",
+        });
+      } else {
+        throw new Error('Error al guardar');
+      }
+    } catch (error) {
+      console.error('Error saving institutional info:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron guardar los cambios. Intenta nuevamente.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -281,31 +322,59 @@ export default function Configuracion() {
                     </div>
                 <div>
                       <Label>RFC</Label>
-                      <Input defaultValue="CSP123456789" />
+                      <Input 
+                        value={rfc}
+                        onChange={(e) => setRfc(e.target.value)}
+                        placeholder="RFC de la institución"
+                      />
                     </div>
                 <div>
                       <Label>Dirección fiscal</Label>
-                      <Input defaultValue="Av. Reforma 123, Col. Centro" />
+                      <Input 
+                        value={direccionFiscal}
+                        onChange={(e) => setDireccionFiscal(e.target.value)}
+                        placeholder="Dirección fiscal completa"
+                      />
                     </div>
                 <div>
                       <Label>Ciudad</Label>
-                      <Input defaultValue="Ciudad de México" />
+                      <Input 
+                        value={ciudad}
+                        onChange={(e) => setCiudad(e.target.value)}
+                        placeholder="Ciudad"
+                      />
                     </div>
                 <div>
                       <Label>Código postal</Label>
-                      <Input defaultValue="06000" />
+                      <Input 
+                        value={codigoPostal}
+                        onChange={(e) => setCodigoPostal(e.target.value)}
+                        placeholder="Código postal"
+                      />
                     </div>
                 <div>
                       <Label>Teléfono principal</Label>
-                      <Input defaultValue="55-1234-5678" />
+                      <Input 
+                        value={telefonoPrincipal}
+                        onChange={(e) => setTelefonoPrincipal(e.target.value)}
+                        placeholder="Teléfono principal"
+                      />
                     </div>
                 <div>
                       <Label>Email institucional</Label>
-                      <Input defaultValue="admin@jfr.edu.mx" />
+                      <Input 
+                        value={emailInstitucional}
+                        onChange={(e) => setEmailInstitucional(e.target.value)}
+                        placeholder="Email institucional"
+                      />
                     </div>
                 <div>
                       <Label>Sitio web</Label>
-                      <Input defaultValue="www.jfr.edu.mx" />
+                      <Input 
+                        value={sitioWeb}
+                        onChange={(e) => setSitioWeb(e.target.value)}
+                        placeholder="Sitio web institucional"
+                      />
                     </div>
                 <div className="md:col-span-2">
                       <Label>Logo de la institución</Label>

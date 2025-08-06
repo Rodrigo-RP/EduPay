@@ -499,11 +499,11 @@ export default function UsuariosUnificado() {
                     <SelectValue placeholder="Seleccionar rol..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="administrador_campus">Administrador de Campus</SelectItem>
-                    <SelectItem value="contador_general">Contador General</SelectItem>
-                    <SelectItem value="auxiliar_contable">Auxiliar Contable</SelectItem>
-                    <SelectItem value="asistente">Asistente</SelectItem>
-                    <SelectItem value="admisiones">Admisiones</SelectItem>
+                    {Object.entries(USER_ROLES).map(([key, value]) => (
+                      <SelectItem key={key} value={value}>
+                        {getRoleDisplayName(value as UserRole)}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -609,9 +609,9 @@ export default function UsuariosUnificado() {
                     <SelectValue placeholder="Seleccionar rol..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(USER_ROLES).map(([key, role]) => (
-                      <SelectItem key={key} value={key}>
-                        {role.display_name}
+                    {Object.entries(USER_ROLES).map(([key, value]) => (
+                      <SelectItem key={key} value={value}>
+                        {getRoleDisplayName(value as UserRole)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -641,14 +641,27 @@ export default function UsuariosUnificado() {
             }}>
               Cancelar
             </Button>
-            <Button onClick={() => {
-              toast({
-                title: "Usuario actualizado",
-                description: `Se ha actualizado la información de "${formData.nombre_completo}".`,
-              });
-              setShowEditModal(false);
-              resetForm();
-            }}>
+            <Button 
+              onClick={() => {
+                if (!formData.nombre_completo || !formData.email || !formData.role) {
+                  toast({
+                    title: "Error de validación",
+                    description: "Por favor completa todos los campos obligatorios",
+                    variant: "destructive"
+                  });
+                  return;
+                }
+                
+                toast({
+                  title: "Usuario actualizado",
+                  description: `Se ha actualizado la información de "${formData.nombre_completo}".`,
+                });
+                setShowEditModal(false);
+                setEditingUser(null);
+                resetForm();
+              }}
+              disabled={!formData.nombre_completo || !formData.email || !formData.role}
+            >
               Guardar cambios
             </Button>
           </DialogFooter>

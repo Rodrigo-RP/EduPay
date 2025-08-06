@@ -105,27 +105,63 @@ export const platform_profiles = pgTable("platform_profiles", {
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
-// STUDENTS
+// STUDENTS - Adaptado a estructura Excel "Concentrado_Estudiante y Padre"
 export const students = pgTable("students", {
   id: serial("id").primaryKey(),
   campus_id: integer("campus_id").references(() => campuses.id, { onDelete: "cascade" }),
+  
+  // Campos de nombres (columnas 8-10 Excel)
+  nombres: varchar("nombres", { length: 255 }).notNull(),
+  apellido_paterno: varchar("apellido_paterno", { length: 255 }),
+  apellido_materno: varchar("apellido_materno", { length: 255 }),
+  
+  // Datos personales (columnas 11-13 Excel)
   curp: varchar("curp", { length: 18 }),
-  nombre_completo: varchar("nombre_completo", { length: 255 }).notNull(),
+  fecha_nacimiento: date("fecha_nacimiento"),
+  tipo_sangre: varchar("tipo_sangre", { length: 10 }),
+  
+  // Datos institucionales (columnas 14-20 Excel)
+  correo_institucional: varchar("correo_institucional", { length: 255 }),
+  nivel_escolar: varchar("nivel_escolar", { length: 100 }),
+  clave_centro_trabajo: varchar("clave_centro_trabajo", { length: 50 }),
   grado: varchar("grado", { length: 50 }),
   grupo: varchar("grupo", { length: 50 }),
+  turno: varchar("turno", { length: 50 }),
+  
+  // Campo calculado para compatibilidad con código existente
+  nombre_completo: varchar("nombre_completo", { length: 300 }),
+  
   status: varchar("status", { length: 50 }).default("activo"), // 'activo', 'baja', 'suspendido', 'egresado'
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
-// GUARDIANS (Parents, Companies)
+// GUARDIANS - Adaptado a estructura Excel "Concentrado_Estudiante y Padre" (columnas 1-7)
 export const guardians = pgTable("guardians", {
   id: serial("id").primaryKey(),
-  email: varchar("email", { length: 255 }).notNull(),
+  
+  // Contacto (columna 1 Excel)
+  correo_institucional_familiar: varchar("correo_institucional_familiar", { length: 255 }).notNull(),
+  
+  // Nombres (columnas 2-4 Excel)
+  nombres: varchar("nombres", { length: 255 }).notNull(),
+  apellido_paterno: varchar("apellido_paterno", { length: 255 }),
+  apellido_materno: varchar("apellido_materno", { length: 255 }),
+  
+  // Datos personales (columna 5 Excel)
+  curp: varchar("curp", { length: 18 }),
+  
+  // Teléfonos (columnas 6-7 Excel)
+  celular: varchar("celular", { length: 20 }),
+  telefono_casa_oficina: varchar("telefono_casa_oficina", { length: 20 }),
+  
+  // Campos para compatibilidad con sistema existente
+  email: varchar("email", { length: 255 }),
   password_hash: varchar("password_hash", { length: 255 }),
   telefono: varchar("telefono", { length: 20 }),
-  nombre_completo: varchar("nombre_completo", { length: 255 }).notNull(),
+  nombre_completo: varchar("nombre_completo", { length: 300 }),
   rfc: varchar("rfc", { length: 13 }),
+  
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
@@ -393,11 +429,15 @@ export const insertUserSchema = createInsertSchema(users).omit({
 });
 export const insertStudentSchema = createInsertSchema(students).omit({
   id: true,
+  nombre_completo: true, // Se calcula automáticamente
   created_at: true,
   updated_at: true,
 });
 export const insertGuardianSchema = createInsertSchema(guardians).omit({
   id: true,
+  email: true, // Se usa correo_institucional_familiar
+  nombre_completo: true, // Se calcula automáticamente
+  telefono: true, // Se usa celular o telefono_casa_oficina
   created_at: true,
   updated_at: true,
 });

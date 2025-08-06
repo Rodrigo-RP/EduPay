@@ -47,29 +47,32 @@ export default function Estudiantes() {
     }
   });
 
+  // Formulario adaptado a estructura Excel "Concentrado_Estudiante y Padre"
   const [formData, setFormData] = useState({
-    nombres: "",
-    primer_apellido: "",
-    segundo_apellido: "",
-    curp: "",
-    fecha_nacimiento: "",
-    grado: "",
-    grupo: "",
-    status: "activo",
-    responsable_nombre: "",
-    responsable_telefono: "",
-    responsable_email: "",
-    direccion: "",
-    codigo_postal: "",
-    ciudad: "",
-    estado: "Ciudad de México",
-    alergias: "",
-    medicamentos: "",
-    contacto_emergencia: "",
-    telefono_emergencia: "",
-    usuario: "",
-    password: "",
-    id_referencia: ""
+    // PADRE DE FAMILIA (columnas 1-7 Excel)
+    padre_correo_institucional_familiar: "",
+    padre_nombres: "",
+    padre_apellido_paterno: "",
+    padre_apellido_materno: "",
+    padre_curp: "",
+    padre_celular: "",
+    padre_telefono_casa_oficina: "",
+    
+    // ESTUDIANTE (columnas 8-20 Excel)
+    estudiante_nombres: "",
+    estudiante_apellido_paterno: "",
+    estudiante_apellido_materno: "",
+    estudiante_curp: "",
+    estudiante_fecha_nacimiento: "",
+    estudiante_tipo_sangre: "",
+    estudiante_correo_institucional: "",
+    estudiante_nivel_escolar: "",
+    estudiante_clave_centro_trabajo: "",
+    estudiante_grado: "",
+    estudiante_grupo: "",
+    estudiante_turno: "",
+    
+    status: "activo"
   });
 
   // Mutación para crear estudiante
@@ -158,28 +161,30 @@ export default function Estudiantes() {
 
   const resetForm = () => {
     setFormData({
-      nombres: "",
-      primer_apellido: "",
-      segundo_apellido: "",
-      curp: "",
-      fecha_nacimiento: "",
-      grado: "",
-      grupo: "",
-      status: "activo",
-      responsable_nombre: "",
-      responsable_telefono: "",
-      responsable_email: "",
-      direccion: "",
-      codigo_postal: "",
-      ciudad: "",
-      estado: "Ciudad de México",
-      alergias: "",
-      medicamentos: "",
-      contacto_emergencia: "",
-      telefono_emergencia: "",
-      usuario: "",
-      password: "",
-      id_referencia: ""
+      // PADRE DE FAMILIA
+      padre_correo_institucional_familiar: "",
+      padre_nombres: "",
+      padre_apellido_paterno: "",
+      padre_apellido_materno: "",
+      padre_curp: "",
+      padre_celular: "",
+      padre_telefono_casa_oficina: "",
+      
+      // ESTUDIANTE
+      estudiante_nombres: "",
+      estudiante_apellido_paterno: "",
+      estudiante_apellido_materno: "",
+      estudiante_curp: "",
+      estudiante_fecha_nacimiento: "",
+      estudiante_tipo_sangre: "",
+      estudiante_correo_institucional: "",
+      estudiante_nivel_escolar: "",
+      estudiante_clave_centro_trabajo: "",
+      estudiante_grado: "",
+      estudiante_grupo: "",
+      estudiante_turno: "",
+      
+      status: "activo"
     });
   };
 
@@ -191,28 +196,30 @@ export default function Estudiantes() {
   const loadStudentForEdit = (student: any) => {
     setEditingStudent(student);
     setFormData({
-      nombres: student.nombre_completo.split(' ')[0] || "",
-      primer_apellido: student.nombre_completo.split(' ')[1] || "",
-      segundo_apellido: student.nombre_completo.split(' ').slice(2).join(' ') || "",
-      curp: student.curp || "",
-      fecha_nacimiento: "",
-      grado: student.grado || "",
-      grupo: student.grupo || "",
-      status: student.status || "activo",
-      responsable_nombre: student.responsable || "",
-      responsable_telefono: student.telefono || "",
-      responsable_email: "",
-      direccion: "",
-      codigo_postal: "",
-      ciudad: "",
-      estado: "Ciudad de México",
-      alergias: "",
-      medicamentos: "",
-      contacto_emergencia: "",
-      telefono_emergencia: "",
-      usuario: "",
-      password: "",
-      id_referencia: ""
+      // PADRE DE FAMILIA - datos del responsable existente
+      padre_correo_institucional_familiar: "",
+      padre_nombres: "",
+      padre_apellido_paterno: "",
+      padre_apellido_materno: "",
+      padre_curp: "",
+      padre_celular: "",
+      padre_telefono_casa_oficina: "",
+      
+      // ESTUDIANTE - datos del estudiante existente
+      estudiante_nombres: student.nombres || "",
+      estudiante_apellido_paterno: student.apellido_paterno || "",
+      estudiante_apellido_materno: student.apellido_materno || "",
+      estudiante_curp: student.curp || "",
+      estudiante_fecha_nacimiento: student.fecha_nacimiento || "",
+      estudiante_tipo_sangre: student.tipo_sangre || "",
+      estudiante_correo_institucional: student.correo_institucional || "",
+      estudiante_nivel_escolar: student.nivel_escolar || "",
+      estudiante_clave_centro_trabajo: student.clave_centro_trabajo || "",
+      estudiante_grado: student.grado || "",
+      estudiante_grupo: student.grupo || "",
+      estudiante_turno: student.turno || "",
+      
+      status: student.status || "activo"
     });
     setShowEditModal(true);
   };
@@ -261,13 +268,80 @@ export default function Estudiantes() {
     }
   };
 
-  // Función para descargar plantilla
+  // Función para descargar plantilla - estructura Excel "Concentrado_Estudiante y Padre"
   const downloadTemplate = () => {
     const templateData = [
-      ['Nombre Completo', 'CURP', 'Grado', 'Grupo', 'Estatus'],
-      ['Juan Pérez García', 'PEGJ120101HDFRRN09', '1° Primaria', 'A', 'activo'],
-      ['María López Hernández', 'LOHM130202MDFPRR08', '2° Primaria', 'B', 'activo'],
-      ['Carlos Martínez Ruiz', 'MARC140303HDFRRR07', 'Kinder 3', 'A', 'becado']
+      // Encabezados principales
+      ['PADRE DE FAMILIA', '', '', '', '', '', '', 'ESTUDIANTE', '', '', '', '', '', '', '', '', '', '', '', ''],
+      // Campos específicos
+      [
+        'Correo institucional familiar',
+        'Nombre(s)',
+        'Apellido paterno', 
+        'Apellido Materno',
+        'CURP',
+        'Celular',
+        'Telefono casa/oficina',
+        'Nombre(s)',
+        'Apellido paterno',
+        'Apellido Materno', 
+        'CURP',
+        'Fecha de nacimiento (DD/MM/YYYY)',
+        'Tipo de Sangre',
+        'Correo institucional',
+        'Nivel escolar',
+        'Clave del centro de Trabajo',
+        'Grado',
+        'Grupo',
+        'Turno',
+        'Nivel escolar'
+      ],
+      // Ejemplo 1
+      [
+        'padre.juan@institutojfr.edu.mx',
+        'Juan Carlos',
+        'Pérez',
+        'García',
+        'PEGJ800515HDFRRN09',
+        '5551234567',
+        '5587654321',
+        'María Fernanda',
+        'Pérez',
+        'López',
+        'PELM120101MDFRRR08',
+        '01/01/2012',
+        'O+',
+        'maria.perez@institutojfr.edu.mx',
+        'Primaria',
+        '09DPR0001X',
+        '6°',
+        'A',
+        'Matutino',
+        'Primaria'
+      ],
+      // Ejemplo 2
+      [
+        'responsable.ana@institutojfr.edu.mx',
+        'Ana Cristina',
+        'Martínez',
+        'Hernández',
+        'MAHA750820MDFRRR05',
+        '5559876543',
+        '5512345678',
+        'Diego Alejandro',
+        'Martínez',
+        'Silva',
+        'MASD130505HDFRRR01',
+        '05/05/2013',
+        'A-',
+        'diego.martinez@institutojfr.edu.mx',
+        'Primaria',
+        '09DPR0001X',
+        '5°',
+        'B',
+        'Matutino',
+        'Primaria'
+      ]
     ];
     
     const csvContent = templateData.map(row => 
@@ -278,7 +352,7 @@ export default function Estudiantes() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'plantilla_estudiantes.csv';
+    a.download = 'plantilla_concentrado_estudiante_padre.csv';
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
@@ -286,13 +360,13 @@ export default function Estudiantes() {
     
     toast({
       title: "Plantilla descargada",
-      description: "Usa esta plantilla como ejemplo para importar estudiantes"
+      description: "Plantilla con estructura Excel: Concentrado Estudiante y Padre"
     });
   };
 
   // Filtros para estudiantes
-  const grados = [...new Set(estudiantes.map((e: any) => e.grado).filter(Boolean))];
-  const grupos = [...new Set(estudiantes.map((e: any) => e.grupo).filter(Boolean))];
+  const grados = Array.from(new Set(estudiantes.map((e: any) => e.grado).filter(Boolean)));
+  const grupos = Array.from(new Set(estudiantes.map((e: any) => e.grupo).filter(Boolean)));
 
   const filteredEstudiantes = estudiantes.filter((estudiante: any) => {
     const matchSearch = !searchTerm || 
@@ -400,7 +474,7 @@ export default function Estudiantes() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos los grados</SelectItem>
-                {grados.map(grado => (
+                {grados.map((grado: string) => (
                   <SelectItem key={grado} value={grado}>{grado}</SelectItem>
                 ))}
               </SelectContent>
@@ -412,7 +486,7 @@ export default function Estudiantes() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos los grupos</SelectItem>
-                {grupos.map(grupo => (
+                {grupos.map((grupo: string) => (
                   <SelectItem key={grupo} value={grupo}>Grupo {grupo}</SelectItem>
                 ))}
               </SelectContent>
@@ -522,120 +596,249 @@ export default function Estudiantes() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="nombres">Nombres *</Label>
-                <Input
-                  id="nombres"
-                  value={formData.nombres}
-                  onChange={(e) => handleInputChange('nombres', e.target.value)}
-                  placeholder="Ej: Juan Carlos"
-                />
-              </div>
-              <div>
-                <Label htmlFor="primer_apellido">Primer Apellido *</Label>
-                <Input
-                  id="primer_apellido"
-                  value={formData.primer_apellido}
-                  onChange={(e) => handleInputChange('primer_apellido', e.target.value)}
-                  placeholder="Ej: Pérez"
-                />
-              </div>
-              <div>
-                <Label htmlFor="segundo_apellido">Segundo Apellido</Label>
-                <Input
-                  id="segundo_apellido"
-                  value={formData.segundo_apellido}
-                  onChange={(e) => handleInputChange('segundo_apellido', e.target.value)}
-                  placeholder="Ej: García"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="curp">CURP *</Label>
-                <Input
-                  id="curp"
-                  value={formData.curp}
-                  onChange={(e) => handleInputChange('curp', e.target.value.toUpperCase())}
-                  placeholder="Ej: PEGJ850101HDFRRN09"
-                  maxLength={18}
-                />
-              </div>
-              <div>
-                <Label htmlFor="fecha_nacimiento">Fecha de Nacimiento *</Label>
-                <Input
-                  id="fecha_nacimiento"
-                  type="date"
-                  value={formData.fecha_nacimiento}
-                  onChange={(e) => handleInputChange('fecha_nacimiento', e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="grado">Grado *</Label>
-                <Select value={formData.grado} onValueChange={(value) => handleInputChange('grado', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar grado" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Kinder 1">Kinder 1</SelectItem>
-                    <SelectItem value="Kinder 2">Kinder 2</SelectItem>
-                    <SelectItem value="Kinder 3">Kinder 3</SelectItem>
-                    <SelectItem value="1° Primaria">1° Primaria</SelectItem>
-                    <SelectItem value="2° Primaria">2° Primaria</SelectItem>
-                    <SelectItem value="3° Primaria">3° Primaria</SelectItem>
-                    <SelectItem value="4° Primaria">4° Primaria</SelectItem>
-                    <SelectItem value="5° Primaria">5° Primaria</SelectItem>
-                    <SelectItem value="6° Primaria">6° Primaria</SelectItem>
-                    <SelectItem value="1° Secundaria">1° Secundaria</SelectItem>
-                    <SelectItem value="2° Secundaria">2° Secundaria</SelectItem>
-                    <SelectItem value="3° Secundaria">3° Secundaria</SelectItem>
-                    <SelectItem value="1° Preparatoria">1° Preparatoria</SelectItem>
-                    <SelectItem value="2° Preparatoria">2° Preparatoria</SelectItem>
-                    <SelectItem value="3° Preparatoria">3° Preparatoria</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="grupo">Grupo *</Label>
-                <Select value={formData.grupo} onValueChange={(value) => handleInputChange('grupo', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar grupo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {gruposPersonalizados.map(grupo => (
-                      <SelectItem key={grupo} value={grupo}>{grupo}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="font-semibold text-gray-900">Información del Responsable</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-6">
+            {/* SECCIÓN: PADRE DE FAMILIA (Columnas 1-7 Excel) */}
+            <div className="bg-blue-50 p-4 rounded-lg space-y-4">
+              <h3 className="font-semibold text-blue-800 flex items-center gap-2">
+                <span className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                PADRE DE FAMILIA
+              </h3>
+              
+              <div className="space-y-4">
                 <div>
-                  <Label htmlFor="responsable_nombre">Nombre del Responsable *</Label>
+                  <Label htmlFor="padre_correo_institucional_familiar">Correo institucional familiar *</Label>
                   <Input
-                    id="responsable_nombre"
-                    value={formData.responsable_nombre}
-                    onChange={(e) => handleInputChange('responsable_nombre', e.target.value)}
-                    placeholder="Ej: María Pérez García"
+                    id="padre_correo_institucional_familiar"
+                    type="email"
+                    value={formData.padre_correo_institucional_familiar}
+                    onChange={(e) => handleInputChange('padre_correo_institucional_familiar', e.target.value)}
+                    placeholder="Ej: padre.juan@institutojfr.edu.mx"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="responsable_telefono">Teléfono *</Label>
-                  <Input
-                    id="responsable_telefono"
-                    value={formData.responsable_telefono}
-                    onChange={(e) => handleInputChange('responsable_telefono', e.target.value)}
-                    placeholder="Ej: 5551234567"
-                  />
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="padre_nombres">Nombre(s) *</Label>
+                    <Input
+                      id="padre_nombres"
+                      value={formData.padre_nombres}
+                      onChange={(e) => handleInputChange('padre_nombres', e.target.value)}
+                      placeholder="Ej: Juan Carlos"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="padre_apellido_paterno">Apellido paterno *</Label>
+                    <Input
+                      id="padre_apellido_paterno"
+                      value={formData.padre_apellido_paterno}
+                      onChange={(e) => handleInputChange('padre_apellido_paterno', e.target.value)}
+                      placeholder="Ej: Pérez"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="padre_apellido_materno">Apellido Materno</Label>
+                    <Input
+                      id="padre_apellido_materno"
+                      value={formData.padre_apellido_materno}
+                      onChange={(e) => handleInputChange('padre_apellido_materno', e.target.value)}
+                      placeholder="Ej: García"
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="padre_curp">CURP del Padre</Label>
+                    <Input
+                      id="padre_curp"
+                      value={formData.padre_curp}
+                      onChange={(e) => handleInputChange('padre_curp', e.target.value.toUpperCase())}
+                      placeholder="Ej: PEGJ800515HDFRRN09"
+                      maxLength={18}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="padre_celular">Celular *</Label>
+                    <Input
+                      id="padre_celular"
+                      value={formData.padre_celular}
+                      onChange={(e) => handleInputChange('padre_celular', e.target.value)}
+                      placeholder="Ej: 5551234567"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="padre_telefono_casa_oficina">Teléfono casa/oficina</Label>
+                    <Input
+                      id="padre_telefono_casa_oficina"
+                      value={formData.padre_telefono_casa_oficina}
+                      onChange={(e) => handleInputChange('padre_telefono_casa_oficina', e.target.value)}
+                      placeholder="Ej: 5587654321"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SECCIÓN: ESTUDIANTE (Columnas 8-20 Excel) */}
+            <div className="bg-green-50 p-4 rounded-lg space-y-4">
+              <h3 className="font-semibold text-green-800 flex items-center gap-2">
+                <span className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                ESTUDIANTE
+              </h3>
+              
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="estudiante_nombres">Nombre(s) *</Label>
+                    <Input
+                      id="estudiante_nombres"
+                      value={formData.estudiante_nombres}
+                      onChange={(e) => handleInputChange('estudiante_nombres', e.target.value)}
+                      placeholder="Ej: María Fernanda"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="estudiante_apellido_paterno">Apellido paterno *</Label>
+                    <Input
+                      id="estudiante_apellido_paterno"
+                      value={formData.estudiante_apellido_paterno}
+                      onChange={(e) => handleInputChange('estudiante_apellido_paterno', e.target.value)}
+                      placeholder="Ej: Pérez"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="estudiante_apellido_materno">Apellido Materno</Label>
+                    <Input
+                      id="estudiante_apellido_materno"
+                      value={formData.estudiante_apellido_materno}
+                      onChange={(e) => handleInputChange('estudiante_apellido_materno', e.target.value)}
+                      placeholder="Ej: López"
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="estudiante_curp">CURP *</Label>
+                    <Input
+                      id="estudiante_curp"
+                      value={formData.estudiante_curp}
+                      onChange={(e) => handleInputChange('estudiante_curp', e.target.value.toUpperCase())}
+                      placeholder="Ej: PELM120101MDFRRR08"
+                      maxLength={18}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="estudiante_fecha_nacimiento">Fecha de nacimiento (DD/MM/YYYY) *</Label>
+                    <Input
+                      id="estudiante_fecha_nacimiento"
+                      type="date"
+                      value={formData.estudiante_fecha_nacimiento}
+                      onChange={(e) => handleInputChange('estudiante_fecha_nacimiento', e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="estudiante_tipo_sangre">Tipo de Sangre</Label>
+                    <Select value={formData.estudiante_tipo_sangre} onValueChange={(value) => handleInputChange('estudiante_tipo_sangre', value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="O+">O+</SelectItem>
+                        <SelectItem value="O-">O-</SelectItem>
+                        <SelectItem value="A+">A+</SelectItem>
+                        <SelectItem value="A-">A-</SelectItem>
+                        <SelectItem value="B+">B+</SelectItem>
+                        <SelectItem value="B-">B-</SelectItem>
+                        <SelectItem value="AB+">AB+</SelectItem>
+                        <SelectItem value="AB-">AB-</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="estudiante_correo_institucional">Correo institucional</Label>
+                    <Input
+                      id="estudiante_correo_institucional"
+                      type="email"
+                      value={formData.estudiante_correo_institucional}
+                      onChange={(e) => handleInputChange('estudiante_correo_institucional', e.target.value)}
+                      placeholder="Ej: maria.perez@institutojfr.edu.mx"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="estudiante_nivel_escolar">Nivel escolar *</Label>
+                    <Select value={formData.estudiante_nivel_escolar} onValueChange={(value) => handleInputChange('estudiante_nivel_escolar', value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar nivel" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Kinder">Kinder</SelectItem>
+                        <SelectItem value="Primaria">Primaria</SelectItem>
+                        <SelectItem value="Secundaria">Secundaria</SelectItem>
+                        <SelectItem value="Preparatoria">Preparatoria</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="estudiante_clave_centro_trabajo">Clave del centro de Trabajo</Label>
+                    <Input
+                      id="estudiante_clave_centro_trabajo"
+                      value={formData.estudiante_clave_centro_trabajo}
+                      onChange={(e) => handleInputChange('estudiante_clave_centro_trabajo', e.target.value)}
+                      placeholder="Ej: 09DPR0001X"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="estudiante_turno">Turno</Label>
+                    <Select value={formData.estudiante_turno} onValueChange={(value) => handleInputChange('estudiante_turno', value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar turno" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Matutino">Matutino</SelectItem>
+                        <SelectItem value="Vespertino">Vespertino</SelectItem>
+                        <SelectItem value="Tiempo Completo">Tiempo Completo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="estudiante_grado">Grado *</Label>
+                    <Select value={formData.estudiante_grado} onValueChange={(value) => handleInputChange('estudiante_grado', value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar grado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1°">1°</SelectItem>
+                        <SelectItem value="2°">2°</SelectItem>
+                        <SelectItem value="3°">3°</SelectItem>
+                        <SelectItem value="4°">4°</SelectItem>
+                        <SelectItem value="5°">5°</SelectItem>
+                        <SelectItem value="6°">6°</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="estudiante_grupo">Grupo *</Label>
+                    <Select value={formData.estudiante_grupo} onValueChange={(value) => handleInputChange('estudiante_grupo', value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar grupo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {gruposPersonalizados.map(grupo => (
+                          <SelectItem key={grupo} value={grupo}>{grupo}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             </div>
@@ -649,7 +852,7 @@ export default function Estudiantes() {
               onClick={() => {
                 const studentData = {
                   ...formData,
-                  nombre_completo: combineNames(formData.nombres, formData.primer_apellido, formData.segundo_apellido)
+                  nombre_completo: combineNames(formData.estudiante_nombres, formData.estudiante_apellido_paterno, formData.estudiante_apellido_materno)
                 };
                 createStudentMutation.mutate(studentData);
               }}

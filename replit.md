@@ -22,6 +22,15 @@ Configuración de Pagos: Sistema completo implementado (Agosto 2025):
 - Mapeo correcto entre tipos frontend (porcentaje_fijo, monto_fijo, porcentaje_diario) y base de datos (porcentaje, fijo, progresivo)
 - CRUD completo con validación y conversión automática de centavos/pesos
 
+Gestión de Estudiantes: Sistema adaptado a estructura Excel "Concentrado_Estudiante y Padre" (Agosto 2025):
+- Formulario rediseñado con 20 campos específicos según archivo Excel institucional
+- Sección PADRE DE FAMILIA (columnas 1-7): correo institucional familiar, nombres, apellidos, CURP, celular, teléfono casa/oficina
+- Sección ESTUDIANTE (columnas 8-20): nombres, apellidos, CURP, fecha nacimiento, tipo sangre, correo institucional, nivel escolar, clave centro trabajo, grado, grupo, turno
+- Base de datos extendida con nuevas columnas para ambas entidades
+- Plantilla de importación/exportación Excel actualizada al formato institucional exacto
+- Autenticación corregida en funciones de exportación (auth_token vs token)
+- Sistema completamente funcional y listo para datos reales
+
 ## System Architecture
 
 ### Frontend

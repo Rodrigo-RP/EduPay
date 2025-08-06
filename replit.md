@@ -30,6 +30,7 @@ Gestión de Estudiantes: Sistema adaptado a estructura Excel "Concentrado_Estudi
 - Sistema Educativo Mexicano: Opciones específicas por nivel (Kinder: 1°, 2°, 3°; Primaria: 1° a 6°; Secundaria: 7°, 8°, 9°; Preparatoria: semestres 1° a 6°)
 - Filtros geográficos: Análisis por códigos postales para distribución demográfica estudiantil
 - Dirección familiar: Sección técnica completa (calle, colonia, CP, ciudad, estado) para análisis geográfico
+- Filtros Inteligentes (Agosto 2025): Sistema completo de filtrado con botones predefinidos ("Todos", "Solo activos", "Nuevos ingresos", "Pendientes documentos"), filtros por rango de edad específicos del sistema educativo mexicano (3-5 años Kinder, 6-12 años Primaria, 13-15 años Secundaria, 16-18 años Preparatoria, 19+ años), resumen automático de filtros activos con conteo de resultados
 - Base de datos extendida con nuevas columnas para ambas entidades
 - Plantilla de importación/exportación Excel actualizada al formato institucional exacto
 - Autenticación corregida en funciones de exportación (auth_token vs token)

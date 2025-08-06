@@ -271,30 +271,49 @@ export default function Aprobaciones() {
     }
   };
 
+  // Normalize text for search (remove accents, convert to lowercase)
+  const normalizeForSearch = (text: string) => {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, ''); // Remove diacritics/accents
+  };
+
   // Filter history based on search term
   const filteredHistory = allHistory && Array.isArray(allHistory) ? allHistory.filter((approval: PendingApproval) => {
     if (!historySearchFilter.trim()) return true;
     
-    const searchTerm = historySearchFilter.toLowerCase();
+    const searchTerm = normalizeForSearch(historySearchFilter);
     const studentInfo = (approval as any).student_info;
     
-    // Search in student name
-    if (studentInfo?.nombre_completo?.toLowerCase().includes(searchTerm)) return true;
+    // Search in student name from student_info
+    if (studentInfo?.nombre_completo && normalizeForSearch(studentInfo.nombre_completo).includes(searchTerm)) return true;
+    
+    // Search in student name from original/requested data
+    try {
+      const originalData = JSON.parse(approval.original_data || '{}');
+      const requestedData = JSON.parse(approval.requested_data || '{}');
+      
+      if (originalData.student && normalizeForSearch(originalData.student).includes(searchTerm)) return true;
+      if (requestedData.student && normalizeForSearch(requestedData.student).includes(searchTerm)) return true;
+      if (originalData.name && normalizeForSearch(originalData.name).includes(searchTerm)) return true;
+      if (requestedData.name && normalizeForSearch(requestedData.name).includes(searchTerm)) return true;
+    } catch {}
     
     // Search in requester name
-    if ((approval as any).requester_name?.toLowerCase().includes(searchTerm)) return true;
+    if ((approval as any).requester_name && normalizeForSearch((approval as any).requester_name).includes(searchTerm)) return true;
     
     // Search in action description
-    if (approval.action_description?.toLowerCase().includes(searchTerm)) return true;
+    if (approval.action_description && normalizeForSearch(approval.action_description).includes(searchTerm)) return true;
     
     // Search in reason
-    if (approval.reason?.toLowerCase().includes(searchTerm)) return true;
+    if (approval.reason && normalizeForSearch(approval.reason).includes(searchTerm)) return true;
     
     // Search in approval notes
-    if (approval.approval_notes?.toLowerCase().includes(searchTerm)) return true;
+    if (approval.approval_notes && normalizeForSearch(approval.approval_notes).includes(searchTerm)) return true;
     
     // Search in action type
-    if (getActionTypeLabel(approval.action_type).toLowerCase().includes(searchTerm)) return true;
+    if (normalizeForSearch(getActionTypeLabel(approval.action_type)).includes(searchTerm)) return true;
     
     return false;
   }) : [];

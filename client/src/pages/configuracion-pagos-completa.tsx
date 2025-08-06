@@ -40,6 +40,7 @@ interface ReglaRecargo {
   concepto_nombre: string;
   dias_gracia: number;
   porcentaje_recargo: number;
+  monto_fijo: number;
   tipo_calculo: 'porcentaje_fijo' | 'porcentaje_diario' | 'monto_fijo';
   activo: boolean;
 }
@@ -87,6 +88,7 @@ export default function ConfiguracionPagosCompleta() {
     concepto_id: 0,
     dias_gracia: 0,
     porcentaje_recargo: 0,
+    monto_fijo: 0,
     tipo_calculo: 'porcentaje_fijo' as 'porcentaje_fijo' | 'porcentaje_diario' | 'monto_fijo',
     activo: true
   });
@@ -271,6 +273,7 @@ export default function ConfiguracionPagosCompleta() {
       concepto_id: 0,
       dias_gracia: 0,
       porcentaje_recargo: 0,
+      monto_fijo: 0,
       tipo_calculo: 'porcentaje_fijo',
       activo: true
     });
@@ -304,6 +307,7 @@ export default function ConfiguracionPagosCompleta() {
       concepto_id: recargo.concepto_id,
       dias_gracia: recargo.dias_gracia,
       porcentaje_recargo: recargo.porcentaje_recargo,
+      monto_fijo: recargo.monto_fijo || 0,
       tipo_calculo: recargo.tipo_calculo,
       activo: recargo.activo
     });
@@ -371,13 +375,24 @@ export default function ConfiguracionPagosCompleta() {
       return;
     }
 
-    if (nuevoRecargo.porcentaje_recargo <= 0) {
-      toast({
-        title: "Error",
-        description: "El porcentaje de recargo debe ser mayor a 0",
-        variant: "destructive",
-      });
-      return;
+    if (nuevoRecargo.tipo_calculo === 'monto_fijo') {
+      if (nuevoRecargo.monto_fijo <= 0) {
+        toast({
+          title: "Error",
+          description: "El monto fijo debe ser mayor a 0",
+          variant: "destructive",
+        });
+        return;
+      }
+    } else {
+      if (nuevoRecargo.porcentaje_recargo <= 0) {
+        toast({
+          title: "Error",
+          description: "El porcentaje de recargo debe ser mayor a 0",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     saveRecargoMutation.mutate(nuevoRecargo);
@@ -692,17 +707,32 @@ export default function ConfiguracionPagosCompleta() {
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="porcentaje">Porcentaje de Recargo (%)</Label>
-                      <Input
-                        id="porcentaje"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={nuevoRecargo.porcentaje_recargo}
-                        onChange={(e) => setNuevoRecargo(prev => ({ ...prev, porcentaje_recargo: parseFloat(e.target.value) || 0 }))}
-                      />
-                    </div>
+                    {nuevoRecargo.tipo_calculo !== 'monto_fijo' ? (
+                      <div className="space-y-2">
+                        <Label htmlFor="porcentaje">Porcentaje de Recargo (%)</Label>
+                        <Input
+                          id="porcentaje"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={nuevoRecargo.porcentaje_recargo}
+                          onChange={(e) => setNuevoRecargo(prev => ({ ...prev, porcentaje_recargo: parseFloat(e.target.value) || 0 }))}
+                        />
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Label htmlFor="monto-fijo">Monto Fijo ($)</Label>
+                        <Input
+                          id="monto-fijo"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={nuevoRecargo.monto_fijo}
+                          onChange={(e) => setNuevoRecargo(prev => ({ ...prev, monto_fijo: parseFloat(e.target.value) || 0 }))}
+                          placeholder="Cantidad específica en pesos"
+                        />
+                      </div>
+                    )}
 
                     <div className="space-y-2">
                       <Label htmlFor="tipo-calculo">Tipo de Cálculo</Label>
@@ -780,10 +810,13 @@ export default function ConfiguracionPagosCompleta() {
                                   Gracia: {regla.dias_gracia} días
                                 </div>
                                 <div>
-                                  Recargo: {regla.porcentaje_recargo}%
+                                  {regla.tipo_calculo === 'monto_fijo' 
+                                    ? `Recargo: ${formatMonto((regla.monto_fijo || 0) * 100)}`
+                                    : `Recargo: ${regla.porcentaje_recargo}%`
+                                  }
                                 </div>
                                 <div>
-                                  Tipo: {regla.tipo_calculo.replace('_', ' ')}
+                                  Tipo: {regla.tipo_calculo.replace('_', ' ').replace('porcentaje', 'Porcentaje').replace('monto', 'Monto')}
                                 </div>
                               </div>
                             </div>

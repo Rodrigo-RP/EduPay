@@ -5321,11 +5321,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Mock data structure for now
         {
           id: 1,
-          concepto_id: 1,
-          concepto_nombre: "Colegiatura Mensual",
+          concepto_id: 57,
+          concepto_nombre: "Colegiatura Mensual - Primaria",
           dias_gracia: 5,
           porcentaje_recargo: 10,
+          monto_fijo: 0,
           tipo_calculo: 'porcentaje_fijo',
+          activo: true
+        },
+        {
+          id: 2,
+          concepto_id: 60,
+          concepto_nombre: "Inscripción Anual - Primaria",
+          dias_gracia: 0,
+          porcentaje_recargo: 0,
+          monto_fijo: 500,
+          tipo_calculo: 'monto_fijo',
           activo: true
         }
       ];
@@ -5341,13 +5352,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/payment-config/surcharge-rules-complete", authenticateToken, async (req, res) => {
     try {
       // Placeholder implementation - surcharge rules table needs to be created
-      const { concepto_id, dias_gracia, porcentaje_recargo, tipo_calculo, activo } = req.body;
+      const { concepto_id, dias_gracia, porcentaje_recargo, monto_fijo, tipo_calculo, activo } = req.body;
+      
+      // Get concept name
+      const [conceptData] = await db
+        .select({ nombre: concepts.nombre })
+        .from(concepts)
+        .where(eq(concepts.id, concepto_id))
+        .limit(1);
       
       const newRule = {
-        id: Math.floor(Math.random() * 1000),
+        id: Math.floor(Math.random() * 1000) + 100,
         concepto_id,
+        concepto_nombre: conceptData?.nombre || "Concepto desconocido",
         dias_gracia: dias_gracia || 0,
-        porcentaje_recargo,
+        porcentaje_recargo: porcentaje_recargo || 0,
+        monto_fijo: monto_fijo || 0,
         tipo_calculo: tipo_calculo || 'porcentaje_fijo',
         activo: activo !== undefined ? activo : true
       };
@@ -5363,13 +5383,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/payment-config/surcharge-rules-complete/:id", authenticateToken, async (req, res) => {
     try {
       const ruleId = parseInt(req.params.id);
-      const { concepto_id, dias_gracia, porcentaje_recargo, tipo_calculo, activo } = req.body;
+      const { concepto_id, dias_gracia, porcentaje_recargo, monto_fijo, tipo_calculo, activo } = req.body;
+      
+      // Get concept name
+      const [conceptData] = await db
+        .select({ nombre: concepts.nombre })
+        .from(concepts)
+        .where(eq(concepts.id, concepto_id))
+        .limit(1);
       
       const updated = {
         id: ruleId,
         concepto_id,
+        concepto_nombre: conceptData?.nombre || "Concepto desconocido",
         dias_gracia,
-        porcentaje_recargo,
+        porcentaje_recargo: porcentaje_recargo || 0,
+        monto_fijo: monto_fijo || 0,
         tipo_calculo,
         activo
       };

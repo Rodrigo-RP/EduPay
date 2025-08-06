@@ -3,7 +3,7 @@
  * Define reglas de autorización para cada rol de usuario
  */
 
-export type UserRole = 'super_admin' | 'admin' | 'caja' | 'contador' | 'admisiones' | 'asistente' | 'support' | 'implementation';
+export type UserRole = 'super_admin' | 'admin' | 'caja' | 'contador' | 'admisiones' | 'asistente' | 'support' | 'implementation' | 'administrador_general' | 'administrador_campus' | 'contador_general' | 'auxiliar_contable';
 
 export interface Permission {
   module: string;
@@ -268,6 +268,20 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
 ];
 
 /**
+ * MAPEO DE ROLES PARA COMPATIBILIDAD
+ */
+function mapRole(userRole: UserRole): UserRole {
+  const roleMapping: Record<string, UserRole> = {
+    'administrador_general': 'super_admin',
+    'administrador_campus': 'admin',
+    'contador_general': 'contador',
+    'auxiliar_contable': 'contador'
+  };
+  
+  return roleMapping[userRole] || userRole;
+}
+
+/**
  * FUNCIONES PARA VERIFICAR PERMISOS
  */
 export function hasPermission(
@@ -276,7 +290,8 @@ export function hasPermission(
   action: string,
   scope: 'all' | 'campus' | 'own' | 'read_only' = 'campus'
 ): boolean {
-  const rolePermissions = ROLE_PERMISSIONS.find(r => r.role === userRole);
+  const mappedRole = mapRole(userRole);
+  const rolePermissions = ROLE_PERMISSIONS.find(r => r.role === mappedRole);
   if (!rolePermissions) return false;
 
   const permission = rolePermissions.permissions.find(
@@ -286,7 +301,7 @@ export function hasPermission(
   if (!permission) return false;
 
   // Super admin tiene acceso completo
-  if (userRole === 'super_admin') return true;
+  if (mappedRole === 'super_admin') return true;
 
   // Verificar scope
   switch (scope) {
@@ -304,7 +319,8 @@ export function hasPermission(
 }
 
 export function getRolePermissions(userRole: UserRole): RolePermissions | undefined {
-  return ROLE_PERMISSIONS.find(r => r.role === userRole);
+  const mappedRole = mapRole(userRole);
+  return ROLE_PERMISSIONS.find(r => r.role === mappedRole);
 }
 
 export function getAllRoles(): RolePermissions[] {
@@ -312,13 +328,15 @@ export function getAllRoles(): RolePermissions[] {
 }
 
 export function canAccessModule(userRole: UserRole, module: string): boolean {
-  const rolePermissions = ROLE_PERMISSIONS.find(r => r.role === userRole);
+  const mappedRole = mapRole(userRole);
+  const rolePermissions = ROLE_PERMISSIONS.find(r => r.role === mappedRole);
   if (!rolePermissions) return false;
 
   return rolePermissions.permissions.some(p => p.module === module);
 }
 
 export function getRestrictionsForRole(userRole: UserRole): string[] {
-  const rolePermissions = ROLE_PERMISSIONS.find(r => r.role === userRole);
+  const mappedRole = mapRole(userRole);
+  const rolePermissions = ROLE_PERMISSIONS.find(r => r.role === mappedRole);
   return rolePermissions?.restrictions || [];
 }

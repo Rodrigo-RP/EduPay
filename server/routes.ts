@@ -466,6 +466,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get users for current campus (for campus admin management)
+  app.get("/api/users", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const campusId = user.campus_id;
+      
+      if (!campusId) {
+        return res.status(400).json({ message: "Campus ID requerido" });
+      }
+      
+      const users = await storage.getUsersByCampus(campusId);
+      res.json(users);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error obteniendo usuarios: " + error.message });
+    }
+  });
+
   // PLATFORM LOGIN for Support and Implementation users
   app.post("/api/auth/platform-login", async (req, res) => {
     try {

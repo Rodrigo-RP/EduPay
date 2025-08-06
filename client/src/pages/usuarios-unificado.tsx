@@ -41,105 +41,28 @@ export default function UsuariosUnificado() {
     activo: true
   });
 
-  // Estado para usuarios del sistema
-  const [usuarios, setUsuarios] = useState([
-    {
-      id: 1,
-      email: "admin@institutojfr.edu.mx",
-      nombre_completo: "María Elena Rodríguez",
-      role: "administrador_general",
-      telefono: "55-1234-5678",
-      activo: true,
-      campus: "Campus Principal",
-      ultimo_acceso: "2025-08-06 08:30",
-      created_at: "2024-08-01",
-      custom_permissions: []
-    },
-    {
-      id: 2,
-      email: "direccion@institutojfr.edu.mx", 
-      nombre_completo: "Carlos Alberto Méndez",
-      role: "administrador_campus",
-      telefono: "55-2345-6789",
-      activo: true,
-      campus: "Campus Principal",
-      ultimo_acceso: "2025-08-06 09:15",
-      created_at: "2024-08-15",
-      custom_permissions: []
-    },
-    {
-      id: 3,
-      email: "auxiliar1@institutojfr.edu.mx",
-      nombre_completo: "Ana Patricia López",
-      role: "auxiliar_contable",
-      telefono: "55-3456-7890",
-      activo: true,
-      campus: "Campus Principal",
-      ultimo_acceso: "2025-08-06 10:45",
-      created_at: "2024-09-01",
-      custom_permissions: []
-    },
-    {
-      id: 4,
-      email: "contador@institutojfr.edu.mx",
-      nombre_completo: "Jorge Luis Herrera",
-      role: "contador_general",
-      telefono: "55-4567-8901",
-      activo: true,
-      campus: "Campus Principal",
-      ultimo_acceso: "2025-08-05 16:30",
-      created_at: "2024-09-15",
-      custom_permissions: []
-    },
-    {
-      id: 5,
-      email: "auxiliar2@institutojfr.edu.mx",
-      nombre_completo: "Laura Beatriz Silva",
-      role: "auxiliar_contable",
-      telefono: "55-5678-9012",
-      activo: false,
-      campus: "Campus Principal",
-      ultimo_acceso: "2025-08-01 14:20",
-      created_at: "2024-10-01",
-      custom_permissions: []
-    },
-    {
-      id: 6,
-      email: "admin2@institutojfr.edu.mx",
-      nombre_completo: "Roberto Carlos Vega",
-      role: "administrador_campus",
-      telefono: "55-6789-0123",
-      activo: true,
-      campus: "Campus Norte",
-      ultimo_acceso: "2025-08-06 11:30",
-      created_at: "2024-08-20",
-      custom_permissions: []
-    },
-    {
-      id: 7,
-      email: "admisiones@institutojfr.edu.mx",
-      nombre_completo: "Carmen Rosa Martínez",
-      role: "admisiones",
-      telefono: "55-7890-1234",
-      activo: true,
-      campus: "Campus Principal",
-      ultimo_acceso: "2025-08-06 13:15",
-      created_at: "2024-11-01",
-      custom_permissions: []
-    },
-    {
-      id: 8,
-      email: "asistente@institutojfr.edu.mx",
-      nombre_completo: "Patricia Fernández Ruiz",
-      role: "asistente",
-      telefono: "55-8901-2345",
-      activo: true,
-      campus: "Campus Principal",
-      ultimo_acceso: "2025-08-06 12:00",
-      created_at: "2024-12-01",
-      custom_permissions: []
-    }
-  ]);
+  // Fetch users from API instead of using hardcoded data
+  const { data: usuarios = [], isLoading: loadingUsers, refetch: refetchUsers } = useQuery({
+    queryKey: ['/api/users'],
+    select: (data: any[]) => data.map(user => ({
+      id: user.id,
+      email: user.email,
+      nombre_completo: user.name || 'Sin nombre',
+      role: user.role,
+      telefono: user.telefono || '',
+      activo: user.is_active !== false,
+      campus: "Campus Principal", // Default for now
+      ultimo_acceso: user.last_login_at ? new Date(user.last_login_at).toLocaleString('es-ES', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      }) : 'Nunca',
+      created_at: user.created_at,
+      custom_permissions: user.custom_permissions || []
+    }))
+  });
 
   // Función para obtener icono del rol
   const getRoleIcon = (role: string) => {

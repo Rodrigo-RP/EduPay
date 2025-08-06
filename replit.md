@@ -2,7 +2,7 @@
 
 ## Overview
 
-Edupay is a SaaS platform designed to automate tuition payments for private schools. Its core purpose is to reduce operational burden and delinquency rates. Key problems solved include simplifying payments for parents (1-click payments), automating debt collection, reconciling finances, and streamlining tax invoicing (CFDI) directly with the SAT/PAC. The ideal usage aims for paperless school operations, elimination of manual collection calls, and over 80% on-time payment rates. The platform is multi-tenant, supporting multiple schools, and is production-ready.
+Edupay is a SaaS platform designed to automate tuition payments for private schools, aiming to reduce operational burden and delinquency rates. It simplifies payments for parents (1-click payments), automates debt collection, reconciles finances, and streamlines tax invoicing (CFDI) directly with the SAT/PAC. The platform supports paperless school operations, eliminates manual collection calls, and targets over 80% on-time payment rates. It is a multi-tenant, production-ready system.
 
 ## User Preferences
 
@@ -14,110 +14,6 @@ UX/UI: Móvil primero, proceso de pago 3 clics o menos, onboarding < 1 hora.
 Dashboard preference: Dashboard CEO tradicional como predeterminado para super administrador (no F1 style por problemas de carga).
 Funcionalidad de redes sociales: Integración real con plataformas oficiales (Facebook Business, Instagram Business, TikTok Ads) usando autenticación OAuth y redirección a sitios oficiales para que cada escuela conecte sus propias cuentas empresariales.
 Sistema verificado: Auditoría sistemática completada - todas las funcionalidades operan con datos reales, no decorativos.
-Credenciales estándar: @institutojfr.edu.mx para todos los perfiles de usuario del Instituto JFR.
-Estado actual: Sistema 100% funcional con nuevas funcionalidades implementadas:
-- ✅ Sistema de migración Replit → Refeerence completado y validado
-- ✅ Gestión de credenciales institucionales operativa para administradores
-- ✅ API pública accesible para integración con sistemas externos
-- ✅ Notificaciones automáticas de vencimiento de credenciales
-- ✅ Encriptación segura de contraseñas institucionales
-- ✅ Administrador real del Instituto JFR configurado (rodrigorp@institutojfr.edu.mx)
-- ✅ Datos reales del Instituto JFR implementados con 10 conceptos de pago
-- ✅ Sistema de notificaciones funcionando con credenciales reales
-- ✅ 18 alumnos reales importados exitosamente (primaria, secundaria, preparatoria)
-- ✅ Login mejorado con botón mostrar/ocultar contraseña implementado
-- ✅ Sistema de autenticación completamente funcional sin errores JSON
-- ✅ Sistema de información institucional RFC/CCT por secciones educativas completado
-- ✅ CRUD completo para gestión de RFC y CCT (Kinder, Primaria, Secundaria, Bachillerato)
-- ✅ API endpoints institucionales funcionando correctamente
-- ✅ Sistema unificado de gestión de usuarios implementado con nuevos roles específicos
-- ✅ Generación automática de credenciales (usuario/contraseña) para nuevos usuarios
-- ✅ Sistema de regeneración de credenciales para usuarios existentes
-- ✅ Interfaz completa para compartir credenciales de forma segura
-- ✅ Eliminada duplicación entre Administrativo-Usuarios y Configuración-Usuarios
-- ✅ Roles específicos: Administrador General, Administrador Campus, Contador General, Auxiliar Contable, Asistente, Admisiones
-- ✅ Sistema de permisos granulares con gestión visual implementado
-- ✅ CRUD completo de usuarios funcionando: crear, editar, eliminar con persistencia en estado
-- ✅ Modal de edición completo con validación de campos obligatorios
-- ✅ Modal de credenciales optimizado y responsivo completamente funcional
-- ✅ Sistema de información completa del estudiante en solicitudes de aprobación implementado
-- ✅ Modal de observaciones muestra: nombre completo, grado, grupo, CURP del estudiante
-- ✅ Historial de aprobaciones incluye datos del estudiante cuando están disponibles
-- ✅ Búsqueda flexible de estudiantes (exacta y parcial) para enriquecer solicitudes
-- ✅ Diseño visual distintivo para información del estudiante en aprobaciones
-- ✅ Sistema de filtro de búsqueda implementado en Historial Completo de Aprobaciones
-- ✅ Filtro con normalización de acentos busca por nombre del alumno, familia, solicitud o motivo
-- ✅ Búsqueda optimizada para escuelas con miles de estudiantes (elimina scroll infinito)
-- ✅ Sistema de permisos completamente funcional con roles específicos operativo
-- ✅ Modal de permisos muestra correctamente permisos por defecto y personalizados
-- ✅ Rodrigo Rodriguez Pacheco configurado correctamente como administrador_general
-- ✅ Todos los permisos se cargan y visualizan correctamente según el rol del usuario
-- ✅ Interfaz de permisos 100% en español con funcionalidad completa
-- ✅ Endpoints CRUD completos para usuarios implementados (POST, PUT, DELETE /api/users)
-- ✅ Sistema completamente conectado a base de datos real para persistencia
-- ✅ Frontend con mutaciones React Query para operaciones de usuarios en tiempo real
-- ✅ Validaciones y manejo de errores implementado para todas las operaciones CRUD
-- ✅ Sistema listo para ingreso de datos reales de usuarios con persistencia garantizada
-- ✅ Header corregido muestra "Administrador General" según rol específico del usuario
-- ✅ Sistema de aprobaciones visible en sidebar para administrador general
-- ✅ Logo institucional del Instituto JFR implementado y funcionando
-- ✅ Información institucional real configurada desde interfaz de usuario
-- ✅ Persistencia de configuración institucional en base de datos garantizada
-- ✅ Duplicación de pestaña "Usuarios" en Configuración eliminada definitivamente
-- ✅ Gestión unificada de usuarios consolidada únicamente en sección Administrativa
-- ✅ Sistema completo de información institucional implementado y funcional
-- ✅ Tabla institutional_settings creada con persistencia PostgreSQL
-- ✅ Endpoints GET/POST para cargar y guardar información institucional
-- ✅ Campos reactivos: RFC, dirección fiscal, ciudad, código postal, teléfono, email, sitio web
-- ✅ Invalidación automática de caché para actualización en tiempo real de datos
-- ✅ Sistema validado: datos persisten correctamente al navegar entre pestañas
-- ✅ SISTEMA DE ROLES Y PERMISOS COMPLETAMENTE CONSOLIDADO Y FUNCIONAL
-- ✅ 7 roles específicos implementados: super_admin, administrador_general, administrador_campus, contador_general, auxiliar_contable, asistente, admisiones
-- ✅ Sistema de permisos granulares con mapeo completo de módulos y acciones
-- ✅ Header actualizado para mostrar correctamente nombres de roles específicos
-- ✅ SISTEMA DE APROBACIONES 100% FUNCIONAL Y VALIDADO
-- ✅ Control total del administrador general sobre cambios financieros críticos
-- ✅ Información completa del estudiante en solicitudes de aprobación
-- ✅ Historial completo de aprobaciones con filtro de búsqueda normalizado
-- ✅ Sistema de notificaciones de aprobaciones en tiempo real
-- ✅ API endpoints de aprobaciones funcionando correctamente
-- ✅ Navegación del sidebar basada en permisos completamente operativa
-- ✅ PÁGINA DE LOGIN REDISEÑADA COMO SAAS ADMINISTRATIVO
-- ✅ Eliminada opción "Padres de Familia" - sistema exclusivo para personal de escuelas
-- ✅ Diseño profesional con los 7 roles administrativos claramente definidos
-- ✅ Interfaz moderna con gradientes y diseño responsivo para pantallas grandes
-- ✅ Banner de padres de familia eliminado según solicitud del usuario
-- ✅ Badge "Sistema Exclusivo para Personal Autorizado" eliminado del login
-- ✅ Banner de credenciales de demostración eliminado del login
-- ✅ SISTEMA DE JERARQUÍA DE ROLES IMPLEMENTADO Y FUNCIONAL
-- ✅ Restricciones de seguridad críticas: administrador de campus no puede editar administrador general
-- ✅ Función canEditUser() operativa para validar permisos de edición entre roles
-- ✅ Validaciones de jerarquía en frontend: filtros de usuarios y botones condicionados
-- ✅ Validaciones de seguridad en backend: APIs protegidas contra modificaciones no autorizadas
-- ✅ Sistema de roles completamente seguro y auditado funcionando en producción
-- ✅ LOGO INSTITUCIONAL COMPLETAMENTE FUNCIONAL: Migrado de localStorage a base de datos
-- ✅ Campo logo_url agregado a tabla institutional_settings para persistencia compartida
-- ✅ Hook useInstitution modificado para cargar logo desde API en lugar de localStorage
-- ✅ API endpoints actualizados para manejar logo_url en GET y POST operations
-- ✅ Sistema de logo institucional completamente funcional entre todos los usuarios
-- ✅ PROBLEMA HTML ENTITIES RESUELTO: Decodificación automática de &#x2F; a / implementada
-- ✅ Logo institucional visible correctamente en sidebar para administrador general
-- ✅ Sistema de cache optimizado para actualizaciones inmediatas de logo
-- ✅ LOGO INSTITUCIONAL EN TODOS LOS DASHBOARDS DE USUARIOS IMPLEMENTADO
-- ✅ Dashboard Administrador General: Logo institucional con diseño premium integrado
-- ✅ Dashboard Admisiones: Logo institucional con bordes y badge del nombre de institución
-- ✅ Dashboard Caja: Logo institucional con diseño coherente y branding consistente
-- ✅ Dashboard Contador: Logo institucional visible para reportes y análisis financiero
-- ✅ Sistema universal: Todos los roles ven el logo de su institución en su dashboard principal
-- ✅ LOGO INSTITUCIONAL EN PÁGINAS PRINCIPALES COMPLETADO
-- ✅ Página Gestión de Usuarios: Logo institucional en header principal con diseño azul
-- ✅ Página Gestión de Pagos: Logo institucional integrado en header con gradiente
-- ✅ Página Reportes y Análisis: Logo institucional con filtro blanco para fondo oscuro
-- ✅ Página Cuentas por Cobrar: Logo institucional con diseño coherente en rojo
-- ✅ RoleBasedDashboard actualizado para todos los roles: administrador_campus, auxiliar_contable, asistente
-- ✅ Sistema completo: Logo visible en todas las interfaces para todos los usuarios de todos los roles
-- ✅ PRUEBAS CON USUARIOS REALES EXITOSAS: Administrador de campus verificado funcionando correctamente
-- 🔄 reCAPTCHA preparado para implementar (pendiente claves de Google)
 
 ## System Architecture
 
@@ -127,7 +23,7 @@ Estado actual: Sistema 100% funcional con nuevas funcionalidades implementadas:
 - **State Management**: TanStack Query (React Query)
 - **UI Framework**: Tailwind CSS with Shadcn/ui
 - **Build Tool**: Vite
-- **Design**: Mobile-First (Responsive Design), color schemes and templates for a professional, clean dashboard.
+- **Design**: Mobile-First (Responsive Design), professional, clean dashboard with defined color schemes and templates.
 
 ### Backend
 - **Runtime**: Node.js with Express.js
@@ -138,25 +34,16 @@ Estado actual: Sistema 100% funcional con nuevas funcionalidades implementadas:
 
 ### Database
 - **ORM**: Drizzle ORM with PostgreSQL
-- **Database**: PostgreSQL (configured for Neon Database)
+- **Database**: PostgreSQL
 - **Schema**: Multi-tenant architecture (tenants, campuses, users, students, financial entities)
 - **Migrations**: Drizzle Kit
 
 ### Key Components
-- **User Roles**: 6 types with granular permissions (Super Admin, Campus Admin, Admissions, Assistant, Finance/Cashier, External Accountant - read-only).
-- **Multi-Tenant Architecture**: Supports school groups and individual campuses with data separation.
+- **User Roles**: 7 specific roles with granular permissions (super_admin, administrador_general, administrador_campus, contador_general, auxiliar_contable, asistente, admisiones).
+- **Multi-Tenant Architecture**: Supports school groups and individual campuses with data separation and role hierarchy.
 - **Student & Guardian Management**: Comprehensive profiles, flexible relationships, academic tracking.
-- **Core Modules**:
-    1.  **Initial Setup**: School registration, student import, payment concepts, due dates, scholarships, payment gateway, PAC integration.
-    2.  **Charge Issuance**: Automatic/manual generation, extraordinary charges, late fees, electronic invoices, partial payments.
-    3.  **Parent/Guardian Portal**: Dashboard, payment options, recurring payments, invoice history, notifications.
-    4.  **Cashier & Reconciliation**: Manual payments, bank control, automatic reconciliation, delinquency reports, KPIs.
-    5.  **Fiscal & Accounting**: Automatic CFDI 4.0, PAC integration (Facturama), SAT reports, cancellation log.
-    6.  **Migration System**: Complete project migration from Replit to Refeerence platform using official Extensions API.
-    7.  **Institutional Credentials**: Secure management of institutional credentials (Firma Electrónica, IDSE, Sellos Digitales, etc.) with intelligent expiration notifications system.
-    8.  **Institutional Information Management**: Complete RFC and CCT management system by educational sections (Kinder, Primary, Secondary, High School) with CRUD operations and validation.
-    9.  **Notification System**: Real-time plugin-based notification system for credential expiration alerts with urgency levels and automatic monitoring.
-- **Notification System**: Multi-channel automated reminders (email, SMS, WhatsApp) for payments and overdue alerts. Internal plugin-based notification system for institutional credential expiration monitoring with real-time alerts and urgency classification.
+- **Core Modules**: Initial Setup, Charge Issuance, Parent/Guardian Portal, Cashier & Reconciliation, Fiscal & Accounting, Migration System, Institutional Credentials Management, Institutional Information Management.
+- **Notification System**: Multi-channel automated reminders (email, SMS, WhatsApp) for payments and overdue alerts. Internal plugin-based notification system for institutional credential expiration monitoring with real-time alerts and urgency classification. WebSocket server for real-time synchronization of data.
 - **Advanced Systems**: Predictive Engine (for delinquency), Automatic Bank Reconciliation (with SPEI integration), Intelligent Fiscal Invoicing (SAT compliance, auto-selection of product/service keys).
 - **Security**: AES-256 encryption, 2FA/MFA, real-time fraud detection, WAF, anti-SQL injection, XSS, brute force, CSRF, command injection protection.
 
@@ -167,4 +54,4 @@ Estado actual: Sistema 100% funcional con nuevas funcionalidades implementadas:
 - **Database**: Neon Database (PostgreSQL)
 - **UI Libraries**: @radix-ui/*, tailwindcss, class-variance-authority, lucide-react
 - **Data Management**: TanStack Query (React Query)
-- **Others**: Node.js, Express.js, Vite, Drizzle ORM, bcrypt, JWT, Redis (for notification queues)
+- **Other**: Redis (for notification queues)

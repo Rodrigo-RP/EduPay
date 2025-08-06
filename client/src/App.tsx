@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { AcademicFilterProvider } from "@/hooks/use-academic-filter";
 import { InstitutionProvider } from "@/hooks/use-institution";
+import { RealTimeProvider } from "@/components/RealTimeProvider";
 import { GraduationCap } from "lucide-react";
 import Header from "@/components/layout/header";
 import Sidebar from "@/components/layout/sidebar";
@@ -150,15 +151,17 @@ function App() {
       <AuthProvider>
         <InstitutionProvider>
           <AcademicFilterProvider>
-            <TooltipProvider>
-              <div className="min-h-screen bg-slate-50">
-                <Switch>
-                  <Route path="/cuentas-standalone" component={CuentasPorCobrarStandalone} />
-                  <Route component={AuthenticatedRoutes} />
-                </Switch>
-                <Toaster />
-              </div>
-            </TooltipProvider>
+            <RealTimeProvider>
+              <TooltipProvider>
+                <div className="min-h-screen bg-slate-50">
+                  <Switch>
+                    <Route path="/cuentas-standalone" component={CuentasPorCobrarStandalone} />
+                    <Route component={AuthenticatedRoutes} />
+                  </Switch>
+                  <Toaster />
+                </div>
+              </TooltipProvider>
+            </RealTimeProvider>
           </AcademicFilterProvider>
         </InstitutionProvider>
       </AuthProvider>

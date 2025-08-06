@@ -18,6 +18,7 @@ import jwt from "jsonwebtoken";
 import { insertUserSchema, insertGuardianSchema, insertChargeSchema, insertPaymentSchema, insertInstitutionalInfoSchema, students, guardians, student_guardian, payment_rules, late_fee_calculations, payments, charges, concepts, institutional_credentials, institutional_info, users, scholarships } from "@shared/schema";
 import { canEditUser, UserRole } from "@shared/permissions";
 import { NotificationSystem as ServerNotificationSystem } from './notification-system';
+import { wsManager } from './websocket-manager';
 import { db } from "./db";
 import { eq, and, gte, lt } from "drizzle-orm";
 import { getAcademicLevel } from "@shared/academic-levels";
@@ -523,6 +524,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const newUser = await storage.createUser(userData);
+      
+      // Notify real-time update
+      wsManager.notifyUserUpdate(newUser, 'create', {
+        campus_id: campusId,
+        tenant_id: user.tenant_id,
+        created_by: user.id
+      });
+      
       res.status(201).json(newUser);
     } catch (error: any) {
       console.error('Error creating user:', error);
@@ -565,6 +574,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Usuario no encontrado" });
       }
 
+      // Notify real-time update
+      wsManager.notifyUserUpdate(updatedUser, 'update', {
+        campus_id: user.campus_id,
+        tenant_id: user.tenant_id,
+        created_by: user.id
+      });
+
       res.json(updatedUser);
     } catch (error: any) {
       console.error('Error updating user:', error);
@@ -605,6 +621,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!deleted) {
         return res.status(404).json({ message: "Usuario no encontrado" });
       }
+
+      // Notify real-time update
+      wsManager.notifyUserUpdate({ id: userId }, 'delete', {
+        campus_id: user.campus_id,
+        tenant_id: user.tenant_id,
+        created_by: user.id
+      });
 
       res.json({ message: "Usuario eliminado exitosamente" });
     } catch (error: any) {
@@ -939,6 +962,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const studentData = req.body;
       const student = await storage.createStudent(studentData);
       
+      // Notify real-time update
+      const user = (req as any).user;
+      wsManager.notifyStudentUpdate(student, 'create', {
+        campus_id: studentData.campus_id || user.campus_id,
+        tenant_id: user.tenant_id,
+        created_by: user.id
+      });
+      
       res.status(201).json(student);
     } catch (error: any) {
       res.status(500).json({ message: "Error creating student: " + error.message });
@@ -998,6 +1029,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           charges.push(charge);
         }
+      }
+
+      // Notify real-time update for bulk charges
+      const user = (req as any).user;
+      if (charges.length > 0) {
+        wsManager.notifyPaymentUpdate(
+          { bulk_operation: true, charges_created: charges.length }, 
+          'create', 
+          {
+            campus_id: campus_id,
+            tenant_id: user.tenant_id,
+            created_by: user.id
+          }
+        );
       }
 
       res.status(201).json({ 
@@ -1163,6 +1208,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Update charge status
       await storage.updateChargeStatus(charge_id, "pagado");
+
+      // Notify real-time update for payment
+      const guardianUser = (req as any).guardian;
+      wsManager.notifyPaymentUpdate(payment, 'create', {
+        campus_id: guardianUser?.campus_id || 1,
+        tenant_id: guardianUser?.tenant_id || 1,
+        created_by: guardianUser?.id || 0
+      });
 
       res.json({ 
         success: true,
@@ -4586,6 +4639,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename=cargos_${new Date().toISOString().split('T')[0]}.xlsx`);
+        
+        // Notify real-time update for export
+        wsManager.notifyReportGenerated({
+          type: 'charges_export',
+          format: 'excel',
+          records_count: exportData.length
+        }, {
+          campus_id: userCampusId,
+          tenant_id: req.user.tenant_id,
+          created_by: req.user.id
+        });
+        
         res.send(excelBuffer);
       } else {
         // Create CSV file
@@ -4599,6 +4664,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader('Content-Disposition', `attachment; filename=cargos_${new Date().toISOString().split('T')[0]}.csv`);
+        
+        // Notify real-time update for CSV export
+        wsManager.notifyReportGenerated({
+          type: 'charges_export',
+          format: 'csv',
+          records_count: exportData.length
+        }, {
+          campus_id: userCampusId,
+          tenant_id: req.user.tenant_id,
+          created_by: req.user.id
+        });
+        
         res.send('\uFEFF' + csvContent); // Add BOM for UTF-8
       }
       
@@ -4702,6 +4779,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Notify real-time update for charge generation
+      if (charges.length > 0) {
+        wsManager.notifyPaymentUpdate({
+          charge_generation: true,
+          charges_created: charges.length,
+          concepto: concepto,
+          nivel_academico: nivel_academico
+        }, 'create', {
+          campus_id: userCampusId,
+          tenant_id: req.user.tenant_id,
+          created_by: req.user.id
+        });
+      }
+
       res.status(201).json({
         message: `Generated ${charges.length} charges successfully`,
         charges_created: charges.length,

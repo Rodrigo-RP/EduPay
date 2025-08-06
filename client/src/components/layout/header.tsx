@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useAcademicFilter } from "@/hooks/use-academic-filter";
 import { Calendar, GraduationCap, User, Settings } from "lucide-react";
 import { useLocation } from "wouter";
+import { RealTimeStatus } from "@/components/RealTimeStatus";
 
 export default function Header() {
   const { user, guardian } = useAuth();
@@ -66,9 +67,7 @@ export default function Header() {
             </Select>
           </div>
 
-          <Badge className="bg-green-100 text-green-800 text-xs">
-            Sistema Activo
-          </Badge>
+          <RealTimeStatus />
           
           <Button
             variant="ghost"

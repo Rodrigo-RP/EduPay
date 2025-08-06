@@ -554,8 +554,8 @@ export default function Estudiantes() {
         setSelectedCicloEscolar('2024-2025');
         break;
       case 'pendientes':
-        // Filtrar por status que indique documentos pendientes
-        setSelectedStatus('pendiente_documentos');
+        // Filtrar por status que indique documentos pendientes - usar términos más comunes
+        setSelectedStatus('pendiente');
         break;
       case 'todos':
         setSelectedStatus("all");
@@ -744,7 +744,7 @@ export default function Estudiantes() {
                   Nuevos ingresos
                 </Button>
                 <Button
-                  variant={selectedStatus === "pendiente_documentos" ? "default" : "outline"}
+                  variant={selectedStatus === "pendiente" ? "default" : "outline"}
                   size="sm"
                   onClick={() => aplicarFiltroPredefinido('pendientes')}
                   className="text-xs bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200"

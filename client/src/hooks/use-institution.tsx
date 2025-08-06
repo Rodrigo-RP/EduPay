@@ -20,15 +20,16 @@ export function InstitutionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const savedInstitutionName = localStorage.getItem('institution_name') || 'Instituto JFR';
     const savedCampusName = localStorage.getItem('campus_name') || 'Campus Principal';
-    const savedLogoUrl = localStorage.getItem('institution_logo');
+    const savedLogoUrl = localStorage.getItem('institution_logo') || '/logo-jfr.svg';
     
     setInstitutionName(savedInstitutionName);
     setCampusName(savedCampusName);
-    if (savedLogoUrl) setLogoUrl(savedLogoUrl);
+    setLogoUrl(savedLogoUrl);
     
     // Asegurar que localStorage tenga los valores correctos
     localStorage.setItem('institution_name', savedInstitutionName);
     localStorage.setItem('campus_name', savedCampusName);
+    localStorage.setItem('institution_logo', savedLogoUrl);
   }, []);
 
   // Guardar en localStorage cuando cambien los valores

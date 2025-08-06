@@ -85,8 +85,8 @@ Estado actual: Sistema 100% funcional con nuevas funcionalidades implementadas:
 - ✅ PÁGINA DE LOGIN REDISEÑADA COMO SAAS ADMINISTRATIVO
 - ✅ Eliminada opción "Padres de Familia" - sistema exclusivo para personal de escuelas
 - ✅ Diseño profesional con los 7 roles administrativos claramente definidos
-- ✅ Aviso implementado: padres tendrán aplicación móvil separada
 - ✅ Interfaz moderna con gradientes y diseño responsivo para pantallas grandes
+- ✅ Banner de padres de familia eliminado según solicitud del usuario
 - 🔄 reCAPTCHA preparado para implementar (pendiente claves de Google)
 
 ## System Architecture

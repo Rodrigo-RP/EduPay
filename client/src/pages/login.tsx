@@ -84,20 +84,7 @@ export default function Login() {
             </div>
           </div>
 
-          {/* App Notice */}
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                <GraduationCap className="w-4 h-4 text-amber-600" />
-              </div>
-              <div>
-                <p className="font-medium text-amber-900 text-sm mb-1">Para Padres de Familia</p>
-                <p className="text-xs text-amber-700">
-                  Los padres de familia utilizarán una aplicación móvil dedicada para realizar pagos y consultar información de sus hijos.
-                </p>
-              </div>
-            </div>
-          </div>
+
         </div>
 
         {/* Right Side - Login Form */}

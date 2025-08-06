@@ -183,7 +183,11 @@ export default function Aprobaciones() {
       'modify_price': 'Modificar Precio',
       'modify_payment_due_date': 'Modificar Fecha de Vencimiento',
       'delete_concept': 'Eliminar Concepto',
-      'modify_concept': 'Modificar Concepto'
+      'modify_concept': 'Modificar Concepto',
+      'delete_charge': 'Eliminar Cargo',
+      'modify_charge_amount': 'Modificar Monto de Cargo',
+      'cancel_payment': 'Cancelar Pago',
+      'refund_payment': 'Reembolsar Pago'
     };
     return labels[actionType] || actionType;
   };

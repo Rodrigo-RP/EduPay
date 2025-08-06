@@ -564,6 +564,97 @@ export default function UsuariosUnificado() {
         </DialogContent>
       </Dialog>
 
+      {/* Modal para editar usuario */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar Usuario</DialogTitle>
+            <DialogDescription>
+              Modifica la información del usuario "{editingUser?.nombre_completo}"
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Nombre completo</Label>
+                <Input
+                  value={formData.nombre_completo}
+                  onChange={(e) => setFormData({...formData, nombre_completo: e.target.value})}
+                  placeholder="Nombre y apellidos completos"
+                />
+              </div>
+              <div>
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  placeholder="usuario@institutojfr.edu.mx"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Teléfono</Label>
+                <Input
+                  value={formData.telefono}
+                  onChange={(e) => setFormData({...formData, telefono: e.target.value})}
+                  placeholder="55-1234-5678"
+                />
+              </div>
+              <div>
+                <Label>Rol del sistema</Label>
+                <Select value={formData.role} onValueChange={(value) => setFormData({...formData, role: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar rol..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(USER_ROLES).map(([key, role]) => (
+                      <SelectItem key={key} value={key}>
+                        {role.display_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label>Campus</Label>
+              <Input
+                value={formData.campus}
+                onChange={(e) => setFormData({...formData, campus: e.target.value})}
+                placeholder="Campus Principal"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch
+                checked={formData.activo}
+                onCheckedChange={(checked) => setFormData({...formData, activo: checked})}
+              />
+              <Label>Usuario activo</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowEditModal(false);
+              resetForm();
+            }}>
+              Cancelar
+            </Button>
+            <Button onClick={() => {
+              toast({
+                title: "Usuario actualizado",
+                description: `Se ha actualizado la información de "${formData.nombre_completo}".`,
+              });
+              setShowEditModal(false);
+              resetForm();
+            }}>
+              Guardar cambios
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Modal para gestión de permisos */}
       <Dialog open={showPermissionsModal} onOpenChange={setShowPermissionsModal}>
         <DialogContent className="sm:max-w-4xl max-h-[80vh] overflow-y-auto">

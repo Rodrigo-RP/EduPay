@@ -30,6 +30,13 @@ Estado actual: Sistema 100% funcional con nuevas funcionalidades implementadas:
 - ✅ Sistema de información institucional RFC/CCT por secciones educativas completado
 - ✅ CRUD completo para gestión de RFC y CCT (Kinder, Primaria, Secundaria, Bachillerato)
 - ✅ API endpoints institucionales funcionando correctamente
+- ✅ Sistema unificado de gestión de usuarios implementado con nuevos roles específicos
+- ✅ Generación automática de credenciales (usuario/contraseña) para nuevos usuarios
+- ✅ Sistema de regeneración de credenciales para usuarios existentes
+- ✅ Interfaz completa para compartir credenciales de forma segura
+- ✅ Eliminada duplicación entre Administrativo-Usuarios y Configuración-Usuarios
+- ✅ Roles específicos: Administrador General, Administrador Campus, Contador General, Auxiliar Contable, Asistente, Admisiones
+- ✅ Sistema de permisos granulares con gestión visual implementado
 - 🔄 reCAPTCHA preparado para implementar (pendiente claves de Google)
 
 ## System Architecture

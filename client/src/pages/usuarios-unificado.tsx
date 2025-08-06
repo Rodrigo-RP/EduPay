@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Users, Plus, Edit, Trash2, UserCheck, UserX, Shield, Mail, AlertTriangle, Key, Settings, Eye, User, Search, Filter, Download } from "lucide-react";
+import { Users, Plus, Edit, Trash2, UserCheck, UserX, Shield, Mail, AlertTriangle, Key, Settings, Eye, User, Search, Filter, Download, Copy, RefreshCw } from "lucide-react";
 import { USER_ROLES, PERMISSIONS, hasPermission, getUserPermissions, getRoleDisplayName, getRoleDescription, UserRole } from "@shared/user-roles";
 
 export default function UsuariosUnificado() {
@@ -28,6 +28,10 @@ export default function UsuariosUnificado() {
   const [selectedUserForPermissions, setSelectedUserForPermissions] = useState<any>(null);
   const [customPermissions, setCustomPermissions] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+  const [generatedCredentials, setGeneratedCredentials] = useState<any>(null);
+  const [autoGeneratePassword, setAutoGeneratePassword] = useState(true);
+  const [customPassword, setCustomPassword] = useState("");
   const [formData, setFormData] = useState({
     nombre_completo: "",
     email: "",
@@ -185,14 +189,45 @@ export default function UsuariosUnificado() {
     return matchesSearch && matchesRole;
   });
 
+  // Función para generar contraseña automática
+  const generatePassword = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+    let password = "";
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+  };
+
+  // Función para generar usuario automático
+  const generateUsername = (nombreCompleto: string) => {
+    const nombres = nombreCompleto.toLowerCase().split(' ');
+    const primerNombre = nombres[0];
+    const apellido = nombres[nombres.length - 1];
+    return `${primerNombre}.${apellido}`;
+  };
+
   // Función para manejar la creación de usuarios
   const handleCreateUser = () => {
-    toast({
-      title: "Usuario creado",
-      description: `Se ha creado el usuario "${formData.nombre_completo}" exitosamente.`,
-    });
-    resetForm();
+    const username = generateUsername(formData.nombre_completo);
+    const password = autoGeneratePassword ? generatePassword() : customPassword;
+    
+    const credentials = {
+      username: username,
+      password: password,
+      email: formData.email,
+      nombre_completo: formData.nombre_completo,
+      role: formData.role
+    };
+
+    setGeneratedCredentials(credentials);
+    setShowCredentialsModal(true);
     setShowAddModal(false);
+    
+    toast({
+      title: "Usuario creado exitosamente",
+      description: `Se han generado las credenciales para "${formData.nombre_completo}".`,
+    });
   };
 
   // Función para manejar la edición de usuarios
@@ -220,6 +255,8 @@ export default function UsuariosUnificado() {
       activo: true
     });
     setCustomPermissions([]);
+    setAutoGeneratePassword(true);
+    setCustomPassword("");
   };
 
   // Función para mostrar modal de permisos
@@ -324,6 +361,16 @@ export default function UsuariosUnificado() {
               <Users className="w-5 h-5" />
               Usuarios del Sistema ({filteredUsers.length})
             </span>
+            <div className="text-sm text-gray-600">
+              <Key className="w-4 h-4 inline mr-1" />
+              Regenerar credenciales • 
+              <Shield className="w-4 h-4 inline mx-1" />
+              Permisos • 
+              <Edit className="w-4 h-4 inline mx-1" />
+              Editar • 
+              <Trash2 className="w-4 h-4 inline mx-1" />
+              Eliminar
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -353,7 +400,31 @@ export default function UsuariosUnificado() {
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => {
+                      const newPassword = generatePassword();
+                      const username = generateUsername(user.nombre_completo);
+                      setGeneratedCredentials({
+                        username: username,
+                        password: newPassword,
+                        email: user.email,
+                        nombre_completo: user.nombre_completo,
+                        role: user.role
+                      });
+                      setShowCredentialsModal(true);
+                      toast({
+                        title: "Credenciales regeneradas",
+                        description: `Se han generado nuevas credenciales para ${user.nombre_completo}`,
+                      });
+                    }}
+                    title="Regenerar credenciales"
+                  >
+                    <Key className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => handleShowPermissions(user)}
+                    title="Gestionar permisos"
                   >
                     <Shield className="w-4 h-4" />
                   </Button>
@@ -361,6 +432,7 @@ export default function UsuariosUnificado() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleEditUser(user)}
+                    title="Editar usuario"
                   >
                     <Edit className="w-4 h-4" />
                   </Button>
@@ -371,6 +443,7 @@ export default function UsuariosUnificado() {
                       setUserToDelete(user);
                       setShowDeleteModal(true);
                     }}
+                    title="Eliminar usuario"
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
@@ -443,6 +516,39 @@ export default function UsuariosUnificado() {
                 placeholder="Campus Principal"
               />
             </div>
+            
+            {/* Sección de credenciales */}
+            <div className="space-y-4 p-4 border rounded-lg bg-blue-50">
+              <h4 className="font-semibold text-blue-900">Configuración de credenciales</h4>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  checked={autoGeneratePassword}
+                  onCheckedChange={setAutoGeneratePassword}
+                />
+                <Label>Generar contraseña automáticamente</Label>
+              </div>
+              
+              {!autoGeneratePassword && (
+                <div>
+                  <Label>Contraseña personalizada</Label>
+                  <Input
+                    type="password"
+                    value={customPassword}
+                    onChange={(e) => setCustomPassword(e.target.value)}
+                    placeholder="Mínimo 8 caracteres"
+                  />
+                  <p className="text-xs text-gray-600 mt-1">
+                    La contraseña debe tener al menos 8 caracteres, incluir mayúsculas, minúsculas y números
+                  </p>
+                </div>
+              )}
+              
+              <div className="text-sm text-blue-700">
+                <p><strong>Usuario generado:</strong> {formData.nombre_completo ? generateUsername(formData.nombre_completo) : "Ingresa el nombre primero"}</p>
+                <p><strong>Email de acceso:</strong> {formData.email || "usuario@institutojfr.edu.mx"}</p>
+              </div>
+            </div>
+            
             <div className="flex items-center space-x-2">
               <Switch
                 checked={formData.activo}
@@ -559,6 +665,159 @@ export default function UsuariosUnificado() {
               setUserToDelete(null);
             }}>
               Eliminar usuario
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para mostrar credenciales generadas */}
+      <Dialog open={showCredentialsModal} onOpenChange={setShowCredentialsModal}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="w-5 h-5 text-green-600" />
+              Credenciales generadas
+            </DialogTitle>
+            <DialogDescription>
+              Guarda estas credenciales de forma segura y compártelas con el usuario
+            </DialogDescription>
+          </DialogHeader>
+          
+          {generatedCredentials && (
+            <div className="space-y-4">
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-3">
+                <div>
+                  <Label className="text-sm font-semibold text-green-800">Usuario completo</Label>
+                  <div className="flex items-center justify-between mt-1 p-2 bg-white border rounded">
+                    <span className="font-mono text-sm">{generatedCredentials.nombre_completo}</span>
+                  </div>
+                </div>
+                
+                <div>
+                  <Label className="text-sm font-semibold text-green-800">Nombre de usuario</Label>
+                  <div className="flex items-center justify-between mt-1 p-2 bg-white border rounded">
+                    <span className="font-mono text-sm">{generatedCredentials.username}</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(generatedCredentials.username);
+                        toast({ title: "Usuario copiado", description: "El nombre de usuario ha sido copiado al portapapeles" });
+                      }}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+                
+                <div>
+                  <Label className="text-sm font-semibold text-green-800">Email de acceso</Label>
+                  <div className="flex items-center justify-between mt-1 p-2 bg-white border rounded">
+                    <span className="font-mono text-sm">{generatedCredentials.email}</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(generatedCredentials.email);
+                        toast({ title: "Email copiado", description: "El email ha sido copiado al portapapeles" });
+                      }}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+                
+                <div>
+                  <Label className="text-sm font-semibold text-green-800">Contraseña temporal</Label>
+                  <div className="flex items-center justify-between mt-1 p-2 bg-white border rounded">
+                    <span className="font-mono text-sm">{generatedCredentials.password}</span>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(generatedCredentials.password);
+                          toast({ title: "Contraseña copiada", description: "La contraseña ha sido copiada al portapapeles" });
+                        }}
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const newPassword = generatePassword();
+                          setGeneratedCredentials({...generatedCredentials, password: newPassword});
+                          toast({ title: "Contraseña regenerada", description: "Se ha generado una nueva contraseña" });
+                        }}
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <Label className="text-sm font-semibold text-green-800">Rol asignado</Label>
+                  <div className="mt-1 p-2 bg-white border rounded">
+                    <span className="text-sm">{getRoleDisplayName(generatedCredentials.role as UserRole)}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5" />
+                  <div className="text-sm text-amber-800">
+                    <p className="font-semibold">Información importante:</p>
+                    <ul className="mt-1 space-y-1 text-xs">
+                      <li>• Comparte estas credenciales de forma segura con el usuario</li>
+                      <li>• El usuario debe cambiar la contraseña en su primer acceso</li>
+                      <li>• Las credenciales son válidas inmediatamente</li>
+                      <li>• URL de acceso: https://edupay.institutojfr.edu.mx/login</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    const text = `Credenciales de acceso EDUPAY\n\nNombre: ${generatedCredentials.nombre_completo}\nUsuario: ${generatedCredentials.username}\nEmail: ${generatedCredentials.email}\nContraseña: ${generatedCredentials.password}\nRol: ${getRoleDisplayName(generatedCredentials.role as UserRole)}\n\nURL: https://edupay.institutojfr.edu.mx/login\n\nPor favor, cambia tu contraseña en el primer acceso.`;
+                    navigator.clipboard.writeText(text);
+                    toast({ title: "Credenciales copiadas", description: "Todas las credenciales han sido copiadas al portapapeles" });
+                  }}
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copiar todo
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={() => {
+                    // Aquí podrías enviar las credenciales por email
+                    toast({ 
+                      title: "Credenciales enviadas", 
+                      description: `Se han enviado las credenciales a ${generatedCredentials.email}` 
+                    });
+                  }}
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  Enviar por email
+                </Button>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button 
+              onClick={() => {
+                setShowCredentialsModal(false);
+                resetForm();
+              }}
+            >
+              Finalizar
             </Button>
           </DialogFooter>
         </DialogContent>

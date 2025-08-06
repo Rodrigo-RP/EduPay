@@ -698,9 +698,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         nombre_legal
       } = req.body;
 
+      // Get user data to ensure we have tenant_id and campus_id
+      const userData = await storage.getUserById(user.id);
+      if (!userData) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+
       const institutionalData = {
-        campus_id: user.campus_id,
-        tenant_id: user.tenant_id,
+        campus_id: userData.campus_id,
+        tenant_id: userData.tenant_id,
         rfc,
         direccion_fiscal,
         ciudad,

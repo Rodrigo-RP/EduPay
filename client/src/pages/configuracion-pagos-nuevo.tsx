@@ -91,14 +91,14 @@ export default function ConfiguracionPagos() {
     gcTime: 0, // Don't cache at all (renamed from cacheTime in v5)
   });
   
-  const fechasVencimiento: FechaVencimiento[] = fechasResponse?.data || [];
+  const fechasVencimiento: FechaVencimiento[] = (fechasResponse as any)?.data || [];
 
   const { data: reglasResponse, isLoading: loadingReglas } = useQuery({
     queryKey: ["/api/payment-config/surcharge-rules"],
     enabled: !!user?.campus_id,
   });
   
-  const reglasRecargo: ReglaRecargo[] = reglasResponse || [];
+  const reglasRecargo: ReglaRecargo[] = (reglasResponse as ReglaRecargo[]) || [];
 
   // Toggle active state for fechas
   const toggleFechaMutation = useMutation({
@@ -108,9 +108,8 @@ export default function ConfiguracionPagos() {
         body: JSON.stringify({ ...fecha, activo: !fecha.activo }),
       }),
     onSuccess: () => {
-      // Force complete cache invalidation and refetch
-      queryClient.removeQueries({ queryKey: ["/api/payment-config/due-dates"] });
-      queryClient.invalidateQueries();
+      // Force cache refresh without clearing other data
+      setCacheKey(Date.now());
       refetchFechas();
       toast({
         title: "Fecha actualizada",
@@ -166,11 +165,10 @@ export default function ConfiguracionPagos() {
     onSuccess: (data) => {
       console.log("saveFechaMutation onSuccess - Data received:", data);
       
-      // Force complete cache clear and immediate refetch
-      queryClient.clear(); // Clear all queries
+      // Force cache refresh for this specific query only
       setCacheKey(Date.now()); // Force new cache key
       
-      // Force immediate data refresh without reload
+      // Refresh data immediately
       setTimeout(() => {
         refetchFechas();
       }, 100);
@@ -326,7 +324,7 @@ export default function ConfiguracionPagos() {
       return;
     }
 
-    if (nuevoRecargo.tipo === 'porcentaje' && !nuevoRecargo.porcentaje) {
+    if ((nuevoRecargo.tipo as string) === 'porcentaje' && !nuevoRecargo.porcentaje) {
       toast({
         title: "Error",
         description: "Especifica el porcentaje de recargo",
@@ -335,7 +333,7 @@ export default function ConfiguracionPagos() {
       return;
     }
 
-    if (nuevoRecargo.tipo === 'fijo' && !nuevoRecargo.monto_fijo) {
+    if ((nuevoRecargo.tipo as string) === 'fijo' && !nuevoRecargo.monto_fijo) {
       toast({
         title: "Error",
         description: "Especifica el monto fijo de recargo",
@@ -377,7 +375,7 @@ export default function ConfiguracionPagos() {
     setEditingRecargo(regla);
     setNuevoRecargo({
       nombre: regla.nombre,
-      tipo: regla.tipo,
+      tipo: regla.tipo as 'porcentaje',
       dias_gracia: regla.dias_gracia.toString(),
       porcentaje: regla.porcentaje ? regla.porcentaje.toString() : "",
       monto_fijo: regla.monto_fijo_centavos ? (regla.monto_fijo_centavos / 100).toString() : "",
@@ -810,7 +808,7 @@ export default function ConfiguracionPagos() {
               </div>
             )}
 
-            {nuevoRecargo.tipo === 'fijo' && (
+            {(nuevoRecargo.tipo as string) === 'fijo' && (
               <div>
                 <Label htmlFor="monto-fijo">Monto fijo (MXN)</Label>
                 <Input

@@ -672,8 +672,8 @@ export class DatabaseStorage implements IStorage {
     const user = await this.getUser(userId);
     if (!user) return [];
     
-    // Solo admin y super_admin pueden aprobar cambios críticos
-    if (user.role !== 'admin' && user.role !== 'super_admin') {
+    // Solo administrador_general puede aprobar cambios críticos financieros
+    if (user.role !== 'administrador_general' && user.role !== 'super_admin') {
       return [];
     }
     
@@ -765,8 +765,8 @@ export class DatabaseStorage implements IStorage {
     const user = await this.getUser(userId);
     if (!user) return false;
     
-    // Solo admin y super_admin pueden aprobar cambios críticos
-    if (user.role !== 'admin' && user.role !== 'super_admin') {
+    // Solo administrador_general y super_admin pueden aprobar cambios críticos financieros
+    if (user.role !== 'administrador_general' && user.role !== 'super_admin') {
       return false;
     }
     
@@ -775,8 +775,8 @@ export class DatabaseStorage implements IStorage {
       return true;
     }
     
-    // Admin puede aprobar dentro de su campus
-    return user.role === 'admin';
+    // Administrador general puede aprobar cambios financieros críticos
+    return user.role === 'administrador_general';
   }
 
   async requiresApproval(actionType: string, userId: number): Promise<boolean> {
@@ -788,22 +788,26 @@ export class DatabaseStorage implements IStorage {
       return false;
     }
     
-    // Admin no necesita aprobación
-    if (user.role === 'admin') {
+    // Administrador general no necesita aprobación (es quien aprueba)
+    if (user.role === 'administrador_general') {
       return false;
     }
     
-    // Tipos de acción que requieren aprobación
-    const criticalActions = [
-      'modify_scholarship',
-      'modify_late_fee', 
-      'modify_price',
-      'modify_payment_due_date',
-      'delete_concept',
-      'modify_concept'
+    // Tipos de acción que requieren aprobación del administrador general
+    const criticalFinancialActions = [
+      'modify_scholarship',        // Cambiar porcentajes de becas
+      'modify_late_fee',          // Modificar recargos por mora
+      'modify_price',             // Cambiar precios de conceptos
+      'modify_payment_due_date',  // Cambiar fechas de vencimiento
+      'delete_concept',           // Eliminar conceptos de pago
+      'modify_concept',           // Modificar conceptos de pago
+      'delete_charge',            // Eliminar cargos
+      'modify_charge_amount',     // Modificar montos de cargos
+      'cancel_payment',           // Cancelar pagos
+      'refund_payment'            // Reembolsar pagos
     ];
     
-    return criticalActions.includes(actionType);
+    return criticalFinancialActions.includes(actionType);
   }
 }
 

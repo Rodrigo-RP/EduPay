@@ -15,7 +15,7 @@ import securityMiddleware, {
 
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { insertUserSchema, insertGuardianSchema, insertChargeSchema, insertPaymentSchema, insertInstitutionalInfoSchema, students, guardians, student_guardian, payment_rules, late_fee_calculations, payments, charges, concepts, institutional_credentials, institutional_info } from "@shared/schema";
+import { insertUserSchema, insertGuardianSchema, insertChargeSchema, insertPaymentSchema, insertInstitutionalInfoSchema, students, guardians, student_guardian, payment_rules, late_fee_calculations, payments, charges, concepts, institutional_credentials, institutional_info, users } from "@shared/schema";
 import { NotificationSystem as ServerNotificationSystem } from './notification-system';
 import { db } from "./db";
 import { eq, and, gte, lt } from "drizzle-orm";
@@ -3693,8 +3693,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get pending approvals for current user (as approver)
   app.get("/api/approvals/pending", async (req, res) => {
     try {
-      // For demo purposes, use admin user ID 26
-      const approvals = await storage.getPendingApprovalsForApprover(26);
+      // Buscar usuario administrador general activo
+      const adminUsers = await db.select().from(users).where(eq(users.role, 'administrador_general')).limit(1);
+      const adminUserId = adminUsers.length > 0 ? adminUsers[0].id : 25; // Fallback a super admin
+      
+      const approvals = await storage.getPendingApprovalsForApprover(adminUserId);
       res.json(approvals);
     } catch (error: any) {
       res.status(500).json({ message: "Error obteniendo aprobaciones pendientes: " + error.message });
@@ -3704,8 +3707,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get user's own requests (as requester)
   app.get("/api/approvals/my-requests", async (req, res) => {
     try {
-      // For demo purposes, return all requests by user 26
-      const requests = await storage.getPendingApprovalsByRequester(26);
+      // Buscar usuario auxiliar contable o cualquier usuario que haga solicitudes
+      const requestUsers = await db.select().from(users).where(eq(users.role, 'auxiliar_contable')).limit(1);
+      const requestUserId = requestUsers.length > 0 ? requestUsers[0].id : 27; // Fallback
+      
+      const requests = await storage.getPendingApprovalsByRequester(requestUserId);
       res.json(requests);
     } catch (error: any) {
       res.status(500).json({ message: "Error obteniendo mis solicitudes: " + error.message });
@@ -3837,8 +3843,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get user notifications
   app.get("/api/approvals/notifications", async (req, res) => {
     try {
-      // For demo purposes, return all notifications for user 26
-      const notifications = await storage.getNotificationsByUser(26);
+      // Buscar usuario administrador general para notificaciones
+      const adminUsers = await db.select().from(users).where(eq(users.role, 'administrador_general')).limit(1);
+      const adminUserId = adminUsers.length > 0 ? adminUsers[0].id : 25; // Fallback a super admin
+      
+      const notifications = await storage.getNotificationsByUser(adminUserId);
       res.json(notifications);
     } catch (error: any) {
       res.status(500).json({ message: "Error obteniendo notificaciones: " + error.message });

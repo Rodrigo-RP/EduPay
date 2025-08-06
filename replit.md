@@ -58,6 +58,11 @@ Estado actual: Sistema 100% funcional con nuevas funcionalidades implementadas:
 - ✅ Frontend con mutaciones React Query para operaciones de usuarios en tiempo real
 - ✅ Validaciones y manejo de errores implementado para todas las operaciones CRUD
 - ✅ Sistema listo para ingreso de datos reales de usuarios con persistencia garantizada
+- ✅ Header corregido muestra "Administrador General" según rol específico del usuario
+- ✅ Sistema de aprobaciones visible en sidebar para administrador general
+- ✅ Logo institucional del Instituto JFR implementado y funcionando
+- ✅ Información institucional real configurada desde interfaz de usuario
+- ✅ Persistencia de configuración institucional en base de datos garantizada
 - 🔄 reCAPTCHA preparado para implementar (pendiente claves de Google)
 
 ## System Architecture

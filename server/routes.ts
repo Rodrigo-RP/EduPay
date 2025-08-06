@@ -5367,7 +5367,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         concepto_nombre: conceptData?.nombre || "Concepto desconocido",
         dias_gracia: dias_gracia || 0,
         porcentaje_recargo: porcentaje_recargo || 0,
-        monto_fijo: monto_fijo || 0,
+        monto_fijo: parseFloat(monto_fijo) || 0,
         tipo_calculo: tipo_calculo || 'porcentaje_fijo',
         activo: activo !== undefined ? activo : true
       };
@@ -5398,7 +5398,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         concepto_nombre: conceptData?.nombre || "Concepto desconocido",
         dias_gracia,
         porcentaje_recargo: porcentaje_recargo || 0,
-        monto_fijo: monto_fijo || 0,
+        monto_fijo: parseFloat(monto_fijo) || 0,
         tipo_calculo,
         activo
       };

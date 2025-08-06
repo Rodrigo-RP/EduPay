@@ -40,7 +40,7 @@ interface ReglaRecargo {
   concepto_nombre: string;
   dias_gracia: number;
   porcentaje_recargo: number;
-  monto_fijo: number;
+  monto_fijo: string | number;
   tipo_calculo: 'porcentaje_fijo' | 'porcentaje_diario' | 'monto_fijo';
   activo: boolean;
 }
@@ -88,7 +88,7 @@ export default function ConfiguracionPagosCompleta() {
     concepto_id: 0,
     dias_gracia: 0,
     porcentaje_recargo: 0,
-    monto_fijo: 0,
+    monto_fijo: '',
     tipo_calculo: 'porcentaje_fijo' as 'porcentaje_fijo' | 'porcentaje_diario' | 'monto_fijo',
     activo: true
   });
@@ -273,7 +273,7 @@ export default function ConfiguracionPagosCompleta() {
       concepto_id: 0,
       dias_gracia: 0,
       porcentaje_recargo: 0,
-      monto_fijo: 0,
+      monto_fijo: '',
       tipo_calculo: 'porcentaje_fijo',
       activo: true
     });
@@ -307,7 +307,7 @@ export default function ConfiguracionPagosCompleta() {
       concepto_id: recargo.concepto_id,
       dias_gracia: recargo.dias_gracia,
       porcentaje_recargo: recargo.porcentaje_recargo,
-      monto_fijo: recargo.monto_fijo || 0,
+      monto_fijo: typeof recargo.monto_fijo === 'number' ? recargo.monto_fijo.toString() : recargo.monto_fijo || '',
       tipo_calculo: recargo.tipo_calculo,
       activo: recargo.activo
     });
@@ -376,10 +376,11 @@ export default function ConfiguracionPagosCompleta() {
     }
 
     if (nuevoRecargo.tipo_calculo === 'monto_fijo') {
-      if (nuevoRecargo.monto_fijo <= 0) {
+      const montoNumerico = parseFloat(nuevoRecargo.monto_fijo.toString());
+      if (!nuevoRecargo.monto_fijo || isNaN(montoNumerico) || montoNumerico <= 0) {
         toast({
           title: "Error",
-          description: "El monto fijo debe ser mayor a 0",
+          description: "Ingresa un monto fijo válido mayor a 0",
           variant: "destructive",
         });
         return;
@@ -724,12 +725,19 @@ export default function ConfiguracionPagosCompleta() {
                         <Label htmlFor="monto-fijo">Monto Fijo ($)</Label>
                         <Input
                           id="monto-fijo"
-                          type="number"
-                          min="0"
-                          step="0.01"
+                          type="text"
                           value={nuevoRecargo.monto_fijo}
-                          onChange={(e) => setNuevoRecargo(prev => ({ ...prev, monto_fijo: parseFloat(e.target.value) || 0 }))}
-                          placeholder="Cantidad específica en pesos"
+                          onChange={(e) => {
+                            const valor = e.target.value;
+                            // Permitir solo números, punto decimal y texto vacío
+                            if (valor === '' || /^\d*\.?\d*$/.test(valor)) {
+                              setNuevoRecargo(prev => ({ 
+                                ...prev, 
+                                monto_fijo: valor
+                              }));
+                            }
+                          }}
+                          placeholder="Ingresa la cantidad (ej: 500, 150.50)"
                         />
                       </div>
                     )}
@@ -811,7 +819,7 @@ export default function ConfiguracionPagosCompleta() {
                                 </div>
                                 <div>
                                   {regla.tipo_calculo === 'monto_fijo' 
-                                    ? `Recargo: ${formatMonto((regla.monto_fijo || 0) * 100)}`
+                                    ? `Recargo: ${formatMonto((parseFloat(regla.monto_fijo.toString()) || 0) * 100)}`
                                     : `Recargo: ${regla.porcentaje_recargo}%`
                                   }
                                 </div>

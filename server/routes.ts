@@ -15,7 +15,7 @@ import securityMiddleware, {
 
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { insertUserSchema, insertGuardianSchema, insertChargeSchema, insertPaymentSchema, insertInstitutionalInfoSchema, students, guardians, student_guardian, payment_rules, late_fee_calculations, payments, charges, concepts, institutional_credentials, institutional_info, users, scholarships, payment_due_dates } from "@shared/schema";
+import { insertUserSchema, insertGuardianSchema, insertChargeSchema, insertPaymentSchema, insertInstitutionalInfoSchema, students, guardians, student_guardian, payment_rules, late_fee_calculations, payments, charges, concepts, institutional_credentials, institutional_info, users, scholarships, payment_due_dates, payment_surcharge_rules } from "@shared/schema";
 import { canEditUser, UserRole } from "@shared/permissions";
 import { NotificationSystem as ServerNotificationSystem } from './notification-system';
 import { wsManager } from './websocket-manager';
@@ -5315,43 +5315,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const campusId = (req as any).user.campus_id;
       
-      // Note: Based on DB schema, payment_surcharge_rules doesn't exist, using a mock structure
-      // We'll need to create the actual table or use a different approach
-      const surchargeRulesComplete = [
-        // Mock data structure for now
-        {
-          id: 1,
-          concepto_id: 57,
-          concepto_nombre: "Colegiatura Mensual - Primaria",
-          dias_gracia: 5,
-          porcentaje_recargo: 10,
-          monto_fijo: 0,
-          tipo_calculo: 'porcentaje_fijo',
-          activo: true
-        },
-        {
-          id: 2,
-          concepto_id: 60,
-          concepto_nombre: "Inscripción Anual - Primaria",
-          dias_gracia: 0,
-          porcentaje_recargo: 0,
-          monto_fijo: 500,
-          tipo_calculo: 'monto_fijo',
-          activo: true
-        }
-      ];
+      const surchargeRulesComplete = await db
+        .select({
+          id: payment_surcharge_rules.id,
+          concepto_id: concepts.id,
+          concepto_nombre: payment_surcharge_rules.concepto,
+          dias_gracia: payment_surcharge_rules.dias_gracia,
+          porcentaje_recargo: payment_surcharge_rules.porcentaje,
+          monto_fijo: payment_surcharge_rules.monto_fijo_centavos,
+          tipo_calculo: payment_surcharge_rules.tipo,
+          activo: payment_surcharge_rules.activo
+        })
+        .from(payment_surcharge_rules)
+        .leftJoin(concepts, eq(payment_surcharge_rules.concepto, concepts.nombre))
+        .where(eq(payment_surcharge_rules.campus_id, campusId));
       
-      res.json(surchargeRulesComplete);
+      // Convert data and map types
+      const processedData = surchargeRulesComplete.map(rule => {
+        // Map database types to frontend types
+        let frontendType = 'porcentaje_fijo';
+        if (rule.tipo_calculo === 'porcentaje') frontendType = 'porcentaje_fijo';
+        if (rule.tipo_calculo === 'fijo') frontendType = 'monto_fijo';
+        if (rule.tipo_calculo === 'progresivo') frontendType = 'porcentaje_diario';
+
+        return {
+          ...rule,
+          monto_fijo: rule.monto_fijo ? rule.monto_fijo / 100 : 0,
+          porcentaje_recargo: parseFloat(rule.porcentaje_recargo?.toString() || '0'),
+          tipo_calculo: frontendType
+        };
+      });
+      
+      res.json(processedData);
     } catch (error: any) {
       console.error("Error fetching complete surcharge rules:", error);
       res.status(500).json({ message: "Error fetching surcharge rules: " + error.message });
     }
   });
 
-  // Create complete surcharge rule - Placeholder
+  // Create complete surcharge rule
   app.post("/api/payment-config/surcharge-rules-complete", authenticateToken, async (req, res) => {
     try {
-      // Placeholder implementation - surcharge rules table needs to be created
+      const campusId = (req as any).user.campus_id;
       const { concepto_id, dias_gracia, porcentaje_recargo, monto_fijo, tipo_calculo, activo } = req.body;
       
       // Get concept name
@@ -5360,59 +5365,134 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(concepts)
         .where(eq(concepts.id, concepto_id))
         .limit(1);
+
+      if (!conceptData) {
+        return res.status(400).json({ message: "Concepto no encontrado" });
+      }
+
+      // Map frontend types to database types
+      let dbType = 'porcentaje';
+      if (tipo_calculo === 'porcentaje_fijo') dbType = 'porcentaje';
+      if (tipo_calculo === 'monto_fijo') dbType = 'fijo';
+      if (tipo_calculo === 'porcentaje_diario') dbType = 'progresivo';
+
+      const montoFijoCentavos = tipo_calculo === 'monto_fijo' ? Math.round((parseFloat(monto_fijo) || 0) * 100) : null;
+      const porcentajeDecimal = tipo_calculo !== 'monto_fijo' ? (porcentaje_recargo || 0) : null;
       
-      const newRule = {
-        id: Math.floor(Math.random() * 1000) + 100,
+      const [newRule] = await db
+        .insert(payment_surcharge_rules)
+        .values({
+          campus_id: campusId,
+          concepto: conceptData.nombre,
+          nombre: `Regla de recargo para ${conceptData.nombre}`,
+          tipo: dbType,
+          dias_gracia: dias_gracia || 0,
+          porcentaje: porcentajeDecimal,
+          monto_fijo_centavos: montoFijoCentavos,
+          activo: activo !== undefined ? activo : true
+        })
+        .returning();
+      
+      // Map database type back to frontend type
+      let frontendType = 'porcentaje_fijo';
+      if (newRule.tipo === 'porcentaje') frontendType = 'porcentaje_fijo';
+      if (newRule.tipo === 'fijo') frontendType = 'monto_fijo';
+      if (newRule.tipo === 'progresivo') frontendType = 'porcentaje_diario';
+
+      res.status(201).json({
+        id: newRule.id,
         concepto_id,
-        concepto_nombre: conceptData?.nombre || "Concepto desconocido",
-        dias_gracia: dias_gracia || 0,
-        porcentaje_recargo: porcentaje_recargo || 0,
-        monto_fijo: parseFloat(monto_fijo) || 0,
-        tipo_calculo: tipo_calculo || 'porcentaje_fijo',
-        activo: activo !== undefined ? activo : true
-      };
-      
-      res.status(201).json(newRule);
+        concepto_nombre: conceptData.nombre,
+        dias_gracia: newRule.dias_gracia,
+        porcentaje_recargo: parseFloat(newRule.porcentaje?.toString() || '0'),
+        monto_fijo: newRule.monto_fijo_centavos ? newRule.monto_fijo_centavos / 100 : 0,
+        tipo_calculo: frontendType,
+        activo: newRule.activo
+      });
     } catch (error: any) {
       console.error("Error creating surcharge rule:", error);
       res.status(500).json({ message: "Error creating surcharge rule: " + error.message });
     }
   });
 
-  // Update complete surcharge rule - Placeholder
+  // Update complete surcharge rule
   app.put("/api/payment-config/surcharge-rules-complete/:id", authenticateToken, async (req, res) => {
     try {
       const ruleId = parseInt(req.params.id);
       const { concepto_id, dias_gracia, porcentaje_recargo, monto_fijo, tipo_calculo, activo } = req.body;
       
-      // Get concept name
-      const [conceptData] = await db
-        .select({ nombre: concepts.nombre })
-        .from(concepts)
-        .where(eq(concepts.id, concepto_id))
-        .limit(1);
+      // Get concept name if provided
+      let conceptName = null;
+      if (concepto_id) {
+        const [conceptData] = await db
+          .select({ nombre: concepts.nombre })
+          .from(concepts)
+          .where(eq(concepts.id, concepto_id))
+          .limit(1);
+        
+        if (conceptData) {
+          conceptName = conceptData.nombre;
+        }
+      }
+
+      // Map frontend types to database types
+      let dbType = 'porcentaje';
+      if (tipo_calculo === 'porcentaje_fijo') dbType = 'porcentaje';
+      if (tipo_calculo === 'monto_fijo') dbType = 'fijo';
+      if (tipo_calculo === 'porcentaje_diario') dbType = 'progresivo';
+
+      const montoFijoCentavos = tipo_calculo === 'monto_fijo' ? Math.round((parseFloat(monto_fijo) || 0) * 100) : null;
+      const porcentajeDecimal = tipo_calculo !== 'monto_fijo' ? (porcentaje_recargo || 0) : null;
+
+      const updateData: any = {};
+      if (conceptName) {
+        updateData.concepto = conceptName;
+        updateData.nombre = `Regla de recargo para ${conceptName}`;
+      }
+      if (dias_gracia !== undefined) updateData.dias_gracia = dias_gracia;
+      if (tipo_calculo) updateData.tipo = dbType;
+      if (porcentajeDecimal !== null) updateData.porcentaje = porcentajeDecimal;
+      if (montoFijoCentavos !== null) updateData.monto_fijo_centavos = montoFijoCentavos;
+      if (activo !== undefined) updateData.activo = activo;
+      updateData.updated_at = new Date();
       
-      const updated = {
-        id: ruleId,
+      const [updated] = await db
+        .update(payment_surcharge_rules)
+        .set(updateData)
+        .where(eq(payment_surcharge_rules.id, ruleId))
+        .returning();
+      
+      // Map database type back to frontend type
+      let frontendType = 'porcentaje_fijo';
+      if (updated.tipo === 'porcentaje') frontendType = 'porcentaje_fijo';
+      if (updated.tipo === 'fijo') frontendType = 'monto_fijo';
+      if (updated.tipo === 'progresivo') frontendType = 'porcentaje_diario';
+
+      res.json({
+        id: updated.id,
         concepto_id,
-        concepto_nombre: conceptData?.nombre || "Concepto desconocido",
-        dias_gracia,
-        porcentaje_recargo: porcentaje_recargo || 0,
-        monto_fijo: parseFloat(monto_fijo) || 0,
-        tipo_calculo,
-        activo
-      };
-      
-      res.json(updated);
+        concepto_nombre: conceptName || "Concepto actualizado",
+        dias_gracia: updated.dias_gracia,
+        porcentaje_recargo: parseFloat(updated.porcentaje?.toString() || '0'),
+        monto_fijo: updated.monto_fijo_centavos ? updated.monto_fijo_centavos / 100 : 0,
+        tipo_calculo: frontendType,
+        activo: updated.activo
+      });
     } catch (error: any) {
       console.error("Error updating surcharge rule:", error);
       res.status(500).json({ message: "Error updating surcharge rule: " + error.message });
     }
   });
 
-  // Delete complete surcharge rule - Placeholder
+  // Delete complete surcharge rule
   app.delete("/api/payment-config/surcharge-rules-complete/:id", authenticateToken, async (req, res) => {
     try {
+      const ruleId = parseInt(req.params.id);
+      
+      await db
+        .delete(payment_surcharge_rules)
+        .where(eq(payment_surcharge_rules.id, ruleId));
+      
       res.json({ success: true });
     } catch (error: any) {
       console.error("Error deleting surcharge rule:", error);

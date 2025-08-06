@@ -536,11 +536,12 @@ export const payment_due_dates = pgTable("payment_due_dates", {
 export const payment_surcharge_rules = pgTable("payment_surcharge_rules", {
   id: serial("id").primaryKey(),
   campus_id: integer("campus_id").references(() => campuses.id).notNull(),
+  concepto: text("concepto").notNull(), // Nombre del concepto
   nombre: text("nombre").notNull(),
-  tipo: text("tipo").notNull(), // 'porcentaje', 'fijo', 'progresivo'
+  tipo: text("tipo").notNull(), // 'porcentaje_fijo', 'porcentaje_diario', 'monto_fijo'
   dias_gracia: integer("dias_gracia").default(0).notNull(),
-  porcentaje: numeric("porcentaje", { precision: 5, scale: 2 }), // Para tipo 'porcentaje'
-  monto_fijo_centavos: integer("monto_fijo_centavos"), // Para tipo 'fijo' 
+  porcentaje: numeric("porcentaje", { precision: 5, scale: 2 }), // Para tipos de porcentaje
+  monto_fijo_centavos: integer("monto_fijo_centavos"), // Para tipo 'monto_fijo' 
   reglas_progresivas: text("reglas_progresivas"), // JSON para tipo 'progresivo'
   aplica_fines_semana: boolean("aplica_fines_semana").default(false).notNull(),
   aplica_festivos: boolean("aplica_festivos").default(false).notNull(),

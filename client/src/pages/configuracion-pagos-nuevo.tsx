@@ -82,16 +82,23 @@ export default function ConfiguracionPagos() {
     monto_maximo: ""
   });
 
-  // Fetch data from API
-  const { data: fechasVencimiento = [], isLoading: loadingFechas } = useQuery({
-    queryKey: ["/api/payment-config/due-dates"],
+  // Fetch data from API with cache busting
+  const [cacheKey, setCacheKey] = useState(Date.now());
+  const { data: fechasResponse, isLoading: loadingFechas, refetch: refetchFechas } = useQuery({
+    queryKey: ["/api/payment-config/due-dates", cacheKey], // Dynamic cache key
     enabled: !!user?.campus_id,
+    staleTime: 0, // Always consider data stale
+    gcTime: 0, // Don't cache at all (renamed from cacheTime in v5)
   });
+  
+  const fechasVencimiento: FechaVencimiento[] = fechasResponse?.data || [];
 
-  const { data: reglasRecargo = [], isLoading: loadingReglas } = useQuery({
+  const { data: reglasResponse, isLoading: loadingReglas } = useQuery({
     queryKey: ["/api/payment-config/surcharge-rules"],
     enabled: !!user?.campus_id,
   });
+  
+  const reglasRecargo: ReglaRecargo[] = reglasResponse || [];
 
   // Toggle active state for fechas
   const toggleFechaMutation = useMutation({
@@ -101,7 +108,10 @@ export default function ConfiguracionPagos() {
         body: JSON.stringify({ ...fecha, activo: !fecha.activo }),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/payment-config/due-dates"] });
+      // Force complete cache invalidation and refetch
+      queryClient.removeQueries({ queryKey: ["/api/payment-config/due-dates"] });
+      queryClient.invalidateQueries();
+      refetchFechas();
       toast({
         title: "Fecha actualizada",
         description: "La configuración de vencimiento se actualizó correctamente",
@@ -157,12 +167,12 @@ export default function ConfiguracionPagos() {
       console.log("saveFechaMutation onSuccess - Data received:", data);
       
       // Force complete cache clear and immediate refetch
-      queryClient.removeQueries({ queryKey: ["/api/payment-config/due-dates"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/payment-config/due-dates"] });
+      queryClient.clear(); // Clear all queries
+      setCacheKey(Date.now()); // Force new cache key
       
       // Force immediate data refresh without reload
       setTimeout(() => {
-        queryClient.refetchQueries({ queryKey: ["/api/payment-config/due-dates"], type: 'active' });
+        refetchFechas();
       }, 100);
       
       setShowFechaModal(false);

@@ -84,6 +84,7 @@ export const institutional_settings = pgTable("institutional_settings", {
   email_institucional: varchar("email_institucional", { length: 255 }),
   sitio_web: varchar("sitio_web", { length: 255 }),
   nombre_legal: varchar("nombre_legal", { length: 255 }),
+  logo_url: text("logo_url"), // URL del logo institucional
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });

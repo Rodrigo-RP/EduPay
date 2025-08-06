@@ -47,6 +47,12 @@ export default function Configuracion() {
       setTelefonoPrincipal(institutionalData.telefono_principal || "");
       setEmailInstitucional(institutionalData.email_institucional || "");
       setSitioWeb(institutionalData.sitio_web || "");
+      
+      // Cargar logo desde la base de datos si existe
+      if (institutionalData.logo_url) {
+        setLogoPreview(institutionalData.logo_url);
+        setLogoUrl(institutionalData.logo_url);
+      }
     }
   }, [institutionalData]);
   const { 
@@ -109,7 +115,7 @@ export default function Configuracion() {
 
   const handleSaveChanges = async () => {
     try {
-      // Guardar información institucional
+      // Guardar información institucional incluyendo el logo
       const institutionalData = {
         rfc,
         direccion_fiscal: direccionFiscal,
@@ -118,7 +124,8 @@ export default function Configuracion() {
         telefono_principal: telefonoPrincipal,
         email_institucional: emailInstitucional,
         sitio_web: sitioWeb,
-        nombre_legal: institutionName
+        nombre_legal: institutionName,
+        logo_url: logoPreview // Incluir el logo en los datos institucionales
       };
 
       await apiRequest('/api/institutional-info', {
@@ -126,8 +133,13 @@ export default function Configuracion() {
         body: JSON.stringify(institutionalData),
       });
 
-      // Invalidar caché para recargar los datos
+      // Invalidar caché para recargar los datos y actualizar logo en sidebar
       queryClient.invalidateQueries({ queryKey: ['/api/institutional-info'] });
+      
+      // Actualizar el logo en el contexto institucional
+      if (logoPreview) {
+        setLogoUrl(logoPreview);
+      }
       
       toast({
         title: "Cambios guardados",

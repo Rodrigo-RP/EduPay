@@ -733,7 +733,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         telefono_principal,
         email_institucional,
         sitio_web,
-        nombre_legal
+        nombre_legal,
+        logo_url
       } = req.body;
 
       // Get user data to ensure we have tenant_id and campus_id
@@ -752,7 +753,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         telefono_principal,
         email_institucional,
         sitio_web,
-        nombre_legal
+        nombre_legal,
+        logo_url
       };
 
       const savedSettings = await storage.saveInstitutionalSettings(institutionalData);

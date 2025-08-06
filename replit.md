@@ -95,11 +95,11 @@ Estado actual: Sistema 100% funcional con nuevas funcionalidades implementadas:
 - ✅ Validaciones de jerarquía en frontend: filtros de usuarios y botones condicionados
 - ✅ Validaciones de seguridad en backend: APIs protegidas contra modificaciones no autorizadas
 - ✅ Sistema de roles completamente seguro y auditado funcionando en producción
-- ✅ LOGO INSTITUCIONAL COMPLETAMENTE FUNCIONAL: Migrado de localStorage a base de datos
+- ✅ LOGO INSTITUCIONAL: Sistema corregido para persistencia en base de datos
 - ✅ Campo logo_url agregado a tabla institutional_settings para persistencia compartida
 - ✅ Hook useInstitution modificado para cargar logo desde API en lugar de localStorage
 - ✅ API endpoints actualizados para manejar logo_url en GET y POST operations
-- ✅ Sistema de logo institucional completamente funcional entre todos los usuarios
+- ⚠️ ACCIÓN REQUERIDA: El administrador general debe subir nuevamente el logo para que se guarde en BD y sea visible para todos los usuarios
 - 🔄 reCAPTCHA preparado para implementar (pendiente claves de Google)
 
 ## System Architecture

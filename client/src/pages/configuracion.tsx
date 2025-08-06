@@ -52,6 +52,9 @@ export default function Configuracion() {
       if (institutionalData.logo_url) {
         setLogoPreview(institutionalData.logo_url);
         setLogoUrl(institutionalData.logo_url);
+      } else {
+        // Si no hay logo en BD, limpiar preview local
+        setLogoPreview(null);
       }
     }
   }, [institutionalData]);
@@ -93,7 +96,7 @@ export default function Configuracion() {
     reader.onload = (e) => {
       const logoDataUrl = e.target?.result as string;
       setLogoPreview(logoDataUrl);
-      setLogoUrl(logoDataUrl); // Actualizar inmediatamente el sidebar
+      // No actualizar sidebar hasta que se guarde en BD
       toast({
         title: "Logo actualizado",
         description: "El logo se ha actualizado en el sidebar. Los cambios se guardarán automáticamente.",

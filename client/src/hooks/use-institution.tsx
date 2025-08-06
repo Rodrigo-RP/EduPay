@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 interface InstitutionContextType {
   institutionName: string;
@@ -16,38 +18,30 @@ export function InstitutionProvider({ children }: { children: ReactNode }) {
   const [campusName, setCampusName] = useState<string>("Campus Principal");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
-  // Cargar datos desde la base de datos en lugar de localStorage
-  useEffect(() => {
-    const loadInstitutionalData = async () => {
-      try {
-        const response = await fetch('/api/institutional-info', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setInstitutionName(data.nombre_legal || 'Instituto JFR');
-          setCampusName('Campus Principal'); // Esto podría venir de la API campus también
-          setLogoUrl(data.logo_url || '/logo-jfr.svg');
-        } else {
-          // Si no hay datos en BD, usar valores por defecto
-          setInstitutionName('Instituto JFR');
-          setCampusName('Campus Principal');
-          setLogoUrl('/logo-jfr.svg');
-        }
-      } catch (error) {
-        console.error('Error loading institutional data:', error);
-        // Fallback a valores por defecto
-        setInstitutionName('Instituto JFR');
-        setCampusName('Campus Principal');
-        setLogoUrl('/logo-jfr.svg');
-      }
-    };
+  // Cargar datos institucionales usando React Query
+  const { data: institutionalData } = useQuery({
+    queryKey: ['/api/institutional-info'],
+    queryFn: async () => {
+      const response = await apiRequest('/api/institutional-info');
+      return response.json();
+    },
+    retry: 1,
+    enabled: !!localStorage.getItem('auth_token') // Solo ejecutar si hay token
+  });
 
-    loadInstitutionalData();
-  }, []);
+  // Actualizar estado cuando se cargan los datos
+  useEffect(() => {
+    if (institutionalData && Object.keys(institutionalData).length > 0) {
+      setInstitutionName(institutionalData.nombre_legal || 'Instituto JFR');
+      setCampusName('Campus Principal');
+      setLogoUrl(institutionalData.logo_url || '/logo-jfr.svg');
+    } else {
+      // Valores por defecto
+      setInstitutionName('Instituto JFR');
+      setCampusName('Campus Principal');
+      setLogoUrl('/logo-jfr.svg');
+    }
+  }, [institutionalData]);
 
   // Los datos ahora se guardan automáticamente en la base de datos
   // cuando el usuario hace cambios desde la página de configuración

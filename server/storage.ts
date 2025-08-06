@@ -813,7 +813,11 @@ export class DatabaseStorage implements IStorage {
       })
       .from(pending_approvals)
       .leftJoin(users, eq(pending_approvals.requested_by, users.id))
-      .orderBy(desc(pending_approvals.created_at))
+      .where(
+        // Include approved and rejected approvals only
+        inArray(pending_approvals.status, ['approved', 'rejected'])
+      )
+      .orderBy(desc(pending_approvals.updated_at))
       .limit(50); // Limit to recent 50 records
     
     return allApprovals;

@@ -35,8 +35,14 @@ export function InstitutionProvider({ children }: { children: ReactNode }) {
       setInstitutionName(institutionalData.nombre_legal || 'Instituto JFR');
       setCampusName('Campus Principal');
       
-      if (institutionalData.logo_url && institutionalData.logo_url.trim() !== '' && institutionalData.logo_url.includes('data:image')) {
-        setLogoUrl(institutionalData.logo_url);
+      if (institutionalData.logo_url && institutionalData.logo_url.trim() !== '') {
+        // Decodificar HTML entities si están presentes
+        const decodedUrl = institutionalData.logo_url
+          .replace(/&#x2F;/g, '/')
+          .replace(/&quot;/g, '"')
+          .replace(/&amp;/g, '&');
+        console.log('Logo URL decodificada:', decodedUrl.substring(0, 50) + '...');
+        setLogoUrl(decodedUrl);
       } else {
         setLogoUrl(null);
       }

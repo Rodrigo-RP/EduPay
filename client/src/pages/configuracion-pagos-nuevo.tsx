@@ -136,7 +136,7 @@ export default function ConfiguracionPagos() {
 
   // Create/Update mutations for fechas
   const saveFechaMutation = useMutation({
-    mutationFn: (data: any) => {
+    mutationFn: async (data: any) => {
       console.log("Frontend: Enviando datos:", data);
       
       const payload = {
@@ -156,6 +156,15 @@ export default function ConfiguracionPagos() {
         });
       } else {
         console.log("Frontend: Creando nueva fecha");
+        console.log("Frontend: About to call /api/payment-config/due-dates POST");
+        
+        // Try the test endpoint first to verify connection
+        const testResult = await apiRequest("/api/test-create", {
+          method: "POST", 
+          body: JSON.stringify({ test: "verification", payload }),
+        });
+        console.log("Frontend: Test endpoint result:", testResult);
+        
         return apiRequest("/api/payment-config/due-dates", {
           method: "POST",
           body: JSON.stringify(payload),

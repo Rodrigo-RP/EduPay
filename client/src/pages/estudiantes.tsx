@@ -365,8 +365,8 @@ export default function Estudiantes() {
   };
 
   // Filtros para estudiantes
-  const grados = Array.from(new Set(estudiantes.map((e: any) => e.grado).filter(Boolean)));
-  const grupos = Array.from(new Set(estudiantes.map((e: any) => e.grupo).filter(Boolean)));
+  const grados = Array.from(new Set(estudiantes.map((e: any) => e.grado).filter(Boolean))) as string[];
+  const grupos = Array.from(new Set(estudiantes.map((e: any) => e.grupo).filter(Boolean))) as string[];
 
   const filteredEstudiantes = estudiantes.filter((estudiante: any) => {
     const matchSearch = !searchTerm || 
@@ -474,7 +474,7 @@ export default function Estudiantes() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos los grados</SelectItem>
-                {grados.map((grado: string) => (
+                {grados.map((grado) => (
                   <SelectItem key={grado} value={grado}>{grado}</SelectItem>
                 ))}
               </SelectContent>
@@ -486,7 +486,7 @@ export default function Estudiantes() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos los grupos</SelectItem>
-                {grupos.map((grupo: string) => (
+                {grupos.map((grupo) => (
                   <SelectItem key={grupo} value={grupo}>Grupo {grupo}</SelectItem>
                 ))}
               </SelectContent>

@@ -71,6 +71,23 @@ export const institutional_info = pgTable("institutional_info", {
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
+// INSTITUTIONAL SETTINGS - Configuración general institucional
+export const institutional_settings = pgTable("institutional_settings", {
+  id: serial("id").primaryKey(),
+  campus_id: integer("campus_id").references(() => campuses.id, { onDelete: "cascade" }).notNull(),
+  tenant_id: integer("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  rfc: varchar("rfc", { length: 13 }),
+  direccion_fiscal: text("direccion_fiscal"),
+  ciudad: varchar("ciudad", { length: 100 }),
+  codigo_postal: varchar("codigo_postal", { length: 10 }),
+  telefono_principal: varchar("telefono_principal", { length: 20 }),
+  email_institucional: varchar("email_institucional", { length: 255 }),
+  sitio_web: varchar("sitio_web", { length: 255 }),
+  nombre_legal: varchar("nombre_legal", { length: 255 }),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
 // PLATFORM PROFILES (Support and Implementation users)
 export const platform_profiles = pgTable("platform_profiles", {
   id: serial("id").primaryKey(),
@@ -403,6 +420,11 @@ export const insertInstitutionalInfoSchema = createInsertSchema(institutional_in
   created_at: true,
   updated_at: true,
 });
+export const insertInstitutionalSettingsSchema = createInsertSchema(institutional_settings).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+});
 
 // TYPES
 export type InsertTenant = z.infer<typeof insertTenantSchema>;
@@ -414,6 +436,7 @@ export type InsertConcept = z.infer<typeof insertConceptSchema>;
 export type InsertCharge = z.infer<typeof insertChargeSchema>;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 export type InsertInstitutionalInfo = z.infer<typeof insertInstitutionalInfoSchema>;
+export type InsertInstitutionalSettings = z.infer<typeof insertInstitutionalSettingsSchema>;
 
 export type Tenant = typeof tenants.$inferSelect;
 export type Campus = typeof campuses.$inferSelect;
@@ -426,6 +449,7 @@ export type Payment = typeof payments.$inferSelect;
 export type PaymentMethod = typeof payment_methods.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;
 export type InstitutionalInfo = typeof institutional_info.$inferSelect;
+export type InstitutionalSettings = typeof institutional_settings.$inferSelect;
 
 // PAYMENT RULES TABLES
 export const payment_rules = pgTable("payment_rules", {

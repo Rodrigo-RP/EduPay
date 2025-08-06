@@ -670,6 +670,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get institutional information
+  app.get("/api/institutional-info", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const settings = await storage.getInstitutionalSettings(user.campus_id);
+      
+      res.json(settings || {});
+    } catch (error) {
+      console.error('Error fetching institutional info:', error);
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
   // Save institutional information
   app.post("/api/institutional-info", authenticateToken, async (req, res) => {
     try {
@@ -685,9 +698,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         nombre_legal
       } = req.body;
 
-      // For now, we'll store this in localStorage since we don't have a specific table
-      // In a real implementation, you would save this to a database table
-      const institutionalInfo = {
+      const institutionalData = {
         campus_id: user.campus_id,
         tenant_id: user.tenant_id,
         rfc,
@@ -697,15 +708,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         telefono_principal,
         email_institucional,
         sitio_web,
-        nombre_legal,
-        updated_at: new Date()
+        nombre_legal
       };
 
-      // For now, just return success
-      // TODO: Implement database storage for institutional info
+      const savedSettings = await storage.saveInstitutionalSettings(institutionalData);
+      
       res.json({ 
         message: "Información institucional guardada correctamente",
-        data: institutionalInfo
+        data: savedSettings
       });
     } catch (error) {
       console.error('Error saving institutional info:', error);

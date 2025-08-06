@@ -2,7 +2,7 @@ import {
   tenants, campuses, users, students, guardians, student_guardian, concepts, 
   charges, payments, payment_methods, invoices, scholarships, discounts,
   security_events, platform_metrics, system_health, pending_approvals,
-  approval_notifications, approval_workflow_logs,
+  approval_notifications, approval_workflow_logs, institutional_settings,
   type User, type InsertUser, type Guardian, type InsertGuardian, 
   type Student, type InsertStudent, type Charge, type InsertCharge,
   type Payment, type InsertPayment, type Campus, type InsertCampus,
@@ -10,7 +10,8 @@ import {
   type PaymentMethod, type SecurityEvent, type InsertSecurityEvent, 
   type SystemHealth, type PendingApproval, type InsertPendingApproval,
   type ApprovalNotification, type InsertApprovalNotification,
-  type ApprovalWorkflowLog, type InsertApprovalWorkflowLog
+  type ApprovalWorkflowLog, type InsertApprovalWorkflowLog,
+  type InstitutionalSettings, type InsertInstitutionalSettings
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
@@ -105,6 +106,11 @@ export interface IStorage {
   checkUserCanApprove(userId: number, actionType: string): Promise<boolean>;
   requiresApproval(actionType: string, userId: number): Promise<boolean>;
   getAllApprovalsHistory(): Promise<any[]>;
+
+  // Institutional settings operations
+  getInstitutionalSettings(campusId: number): Promise<InstitutionalSettings | undefined>;
+  saveInstitutionalSettings(settings: InsertInstitutionalSettings): Promise<InstitutionalSettings>;
+  updateInstitutionalSettings(campusId: number, updates: Partial<InstitutionalSettings>): Promise<InstitutionalSettings | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -981,6 +987,42 @@ export class DatabaseStorage implements IStorage {
     ];
     
     return criticalFinancialActions.includes(actionType);
+  }
+  // Institutional settings operations
+  async getInstitutionalSettings(campusId: number): Promise<InstitutionalSettings | undefined> {
+    const [settings] = await db.select().from(institutional_settings).where(eq(institutional_settings.campus_id, campusId));
+    return settings || undefined;
+  }
+
+  async saveInstitutionalSettings(settings: InsertInstitutionalSettings): Promise<InstitutionalSettings> {
+    // Check if settings already exist for this campus
+    const existing = await this.getInstitutionalSettings(settings.campus_id);
+    
+    if (existing) {
+      // Update existing settings
+      const [updated] = await db
+        .update(institutional_settings)
+        .set({ ...settings, updated_at: new Date() })
+        .where(eq(institutional_settings.campus_id, settings.campus_id))
+        .returning();
+      return updated;
+    } else {
+      // Create new settings
+      const [created] = await db
+        .insert(institutional_settings)
+        .values(settings)
+        .returning();
+      return created;
+    }
+  }
+
+  async updateInstitutionalSettings(campusId: number, updates: Partial<InstitutionalSettings>): Promise<InstitutionalSettings | undefined> {
+    const [updated] = await db
+      .update(institutional_settings)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(institutional_settings.campus_id, campusId))
+      .returning();
+    return updated || undefined;
   }
 }
 

@@ -5109,6 +5109,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const campusId = (req as any).user.campus_id;
       const dueDates = await storage.getPaymentDueDatesByCampus(campusId);
+      
+      // Force no cache to ensure fresh data
+      res.set({
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      });
+      
       res.json(dueDates);
     } catch (error: any) {
       console.error("Error fetching payment due dates:", error);

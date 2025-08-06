@@ -3623,37 +3623,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update payment due date
-  app.put("/api/payment-config/due-dates/:id", authenticateToken, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { concepto, dia_vencimiento, mes_aplicacion, activo } = req.body;
-      
-      if (!concepto || !dia_vencimiento) {
-        return res.status(400).json({ error: "Concepto y día de vencimiento son requeridos" });
-      }
-
-      if (dia_vencimiento < 1 || dia_vencimiento > 31) {
-        return res.status(400).json({ error: "El día de vencimiento debe estar entre 1 y 31" });
-      }
-      
-      const updatedDueDate = {
-        id,
-        concepto,
-        dia_vencimiento: parseInt(dia_vencimiento),
-        mes_aplicacion: mes_aplicacion || "todos",
-        activo: activo !== undefined ? activo : true,
-        updated_at: new Date().toISOString()
-      };
-      
-      res.json({ 
-        message: "Fecha de vencimiento actualizada exitosamente",
-        dueDate: updatedDueDate
-      });
-    } catch (error: any) {
-      res.status(500).json({ error: "Error actualizando fecha de vencimiento", message: error.message });
-    }
-  });
+  // OLD DUPLICATE ROUTE REMOVED - Now handled by the updated route with proper database integration
 
   // Delete payment due date
   app.delete("/api/payment-config/due-dates/:id", authenticateToken, async (req, res) => {

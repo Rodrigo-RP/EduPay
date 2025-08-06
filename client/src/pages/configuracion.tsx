@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useInstitution } from "@/hooks/use-institution";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useQuery } from "@tanstack/react-query";
 import { Calendar, Bell, Key, Mail, Settings, Shield, School, CreditCard, Database, Palette, Globe, Users, FileText, Upload } from "lucide-react";
 
 export default function Configuracion() {
@@ -26,6 +27,28 @@ export default function Configuracion() {
   const [emailInstitucional, setEmailInstitucional] = useState("admin@jfr.edu.mx");
   const [sitioWeb, setSitioWeb] = useState("www.jfr.edu.mx");
   const { toast } = useToast();
+  
+  // Cargar datos institucionales existentes
+  const { data: institutionalData, isLoading } = useQuery({
+    queryKey: ['/api/institutional-info'],
+    queryFn: async () => {
+      const response = await apiRequest('/api/institutional-info');
+      return response.json();
+    }
+  });
+
+  // Cargar datos cuando se obtienen de la API
+  useEffect(() => {
+    if (institutionalData && Object.keys(institutionalData).length > 0) {
+      setRfc(institutionalData.rfc || "");
+      setDireccionFiscal(institutionalData.direccion_fiscal || "");
+      setCiudad(institutionalData.ciudad || "");
+      setCodigoPostal(institutionalData.codigo_postal || "");
+      setTelefonoPrincipal(institutionalData.telefono_principal || "");
+      setEmailInstitucional(institutionalData.email_institucional || "");
+      setSitioWeb(institutionalData.sitio_web || "");
+    }
+  }, [institutionalData]);
   const { 
     institutionName, 
     campusName, 
@@ -103,6 +126,9 @@ export default function Configuracion() {
         body: JSON.stringify(institutionalData),
       });
 
+      // Invalidar caché para recargar los datos
+      queryClient.invalidateQueries({ queryKey: ['/api/institutional-info'] });
+      
       toast({
         title: "Cambios guardados",
         description: "La configuración institucional se ha actualizado correctamente.",

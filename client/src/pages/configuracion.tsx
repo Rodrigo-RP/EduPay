@@ -96,13 +96,12 @@ export default function Configuracion() {
       </div>
 
           <Tabs defaultValue="general" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="general">General</TabsTrigger>
               <TabsTrigger value="institucional">Institución</TabsTrigger>
               <TabsTrigger value="pagos">Pagos</TabsTrigger>
               <TabsTrigger value="fiscal">Fiscal</TabsTrigger>
               <TabsTrigger value="seguridad">Seguridad</TabsTrigger>
-              <TabsTrigger value="usuarios">Usuarios</TabsTrigger>
             </TabsList>
 
             <TabsContent value="general">
@@ -557,75 +556,7 @@ export default function Configuracion() {
               </Card>
             </TabsContent>
 
-            <TabsContent value="usuarios">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="w-5 h-5" />
-                    Gestión de usuarios y roles
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                        <Label>Rol predeterminado para nuevos usuarios</Label>
-                        <Select defaultValue="caja">
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="admin">Administrador</SelectItem>
-                            <SelectItem value="caja">Caja</SelectItem>
-                            <SelectItem value="contador">Contador</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                  <div className="flex items-center justify-between">
-                        <Label>Auto-aprobación de nuevos usuarios</Label>
-                        <Switch />
-                      </div>
-                    </div>
 
-                <div>
-                      <Label className="text-lg font-semibold">Permisos por rol</Label>
-                  <div className="mt-4 space-y-4">
-                    <div className="grid grid-cols-4 gap-4 p-4 border rounded-lg">
-                      <div className="font-medium">Función</div>
-                      <div className="text-center font-medium">Admin</div>
-                      <div className="text-center font-medium">Caja</div>
-                      <div className="text-center font-medium">Contador</div>
-                        </div>
-                    <div className="grid grid-cols-4 gap-4 p-4 border rounded-lg">
-                      <div>Gestión de estudiantes</div>
-                      <div className="text-center">✓</div>
-                      <div className="text-center">✓</div>
-                      <div className="text-center">-</div>
-                        </div>
-                    <div className="grid grid-cols-4 gap-4 p-4 border rounded-lg">
-                      <div>Registro de pagos</div>
-                      <div className="text-center">✓</div>
-                      <div className="text-center">✓</div>
-                      <div className="text-center">-</div>
-                        </div>
-                    <div className="grid grid-cols-4 gap-4 p-4 border rounded-lg">
-                      <div>Reportes fiscales</div>
-                      <div className="text-center">✓</div>
-                      <div className="text-center">-</div>
-                      <div className="text-center">✓</div>
-                        </div>
-                    <div className="grid grid-cols-4 gap-4 p-4 border rounded-lg">
-                      <div>Configuración del sistema</div>
-                      <div className="text-center">✓</div>
-                      <div className="text-center">-</div>
-                      <div className="text-center">-</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
           </Tabs>
     </div>
   );

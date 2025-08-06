@@ -45,6 +45,9 @@ Estado actual: Sistema 100% funcional con nuevas funcionalidades implementadas:
 - ✅ Historial de aprobaciones incluye datos del estudiante cuando están disponibles
 - ✅ Búsqueda flexible de estudiantes (exacta y parcial) para enriquecer solicitudes
 - ✅ Diseño visual distintivo para información del estudiante en aprobaciones
+- ✅ Sistema de filtro de búsqueda implementado en Historial Completo de Aprobaciones
+- ✅ Filtro con normalización de acentos busca por nombre del alumno, familia, solicitud o motivo
+- ✅ Búsqueda optimizada para escuelas con miles de estudiantes (elimina scroll infinito)
 - 🔄 reCAPTCHA preparado para implementar (pendiente claves de Google)
 
 ## System Architecture

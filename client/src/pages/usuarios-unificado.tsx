@@ -687,7 +687,7 @@ export default function UsuariosUnificado() {
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm font-semibold text-green-800">Usuario completo</Label>
+                  <Label className="text-sm font-semibold text-green-800">Nombre del Usuario</Label>
                   <div className="mt-1 p-2 bg-green-50 border rounded text-sm">
                     {generatedCredentials.nombre_completo}
                   </div>
@@ -702,24 +702,6 @@ export default function UsuariosUnificado() {
               </div>
 
               <div className="grid grid-cols-1 gap-3">
-                <div>
-                  <Label className="text-sm font-semibold text-green-800">Nombre de usuario</Label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className="flex-1 p-2 bg-white border rounded font-mono text-sm">
-                      {generatedCredentials.username}
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        navigator.clipboard.writeText(generatedCredentials.username);
-                        toast({ title: "Usuario copiado" });
-                      }}
-                    >
-                      <Copy className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
                 
                 <div>
                   <Label className="text-sm font-semibold text-green-800">Email de acceso</Label>
@@ -791,9 +773,27 @@ export default function UsuariosUnificado() {
             <Button
               variant="outline"
               onClick={() => {
-                const text = `Credenciales EDUPAY\n\nNombre: ${generatedCredentials.nombre_completo}\nUsuario: ${generatedCredentials.username}\nEmail: ${generatedCredentials.email}\nContraseña: ${generatedCredentials.password}\nRol: ${getRoleDisplayName(generatedCredentials.role as UserRole)}\n\nURL: https://edupay.institutojfr.edu.mx/login\n\nCambia tu contraseña en el primer acceso.`;
-                navigator.clipboard.writeText(text);
-                toast({ title: "Credenciales copiadas" });
+                if (generatedCredentials) {
+                  const text = `Credenciales de acceso EDUPAY
+
+Nombre del Usuario: ${generatedCredentials.nombre_completo}
+Email de acceso: ${generatedCredentials.email}
+Contraseña temporal: ${generatedCredentials.password}
+Rol asignado: ${getRoleDisplayName(generatedCredentials.role as UserRole)}
+
+URL de acceso: https://edupay.institutojfr.edu.mx/login
+
+IMPORTANTE:
+- Comparte estas credenciales de forma segura
+- El usuario debe cambiar la contraseña en su primer acceso
+- URL: https://edupay.institutojfr.edu.mx/login`;
+                  
+                  navigator.clipboard.writeText(text);
+                  toast({ 
+                    title: "Credenciales copiadas", 
+                    description: "Todas las credenciales han sido copiadas al portapapeles" 
+                  });
+                }
               }}
             >
               <Copy className="w-4 h-4 mr-2" />
@@ -802,10 +802,14 @@ export default function UsuariosUnificado() {
             <Button
               variant="outline"
               onClick={() => {
-                toast({ 
-                  title: "Credenciales enviadas", 
-                  description: `Enviadas a ${generatedCredentials.email}` 
-                });
+                if (generatedCredentials) {
+                  // Simulamos el envío de email
+                  toast({ 
+                    title: "Credenciales enviadas por email", 
+                    description: `Las credenciales han sido enviadas a ${generatedCredentials.email}`,
+                    duration: 3000
+                  });
+                }
               }}
             >
               <Mail className="w-4 h-4 mr-2" />

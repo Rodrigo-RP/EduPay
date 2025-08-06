@@ -5104,10 +5104,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PAYMENT CONFIGURATION ROUTES
   // ========================================
 
-  // Get payment due dates configuration - ALWAYS FRESH DATA
-  app.get("/api/payment-config/due-dates", authenticateToken, async (req, res) => {
+  // Get payment due dates configuration - ALWAYS FRESH DATA  
+  app.get("/api/payment-config/due-dates", (req, res, next) => {
+    // Force no ETag and no caching for this route
+    res.set('ETag', false);
+    next();
+  }, authenticateToken, async (req, res) => {
     const campusId = (req as any).user.campus_id;
-    console.log("🔍 FRESH GET due-dates for campus:", campusId);
+    const timestamp = Date.now();
+    console.log(`🔍 [${timestamp}] FRESH GET due-dates for campus:`, campusId);
     
     // Get fresh data directly from database
     const dueDates = await db
@@ -5123,18 +5128,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : dueDate.mes_aplicacion
     }));
     
-    console.log("🔍 FRESH data from DB:", JSON.stringify(cleanedDueDates, null, 2));
+    console.log(`🔍 [${timestamp}] FRESH data from DB:`, JSON.stringify(cleanedDueDates, null, 2));
     
-    // Disable ALL caching
-    res.set({
-      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0',
-      'Pragma': 'no-cache',
-      'Expires': '-1',
-      'Surrogate-Control': 'no-store',
-      'X-Accel-Expires': '0'
+    // Force unique response with timestamp
+    res.json({ 
+      timestamp, 
+      data: cleanedDueDates 
     });
-    
-    res.json(cleanedDueDates);
   });
 
   // Create payment due date configuration

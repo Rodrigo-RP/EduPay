@@ -14,6 +14,7 @@ UX/UI: Móvil primero, proceso de pago 3 clics o menos, onboarding < 1 hora.
 Dashboard preference: Dashboard CEO tradicional como predeterminado para super administrador (no F1 style por problemas de carga).
 Funcionalidad de redes sociales: Integración real con plataformas oficiales (Facebook Business, Instagram Business, TikTok Ads) usando autenticación OAuth y redirección a sitios oficiales para que cada escuela conecte sus propias cuentas empresariales.
 Sistema verificado: Auditoría sistemática completada - todas las funcionalidades operan con datos reales, no decorativos.
+WebSocket: Sistema de tiempo real completamente operativo (Febrero 2025) - conexiones estables, autenticación JWT arreglada, sin conflictos con Vite HMR.
 
 ## System Architecture
 
@@ -43,7 +44,8 @@ Sistema verificado: Auditoría sistemática completada - todas las funcionalidad
 - **Multi-Tenant Architecture**: Supports school groups and individual campuses with data separation and role hierarchy.
 - **Student & Guardian Management**: Comprehensive profiles, flexible relationships, academic tracking.
 - **Core Modules**: Initial Setup, Charge Issuance, Parent/Guardian Portal, Cashier & Reconciliation, Fiscal & Accounting, Migration System, Institutional Credentials Management, Institutional Information Management.
-- **Notification System**: Multi-channel automated reminders (email, SMS, WhatsApp) for payments and overdue alerts. Internal plugin-based notification system for institutional credential expiration monitoring with real-time alerts and urgency classification. WebSocket server for real-time synchronization of data.
+- **Real-Time Communication**: WebSocket server implementado con autenticación JWT para actualizaciones en tiempo real. Sistema configurado en ruta `/ws/realtime` para evitar conflictos con HMR de Vite. Incluye rate limiting, heartbeat, y reconexión automática.
+- **Notification System**: Multi-channel automated reminders (email, SMS, WhatsApp) for payments and overdue alerts. Internal plugin-based notification system for institutional credential expiration monitoring with real-time alerts and urgency classification.
 - **Advanced Systems**: Predictive Engine (for delinquency), Automatic Bank Reconciliation (with SPEI integration), Intelligent Fiscal Invoicing (SAT compliance, auto-selection of product/service keys).
 - **Security**: AES-256 encryption, 2FA/MFA, real-time fraud detection, WAF, anti-SQL injection, XSS, brute force, CSRF, command injection protection.
 

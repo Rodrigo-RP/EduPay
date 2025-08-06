@@ -61,6 +61,7 @@ interface PendingApproval {
   approved_by?: number;
   approval_notes?: string;
   requester_name?: string;
+  requester_email?: string;
   requester_role?: string;
 }
 
@@ -289,9 +290,10 @@ export default function Aprobaciones() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Tipo de Acción</TableHead>
-                      <TableHead>Descripción</TableHead>
-                      <TableHead>Valor Actual</TableHead>
-                      <TableHead>Valor Propuesto</TableHead>
+                      <TableHead>Solicitante</TableHead>
+                      <TableHead>Datos Originales</TableHead>
+                      <TableHead>Datos Solicitados</TableHead>
+                      <TableHead>Prioridad</TableHead>
                       <TableHead>Fecha</TableHead>
                       <TableHead>Estado</TableHead>
                       <TableHead>Acciones</TableHead>

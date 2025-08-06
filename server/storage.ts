@@ -678,8 +678,31 @@ export class DatabaseStorage implements IStorage {
     }
     
     const approvals = await db
-      .select()
+      .select({
+        id: pending_approvals.id,
+        campus_id: pending_approvals.campus_id,
+        tenant_id: pending_approvals.tenant_id,
+        requested_by: pending_approvals.requested_by,
+        action_type: pending_approvals.action_type,
+        action_description: pending_approvals.action_description,
+        entity_type: pending_approvals.entity_type,
+        entity_id: pending_approvals.entity_id,
+        original_data: pending_approvals.original_data,
+        requested_data: pending_approvals.requested_data,
+        reason: pending_approvals.reason,
+        status: pending_approvals.status,
+        priority: pending_approvals.priority,
+        created_at: pending_approvals.created_at,
+        updated_at: pending_approvals.updated_at,
+        approved_by: pending_approvals.approved_by,
+        approval_notes: pending_approvals.approval_notes,
+        expires_at: pending_approvals.expires_at,
+        requester_name: users.name,
+        requester_email: users.email,
+        requester_role: users.role
+      })
       .from(pending_approvals)
+      .leftJoin(users, eq(pending_approvals.requested_by, users.id))
       .where(
         and(
           eq(pending_approvals.status, 'pending'),

@@ -38,13 +38,13 @@ export function InstitutionProvider({ children }: { children: ReactNode }) {
       if (institutionalData.logo_url && institutionalData.logo_url.trim() !== '') {
         setLogoUrl(institutionalData.logo_url);
       } else {
-        setLogoUrl('/logo-jfr.svg');
+        setLogoUrl(null);
       }
     } else {
       // Valores por defecto
       setInstitutionName('Instituto JFR');
       setCampusName('Campus Principal');
-      setLogoUrl('/logo-jfr.svg');
+      setLogoUrl(null);
     }
   }, [institutionalData]);
 

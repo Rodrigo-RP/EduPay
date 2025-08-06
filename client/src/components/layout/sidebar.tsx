@@ -290,7 +290,7 @@ export default function Sidebar() {
       <div className="p-6">
         <div className="flex items-center space-x-3">
           <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
-            {logoUrl && logoUrl !== '/logo-jfr.svg' && logoUrl.startsWith('data:image') ? (
+            {logoUrl && logoUrl.startsWith('data:image') ? (
               <img src={logoUrl} alt="Logo institucional" className="w-full h-full object-cover" />
             ) : (
               <i className="fas fa-university text-white text-lg"></i>

@@ -5108,40 +5108,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/payment-config/due-dates", authenticateToken, async (req, res) => {
     try {
       const campusId = (req as any).user.campus_id;
+      console.log("🔍 GET due-dates request for campus:", campusId);
+      
       const dueDates = await storage.getPaymentDueDatesByCampus(campusId);
       
-      // Force no cache to ensure fresh data
+      // Force complete no-cache response with timestamp
       res.set({
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Cache-Control': 'no-cache, no-store, must-revalidate, proxy-revalidate, max-age=0',
         'Pragma': 'no-cache',
-        'Expires': '0'
+        'Expires': '0',
+        'Last-Modified': new Date().toUTCString(),
+        'ETag': `W/"${Date.now()}"` // Dynamic ETag to force refresh
       });
       
-      res.json(dueDates);
+      console.log("🔍 Sending fresh due-dates data:", JSON.stringify(dueDates, null, 2));
+      res.status(200).json(dueDates); // Force 200 status
     } catch (error: any) {
       console.error("Error fetching payment due dates:", error);
       res.status(500).json({ message: "Error fetching payment due dates: " + error.message });
     }
   });
 
-  // Create or update payment due date configuration
+  // Create payment due date configuration
   app.post("/api/payment-config/due-dates", authenticateToken, async (req, res) => {
     try {
+      console.log("🚀 POST /api/payment-config/due-dates - Request received");
       const campusId = (req as any).user.campus_id;
       const { concepto, dia_vencimiento, mes_aplicacion, activo } = req.body;
       
+      console.log("🚀 Creating payment due date:", {
+        campusId,
+        rawBody: req.body
+      });
+
+      // Fix HTML entity encoding issue
+      const cleanedMesAplicacion = typeof mes_aplicacion === 'string' 
+        ? mes_aplicacion.replace(/&quot;/g, '"') 
+        : mes_aplicacion;
+
       const dueDateData = {
         campus_id: campusId,
         concepto,
-        dia_vencimiento,
-        mes_aplicacion: Array.isArray(mes_aplicacion) ? JSON.stringify(mes_aplicacion) : mes_aplicacion,
-        activo
+        dia_vencimiento: parseInt(dia_vencimiento) || dia_vencimiento,
+        mes_aplicacion: Array.isArray(cleanedMesAplicacion) ? JSON.stringify(cleanedMesAplicacion) : cleanedMesAplicacion,
+        activo: activo !== undefined ? activo : true
       };
 
+      console.log("🚀 Processed create data:", JSON.stringify(dueDateData, null, 2));
+
       const createdDueDate = await storage.createPaymentDueDate(dueDateData);
-      res.status(201).json(createdDueDate);
+      
+      console.log("🚀 Successfully created payment due date:", createdDueDate);
+      res.status(201).json({ message: "Fecha de vencimiento creada correctamente", data: createdDueDate });
     } catch (error: any) {
-      console.error("Error creating payment due date:", error);
+      console.error("🚀 Error creating payment due date:", error);
       res.status(500).json({ message: "Error creating payment due date: " + error.message });
     }
   });

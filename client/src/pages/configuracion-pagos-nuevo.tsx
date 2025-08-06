@@ -160,9 +160,9 @@ export default function ConfiguracionPagos() {
       queryClient.removeQueries({ queryKey: ["/api/payment-config/due-dates"] });
       queryClient.invalidateQueries({ queryKey: ["/api/payment-config/due-dates"] });
       
-      // Force window reload to bypass all caches
+      // Force immediate data refresh without reload
       setTimeout(() => {
-        window.location.reload();
+        queryClient.refetchQueries({ queryKey: ["/api/payment-config/due-dates"], type: 'active' });
       }, 100);
       
       setShowFechaModal(false);

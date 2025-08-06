@@ -672,7 +672,7 @@ export default function UsuariosUnificado() {
 
       {/* Modal para mostrar credenciales generadas */}
       <Dialog open={showCredentialsModal} onOpenChange={setShowCredentialsModal}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Key className="w-5 h-5 text-green-600" />
@@ -685,24 +685,35 @@ export default function UsuariosUnificado() {
           
           {generatedCredentials && (
             <div className="space-y-4">
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-semibold text-green-800">Usuario completo</Label>
-                  <div className="flex items-center justify-between mt-1 p-2 bg-white border rounded">
-                    <span className="font-mono text-sm">{generatedCredentials.nombre_completo}</span>
+                  <div className="mt-1 p-2 bg-green-50 border rounded text-sm">
+                    {generatedCredentials.nombre_completo}
                   </div>
                 </div>
                 
                 <div>
+                  <Label className="text-sm font-semibold text-green-800">Rol asignado</Label>
+                  <div className="mt-1 p-2 bg-green-50 border rounded text-sm">
+                    {getRoleDisplayName(generatedCredentials.role as UserRole)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3">
+                <div>
                   <Label className="text-sm font-semibold text-green-800">Nombre de usuario</Label>
-                  <div className="flex items-center justify-between mt-1 p-2 bg-white border rounded">
-                    <span className="font-mono text-sm">{generatedCredentials.username}</span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="flex-1 p-2 bg-white border rounded font-mono text-sm">
+                      {generatedCredentials.username}
+                    </div>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => {
                         navigator.clipboard.writeText(generatedCredentials.username);
-                        toast({ title: "Usuario copiado", description: "El nombre de usuario ha sido copiado al portapapeles" });
+                        toast({ title: "Usuario copiado" });
                       }}
                     >
                       <Copy className="w-4 h-4" />
@@ -712,14 +723,16 @@ export default function UsuariosUnificado() {
                 
                 <div>
                   <Label className="text-sm font-semibold text-green-800">Email de acceso</Label>
-                  <div className="flex items-center justify-between mt-1 p-2 bg-white border rounded">
-                    <span className="font-mono text-sm">{generatedCredentials.email}</span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="flex-1 p-2 bg-white border rounded font-mono text-sm">
+                      {generatedCredentials.email}
+                    </div>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => {
                         navigator.clipboard.writeText(generatedCredentials.email);
-                        toast({ title: "Email copiado", description: "El email ha sido copiado al portapapeles" });
+                        toast({ title: "Email copiado" });
                       }}
                     >
                       <Copy className="w-4 h-4" />
@@ -729,38 +742,31 @@ export default function UsuariosUnificado() {
                 
                 <div>
                   <Label className="text-sm font-semibold text-green-800">Contraseña temporal</Label>
-                  <div className="flex items-center justify-between mt-1 p-2 bg-white border rounded">
-                    <span className="font-mono text-sm">{generatedCredentials.password}</span>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          navigator.clipboard.writeText(generatedCredentials.password);
-                          toast({ title: "Contraseña copiada", description: "La contraseña ha sido copiada al portapapeles" });
-                        }}
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const newPassword = generatePassword();
-                          setGeneratedCredentials({...generatedCredentials, password: newPassword});
-                          toast({ title: "Contraseña regenerada", description: "Se ha generado una nueva contraseña" });
-                        }}
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                      </Button>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="flex-1 p-2 bg-white border rounded font-mono text-sm">
+                      {generatedCredentials.password}
                     </div>
-                  </div>
-                </div>
-                
-                <div>
-                  <Label className="text-sm font-semibold text-green-800">Rol asignado</Label>
-                  <div className="mt-1 p-2 bg-white border rounded">
-                    <span className="text-sm">{getRoleDisplayName(generatedCredentials.role as UserRole)}</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(generatedCredentials.password);
+                        toast({ title: "Contraseña copiada" });
+                      }}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const newPassword = generatePassword();
+                        setGeneratedCredentials({...generatedCredentials, password: newPassword});
+                        toast({ title: "Contraseña regenerada" });
+                      }}
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -771,46 +777,40 @@ export default function UsuariosUnificado() {
                   <div className="text-sm text-amber-800">
                     <p className="font-semibold">Información importante:</p>
                     <ul className="mt-1 space-y-1 text-xs">
-                      <li>• Comparte estas credenciales de forma segura con el usuario</li>
+                      <li>• Comparte estas credenciales de forma segura</li>
                       <li>• El usuario debe cambiar la contraseña en su primer acceso</li>
-                      <li>• Las credenciales son válidas inmediatamente</li>
-                      <li>• URL de acceso: https://edupay.institutojfr.edu.mx/login</li>
+                      <li>• URL: https://edupay.institutojfr.edu.mx/login</li>
                     </ul>
                   </div>
                 </div>
               </div>
-              
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => {
-                    const text = `Credenciales de acceso EDUPAY\n\nNombre: ${generatedCredentials.nombre_completo}\nUsuario: ${generatedCredentials.username}\nEmail: ${generatedCredentials.email}\nContraseña: ${generatedCredentials.password}\nRol: ${getRoleDisplayName(generatedCredentials.role as UserRole)}\n\nURL: https://edupay.institutojfr.edu.mx/login\n\nPor favor, cambia tu contraseña en el primer acceso.`;
-                    navigator.clipboard.writeText(text);
-                    toast({ title: "Credenciales copiadas", description: "Todas las credenciales han sido copiadas al portapapeles" });
-                  }}
-                >
-                  <Copy className="w-4 h-4 mr-2" />
-                  Copiar todo
-                </Button>
-                <Button
-                  className="flex-1"
-                  onClick={() => {
-                    // Aquí podrías enviar las credenciales por email
-                    toast({ 
-                      title: "Credenciales enviadas", 
-                      description: `Se han enviado las credenciales a ${generatedCredentials.email}` 
-                    });
-                  }}
-                >
-                  <Mail className="w-4 h-4 mr-2" />
-                  Enviar por email
-                </Button>
-              </div>
             </div>
           )}
           
-          <DialogFooter>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const text = `Credenciales EDUPAY\n\nNombre: ${generatedCredentials.nombre_completo}\nUsuario: ${generatedCredentials.username}\nEmail: ${generatedCredentials.email}\nContraseña: ${generatedCredentials.password}\nRol: ${getRoleDisplayName(generatedCredentials.role as UserRole)}\n\nURL: https://edupay.institutojfr.edu.mx/login\n\nCambia tu contraseña en el primer acceso.`;
+                navigator.clipboard.writeText(text);
+                toast({ title: "Credenciales copiadas" });
+              }}
+            >
+              <Copy className="w-4 h-4 mr-2" />
+              Copiar todo
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                toast({ 
+                  title: "Credenciales enviadas", 
+                  description: `Enviadas a ${generatedCredentials.email}` 
+                });
+              }}
+            >
+              <Mail className="w-4 h-4 mr-2" />
+              Enviar email
+            </Button>
             <Button 
               onClick={() => {
                 setShowCredentialsModal(false);

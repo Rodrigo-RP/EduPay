@@ -66,6 +66,12 @@ interface PendingApproval {
   requester_name?: string;
   requester_email?: string;
   requester_role?: string;
+  student_info?: {
+    nombre_completo?: string;
+    grado?: string;
+    grupo?: string;
+    curp?: string;
+  };
 }
 
 interface ApprovalNotification {
@@ -137,7 +143,10 @@ export default function Aprobaciones() {
   // Decision mutation
   const decisionMutation = useMutation({
     mutationFn: async (data: { approval_id: number; decision: string; notes?: string }) => {
-      return await apiRequest('POST', '/api/approvals/decision', data);
+      return await apiRequest('/api/approvals/decision', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
     },
     onSuccess: (data: any) => {
       toast({
@@ -165,7 +174,10 @@ export default function Aprobaciones() {
   // Mark notification as read
   const markAsReadMutation = useMutation({
     mutationFn: async (id: number) => {
-      return await apiRequest('POST', `/api/approvals/notifications/${id}/read`, {});
+      return await apiRequest(`/api/approvals/notifications/${id}/read`, {
+        method: 'POST',
+        body: JSON.stringify({})
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/approvals/notifications'] });

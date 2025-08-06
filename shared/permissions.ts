@@ -3,7 +3,7 @@
  * Define reglas de autorización para cada rol de usuario
  */
 
-export type UserRole = 'super_admin' | 'admin' | 'caja' | 'contador' | 'admisiones' | 'asistente' | 'support' | 'implementation' | 'administrador_general' | 'administrador_campus' | 'contador_general' | 'auxiliar_contable';
+export type UserRole = 'super_admin' | 'administrador_general' | 'administrador_campus' | 'contador_general' | 'auxiliar_contable' | 'asistente' | 'admisiones';
 
 export interface Permission {
   module: string;
@@ -64,15 +64,15 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
   {
     role: 'super_admin',
     name: 'Super Administrador',
-    description: 'Acceso completo a toda la plataforma SaaS',
+    description: 'Responsable de toda la plataforma SaaS - NO TRABAJAR HASTA COMPLETAR DASHBOARD ADMINISTRADOR GENERAL',
     permissions: [
-      { module: MODULES.DASHBOARD, action: ACTIONS.READ, scope: 'all', description: 'Ver todos los dashboards' },
+      { module: MODULES.DASHBOARD, action: ACTIONS.READ, scope: 'all', description: 'Ver todos los dashboards de la plataforma' },
       { module: MODULES.STUDENTS, action: ACTIONS.CREATE, scope: 'all', description: 'Crear estudiantes en cualquier campus' },
-      { module: MODULES.STUDENTS, action: ACTIONS.READ, scope: 'all', description: 'Ver todos los estudiantes' },
+      { module: MODULES.STUDENTS, action: ACTIONS.READ, scope: 'all', description: 'Ver todos los estudiantes de la plataforma' },
       { module: MODULES.STUDENTS, action: ACTIONS.UPDATE, scope: 'all', description: 'Editar cualquier estudiante' },
       { module: MODULES.STUDENTS, action: ACTIONS.DELETE, scope: 'all', description: 'Eliminar cualquier estudiante' },
       { module: MODULES.FAMILIES, action: ACTIONS.CREATE, scope: 'all', description: 'Crear familias en cualquier campus' },
-      { module: MODULES.FAMILIES, action: ACTIONS.READ, scope: 'all', description: 'Ver todas las familias' },
+      { module: MODULES.FAMILIES, action: ACTIONS.READ, scope: 'all', description: 'Ver todas las familias de la plataforma' },
       { module: MODULES.FAMILIES, action: ACTIONS.UPDATE, scope: 'all', description: 'Editar cualquier familia' },
       { module: MODULES.FAMILIES, action: ACTIONS.DELETE, scope: 'all', description: 'Eliminar cualquier familia' },
       { module: MODULES.CHARGES, action: ACTIONS.CREATE, scope: 'all', description: 'Crear cargos en cualquier campus' },
@@ -98,9 +98,9 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
     restrictions: []
   },
   {
-    role: 'admin',
-    name: 'Administrador de Campus',
-    description: 'Administración completa de un campus específico',
+    role: 'administrador_general',
+    name: 'Administrador General',
+    description: 'Administración completa del instituto con control total sobre cambios financieros',
     permissions: [
       { module: MODULES.DASHBOARD, action: ACTIONS.READ, scope: 'campus', description: 'Ver dashboard del campus' },
       { module: MODULES.STUDENTS, action: ACTIONS.CREATE, scope: 'campus', description: 'Crear estudiantes del campus' },
@@ -140,10 +140,85 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.SYSTEM, action: ACTIONS.APPROVE, scope: 'campus', description: 'Aprobar acciones del campus' }
     ],
     restrictions: [
-      'No puede ver información de otros campus',
+      'Control total sobre el instituto',
+      'Debe aprobar todos los cambios financieros importantes',
+      'Acceso completo a información del estudiante en aprobaciones'
+    ]
+  },
+  {
+    role: 'administrador_campus',
+    name: 'Administrador de Campus',
+    description: 'Administración de un campus específico bajo supervisión del Administrador General',
+    permissions: [
+      { module: MODULES.DASHBOARD, action: ACTIONS.READ, scope: 'campus', description: 'Ver dashboard del campus' },
+      { module: MODULES.STUDENTS, action: ACTIONS.CREATE, scope: 'campus', description: 'Crear estudiantes del campus' },
+      { module: MODULES.STUDENTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver estudiantes del campus' },
+      { module: MODULES.STUDENTS, action: ACTIONS.UPDATE, scope: 'campus', description: 'Editar estudiantes del campus' },
+      { module: MODULES.FAMILIES, action: ACTIONS.CREATE, scope: 'campus', description: 'Crear familias del campus' },
+      { module: MODULES.FAMILIES, action: ACTIONS.READ, scope: 'campus', description: 'Ver familias del campus' },
+      { module: MODULES.FAMILIES, action: ACTIONS.UPDATE, scope: 'campus', description: 'Editar familias del campus' },
+      { module: MODULES.CHARGES, action: ACTIONS.READ, scope: 'campus', description: 'Ver cargos del campus' },
+      { module: MODULES.PAYMENTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver pagos del campus' },
+      { module: MODULES.CONCEPTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver conceptos del campus' },
+      { module: MODULES.SCHOLARSHIPS, action: ACTIONS.READ, scope: 'campus', description: 'Ver becas del campus' },
+      { module: MODULES.USERS, action: ACTIONS.READ, scope: 'campus', description: 'Ver usuarios del campus' },
+      { module: MODULES.REPORTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver reportes del campus' },
+      { module: MODULES.SETTINGS, action: ACTIONS.READ, scope: 'campus', description: 'Ver configuración del campus' },
+      { module: MODULES.SYSTEM, action: ACTIONS.READ, scope: 'campus', description: 'Ver sistemas del campus' }
+    ],
+    restrictions: [
+      'Cambios financieros requieren aprobación del Administrador General',
+      'No puede eliminar estudiantes sin aprobación',
       'No puede crear usuarios Super Admin',
-      'No puede modificar configuraciones globales del sistema',
-      'No puede acceder a funciones de seguridad del sistema'
+      'No puede ver información de otros campus'
+    ]
+  },
+  {
+    role: 'contador_general',
+    name: 'Contador General',
+    description: 'Acceso completo a análisis financiero y reportes contables',
+    permissions: [
+      { module: MODULES.DASHBOARD, action: ACTIONS.READ, scope: 'campus', description: 'Ver dashboard financiero del campus' },
+      { module: MODULES.STUDENTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver estudiantes del campus' },
+      { module: MODULES.FAMILIES, action: ACTIONS.READ, scope: 'campus', description: 'Ver familias del campus' },
+      { module: MODULES.CHARGES, action: ACTIONS.READ, scope: 'campus', description: 'Ver todos los cargos del campus' },
+      { module: MODULES.PAYMENTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver todos los pagos del campus' },
+      { module: MODULES.RECEIVABLES, action: ACTIONS.READ, scope: 'campus', description: 'Ver cuentas por cobrar completas' },
+      { module: MODULES.REPORTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver todos los reportes financieros' },
+      { module: MODULES.REPORTS, action: ACTIONS.EXPORT, scope: 'campus', description: 'Exportar todos los reportes' },
+      { module: MODULES.FINANCIAL, action: ACTIONS.READ, scope: 'campus', description: 'Ver análisis financiero completo' },
+      { module: MODULES.FISCAL, action: ACTIONS.READ, scope: 'campus', description: 'Ver información fiscal completa' },
+      { module: MODULES.FISCAL, action: ACTIONS.CONFIGURE, scope: 'campus', description: 'Configurar aspectos fiscales' }
+    ],
+    restrictions: [
+      'No puede crear o eliminar estudiantes',
+      'No puede procesar pagos directamente',
+      'No puede asignar becas',
+      'No puede crear usuarios',
+      'Enfoque principal en análisis y reportes'
+    ]
+  },
+  {
+    role: 'auxiliar_contable',
+    name: 'Auxiliar Contable',
+    description: 'Soporte contable con acceso limitado a funciones financieras',
+    permissions: [
+      { module: MODULES.DASHBOARD, action: ACTIONS.READ, scope: 'campus', description: 'Ver dashboard básico del campus' },
+      { module: MODULES.STUDENTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver estudiantes del campus' },
+      { module: MODULES.FAMILIES, action: ACTIONS.READ, scope: 'campus', description: 'Ver familias del campus' },
+      { module: MODULES.CHARGES, action: ACTIONS.READ, scope: 'campus', description: 'Ver cargos del campus' },
+      { module: MODULES.PAYMENTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver pagos del campus' },
+      { module: MODULES.RECEIVABLES, action: ACTIONS.READ, scope: 'campus', description: 'Ver cuentas por cobrar básicas' },
+      { module: MODULES.REPORTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver reportes básicos' },
+      { module: MODULES.FISCAL, action: ACTIONS.READ, scope: 'campus', description: 'Ver información fiscal básica' }
+    ],
+    restrictions: [
+      'Solo acceso de lectura a información financiera',
+      'No puede exportar reportes',
+      'No puede crear o eliminar información',
+      'No puede procesar pagos',
+      'No puede configurar aspectos fiscales',
+      'Acceso limitado comparado con Contador General'
     ]
   },
   {
@@ -210,77 +285,24 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       'No puede configurar conceptos',
       'No puede acceder a cuentas por cobrar'
     ]
-  },
-  {
-    role: 'caja',
-    name: 'Caja',
-    description: 'Procesamiento de pagos y gestión financiera',
-    permissions: [
-      { module: MODULES.DASHBOARD, action: ACTIONS.READ, scope: 'campus', description: 'Ver dashboard del campus' },
-      { module: MODULES.STUDENTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver estudiantes del campus' },
-      { module: MODULES.FAMILIES, action: ACTIONS.READ, scope: 'campus', description: 'Ver familias del campus' },
-      { module: MODULES.CHARGES, action: ACTIONS.READ, scope: 'campus', description: 'Ver cargos del campus' },
-      { module: MODULES.CHARGES, action: ACTIONS.UPDATE, scope: 'campus', description: 'Modificar estado de cargos' },
-      { module: MODULES.PAYMENTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver pagos del campus' },
-      { module: MODULES.PAYMENTS, action: ACTIONS.PROCESS, scope: 'campus', description: 'Procesar pagos del campus' },
-      { module: MODULES.PAYMENTS, action: ACTIONS.CREATE, scope: 'campus', description: 'Registrar pagos manuales' },
-      { module: MODULES.RECEIVABLES, action: ACTIONS.READ, scope: 'campus', description: 'Ver cuentas por cobrar del campus' },
-      { module: MODULES.RECEIVABLES, action: ACTIONS.PROCESS, scope: 'campus', description: 'Procesar cobranza del campus' },
-      { module: MODULES.REPORTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver reportes financieros' },
-      { module: MODULES.REPORTS, action: ACTIONS.EXPORT, scope: 'campus', description: 'Exportar reportes financieros' },
-      { module: MODULES.FISCAL, action: ACTIONS.READ, scope: 'campus', description: 'Ver funcionalidad fiscal y contable' }
-    ],
-    restrictions: [
-      'No puede crear o eliminar estudiantes/familias',
-      'No puede crear cargos',
-      'No puede asignar becas',
-      'No puede crear usuarios',
-      'No puede configurar conceptos',
-      'No puede ver análisis financiero avanzado',
-      'No puede acceder a CRM o proveedores'
-    ]
-  },
-  {
-    role: 'contador',
-    name: 'Contador',
-    description: 'Acceso de solo lectura para reportes y análisis',
-    permissions: [
-      { module: MODULES.DASHBOARD, action: ACTIONS.READ, scope: 'campus', description: 'Ver dashboard del campus' },
-      { module: MODULES.STUDENTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver estudiantes del campus' },
-      { module: MODULES.FAMILIES, action: ACTIONS.READ, scope: 'campus', description: 'Ver familias del campus' },
-      { module: MODULES.CHARGES, action: ACTIONS.READ, scope: 'campus', description: 'Ver cargos del campus' },
-      { module: MODULES.PAYMENTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver pagos del campus' },
-      { module: MODULES.RECEIVABLES, action: ACTIONS.READ, scope: 'campus', description: 'Ver cuentas por cobrar del campus' },
-      { module: MODULES.REPORTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver todos los reportes' },
-      { module: MODULES.REPORTS, action: ACTIONS.EXPORT, scope: 'campus', description: 'Exportar todos los reportes' },
-      { module: MODULES.FINANCIAL, action: ACTIONS.READ, scope: 'campus', description: 'Ver análisis financiero del campus' },
-      { module: MODULES.FISCAL, action: ACTIONS.READ, scope: 'campus', description: 'Ver funcionalidad fiscal y contable' }
-    ],
-    restrictions: [
-      'Solo acceso de lectura',
-      'No puede crear, modificar o eliminar información',
-      'No puede procesar pagos',
-      'No puede asignar becas',
-      'No puede crear usuarios',
-      'No puede configurar conceptos',
-      'No puede acceder a CRM o proveedores'
-    ]
   }
 ];
 
 /**
- * MAPEO DE ROLES PARA COMPATIBILIDAD
+ * ROLES ESPECIFICADOS PARA EDUPAY:
+ * 1. Super Admin - Responsable de toda la plataforma SaaS (NO TRABAJAR HASTA COMPLETAR DASHBOARD ADMINISTRADOR GENERAL)
+ * 2. Administrador General - Control total del instituto (Rodrigo Rodriguez Pacheco)
+ * 3. Administrador de Campus - Administración de campus específico
+ * 4. Contador General - Acceso completo a análisis financiero
+ * 5. Auxiliar Contable - Soporte contable limitado
+ * 6. Asistente - Soporte administrativo básico
+ * 7. Admisiones - Gestión de estudiantes y proceso de admisión
  */
-function mapRole(userRole: UserRole): UserRole {
-  const roleMapping: Record<string, UserRole> = {
-    'administrador_general': 'super_admin',
-    'administrador_campus': 'admin',
-    'contador_general': 'contador',
-    'auxiliar_contable': 'contador'
-  };
-  
-  return roleMapping[userRole] || userRole;
-}
+
+/**
+ * MAPEO DE ROLES PARA COMPATIBILIDAD - REMOVIDO
+ * Usamos roles directamente sin mapeo para mayor claridad
+ */
 
 /**
  * FUNCIONES PARA VERIFICAR PERMISOS
@@ -291,8 +313,7 @@ export function hasPermission(
   action: string,
   scope: 'all' | 'campus' | 'own' | 'read_only' = 'campus'
 ): boolean {
-  const mappedRole = mapRole(userRole);
-  const rolePermissions = ROLE_PERMISSIONS.find(r => r.role === mappedRole);
+  const rolePermissions = ROLE_PERMISSIONS.find(r => r.role === userRole);
   if (!rolePermissions) return false;
 
   const permission = rolePermissions.permissions.find(
@@ -302,7 +323,7 @@ export function hasPermission(
   if (!permission) return false;
 
   // Super admin tiene acceso completo
-  if (mappedRole === 'super_admin') return true;
+  if (userRole === 'super_admin') return true;
 
   // Verificar scope
   switch (scope) {
@@ -320,8 +341,7 @@ export function hasPermission(
 }
 
 export function getRolePermissions(userRole: UserRole): RolePermissions | undefined {
-  const mappedRole = mapRole(userRole);
-  return ROLE_PERMISSIONS.find(r => r.role === mappedRole);
+  return ROLE_PERMISSIONS.find(r => r.role === userRole);
 }
 
 export function getAllRoles(): RolePermissions[] {
@@ -329,15 +349,24 @@ export function getAllRoles(): RolePermissions[] {
 }
 
 export function canAccessModule(userRole: UserRole, module: string): boolean {
-  const mappedRole = mapRole(userRole);
-  const rolePermissions = ROLE_PERMISSIONS.find(r => r.role === mappedRole);
+  const rolePermissions = ROLE_PERMISSIONS.find(r => r.role === userRole);
   if (!rolePermissions) return false;
 
   return rolePermissions.permissions.some(p => p.module === module);
 }
 
 export function getRestrictionsForRole(userRole: UserRole): string[] {
-  const mappedRole = mapRole(userRole);
-  const rolePermissions = ROLE_PERMISSIONS.find(r => r.role === mappedRole);
+  const rolePermissions = ROLE_PERMISSIONS.find(r => r.role === userRole);
   return rolePermissions?.restrictions || [];
+}
+
+/**
+ * FUNCIÓN HELPER PARA OBTENER NOMBRE Y DESCRIPCIÓN DEL ROL
+ */
+export function getRoleDisplayInfo(userRole: UserRole): { name: string; description: string } {
+  const rolePermissions = ROLE_PERMISSIONS.find(r => r.role === userRole);
+  return {
+    name: rolePermissions?.name || 'Rol desconocido',
+    description: rolePermissions?.description || 'Sin descripción'
+  };
 }

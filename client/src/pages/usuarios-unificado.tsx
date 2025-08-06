@@ -41,8 +41,8 @@ export default function UsuariosUnificado() {
     activo: true
   });
 
-  // Datos demo de usuarios del sistema con nuevos roles
-  const usuarios = [
+  // Estado para usuarios del sistema
+  const [usuarios, setUsuarios] = useState([
     {
       id: 1,
       email: "admin@institutojfr.edu.mx",
@@ -139,7 +139,7 @@ export default function UsuariosUnificado() {
       created_at: "2024-12-01",
       custom_permissions: []
     }
-  ];
+  ]);
 
   // Función para obtener icono del rol
   const getRoleIcon = (role: string) => {
@@ -211,6 +211,23 @@ export default function UsuariosUnificado() {
   const handleCreateUser = () => {
     const username = generateUsername(formData.nombre_completo);
     const password = autoGeneratePassword ? generatePassword() : customPassword;
+    
+    // Crear nuevo usuario
+    const newUser = {
+      id: usuarios.length + 1,
+      email: formData.email,
+      nombre_completo: formData.nombre_completo,
+      role: formData.role,
+      telefono: formData.telefono,
+      activo: formData.activo,
+      campus: formData.campus,
+      ultimo_acceso: "Nunca",
+      created_at: new Date().toISOString().split('T')[0],
+      custom_permissions: []
+    };
+    
+    // Agregar a la lista
+    setUsuarios(prevUsuarios => [...prevUsuarios, newUser]);
     
     const credentials = {
       username: username,
@@ -652,6 +669,15 @@ export default function UsuariosUnificado() {
                   return;
                 }
                 
+                // Actualizar el usuario en la lista
+                setUsuarios(prevUsuarios => 
+                  prevUsuarios.map(usuario => 
+                    usuario.id === editingUser.id 
+                      ? { ...usuario, ...formData }
+                      : usuario
+                  )
+                );
+                
                 toast({
                   title: "Usuario actualizado",
                   description: `Se ha actualizado la información de "${formData.nombre_completo}".`,
@@ -761,6 +787,11 @@ export default function UsuariosUnificado() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDeleteModal(false)}>Cancelar</Button>
             <Button variant="destructive" onClick={() => {
+              // Eliminar usuario de la lista
+              setUsuarios(prevUsuarios => 
+                prevUsuarios.filter(usuario => usuario.id !== userToDelete.id)
+              );
+              
               toast({
                 title: "Usuario eliminado",
                 description: `El usuario "${userToDelete?.nombre_completo}" ha sido eliminado del sistema.`,

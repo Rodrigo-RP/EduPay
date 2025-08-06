@@ -204,10 +204,8 @@ export default function UsuariosUnificado() {
   const handleShowPermissions = (user: any) => {
     setSelectedUserForPermissions(user);
     // Inicializar permisos personalizados con los permisos por defecto del rol + permisos custom existentes
-    const defaultPermissions = getUserPermissions(user.role as UserRole);
     const userCustomPermissions = user.custom_permissions || [];
-    // Combinar ambos arrays eliminando duplicados
-    const allPermissions = [...new Set([...defaultPermissions, ...userCustomPermissions])];
+    const allPermissions = getUserPermissions(user.role as UserRole, userCustomPermissions);
     setCustomPermissions(allPermissions);
     setShowPermissionsModal(true);
   };
@@ -325,7 +323,7 @@ export default function UsuariosUnificado() {
               <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50">
                 <div className="flex items-center space-x-4">
                   <div className="w-10 h-10 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
-                    {user.nombre_completo.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                    {user.nombre_completo.split(' ').map((n: string) => n[0]).join('').substring(0, 2)}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
@@ -640,7 +638,7 @@ export default function UsuariosUnificado() {
                 <h4 className="font-semibold mb-2">Permisos del rol: {getRoleDisplayName(selectedUserForPermissions?.role as UserRole)}</h4>
                 <p className="text-sm text-gray-600 mb-3">{getRoleDescription(selectedUserForPermissions?.role as UserRole)}</p>
                 <div className="grid grid-cols-2 gap-2 text-sm">
-                  {selectedUserForPermissions && getUserPermissions(selectedUserForPermissions.role as UserRole).map(permission => (
+                  {selectedUserForPermissions && getUserPermissions(selectedUserForPermissions.role as UserRole, []).map(permission => (
                     <div key={permission} className="flex items-center gap-2">
                       <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                       {PERMISSIONS[permission as keyof typeof PERMISSIONS] || permission}
@@ -661,7 +659,7 @@ export default function UsuariosUnificado() {
                       <div className="grid grid-cols-1 gap-2">
                         {permissions.map(permission => {
                           const isDefaultPermission = selectedUserForPermissions && 
-                            getUserPermissions(selectedUserForPermissions.role as UserRole).includes(permission.id);
+                            getUserPermissions(selectedUserForPermissions.role as UserRole, []).includes(permission.id);
                           
                           return (
                             <div key={permission.id} className="flex items-center space-x-2">

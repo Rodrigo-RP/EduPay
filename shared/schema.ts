@@ -533,7 +533,7 @@ export const payment_due_dates = pgTable("payment_due_dates", {
 });
 
 // SURCHARGE RULES CONFIG
-export const surcharge_rules = pgTable("surcharge_rules", {
+export const payment_surcharge_rules = pgTable("payment_surcharge_rules", {
   id: serial("id").primaryKey(),
   campus_id: integer("campus_id").references(() => campuses.id).notNull(),
   nombre: text("nombre").notNull(),
@@ -558,9 +558,9 @@ export const paymentDueDatesRelations = relations(payment_due_dates, ({ one }) =
   }),
 }));
 
-export const surchargeRulesRelations = relations(surcharge_rules, ({ one }) => ({
+export const paymentSurchargeRulesRelations = relations(payment_surcharge_rules, ({ one }) => ({
   campus: one(campuses, {
-    fields: [surcharge_rules.campus_id],
+    fields: [payment_surcharge_rules.campus_id],
     references: [campuses.id],
   }),
 }));
@@ -584,7 +584,7 @@ export const insertPaymentDueDateSchema = createInsertSchema(payment_due_dates).
   updated_at: true,
 });
 
-export const insertSurchargeRuleSchema = createInsertSchema(surcharge_rules).omit({
+export const insertPaymentSurchargeRuleSchema = createInsertSchema(payment_surcharge_rules).omit({
   id: true,
   created_at: true,
   updated_at: true,
@@ -598,8 +598,8 @@ export type InsertLateFeeCalculation = z.infer<typeof insertLateFeeCalculationSc
 
 export type PaymentDueDate = typeof payment_due_dates.$inferSelect;
 export type InsertPaymentDueDate = z.infer<typeof insertPaymentDueDateSchema>;
-export type SurchargeRule = typeof surcharge_rules.$inferSelect;
-export type InsertSurchargeRule = z.infer<typeof insertSurchargeRuleSchema>;
+export type PaymentSurchargeRule = typeof payment_surcharge_rules.$inferSelect;
+export type InsertPaymentSurchargeRule = z.infer<typeof insertPaymentSurchargeRuleSchema>;
 
 // ========================================
 // SUPER ADMIN PLATFORM MANAGEMENT TABLES

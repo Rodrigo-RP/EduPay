@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar, Percent, DollarSign, Plus, Trash2, Settings, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -51,6 +52,24 @@ export default function ConfiguracionPagos() {
     dia_vencimiento: "",
     mes_aplicacion: "todos"
   });
+
+  const [mesesSeleccionados, setMesesSeleccionados] = useState<string[]>([]);
+  const [aplicaTodosLosMeses, setAplicaTodosLosMeses] = useState(true);
+
+  const meses = [
+    { id: "enero", nombre: "Enero" },
+    { id: "febrero", nombre: "Febrero" },
+    { id: "marzo", nombre: "Marzo" },
+    { id: "abril", nombre: "Abril" },
+    { id: "mayo", nombre: "Mayo" },
+    { id: "junio", nombre: "Junio" },
+    { id: "julio", nombre: "Julio" },
+    { id: "agosto", nombre: "Agosto" },
+    { id: "septiembre", nombre: "Septiembre" },
+    { id: "octubre", nombre: "Octubre" },
+    { id: "noviembre", nombre: "Noviembre" },
+    { id: "diciembre", nombre: "Diciembre" }
+  ];
 
   const [nuevoRecargo, setNuevoRecargo] = useState({
     nombre: "",
@@ -133,6 +152,8 @@ export default function ConfiguracionPagos() {
       setShowFechaModal(false);
       setEditingFecha(null);
       setNuevaFecha({ concepto: "", dia_vencimiento: "", mes_aplicacion: "todos" });
+      setAplicaTodosLosMeses(true);
+      setMesesSeleccionados([]);
       toast({
         title: editingFecha ? "Fecha actualizada" : "Fecha creada",
         description: editingFecha ? 
@@ -229,7 +250,42 @@ export default function ConfiguracionPagos() {
       });
       return;
     }
-    saveFechaMutation.mutate(nuevaFecha);
+
+    // Determinar mes_aplicacion según la selección
+    let mes_aplicacion = "todos";
+    if (!aplicaTodosLosMeses) {
+      if (mesesSeleccionados.length === 0) {
+        toast({
+          title: "Error",
+          description: "Selecciona al menos un mes o marca 'Todos los meses'",
+          variant: "destructive"
+        });
+        return;
+      }
+      mes_aplicacion = JSON.stringify(mesesSeleccionados);
+    }
+
+    const payload = {
+      ...nuevaFecha,
+      mes_aplicacion
+    };
+
+    saveFechaMutation.mutate(payload);
+  };
+
+  const handleToggleMes = (mesId: string) => {
+    setMesesSeleccionados(prev => 
+      prev.includes(mesId) 
+        ? prev.filter(m => m !== mesId)
+        : [...prev, mesId]
+    );
+  };
+
+  const handleToggleTodosLosMeses = (checked: boolean) => {
+    setAplicaTodosLosMeses(checked);
+    if (checked) {
+      setMesesSeleccionados([]);
+    }
   };
 
   const handleGuardarRecargo = () => {
@@ -270,6 +326,22 @@ export default function ConfiguracionPagos() {
       dia_vencimiento: fecha.dia_vencimiento.toString(),
       mes_aplicacion: fecha.mes_aplicacion
     });
+
+    // Configurar selección de meses
+    if (fecha.mes_aplicacion === "todos") {
+      setAplicaTodosLosMeses(true);
+      setMesesSeleccionados([]);
+    } else {
+      setAplicaTodosLosMeses(false);
+      try {
+        const mesesArray = JSON.parse(fecha.mes_aplicacion);
+        setMesesSeleccionados(Array.isArray(mesesArray) ? mesesArray : []);
+      } catch (e) {
+        // Si no es JSON válido, asumir que es un solo mes
+        setMesesSeleccionados([fecha.mes_aplicacion]);
+      }
+    }
+
     setShowFechaModal(true);
   };
 
@@ -289,9 +361,28 @@ export default function ConfiguracionPagos() {
   };
 
   const renderFechaCard = (fecha: FechaVencimiento) => {
-    const mesTexto = fecha.mes_aplicacion === "todos" ? "Todos los meses" : 
-                     fecha.mes_aplicacion === "agosto" ? "Agosto" :
-                     fecha.mes_aplicacion === "febrero" ? "Febrero" : fecha.mes_aplicacion;
+    const mesTexto = (() => {
+      if (fecha.mes_aplicacion === "todos") return "Todos los meses";
+      
+      try {
+        // Intentar parsear como JSON (meses específicos)
+        const mesesArray = JSON.parse(fecha.mes_aplicacion);
+        if (Array.isArray(mesesArray)) {
+          if (mesesArray.length === 1) {
+            return mesesArray[0].charAt(0).toUpperCase() + mesesArray[0].slice(1);
+          }
+          const mesesNombres = mesesArray.map(m => m.charAt(0).toUpperCase() + m.slice(1));
+          return mesesNombres.length > 3 
+            ? `${mesesNombres.slice(0, 2).join(', ')} y ${mesesNombres.length - 2} más`
+            : mesesNombres.join(', ');
+        }
+      } catch (e) {
+        // No es JSON, es un mes individual
+        return fecha.mes_aplicacion.charAt(0).toUpperCase() + fecha.mes_aplicacion.slice(1);
+      }
+      
+      return fecha.mes_aplicacion;
+    })();
 
     return (
       <Card key={fecha.id} className="relative">
@@ -528,6 +619,8 @@ export default function ConfiguracionPagos() {
               onClick={() => {
                 setEditingFecha(null);
                 setNuevaFecha({ concepto: "", dia_vencimiento: "", mes_aplicacion: "todos" });
+                setAplicaTodosLosMeses(true);
+                setMesesSeleccionados([]);
               }}
             >
               <Plus className="w-5 h-5 mr-2" />
@@ -563,30 +656,47 @@ export default function ConfiguracionPagos() {
                 />
               </div>
               <div>
-                <Label htmlFor="mes">Aplicación</Label>
-                <Select 
-                  value={nuevaFecha.mes_aplicacion} 
-                  onValueChange={(value) => setNuevaFecha(prev => ({ ...prev, mes_aplicacion: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona aplicación" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todos los meses</SelectItem>
-                    <SelectItem value="enero">Enero</SelectItem>
-                    <SelectItem value="febrero">Febrero</SelectItem>
-                    <SelectItem value="marzo">Marzo</SelectItem>
-                    <SelectItem value="abril">Abril</SelectItem>
-                    <SelectItem value="mayo">Mayo</SelectItem>
-                    <SelectItem value="junio">Junio</SelectItem>
-                    <SelectItem value="julio">Julio</SelectItem>
-                    <SelectItem value="agosto">Agosto</SelectItem>
-                    <SelectItem value="septiembre">Septiembre</SelectItem>
-                    <SelectItem value="octubre">Octubre</SelectItem>
-                    <SelectItem value="noviembre">Noviembre</SelectItem>
-                    <SelectItem value="diciembre">Diciembre</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Aplicación en meses</Label>
+                
+                {/* Opción "Todos los meses" */}
+                <div className="flex items-center space-x-2 mt-2 p-3 border rounded-lg">
+                  <Checkbox
+                    id="todos-meses"
+                    checked={aplicaTodosLosMeses}
+                    onCheckedChange={handleToggleTodosLosMeses}
+                  />
+                  <Label htmlFor="todos-meses" className="font-medium">
+                    Todos los meses
+                  </Label>
+                </div>
+
+                {/* Selección específica de meses */}
+                {!aplicaTodosLosMeses && (
+                  <div className="mt-3 p-3 border rounded-lg">
+                    <Label className="text-sm text-muted-foreground mb-2 block">
+                      Selecciona meses específicos:
+                    </Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {meses.map((mes) => (
+                        <div key={mes.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={mes.id}
+                            checked={mesesSeleccionados.includes(mes.id)}
+                            onCheckedChange={() => handleToggleMes(mes.id)}
+                          />
+                          <Label htmlFor={mes.id} className="text-sm">
+                            {mes.nombre}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                    {!aplicaTodosLosMeses && mesesSeleccionados.length > 0 && (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        {mesesSeleccionados.length} mes{mesesSeleccionados.length !== 1 ? 'es' : ''} seleccionado{mesesSeleccionados.length !== 1 ? 's' : ''}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="flex gap-2 pt-4">
                 <Button 

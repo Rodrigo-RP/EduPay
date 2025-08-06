@@ -142,7 +142,6 @@ export default function Profile() {
       return apiRequest(profileEndpoint, {
         method: "PUT",
         body: JSON.stringify(payload),
-        headers: { "Content-Type": "application/json" },
       });
     },
     onSuccess: () => {
@@ -167,7 +166,6 @@ export default function Profile() {
       return apiRequest(passwordEndpoint, {
         method: "PUT",
         body: JSON.stringify(data),
-        headers: { "Content-Type": "application/json" },
       });
     },
     onSuccess: () => {
@@ -235,7 +233,6 @@ export default function Profile() {
       return apiRequest(endpoint, {
         method,
         body: JSON.stringify(data),
-        headers: { "Content-Type": "application/json" },
       });
     },
     onSuccess: () => {
@@ -706,7 +703,7 @@ export default function Profile() {
               <CardContent>
                 <div className="flex justify-between items-center mb-6">
                   <div className="text-sm text-muted-foreground">
-                    {institutionalCredentials?.length || 0} credenciales guardadas
+                    {Array.isArray(institutionalCredentials) ? institutionalCredentials.length : 0} credenciales guardadas
                   </div>
                   <Button onClick={handleAddCredential} className="flex items-center gap-2">
                     <Plus className="w-4 h-4" />
@@ -718,7 +715,7 @@ export default function Profile() {
                   <div className="flex items-center justify-center py-8">
                     <div className="animate-spin w-6 h-6 border-4 border-primary border-t-transparent rounded-full" />
                   </div>
-                ) : institutionalCredentials && institutionalCredentials.length > 0 ? (
+                ) : Array.isArray(institutionalCredentials) && institutionalCredentials.length > 0 ? (
                   <div className="space-y-4">
                     {institutionalCredentials.map((credential: any) => {
                       const expirationStatus = getExpirationStatus(credential.expiration_date);

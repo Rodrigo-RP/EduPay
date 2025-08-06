@@ -53,8 +53,7 @@ export const institutional_credentials = pgTable("institutional_credentials", {
   username: varchar("username", { length: 255 }),
   password_encrypted: varchar("password_encrypted", { length: 500 }), // Encrypted password
   expiration_date: date("expiration_date"),
-  notification_sent: boolean("notification_sent").default(false),
-  last_notification_date: timestamp("last_notification_date"),
+  last_notification_sent: date("last_notification_sent"),
   is_active: boolean("is_active").default(true),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),

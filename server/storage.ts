@@ -102,6 +102,7 @@ export interface IStorage {
   getWorkflowLogsByApproval(approvalId: number): Promise<ApprovalWorkflowLog[]>;
   checkUserCanApprove(userId: number, actionType: string): Promise<boolean>;
   requiresApproval(actionType: string, userId: number): Promise<boolean>;
+  getAllApprovalsHistory(): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -782,6 +783,40 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(approval_workflow_logs.created_at));
     
     return logs;
+  }
+
+  async getAllApprovalsHistory(): Promise<any[]> {
+    // Get all approvals with requester information
+    const allApprovals = await db
+      .select({
+        id: pending_approvals.id,
+        campus_id: pending_approvals.campus_id,
+        tenant_id: pending_approvals.tenant_id,
+        requested_by: pending_approvals.requested_by,
+        action_type: pending_approvals.action_type,
+        entity_type: pending_approvals.entity_type,
+        entity_id: pending_approvals.entity_id,
+        original_data: pending_approvals.original_data,
+        requested_data: pending_approvals.requested_data,
+        reason: pending_approvals.reason,
+        status: pending_approvals.status,
+        priority: pending_approvals.priority,
+        created_at: pending_approvals.created_at,
+        updated_at: pending_approvals.updated_at,
+        approved_by: pending_approvals.approved_by,
+        approval_notes: pending_approvals.approval_notes,
+        expires_at: pending_approvals.expires_at,
+        requester_name: users.name,
+        requester_email: users.email,
+        requester_role: users.role,
+        action_description: pending_approvals.reason // Using reason as description for now
+      })
+      .from(pending_approvals)
+      .leftJoin(users, eq(pending_approvals.requested_by, users.id))
+      .orderBy(desc(pending_approvals.created_at))
+      .limit(50); // Limit to recent 50 records
+    
+    return allApprovals;
   }
 
   async checkUserCanApprove(userId: number, actionType: string): Promise<boolean> {

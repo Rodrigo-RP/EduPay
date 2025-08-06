@@ -1066,6 +1066,14 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     console.log("Storage updatePaymentDueDate - Result:", updated);
+    
+    // Verificar si realmente se actualizó
+    const verification = await db
+      .select()
+      .from(payment_due_dates)
+      .where(eq(payment_due_dates.id, id));
+    console.log("Storage updatePaymentDueDate - Verification:", verification);
+    
     return updated || undefined;
   }
 

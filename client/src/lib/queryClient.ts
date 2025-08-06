@@ -74,8 +74,8 @@ export const getQueryFn: <T>(options: {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            email: 'admin@jfr.edu.mx',
-            password: 'demo123'
+            email: 'rodrigorp@institutojfr.edu.mx',
+            password: '[REDACTED]'
           })
         });
         

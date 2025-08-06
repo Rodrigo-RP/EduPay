@@ -21,12 +21,18 @@ export interface AuthResponse {
 
 export const authService = {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const response = await apiRequest("POST", "/api/auth/login", credentials);
+    const response = await apiRequest("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify(credentials)
+    });
     return response.json();
   },
 
   async guardianLogin(credentials: LoginCredentials): Promise<AuthResponse> {
-    const response = await apiRequest("POST", "/api/auth/guardian-login", credentials);
+    const response = await apiRequest("/api/auth/guardian-login", {
+      method: "POST", 
+      body: JSON.stringify(credentials)
+    });
     return response.json();
   },
 

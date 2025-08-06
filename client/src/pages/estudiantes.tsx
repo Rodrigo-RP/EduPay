@@ -468,14 +468,14 @@ export default function Estudiantes() {
   ];
   
   const gradosEducativos = [
-    // Kinder
+    // Kinder (solo 1°, 2°, 3°)
     '1° Kinder', '2° Kinder', '3° Kinder',
-    // Primaria
-    '1°', '2°', '3°', '4°', '5°', '6°',
-    // Secundaria 
-    '1° Sec', '2° Sec', '3° Sec',
-    // Preparatoria
-    '1° Prep', '2° Prep', '3° Prep'
+    // Primaria (1° a 6°)
+    '1° Primaria', '2° Primaria', '3° Primaria', '4° Primaria', '5° Primaria', '6° Primaria',
+    // Secundaria (7°, 8°, 9°)
+    '7° (1° Secundaria)', '8° (2° Secundaria)', '9° (3° Secundaria)',
+    // Preparatoria (por semestres)
+    '1° Semestre', '2° Semestre', '3° Semestre', '4° Semestre', '5° Semestre', '6° Semestre'
   ];
   
   const gruposEducativos = [

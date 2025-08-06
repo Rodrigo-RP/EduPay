@@ -27,6 +27,9 @@ Gestión de Estudiantes: Sistema adaptado a estructura Excel "Concentrado_Estudi
 - Sección PADRE DE FAMILIA (columnas 1-7): ID Reference + credenciales + correo institucional familiar, nombres, apellidos, CURP, celular, teléfono casa/oficina
 - Sección MADRE DE FAMILIA: ID Reference + credenciales + campos completos separados del padre
 - Sección ESTUDIANTE (columnas 8-20): ID Reference + credenciales + nombres, apellidos, CURP, fecha nacimiento, tipo sangre, correo institucional, nivel escolar, clave centro trabajo, grado, grupo, turno
+- Sistema Educativo Mexicano: Opciones específicas por nivel (Kinder: 1°, 2°, 3°; Primaria: 1° a 6°; Secundaria: 7°, 8°, 9°; Preparatoria: semestres 1° a 6°)
+- Filtros geográficos: Análisis por códigos postales para distribución demográfica estudiantil
+- Dirección familiar: Sección técnica completa (calle, colonia, CP, ciudad, estado) para análisis geográfico
 - Base de datos extendida con nuevas columnas para ambas entidades
 - Plantilla de importación/exportación Excel actualizada al formato institucional exacto
 - Autenticación corregida en funciones de exportación (auth_token vs token)

@@ -1095,14 +1095,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const studentData = {
             campus_id: user.campus_id,
             curp: row['CURP'] || row['curp'] || '',
-            nombre_completo: row['Nombre Completo'] || row['nombre_completo'] || row['Nombre'] || '',
+            nombres: row['Nombre Completo'] || row['nombre_completo'] || row['Nombre'] || '',
             grado: row['Grado'] || row['grado'] || '',
             grupo: row['Grupo'] || row['grupo'] || '',
             status: row['Estatus'] || row['status'] || row['Status'] || 'activo'
           };
 
           // Validate required fields
-          if (!studentData.nombre_completo.trim()) {
+          if (!studentData.nombres.trim()) {
             errors.push(`Fila ${rowNum}: Nombre completo es requerido`);
             continue;
           }
@@ -1142,7 +1142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             created_by: user.id
           });
         } catch (error: any) {
-          creationErrors.push(`Error creando estudiante ${studentData.nombre_completo}: ${error.message}`);
+          creationErrors.push(`Error creando estudiante ${studentData.nombres}: ${error.message}`);
         }
       }
 
@@ -1721,7 +1721,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Create student
               await storage.createStudent({
                 campus_id: campusId,
-                nombre_completo: studentData.nombre_completo,
+                nombres: studentData.nombre_completo || '',
                 curp: studentData.curp,
                 grado: studentData.grado || '',
                 grupo: studentData.grupo || 'A',
@@ -1748,9 +1748,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
               // Create guardian
               await storage.createGuardian({
-                nombre_completo: tutorData.nombre_completo,
-                email: tutorData.email,
-                telefono: tutorData.telefono || ''
+                nombres: tutorData.nombre_completo || '',
+                correo_institucional_familiar: tutorData.email || '',
+                celular: tutorData.telefono || ''
               });
               
               results.successful++;
@@ -1869,7 +1869,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Create student
               const newStudent = await storage.createStudent({
                 campus_id: campusId,
-                nombre_completo: studentData.nombre_completo,
+                nombres: studentData.nombre_completo || '',
                 curp: studentData.curp,
                 grado: studentData.grado || '',
                 grupo: studentData.grupo || 'A',
@@ -1912,9 +1912,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
               // Create guardian
               const newGuardian = await storage.createGuardian({
-                nombre_completo: tutorData.nombre_completo,
-                email: tutorData.email,
-                telefono: tutorData.telefono || ''
+                nombres: tutorData.nombre_completo || '',
+                correo_institucional_familiar: tutorData.email || '',
+                celular: tutorData.telefono || ''
               });
 
               // Notify real-time update for family
@@ -5832,6 +5832,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         campus_id: campusId,
         nombre,
         tipo,
+        concepto: nombre, // Use nombre as concepto for compatibility
         dias_gracia,
         porcentaje,
         monto_fijo_centavos,

@@ -805,15 +805,24 @@ export default function UsuariosUnificado() {
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDeleteModal(false)}>Cancelar</Button>
-            <Button variant="destructive" onClick={() => {
-              // TODO: Eliminar usuario vía API
-              // await deleteUser(userToDelete.id);
-              refetchUsers();
-              
-              toast({
-                title: "Usuario eliminado",
-                description: `El usuario "${userToDelete?.nombre_completo}" ha sido eliminado del sistema.`,
-              });
+            <Button variant="destructive" onClick={async () => {
+              try {
+                await apiRequest(`/api/admin/users/${userToDelete.id}`, {
+                  method: 'DELETE'
+                });
+                refetchUsers();
+                
+                toast({
+                  title: "Usuario eliminado",
+                  description: `El usuario "${userToDelete?.nombre_completo}" ha sido eliminado del sistema.`,
+                });
+              } catch (error) {
+                toast({
+                  title: "Error",
+                  description: "No se pudo eliminar el usuario",
+                  variant: "destructive"
+                });
+              }
               setShowDeleteModal(false);
               setUserToDelete(null);
             }}>

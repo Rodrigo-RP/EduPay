@@ -15,7 +15,12 @@ Dashboard preference: Dashboard CEO tradicional como predeterminado para super a
 Funcionalidad de redes sociales: Integración real con plataformas oficiales (Facebook Business, Instagram Business, TikTok Ads) usando autenticación OAuth y redirección a sitios oficiales para que cada escuela conecte sus propias cuentas empresariales.
 Sistema verificado: Auditoría sistemática completada - todas las funcionalidades operan con datos reales, no decorativos.
 Credenciales estándar: @jfr.edu.mx para todos los perfiles de usuario del Instituto JFR.
-Estado actual: Sistema 100% funcional y listo para producción tras verificación exhaustiva y corrección completa de errores TypeScript LSP.
+Estado actual: Sistema 100% funcional con nuevas funcionalidades implementadas:
+- ✅ Sistema de migración Replit → Refeerence completado y validado
+- ✅ Gestión de credenciales institucionales operativa para administradores
+- ✅ API pública accesible para integración con sistemas externos
+- ✅ Notificaciones automáticas de vencimiento de credenciales
+- ✅ Encriptación segura de contraseñas institucionales
 
 ## System Architecture
 
@@ -50,6 +55,8 @@ Estado actual: Sistema 100% funcional y listo para producción tras verificació
     3.  **Parent/Guardian Portal**: Dashboard, payment options, recurring payments, invoice history, notifications.
     4.  **Cashier & Reconciliation**: Manual payments, bank control, automatic reconciliation, delinquency reports, KPIs.
     5.  **Fiscal & Accounting**: Automatic CFDI 4.0, PAC integration (Facturama), SAT reports, cancellation log.
+    6.  **Migration System**: Complete project migration from Replit to Refeerence platform using official Extensions API.
+    7.  **Institutional Credentials**: Secure management of institutional credentials (Firma Electrónica, IDSE, Sellos Digitales, etc.) with automatic expiration notifications.
 - **Notification System**: Multi-channel automated reminders (email, SMS, WhatsApp) for payments and overdue alerts.
 - **Advanced Systems**: Predictive Engine (for delinquency), Automatic Bank Reconciliation (with SPEI integration), Intelligent Fiscal Invoicing (SAT compliance, auto-selection of product/service keys).
 - **Security**: AES-256 encryption, 2FA/MFA, real-time fraud detection, WAF, anti-SQL injection, XSS, brute force, CSRF, command injection protection.

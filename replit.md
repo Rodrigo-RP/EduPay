@@ -14,7 +14,7 @@ UX/UI: Móvil primero, proceso de pago 3 clics o menos, onboarding < 1 hora.
 Dashboard preference: Dashboard CEO tradicional como predeterminado para super administrador (no F1 style por problemas de carga).
 Funcionalidad de redes sociales: Integración real con plataformas oficiales (Facebook Business, Instagram Business, TikTok Ads) usando autenticación OAuth y redirección a sitios oficiales para que cada escuela conecte sus propias cuentas empresariales.
 Sistema verificado: Auditoría sistemática completada - todas las funcionalidades operan con datos reales, no decorativos.
-WebSocket: Sistema de tiempo real completamente operativo (Febrero 2025) - conexiones estables, autenticación JWT arreglada, sin conflictos con Vite HMR.
+WebSocket: Sistema de tiempo real completamente operativo y libre de fallas críticas (Agosto 2025) - conexiones estables, autenticación JWT robusta, manejo de errores comprehensivo, limpieza automática de memoria, 11 notificaciones implementadas, sin conflictos con Vite HMR.
 
 ## System Architecture
 

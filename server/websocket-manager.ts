@@ -47,8 +47,9 @@ class WebSocketManager {
       const connectionKey = `${clientIP}-${currentTime}`;
       
       const currentConnections = this.connectionAttempts.get(connectionKey) || 0;
-      if (currentConnections > 50) { // Max 50 connections per minute per IP
-        console.log(`🚫 Rate limit exceeded for IP: ${clientIP}`);
+      const maxConnections = process.env.NODE_ENV === 'development' ? 100 : 50;
+      if (currentConnections > maxConnections) {
+        console.log(`🚫 Rate limit exceeded for IP: ${clientIP} (${currentConnections}/${maxConnections})`);
         ws.close(1013, 'Too many connections');
         return;
       }
@@ -57,12 +58,12 @@ class WebSocketManager {
       
       // Clean up old connection counts (older than 2 minutes)
       const cutoff = currentTime - 2;
-      for (const [key] of this.connectionAttempts) {
+      this.connectionAttempts.forEach((value, key) => {
         const keyTime = parseInt(key.split('-').pop() || '0');
         if (keyTime < cutoff) {
           this.connectionAttempts.delete(key);
         }
-      }
+      });
 
       console.log('🔌 Nueva conexión WebSocket');
       ws.isAlive = true;
@@ -103,6 +104,7 @@ class WebSocketManager {
       this.wss?.clients.forEach((ws: AuthenticatedSocket) => {
         if (!ws.isAlive) {
           console.log('💀 Terminando conexión inactiva');
+          this.removeClient(ws); // Limpiar referencias antes de terminar
           ws.terminate();
           return;
         }
@@ -137,8 +139,17 @@ class WebSocketManager {
 
   private async authenticateUser(ws: AuthenticatedSocket, token: string) {
     try {
+      if (!token) {
+        throw new Error('Token no proporcionado');
+      }
+
       const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key';
       const decoded = jwt.verify(token, JWT_SECRET) as any;
+      
+      // Validar estructura del token
+      if (!decoded || !decoded.id || typeof decoded.id !== 'number') {
+        throw new Error('Token inválido: estructura incorrecta');
+      }
       
       // Buscar usuario en base de datos
       const [user] = await db
@@ -147,10 +158,10 @@ class WebSocketManager {
         .where(eq(users.id, decoded.id))
         .limit(1);
 
-      if (!user || !user.is_active) {
+      if (!user || !user.is_active || !user.campus_id || !user.tenant_id) {
         ws.send(JSON.stringify({ 
           type: 'auth_error', 
-          message: 'Usuario no encontrado o inactivo' 
+          message: 'Usuario no encontrado, inactivo o datos incompletos' 
         }));
         ws.close();
         return;
@@ -286,20 +297,31 @@ class WebSocketManager {
   private sendToUsers(message: RealTimeMessage, userIds: number[]) {
     const messageStr = JSON.stringify(message);
     let sentCount = 0;
+    let errorCount = 0;
 
     userIds.forEach(userId => {
       const userSockets = this.clients.get(userId);
       if (userSockets) {
         userSockets.forEach(socket => {
-          if (socket.readyState === WebSocket.OPEN) {
-            socket.send(messageStr);
-            sentCount++;
+          try {
+            if (socket.readyState === WebSocket.OPEN) {
+              socket.send(messageStr);
+              sentCount++;
+            } else if (socket.readyState === WebSocket.CLOSED || socket.readyState === WebSocket.CLOSING) {
+              // Remove dead connections
+              this.removeClient(socket);
+            }
+          } catch (error) {
+            console.error(`❌ Error enviando mensaje a usuario ${userId}:`, error);
+            errorCount++;
+            // Remove problematic connection
+            this.removeClient(socket);
           }
         });
       }
     });
 
-    console.log(`📡 Mensaje enviado a ${sentCount} conexiones: ${message.type} - ${message.action}`);
+    console.log(`📡 Mensaje enviado a ${sentCount} conexiones: ${message.type} - ${message.action}${errorCount > 0 ? ` (${errorCount} errores)` : ''}`);
   }
 
   private userHasPermission(user: any, permission: string): boolean {

@@ -63,6 +63,8 @@ Estado actual: Sistema 100% funcional con nuevas funcionalidades implementadas:
 - ✅ Logo institucional del Instituto JFR implementado y funcionando
 - ✅ Información institucional real configurada desde interfaz de usuario
 - ✅ Persistencia de configuración institucional en base de datos garantizada
+- ✅ Duplicación de pestaña "Usuarios" en Configuración eliminada definitivamente
+- ✅ Gestión unificada de usuarios consolidada únicamente en sección Administrativa
 - 🔄 reCAPTCHA preparado para implementar (pendiente claves de Google)
 
 ## System Architecture

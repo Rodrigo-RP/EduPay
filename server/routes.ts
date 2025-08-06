@@ -5171,13 +5171,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update payment due date configuration
   app.put("/api/payment-config/due-dates/:id", authenticateToken, async (req, res) => {
     try {
+      console.log("🚀 PUT /api/payment-config/due-dates/:id - Request received");
       const dueDateId = parseInt(req.params.id);
       const campusId = (req as any).user.campus_id;
       const { concepto, dia_vencimiento, mes_aplicacion, activo } = req.body;
       
-      console.log("Updating payment due date:", {
+      console.log("🚀 Updating payment due date:", {
         id: dueDateId,
         campusId,
+        rawBody: req.body,
         updates: { concepto, dia_vencimiento, mes_aplicacion, activo }
       });
 
@@ -5188,16 +5190,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         activo: activo !== undefined ? activo : true
       };
 
+      console.log("🚀 Processed updates:", JSON.stringify(updates, null, 2));
+      console.log("🚀 About to call storage.updatePaymentDueDate...");
+
       const updatedDueDate = await storage.updatePaymentDueDate(dueDateId, updates);
       
+      console.log("🚀 Storage returned:", updatedDueDate);
+      
       if (!updatedDueDate) {
+        console.log("🚀 No updated data returned from storage");
         return res.status(404).json({ message: "Fecha de vencimiento no encontrada" });
       }
       
-      console.log("Successfully updated payment due date:", updatedDueDate);
+      console.log("🚀 Successfully updated payment due date:", updatedDueDate);
       res.json({ message: "Fecha de vencimiento actualizada correctamente", data: updatedDueDate });
     } catch (error: any) {
-      console.error("Error updating payment due date:", error);
+      console.error("🚀 Error updating payment due date:", error);
       res.status(500).json({ message: "Error updating payment due date: " + error.message });
     }
   });

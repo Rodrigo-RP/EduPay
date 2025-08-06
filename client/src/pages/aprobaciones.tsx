@@ -124,6 +124,12 @@ export default function Aprobaciones() {
     refetchInterval: 5000
   });
 
+  // Fetch all approvals history (for admin and requesters)
+  const { data: allHistory, isLoading: loadingHistory } = useQuery({
+    queryKey: ['/api/approvals/history'],
+    refetchInterval: 10000
+  });
+
   // Decision mutation
   const decisionMutation = useMutation({
     mutationFn: async (data: { approval_id: number; decision: string; notes?: string }) => {
@@ -253,7 +259,7 @@ export default function Aprobaciones() {
       </div>
 
       <Tabs defaultValue="pending" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="pending" className="flex items-center space-x-2">
             <Clock className="w-4 h-4" />
             <span>Pendientes de Aprobación</span>
@@ -266,6 +272,10 @@ export default function Aprobaciones() {
           <TabsTrigger value="requests" className="flex items-center space-x-2">
             <FileText className="w-4 h-4" />
             <span>Mis Solicitudes</span>
+          </TabsTrigger>
+          <TabsTrigger value="history" className="flex items-center space-x-2">
+            <FileText className="w-4 h-4" />
+            <span>Historial Completo</span>
           </TabsTrigger>
           <TabsTrigger value="notifications" className="flex items-center space-x-2">
             <MessageSquare className="w-4 h-4" />
@@ -462,6 +472,121 @@ export default function Aprobaciones() {
                     ))}
                   </TableBody>
                 </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="history" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Calendar className="w-5 h-5" />
+                <span>Historial Completo de Aprobaciones</span>
+              </CardTitle>
+              <CardDescription>
+                Historial completo de todas las solicitudes con mensajes y observaciones del administrador
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingHistory ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="mt-2 text-gray-600">Cargando historial...</p>
+                </div>
+              ) : !allHistory || !Array.isArray(allHistory) || allHistory.length === 0 ? (
+                <div className="text-center py-8">
+                  <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600">No hay historial de aprobaciones</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {Array.isArray(allHistory) && allHistory.map((approval: PendingApproval) => (
+                    <Card key={approval.id} className="border-l-4 border-l-blue-500">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <CardTitle className="text-lg">{getActionTypeLabel(approval.action_type)}</CardTitle>
+                            <CardDescription>{approval.action_description || approval.reason}</CardDescription>
+                          </div>
+                          <div className="text-right">
+                            {getStatusBadge(approval.status)}
+                            <p className="text-sm text-gray-500 mt-1">{formatDate(approval.created_at)}</p>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {/* Información del solicitante */}
+                        <div className="flex items-center space-x-2 text-sm text-gray-600">
+                          <User className="w-4 h-4" />
+                          <span>Solicitado por: {(approval as any).requester_name || 'Usuario'} ({(approval as any).requester_role || 'Sin rol'})</span>
+                        </div>
+
+                        {/* Datos de la solicitud */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-2">Datos Originales</h4>
+                            <div className="text-sm text-gray-700">
+                              {approval.original_data ? renderApprovalData(approval.original_data) : 'Sin datos'}
+                            </div>
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-2">Datos Solicitados</h4>
+                            <div className="text-sm text-gray-700">
+                              {approval.requested_data ? renderApprovalData(approval.requested_data) : 'Sin datos'}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Motivo de la solicitud */}
+                        {approval.reason && (
+                          <div className="p-3 bg-blue-50 border-l-4 border-blue-200 rounded-r-md">
+                            <h4 className="font-medium text-blue-900 mb-1">Motivo de la Solicitud</h4>
+                            <p className="text-blue-800 text-sm">{approval.reason}</p>
+                          </div>
+                        )}
+
+                        {/* Observaciones del administrador */}
+                        {approval.approval_notes && (
+                          <div className="p-3 bg-green-50 border-l-4 border-green-200 rounded-r-md">
+                            <h4 className="font-medium text-green-900 mb-1">Observaciones del Administrador</h4>
+                            <p className="text-green-800 text-sm">{approval.approval_notes}</p>
+                            {approval.approved_by && (
+                              <div className="mt-2 flex items-center space-x-2 text-xs text-green-700">
+                                <User className="w-3 h-3" />
+                                <span>Procesado por administrador (ID: {approval.approved_by})</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Timeline de la solicitud */}
+                        <div className="border-t pt-3">
+                          <h4 className="font-medium text-gray-900 mb-2">Cronología</h4>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex items-center space-x-2 text-gray-600">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <span>Solicitud creada: {formatDate(approval.created_at)}</span>
+                            </div>
+                            {approval.updated_at && approval.updated_at !== approval.created_at && (
+                              <div className="flex items-center space-x-2 text-gray-600">
+                                <div className={`w-2 h-2 rounded-full ${
+                                  approval.status === 'approved' ? 'bg-green-500' : 
+                                  approval.status === 'rejected' ? 'bg-red-500' : 'bg-yellow-500'
+                                }`}></div>
+                                <span>
+                                  {approval.status === 'approved' ? 'Aprobada' : 
+                                   approval.status === 'rejected' ? 'Rechazada' : 'Actualizada'}: 
+                                  {formatDate(approval.updated_at)}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>

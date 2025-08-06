@@ -380,6 +380,21 @@ class WebSocketManager {
     this.broadcastToAllWithPermission(message, 'reports');
   }
 
+  public notifyFamilyUpdate(data: any, action: 'create' | 'update' | 'delete', metadata: any) {
+    const message: RealTimeMessage = {
+      type: 'family_update',
+      action,
+      data,
+      metadata: {
+        ...metadata,
+        timestamp: new Date().toISOString()
+      }
+    };
+
+    // Notificar a usuarios con permisos de familias
+    this.broadcastToAllWithPermission(message, 'families');
+  }
+
   public notifySystemUpdate(data: any, metadata: any) {
     const message: RealTimeMessage = {
       type: 'system_notification',

@@ -1684,13 +1684,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
 
               // Create student
-              await storage.createStudent({
+              const newStudent = await storage.createStudent({
                 campus_id: campusId,
                 nombre_completo: studentData.nombre_completo,
                 curp: studentData.curp,
                 grado: studentData.grado || '',
                 grupo: studentData.grupo || 'A',
                 status: studentData.status || 'activo'
+              });
+
+              // Notify real-time update for bulk import
+              const user = (req as any).user;
+              wsManager.notifyStudentUpdate(newStudent, 'create', {
+                campus_id: campusId,
+                tenant_id: user.tenant_id,
+                created_by: user.id,
+                bulk_import: true
               });
               
               results.successful++;
@@ -1719,10 +1728,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
 
               // Create guardian
-              await storage.createGuardian({
+              const newGuardian = await storage.createGuardian({
                 nombre_completo: tutorData.nombre_completo,
                 email: tutorData.email,
                 telefono: tutorData.telefono || ''
+              });
+
+              // Notify real-time update for family
+              const user = (req as any).user;
+              wsManager.notifyFamilyUpdate(newGuardian, 'create', {
+                campus_id: campusId,
+                tenant_id: user.tenant_id,
+                created_by: user.id,
+                bulk_import: true
               });
               
               results.successful++;

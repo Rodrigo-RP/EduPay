@@ -2,7 +2,7 @@
 
 ## ✅ CONFIGURACIÓN FINALIZADA EXITOSAMENTE
 
-### 🏢 **Instituto JFR** 
+### 🏢 **Instituto José Francisco Ruiz Massieu** 
 - Tenant ID: 24
 - RFC: IJF060101ABC  
 - Campus Principal ID: 39
@@ -11,7 +11,7 @@
 - **Nombre**: Rodrigo Ramos Pérez
 - **Email**: rodrigorp@institutojfr.edu.mx
 - **Contraseña**: [REDACTED]
-- **Campus**: Campus Principal - Instituto JFR
+- **Campus**: Campus Principal - Comalcalco
 - **Rol**: admin
 
 ### 📚 **Alumnos Importados: 18 estudiantes reales**
@@ -76,4 +76,4 @@
 
 ---
 
-**El Instituto JFR ya puede comenzar a usar el sistema completo de EDUPAY**
+**El Instituto José Francisco Ruiz Massieu ya puede comenzar a usar el sistema completo de EDUPAY**

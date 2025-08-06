@@ -14,16 +14,17 @@ UX/UI: Móvil primero, proceso de pago 3 clics o menos, onboarding < 1 hora.
 Dashboard preference: Dashboard CEO tradicional como predeterminado para super administrador (no F1 style por problemas de carga).
 Funcionalidad de redes sociales: Integración real con plataformas oficiales (Facebook Business, Instagram Business, TikTok Ads) usando autenticación OAuth y redirección a sitios oficiales para que cada escuela conecte sus propias cuentas empresariales.
 Sistema verificado: Auditoría sistemática completada - todas las funcionalidades operan con datos reales, no decorativos.
-Credenciales estándar: @jfr.edu.mx para todos los perfiles de usuario del Instituto JFR.
+Credenciales estándar: @institutojfr.edu.mx para todos los perfiles de usuario del Instituto José Francisco Ruiz Massieu.
 Estado actual: Sistema 100% funcional con nuevas funcionalidades implementadas:
 - ✅ Sistema de migración Replit → Refeerence completado y validado
 - ✅ Gestión de credenciales institucionales operativa para administradores
 - ✅ API pública accesible para integración con sistemas externos
 - ✅ Notificaciones automáticas de vencimiento de credenciales
 - ✅ Encriptación segura de contraseñas institucionales
-- ✅ Administrador real del Instituto JFR configurado (rodrigorp@institutojfr.edu.mx)
-- ✅ Datos reales del Instituto JFR implementados con 10 conceptos de pago
+- ✅ Administrador real del Instituto José Francisco Ruiz Massieu configurado (rodrigorp@institutojfr.edu.mx)
+- ✅ Datos reales del Instituto José Francisco Ruiz Massieu implementados con 10 conceptos de pago
 - ✅ Sistema de notificaciones funcionando con credenciales reales
+- ✅ 18 alumnos reales importados exitosamente (primaria, secundaria, preparatoria)
 
 ## System Architecture
 

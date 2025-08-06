@@ -3,12 +3,12 @@
 ## ✅ CONFIGURACIÓN COMPLETADA
 
 ### 🏢 Institución Creada
-- **Nombre Legal**: Instituto JFR
+- **Nombre Legal**: Instituto José Francisco Ruiz Massieu
 - **RFC**: IJF060101ABC
 - **PAC Provider**: Facturama JFR
 
 ### 🏫 Campus Principal
-- **Nombre**: Campus Principal - Instituto JFR
+- **Nombre**: Campus Principal - Comalcalco
 - **Clave SEP**: 27DPR0001R
 - **Ubicación**: Comalcalco, Tabasco
 
@@ -74,4 +74,4 @@
 **Email**: rodrigorp@institutojfr.edu.mx
 **Password**: [REDACTED]
 
-El sistema está listo para recibir datos reales del Instituto JFR.
+El sistema está listo para recibir datos reales del Instituto José Francisco Ruiz Massieu.

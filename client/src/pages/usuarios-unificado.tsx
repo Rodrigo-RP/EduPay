@@ -203,7 +203,12 @@ export default function UsuariosUnificado() {
   // Función para mostrar modal de permisos
   const handleShowPermissions = (user: any) => {
     setSelectedUserForPermissions(user);
-    setCustomPermissions(user.custom_permissions || []);
+    // Inicializar permisos personalizados con los permisos por defecto del rol + permisos custom existentes
+    const defaultPermissions = getUserPermissions(user.role as UserRole);
+    const userCustomPermissions = user.custom_permissions || [];
+    // Combinar ambos arrays eliminando duplicados
+    const allPermissions = [...new Set([...defaultPermissions, ...userCustomPermissions])];
+    setCustomPermissions(allPermissions);
     setShowPermissionsModal(true);
   };
 
@@ -654,21 +659,33 @@ export default function UsuariosUnificado() {
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-1 gap-2">
-                        {permissions.map(permission => (
-                          <div key={permission.id} className="flex items-center space-x-2">
-                            <Checkbox
-                              checked={customPermissions.includes(permission.id)}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setCustomPermissions(prev => [...prev, permission.id]);
-                                } else {
-                                  setCustomPermissions(prev => prev.filter(p => p !== permission.id));
-                                }
-                              }}
-                            />
-                            <Label className="text-sm">{permission.description}</Label>
-                          </div>
-                        ))}
+                        {permissions.map(permission => {
+                          const isDefaultPermission = selectedUserForPermissions && 
+                            getUserPermissions(selectedUserForPermissions.role as UserRole).includes(permission.id);
+                          
+                          return (
+                            <div key={permission.id} className="flex items-center space-x-2">
+                              <Checkbox
+                                checked={customPermissions.includes(permission.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setCustomPermissions(prev => [...prev, permission.id]);
+                                  } else {
+                                    setCustomPermissions(prev => prev.filter(p => p !== permission.id));
+                                  }
+                                }}
+                              />
+                              <div className="flex items-center gap-2 flex-1">
+                                <Label className="text-sm">{permission.description}</Label>
+                                {isDefaultPermission && (
+                                  <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+                                    Por defecto
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </CardContent>
                   </Card>

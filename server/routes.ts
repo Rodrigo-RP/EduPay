@@ -483,6 +483,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create new user
+  app.post("/api/users", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const campusId = user.campus_id;
+      
+      if (!campusId) {
+        return res.status(400).json({ message: "Campus ID requerido" });
+      }
+
+      // Validate request body
+      const validatedData = insertUserSchema.omit({ id: true, created_at: true, updated_at: true }).parse({
+        ...req.body,
+        campus_id: campusId,
+        tenant_id: user.tenant_id
+      });
+
+      const newUser = await storage.createUser(validatedData);
+      res.status(201).json(newUser);
+    } catch (error: any) {
+      console.error('Error creating user:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Datos de usuario inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
+  // Update existing user
+  app.put("/api/users/:id", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const userId = parseInt(req.params.id);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "ID de usuario inválido" });
+      }
+
+      // Only allow updating users from the same campus
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser || existingUser.campus_id !== user.campus_id) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+
+      // Remove fields that shouldn't be updated via this endpoint
+      const { id, campus_id, tenant_id, created_at, updated_at, password_hash, ...updateData } = req.body;
+
+      const updatedUser = await storage.updateUser(userId, updateData);
+      if (!updatedUser) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+
+      res.json(updatedUser);
+    } catch (error: any) {
+      console.error('Error updating user:', error);
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
+  // Delete user
+  app.delete("/api/users/:id", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const userId = parseInt(req.params.id);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "ID de usuario inválido" });
+      }
+
+      // Only allow deleting users from the same campus
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser || existingUser.campus_id !== user.campus_id) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+
+      // Prevent deleting yourself
+      if (userId === user.id) {
+        return res.status(400).json({ message: "No puedes eliminar tu propia cuenta" });
+      }
+
+      const deleted = await storage.deleteUser(userId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+
+      res.json({ message: "Usuario eliminado exitosamente" });
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
   // PLATFORM LOGIN for Support and Implementation users
   app.post("/api/auth/platform-login", async (req, res) => {
     try {

@@ -130,49 +130,134 @@ export default function UsuariosUnificado() {
     return `${primerNombre}.${apellido}`;
   };
 
+  // Mutations para operaciones CRUD
+  const createUserMutation = useMutation({
+    mutationFn: async (userData: any) => {
+      return await apiRequest('/api/users', {
+        method: 'POST',
+        body: JSON.stringify(userData)
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      toast({
+        title: "Usuario creado exitosamente",
+        description: "El nuevo usuario ha sido agregado al sistema",
+      });
+      setShowAddModal(false);
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error al crear usuario",
+        description: error.message || "Ha ocurrido un error inesperado",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const updateUserMutation = useMutation({
+    mutationFn: async ({ id, ...userData }: any) => {
+      return await apiRequest(`/api/users/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(userData)
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      toast({
+        title: "Usuario actualizado exitosamente",
+        description: "Los cambios han sido guardados",
+      });
+      setShowEditModal(false);
+      setEditingUser(null);
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error al actualizar usuario",
+        description: error.message || "Ha ocurrido un error inesperado",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: number) => {
+      return await apiRequest(`/api/users/${userId}`, {
+        method: 'DELETE'
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      toast({
+        title: "Usuario eliminado exitosamente",
+        description: "El usuario ha sido removido del sistema",
+      });
+      setShowDeleteModal(false);
+      setUserToDelete(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error al eliminar usuario",
+        description: error.message || "Ha ocurrido un error inesperado",
+        variant: "destructive",
+      });
+    }
+  });
+
   // Función para manejar la creación de usuarios
   const handleCreateUser = () => {
-    const username = generateUsername(formData.nombre_completo);
     const password = autoGeneratePassword ? generatePassword() : customPassword;
     
-    // Crear nuevo usuario
-    const newUser = {
-      id: usuarios.length + 1,
+    const userData = {
+      name: formData.nombre_completo,
       email: formData.email,
-      nombre_completo: formData.nombre_completo,
-      role: formData.role,
       telefono: formData.telefono,
-      activo: formData.activo,
-      campus: formData.campus,
-      ultimo_acceso: "Nunca",
-      created_at: new Date().toISOString().split('T')[0],
-      custom_permissions: []
+      role: formData.role,
+      password_hash: password, // This will be hashed in the backend
+      is_active: formData.activo,
     };
-    
-    // TODO: Crear usuario vía API
-    // await createUser(newUser);
-    refetchUsers();
-    
-    const credentials = {
+
+    // Mostrar las credenciales generadas antes de crear el usuario
+    const username = generateUsername(formData.nombre_completo);
+    setGeneratedCredentials({
       username: username,
       password: password,
       email: formData.email,
       nombre_completo: formData.nombre_completo,
       role: formData.role
-    };
-
-    setGeneratedCredentials(credentials);
-    setShowCredentialsModal(true);
-    setShowAddModal(false);
-    
-    toast({
-      title: "Usuario creado exitosamente",
-      description: `Se han generado las credenciales para "${formData.nombre_completo}".`,
     });
+    setShowCredentialsModal(true);
+
+    // Crear el usuario usando la mutación
+    createUserMutation.mutate(userData);
   };
 
   // Función para manejar la edición de usuarios
-  const handleEditUser = (user: any) => {
+  const handleEditUser = () => {
+    if (!editingUser) return;
+
+    const userData = {
+      id: editingUser.id,
+      name: formData.nombre_completo,
+      email: formData.email,
+      telefono: formData.telefono,
+      role: formData.role,
+      is_active: formData.activo,
+    };
+
+    updateUserMutation.mutate(userData);
+  };
+
+  // Función para manejar la eliminación de usuarios
+  const handleDeleteUser = () => {
+    if (!userToDelete) return;
+    deleteUserMutation.mutate(userToDelete.id);
+  };
+
+  // Función para abrir modal de edición de usuario
+  const handleEditUserModal = (user: any) => {
     setEditingUser(user);
     setFormData({
       nombre_completo: user.nombre_completo,
@@ -375,7 +460,7 @@ export default function UsuariosUnificado() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleEditUser(user)}
+                    onClick={() => handleEditUserModal(user)}
                     title="Editar usuario"
                   >
                     <Edit className="w-4 h-4" />
@@ -586,29 +671,7 @@ export default function UsuariosUnificado() {
               Cancelar
             </Button>
             <Button 
-              onClick={() => {
-                if (!formData.nombre_completo || !formData.email || !formData.role) {
-                  toast({
-                    title: "Error de validación",
-                    description: "Por favor completa todos los campos obligatorios",
-                    variant: "destructive"
-                  });
-                  return;
-                }
-                
-                // Actualizar el usuario vía API y refrescar la lista
-                // TODO: Implementar endpoint para actualizar usuario
-                // await updateUser(editingUser.id, formData);
-                refetchUsers();
-                
-                toast({
-                  title: "Usuario actualizado",
-                  description: `Se ha actualizado la información de "${formData.nombre_completo}".`,
-                });
-                setShowEditModal(false);
-                setEditingUser(null);
-                resetForm();
-              }}
+              onClick={handleEditUser}
               disabled={!formData.nombre_completo || !formData.email || !formData.role}
             >
               Guardar cambios

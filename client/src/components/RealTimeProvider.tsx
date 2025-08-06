@@ -34,7 +34,7 @@ interface RealTimeProviderProps {
 
 export function RealTimeProvider({ children, showStatusIndicator = true }: RealTimeProviderProps) {
   const realTime = useRealTime({
-    autoConnect: true,
+    autoConnect: false, // Temporalmente deshabilitado mientras arreglamos la autenticación
     onConnect: () => {
       console.log('🔌 RealTimeProvider: Conectado');
     },

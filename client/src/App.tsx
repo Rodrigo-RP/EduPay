@@ -151,7 +151,7 @@ function App() {
       <AuthProvider>
         <InstitutionProvider>
           <AcademicFilterProvider>
-            <RealTimeProvider>
+            {/* <RealTimeProvider> TEMPORALMENTE DESHABILITADO */}
               <TooltipProvider>
                 <div className="min-h-screen bg-slate-50">
                   <Switch>
@@ -161,7 +161,7 @@ function App() {
                   <Toaster />
                 </div>
               </TooltipProvider>
-            </RealTimeProvider>
+            {/* </RealTimeProvider> */}
           </AcademicFilterProvider>
         </InstitutionProvider>
       </AuthProvider>

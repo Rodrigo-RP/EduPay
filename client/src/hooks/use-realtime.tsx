@@ -118,19 +118,9 @@ export function useRealTime(options: UseRealTimeOptions = {}) {
 
         onDisconnect?.();
 
-        // Intentar reconectar si no fue un cierre intencional
-        if (event.code !== 1000 && reconnectAttempts.current < maxReconnectAttempts) {
-          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
-          console.log(`🔄 Reintentando conexión en ${delay}ms (intento ${reconnectAttempts.current + 1}/${maxReconnectAttempts})`);
-          
-          reconnectTimeoutRef.current = setTimeout(() => {
-            reconnectAttempts.current++;
-            connect();
-          }, delay);
-        } else if (reconnectAttempts.current >= maxReconnectAttempts) {
-          console.log('❌ Máximo de intentos de reconexión alcanzado');
-          setConnectionStatus('error');
-        }
+        // TEMPORALMENTE DESHABILITADO - No reconectar automáticamente
+        console.log('🔌 Reconexión automática deshabilitada temporalmente');
+        setConnectionStatus('disconnected');
       };
 
       wsRef.current.onerror = (error) => {

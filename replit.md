@@ -56,8 +56,9 @@ Estado actual: Sistema 100% funcional con nuevas funcionalidades implementadas:
     4.  **Cashier & Reconciliation**: Manual payments, bank control, automatic reconciliation, delinquency reports, KPIs.
     5.  **Fiscal & Accounting**: Automatic CFDI 4.0, PAC integration (Facturama), SAT reports, cancellation log.
     6.  **Migration System**: Complete project migration from Replit to Refeerence platform using official Extensions API.
-    7.  **Institutional Credentials**: Secure management of institutional credentials (Firma Electrónica, IDSE, Sellos Digitales, etc.) with automatic expiration notifications.
-- **Notification System**: Multi-channel automated reminders (email, SMS, WhatsApp) for payments and overdue alerts.
+    7.  **Institutional Credentials**: Secure management of institutional credentials (Firma Electrónica, IDSE, Sellos Digitales, etc.) with intelligent expiration notifications system.
+    8.  **Notification System**: Real-time plugin-based notification system for credential expiration alerts with urgency levels and automatic monitoring.
+- **Notification System**: Multi-channel automated reminders (email, SMS, WhatsApp) for payments and overdue alerts. Internal plugin-based notification system for institutional credential expiration monitoring with real-time alerts and urgency classification.
 - **Advanced Systems**: Predictive Engine (for delinquency), Automatic Bank Reconciliation (with SPEI integration), Intelligent Fiscal Invoicing (SAT compliance, auto-selection of product/service keys).
 - **Security**: AES-256 encryption, 2FA/MFA, real-time fraud detection, WAF, anti-SQL injection, XSS, brute force, CSRF, command injection protection.
 

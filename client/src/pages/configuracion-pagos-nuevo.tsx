@@ -42,6 +42,26 @@ export default function ConfiguracionPagos() {
   const queryClient = useQueryClient();
   const [showFechaModal, setShowFechaModal] = useState(false);
   const [showRecargoModal, setShowRecargoModal] = useState(false);
+  const [editingFecha, setEditingFecha] = useState<FechaVencimiento | null>(null);
+  const [editingRecargo, setEditingRecargo] = useState<ReglaRecargo | null>(null);
+
+  // Form states
+  const [nuevaFecha, setNuevaFecha] = useState({
+    concepto: "",
+    dia_vencimiento: "",
+    mes_aplicacion: "todos"
+  });
+
+  const [nuevoRecargo, setNuevoRecargo] = useState({
+    nombre: "",
+    tipo: "porcentaje" as const,
+    dias_gracia: "",
+    porcentaje: "",
+    monto_fijo: "",
+    aplica_fines_semana: false,
+    aplica_festivos: false,
+    monto_maximo: ""
+  });
 
   // Fetch data from API
   const { data: fechasVencimiento = [], isLoading: loadingFechas } = useQuery({
@@ -86,6 +106,188 @@ export default function ConfiguracionPagos() {
     },
   });
 
+  // Create/Update mutations for fechas
+  const saveFechaMutation = useMutation({
+    mutationFn: (data: any) => {
+      const payload = {
+        concepto: data.concepto,
+        dia_vencimiento: parseInt(data.dia_vencimiento),
+        mes_aplicacion: data.mes_aplicacion,
+        activo: true
+      };
+
+      if (editingFecha) {
+        return apiRequest(`/api/payment-config/due-dates/${editingFecha.id}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        });
+      } else {
+        return apiRequest("/api/payment-config/due-dates", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-config/due-dates"] });
+      setShowFechaModal(false);
+      setEditingFecha(null);
+      setNuevaFecha({ concepto: "", dia_vencimiento: "", mes_aplicacion: "todos" });
+      toast({
+        title: editingFecha ? "Fecha actualizada" : "Fecha creada",
+        description: editingFecha ? 
+          "La configuración de vencimiento se actualizó correctamente" :
+          "Nueva fecha de vencimiento configurada",
+      });
+    },
+  });
+
+  // Create/Update mutations for reglas
+  const saveReglaMutation = useMutation({
+    mutationFn: (data: any) => {
+      const payload = {
+        nombre: data.nombre,
+        tipo: data.tipo,
+        dias_gracia: parseInt(data.dias_gracia),
+        porcentaje: data.tipo === 'porcentaje' ? parseFloat(data.porcentaje) : undefined,
+        monto_fijo_centavos: data.tipo === 'fijo' ? parseInt(data.monto_fijo) * 100 : undefined,
+        aplica_fines_semana: data.aplica_fines_semana,
+        aplica_festivos: data.aplica_festivos,
+        monto_maximo_centavos: data.monto_maximo ? parseInt(data.monto_maximo) * 100 : undefined,
+        activo: true
+      };
+
+      if (editingRecargo) {
+        return apiRequest(`/api/payment-config/surcharge-rules/${editingRecargo.id}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        });
+      } else {
+        return apiRequest("/api/payment-config/surcharge-rules", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-config/surcharge-rules"] });
+      setShowRecargoModal(false);
+      setEditingRecargo(null);
+      setNuevoRecargo({
+        nombre: "",
+        tipo: "porcentaje",
+        dias_gracia: "",
+        porcentaje: "",
+        monto_fijo: "",
+        aplica_fines_semana: false,
+        aplica_festivos: false,
+        monto_maximo: ""
+      });
+      toast({
+        title: editingRecargo ? "Regla actualizada" : "Regla creada",
+        description: editingRecargo ? 
+          "La configuración de recargo se actualizó correctamente" :
+          "Nueva regla de recargo configurada",
+      });
+    },
+  });
+
+  // Delete mutations
+  const deleteFechaMutation = useMutation({
+    mutationFn: (id: number) => apiRequest(`/api/payment-config/due-dates/${id}`, {
+      method: "DELETE",
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-config/due-dates"] });
+      toast({
+        title: "Fecha eliminada",
+        description: "La configuración de vencimiento se eliminó correctamente",
+      });
+    },
+  });
+
+  const deleteReglaMutation = useMutation({
+    mutationFn: (id: number) => apiRequest(`/api/payment-config/surcharge-rules/${id}`, {
+      method: "DELETE",
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-config/surcharge-rules"] });
+      toast({
+        title: "Regla eliminada",
+        description: "La configuración de recargo se eliminó correctamente",
+      });
+    },
+  });
+
+  // Form handlers
+  const handleGuardarFecha = () => {
+    if (!nuevaFecha.concepto || !nuevaFecha.dia_vencimiento) {
+      toast({
+        title: "Error",
+        description: "Completa todos los campos requeridos",
+        variant: "destructive"
+      });
+      return;
+    }
+    saveFechaMutation.mutate(nuevaFecha);
+  };
+
+  const handleGuardarRecargo = () => {
+    if (!nuevoRecargo.nombre || !nuevoRecargo.dias_gracia) {
+      toast({
+        title: "Error", 
+        description: "Completa todos los campos requeridos",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (nuevoRecargo.tipo === 'porcentaje' && !nuevoRecargo.porcentaje) {
+      toast({
+        title: "Error",
+        description: "Especifica el porcentaje de recargo",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (nuevoRecargo.tipo === 'fijo' && !nuevoRecargo.monto_fijo) {
+      toast({
+        title: "Error",
+        description: "Especifica el monto fijo de recargo",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    saveReglaMutation.mutate(nuevoRecargo);
+  };
+
+  const handleEditarFecha = (fecha: FechaVencimiento) => {
+    setEditingFecha(fecha);
+    setNuevaFecha({
+      concepto: fecha.concepto,
+      dia_vencimiento: fecha.dia_vencimiento.toString(),
+      mes_aplicacion: fecha.mes_aplicacion
+    });
+    setShowFechaModal(true);
+  };
+
+  const handleEditarRegla = (regla: ReglaRecargo) => {
+    setEditingRecargo(regla);
+    setNuevoRecargo({
+      nombre: regla.nombre,
+      tipo: regla.tipo,
+      dias_gracia: regla.dias_gracia.toString(),
+      porcentaje: regla.porcentaje ? regla.porcentaje.toString() : "",
+      monto_fijo: regla.monto_fijo_centavos ? (regla.monto_fijo_centavos / 100).toString() : "",
+      aplica_fines_semana: regla.aplica_fines_semana,
+      aplica_festivos: regla.aplica_festivos,
+      monto_maximo: regla.monto_maximo_centavos ? (regla.monto_maximo_centavos / 100).toString() : ""
+    });
+    setShowRecargoModal(true);
+  };
+
   const renderFechaCard = (fecha: FechaVencimiento) => {
     const mesTexto = fecha.mes_aplicacion === "todos" ? "Todos los meses" : 
                      fecha.mes_aplicacion === "agosto" ? "Agosto" :
@@ -111,11 +313,27 @@ export default function ConfiguracionPagos() {
             <Button 
               variant="outline" 
               size="sm"
+              onClick={() => handleEditarFecha(fecha)}
+            >
+              <Settings className="w-4 h-4 mr-1" />
+              Editar
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
               onClick={() => toggleFechaMutation.mutate(fecha)}
               disabled={toggleFechaMutation.isPending}
             >
-              <Settings className="w-4 h-4 mr-1" />
               {fecha.activo ? "Desactivar" : "Activar"}
+            </Button>
+            <Button 
+              variant="destructive" 
+              size="sm"
+              onClick={() => deleteFechaMutation.mutate(fecha.id)}
+              disabled={deleteFechaMutation.isPending}
+            >
+              <Trash2 className="w-4 h-4 mr-1" />
+              Eliminar
             </Button>
           </div>
         </CardContent>
@@ -168,11 +386,27 @@ export default function ConfiguracionPagos() {
             <Button 
               variant="outline" 
               size="sm"
+              onClick={() => handleEditarRegla(regla)}
+            >
+              <Settings className="w-4 h-4 mr-1" />
+              Editar
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
               onClick={() => toggleReglaMutation.mutate(regla)}
               disabled={toggleReglaMutation.isPending}
             >
-              <Settings className="w-4 h-4 mr-1" />
               {regla.activo ? "Desactivar" : "Activar"}
+            </Button>
+            <Button 
+              variant="destructive" 
+              size="sm"
+              onClick={() => deleteReglaMutation.mutate(regla.id)}
+              disabled={deleteReglaMutation.isPending}
+            >
+              <Trash2 className="w-4 h-4 mr-1" />
+              Eliminar
             </Button>
           </div>
         </CardContent>
@@ -236,10 +470,31 @@ export default function ConfiguracionPagos() {
 
         <TabsContent value="reglas" className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Reglas de Recargo</h2>
-            <p className="text-sm text-muted-foreground">
-              Configure recargos automáticos por pagos extemporáneos
-            </p>
+            <div>
+              <h2 className="text-xl font-semibold">Reglas de Recargo</h2>
+              <p className="text-sm text-muted-foreground">
+                Configure recargos automáticos por pagos extemporáneos
+              </p>
+            </div>
+            <Button 
+              onClick={() => {
+                setEditingRecargo(null);
+                setNuevoRecargo({
+                  nombre: "",
+                  tipo: "porcentaje",
+                  dias_gracia: "",
+                  porcentaje: "",
+                  monto_fijo: "",
+                  aplica_fines_semana: false,
+                  aplica_festivos: false,
+                  monto_maximo: ""
+                });
+                setShowRecargoModal(true);
+              }}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Nueva Regla
+            </Button>
           </div>
 
           {loadingReglas ? (
@@ -262,6 +517,224 @@ export default function ConfiguracionPagos() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Modal de Botón Agregar para Fechas de Vencimiento */}
+      <div className="fixed bottom-6 right-6">
+        <Dialog open={showFechaModal} onOpenChange={setShowFechaModal}>
+          <DialogTrigger asChild>
+            <Button 
+              size="lg" 
+              className="rounded-full shadow-lg"
+              onClick={() => {
+                setEditingFecha(null);
+                setNuevaFecha({ concepto: "", dia_vencimiento: "", mes_aplicacion: "todos" });
+              }}
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Nueva Fecha
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {editingFecha ? "Editar Fecha de Vencimiento" : "Nueva Fecha de Vencimiento"}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="concepto">Concepto</Label>
+                <Input
+                  id="concepto"
+                  value={nuevaFecha.concepto}
+                  onChange={(e) => setNuevaFecha(prev => ({ ...prev, concepto: e.target.value }))}
+                  placeholder="Ej: Colegiatura, Inscripción"
+                />
+              </div>
+              <div>
+                <Label htmlFor="dia">Día de vencimiento</Label>
+                <Input
+                  id="dia"
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={nuevaFecha.dia_vencimiento}
+                  onChange={(e) => setNuevaFecha(prev => ({ ...prev, dia_vencimiento: e.target.value }))}
+                  placeholder="Ej: 10"
+                />
+              </div>
+              <div>
+                <Label htmlFor="mes">Aplicación</Label>
+                <Select 
+                  value={nuevaFecha.mes_aplicacion} 
+                  onValueChange={(value) => setNuevaFecha(prev => ({ ...prev, mes_aplicacion: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona aplicación" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los meses</SelectItem>
+                    <SelectItem value="enero">Enero</SelectItem>
+                    <SelectItem value="febrero">Febrero</SelectItem>
+                    <SelectItem value="marzo">Marzo</SelectItem>
+                    <SelectItem value="abril">Abril</SelectItem>
+                    <SelectItem value="mayo">Mayo</SelectItem>
+                    <SelectItem value="junio">Junio</SelectItem>
+                    <SelectItem value="julio">Julio</SelectItem>
+                    <SelectItem value="agosto">Agosto</SelectItem>
+                    <SelectItem value="septiembre">Septiembre</SelectItem>
+                    <SelectItem value="octubre">Octubre</SelectItem>
+                    <SelectItem value="noviembre">Noviembre</SelectItem>
+                    <SelectItem value="diciembre">Diciembre</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  onClick={handleGuardarFecha}
+                  disabled={saveFechaMutation.isPending}
+                  className="flex-1"
+                >
+                  {saveFechaMutation.isPending ? "Guardando..." : "Guardar"}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowFechaModal(false)}
+                  disabled={saveFechaMutation.isPending}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Modal para Reglas de Recargo */}
+      <Dialog open={showRecargoModal} onOpenChange={setShowRecargoModal}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingRecargo ? "Editar Regla de Recargo" : "Nueva Regla de Recargo"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="nombre-regla">Nombre de la regla</Label>
+              <Input
+                id="nombre-regla"
+                value={nuevoRecargo.nombre}
+                onChange={(e) => setNuevoRecargo(prev => ({ ...prev, nombre: e.target.value }))}
+                placeholder="Ej: Estándar Mexicano, Recargo Básico"
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="tipo-recargo">Tipo de recargo</Label>
+              <Select 
+                value={nuevoRecargo.tipo} 
+                onValueChange={(value) => setNuevoRecargo(prev => ({ ...prev, tipo: value as any }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="porcentaje">Porcentaje</SelectItem>
+                  <SelectItem value="fijo">Monto fijo</SelectItem>
+                  <SelectItem value="progresivo">Progresivo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="dias-gracia">Días de gracia</Label>
+              <Input
+                id="dias-gracia"
+                type="number"
+                min="0"
+                value={nuevoRecargo.dias_gracia}
+                onChange={(e) => setNuevoRecargo(prev => ({ ...prev, dias_gracia: e.target.value }))}
+                placeholder="0"
+              />
+            </div>
+
+            {nuevoRecargo.tipo === 'porcentaje' && (
+              <div>
+                <Label htmlFor="porcentaje">Porcentaje de recargo (%)</Label>
+                <Input
+                  id="porcentaje"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={nuevoRecargo.porcentaje}
+                  onChange={(e) => setNuevoRecargo(prev => ({ ...prev, porcentaje: e.target.value }))}
+                  placeholder="3.0"
+                />
+              </div>
+            )}
+
+            {nuevoRecargo.tipo === 'fijo' && (
+              <div>
+                <Label htmlFor="monto-fijo">Monto fijo (MXN)</Label>
+                <Input
+                  id="monto-fijo"
+                  type="number"
+                  min="0"
+                  value={nuevoRecargo.monto_fijo}
+                  onChange={(e) => setNuevoRecargo(prev => ({ ...prev, monto_fijo: e.target.value }))}
+                  placeholder="200.00"
+                />
+              </div>
+            )}
+
+            <div>
+              <Label htmlFor="monto-maximo">Monto máximo (MXN) - opcional</Label>
+              <Input
+                id="monto-maximo"
+                type="number"
+                min="0"
+                value={nuevoRecargo.monto_maximo}
+                onChange={(e) => setNuevoRecargo(prev => ({ ...prev, monto_maximo: e.target.value }))}
+                placeholder="5000.00"
+              />
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="fines-semana"
+                checked={nuevoRecargo.aplica_fines_semana}
+                onCheckedChange={(checked) => setNuevoRecargo(prev => ({ ...prev, aplica_fines_semana: checked }))}
+              />
+              <Label htmlFor="fines-semana">Aplicar en fines de semana</Label>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="festivos"
+                checked={nuevoRecargo.aplica_festivos}
+                onCheckedChange={(checked) => setNuevoRecargo(prev => ({ ...prev, aplica_festivos: checked }))}
+              />
+              <Label htmlFor="festivos">Aplicar en días festivos</Label>
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button 
+                onClick={handleGuardarRecargo}
+                disabled={saveReglaMutation.isPending}
+                className="flex-1"
+              >
+                {saveReglaMutation.isPending ? "Guardando..." : "Guardar"}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowRecargoModal(false)}
+                disabled={saveReglaMutation.isPending}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

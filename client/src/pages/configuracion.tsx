@@ -139,9 +139,11 @@ export default function Configuracion() {
       // Invalidar caché para recargar los datos y actualizar logo en sidebar
       queryClient.invalidateQueries({ queryKey: ['/api/institutional-info'] });
       
-      // Actualizar el logo en el contexto institucional
+      // Actualizar el logo en el contexto institucional inmediatamente
       if (logoPreview) {
         setLogoUrl(logoPreview);
+      } else {
+        setLogoUrl(null);
       }
       
       toast({

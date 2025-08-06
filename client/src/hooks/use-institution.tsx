@@ -35,7 +35,7 @@ export function InstitutionProvider({ children }: { children: ReactNode }) {
       setInstitutionName(institutionalData.nombre_legal || 'Instituto JFR');
       setCampusName('Campus Principal');
       
-      if (institutionalData.logo_url && institutionalData.logo_url.trim() !== '') {
+      if (institutionalData.logo_url && institutionalData.logo_url.trim() !== '' && institutionalData.logo_url.includes('data:image')) {
         setLogoUrl(institutionalData.logo_url);
       } else {
         setLogoUrl(null);

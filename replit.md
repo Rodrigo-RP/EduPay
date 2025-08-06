@@ -88,6 +88,7 @@ Estado actual: Sistema 100% funcional con nuevas funcionalidades implementadas:
 - ✅ Interfaz moderna con gradientes y diseño responsivo para pantallas grandes
 - ✅ Banner de padres de familia eliminado según solicitud del usuario
 - ✅ Badge "Sistema Exclusivo para Personal Autorizado" eliminado del login
+- ✅ Banner de credenciales de demostración eliminado del login
 - 🔄 reCAPTCHA preparado para implementar (pendiente claves de Google)
 
 ## System Architecture

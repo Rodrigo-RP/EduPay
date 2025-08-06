@@ -156,15 +156,7 @@ export default function Login() {
                 </Button>
               </form>
               
-              {/* Demo credentials */}
-              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-sm text-blue-700 font-medium mb-2">Credenciales de demostración:</p>
-                <div className="space-y-1">
-                  <p className="text-xs text-blue-600 font-mono">rodrigorp@institutojfr.edu.mx</p>
-                  <p className="text-xs text-blue-600 font-mono">[REDACTED]</p>
-                </div>
-                <p className="text-xs text-blue-600 mt-2">Rol: Administrador General - Instituto JFR</p>
-              </div>
+
             </CardContent>
           </Card>
 

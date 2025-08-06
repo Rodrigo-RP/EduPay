@@ -890,6 +890,23 @@ export class DatabaseStorage implements IStorage {
             
             if (student.length > 0) {
               studentInfo = student[0];
+            } else {
+              // Try partial match for more flexible search
+              const partialStudent = await db
+                .select({
+                  id: students.id,
+                  nombre_completo: students.nombre_completo,
+                  grado: students.grado,
+                  grupo: students.grupo,
+                  curp: students.curp
+                })
+                .from(students)
+                .where(sql`LOWER(${students.nombre_completo}) LIKE ${`%${studentName.toLowerCase()}%`}`)
+                .limit(1);
+              
+              if (partialStudent.length > 0) {
+                studentInfo = partialStudent[0];
+              }
             }
           }
           

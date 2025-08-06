@@ -544,6 +544,31 @@ export default function Aprobaciones() {
                           <span>Solicitado por: {(approval as any).requester_name || 'Usuario'} ({(approval as any).requester_role || 'Sin rol'})</span>
                         </div>
 
+                        {/* Información del estudiante si está disponible */}
+                        {(approval as any).student_info && (
+                          <div className="p-3 bg-blue-50 border-l-4 border-blue-400 rounded-r-md">
+                            <h4 className="font-medium text-blue-900 mb-2">Estudiante Afectado</h4>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div>
+                                <span className="font-medium text-blue-700">Nombre:</span>
+                                <p className="text-blue-900">{(approval as any).student_info.nombre_completo}</p>
+                              </div>
+                              <div>
+                                <span className="font-medium text-blue-700">Grado:</span>
+                                <p className="text-blue-900">{(approval as any).student_info.grado}</p>
+                              </div>
+                              <div>
+                                <span className="font-medium text-blue-700">Grupo:</span>
+                                <p className="text-blue-900">{(approval as any).student_info.grupo}</p>
+                              </div>
+                              <div>
+                                <span className="font-medium text-blue-700">CURP:</span>
+                                <p className="text-blue-900 text-xs">{(approval as any).student_info.curp}</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Datos de la solicitud */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
                           <div>
@@ -714,6 +739,33 @@ export default function Aprobaciones() {
                   <Badge variant="outline" className="text-xs mt-1">{selectedApproval.requester_role}</Badge>
                 </div>
               </div>
+
+              {/* Student Information */}
+              {selectedApproval.student_info && (
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Información del Estudiante</Label>
+                  <div className="bg-blue-50 p-3 rounded border-l-4 border-blue-400">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="font-medium text-blue-700">Nombre Completo:</span>
+                        <p className="text-blue-900 font-semibold">{selectedApproval.student_info.nombre_completo}</p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-blue-700">Grado:</span>
+                        <p className="text-blue-900">{selectedApproval.student_info.grado}</p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-blue-700">Grupo:</span>
+                        <p className="text-blue-900">{selectedApproval.student_info.grupo}</p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-blue-700">CURP:</span>
+                        <p className="text-blue-900 text-xs">{selectedApproval.student_info.curp}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <Label className="text-sm font-medium text-gray-700">Justificación</Label>

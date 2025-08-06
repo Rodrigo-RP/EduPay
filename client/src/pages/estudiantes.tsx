@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Plus, Search, Edit, Trash2, UserCheck, UserX, Phone, Mail, MapPin, AlertTriangle, FileSpreadsheet, Download, Upload, Eye, Loader2 } from "lucide-react";
+import { Users, Plus, Search, Edit, Trash2, UserCheck, UserX, Phone, Mail, MapPin, AlertTriangle, FileSpreadsheet, Download, Upload, Eye, Loader2, Settings } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 export default function Estudiantes() {
@@ -19,6 +19,10 @@ export default function Estudiantes() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedGrado, setSelectedGrado] = useState("all");
   const [selectedGrupo, setSelectedGrupo] = useState("all");
+  const [selectedSeccion, setSelectedSeccion] = useState("all");
+  const [selectedCicloEscolar, setSelectedCicloEscolar] = useState("all");
+  const [selectedStatus, setSelectedStatus] = useState("all");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [gruposPersonalizados, setGruposPersonalizados] = useState(["A", "B", "C", "D", "E", "F", "G", "H"]);
   const [editandoGrupos, setEditandoGrupos] = useState(false);
   const [nuevoGrupo, setNuevoGrupo] = useState("");
@@ -436,15 +440,24 @@ export default function Estudiantes() {
   // Filtros para estudiantes
   const grados = Array.from(new Set(estudiantes.map((e: any) => e.grado).filter(Boolean))) as string[];
   const grupos = Array.from(new Set(estudiantes.map((e: any) => e.grupo).filter(Boolean))) as string[];
+  const secciones = Array.from(new Set(estudiantes.map((e: any) => e.nivel_escolar).filter(Boolean))) as string[];
+  const ciclosEscolares = Array.from(new Set(estudiantes.map((e: any) => e.ciclo_escolar || '2024-2025').filter(Boolean))) as string[];
+  const statusOptions = Array.from(new Set(estudiantes.map((e: any) => e.status).filter(Boolean))) as string[];
 
   const filteredEstudiantes = estudiantes.filter((estudiante: any) => {
     const matchSearch = !searchTerm || 
       estudiante.nombre_completo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      estudiante.curp?.toLowerCase().includes(searchTerm.toLowerCase());
+      estudiante.curp?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      estudiante.nombres?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      estudiante.apellido_paterno?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      estudiante.apellido_materno?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchGrado = selectedGrado === "all" || estudiante.grado === selectedGrado;
     const matchGrupo = selectedGrupo === "all" || estudiante.grupo === selectedGrupo;
+    const matchSeccion = selectedSeccion === "all" || estudiante.nivel_escolar === selectedSeccion;
+    const matchCiclo = selectedCicloEscolar === "all" || (estudiante.ciclo_escolar || '2024-2025') === selectedCicloEscolar;
+    const matchStatus = selectedStatus === "all" || estudiante.status === selectedStatus;
     
-    return matchSearch && matchGrado && matchGrupo;
+    return matchSearch && matchGrado && matchGrupo && matchSeccion && matchCiclo && matchStatus;
   });
 
   if (error) {
@@ -521,45 +534,158 @@ export default function Estudiantes() {
         </div>
       </div>
 
-      {/* Filtros */}
+      {/* Filtros Mejorados */}
       <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Buscar por nombre o CURP..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+        <CardContent className="p-6">
+          <div className="space-y-4">
+            {/* Barra de búsqueda principal */}
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    placeholder="Buscar por nombre, apellidos o CURP..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 text-base"
+                  />
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className="flex items-center gap-2"
+              >
+                <Settings className="h-4 w-4" />
+                {showAdvancedFilters ? 'Ocultar filtros' : 'Más filtros'}
+              </Button>
+            </div>
+
+            {/* Filtros rápidos (siempre visibles) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Sección Educativa</Label>
+                <Select value={selectedSeccion} onValueChange={setSelectedSeccion}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Todas las secciones" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las secciones</SelectItem>
+                    {secciones.map((seccion) => (
+                      <SelectItem key={seccion} value={seccion}>{seccion}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Grado</Label>
+                <Select value={selectedGrado} onValueChange={setSelectedGrado}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Todos los grados" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los grados</SelectItem>
+                    {grados.sort().map((grado) => (
+                      <SelectItem key={grado} value={grado}>{grado}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Grupo</Label>
+                <Select value={selectedGrupo} onValueChange={setSelectedGrupo}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Todos los grupos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los grupos</SelectItem>
+                    {grupos.sort().map((grupo) => (
+                      <SelectItem key={grupo} value={grupo}>Grupo {grupo}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Estatus</Label>
+                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Todos los estatus" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los estatus</SelectItem>
+                    <SelectItem value="activo">Activo</SelectItem>
+                    <SelectItem value="inactivo">Inactivo</SelectItem>
+                    <SelectItem value="suspendido">Suspendido</SelectItem>
+                    <SelectItem value="egresado">Egresado</SelectItem>
+                    {statusOptions.filter(status => !['activo', 'inactivo', 'suspendido', 'egresado'].includes(status)).map((status) => (
+                      <SelectItem key={status} value={status}>{status}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-            
-            <Select value={selectedGrado} onValueChange={setSelectedGrado}>
-              <SelectTrigger className="w-full sm:w-[200px]">
-                <SelectValue placeholder="Filtrar por grado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los grados</SelectItem>
-                {grados.map((grado) => (
-                  <SelectItem key={grado} value={grado}>{grado}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
 
-            <Select value={selectedGrupo} onValueChange={setSelectedGrupo}>
-              <SelectTrigger className="w-full sm:w-[200px]">
-                <SelectValue placeholder="Filtrar por grupo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los grupos</SelectItem>
-                {grupos.map((grupo) => (
-                  <SelectItem key={grupo} value={grupo}>Grupo {grupo}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Filtros avanzados (expandibles) */}
+            {showAdvancedFilters && (
+              <div className="border-t pt-4 mt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Ciclo Escolar</Label>
+                    <Select value={selectedCicloEscolar} onValueChange={setSelectedCicloEscolar}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Todos los ciclos" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos los ciclos</SelectItem>
+                        {ciclosEscolares.sort().reverse().map((ciclo) => (
+                          <SelectItem key={ciclo} value={ciclo}>{ciclo}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Acciones rápidas</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSearchTerm("");
+                          setSelectedGrado("all");
+                          setSelectedGrupo("all");
+                          setSelectedSeccion("all");
+                          setSelectedCicloEscolar("all");
+                          setSelectedStatus("all");
+                        }}
+                        className="text-xs"
+                      >
+                        Limpiar filtros
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Resumen de filtros activos */}
+            {(searchTerm || selectedGrado !== "all" || selectedGrupo !== "all" || selectedSeccion !== "all" || selectedCicloEscolar !== "all" || selectedStatus !== "all") && (
+              <div className="flex items-center gap-2 text-sm text-gray-600 bg-blue-50 p-2 rounded-md">
+                <span className="font-medium">Filtros activos:</span>
+                {searchTerm && <Badge variant="secondary">Búsqueda: {searchTerm}</Badge>}
+                {selectedSeccion !== "all" && <Badge variant="secondary">Sección: {selectedSeccion}</Badge>}
+                {selectedGrado !== "all" && <Badge variant="secondary">Grado: {selectedGrado}</Badge>}
+                {selectedGrupo !== "all" && <Badge variant="secondary">Grupo: {selectedGrupo}</Badge>}
+                {selectedCicloEscolar !== "all" && <Badge variant="secondary">Ciclo: {selectedCicloEscolar}</Badge>}
+                {selectedStatus !== "all" && <Badge variant="secondary">Estatus: {selectedStatus}</Badge>}
+                <span className="ml-auto font-medium text-blue-600">
+                  {filteredEstudiantes.length} de {estudiantes.length} estudiantes
+                </span>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

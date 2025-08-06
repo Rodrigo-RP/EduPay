@@ -15,7 +15,12 @@ Dashboard preference: Dashboard CEO tradicional como predeterminado para super a
 Funcionalidad de redes sociales: Integración real con plataformas oficiales (Facebook Business, Instagram Business, TikTok Ads) usando autenticación OAuth y redirección a sitios oficiales para que cada escuela conecte sus propias cuentas empresariales.
 Sistema verificado: Auditoría sistemática completada - todas las funcionalidades operan con datos reales, no decorativos.
 WebSocket: Sistema de tiempo real completamente operativo y libre de fallas críticas (Agosto 2025) - conexiones estables, autenticación JWT robusta, manejo de errores comprehensivo, limpieza automática de memoria, 11 notificaciones implementadas, sin conflictos con Vite HMR.
-Configuración de Pagos: Interfaz de selección múltiple de meses implementada con checkboxes (Agosto 2025) - permite selección individual de meses o "todos los meses" con validación completa y visualización mejorada en tarjetas.
+Configuración de Pagos: Sistema completo implementado (Agosto 2025):
+- Interfaz de selección múltiple de meses con checkboxes - permite selección individual o "todos los meses"
+- Reglas de recargo con persistencia PostgreSQL - tabla payment_surcharge_rules completamente funcional
+- Campo de entrada manual de texto libre para cantidades de dinero (no controles numéricos)
+- Mapeo correcto entre tipos frontend (porcentaje_fijo, monto_fijo, porcentaje_diario) y base de datos (porcentaje, fijo, progresivo)
+- CRUD completo con validación y conversión automática de centavos/pesos
 
 ## System Architecture
 

@@ -32,6 +32,7 @@ class WebSocketManager {
   private wss: WebSocketServer | null = null;
   private clients: Map<number, AuthenticatedSocket[]> = new Map(); // user_id -> sockets
   private campusClients: Map<number, Set<number>> = new Map(); // campus_id -> user_ids
+  private connectionAttempts: Map<string, number> = new Map(); // IP -> connection count per minute
 
   initialize(server: Server) {
     this.wss = new WebSocketServer({ 
@@ -40,6 +41,29 @@ class WebSocketManager {
     });
     
     this.wss.on('connection', (ws: AuthenticatedSocket, req) => {
+      // Rate limiting by IP
+      const clientIP = req.socket.remoteAddress || 'unknown';
+      const currentTime = Math.floor(Date.now() / 60000); // Current minute
+      const connectionKey = `${clientIP}-${currentTime}`;
+      
+      const currentConnections = this.connectionAttempts.get(connectionKey) || 0;
+      if (currentConnections > 10) { // Max 10 connections per minute per IP
+        console.log(`🚫 Rate limit exceeded for IP: ${clientIP}`);
+        ws.close(1013, 'Too many connections');
+        return;
+      }
+      
+      this.connectionAttempts.set(connectionKey, currentConnections + 1);
+      
+      // Clean up old connection counts (older than 2 minutes)
+      const cutoff = currentTime - 2;
+      for (const [key] of this.connectionAttempts) {
+        const keyTime = parseInt(key.split('-').pop() || '0');
+        if (keyTime < cutoff) {
+          this.connectionAttempts.delete(key);
+        }
+      }
+
       console.log('🔌 Nueva conexión WebSocket');
       ws.isAlive = true;
       
@@ -113,7 +137,7 @@ class WebSocketManager {
 
   private async authenticateUser(ws: AuthenticatedSocket, token: string) {
     try {
-      const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+      const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key';
       const decoded = jwt.verify(token, JWT_SECRET) as any;
       
       // Buscar usuario en base de datos

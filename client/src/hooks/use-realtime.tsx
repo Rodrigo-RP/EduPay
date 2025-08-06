@@ -41,11 +41,21 @@ export function useRealTime(options: UseRealTimeOptions = {}) {
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
+  const lastConnectionAttempt = useRef<number>(0);
+  const minConnectionInterval = 1000; // Minimum 1 second between connection attempts
 
   const connect = useCallback(() => {
-    if (!user || wsRef.current?.readyState === WebSocket.OPEN) {
+    if (!user || wsRef.current?.readyState === WebSocket.OPEN || wsRef.current?.readyState === WebSocket.CONNECTING) {
       return;
     }
+
+    // Rate limiting for connection attempts
+    const now = Date.now();
+    if (now - lastConnectionAttempt.current < minConnectionInterval) {
+      console.log('🔌 Conexión en espera - rate limit');
+      return;
+    }
+    lastConnectionAttempt.current = now;
 
     console.log('🔌 Conectando WebSocket...');
     setConnectionStatus('connecting');
@@ -301,14 +311,15 @@ export function useRealTime(options: UseRealTimeOptions = {}) {
 
   // Efecto para auto-conectar
   useEffect(() => {
-    if (autoConnect && user) {
-      connect();
+    if (autoConnect && user && !isConnected && connectionStatus !== 'connecting') {
+      // Solo conectar si no estamos ya conectados o conectando
+      const timer = setTimeout(() => {
+        connect();
+      }, 100); // Small delay to prevent rapid fire connections
+      
+      return () => clearTimeout(timer);
     }
-
-    return () => {
-      disconnect();
-    };
-  }, [autoConnect, user, connect, disconnect]);
+  }, [autoConnect, user, isConnected, connectionStatus, connect]);
 
   // Cleanup al desmontar
   useEffect(() => {

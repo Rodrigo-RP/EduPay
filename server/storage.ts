@@ -684,7 +684,7 @@ export class DatabaseStorage implements IStorage {
         tenant_id: pending_approvals.tenant_id,
         requested_by: pending_approvals.requested_by,
         action_type: pending_approvals.action_type,
-        action_description: pending_approvals.action_description,
+
         entity_type: pending_approvals.entity_type,
         entity_id: pending_approvals.entity_id,
         original_data: pending_approvals.original_data,

@@ -234,7 +234,7 @@ export default function Aprobaciones() {
       </div>
 
       <Tabs defaultValue="pending" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="pending" className="flex items-center space-x-2">
             <Clock className="w-4 h-4" />
             <span>Pendientes de Aprobación</span>
@@ -247,10 +247,6 @@ export default function Aprobaciones() {
           <TabsTrigger value="requests" className="flex items-center space-x-2">
             <FileText className="w-4 h-4" />
             <span>Mis Solicitudes</span>
-          </TabsTrigger>
-          <TabsTrigger value="observations" className="flex items-center space-x-2">
-            <Eye className="w-4 h-4" />
-            <span>Observaciones</span>
           </TabsTrigger>
           <TabsTrigger value="notifications" className="flex items-center space-x-2">
             <MessageSquare className="w-4 h-4" />
@@ -300,46 +296,89 @@ export default function Aprobaciones() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {Array.isArray(pendingApprovals) && pendingApprovals.map((approval: PendingApproval) => (
-                      <TableRow key={approval.id}>
-                        <TableCell className="font-medium">
-                          {getActionTypeLabel(approval.action_type)}
-                        </TableCell>
-                        <TableCell>{approval.action_description}</TableCell>
-                        <TableCell className="text-gray-600">
-                          {approval.current_value || '-'}
-                        </TableCell>
-                        <TableCell className="font-medium text-blue-600">
-                          {approval.proposed_value || '-'}
-                        </TableCell>
-                        <TableCell>{formatDate(approval.created_at)}</TableCell>
-                        <TableCell>{getStatusBadge(approval.status)}</TableCell>
-                        <TableCell>
-                          {approval.status === 'pending' && (
-                            <div className="flex space-x-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-green-600 border-green-300 hover:bg-green-50"
-                                onClick={() => handleDecision(approval, 'approved')}
-                              >
-                                <CheckCircle className="w-4 h-4 mr-1" />
-                                Aprobar
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-red-600 border-red-300 hover:bg-red-50"
-                                onClick={() => handleDecision(approval, 'rejected')}
-                              >
-                                <XCircle className="w-4 h-4 mr-1" />
-                                Rechazar
-                              </Button>
+                    {Array.isArray(pendingApprovals) && pendingApprovals.map((approval: PendingApproval) => {
+                      let originalData, requestedData;
+                      try {
+                        originalData = JSON.parse(approval.original_data);
+                        requestedData = JSON.parse(approval.requested_data);
+                      } catch {
+                        originalData = {};
+                        requestedData = {};
+                      }
+                      
+                      return (
+                        <TableRow key={approval.id}>
+                          <TableCell className="font-medium">
+                            {getActionTypeLabel(approval.action_type)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{approval.requester_name || 'Usuario Desconocido'}</span>
+                              <span className="text-sm text-gray-500">{approval.requester_email}</span>
+                              <Badge variant="outline" className="w-fit text-xs mt-1">
+                                {approval.requester_role || 'Sin rol'}
+                              </Badge>
                             </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          </TableCell>
+                          <TableCell className="text-gray-600 max-w-32">
+                            <div className="text-sm truncate">
+                              {Object.entries(originalData).map(([key, value]) => (
+                                <div key={key}>{key}: {String(value)}</div>
+                              ))}
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-medium text-blue-600 max-w-32">
+                            <div className="text-sm truncate">
+                              {Object.entries(requestedData).map(([key, value]) => (
+                                <div key={key}>{key}: {String(value)}</div>
+                              ))}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={approval.priority === 'high' ? 'destructive' : approval.priority === 'medium' ? 'default' : 'secondary'}>
+                              {approval.priority === 'high' ? 'Alta' : approval.priority === 'medium' ? 'Media' : 'Baja'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{formatDate(approval.created_at)}</TableCell>
+                          <TableCell>{getStatusBadge(approval.status)}</TableCell>
+                          <TableCell>
+                            {approval.status === 'pending' && (
+                              <div className="flex flex-col space-y-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                                  onClick={() => setSelectedApproval(approval)}
+                                >
+                                  <Eye className="w-4 h-4 mr-1" />
+                                  Ver Observaciones
+                                </Button>
+                                <div className="flex space-x-1">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-green-600 border-green-300 hover:bg-green-50"
+                                    onClick={() => handleDecision(approval, 'approved')}
+                                  >
+                                    <CheckCircle className="w-4 h-4 mr-1" />
+                                    Aprobar
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-red-600 border-red-300 hover:bg-red-50"
+                                    onClick={() => handleDecision(approval, 'rejected')}
+                                  >
+                                    <XCircle className="w-4 h-4 mr-1" />
+                                    Rechazar
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}
@@ -461,6 +500,101 @@ export default function Aprobaciones() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Observations Dialog */}
+      <Dialog open={!!selectedApproval && !showDecisionDialog} onOpenChange={() => setSelectedApproval(null)}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <Eye className="w-5 h-5 text-blue-500" />
+              <span>Observaciones de la Solicitud</span>
+            </DialogTitle>
+            <DialogDescription>
+              Revisa los detalles completos de la solicitud antes de tomar una decisión
+            </DialogDescription>
+          </DialogHeader>
+          {selectedApproval && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Tipo de Acción</Label>
+                  <p className="text-sm bg-gray-50 p-2 rounded">{getActionTypeLabel(selectedApproval.action_type)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Prioridad</Label>
+                  <div className="mt-1">
+                    <Badge variant={selectedApproval.priority === 'high' ? 'destructive' : selectedApproval.priority === 'medium' ? 'default' : 'secondary'}>
+                      {selectedApproval.priority === 'high' ? 'Alta' : selectedApproval.priority === 'medium' ? 'Media' : 'Baja'}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Solicitado por</Label>
+                <div className="bg-gray-50 p-3 rounded">
+                  <p className="font-medium">{selectedApproval.requester_name}</p>
+                  <p className="text-sm text-gray-600">{selectedApproval.requester_email}</p>
+                  <Badge variant="outline" className="text-xs mt-1">{selectedApproval.requester_role}</Badge>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Justificación</Label>
+                <p className="text-sm bg-gray-50 p-3 rounded">{selectedApproval.reason}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Datos Actuales</Label>
+                  <div className="bg-gray-50 p-3 rounded text-sm">
+                    <pre className="whitespace-pre-wrap text-gray-800">
+                      {JSON.stringify(JSON.parse(selectedApproval.original_data), null, 2)}
+                    </pre>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Datos Solicitados</Label>
+                  <div className="bg-blue-50 p-3 rounded text-sm">
+                    <pre className="whitespace-pre-wrap text-blue-800">
+                      {JSON.stringify(JSON.parse(selectedApproval.requested_data), null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Fecha de Solicitud</Label>
+                <p className="text-sm bg-gray-50 p-2 rounded">{formatDate(selectedApproval.created_at)}</p>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => setSelectedApproval(null)}
+                >
+                  Cerrar
+                </Button>
+                <Button
+                  variant="outline"
+                  className="text-red-600 border-red-300 hover:bg-red-50"
+                  onClick={() => handleDecision(selectedApproval, 'rejected')}
+                >
+                  <XCircle className="w-4 h-4 mr-1" />
+                  Rechazar
+                </Button>
+                <Button
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => handleDecision(selectedApproval, 'approved')}
+                >
+                  <CheckCircle className="w-4 h-4 mr-1" />
+                  Aprobar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Decision Dialog */}
       <Dialog open={showDecisionDialog} onOpenChange={setShowDecisionDialog}>

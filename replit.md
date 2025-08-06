@@ -23,13 +23,22 @@ Configuración de Pagos: Sistema completo implementado (Agosto 2025):
 - CRUD completo con validación y conversión automática de centavos/pesos
 
 Gestión de Estudiantes: Sistema adaptado a estructura Excel "Concentrado_Estudiante y Padre" (Agosto 2025):
-- Formulario rediseñado con 20 campos específicos según archivo Excel institucional
-- Sección PADRE DE FAMILIA (columnas 1-7): correo institucional familiar, nombres, apellidos, CURP, celular, teléfono casa/oficina
-- Sección ESTUDIANTE (columnas 8-20): nombres, apellidos, CURP, fecha nacimiento, tipo sangre, correo institucional, nivel escolar, clave centro trabajo, grado, grupo, turno
+- Formulario rediseñado con credenciales individuales por usuario: cada padre, madre y estudiante tiene su propio ID de Reference, usuario y contraseña
+- Sección PADRE DE FAMILIA (columnas 1-7): ID Reference + credenciales + correo institucional familiar, nombres, apellidos, CURP, celular, teléfono casa/oficina
+- Sección MADRE DE FAMILIA: ID Reference + credenciales + campos completos separados del padre
+- Sección ESTUDIANTE (columnas 8-20): ID Reference + credenciales + nombres, apellidos, CURP, fecha nacimiento, tipo sangre, correo institucional, nivel escolar, clave centro trabajo, grado, grupo, turno
 - Base de datos extendida con nuevas columnas para ambas entidades
 - Plantilla de importación/exportación Excel actualizada al formato institucional exacto
 - Autenticación corregida en funciones de exportación (auth_token vs token)
 - Sistema completamente funcional y listo para datos reales
+
+Metodología de Desarrollo Preferida (Agosto 2025):
+- SIEMPRE hacer ediciones incrementales y puntuales en lugar de reescribir archivos completos
+- Preservar funcionalidades existentes cuando se realizan correcciones
+- Antes de modificar código, identificar específicamente qué necesita cambio y qué debe preservarse
+- Dar explicaciones más precisas sobre qué funcionalidades ya existen para evitar pérdida de trabajo
+- Evitar reescribir desde cero a menos que sea estrictamente necesario
+- Documentar claramente qué cambios se están realizando y por qué
 
 ## System Architecture
 
@@ -57,7 +66,7 @@ Gestión de Estudiantes: Sistema adaptado a estructura Excel "Concentrado_Estudi
 ### Key Components
 - **User Roles**: 7 specific roles with granular permissions (super_admin, administrador_general, administrador_campus, contador_general, auxiliar_contable, asistente, admisiones).
 - **Multi-Tenant Architecture**: Supports school groups and individual campuses with data separation and role hierarchy.
-- **Student & Guardian Management**: Comprehensive profiles, flexible relationships, academic tracking.
+- **Student & Guardian Management**: Comprehensive profiles with individual credentials per user (student, father, mother), flexible relationships, academic tracking, Excel import/export functionality.
 - **Core Modules**: Initial Setup, Charge Issuance, Parent/Guardian Portal, Cashier & Reconciliation, Fiscal & Accounting, Migration System, Institutional Credentials Management, Institutional Information Management.
 - **Real-Time Communication**: WebSocket server implementado con autenticación JWT para actualizaciones en tiempo real. Sistema configurado en ruta `/ws/realtime` para evitar conflictos con HMR de Vite. Incluye rate limiting, heartbeat, y reconexión automática.
 - **Notification System**: Multi-channel automated reminders (email, SMS, WhatsApp) for payments and overdue alerts. Internal plugin-based notification system for institutional credential expiration monitoring with real-time alerts and urgency classification.

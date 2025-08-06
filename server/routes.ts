@@ -5172,13 +5172,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/payment-config/due-dates/:id", authenticateToken, async (req, res) => {
     try {
       const dueDateId = parseInt(req.params.id);
+      const campusId = (req as any).user.campus_id;
       const { concepto, dia_vencimiento, mes_aplicacion, activo } = req.body;
       
+      console.log("Updating payment due date:", {
+        id: dueDateId,
+        campusId,
+        updates: { concepto, dia_vencimiento, mes_aplicacion, activo }
+      });
+
       const updates = {
         concepto,
-        dia_vencimiento,
+        dia_vencimiento: parseInt(dia_vencimiento) || dia_vencimiento,
         mes_aplicacion: Array.isArray(mes_aplicacion) ? JSON.stringify(mes_aplicacion) : mes_aplicacion,
-        activo
+        activo: activo !== undefined ? activo : true
       };
 
       const updatedDueDate = await storage.updatePaymentDueDate(dueDateId, updates);
@@ -5187,7 +5194,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Fecha de vencimiento no encontrada" });
       }
       
-      res.json(updatedDueDate);
+      console.log("Successfully updated payment due date:", updatedDueDate);
+      res.json({ message: "Fecha de vencimiento actualizada correctamente", data: updatedDueDate });
     } catch (error: any) {
       console.error("Error updating payment due date:", error);
       res.status(500).json({ message: "Error updating payment due date: " + error.message });

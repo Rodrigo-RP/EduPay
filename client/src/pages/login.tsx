@@ -61,9 +61,6 @@ export default function Login() {
             </div>
             <h1 className="text-4xl font-bold text-slate-900 mb-2">Edupay</h1>
             <p className="text-lg text-slate-600 mb-4">Plataforma Administrativa SaaS</p>
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-              Sistema Exclusivo para Personal Autorizado
-            </Badge>
           </div>
 
           {/* Administrative Roles */}

@@ -87,6 +87,7 @@ Estado actual: Sistema 100% funcional con nuevas funcionalidades implementadas:
 - ✅ Diseño profesional con los 7 roles administrativos claramente definidos
 - ✅ Interfaz moderna con gradientes y diseño responsivo para pantallas grandes
 - ✅ Banner de padres de familia eliminado según solicitud del usuario
+- ✅ Badge "Sistema Exclusivo para Personal Autorizado" eliminado del login
 - 🔄 reCAPTCHA preparado para implementar (pendiente claves de Google)
 
 ## System Architecture

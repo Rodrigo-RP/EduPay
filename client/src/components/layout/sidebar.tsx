@@ -182,6 +182,15 @@ export default function Sidebar() {
       module: MODULES.SYSTEM,
       action: ACTIONS.APPROVE
     },
+    { 
+      icon: "fas fa-history", 
+      label: "Historial", 
+      href: "/historial", 
+      active: location === "/historial",
+      category: "sistema",
+      module: MODULES.SYSTEM,
+      action: ACTIONS.READ
+    },
 
   ];
 

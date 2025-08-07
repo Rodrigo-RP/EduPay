@@ -8,6 +8,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 
+interface Movimiento {
+  id: number;
+  fecha: string;
+  hora: string;
+  usuario: string;
+  tipo: string;
+  descripcion: string;
+  familiaEstudiante: string;
+}
+
+type TipoMovimiento = "creacion" | "modificacion" | "eliminacion" | "pago" | "importacion" | "exportacion";
+
 export default function Historial() {
   const { user } = useAuth();
   const [fechaInicio, setFechaInicio] = useState("");
@@ -17,10 +29,10 @@ export default function Historial() {
   const [busqueda, setBusqueda] = useState("");
 
   // Datos vacíos - se llenarán con datos reales del backend
-  const movimientos = [];
+  const movimientos: Movimiento[] = [];
 
   const getTipoBadge = (tipo: string) => {
-    const tiposConfig = {
+    const tiposConfig: Record<string, { color: string; texto: string }> = {
       "creacion": { color: "bg-green-100 text-green-800", texto: "Creación" },
       "modificacion": { color: "bg-blue-100 text-blue-800", texto: "Modificación" },
       "eliminacion": { color: "bg-red-100 text-red-800", texto: "Eliminación" },

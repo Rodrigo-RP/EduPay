@@ -446,9 +446,7 @@ Instituto JFR - ${fechaGeneracion}`;
                 </SelectTrigger>
                 <SelectContent>
                   {/* Reportes de Ingresos */}
-                  <SelectItem value="" disabled>
-                    <div className="font-medium text-blue-700">💰 REPORTES DE INGRESOS</div>
-                  </SelectItem>
+                  <div className="font-medium text-blue-700 px-2 py-1.5 text-xs">💰 REPORTES DE INGRESOS</div>
                   {tiposReporte
                     .filter(tipo => tipo.categoria === "ingresos")
                     .map(tipo => (
@@ -462,9 +460,7 @@ Instituto JFR - ${fechaGeneracion}`;
                   }
                   
                   {/* Reportes de Estudiantes */}
-                  <SelectItem value="" disabled>
-                    <div className="font-medium text-purple-700">👥 LISTAS DE ESTUDIANTES</div>
-                  </SelectItem>
+                  <div className="font-medium text-purple-700 px-2 py-1.5 text-xs">👥 LISTAS DE ESTUDIANTES</div>
                   {tiposReporte
                     .filter(tipo => tipo.categoria === "estudiantes")
                     .map(tipo => (
@@ -478,9 +474,7 @@ Instituto JFR - ${fechaGeneracion}`;
                   }
                   
                   {/* Otros */}
-                  <SelectItem value="" disabled>
-                    <div className="font-medium text-gray-700">⚙️ OTROS REPORTES</div>
-                  </SelectItem>
+                  <div className="font-medium text-gray-700 px-2 py-1.5 text-xs">⚙️ OTROS REPORTES</div>
                   {tiposReporte
                     .filter(tipo => tipo.categoria === "otros")
                     .map(tipo => (

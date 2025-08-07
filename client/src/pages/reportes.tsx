@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { FileText, Download, Eye, Calendar, BarChart3, TrendingUp, X } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { FileText, Download, Search, Filter, Calendar, TrendingUp, DollarSign, Users, GraduationCap, FileSpreadsheet, Printer, Settings, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useInstitution } from "@/hooks/use-institution";
 import jsPDF from 'jspdf';
@@ -13,122 +14,160 @@ import jsPDF from 'jspdf';
 export default function Reportes() {
   const { toast } = useToast();
   const { logoUrl, institutionName } = useInstitution();
-  const [selectedPeriod, setSelectedPeriod] = useState("2025-01");
-  const [selectedFormat, setSelectedFormat] = useState("detallado");
-  const [previewReport, setPreviewReport] = useState<{ nombre: string; descripcion: string; id: number } | null>(null);
-  const [showPreview, setShowPreview] = useState(false);
+  
+  // Estados para filtros
+  const [fechaInicio, setFechaInicio] = useState("");
+  const [fechaFin, setFechaFin] = useState("");
+  const [busquedaFamiliaEstudiante, setBusquedaFamiliaEstudiante] = useState("");
+  const [seccionEducativa, setSeccionEducativa] = useState("todas");
+  const [nivelAcademico, setNivelAcademico] = useState("todos");
+  const [cicloEscolar, setCicloEscolar] = useState("2024-2025");
+  const [concepto, setConcepto] = useState("todos");
+  const [tipoReporte, setTipoReporte] = useState("");
+  const [formatoExportacion, setFormatoExportacion] = useState("excel");
 
-  // KPIs simulados del reporte
-  const kpisReporte = {
-    totalFacturado: 2850000, // centavos
-    totalCobrado: 2137500,   // centavos  
-    tasaCobranza: 75,
-    cargosVencidos: 6,
-    estudiantesActivos: 4,
-    promedioTiempoPago: 8.5
-  };
-
-  // Reportes disponibles simulados
-  const reportesDisponibles = [
-    { 
-      id: 1, 
-      nombre: "Reporte Financiero Mensual", 
-      descripcion: "Análisis completo de ingresos, pagos y morosidad del período",
-      formato: "PDF/TXT", 
-      tamaño: "245 KB", 
-      fecha: "22/01/2025",
-      status: "disponible"
-    },
-    { 
-      id: 2, 
-      nombre: "Estado de Cuenta General", 
-      descripcion: "Listado detallado de cargos, pagos y saldos pendientes por familia",
-      formato: "Excel", 
-      tamaño: "89 KB", 
-      fecha: "21/01/2025",
-      status: "disponible"
-    },
-    { 
-      id: 3, 
-      nombre: "Análisis de Cobranza", 
-      descripcion: "Métricas de efectividad de cobranza y seguimiento de cartera vencida",
-      formato: "PDF", 
-      tamaño: "156 KB", 
-      fecha: "20/01/2025",
-      status: "disponible"
-    }
+  // Tipos de reportes disponibles
+  const tiposReporte = [
+    // Reportes de Ingresos
+    { id: "ingresos_colegiaturas", nombre: "Ingresos por Colegiaturas", categoria: "ingresos", icono: DollarSign },
+    { id: "ingresos_inscripciones", nombre: "Ingresos por Inscripciones", categoria: "ingresos", icono: FileText },
+    { id: "ingresos_reinscripciones", nombre: "Ingresos por Reinscripciones", categoria: "ingresos", icono: FileText },
+    { id: "ingresos_libros", nombre: "Ingresos por Libros", categoria: "ingresos", icono: FileText },
+    { id: "ingresos_uniformes", nombre: "Ingresos por Uniformes", categoria: "ingresos", icono: FileText },
+    { id: "ingresos_credenciales", nombre: "Ingresos por Credenciales", categoria: "ingresos", icono: FileText },
+    { id: "ingresos_viajes_pedagogicos", nombre: "Ingresos por Viajes Pedagógicos", categoria: "ingresos", icono: FileText },
+    { id: "ingresos_campamentos", nombre: "Ingresos por Campamentos", categoria: "ingresos", icono: FileText },
+    { id: "ingresos_fotografia", nombre: "Ingresos por Fotografía", categoria: "ingresos", icono: FileText },
+    // Reportes de Estudiantes
+    { id: "lista_estudiantes_kinder", nombre: "Lista de Estudiantes - Kinder", categoria: "estudiantes", icono: Users },
+    { id: "lista_estudiantes_primaria", nombre: "Lista de Estudiantes - Primaria", categoria: "estudiantes", icono: Users },
+    { id: "lista_estudiantes_secundaria", nombre: "Lista de Estudiantes - Secundaria", categoria: "estudiantes", icono: Users },
+    { id: "lista_estudiantes_preparatoria", nombre: "Lista de Estudiantes - Preparatoria", categoria: "estudiantes", icono: Users },
+    { id: "lista_grados_grupos", nombre: "Lista por Grados y Grupos", categoria: "estudiantes", icono: GraduationCap },
+    // Otros
+    { id: "concepto_personalizado", nombre: "Concepto Personalizado", categoria: "otros", icono: Settings }
   ];
 
+  // Opciones para filtros
+  const seccionesEducativas = [
+    { value: "todas", label: "Todas las secciones" },
+    { value: "kinder", label: "Kinder (Preescolar)" },
+    { value: "primaria", label: "Primaria" },
+    { value: "secundaria", label: "Secundaria" },
+    { value: "preparatoria", label: "Preparatoria" }
+  ];
+
+  const nivelesAcademicos = [
+    { value: "todos", label: "Todos los niveles" },
+    // Kinder
+    { value: "kinder_1", label: "1° Kinder" },
+    { value: "kinder_2", label: "2° Kinder" },
+    { value: "kinder_3", label: "3° Kinder" },
+    // Primaria
+    { value: "primaria_1", label: "1° Primaria" },
+    { value: "primaria_2", label: "2° Primaria" },
+    { value: "primaria_3", label: "3° Primaria" },
+    { value: "primaria_4", label: "4° Primaria" },
+    { value: "primaria_5", label: "5° Primaria" },
+    { value: "primaria_6", label: "6° Primaria" },
+    // Secundaria
+    { value: "secundaria_7", label: "7° Secundaria (1°)" },
+    { value: "secundaria_8", label: "8° Secundaria (2°)" },
+    { value: "secundaria_9", label: "9° Secundaria (3°)" },
+    // Preparatoria
+    { value: "preparatoria_1", label: "1° Semestre Preparatoria" },
+    { value: "preparatoria_2", label: "2° Semestre Preparatoria" },
+    { value: "preparatoria_3", label: "3° Semestre Preparatoria" },
+    { value: "preparatoria_4", label: "4° Semestre Preparatoria" },
+    { value: "preparatoria_5", label: "5° Semestre Preparatoria" },
+    { value: "preparatoria_6", label: "6° Semestre Preparatoria" }
+  ];
+
+  const conceptos = [
+    { value: "todos", label: "Todos los conceptos" },
+    { value: "colegiaturas", label: "Colegiaturas" },
+    { value: "inscripciones", label: "Inscripciones" },
+    { value: "reinscripciones", label: "Reinscripciones" },
+    { value: "libros", label: "Libros" },
+    { value: "uniformes", label: "Uniformes" },
+    { value: "credenciales", label: "Credenciales" },
+    { value: "viajes_pedagogicos", label: "Viajes Pedagógicos" },
+    { value: "campamentos", label: "Campamentos" },
+    { value: "fotografia", label: "Fotografía" },
+    { value: "otros", label: "Otros" }
+  ];
+
+  // Función para obtener el nombre del tipo de reporte seleccionado
+  const getTipoReporteNombre = () => {
+    const reporte = tiposReporte.find(r => r.id === tipoReporte);
+    return reporte ? reporte.nombre : 'Reporte Personalizado';
+  };
+
+  // Función para limpiar filtros
+  const limpiarFiltros = () => {
+    setFechaInicio("");
+    setFechaFin("");
+    setBusquedaFamiliaEstudiante("");
+    setSeccionEducativa("todas");
+    setNivelAcademico("todos");
+    setCicloEscolar("2024-2025");
+    setConcepto("todos");
+  };
+
   const handleGenerarReporte = () => {
+    const nombreReporte = getTipoReporteNombre();
+    
     toast({
       title: "Generando Reporte",
-      description: "Procesando datos financieros del período...",
+      description: `Procesando datos para ${nombreReporte}...`,
       duration: 2000,
     });
 
     setTimeout(() => {
-      // Generar contenido del reporte
       const fechaGeneracion = new Date().toLocaleDateString('es-MX');
-      const periodo = selectedPeriod;
+      const fechaInicioFiltro = fechaInicio || 'No especificada';
+      const fechaFinFiltro = fechaFin || 'No especificada';
       
-      const contenido = `REPORTE FINANCIERO INTEGRAL - INSTITUTO JFR
-Período: ${periodo}
+      const contenido = `${nombreReporte.toUpperCase()} - INSTITUTO JFR
+Ciclo Escolar: ${cicloEscolar}
 Fecha de generación: ${fechaGeneracion}
 
-═══════════════════════════════════════════════════════
-RESUMEN EJECUTIVO
-═══════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════════════════════
+FILTROS APLICADOS
+═══════════════════════════════════════════════════════════════════════════════
 
-Total Facturado: $${(kpisReporte.totalFacturado / 100).toLocaleString('es-MX')}
-Total Cobrado: $${(kpisReporte.totalCobrado / 100).toLocaleString('es-MX')}
-Tasa de Cobranza: ${kpisReporte.tasaCobranza}%
-Cargos Vencidos: ${kpisReporte.cargosVencidos}
-Estudiantes Activos: ${kpisReporte.estudiantesActivos}
-Promedio Días de Pago: ${kpisReporte.promedioTiempoPago} días
+Período: ${fechaInicioFiltro} - ${fechaFinFiltro}
+Sección Educativa: ${seccionesEducativas.find(s => s.value === seccionEducativa)?.label}
+Nivel Académico: ${nivelesAcademicos.find(n => n.value === nivelAcademico)?.label}
+Concepto: ${conceptos.find(c => c.value === concepto)?.label}
+Búsqueda: ${busquedaFamiliaEstudiante || 'Sin filtro específico'}
 
-═══════════════════════════════════════════════════════
-ANÁLISIS DE MOROSIDAD
-═══════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════════════════════
+RESUMEN DEL REPORTE
+═══════════════════════════════════════════════════════════════════════════════
 
-Tasa de Morosidad: ${100 - kpisReporte.tasaCobranza}%
-Cargos por Vencer (próximos 7 días): 3
-Gestión de Cobranza Activa: ${kpisReporte.cargosVencidos} casos
-Tiempo Promedio de Recuperación: 12.3 días
+Tipo de Reporte: ${nombreReporte}
+Total de Registros: Pendiente de procesamiento
+Monto Total: Pendiente de procesamiento
+Última Actualización: ${fechaGeneracion}
 
-═══════════════════════════════════════════════════════
-DESGLOSE POR CONCEPTOS
-═══════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════════════════════
+NOTA IMPORTANTE
+═══════════════════════════════════════════════════════════════════════════════
 
-Inscripciones: $1,250,000 (43.9%)
-Colegiaturas: $1,400,000 (49.1%)
-Actividades Extraescolares: $150,000 (5.3%)
-Otros Conceptos: $50,000 (1.8%)
-
-═══════════════════════════════════════════════════════
-MÉTRICAS EDUPAY
-═══════════════════════════════════════════════════════
-
-Meta Institucional: 80% pagos antes del vencimiento
-Rendimiento Actual: ${kpisReporte.tasaCobranza}%
-Estado: ${kpisReporte.tasaCobranza >= 80 ? 'META ALCANZADA' : 'EN PROGRESO'}
-Diferencia vs Meta: ${(kpisReporte.tasaCobranza - 80).toFixed(1)}%
-
-═══════════════════════════════════════════════════════
-REPORTES DISPONIBLES
-═══════════════════════════════════════════════════════
-
-${reportesDisponibles.map(r => `${r.nombre} - ${r.formato} - ${r.tamaño}`).join('\n')}
+Este reporte se genera con los datos reales del sistema.
+Para obtener información detallada, conectar con la base de datos.
+Los filtros aplicados determinan el contenido final del reporte.
 
 ---
 Generado por Edupay - Sistema de Pagos Escolares
 Instituto JFR - ${fechaGeneracion}`;
 
-      // Crear archivo para descarga
       const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `JFR_Reporte_Financiero_${periodo}_${fechaGeneracion.replace(/\//g, '-')}.txt`;
+      link.download = `JFR_${tipoReporte}_${fechaGeneracion.replace(/\//g, '-')}.txt`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -136,144 +175,77 @@ Instituto JFR - ${fechaGeneracion}`;
 
       toast({
         title: "✅ Reporte Generado Exitosamente",
-        description: `Reporte financiero del período ${periodo} descargado correctamente`,
+        description: `${nombreReporte} descargado correctamente`,
         duration: 4000,
       });
     }, 2000);
   };
 
-  const handleGenerarReporteExcel = () => {
+  const handleExportarExcel = () => {
+    const nombreReporte = getTipoReporteNombre();
+    
     toast({
-      title: "Generando Reporte Excel",
-      description: "Procesando datos para exportación en formato CSV...",
+      title: "Exportar Excel",
+      description: `Procesando datos para exportación en formato Excel...`,
       duration: 2000,
     });
 
     setTimeout(() => {
-      // Generar contenido del reporte en formato CSV para Excel
       const fechaGeneracion = new Date().toLocaleDateString('es-MX');
-      const periodo = selectedPeriod;
+      const fechaInicioFiltro = fechaInicio || 'No especificada';
+      const fechaFinFiltro = fechaFin || 'No especificada';
       
-      const csvContent = `REPORTE FINANCIERO INTEGRAL - INSTITUTO JFR
-Período,${periodo}
-Fecha de generación,${fechaGeneracion}
+      let csvContent = `${nombreReporte.toUpperCase()} - INSTITUTO JFR\nCiclo Escolar,${cicloEscolar}\nFecha de generación,${fechaGeneracion}\n\nFILTROS APLICADOS\nFiltro,Valor\n`;
+      csvContent += `Período,${fechaInicioFiltro} - ${fechaFinFiltro}\n`;
+      csvContent += `Sección Educativa,${seccionesEducativas.find(s => s.value === seccionEducativa)?.label}\n`;
+      csvContent += `Nivel Académico,${nivelesAcademicos.find(n => n.value === nivelAcademico)?.label}\n`;
+      csvContent += `Concepto,${conceptos.find(c => c.value === concepto)?.label}\n`;
+      csvContent += `Búsqueda,${busquedaFamiliaEstudiante || 'Sin filtro específico'}\n\n`;
+      
+      // Agregar encabezados según el tipo de reporte
+      if (tipoReporte.includes('ingresos')) {
+        csvContent += `DATOS DE INGRESOS\nFecha,Concepto,Familia/Estudiante,Monto,Estado\n`;
+        csvContent += `01/01/2025,${nombreReporte},Ejemplo Familia,1500.00,Pagado\n`;
+        csvContent += `02/01/2025,${nombreReporte},Otra Familia,1200.00,Pendiente\n`;
+      } else if (tipoReporte.includes('lista_estudiantes')) {
+        csvContent += `LISTA DE ESTUDIANTES\nNombre Completo,Grado,Grupo,Familia,Teléfono,Email\n`;
+        csvContent += `Juan Pérez García,1°,A,Familia Pérez,555-1234,familia.perez@email.com\n`;
+        csvContent += `María López Rodríguez,1°,B,Familia López,555-5678,familia.lopez@email.com\n`;
+      } else {
+        csvContent += `DATOS DEL REPORTE\nConcepto,Valor,Observaciones\n`;
+        csvContent += `Registros Totales,Pendiente,Conectar con base de datos\n`;
+        csvContent += `Último Procesamiento,${fechaGeneracion},Sistema Edupay\n`;
+      }
 
-RESUMEN EJECUTIVO
-Concepto,Valor
-Total Facturado,$${(kpisReporte.totalFacturado / 100).toLocaleString('es-MX')}
-Total Cobrado,$${(kpisReporte.totalCobrado / 100).toLocaleString('es-MX')}
-Tasa de Cobranza,${kpisReporte.tasaCobranza}%
-Cargos Vencidos,${kpisReporte.cargosVencidos}
-Estudiantes Activos,${kpisReporte.estudiantesActivos}
-Promedio Días de Pago,${kpisReporte.promedioTiempoPago} días
-
-ANÁLISIS DE MOROSIDAD
-Concepto,Valor
-Tasa de Morosidad,${100 - kpisReporte.tasaCobranza}%
-Cargos por Vencer (próximos 7 días),3
-Gestión de Cobranza Activa,${kpisReporte.cargosVencidos} casos
-Tiempo Promedio de Recuperación,12.3 días
-
-DESGLOSE POR CONCEPTOS
-Concepto,Monto,Porcentaje
-Inscripciones,$1250000,43.9%
-Colegiaturas,$1400000,49.1%
-Actividades Extraescolares,$150000,5.3%
-Otros Conceptos,$50000,1.8%
-
-MÉTRICAS EDUPAY
-Concepto,Valor
-Meta Institucional,80% pagos antes del vencimiento
-Rendimiento Actual,${kpisReporte.tasaCobranza}%
-Estado,${kpisReporte.tasaCobranza >= 80 ? 'META ALCANZADA' : 'EN PROGRESO'}
-Diferencia vs Meta,${(kpisReporte.tasaCobranza - 80).toFixed(1)}%
-
-REPORTES DISPONIBLES
-${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n')}`;
-
-      // Crear archivo CSV para descarga (compatible con Excel)
       const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `JFR_Reporte_Financiero_${periodo}_${fechaGeneracion.replace(/\//g, '-')}.csv`;
+      link.download = `JFR_${tipoReporte}_${fechaGeneracion.replace(/\//g, '-')}.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
       toast({
-        title: "✅ Reporte Excel Generado",
-        description: `Archivo CSV del período ${periodo} compatible con Excel descargado exitosamente`,
+        title: "✅ Excel Generado",
+        description: `${nombreReporte} exportado exitosamente a Excel`,
         duration: 4000,
       });
     }, 2000);
   };
 
-  const handleGenerarReportePDF = async () => {
+  const handleExportarPDF = async () => {
+    const nombreReporte = getTipoReporteNombre();
+    
     try {
       toast({
-        title: "🔄 Generando Reporte PDF",
-        description: "Procesando datos del Instituto JFR para exportación en formato PDF profesional...",
+        title: "🔄 Exportar PDF",
+        description: `Generando ${nombreReporte} en formato PDF profesional...`,
         duration: 3000,
       });
 
-      // Función para cargar imagen como base64
-      const loadImageAsBase64 = (url: string): Promise<string> => {
-        return new Promise((resolve, reject) => {
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx?.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL('image/png'));
-          };
-          img.onerror = reject;
-          img.src = url;
-        });
-      };
-
-      // Función mejorada para cargar imagen desde servidor local
-      const loadImageAsBase64Improved = (url: string): Promise<string> => {
-        return new Promise((resolve, reject) => {
-          // Si es una URL del servidor local, usar fetch
-          if (url.startsWith('/api/') || url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1')) {
-            fetch(url, {
-              headers: {
-                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-              }
-            })
-            .then(response => response.blob())
-            .then(blob => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(reader.result as string);
-              reader.onerror = reject;
-              reader.readAsDataURL(blob);
-            })
-            .catch(reject);
-          } else {
-            // Para URLs externas, usar Image con canvas
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = () => {
-              const canvas = document.createElement('canvas');
-              const ctx = canvas.getContext('2d');
-              canvas.width = img.width;
-              canvas.height = img.height;
-              ctx?.drawImage(img, 0, 0);
-              resolve(canvas.toDataURL('image/png'));
-            };
-            img.onerror = reject;
-            img.src = url;
-          }
-        });
-      };
-
       setTimeout(async () => {
-        // Crear nuevo documento PDF con formato A4
         const doc = new jsPDF('portrait', 'mm', 'a4');
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
@@ -288,87 +260,20 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
           minute: '2-digit'
         });
 
-        // ========== HEADER PROFESIONAL ==========
-        // Header profesional con gradiente visual
+        // Header profesional
         doc.setFillColor(40, 116, 166);
         doc.rect(0, 0, pageWidth, 40, 'F');
         
-        // Línea decorativa dorada
         doc.setFillColor(244, 208, 63);
         doc.rect(0, 38, pageWidth, 2, 'F');
         
-        // Logo del Instituto JFR - implementación robusta
-        let logoCargoCorrecta = false;
-        
-        // Intentar obtener logo desde configuración del sistema primero
-        let logoFromConfig = null;
-        try {
-          const configResponse = await fetch('/api/admin/settings/1', {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-            }
-          });
-          if (configResponse.ok) {
-            const config = await configResponse.json();
-            if (config.logo_url) {
-              logoFromConfig = config.logo_url;
-              console.log('Logo obtenido desde configuración:', logoFromConfig);
-            }
-          }
-        } catch (error) {
-          console.log('No se pudo obtener logo desde configuración:', error);
-        }
-
-        // Usar logo real desde configuración institucional
-        let logoToUse = logoUrl || logoFromConfig;
-        
-        if (logoToUse) {
-          try {
-            // Si es un data URL (base64), usarlo directamente
-            if (logoToUse.startsWith('data:')) {
-              doc.addImage(logoToUse, 'PNG', 22, 9, 16, 16);
-              logoCargoCorrecta = true;
-              console.log('Logo institucional real cargado desde configuración');
-            } else {
-              // Si es URL, convertir a base64
-              const logoBase64 = await loadImageAsBase64Improved(logoToUse);
-              doc.addImage(logoBase64, 'PNG', 22, 9, 16, 16);
-              logoCargoCorrecta = true;
-              console.log('Logo institucional convertido a base64 y cargado');
-            }
-          } catch (error) {
-            console.log('Error cargando logo institucional:', error);
-          }
-        }
-        
-        // Solo usar fallback si no hay logo institucional configurado
-        if (!logoCargoCorrecta && !logoToUse) {
-          try {
-            const logoFallback = 'data:image/svg+xml;base64,' + btoa(`
-              <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="20" cy="20" r="18" fill="#2874a6" stroke="#ffffff" stroke-width="2"/>
-                <text x="20" y="16" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="10" font-weight="bold">JFR</text>
-                <text x="20" y="28" text-anchor="middle" fill="#f4d03f" font-family="Arial, sans-serif" font-size="6" font-weight="bold">EDUCACIÓN</text>
-              </svg>
-            `);
-            doc.addImage(logoFallback, 'PNG', 22, 9, 16, 16);
-            logoCargoCorrecta = true;
-            console.log('Logo fallback usado como último recurso');
-          } catch (error) {
-            console.log('Error con logo fallback:', error);
-          }
-        }
-        
-        // Si no se pudo cargar ningún logo, usar fallback
-        if (!logoCargoCorrecta) {
-          console.log('Usando logo fallback JFR');
-          doc.setFillColor(255, 255, 255);
-          doc.circle(30, 17.5, 8, 'F');
-          doc.setTextColor(40, 116, 166);
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(12);
-          doc.text('JFR', 25.5, 20);
-        }
+        // Logo JFR
+        doc.setFillColor(255, 255, 255);
+        doc.circle(30, 17.5, 8, 'F');
+        doc.setTextColor(40, 116, 166);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.text('JFR', 25.5, 20);
         
         // Nombre de la institución
         doc.setTextColor(255, 255, 255);
@@ -381,930 +286,439 @@ ${reportesDisponibles.map(r => `${r.nombre},${r.formato},${r.tamaño}`).join('\n
         doc.text('Sistema Integrado de Gestión Escolar', 45, 22);
         doc.text('RFC: IJF123456789 | Tel: (555) 123-4567', 45, 28);
         
-        // Información del reporte (lado derecho)
-        const rightX = pageWidth - 60;
+        // Información del reporte
+        const rightX = pageWidth - 80;
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(12);
-        doc.text('REPORTE FINANCIERO', rightX, 15);
+        doc.text(nombreReporte.toUpperCase(), rightX, 15);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
-        doc.text(`Período: ${selectedPeriod}`, rightX, 22);
+        doc.text(`Ciclo: ${cicloEscolar}`, rightX, 22);
         doc.text(`Generado: ${fechaGeneracion}`, rightX, 27);
         doc.text(`Hora: ${horaGeneracion}`, rightX, 32);
 
-        // ========== INFORMACIÓN GENERAL ==========
+        // Contenido principal
         let currentY = 50;
         doc.setTextColor(0, 0, 0);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(14);
-        doc.text('ESTADO DE CUENTA GENERAL - VISTA PREVIA', margin, currentY);
+        doc.text(nombreReporte.toUpperCase(), margin, currentY);
         
         currentY += 15;
         
         // Marco de información básica
         doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.5);
-        doc.rect(margin, currentY, pageWidth - (margin * 2), 35);
+        doc.rect(margin, currentY, pageWidth - (margin * 2), 50);
         
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(11);
-        doc.text('INFORMACIÓN DEL REPORTE', margin + 5, currentY + 8);
+        doc.text('FILTROS APLICADOS', margin + 5, currentY + 10);
         
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.text(`Instituto JFR - ${fechaGeneracion}`, margin + 5, currentY + 18);
-        doc.text(`Período: ${selectedPeriod}`, margin + 5, currentY + 25);
-        doc.text('Formato: PDF Profesional', margin + 5, currentY + 32);
+        doc.setFontSize(9);
+        const fechaInicioFiltro = fechaInicio || 'No especificada';
+        const fechaFinFiltro = fechaFin || 'No especificada';
+        doc.text(`Período: ${fechaInicioFiltro} - ${fechaFinFiltro}`, margin + 5, currentY + 20);
+        doc.text(`Sección: ${seccionesEducativas.find(s => s.value === seccionEducativa)?.label}`, margin + 5, currentY + 27);
+        doc.text(`Nivel: ${nivelesAcademicos.find(n => n.value === nivelAcademico)?.label}`, margin + 5, currentY + 34);
+        doc.text(`Concepto: ${conceptos.find(c => c.value === concepto)?.label}`, margin + 5, currentY + 41);
 
+        currentY += 65;
+
+        // Resumen del reporte
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.setTextColor(40, 116, 166);
+        doc.text('RESUMEN DEL REPORTE', margin, currentY);
+        
+        currentY += 10;
+        doc.setDrawColor(40, 116, 166);
+        doc.setLineWidth(1);
+        doc.line(margin, currentY, pageWidth - margin, currentY);
+        
+        currentY += 10;
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        
+        const resumenData = [
+          '• Tipo de Reporte: ' + nombreReporte,
+          '• Total de Registros: Pendiente de procesamiento',
+          '• Monto Total: Pendiente de procesamiento',
+          '• Última Actualización: ' + fechaGeneracion
+        ];
+        
+        resumenData.forEach((item, index) => {
+          doc.text(item, margin + 5, currentY + (index * 8));
+        });
+        
         currentY += 50;
 
-        // ========== FAMILIAS REGISTRADAS ==========
+        // Nota importante
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.setTextColor(40, 116, 166);
-        doc.text('FAMILIAS REGISTRADAS', margin, currentY);
+        doc.setFontSize(11);
+        doc.setTextColor(220, 53, 69);
+        doc.text('NOTA IMPORTANTE', margin, currentY);
         
         currentY += 10;
-        doc.setDrawColor(40, 116, 166);
-        doc.setLineWidth(1);
-        doc.line(margin, currentY, pageWidth - margin, currentY);
-        
-        currentY += 8;
         doc.setTextColor(0, 0, 0);
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        
-        const familiasData = [
-          '• Total Familias: 27',
-          '• Familias al Corriente: 21 (77.8%)',
-          '• Familias con Saldo: 6 (22.2%)'
-        ];
-        
-        familiasData.forEach((item, index) => {
-          doc.text(item, margin + 5, currentY + (index * 6));
-        });
-        
-        currentY += 25;
+        doc.setFontSize(9);
+        doc.text('Este reporte se genera con los datos reales del sistema.', margin, currentY);
+        doc.text('Para obtener información detallada, conectar con la base de datos.', margin, currentY + 6);
+        doc.text('Los filtros aplicados determinan el contenido final del reporte.', margin, currentY + 12);
 
-        // ========== RESUMEN DE CARGOS ==========
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.setTextColor(40, 116, 166);
-        doc.text('RESUMEN DE CARGOS', margin, currentY);
-        
-        currentY += 10;
-        doc.setDrawColor(40, 116, 166);
-        doc.setLineWidth(1);
-        doc.line(margin, currentY, pageWidth - margin, currentY);
-        
-        currentY += 8;
-        doc.setTextColor(0, 0, 0);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        
-        const cargosData = [
-          `• Cargos Totales: 43`,
-          `• Cargos Pagados: 37`,
-          `• Cargos Pendientes: 6`,
-          `• Monto Pendiente: $7,125`
-        ];
-        
-        cargosData.forEach((item, index) => {
-          doc.text(item, margin + 5, currentY + (index * 6));
-        });
-        
-        currentY += 35;
-
-        // ========== ANÁLISIS DE ANTIGÜEDAD ==========
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.setTextColor(40, 116, 166);
-        doc.text('ANÁLISIS DE ANTIGÜEDAD', margin, currentY);
-        
-        currentY += 10;
-        doc.setDrawColor(40, 116, 166);
-        doc.setLineWidth(1);
-        doc.line(margin, currentY, pageWidth - margin, currentY);
-        
-        currentY += 8;
-        doc.setTextColor(0, 0, 0);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        
-        const antiguedadData = [
-          '• 0-30 días: 4 cargos',
-          '• 31-60 días: 2 cargos',
-          '• Más de 60 días: 0 cargos'
-        ];
-        
-        antiguedadData.forEach((item, index) => {
-          doc.text(item, margin + 5, currentY + (index * 6));
-        });
-        
-        currentY += 30;
-
-        // ========== DETALLE POR FAMILIA ==========
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.setTextColor(40, 116, 166);
-        doc.text('DETALLE POR FAMILIA', margin, currentY);
-        
-        currentY += 10;
-        doc.setDrawColor(40, 116, 166);
-        doc.setLineWidth(1);
-        doc.line(margin, currentY, pageWidth - margin, currentY);
-        
-        currentY += 15; // Espacio extra sin texto problemático
-
-        // ========== FOOTER PROFESIONAL ==========
-        // Asegurar espacio suficiente para el footer - mayor separación
-        const footerY = pageHeight - 60;
-        
-        // Línea separadora del footer
+        // Footer
+        const footerY = pageHeight - 30;
         doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.5);
         doc.line(margin, footerY - 8, pageWidth - margin, footerY - 8);
         
-        // Información del lado izquierdo
         doc.setTextColor(100, 100, 100);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
         doc.text('Generado por Edupay - Sistema de Pagos Escolares', margin, footerY);
-        doc.text('www.edupay.mx | soporte@edupay.mx', margin, footerY + 4);
-        doc.text(`Documento generado el ${fechaGeneracion} a las ${horaGeneracion}`, margin, footerY + 8);
+        doc.text(`Documento generado el ${fechaGeneracion} a las ${horaGeneracion}`, margin, footerY + 4);
+        doc.text('Página 1 de 1', pageWidth - 40, footerY);
         
-        // Información del lado derecho (bien separada)
-        doc.text('Página 1 de 1', pageWidth - 50, footerY);
-        doc.text('Confidencial', pageWidth - 50, footerY + 4);
-        doc.text('Uso Interno', pageWidth - 50, footerY + 8);
-
-        // ========== MARCA DE AGUA SUTIL ==========
+        // Marca de agua
         doc.setTextColor(240, 240, 240);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(60);
         doc.text('JFR', pageWidth/2 - 20, pageHeight/2, { angle: 45 });
         
-        // Descargar el PDF
-        doc.save(`Estado_Cuenta_JFR_${selectedPeriod}_${fechaGeneracion.replace(/\s/g, '_')}.pdf`);
+        doc.save(`JFR_${tipoReporte}_${fechaGeneracion.replace(/\s/g, '_')}.pdf`);
         
         toast({
-          title: "Reporte PDF Profesional Generado",
-          description: `Estado de cuenta del Instituto JFR - ${selectedPeriod}`,
+          title: "PDF Generado Exitosamente",
+          description: `${nombreReporte} exportado correctamente`,
           duration: 3000,
         });
       }, 2000);
       
     } catch (error) {
-      console.error('Error generando PDF profesional:', error);
+      console.error('Error generando PDF:', error);
       toast({
         title: "Error",
-        description: "Hubo un problema generando el reporte PDF",
+        description: "Hubo un problema generando el PDF",
         variant: "destructive",
         duration: 3000,
       });
-    }
-  };
-
-  const handleGenerarReportePDFEspecifico = async (reporte: any) => {
-    try {
-      toast({
-        title: "Generando PDF Profesional",
-        description: `Creando ${reporte.nombre} con formato ejecutivo...`,
-        duration: 2000,
-      });
-
-      // Función para cargar imagen como base64
-      const loadImageAsBase64 = (url: string): Promise<string> => {
-        return new Promise((resolve, reject) => {
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx?.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL('image/png'));
-          };
-          img.onerror = reject;
-          img.src = url;
-        });
-      };
-
-      setTimeout(async () => {
-        // Crear nuevo documento PDF con formato A4 profesional
-        const doc = new jsPDF('portrait', 'mm', 'a4');
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const margin = 20;
-        const fechaGeneracion = new Date().toLocaleDateString('es-MX', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        });
-        const horaGeneracion = new Date().toLocaleTimeString('es-MX', {
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-        
-        const contenidoVistaPrevie = generatePreviewContent(reporte);
-        
-        // ========== HEADER EJECUTIVO ==========
-        // Barra superior azul institucional
-        doc.setFillColor(40, 116, 166);
-        doc.rect(0, 0, pageWidth, 40, 'F');
-        
-        // Logo del Instituto JFR - implementación robusta
-        let logoCargoCorrecta = false;
-        
-        // Usar logo real desde configuración institucional en modal
-        let logoToUseModal = logoUrl;
-        
-        if (logoToUseModal) {
-          try {
-            // Si es un data URL (base64), usarlo directamente
-            if (logoToUseModal.startsWith('data:')) {
-              doc.addImage(logoToUseModal, 'PNG', 20, 12, 20, 20);
-              logoCargoCorrecta = true;
-              console.log('Modal: Logo institucional real cargado desde configuración');
-            } else {
-              // Si es URL, convertir a base64
-              const logoBase64 = await loadImageAsBase64(logoToUseModal);
-              doc.addImage(logoBase64, 'PNG', 20, 12, 20, 20);
-              logoCargoCorrecta = true;
-              console.log('Modal: Logo institucional convertido a base64 y cargado');
-            }
-          } catch (error) {
-            console.log('Modal: Error cargando logo institucional:', error);
-          }
-        }
-        
-        // Solo usar fallback si no hay logo institucional configurado
-        if (!logoCargoCorrecta && !logoToUseModal) {
-          try {
-            const logoFallbackModal = 'data:image/svg+xml;base64,' + btoa(`
-              <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="20" cy="20" r="18" fill="#2874a6" stroke="#ffffff" stroke-width="2"/>
-                <text x="20" y="16" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="10" font-weight="bold">JFR</text>
-                <text x="20" y="28" text-anchor="middle" fill="#f4d03f" font-family="Arial, sans-serif" font-size="6" font-weight="bold">EDUCACIÓN</text>
-              </svg>
-            `);
-            doc.addImage(logoFallbackModal, 'PNG', 20, 12, 20, 20);
-            logoCargoCorrecta = true;
-            console.log('Modal: Logo fallback usado como último recurso');
-          } catch (error) {
-            console.log('Modal: Error con logo fallback:', error);
-          }
-        }
-        
-        // Si no se pudo cargar ningún logo, usar fallback
-        if (!logoCargoCorrecta) {
-          console.log('Usando logo fallback JFR específico');
-          doc.setFillColor(255, 255, 255);
-          doc.circle(30, 20, 10, 'F');
-          doc.setTextColor(40, 116, 166);
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(14);
-          doc.text('JFR', 24.5, 24);
-        }
-        
-        // Información institucional actualizada
-        doc.setTextColor(255, 255, 255);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(22);
-        doc.text('INSTITUTO JFR', 50, 18);
-        
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(12);
-        doc.text('Sistema Edupay de Gestión de Pagos Escolares', 50, 26);
-        
-        // Fecha y hora en el header
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        doc.text(`Generado: ${fechaGeneracion} ${horaGeneracion}`, pageWidth - 80, 18);
-        doc.text('Documento Confidencial', pageWidth - 80, 26);
-        doc.text('RFC: IJF123456789 | Acreditación SEP: ES-25-09-0234', 50, 33);
-        
-        // Información del documento (esquina superior derecha)
-        const rightX = pageWidth - 70;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.text('DOCUMENTO OFICIAL', rightX, 18);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        doc.text(`Fecha: ${fechaGeneracion}`, rightX, 25);
-        doc.text(`Hora: ${horaGeneracion}`, rightX, 30);
-        doc.text(`Formato: ${reporte.formato}`, rightX, 35);
-
-        // ========== TÍTULO DEL REPORTE ==========
-        let currentY = 55;
-        doc.setTextColor(0, 0, 0);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(16);
-        const titulo = contenidoVistaPrevie.title.toUpperCase();
-        doc.text(titulo, margin, currentY);
-        
-        currentY += 8;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(11);
-        doc.text(`Período de Análisis: ${selectedPeriod}`, margin, currentY);
-        
-        currentY += 15;
-        
-        // Línea decorativa
-        doc.setDrawColor(40, 116, 166);
-        doc.setLineWidth(2);
-        doc.line(margin, currentY, pageWidth - margin, currentY);
-        
-        currentY += 15;
-
-        // ========== CONTENIDO ESTRUCTURADO ==========
-        doc.setTextColor(0, 0, 0);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        
-        // Procesar contenido línea por línea con formato mejorado
-        const contenidoLineas = contenidoVistaPrevie.content.split('\n');
-        const lineHeight = 6;
-        const maxY = pageHeight - 80; // Margen inferior para footer - mayor espacio
-        
-        contenidoLineas.forEach((linea, index) => {
-          // Manejar salto de página
-          if (currentY > maxY) {
-            // Agregar nueva página
-            doc.addPage();
-            currentY = 30;
-            
-            // Mini header en páginas adicionales
-            doc.setFillColor(240, 248, 255);
-            doc.rect(0, 0, pageWidth, 25, 'F');
-            doc.setTextColor(40, 116, 166);
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(12);
-            doc.text('INSTITUTO JFR - ' + titulo, margin, 15);
-            currentY = 35;
-          }
-          
-          // Limpiar línea de emojis y caracteres especiales
-          const lineaLimpia = linea.replace(/[📊💰⚠️✅📋💳👨‍👩‍👧‍👦📈⏰🔄📞═]/g, '').trim();
-          
-          if (lineaLimpia) {
-            // Formatear encabezados y secciones
-            if (lineaLimpia.includes('═══') || lineaLimpia.includes('RESUMEN') || lineaLimpia.includes('ANÁLISIS')) {
-              doc.setFont('helvetica', 'bold');
-              doc.setFontSize(12);
-              doc.setTextColor(40, 116, 166);
-              currentY += 5; // Espacio extra antes de secciones
-            } else if (lineaLimpia.includes(':') && lineaLimpia.length < 50) {
-              // Subsecciones
-              doc.setFont('helvetica', 'bold');
-              doc.setFontSize(11);
-              doc.setTextColor(0, 0, 0);
-            } else if (lineaLimpia.startsWith('•') || lineaLimpia.startsWith('-')) {
-              // Elementos de lista
-              doc.setFont('helvetica', 'normal');
-              doc.setFontSize(10);
-              doc.setTextColor(0, 0, 0);
-            } else {
-              // Texto normal
-              doc.setFont('helvetica', 'normal');
-              doc.setFontSize(10);
-              doc.setTextColor(60, 60, 60);
-            }
-            
-            // Dividir líneas largas si es necesario
-            const maxWidth = pageWidth - (margin * 2);
-            const splitLines = doc.splitTextToSize(lineaLimpia, maxWidth);
-            
-            splitLines.forEach((splitLine: string) => {
-              if (currentY > maxY) {
-                doc.addPage();
-                currentY = 30;
-              }
-              doc.text(splitLine, margin, currentY);
-              currentY += lineHeight;
-            });
-          } else {
-            // Línea vacía - añadir espacio menor
-            currentY += lineHeight / 2;
-          }
-        });
-
-        // ========== FOOTER INSTITUCIONAL MEJORADO ==========
-        const footerStartY = pageHeight - 45;
-        
-        // Línea separadora elegante con degradado visual
-        doc.setDrawColor(40, 116, 166);
-        doc.setLineWidth(2);
-        doc.line(margin, footerStartY - 5, pageWidth - margin, footerStartY - 5);
-        
-        // Sub-línea dorada
-        doc.setDrawColor(244, 208, 63);
-        doc.setLineWidth(0.5);
-        doc.line(margin, footerStartY - 3, pageWidth - margin, footerStartY - 3);
-        
-        // Información institucional (lado izquierdo)
-        doc.setTextColor(60, 60, 60);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.text('INSTITUTO JFR | Sistema Edupay de Gestión de Pagos Escolares', margin, footerStartY + 3);
-        
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.text('📧 administracion@institutojfr.edu.mx | 🌐 www.institutojfr.edu.mx', margin, footerStartY + 8);
-        doc.text(`📅 Generado: ${fechaGeneracion} ⏰ ${horaGeneracion}`, margin, footerStartY + 13);
-        
-        // Información de seguridad y paginación (lado derecho)
-        const totalPages = doc.internal.pages.length - 1;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.text(`Página ${totalPages}`, pageWidth - 45, footerStartY + 3);
-        
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.text('🔒 CONFIDENCIAL', pageWidth - 45, footerStartY + 8);
-        doc.text('📋 Uso Interno', pageWidth - 45, footerStartY + 13);
-
-        // ========== MARCA DE AGUA INSTITUCIONAL ==========
-        doc.setTextColor(250, 250, 250);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(50);
-        doc.text('JFR', pageWidth/2 - 15, pageHeight/2, { angle: 45 });
-        
-        // Descargar el PDF con nombre profesional
-        const nombreArchivo = `JFR_${reporte.nombre.replace(/\s+/g, '_')}_${selectedPeriod}_${fechaGeneracion.replace(/\s/g, '_')}.pdf`;
-        doc.save(nombreArchivo);
-        
-        toast({
-          title: "✅ PDF Generado Exitosamente",
-          description: `${reporte.nombre} - Instituto JFR en formato ejecutivo profesional`,
-          duration: 4000,
-        });
-      }, 2000);
-      
-    } catch (error) {
-      console.error('Error generando PDF profesional:', error);
-      toast({
-        title: "Error",
-        description: "Hubo un problema generando el documento PDF",
-        variant: "destructive",
-        duration: 3000,
-      });
-    }
-  };
-
-  const handleDescargarReporte = (reporte: { nombre: string; descripcion: string; id: number }) => {
-    const contenido = `REPORTE: ${reporte.nombre}
-Período: ${selectedPeriod}
-Fecha de generación: ${new Date().toLocaleDateString('es-MX')}
-
-${reporte.descripcion}
-
-DATOS INCLUIDOS:
-- Total facturado: $${(kpisReporte.totalFacturado / 100).toLocaleString('es-MX')}
-- Total cobrado: $${(kpisReporte.totalCobrado / 100).toLocaleString('es-MX')}
-- Tasa de cobranza: ${kpisReporte.tasaCobranza}%
-- Cargos vencidos: ${kpisReporte.cargosVencidos}
-- Estudiantes activos: ${kpisReporte.estudiantesActivos}
-
-Generado por Edupay - Sistema de Pagos Escolares`;
-
-    const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${reporte.nombre.replace(/\s+/g, '_')}_${selectedPeriod}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
-
-    toast({
-      title: "Descarga Completada",
-      description: `${reporte.nombre} descargado exitosamente`,
-      duration: 3000,
-    });
-  };
-
-  const handlePreviewReport = (reporte: { nombre: string; descripcion: string; id: number }) => {
-    setPreviewReport(reporte);
-    setShowPreview(true);
-    
-    toast({
-      title: "Vista Previa",
-      description: `Mostrando vista previa de ${reporte.nombre}`,
-      duration: 2000,
-    });
-  };
-
-  const generatePreviewContent = (reporte: { nombre: string; descripcion: string; id: number }) => {
-    const fechaGeneracion = new Date().toLocaleDateString('es-MX');
-    
-    switch(reporte.id) {
-      case 1: // Reporte Financiero Mensual
-        return {
-          title: "Reporte Financiero Mensual - Vista Previa",
-          content: `
-══════════════════════════════════════
-INSTITUTO JFR - REPORTE FINANCIERO
-══════════════════════════════════════
-Período: ${selectedPeriod}
-Fecha: ${fechaGeneracion}
-
-📊 RESUMEN EJECUTIVO
-• Total Facturado: $${(kpisReporte.totalFacturado / 100).toLocaleString('es-MX')}
-• Total Cobrado: $${(kpisReporte.totalCobrado / 100).toLocaleString('es-MX')}
-• Tasa de Cobranza: ${kpisReporte.tasaCobranza}%
-• Estudiantes Activos: ${kpisReporte.estudiantesActivos}
-
-💰 DESGLOSE POR CONCEPTOS
-• Inscripciones: $1,250,000 (43.9%)
-• Colegiaturas: $1,400,000 (49.1%)
-• Actividades: $150,000 (5.3%)
-• Otros: $50,000 (1.8%)
-
-⚠️ ANÁLISIS DE MOROSIDAD
-• Cargos Vencidos: ${kpisReporte.cargosVencidos}
-• Tiempo Promedio Pago: ${kpisReporte.promedioTiempoPago} días
-• Gestión Activa: ${kpisReporte.cargosVencidos} casos
-
-✅ MÉTRICAS EDUPAY
-• Meta: 80% pagos antes vencimiento
-• Actual: ${kpisReporte.tasaCobranza}%
-• Estado: ${kpisReporte.tasaCobranza >= 80 ? 'META ALCANZADA ✓' : 'EN PROGRESO 📈'}
-          `
-        };
-      
-      case 2: // Estado de Cuenta General
-        return {
-          title: "Estado de Cuenta General - Vista Previa",
-          content: `
-══════════════════════════════════════
-ESTADO DE CUENTA GENERAL
-══════════════════════════════════════
-Instituto JFR - ${fechaGeneracion}
-
-📋 FAMILIAS REGISTRADAS
-• Total Familias: 27
-• Familias al Corriente: 21 (77.8%)
-• Familias con Saldo: 6 (22.2%)
-
-💳 RESUMEN DE CARGOS
-• Cargos Totales: 43
-• Cargos Pagados: 37
-• Cargos Pendientes: 6
-• Monto Pendiente: $${((kpisReporte.totalFacturado - kpisReporte.totalCobrado) / 100).toLocaleString('es-MX')}
-
-👨‍👩‍👧‍👦 DETALLE POR FAMILIA
-[Datos detallados por familia con saldos, 
- fechas de vencimiento y conceptos pendientes]
-
-📊 ANÁLISIS DE ANTIGÜEDAD
-• 0-30 días: 4 cargos
-• 31-60 días: 2 cargos
-• Más de 60 días: 0 cargos
-          `
-        };
-      
-      case 3: // Análisis de Cobranza
-        return {
-          title: "Análisis de Cobranza - Vista Previa",
-          content: `
-══════════════════════════════════════
-ANÁLISIS DE COBRANZA
-══════════════════════════════════════
-Instituto JFR - Período ${selectedPeriod}
-
-📈 MÉTRICAS DE EFECTIVIDAD
-• Tasa de Cobranza: ${kpisReporte.tasaCobranza}%
-• Tiempo Promedio Recuperación: 12.3 días
-• Efectividad de Recordatorios: 85%
-• Respuesta a Llamadas: 72%
-
-⏰ ANÁLISIS TEMPORAL
-• Pagos Antes Vencimiento: ${Math.round(kpisReporte.tasaCobranza * 0.8)}%
-• Pagos en Fecha: ${Math.round(kpisReporte.tasaCobranza * 0.15)}%
-• Pagos Tardíos: ${Math.round(kpisReporte.tasaCobranza * 0.05)}%
-
-🔄 GESTIÓN DE CARTERA
-• Casos Activos: ${kpisReporte.cargosVencidos}
-• Casos Resueltos: ${Math.max(0, 15 - kpisReporte.cargosVencidos)}
-• Tasa de Recuperación: 89%
-• Tiempo Promedio Gestión: 8.5 días
-
-📞 ESTRATEGIAS DE COBRANZA
-• Email Recordatorios: Activo
-• SMS Automáticos: Activo  
-• Llamadas Programadas: Activo
-• Portal Padres: 95% adopción
-          `
-        };
-      
-      default:
-        return {
-          title: "Vista Previa del Reporte",
-          content: `
-══════════════════════════════════════
-${reporte.nombre.toUpperCase()}
-══════════════════════════════════════
-
-${reporte.descripcion}
-
-Período: ${selectedPeriod}
-Formato: ${(reporte as any).formato || 'PDF'}
-Tamaño: ${(reporte as any).tamaño || '100 KB'}
-Fecha: ${(reporte as any).fecha || new Date().toLocaleDateString('es-MX')}
-
-📊 Contenido del reporte disponible
-   para descarga completa.
-          `
-        };
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      {/* Header Moderno */}
-      <div className="bg-white shadow-lg border-b-4 border-gradient-to-r from-blue-600 to-indigo-600">
-        <div className="container mx-auto px-6 py-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="p-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl">
-                {logoUrl && logoUrl.length > 50 && logoUrl.includes('data:image') ? (
-                  <img 
-                    src={logoUrl} 
-                    alt="Logo institucional" 
-                    className="w-8 h-8 object-cover rounded-lg"
-                    style={{ display: 'block', maxWidth: '100%', maxHeight: '100%', filter: 'brightness(0) invert(1)' }}
-                  />
-                ) : (
-                  <FileText className="w-8 h-8 text-white" />
-                )}
-              </div>
-              <div className="space-y-2">
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
-                  Reportes y Análisis
-                </h1>
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                  <p className="text-slate-600 font-medium text-lg">Sistema Integral de Reportes Financieros</p>
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <Button 
-                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 px-6 py-3"
-                onClick={handleGenerarReporte}
-              >
-                <FileText className="w-5 h-5 mr-2" />
-                Generar Reporte
-              </Button>
-              <Button 
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 px-6 py-3"
-                onClick={handleGenerarReporteExcel}
-              >
-                <Download className="w-5 h-5 mr-2" />
-                Exportar Excel
-              </Button>
-              <Button 
-                className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 px-6 py-3"
-                onClick={handleGenerarReportePDF}
-              >
-                <FileText className="w-5 h-5 mr-2" />
-                Exportar PDF
-              </Button>
-            </div>
-          </div>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Sistema de Reportes</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Generación intuitiva de reportes de ingresos y listas estudiantiles con filtros avanzados
+          </p>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Badge variant="outline" className="text-blue-600 border-blue-600">
+            <BarChart3 className="w-4 h-4 mr-1" />
+            Sistema Activo
+          </Badge>
         </div>
       </div>
 
-      {/* Container Principal */}
-      <div className="container mx-auto px-6 py-8">
-        {/* Filtros de período */}
-        <div className="mb-8">
-          <Card className="bg-white shadow-md border-l-4 border-blue-500">
-            <CardContent className="p-6">
-              <div className="flex flex-wrap items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-blue-600" />
-                  <label className="text-sm font-medium text-slate-700">Período:</label>
-                  <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="2025-01">Enero 2025</SelectItem>
-                      <SelectItem value="2024-12">Diciembre 2024</SelectItem>
-                      <SelectItem value="2024-11">Noviembre 2024</SelectItem>
-                    </SelectContent>
-                  </Select>
+      {/* Selección de tipo de reporte */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="w-5 h-5" />
+            Tipo de Reporte
+          </CardTitle>
+          <CardDescription>
+            Selecciona el tipo de reporte que deseas generar
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <Label>Tipo de Reporte</Label>
+              <Select value={tipoReporte} onValueChange={setTipoReporte}>
+                <SelectTrigger>
+                  <SelectValue placeholder="-- Seleccionar Tipo de Reporte --" />
+                </SelectTrigger>
+                <SelectContent>
+                  {/* Reportes de Ingresos */}
+                  <SelectItem value="" disabled>
+                    <div className="font-medium text-blue-700">💰 REPORTES DE INGRESOS</div>
+                  </SelectItem>
+                  {tiposReporte
+                    .filter(tipo => tipo.categoria === "ingresos")
+                    .map(tipo => (
+                      <SelectItem key={tipo.id} value={tipo.id}>
+                        <div className="flex items-center gap-2">
+                          <DollarSign className="w-4 h-4 text-green-600" />
+                          {tipo.nombre}
+                        </div>
+                      </SelectItem>
+                    ))
+                  }
+                  
+                  {/* Reportes de Estudiantes */}
+                  <SelectItem value="" disabled>
+                    <div className="font-medium text-purple-700">👥 LISTAS DE ESTUDIANTES</div>
+                  </SelectItem>
+                  {tiposReporte
+                    .filter(tipo => tipo.categoria === "estudiantes")
+                    .map(tipo => (
+                      <SelectItem key={tipo.id} value={tipo.id}>
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-purple-600" />
+                          {tipo.nombre}
+                        </div>
+                      </SelectItem>
+                    ))
+                  }
+                  
+                  {/* Otros */}
+                  <SelectItem value="" disabled>
+                    <div className="font-medium text-gray-700">⚙️ OTROS REPORTES</div>
+                  </SelectItem>
+                  {tiposReporte
+                    .filter(tipo => tipo.categoria === "otros")
+                    .map(tipo => (
+                      <SelectItem key={tipo.id} value={tipo.id}>
+                        <div className="flex items-center gap-2">
+                          <Settings className="w-4 h-4 text-gray-600" />
+                          {tipo.nombre}
+                        </div>
+                      </SelectItem>
+                    ))
+                  }
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {tipoReporte && (
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                    {(() => {
+                      const selectedReporte = tiposReporte.find(r => r.id === tipoReporte);
+                      const IconComponent = selectedReporte?.icono;
+                      return IconComponent ? <IconComponent className="w-4 h-4 text-blue-600" /> : null;
+                    })()}
+                  </div>
+                  <h3 className="font-semibold text-blue-900">{getTipoReporteNombre()}</h3>
                 </div>
-                <div className="flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-indigo-600" />
-                  <label className="text-sm font-medium text-slate-700">Formato:</label>
-                  <Select value={selectedFormat} onValueChange={setSelectedFormat}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="detallado">Detallado</SelectItem>
-                      <SelectItem value="ejecutivo">Ejecutivo</SelectItem>
-                      <SelectItem value="auditoria">Auditoría</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <p className="text-sm text-blue-700">
+                  Reporte seleccionado. Configure los filtros a continuación para personalizar la información.
+                </p>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* KPIs del período - Diseño Mejorado */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="border-l-4 border-blue-500 bg-gradient-to-br from-blue-50 to-blue-100 shadow-lg hover:shadow-xl transition-shadow duration-300">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg text-blue-800 flex items-center gap-2">
-                <TrendingUp className="w-5 h-5" />
-                Resumen Financiero
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-600">Total facturado:</span>
-                  <span className="font-bold text-lg text-slate-800">${(kpisReporte.totalFacturado / 100).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-600">Total cobrado:</span>
-                  <span className="font-bold text-lg text-green-600">${(kpisReporte.totalCobrado / 100).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-600">Tasa de cobranza:</span>
-                  <Badge className="bg-blue-600">{kpisReporte.tasaCobranza}%</Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-orange-500 bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg hover:shadow-xl transition-shadow duration-300">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg text-orange-800 flex items-center gap-2">
-                <BarChart3 className="w-5 h-5" />
-                Análisis de Morosidad
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-600">Cargos vencidos:</span>
-                  <Badge variant="destructive">{kpisReporte.cargosVencidos}</Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-600">Tasa de morosidad:</span>
-                  <span className="font-bold text-lg text-orange-600">{100 - kpisReporte.tasaCobranza}%</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-600">Promedio días pago:</span>
-                  <span className="font-bold text-lg text-slate-800">{kpisReporte.promedioTiempoPago} días</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-green-500 bg-gradient-to-br from-green-50 to-emerald-100 shadow-lg hover:shadow-xl transition-shadow duration-300">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg text-green-800 flex items-center gap-2">
-                <TrendingUp className="w-5 h-5" />
-                Meta Edupay
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center space-y-3">
-                <div className="text-4xl font-bold text-green-600">80%</div>
-                <div className="text-sm text-green-700 font-medium">Meta pagos antes vencimiento</div>
-                <div className="text-3xl font-bold text-blue-600">{kpisReporte.tasaCobranza}%</div>
-                <Badge className={kpisReporte.tasaCobranza >= 80 ? "bg-green-600" : "bg-yellow-600"}>
-                  {kpisReporte.tasaCobranza >= 80 ? "META ALCANZADA" : "EN PROGRESO"}
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Reportes Disponibles */}
-        <Card className="shadow-lg">
+      {/* Filtros del reporte */}
+      {tipoReporte && (
+        <Card>
           <CardHeader>
-            <CardTitle className="text-2xl text-slate-800">Reportes Disponibles</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Filter className="w-5 h-5" />
+              Filtros del Reporte
+            </CardTitle>
             <CardDescription>
-              Descarga reportes generados previamente o crea nuevos análisis
+              Configure los filtros para personalizar el contenido del reporte
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {reportesDisponibles.map((reporte) => (
-                <Card key={reporte.id} className="border-2 hover:border-blue-300 transition-colors duration-200">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base text-slate-800">{reporte.nombre}</CardTitle>
-                    <CardDescription className="text-sm">{reporte.descripcion}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-600">Formato:</span>
-                        <Badge variant="outline">{reporte.formato}</Badge>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-600">Tamaño:</span>
-                        <span className="font-medium">{reporte.tamaño}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-600">Fecha:</span>
-                        <span className="font-medium">{reporte.fecha}</span>
-                      </div>
-                      <div className="flex gap-2 pt-2">
-                        <Button 
-                          size="sm" 
-                          className="flex-1 bg-blue-600 hover:bg-blue-700"
-                          onClick={() => handleDescargarReporte(reporte)}
-                        >
-                          <Download className="w-4 h-4 mr-1" />
-                          Descargar
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => handlePreviewReport(reporte)}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Período de fechas */}
+              <div className="space-y-2">
+                <Label>Fecha Inicio</Label>
+                <Input 
+                  type="date" 
+                  value={fechaInicio} 
+                  onChange={(e) => setFechaInicio(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Fecha Fin</Label>
+                <Input 
+                  type="date" 
+                  value={fechaFin} 
+                  onChange={(e) => setFechaFin(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Búsqueda</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input 
+                    placeholder="Familia o estudiante..." 
+                    value={busquedaFamiliaEstudiante}
+                    onChange={(e) => setBusquedaFamiliaEstudiante(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              
+              {/* Segunda fila de filtros */}
+              <div className="space-y-2">
+                <Label>Sección Educativa</Label>
+                <Select value={seccionEducativa} onValueChange={setSeccionEducativa}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {seccionesEducativas.map(seccion => (
+                      <SelectItem key={seccion.value} value={seccion.value}>
+                        {seccion.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Nivel Académico</Label>
+                <Select value={nivelAcademico} onValueChange={setNivelAcademico}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {nivelesAcademicos.map(nivel => (
+                      <SelectItem key={nivel.value} value={nivel.value}>
+                        {nivel.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Concepto</Label>
+                <Select value={concepto} onValueChange={setConcepto}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {conceptos.map(concepto => (
+                      <SelectItem key={concepto.value} value={concepto.value}>
+                        {concepto.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Tercera fila */}
+              <div className="space-y-2">
+                <Label>Ciclo Escolar</Label>
+                <Select value={cicloEscolar} onValueChange={setCicloEscolar}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2024-2025">2024-2025</SelectItem>
+                    <SelectItem value="2023-2024">2023-2024</SelectItem>
+                    <SelectItem value="2022-2023">2022-2023</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Formato de Exportación</Label>
+                <Select value={formatoExportacion} onValueChange={setFormatoExportacion}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="excel">Excel (.csv)</SelectItem>
+                    <SelectItem value="pdf">PDF</SelectItem>
+                    <SelectItem value="txt">Texto (.txt)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 flex items-end">
+                <Button variant="outline" onClick={limpiarFiltros} className="w-full">
+                  Limpiar Filtros
+                </Button>
+              </div>
+            </div>
+            
+            {/* Resumen de filtros activos */}
+            <Separator className="my-4" />
+            <div className="flex flex-wrap gap-2">
+              {fechaInicio && (
+                <Badge variant="secondary">Desde: {fechaInicio}</Badge>
+              )}
+              {fechaFin && (
+                <Badge variant="secondary">Hasta: {fechaFin}</Badge>
+              )}
+              {busquedaFamiliaEstudiante && (
+                <Badge variant="secondary">Búsqueda: {busquedaFamiliaEstudiante}</Badge>
+              )}
+              {seccionEducativa !== "todas" && (
+                <Badge variant="secondary">
+                  {seccionesEducativas.find(s => s.value === seccionEducativa)?.label}
+                </Badge>
+              )}
+              {nivelAcademico !== "todos" && (
+                <Badge variant="secondary">
+                  {nivelesAcademicos.find(n => n.value === nivelAcademico)?.label}
+                </Badge>
+              )}
+              {concepto !== "todos" && (
+                <Badge variant="secondary">
+                  {conceptos.find(c => c.value === concepto)?.label}
+                </Badge>
+              )}
+              <Badge variant="outline">Ciclo: {cicloEscolar}</Badge>
             </div>
           </CardContent>
         </Card>
+      )}
 
-        {/* Modal de Vista Previa */}
-        <Dialog open={showPreview} onOpenChange={setShowPreview}>
-          <DialogContent className="max-w-4xl h-[85vh] flex flex-col">
-            <DialogHeader className="flex-shrink-0">
-              <DialogTitle className="flex items-center gap-2 text-xl">
-                <FileText className="w-6 h-6 text-blue-600" />
-                {previewReport && generatePreviewContent(previewReport).title}
-              </DialogTitle>
-              <DialogDescription>
-                Vista previa del contenido del reporte - {(previewReport as any)?.formato || 'PDF'}
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="flex-1 overflow-y-auto p-4 bg-slate-50 rounded-lg border my-4">
-              <pre className="whitespace-pre-wrap font-mono text-sm text-slate-800 leading-relaxed">
-                {previewReport && generatePreviewContent(previewReport).content}
-              </pre>
+      {/* Botones de acción principal - SIN CAMBIOS */}
+      {tipoReporte && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Generar y Exportar Reporte</CardTitle>
+            <CardDescription>
+              {getTipoReporteNombre()} - Todos los formatos disponibles
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-4">
+              <Button onClick={handleGenerarReporte} className="bg-blue-600 hover:bg-blue-700">
+                <FileText className="w-4 h-4 mr-2" />
+                Generar Reporte
+              </Button>
+              <Button onClick={handleExportarExcel} variant="outline">
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                Exportar Excel
+              </Button>
+              <Button onClick={handleExportarPDF} variant="outline">
+                <Printer className="w-4 h-4 mr-2" />
+                Exportar PDF
+              </Button>
             </div>
-            
-            <div className="flex-shrink-0 flex justify-between items-center pt-4 border-t bg-white">
-              <div className="text-sm text-slate-600">
-                Para obtener el reporte completo, utiliza el botón "Descargar"
-              </div>
-              <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowPreview(false)}
-                >
-                  <X className="w-4 h-4 mr-2" />
-                  Cerrar
-                </Button>
-                <Button 
-                  onClick={() => {
-                    if (previewReport) {
-                      handleDescargarReporte(previewReport);
-                      setShowPreview(false);
-                    }
-                  }}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Descargar TXT
-                </Button>
-                <Button 
-                  onClick={() => {
-                    if (previewReport) {
-                      handleGenerarReportePDFEspecifico(previewReport);
-                      setShowPreview(false);
-                    }
-                  }}
-                  className="bg-red-600 hover:bg-red-700"
-                >
-                  <FileText className="w-4 h-4 mr-2" />
-                  Descargar PDF
-                </Button>
-              </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Mensaje cuando no hay reporte seleccionado */}
+      {!tipoReporte && (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <BarChart3 className="w-8 h-8 text-gray-400" />
             </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Selecciona un tipo de reporte</h3>
+            <p className="text-gray-600">
+              Elige el tipo de reporte que deseas generar para configurar los filtros correspondientes.
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -60,22 +60,38 @@ const MESES = [
   { value: 'diciembre', label: 'Diciembre' }
 ];
 
-const CATEGORIAS_CONCEPTOS = {
-  'colegiatura': { label: 'Colegiaturas', color: 'bg-blue-100 text-blue-700' },
-  'inscripcion': { label: 'Inscripción', color: 'bg-green-100 text-green-700' },
-  'reinscripcion': { label: 'Reinscripción', color: 'bg-purple-100 text-purple-700' },
-  'seguro': { label: 'Seguro Escolar', color: 'bg-orange-100 text-orange-700' },
-  'libros': { label: 'Libros', color: 'bg-yellow-100 text-yellow-700' },
-  'extra': { label: 'Otros', color: 'bg-gray-100 text-gray-700' }
+const CATEGORIAS_CONCEPTOS_BASE = {
+  'colegiatura': { label: 'Colegiaturas', color: 'bg-blue-100 text-blue-700', editable: false },
+  'inscripcion': { label: 'Inscripción', color: 'bg-green-100 text-green-700', editable: false },
+  'reinscripcion': { label: 'Reinscripción', color: 'bg-purple-100 text-purple-700', editable: false },
+  'seguro': { label: 'Seguro Escolar', color: 'bg-orange-100 text-orange-700', editable: false },
+  'libros': { label: 'Libros', color: 'bg-yellow-100 text-yellow-700', editable: false },
+  'otros': { label: 'Otros', color: 'bg-gray-100 text-gray-700', editable: true }
 };
+
+const COLORES_CATEGORIAS = [
+  'bg-indigo-100 text-indigo-700',
+  'bg-pink-100 text-pink-700',
+  'bg-teal-100 text-teal-700',
+  'bg-amber-100 text-amber-700',
+  'bg-emerald-100 text-emerald-700',
+  'bg-violet-100 text-violet-700',
+  'bg-cyan-100 text-cyan-700',
+  'bg-rose-100 text-rose-700'
+];
 
 export default function ConfiguracionPagosCompleta() {
   const [activeTab, setActiveTab] = useState("fechas");
   const [showFechaModal, setShowFechaModal] = useState(false);
   const [showRecargoModal, setShowRecargoModal] = useState(false);
   const [showConceptoModal, setShowConceptoModal] = useState(false);
+  const [showCategoriaModal, setShowCategoriaModal] = useState(false);
+  const [showDeleteConceptoModal, setShowDeleteConceptoModal] = useState(false);
   const [editingFecha, setEditingFecha] = useState<FechaVencimiento | null>(null);
   const [editingRecargo, setEditingRecargo] = useState<ReglaRecargo | null>(null);
+  const [editingConcepto, setEditingConcepto] = useState<Concepto | null>(null);
+  const [conceptoToDelete, setConceptoToDelete] = useState<Concepto | null>(null);
+  const [categoriasPersonalizadas, setCategoriasPersonalizadas] = useState<Record<string, {label: string, color: string, editable: boolean}>>({});
   
   const [nuevaFecha, setNuevaFecha] = useState({
     concepto_id: 0,
@@ -95,10 +111,16 @@ export default function ConfiguracionPagosCompleta() {
 
   const [nuevoConcepto, setNuevoConcepto] = useState({
     nombre: '',
-    tipo: 'extra',
+    tipo: 'otros',
     periodicidad: 'mensual',
     monto: 0,
     iva: true
+  });
+
+  const [nuevaCategoria, setNuevaCategoria] = useState({
+    key: '',
+    label: '',
+    color: COLORES_CATEGORIAS[0]
   });
 
   const [aplicaTodosMeses, setAplicaTodosMeses] = useState(true);
@@ -183,11 +205,15 @@ export default function ConfiguracionPagosCompleta() {
     },
   });
 
-  // Mutation para crear conceptos
+  // Mutation para crear/editar conceptos
   const saveConceptoMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("/api/concepts", {
-        method: "POST",
+      const endpoint = editingConcepto 
+        ? `/api/concepts/${editingConcepto.id}`
+        : "/api/concepts";
+      
+      return apiRequest(endpoint, {
+        method: editingConcepto ? "PUT" : "POST",
         body: JSON.stringify({
           ...data,
           monto_centavos: Math.round(data.monto * 100)
@@ -199,8 +225,33 @@ export default function ConfiguracionPagosCompleta() {
       setShowConceptoModal(false);
       resetConceptoForm();
       toast({
-        title: "Concepto creado",
-        description: "El nuevo concepto se ha creado correctamente",
+        title: editingConcepto ? "Concepto actualizado" : "Concepto creado",
+        description: `El concepto se ha ${editingConcepto ? 'actualizado' : 'creado'} correctamente`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation para eliminar concepto
+  const deleteConceptoMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest(`/api/concepts/${id}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/concepts"] });
+      setShowDeleteConceptoModal(false);
+      setConceptoToDelete(null);
+      toast({
+        title: "Concepto eliminado",
+        description: "El concepto se ha eliminado correctamente",
       });
     },
     onError: (error: any) => {
@@ -282,10 +333,19 @@ export default function ConfiguracionPagosCompleta() {
   const resetConceptoForm = () => {
     setNuevoConcepto({
       nombre: '',
-      tipo: 'extra',
+      tipo: 'otros',
       periodicidad: 'mensual',
       monto: 0,
       iva: true
+    });
+    setEditingConcepto(null);
+  };
+
+  const resetCategoriaForm = () => {
+    setNuevaCategoria({
+      key: '',
+      label: '',
+      color: COLORES_CATEGORIAS[0]
     });
   };
 
@@ -421,6 +481,67 @@ export default function ConfiguracionPagosCompleta() {
     saveConceptoMutation.mutate(nuevoConcepto);
   };
 
+  const handleEditConcepto = (concepto: Concepto) => {
+    setEditingConcepto(concepto);
+    setNuevoConcepto({
+      nombre: concepto.nombre,
+      tipo: concepto.tipo,
+      periodicidad: concepto.periodicidad,
+      monto: concepto.monto_centavos / 100,
+      iva: concepto.iva
+    });
+    setShowConceptoModal(true);
+  };
+
+  const handleDeleteConcepto = (concepto: Concepto) => {
+    setConceptoToDelete(concepto);
+    setShowDeleteConceptoModal(true);
+  };
+
+  const handleGuardarCategoria = () => {
+    if (!nuevaCategoria.key.trim() || !nuevaCategoria.label.trim()) {
+      toast({
+        title: "Error",
+        description: "Completa todos los campos de la categoría",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Verificar que no exista ya una categoría con esa clave
+    const todasCategorias = getTodasCategorias();
+    if (todasCategorias[nuevaCategoria.key]) {
+      toast({
+        title: "Error",
+        description: "Ya existe una categoría con esa clave",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Agregar la nueva categoría
+    setCategoriasPersonalizadas(prev => ({
+      ...prev,
+      [nuevaCategoria.key]: {
+        label: nuevaCategoria.label,
+        color: nuevaCategoria.color,
+        editable: true
+      }
+    }));
+
+    setShowCategoriaModal(false);
+    resetCategoriaForm();
+    toast({
+      title: "Categoría creada",
+      description: "La nueva categoría se ha creado correctamente",
+    });
+  };
+
+  // Función para obtener todas las categorías (base + personalizadas)
+  const getTodasCategorias = (): Record<string, {label: string, color: string, editable: boolean}> => {
+    return { ...CATEGORIAS_CONCEPTOS_BASE, ...categoriasPersonalizadas };
+  };
+
   const getConceptoInfo = (conceptoId: number) => {
     return conceptos.find(c => c.id === conceptoId);
   };
@@ -498,8 +619,8 @@ export default function ConfiguracionPagosCompleta() {
                           {conceptos.map((concepto) => (
                             <SelectItem key={concepto.id} value={concepto.id.toString()}>
                               <div className="flex items-center gap-2">
-                                <Badge className={CATEGORIAS_CONCEPTOS[concepto.tipo as keyof typeof CATEGORIAS_CONCEPTOS]?.color || 'bg-gray-100 text-gray-700'}>
-                                  {CATEGORIAS_CONCEPTOS[concepto.tipo as keyof typeof CATEGORIAS_CONCEPTOS]?.label || concepto.tipo}
+                                <Badge className={getTodasCategorias()[concepto.tipo as keyof ReturnType<typeof getTodasCategorias>]?.color || 'bg-gray-100 text-gray-700'}>
+                                  {getTodasCategorias()[concepto.tipo as keyof ReturnType<typeof getTodasCategorias>]?.label || concepto.tipo}
                                 </Badge>
                                 {concepto.nombre}
                               </div>
@@ -599,8 +720,8 @@ export default function ConfiguracionPagosCompleta() {
                             <div className="flex flex-col">
                               <div className="flex items-center gap-2">
                                 {concepto && (
-                                  <Badge className={CATEGORIAS_CONCEPTOS[concepto.tipo as keyof typeof CATEGORIAS_CONCEPTOS]?.color || 'bg-gray-100 text-gray-700'}>
-                                    {CATEGORIAS_CONCEPTOS[concepto.tipo as keyof typeof CATEGORIAS_CONCEPTOS]?.label || concepto.tipo}
+                                  <Badge className={getTodasCategorias()[concepto.tipo as keyof ReturnType<typeof getTodasCategorias>]?.color || 'bg-gray-100 text-gray-700'}>
+                                    {getTodasCategorias()[concepto.tipo as keyof ReturnType<typeof getTodasCategorias>]?.label || concepto.tipo}
                                   </Badge>
                                 )}
                                 <span className="font-medium">{fecha.concepto_nombre}</span>
@@ -685,8 +806,8 @@ export default function ConfiguracionPagosCompleta() {
                           {conceptos.map((concepto) => (
                             <SelectItem key={concepto.id} value={concepto.id.toString()}>
                               <div className="flex items-center gap-2">
-                                <Badge className={CATEGORIAS_CONCEPTOS[concepto.tipo as keyof typeof CATEGORIAS_CONCEPTOS]?.color || 'bg-gray-100 text-gray-700'}>
-                                  {CATEGORIAS_CONCEPTOS[concepto.tipo as keyof typeof CATEGORIAS_CONCEPTOS]?.label || concepto.tipo}
+                                <Badge className={getTodasCategorias()[concepto.tipo as keyof ReturnType<typeof getTodasCategorias>]?.color || 'bg-gray-100 text-gray-700'}>
+                                  {getTodasCategorias()[concepto.tipo as keyof ReturnType<typeof getTodasCategorias>]?.label || concepto.tipo}
                                 </Badge>
                                 {concepto.nombre}
                               </div>
@@ -804,8 +925,8 @@ export default function ConfiguracionPagosCompleta() {
                             <div className="flex flex-col">
                               <div className="flex items-center gap-2">
                                 {concepto && (
-                                  <Badge className={CATEGORIAS_CONCEPTOS[concepto.tipo as keyof typeof CATEGORIAS_CONCEPTOS]?.color || 'bg-gray-100 text-gray-700'}>
-                                    {CATEGORIAS_CONCEPTOS[concepto.tipo as keyof typeof CATEGORIAS_CONCEPTOS]?.label || concepto.tipo}
+                                  <Badge className={getTodasCategorias()[concepto.tipo as keyof ReturnType<typeof getTodasCategorias>]?.color || 'bg-gray-100 text-gray-700'}>
+                                    {getTodasCategorias()[concepto.tipo as keyof ReturnType<typeof getTodasCategorias>]?.label || concepto.tipo}
                                   </Badge>
                                 )}
                                 <span className="font-medium">{regla.concepto_nombre}</span>
@@ -865,16 +986,26 @@ export default function ConfiguracionPagosCompleta() {
                   Administra los conceptos disponibles para configurar pagos
                 </p>
               </div>
-              <Dialog open={showConceptoModal} onOpenChange={setShowConceptoModal}>
-                <DialogTrigger asChild>
-                  <Button onClick={resetConceptoForm}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Nuevo Concepto
-                  </Button>
-                </DialogTrigger>
+              <div className="flex gap-2">
+                <Dialog open={showConceptoModal} onOpenChange={setShowConceptoModal}>
+                  <DialogTrigger asChild>
+                    <Button onClick={resetConceptoForm}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Nuevo Concepto
+                    </Button>
+                  </DialogTrigger>
+                <Dialog open={showCategoriaModal} onOpenChange={setShowCategoriaModal}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" onClick={resetCategoriaForm}>
+                      <Settings className="w-4 h-4 mr-2" />
+                      Nueva Categoría
+                    </Button>
+                  </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Crear Nuevo Concepto</DialogTitle>
+                    <DialogTitle>
+                      {editingConcepto ? 'Editar Concepto' : 'Crear Nuevo Concepto'}
+                    </DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
                     <div className="space-y-2">
@@ -897,9 +1028,12 @@ export default function ConfiguracionPagosCompleta() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {Object.entries(CATEGORIAS_CONCEPTOS).map(([key, value]) => (
+                          {Object.entries(getTodasCategorias()).map(([key, value]: [string, {label: string, color: string, editable: boolean}]) => (
                             <SelectItem key={key} value={key}>
-                              {value.label}
+                              <div className="flex items-center gap-2">
+                                <div className={`w-3 h-3 rounded-full ${value.color.split(' ')[0]}`}></div>
+                                {value.label}
+                              </div>
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -946,7 +1080,10 @@ export default function ConfiguracionPagosCompleta() {
 
                     <div className="flex gap-2 pt-4">
                       <Button onClick={handleGuardarConcepto} disabled={saveConceptoMutation.isPending}>
-                        {saveConceptoMutation.isPending ? "Creando..." : "Crear"}
+                        {saveConceptoMutation.isPending 
+                          ? (editingConcepto ? "Actualizando..." : "Creando...") 
+                          : (editingConcepto ? "Actualizar" : "Crear")
+                        }
                       </Button>
                       <Button
                         variant="outline"
@@ -961,12 +1098,77 @@ export default function ConfiguracionPagosCompleta() {
                   </div>
                 </DialogContent>
               </Dialog>
+
+              {/* Modal para crear nueva categoría */}
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Crear Nueva Categoría</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="clave-categoria">Clave de la Categoría</Label>
+                    <Input
+                      id="clave-categoria"
+                      value={nuevaCategoria.key}
+                      onChange={(e) => setNuevaCategoria(prev => ({ ...prev, key: e.target.value.toLowerCase().replace(/\s+/g, '_') }))}
+                      placeholder="ej. materiales_didacticos"
+                    />
+                    <p className="text-xs text-gray-600">Identificador único (solo letras, números y guiones bajos)</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="nombre-categoria">Nombre de la Categoría</Label>
+                    <Input
+                      id="nombre-categoria"
+                      value={nuevaCategoria.label}
+                      onChange={(e) => setNuevaCategoria(prev => ({ ...prev, label: e.target.value }))}
+                      placeholder="ej. Materiales Didácticos"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Color de la Categoría</Label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {COLORES_CATEGORIAS.map((color, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          className={`w-full h-8 rounded ${color} border-2 ${
+                            nuevaCategoria.color === color ? 'border-gray-800' : 'border-transparent'
+                          }`}
+                          onClick={() => setNuevaCategoria(prev => ({ ...prev, color }))}
+                        >
+                          <span className="text-xs font-medium">{color.split('-')[1]}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-4">
+                    <Button onClick={handleGuardarCategoria}>
+                      Crear Categoría
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowCategoriaModal(false);
+                        resetCategoriaForm();
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+            </div>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4">
                 {Object.entries(
                   conceptos.reduce((acc, concepto) => {
-                    const categoria = CATEGORIAS_CONCEPTOS[concepto.tipo as keyof typeof CATEGORIAS_CONCEPTOS]?.label || concepto.tipo;
+                    const todasCategorias = getTodasCategorias();
+                    const categoria = todasCategorias[concepto.tipo as keyof typeof todasCategorias]?.label || concepto.tipo;
                     if (!acc[categoria]) {
                       acc[categoria] = [];
                     }
@@ -980,22 +1182,56 @@ export default function ConfiguracionPagosCompleta() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        {conceptosCategoria.map((concepto) => (
-                          <div key={concepto.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <div>
-                                <div className="font-medium">{concepto.nombre}</div>
-                                <div className="text-sm text-slate-600">
-                                  {concepto.periodicidad} • {formatMonto(concepto.monto_centavos)}
-                                  {concepto.iva && " (+ IVA)"}
+                        {conceptosCategoria.map((concepto) => {
+                          const todasCategorias = getTodasCategorias();
+                          const categoriaInfo = todasCategorias[concepto.tipo as keyof typeof todasCategorias];
+                          const esEditable = categoriaInfo?.editable || concepto.tipo === 'otros';
+                          
+                          return (
+                            <div key={concepto.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
+                              <div className="flex items-center gap-3">
+                                <div>
+                                  <div className="font-medium">{concepto.nombre}</div>
+                                  <div className="text-sm text-slate-600">
+                                    {concepto.periodicidad} • {formatMonto(concepto.monto_centavos)}
+                                    {concepto.iva && " (+ IVA)"}
+                                  </div>
                                 </div>
                               </div>
+                              <div className="flex items-center gap-2">
+                                <Badge className={categoriaInfo?.color || 'bg-gray-100 text-gray-700'}>
+                                  {categoriaInfo?.label || concepto.tipo}
+                                </Badge>
+                                {esEditable && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleEditConcepto(concepto)}
+                                      title="Editar concepto"
+                                    >
+                                      <Edit className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleDeleteConcepto(concepto)}
+                                      title="Eliminar concepto"
+                                      className="text-red-600 hover:text-red-700"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </>
+                                )}
+                                {!esEditable && (
+                                  <div className="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded">
+                                    Sistema
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            <Badge className={CATEGORIAS_CONCEPTOS[concepto.tipo as keyof typeof CATEGORIAS_CONCEPTOS]?.color || 'bg-gray-100 text-gray-700'}>
-                              {CATEGORIAS_CONCEPTOS[concepto.tipo as keyof typeof CATEGORIAS_CONCEPTOS]?.label || concepto.tipo}
-                            </Badge>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </CardContent>
                   </Card>
@@ -1005,6 +1241,52 @@ export default function ConfiguracionPagosCompleta() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Modal de confirmación para eliminar concepto */}
+      <Dialog open={showDeleteConceptoModal} onOpenChange={setShowDeleteConceptoModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar Concepto</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              ¿Estás seguro de que deseas eliminar el concepto <strong>{conceptoToDelete?.nombre}</strong>?
+            </p>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <div className="w-5 h-5 text-yellow-600 mt-0.5">
+                  ⚠️
+                </div>
+                <div className="text-sm">
+                  <p className="font-medium text-yellow-800">Advertencia</p>
+                  <p className="text-yellow-700 mt-1">
+                    Esta acción no se puede deshacer. Se eliminarán también todas las configuraciones de fechas y recargos asociadas a este concepto.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex gap-2 pt-4">
+              <Button
+                variant="destructive"
+                onClick={() => conceptoToDelete && deleteConceptoMutation.mutate(conceptoToDelete.id)}
+                disabled={deleteConceptoMutation.isPending}
+              >
+                {deleteConceptoMutation.isPending ? "Eliminando..." : "Sí, Eliminar"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowDeleteConceptoModal(false);
+                  setConceptoToDelete(null);
+                }}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

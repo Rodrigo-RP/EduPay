@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,9 +25,65 @@ export default function Reportes() {
   const [concepto, setConcepto] = useState("todos");
   const [tipoReporte, setTipoReporte] = useState("");
   const [formatoExportacion, setFormatoExportacion] = useState("excel");
+  
+  // Estados para conceptos personalizados
+  const [conceptosPersonalizados, setConceptosPersonalizados] = useState<Record<string, {nombre: string, categoria: string, activo: boolean}>>({}); 
+  const [categoriasPersonalizadas, setCategoriasPersonalizadas] = useState<Record<string, {label: string, color: string, editable: boolean}>>({});
 
-  // Tipos de reportes disponibles
-  const tiposReporte = [
+  // Cargar conceptos personalizados desde localStorage al inicializar
+  useEffect(() => {
+    const cargarConceptos = () => {
+      const conceptosGuardados = localStorage.getItem('edupay_conceptos_personalizados');
+      const categoriasGuardadas = localStorage.getItem('edupay_categorias_personalizadas');
+      
+      if (conceptosGuardados) {
+        try {
+          setConceptosPersonalizados(JSON.parse(conceptosGuardados));
+        } catch (error) {
+          console.error('Error cargando conceptos personalizados:', error);
+        }
+      }
+      
+      if (categoriasGuardadas) {
+        try {
+          setCategoriasPersonalizadas(JSON.parse(categoriasGuardadas));
+        } catch (error) {
+          console.error('Error cargando categorías personalizadas:', error);
+        }
+      }
+    };
+
+    // Cargar inicialmente
+    cargarConceptos();
+
+    // Escuchar cambios en localStorage (para sincronización automática en tiempo real)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'edupay_conceptos_personalizados' || e.key === 'edupay_categorias_personalizadas') {
+        cargarConceptos();
+        toast({
+          title: "🔄 Conceptos Actualizados",
+          description: "Los reportes se han sincronizado automáticamente con los nuevos conceptos personalizados",
+          duration: 3000,
+        });
+      }
+    };
+
+    // Escuchar cambios en el foco de la ventana (para detectar cambios entre pestañas)
+    const handleFocus = () => {
+      cargarConceptos();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [toast]);
+
+  // Tipos de reportes base (predefinidos)
+  const tiposReporteBase = [
     // Reportes de Ingresos
     { id: "ingresos_colegiaturas", nombre: "Ingresos por Colegiaturas", categoria: "ingresos", icono: DollarSign },
     { id: "ingresos_inscripciones", nombre: "Ingresos por Inscripciones", categoria: "ingresos", icono: FileText },
@@ -47,6 +103,30 @@ export default function Reportes() {
     // Otros
     { id: "concepto_personalizado", nombre: "Concepto Personalizado", categoria: "otros", icono: Settings }
   ];
+
+  // Función para generar reportes dinámicos desde conceptos personalizados
+  const generarReportesPersonalizados = () => {
+    const reportesPersonalizados: Array<{id: string, nombre: string, categoria: string, icono: any}> = [];
+    
+    Object.entries(conceptosPersonalizados).forEach(([id, concepto]) => {
+      if (concepto.activo) {
+        // Generar ID único para el reporte basado en el concepto
+        const reporteId = `ingresos_${id.toLowerCase().replace(/\s+/g, '_')}`;
+        
+        reportesPersonalizados.push({
+          id: reporteId,
+          nombre: `Ingresos por ${concepto.nombre}`,
+          categoria: "ingresos_personalizados",
+          icono: DollarSign
+        });
+      }
+    });
+    
+    return reportesPersonalizados;
+  };
+
+  // Combinar tipos de reporte base con personalizados
+  const tiposReporte = [...tiposReporteBase, ...generarReportesPersonalizados()];
 
   // Opciones para filtros
   const seccionesEducativas = [
@@ -83,19 +163,35 @@ export default function Reportes() {
     { value: "preparatoria_6", label: "6° Semestre Preparatoria" }
   ];
 
-  const conceptos = [
-    { value: "todos", label: "Todos los conceptos" },
-    { value: "colegiaturas", label: "Colegiaturas" },
-    { value: "inscripciones", label: "Inscripciones" },
-    { value: "reinscripciones", label: "Reinscripciones" },
-    { value: "libros", label: "Libros" },
-    { value: "uniformes", label: "Uniformes" },
-    { value: "credenciales", label: "Credenciales" },
-    { value: "viajes_pedagogicos", label: "Viajes Pedagógicos" },
-    { value: "campamentos", label: "Campamentos" },
-    { value: "fotografia", label: "Fotografía" },
-    { value: "otros", label: "Otros" }
-  ];
+  // Generar lista de conceptos incluyendo personalizados
+  const generarConceptosFiltros = () => {
+    const conceptosBase = [
+      { value: "todos", label: "Todos los conceptos" },
+      { value: "colegiaturas", label: "Colegiaturas" },
+      { value: "inscripciones", label: "Inscripciones" },
+      { value: "reinscripciones", label: "Reinscripciones" },
+      { value: "libros", label: "Libros" },
+      { value: "uniformes", label: "Uniformes" },
+      { value: "credenciales", label: "Credenciales" },
+      { value: "viajes_pedagogicos", label: "Viajes Pedagógicos" },
+      { value: "campamentos", label: "Campamentos" },
+      { value: "fotografia", label: "Fotografía" },
+      { value: "otros", label: "Otros" }
+    ];
+    
+    // Agregar conceptos personalizados activos
+    const conceptosPersonalizadosActivos = Object.entries(conceptosPersonalizados)
+      .filter(([_, concepto]) => concepto.activo)
+      .map(([id, concepto]) => ({
+        value: id.toLowerCase().replace(/\s+/g, '_'),
+        label: concepto.nombre,
+        isCustom: true
+      }));
+    
+    return [...conceptosBase, ...conceptosPersonalizadosActivos];
+  };
+  
+  const conceptos = generarConceptosFiltros();
 
   // Función para obtener el nombre del tipo de reporte seleccionado
   const getTipoReporteNombre = () => {
@@ -416,6 +512,14 @@ Instituto JFR - ${fechaGeneracion}`;
           <p className="mt-2 text-sm text-gray-600">
             Generación intuitiva de reportes de ingresos y listas estudiantiles con filtros avanzados
           </p>
+          {Object.keys(conceptosPersonalizados).length > 0 && (
+            <div className="mt-2">
+              <Badge variant="outline" className="text-emerald-600 border-emerald-600">
+                <DollarSign className="w-3 h-3 mr-1" />
+                {Object.keys(conceptosPersonalizados).filter(id => conceptosPersonalizados[id].activo).length} conceptos personalizados disponibles
+              </Badge>
+            </div>
+          )}
         </div>
         <div className="flex items-center space-x-2">
           <Badge variant="outline" className="text-blue-600 border-blue-600">
@@ -472,6 +576,25 @@ Instituto JFR - ${fechaGeneracion}`;
                       </SelectItem>
                     ))
                   }
+                  
+                  {/* Reportes de Conceptos Personalizados */}
+                  {generarReportesPersonalizados().length > 0 && (
+                    <>
+                      <div className="font-medium text-emerald-700 px-2 py-1.5 text-xs">🎯 REPORTES DE CONCEPTOS PERSONALIZADOS</div>
+                      {tiposReporte
+                        .filter(tipo => tipo.categoria === "ingresos_personalizados")
+                        .map(tipo => (
+                          <SelectItem key={tipo.id} value={tipo.id}>
+                            <div className="flex items-center gap-2">
+                              <DollarSign className="w-4 h-4 text-emerald-600" />
+                              <span className="font-medium">{tipo.nombre}</span>
+                              <span className="ml-1 px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs">Personalizado</span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      }
+                    </>
+                  )}
                   
                   {/* Otros */}
                   <div className="font-medium text-gray-700 px-2 py-1.5 text-xs">⚙️ OTROS REPORTES</div>
@@ -597,7 +720,19 @@ Instituto JFR - ${fechaGeneracion}`;
                   <SelectContent>
                     {conceptos.map(concepto => (
                       <SelectItem key={concepto.value} value={concepto.value}>
-                        {concepto.label}
+                        <div className="flex items-center gap-2">
+                          {concepto.isCustom ? (
+                            <>
+                              <DollarSign className="w-4 h-4 text-emerald-600" />
+                              <span>{concepto.label}</span>
+                              <span className="ml-1 px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs">Personalizado</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>{concepto.label}</span>
+                            </>
+                          )}
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>

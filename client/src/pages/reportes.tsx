@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { FileText, Download, Search, Filter, Calendar, TrendingUp, DollarSign, Users, GraduationCap, FileSpreadsheet, Printer, Settings, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useInstitution } from "@/hooks/use-institution";
+import { useQuery } from "@tanstack/react-query";
 import jsPDF from 'jspdf';
 
 export default function Reportes() {
@@ -26,61 +27,43 @@ export default function Reportes() {
   const [tipoReporte, setTipoReporte] = useState("");
   const [formatoExportacion, setFormatoExportacion] = useState("excel");
   
-  // Estados para conceptos personalizados
-  const [conceptosPersonalizados, setConceptosPersonalizados] = useState<Record<string, {nombre: string, categoria: string, activo: boolean}>>({}); 
-  const [categoriasPersonalizadas, setCategoriasPersonalizadas] = useState<Record<string, {label: string, color: string, editable: boolean}>>({});
+  // Fetch conceptos personalizados desde la base de datos
+  const { data: conceptosPersonalizados = [], refetch: refetchConceptos } = useQuery({
+    queryKey: ["/api/concepts"],
+    select: (data: any[]) => data || []
+  });
 
-  // Cargar conceptos personalizados desde localStorage al inicializar
+  // Escuchar cambios en tiempo real para conceptos (sincronización automática)
   useEffect(() => {
-    const cargarConceptos = () => {
-      const conceptosGuardados = localStorage.getItem('edupay_conceptos_personalizados');
-      const categoriasGuardadas = localStorage.getItem('edupay_categorias_personalizadas');
-      
-      if (conceptosGuardados) {
-        try {
-          setConceptosPersonalizados(JSON.parse(conceptosGuardados));
-        } catch (error) {
-          console.error('Error cargando conceptos personalizados:', error);
-        }
-      }
-      
-      if (categoriasGuardadas) {
-        try {
-          setCategoriasPersonalizadas(JSON.parse(categoriasGuardadas));
-        } catch (error) {
-          console.error('Error cargando categorías personalizadas:', error);
-        }
-      }
+    const handleFocus = () => {
+      refetchConceptos();
     };
 
-    // Cargar inicialmente
-    cargarConceptos();
-
-    // Escuchar cambios en localStorage (para sincronización automática en tiempo real)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'edupay_conceptos_personalizados' || e.key === 'edupay_categorias_personalizadas') {
-        cargarConceptos();
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        refetchConceptos();
         toast({
           title: "🔄 Conceptos Actualizados",
-          description: "Los reportes se han sincronizado automáticamente con los nuevos conceptos personalizados",
+          description: "Los reportes se han sincronizado automáticamente con los conceptos de pago",
           duration: 3000,
         });
       }
     };
 
-    // Escuchar cambios en el foco de la ventana (para detectar cambios entre pestañas)
-    const handleFocus = () => {
-      cargarConceptos();
-    };
-
-    window.addEventListener('storage', handleStorageChange);
     window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Actualizar cada 30 segundos para capturar cambios en tiempo real
+    const intervalId = setInterval(() => {
+      refetchConceptos();
+    }, 30000);
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(intervalId);
     };
-  }, [toast]);
+  }, [refetchConceptos, toast]);
 
   // Tipos de reportes base (predefinidos)
   const tiposReporteBase = [
@@ -108,18 +91,23 @@ export default function Reportes() {
   const generarReportesPersonalizados = () => {
     const reportesPersonalizados: Array<{id: string, nombre: string, categoria: string, icono: any}> = [];
     
-    Object.entries(conceptosPersonalizados).forEach(([id, concepto]) => {
-      if (concepto.activo) {
-        // Generar ID único para el reporte basado en el concepto
-        const reporteId = `ingresos_${id.toLowerCase().replace(/\s+/g, '_')}`;
-        
-        reportesPersonalizados.push({
-          id: reporteId,
-          nombre: `Ingresos por ${concepto.nombre}`,
-          categoria: "ingresos_personalizados",
-          icono: DollarSign
-        });
-      }
+    // Filtrar conceptos personalizados (excluyendo los básicos como colegiatura)
+    const conceptosPersonalizadosActivos = conceptosPersonalizados.filter((concepto: any) => {
+      // Excluir conceptos básicos
+      const tiposBasicos = ['colegiatura', 'inscripcion', 'reinscripcion', 'libros', 'uniformes'];
+      return !tiposBasicos.includes(concepto.tipo?.toLowerCase());
+    });
+    
+    conceptosPersonalizadosActivos.forEach((concepto: any) => {
+      // Generar ID único para el reporte basado en el concepto
+      const reporteId = `ingresos_concepto_${concepto.id}`;
+      
+      reportesPersonalizados.push({
+        id: reporteId,
+        nombre: `Ingresos por ${concepto.nombre}`,
+        categoria: "ingresos_personalizados",
+        icono: DollarSign
+      });
     });
     
     return reportesPersonalizados;
@@ -165,7 +153,7 @@ export default function Reportes() {
 
   // Generar lista de conceptos incluyendo personalizados
   const generarConceptosFiltros = () => {
-    const conceptosBase = [
+    const conceptosBase: Array<{value: string, label: string, isCustom?: boolean}> = [
       { value: "todos", label: "Todos los conceptos" },
       { value: "colegiaturas", label: "Colegiaturas" },
       { value: "inscripciones", label: "Inscripciones" },
@@ -179,11 +167,15 @@ export default function Reportes() {
       { value: "otros", label: "Otros" }
     ];
     
-    // Agregar conceptos personalizados activos
-    const conceptosPersonalizadosActivos = Object.entries(conceptosPersonalizados)
-      .filter(([_, concepto]) => concepto.activo)
-      .map(([id, concepto]) => ({
-        value: id.toLowerCase().replace(/\s+/g, '_'),
+    // Agregar conceptos personalizados desde la base de datos
+    const conceptosPersonalizadosActivos = conceptosPersonalizados
+      .filter((concepto: any) => {
+        // Excluir conceptos básicos predefinidos
+        const tiposBasicos = ['colegiatura', 'inscripcion', 'reinscripcion', 'libros', 'uniformes'];
+        return !tiposBasicos.includes(concepto.tipo?.toLowerCase());
+      })
+      .map((concepto: any) => ({
+        value: `concepto_${concepto.id}`,
         label: concepto.nombre,
         isCustom: true
       }));

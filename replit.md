@@ -21,6 +21,7 @@ Configuración de Pagos: Sistema completo implementado (Agosto 2025):
 - Campo de entrada manual de texto libre para cantidades de dinero (no controles numéricos)
 - Mapeo correcto entre tipos frontend (porcentaje_fijo, monto_fijo, porcentaje_diario) y base de datos (porcentaje, fijo, progresivo)
 - CRUD completo con validación y conversión automática de centavos/pesos
+- Sincronización automática con Reportes: conceptos personalizados creados aparecen instantáneamente como opciones de reporte (Agosto 2025)
 
 Gestión de Estudiantes: Sistema adaptado a estructura Excel "Concentrado_Estudiante y Padre" (Agosto 2025):
 - Formulario rediseñado con credenciales individuales por usuario: cada padre, madre y estudiante tiene su propio ID de Reference, usuario y contraseña

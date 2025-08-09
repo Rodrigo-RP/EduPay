@@ -504,11 +504,14 @@ Instituto JFR - ${fechaGeneracion}`;
           <p className="mt-2 text-sm text-gray-600">
             Generación intuitiva de reportes de ingresos y listas estudiantiles con filtros avanzados
           </p>
-          {Object.keys(conceptosPersonalizados).length > 0 && (
+          {conceptosPersonalizados.length > 0 && (
             <div className="mt-2">
               <Badge variant="outline" className="text-emerald-600 border-emerald-600">
                 <DollarSign className="w-3 h-3 mr-1" />
-                {Object.keys(conceptosPersonalizados).filter(id => conceptosPersonalizados[id].activo).length} conceptos personalizados disponibles
+                {conceptosPersonalizados.filter((concepto: any) => {
+                  const tiposBasicos = ['colegiatura', 'inscripcion', 'reinscripcion', 'libros', 'uniformes'];
+                  return !tiposBasicos.includes(concepto.tipo?.toLowerCase());
+                }).length} conceptos personalizados disponibles
               </Badge>
             </div>
           )}

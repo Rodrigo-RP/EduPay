@@ -41,11 +41,14 @@ export default function Estudiantes() {
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Consulta real a la API para obtener estudiantes
+  // Consulta real a la API para obtener estudiantes (campus dinámico desde cookie/token)
   const { data: estudiantes = [], isLoading, error } = useQuery({
-    queryKey: ['/api/admin/students/1'],
+    queryKey: ['/api/admin/students'],
     queryFn: async () => {
-      const response = await fetch('/api/admin/students/1');
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('/api/admin/students', {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
       if (!response.ok) {
         throw new Error('Error al cargar estudiantes');
       }

@@ -27,7 +27,7 @@ export function InstitutionProvider({ children }: { children: ReactNode }) {
     },
     retry: 1,
     staleTime: 0, // Siempre refrescar datos
-    cacheTime: 0, // No mantener cache
+    gcTime: 0, // No mantener cache
     enabled: !!localStorage.getItem('auth_token') // Solo ejecutar si hay token
   });
 

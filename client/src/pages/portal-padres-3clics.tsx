@@ -41,7 +41,7 @@ export default function PortalPadres3Clics() {
   const [selectedCharges, setSelectedCharges] = useState<number[]>([]);
   const [step, setStep] = useState<"select" | "pay" | "confirm">("select");
 
-  const { data: dashboardData, isLoading } = useQuery({
+  const { data: dashboardData, isLoading } = useQuery<any>({
     queryKey: ["/api/guardian/dashboard"],
   });
 
@@ -266,7 +266,7 @@ export default function PortalPadres3Clics() {
     const [processing, setProcessing] = useState(false);
 
     const confirmarPago = useMutation({
-      mutationFn: (data: any) => apiRequest("POST", "/api/guardian/pagar", data),
+      mutationFn: (data: any) => apiRequest("/api/guardian/pagar", { method: "POST", body: JSON.stringify(data) }),
       onSuccess: (data) => {
         setProcessing(false);
         toast({

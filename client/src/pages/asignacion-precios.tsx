@@ -112,7 +112,7 @@ export default function AsignacionPrecios() {
   };
 
   const applyCharges = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/admin/cargos/desde-catalogo", data),
+    mutationFn: (data: any) => apiRequest("/api/admin/cargos/desde-catalogo", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: (response: any) => {
       toast({
         title: "Cargos aplicados correctamente",

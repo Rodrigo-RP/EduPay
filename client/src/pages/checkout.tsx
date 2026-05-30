@@ -43,7 +43,7 @@ export default function Checkout({ charge, paymentMethods = [], onClose, onSucce
 
   const processPaymentMutation = useMutation({
     mutationFn: async (paymentData: any) => {
-      const response = await apiRequest("POST", "/api/payments/process", paymentData);
+      const response = await apiRequest("/api/payments/process", { method: "POST", body: JSON.stringify(paymentData) });
       return response.json();
     },
     onSuccess: () => {

@@ -16,11 +16,19 @@ interface Student {
   curp: string;
   grado: string;
   status: string;
+  estado?: string;
   fecha_nacimiento: string;
   campus_id: number;
   familia_id: number;
   created_at: string;
   updated_at: string;
+  padre_nombre?: string;
+  padre_email?: string;
+  padre_telefono?: string;
+  beca_aplicada?: string;
+  estado_pago?: string;
+  descuento_aplicado?: number;
+  monto_inscripcion?: number;
 }
 
 export default function ReportesAdmisiones() {

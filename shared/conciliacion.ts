@@ -1,5 +1,6 @@
 // Sistema de conciliación bancaria - Módulo 4: Caja y conciliación
 import { pgTable, serial, integer, varchar, text, boolean, timestamp, date, bigint, decimal } from "drizzle-orm/pg-core";
+import { payments } from "./schema";
 
 export const bank_accounts = pgTable("bank_accounts", {
   id: serial("id").primaryKey(),

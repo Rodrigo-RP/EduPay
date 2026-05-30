@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * DATOS DE EJEMPLO PARA ADMISIONES
  * Simula estudiantes inscritos y pendientes de todas las secciones

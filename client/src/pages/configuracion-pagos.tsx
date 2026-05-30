@@ -17,10 +17,10 @@ import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 
 interface FechaVencimiento {
-  id: number;
+  id: number | string;
   concepto: string;
   dia_vencimiento: number;
-  mes_aplicacion: string;
+  mes_aplicacion: string | string[];
   activo: boolean;
   campus_id?: number;
   created_at?: string;
@@ -28,16 +28,18 @@ interface FechaVencimiento {
 }
 
 interface ReglaRecargo {
-  id: number;
+  id: number | string;
   nombre: string;
   tipo: 'porcentaje' | 'fijo' | 'progresivo';
   dias_gracia: number;
   porcentaje?: number;
   monto_fijo_centavos?: number;
+  monto_fijo?: number;
   reglas_progresivas?: string;
   aplica_fines_semana: boolean;
   aplica_festivos: boolean;
   monto_maximo_centavos?: number;
+  monto_maximo?: number;
   activo: boolean;
   campus_id?: number;
   created_at?: string;
@@ -54,13 +56,13 @@ export default function ConfiguracionPagos() {
   const [editingRecargo, setEditingRecargo] = useState<ReglaRecargo | null>(null);
 
   // Fetch fechas de vencimiento desde la API
-  const { data: fechasVencimiento = [], isLoading: loadingFechas } = useQuery({
+  const { data: fechasVencimiento = [], isLoading: loadingFechas } = useQuery<FechaVencimiento[]>({
     queryKey: ["/api/payment-config/due-dates"],
     enabled: !!user?.campus_id,
   });
 
   // Fetch reglas de recargo desde la API
-  const { data: reglasRecargo = [], isLoading: loadingReglas } = useQuery({
+  const { data: reglasRecargo = [], isLoading: loadingReglas } = useQuery<ReglaRecargo[]>({
     queryKey: ["/api/payment-config/surcharge-rules"],
     enabled: !!user?.campus_id,
   });
@@ -180,35 +182,23 @@ export default function ConfiguracionPagos() {
       return;
     }
 
-    const fecha: FechaVencimiento = {
-      id: Date.now().toString(),
+    const fechaData = {
       concepto: nuevaFecha.concepto,
       dia_vencimiento: parseInt(nuevaFecha.dia_vencimiento),
-      mes_aplicacion: nuevaFecha.mes_aplicacion.includes("todos") 
-        ? "todos" 
-        : nuevaFecha.mes_aplicacion,
+      mes_aplicacion: nuevaFecha.mes_aplicacion.includes("todos")
+        ? "todos"
+        : nuevaFecha.mes_aplicacion.join(","),
       activo: true
     };
 
     if (editingFecha) {
-      setFechasVencimiento(prev => 
-        prev.map(f => f.id === editingFecha.id ? { ...fecha, id: editingFecha.id } : f)
-      );
-      toast({
-        title: "Fecha actualizada",
-        description: "La configuración de vencimiento se actualizó correctamente"
-      });
+      updateFechaMutation.mutate({ ...fechaData, id: editingFecha.id } as FechaVencimiento);
     } else {
-      setFechasVencimiento(prev => [...prev, fecha]);
-      toast({
-        title: "Fecha creada",
-        description: "Nueva fecha de vencimiento configurada"
-      });
+      createFechaMutation.mutate(fechaData as Omit<FechaVencimiento, 'id'>);
     }
 
     setNuevaFecha({ concepto: "", dia_vencimiento: "", mes_aplicacion: [] });
     setEditingFecha(null);
-    setShowFechaModal(false);
   };
 
   const handleGuardarRecargo = () => {
@@ -239,33 +229,22 @@ export default function ConfiguracionPagos() {
       return;
     }
 
-    const recargo: ReglaRecargo = {
-      id: Date.now().toString(),
+    const recargoData = {
       nombre: nuevoRecargo.nombre,
-      tipo: nuevoRecargo.tipo as any,
+      tipo: nuevoRecargo.tipo as 'porcentaje' | 'fijo' | 'progresivo',
       dias_gracia: parseInt(nuevoRecargo.dias_gracia),
       porcentaje: nuevoRecargo.porcentaje ? parseFloat(nuevoRecargo.porcentaje) : undefined,
-      monto_fijo: nuevoRecargo.monto_fijo ? parseInt(nuevoRecargo.monto_fijo) * 100 : undefined,
+      monto_fijo_centavos: nuevoRecargo.monto_fijo ? parseInt(nuevoRecargo.monto_fijo) * 100 : undefined,
       aplica_fines_semana: nuevoRecargo.aplica_fines_semana,
       aplica_festivos: nuevoRecargo.aplica_festivos,
-      monto_maximo: nuevoRecargo.monto_maximo ? parseInt(nuevoRecargo.monto_maximo) * 100 : undefined,
+      monto_maximo_centavos: nuevoRecargo.monto_maximo ? parseInt(nuevoRecargo.monto_maximo) * 100 : undefined,
       activo: true
     };
 
     if (editingRecargo) {
-      setReglasRecargo(prev => 
-        prev.map(r => r.id === editingRecargo.id ? { ...recargo, id: editingRecargo.id } : r)
-      );
-      toast({
-        title: "Regla actualizada",
-        description: "La regla de recargo se actualizó correctamente"
-      });
+      updateReglaMutation.mutate({ ...recargoData, id: editingRecargo.id } as ReglaRecargo);
     } else {
-      setReglasRecargo(prev => [...prev, recargo]);
-      toast({
-        title: "Regla creada",
-        description: "Nueva regla de recargo configurada"
-      });
+      createReglaMutation.mutate(recargoData as Omit<ReglaRecargo, 'id'>);
     }
 
     setNuevoRecargo({
@@ -279,7 +258,6 @@ export default function ConfiguracionPagos() {
       monto_maximo: ""
     });
     setEditingRecargo(null);
-    setShowRecargoModal(false);
   };
 
   const handleEditarFecha = (fecha: FechaVencimiento) => {
@@ -299,48 +277,34 @@ export default function ConfiguracionPagos() {
       tipo: recargo.tipo,
       dias_gracia: recargo.dias_gracia.toString(),
       porcentaje: recargo.porcentaje?.toString() || "",
-      monto_fijo: recargo.monto_fijo ? (recargo.monto_fijo / 100).toString() : "",
+      monto_fijo: recargo.monto_fijo_centavos ? (recargo.monto_fijo_centavos / 100).toString() : "",
       aplica_fines_semana: recargo.aplica_fines_semana,
       aplica_festivos: recargo.aplica_festivos,
-      monto_maximo: recargo.monto_maximo ? (recargo.monto_maximo / 100).toString() : ""
+      monto_maximo: recargo.monto_maximo_centavos ? (recargo.monto_maximo_centavos / 100).toString() : ""
     });
     setShowRecargoModal(true);
   };
 
-  const toggleActivoFecha = (id: string) => {
-    setFechasVencimiento(prev =>
-      prev.map(f => f.id === id ? { ...f, activo: !f.activo } : f)
-    );
-    toast({
-      title: "Estado actualizado",
-      description: "La configuración se actualizó correctamente"
-    });
+  const toggleActivoFecha = (id: number | string) => {
+    const fecha = fechasVencimiento.find(f => f.id === id);
+    if (fecha) {
+      updateFechaMutation.mutate({ ...fecha, activo: !fecha.activo });
+    }
   };
 
-  const toggleActivoRecargo = (id: string) => {
-    setReglasRecargo(prev =>
-      prev.map(r => r.id === id ? { ...r, activo: !r.activo } : r)
-    );
-    toast({
-      title: "Estado actualizado", 
-      description: "La regla se actualizó correctamente"
-    });
+  const toggleActivoRecargo = (id: number | string) => {
+    const regla = reglasRecargo.find(r => r.id === id);
+    if (regla) {
+      updateReglaMutation.mutate({ ...regla, activo: !regla.activo });
+    }
   };
 
-  const eliminarFecha = (id: string) => {
-    setFechasVencimiento(prev => prev.filter(f => f.id !== id));
-    toast({
-      title: "Fecha eliminada",
-      description: "La configuración de vencimiento fue eliminada"
-    });
+  const eliminarFecha = (id: number | string) => {
+    deleteFechaMutation.mutate(id as number);
   };
 
-  const eliminarRecargo = (id: string) => {
-    setReglasRecargo(prev => prev.filter(r => r.id !== id));
-    toast({
-      title: "Regla eliminada",
-      description: "La regla de recargo fue eliminada"
-    });
+  const eliminarRecargo = (id: number | string) => {
+    deleteReglaMutation.mutate(id as number);
   };
 
   return (

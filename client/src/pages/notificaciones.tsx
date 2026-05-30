@@ -41,7 +41,7 @@ export default function Notificaciones() {
       modo: string;
       estudiantesIds?: number[];
     }) => {
-      const response = await apiRequest('POST', '/api/notifications/send', data);
+      const response = await apiRequest('/api/notifications/send', { method: 'POST', body: JSON.stringify(data) });
       return await response.json();
     },
     onSuccess: (data: any) => {

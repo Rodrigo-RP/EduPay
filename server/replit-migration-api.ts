@@ -117,9 +117,9 @@ router.get('/project/:projectId', async (req, res) => {
           language: projectData.language,
           url: projectData.url,
           owner: projectData.owner,
-          filesCount: projectData.files.length,
-          dependenciesCount: Object.keys(projectData.dependencies).length,
-          secretsCount: projectData.secrets.length,
+          filesCount: (projectData as any).files?.length ?? 0,
+          dependenciesCount: Object.keys((projectData as any).dependencies ?? {}).length,
+          secretsCount: (projectData as any).secrets?.length ?? 0,
           createdAt: projectData.createdAt,
           updatedAt: projectData.updatedAt
         }
@@ -343,7 +343,7 @@ router.delete('/cleanup', (req, res) => {
     const maxAge = 24 * 60 * 60 * 1000; // 24 horas
     let cleaned = 0;
 
-    for (const [sessionId, session] of migrationSessions.entries()) {
+    for (const [sessionId, session] of Array.from(migrationSessions.entries())) {
       const sessionAge = now - new Date(session.startedAt).getTime();
       if (sessionAge > maxAge) {
         migrationSessions.delete(sessionId);

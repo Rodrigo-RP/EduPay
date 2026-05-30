@@ -19,9 +19,9 @@ export default function DashboardCaja() {
   const { institutionName, logoUrl } = useInstitution();
   
   // Obtener datos de pagos - enfoque en transacciones y cobranza
-  const { data: payments = [], isLoading: paymentsLoading } = useQuery({
+  const { data: payments = [], isLoading: paymentsLoading } = useQuery<any[]>({
     queryKey: ['/api/payments'],
-    select: (data) => data.filter(p => 
+    select: (data) => data.filter((p: any) => 
       // Solo pagos relacionados con caja: colegiaturas, mensualidades, recargos
       p.concept?.name?.toLowerCase().includes('colegiatura') ||
       p.concept?.name?.toLowerCase().includes('mensualidad') ||
@@ -33,12 +33,12 @@ export default function DashboardCaja() {
   });
 
   // Obtener datos de cuentas por cobrar
-  const { data: receivables = [], isLoading: receivablesLoading } = useQuery({
+  const { data: receivables = [], isLoading: receivablesLoading } = useQuery<any[]>({
     queryKey: ['/api/receivables']
   });
 
   // Obtener datos de estudiantes para contexto
-  const { data: students = [], isLoading: studentsLoading } = useQuery({
+  const { data: students = [], isLoading: studentsLoading } = useQuery<any[]>({
     queryKey: ['/api/students']
   });
 
@@ -61,7 +61,7 @@ export default function DashboardCaja() {
   // Pagos recientes (últimos 7 días)
   const recentPayments = payments
     .filter(p => new Date(p.payment_date) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
-    .sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date))
+    .sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
     .slice(0, 10);
 
   return (

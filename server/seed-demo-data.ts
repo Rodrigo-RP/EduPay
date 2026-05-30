@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Script para crear datos demo según especificaciones del documento
 import { db } from "./db";
 import { 

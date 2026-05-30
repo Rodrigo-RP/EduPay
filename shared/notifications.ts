@@ -1,5 +1,6 @@
 // Notification system - Módulo 3: Notificaciones automáticas (email, WhatsApp, SMS)
 import { pgTable, serial, integer, varchar, text, boolean, timestamp } from "drizzle-orm/pg-core";
+import { guardians } from "./schema";
 
 export const notification_templates = pgTable("notification_templates", {
   id: serial("id").primaryKey(),

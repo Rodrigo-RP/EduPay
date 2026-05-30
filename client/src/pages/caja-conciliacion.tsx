@@ -35,7 +35,7 @@ export default function CajaConciliacion() {
   const [currentReceiptHTML, setCurrentReceiptHTML] = useState('');
 
   // Obtener información del usuario autenticado
-  const { data: user } = useQuery({
+  const { data: user } = useQuery<any>({
     queryKey: ["/api/auth/user"],
     retry: false,
   });
@@ -66,7 +66,7 @@ export default function CajaConciliacion() {
       // Si el email contiene un nombre específico, usarlo
       if (emailParts.includes('.')) {
         const nameParts = emailParts.split('.');
-        return nameParts.map(part => 
+        return nameParts.map((part: string) => 
           part.charAt(0).toUpperCase() + part.slice(1)
         ).join(' ');
       }
@@ -76,6 +76,57 @@ export default function CajaConciliacion() {
     }
     
     return user.role || "Usuario";
+  };
+
+  // Funciones de generación y compartir recibos (scope externo)
+  const generatePDFFromHTML = async (htmlContent: string, filename: string) => {
+    try {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = htmlContent;
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.left = '-9999px';
+      tempDiv.style.top = '-9999px';
+      tempDiv.style.width = '800px';
+      tempDiv.style.backgroundColor = 'white';
+      tempDiv.style.padding = '20px';
+      document.body.appendChild(tempDiv);
+      const html2canvas = await import('html2canvas');
+      const canvas = await html2canvas.default(tempDiv, { scale: 2, useCORS: true, allowTaint: true, backgroundColor: 'white' });
+      document.body.removeChild(tempDiv);
+      return new Promise<Blob>((resolve) => {
+        canvas.toBlob((blob) => { if (blob) resolve(blob); }, 'image/png');
+      });
+    } catch (error) {
+      console.error('Error generando PDF:', error);
+      throw error;
+    }
+  };
+
+  const shareReceipt = async (htmlContent: string, method: 'email' | 'whatsapp' | 'download') => {
+    try {
+      const filename = `recibo-fiscal-${Date.now()}`;
+      if (method === 'download') {
+        const blob = await generatePDFFromHTML(htmlContent, filename);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${filename}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast({ title: "Recibo descargado", description: "El recibo se ha descargado como imagen PNG" });
+      } else if (method === 'email') {
+        const subject = "Recibo de Pago - Edupay";
+        const body = "Adjunto el recibo de pago correspondiente.";
+        window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
+        toast({ title: "Compartir por email", description: "Se abrió tu cliente de email para compartir el recibo" });
+      } else if (method === 'whatsapp') {
+        window.open(`https://wa.me/?text=${encodeURIComponent("Recibo de pago - Edupay")}`, '_blank');
+        toast({ title: "Compartir por WhatsApp", description: "Se abrió WhatsApp para compartir el recibo" });
+      }
+    } catch (error) {
+      console.error('Error compartiendo recibo:', error);
+      toast({ title: "Error", description: "Ocurrió un error al compartir el recibo", variant: "destructive" });
+    }
   };
 
   // Registro de pagos manual
@@ -530,7 +581,7 @@ export default function CajaConciliacion() {
     };
 
     const registrarPagoEfectivo = useMutation({
-      mutationFn: (data: any) => apiRequest("POST", "/api/caja/pago-efectivo", data),
+      mutationFn: (data: any) => apiRequest("/api/caja/pago-efectivo", { method: "POST", body: JSON.stringify(data) }),
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["/api/caja"] });
       }
@@ -668,7 +719,7 @@ export default function CajaConciliacion() {
     });
 
     const registrarTransferencia = useMutation({
-      mutationFn: (data: any) => apiRequest("POST", "/api/caja/transferencia-manual", data),
+      mutationFn: (data: any) => apiRequest("/api/caja/transferencia-manual", { method: "POST", body: JSON.stringify(data) }),
       onSuccess: () => {
         toast({
           title: "Transferencia registrada",
@@ -782,12 +833,12 @@ export default function CajaConciliacion() {
 
   // Conciliación automática con bancos
   const ConciliacionAutomatica = () => {
-    const { data: estadisticasConciliacion } = useQuery({
+    const { data: estadisticasConciliacion } = useQuery<any>({
       queryKey: ["/api/caja/estadisticas-conciliacion"],
     });
 
     const ejecutarConciliacion = useMutation({
-      mutationFn: () => apiRequest("POST", "/api/caja/ejecutar-conciliacion", {}),
+      mutationFn: () => apiRequest("/api/caja/ejecutar-conciliacion", { method: "POST", body: JSON.stringify({}) }),
       onSuccess: () => {
         toast({
           title: "Conciliación ejecutada",
@@ -798,7 +849,7 @@ export default function CajaConciliacion() {
     });
 
     const cerrarCaja = useMutation({
-      mutationFn: (data: any) => apiRequest("POST", "/api/caja/cerrar-dia", data),
+      mutationFn: (data: any) => apiRequest("/api/caja/cerrar-dia", { method: "POST", body: JSON.stringify(data) }),
       onSuccess: () => {
         toast({
           title: "Caja cerrada",

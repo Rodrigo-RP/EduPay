@@ -31,29 +31,29 @@ export default function DashboardAdmisiones() {
   const { institutionName, logoUrl } = useInstitution();
 
   // Obtener datos de estudiantes
-  const { data: students = [], isLoading: studentsLoading } = useQuery({
+  const { data: students = [], isLoading: studentsLoading } = useQuery<any[]>({
     queryKey: ['/api/students']
   });
 
   // Obtener datos de pagos (filtrados por rol)
-  const { data: payments = [], isLoading: paymentsLoading } = useQuery({
+  const { data: payments = [], isLoading: paymentsLoading } = useQuery<any[]>({
     queryKey: ['/api/payments'],
     select: (data) => filterPaymentData(data)
   });
 
   // Obtener datos de cargos (filtrados por rol)
-  const { data: charges = [], isLoading: chargesLoading } = useQuery({
+  const { data: charges = [], isLoading: chargesLoading } = useQuery<any[]>({
     queryKey: ['/api/charges'],
     select: (data) => filterChargesData(data)
   });
 
   // Obtener datos de becas
-  const { data: scholarships = [], isLoading: scholarshipsLoading } = useQuery({
+  const { data: scholarships = [], isLoading: scholarshipsLoading } = useQuery<any[]>({
     queryKey: ['/api/scholarships']
   });
 
   // Obtener datos de CRM (prospectos)
-  const { data: prospects = [], isLoading: prospectsLoading } = useQuery({
+  const { data: prospects = [], isLoading: prospectsLoading } = useQuery<any[]>({
     queryKey: ['/api/crm/prospects']
   });
 

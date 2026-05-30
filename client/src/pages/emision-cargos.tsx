@@ -25,7 +25,7 @@ export default function EmisionCargos() {
     });
 
     const generarCargosMensuales = useMutation({
-      mutationFn: (data: any) => apiRequest("POST", "/api/admin/cargos/generar-mensual", data),
+      mutationFn: (data: any) => apiRequest("/api/admin/cargos/generar-mensual", { method: "POST", body: JSON.stringify(data) }),
       onSuccess: () => {
         toast({
           title: "Cargos generados",
@@ -147,7 +147,7 @@ export default function EmisionCargos() {
     });
 
     const crearCargoExtraordinario = useMutation({
-      mutationFn: (data: any) => apiRequest("POST", "/api/admin/cargos/extraordinario", data),
+      mutationFn: (data: any) => apiRequest("/api/admin/cargos/extraordinario", { method: "POST", body: JSON.stringify(data) }),
       onSuccess: () => {
         toast({
           title: "Cargo extraordinario creado",
@@ -284,7 +284,7 @@ export default function EmisionCargos() {
     });
 
     const aplicarRecargos = useMutation({
-      mutationFn: () => apiRequest("POST", "/api/admin/cargos/aplicar-recargos", {}),
+      mutationFn: () => apiRequest("/api/admin/cargos/aplicar-recargos", { method: "POST", body: JSON.stringify({}) }),
       onSuccess: () => {
         toast({
           title: "Recargos aplicados",
@@ -492,7 +492,7 @@ export default function EmisionCargos() {
     };
 
     const aplicarCargos = useMutation({
-      mutationFn: (data: any) => apiRequest("POST", "/api/admin/cargos/desde-catalogo", data),
+      mutationFn: (data: any) => apiRequest("/api/admin/cargos/desde-catalogo", { method: "POST", body: JSON.stringify(data) }),
       onSuccess: (response: any) => {
         toast({
           title: "Cargos aplicados correctamente",

@@ -37,7 +37,7 @@ export default function FiscalContable() {
     });
 
     const regenerarCFDI = useMutation({
-      mutationFn: (facturaId: string) => apiRequest("POST", `/api/fiscal/regenerar-cfdi/${facturaId}`, {}),
+      mutationFn: (facturaId: string) => apiRequest(`/api/fiscal/regenerar-cfdi/${facturaId}`, { method: "POST", body: JSON.stringify({}) }),
       onSuccess: () => {
         toast({
           title: "CFDI regenerado",
@@ -48,7 +48,7 @@ export default function FiscalContable() {
     });
 
     const cancelarCFDI = useMutation({
-      mutationFn: (data: any) => apiRequest("POST", "/api/fiscal/cancelar-cfdi", data),
+      mutationFn: (data: any) => apiRequest("/api/fiscal/cancelar-cfdi", { method: "POST", body: JSON.stringify(data) }),
       onSuccess: () => {
         toast({
           title: "CFDI cancelado",
@@ -185,7 +185,7 @@ export default function FiscalContable() {
     });
 
     const actualizarConfigAutomatica = useMutation({
-      mutationFn: (data: any) => apiRequest("PUT", "/api/fiscal/config-automatica", data),
+      mutationFn: (data: any) => apiRequest("/api/fiscal/config-automatica", { method: "PUT", body: JSON.stringify(data) }),
       onSuccess: () => {
         toast({
           title: "Configuración actualizada",
@@ -294,7 +294,7 @@ export default function FiscalContable() {
     });
 
     const configurarPAC = useMutation({
-      mutationFn: (data: any) => apiRequest("POST", "/api/fiscal/configurar-pac", data),
+      mutationFn: (data: any) => apiRequest("/api/fiscal/configurar-pac", { method: "POST", body: JSON.stringify(data) }),
       onSuccess: () => {
         toast({
           title: "PAC configurado",
@@ -416,7 +416,7 @@ export default function FiscalContable() {
     });
 
     const generarReporteContable = useMutation({
-      mutationFn: (data: any) => apiRequest("POST", "/api/fiscal/generar-reporte-contable", data),
+      mutationFn: (data: any) => apiRequest("/api/fiscal/generar-reporte-contable", { method: "POST", body: JSON.stringify(data) }),
       onSuccess: () => {
         toast({
           title: "Reporte generado",
@@ -519,7 +519,7 @@ export default function FiscalContable() {
     });
 
     const generarReporteSAT = useMutation({
-      mutationFn: (data: any) => apiRequest("POST", "/api/fiscal/generar-reporte-sat", data),
+      mutationFn: (data: any) => apiRequest("/api/fiscal/generar-reporte-sat", { method: "POST", body: JSON.stringify(data) }),
       onSuccess: () => {
         toast({
           title: "Reporte SAT generado",

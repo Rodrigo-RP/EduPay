@@ -9,7 +9,7 @@ import { UserRole, hasPermission, MODULES, ACTIONS } from '@shared/permissions';
 export function useRoleBasedData() {
   const { user } = useAuth();
   
-  const userRole = user?.role as UserRole || 'asistente';
+  const userRole = (user?.role as string) || 'asistente';
   
   // Definir qué tipos de pagos/conceptos puede ver cada rol
   const allowedPaymentTypes = useMemo(() => {
@@ -252,11 +252,11 @@ export function useRoleBasedData() {
     getDashboardTitle,
     getDashboardDescription,
     // Funciones de permisos adicionales
-    canCreate: (module: string) => hasPermission(userRole, module, ACTIONS.CREATE),
-    canUpdate: (module: string) => hasPermission(userRole, module, ACTIONS.UPDATE),
-    canDelete: (module: string) => hasPermission(userRole, module, ACTIONS.DELETE),
-    canExport: (module: string) => hasPermission(userRole, module, ACTIONS.EXPORT),
-    canProcess: (module: string) => hasPermission(userRole, module, ACTIONS.PROCESS),
-    canView: (module: string) => hasPermission(userRole, module, ACTIONS.READ)
+    canCreate: (module: string) => hasPermission(userRole as UserRole, module, ACTIONS.CREATE),
+    canUpdate: (module: string) => hasPermission(userRole as UserRole, module, ACTIONS.UPDATE),
+    canDelete: (module: string) => hasPermission(userRole as UserRole, module, ACTIONS.DELETE),
+    canExport: (module: string) => hasPermission(userRole as UserRole, module, ACTIONS.EXPORT),
+    canProcess: (module: string) => hasPermission(userRole as UserRole, module, ACTIONS.PROCESS),
+    canView: (module: string) => hasPermission(userRole as UserRole, module, ACTIONS.READ)
   };
 }

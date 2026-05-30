@@ -117,25 +117,25 @@ export default function Aprobaciones() {
   };
 
   // Fetch pending approvals (as approver)
-  const { data: pendingApprovals, isLoading: loadingPending } = useQuery({
+  const { data: pendingApprovals, isLoading: loadingPending } = useQuery<any[]>({
     queryKey: ['/api/approvals/pending'],
     refetchInterval: 10000 // Refresh every 10 seconds
   });
 
   // Fetch user's own requests
-  const { data: myRequests, isLoading: loadingRequests } = useQuery({
+  const { data: myRequests, isLoading: loadingRequests } = useQuery<any[]>({
     queryKey: ['/api/approvals/my-requests'],
     refetchInterval: 10000
   });
 
   // Fetch notifications
-  const { data: notifications, isLoading: loadingNotifications } = useQuery({
+  const { data: notifications, isLoading: loadingNotifications } = useQuery<any[]>({
     queryKey: ['/api/approvals/notifications'],
     refetchInterval: 5000
   });
 
   // Fetch all approvals history (for admin and requesters)
-  const { data: allHistory, isLoading: loadingHistory } = useQuery({
+  const { data: allHistory, isLoading: loadingHistory } = useQuery<any[]>({
     queryKey: ['/api/approvals/history'],
     refetchInterval: 10000
   });

@@ -11,7 +11,7 @@ import AdminDashboard from "@/pages/admin-dashboard";
  */
 export default function RoleBasedDashboard() {
   const { user } = useAuth();
-  const userRole = (user?.role as UserRole) || 'asistente';
+  const userRole = (user?.role as string) || 'asistente';
 
   switch (userRole) {
     case 'super_admin':

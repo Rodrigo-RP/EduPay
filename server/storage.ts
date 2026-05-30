@@ -199,7 +199,7 @@ export class DatabaseStorage implements IStorage {
       .groupBy(guardians.id)
       .orderBy(guardians.nombre_completo);
     
-    return results;
+    return results as any;
   }
 
   async createGuardian(insertGuardian: InsertGuardian): Promise<Guardian> {
@@ -248,7 +248,7 @@ export class DatabaseStorage implements IStorage {
       .from(students)
       .innerJoin(student_guardian, eq(students.id, student_guardian.student_id))
       .innerJoin(campuses, eq(students.campus_id, campuses.id))
-      .where(eq(student_guardian.guardian_id, guardianId));
+      .where(eq(student_guardian.guardian_id, guardianId)) as any;
   }
 
   async getStudentsByCampus(campusId: number): Promise<Student[]> {

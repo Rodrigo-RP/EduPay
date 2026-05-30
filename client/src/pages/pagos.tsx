@@ -89,7 +89,7 @@ export default function Pagos() {
   }, [user]);
   
   // Obtener rol del usuario para filtrado
-  const userRole = (user?.role as UserRole) || 'asistente';
+  const userRole = (user?.role as string) || 'asistente';
   // User role validation complete
   
   // Cargar datos reales de pagos desde la API

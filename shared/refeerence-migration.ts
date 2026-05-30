@@ -208,7 +208,7 @@ export class ReplitMigrationService {
 
       return result;
     } catch (error) {
-      this.reportProgress('error', 0, 'error', `Error durante la migración: ${error.message}`);
+      this.reportProgress('error', 0, 'error', `Error durante la migración: ${(error as any).message}`);
       throw error;
     }
   }

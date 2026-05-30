@@ -76,7 +76,7 @@ export default function ConfiguracionInicial() {
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       try {
-        await apiRequest("POST", "/api/admin/configuracion/escuela", formData);
+        await apiRequest("/api/admin/configuracion/escuela", { method: "POST", body: JSON.stringify(formData) });
         toast({
           title: "Configuración guardada",
           description: "Datos de la escuela registrados correctamente"
@@ -316,7 +316,7 @@ export default function ConfiguracionInicial() {
 
     const completarOnboarding = async () => {
       try {
-        await apiRequest("POST", "/api/admin/configuracion/completar-onboarding", {});
+        await apiRequest("/api/admin/configuracion/completar-onboarding", { method: "POST", body: JSON.stringify({}) });
         toast({
           title: "¡Configuración completada!",
           description: "Su escuela está lista para generar cargos y recibir pagos"

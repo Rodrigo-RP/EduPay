@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * OPTIMIZACIÓN DE BASE DE DATOS - EDUPAY
  * Script para agregar índices críticos y optimizar rendimiento

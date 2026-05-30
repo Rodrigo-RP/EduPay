@@ -409,6 +409,113 @@ export default function FiscalContable() {
     );
   };
 
+  // ── Timbrado Masivo CFDI ──────────────────────────────────────────────────
+  const TimbradoMasivo = () => {
+    const { data: authUser } = useQuery<any>({ queryKey: ["/api/auth/user"], retry: false });
+    const campusId = (authUser as any)?.campus_id || 1;
+    const [mesFiltro, setMesFiltro] = useState(new Date().toISOString().slice(0, 7));
+    const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set());
+    const [progreso, setProgreso] = useState<null | { timbrados: number; errores: number; total: number }>(null);
+
+    const { data: pendientes, isLoading: loadingPendientes } = useQuery<any>({
+      queryKey: ["/api/fiscal/pendientes-cfdi", campusId, mesFiltro],
+    });
+
+    const pagosPendientes: any[] = pendientes?.pagos || [];
+
+    const timbrarLote = useMutation({
+      mutationFn: (data: any) => apiRequest("/api/fiscal/timbrar-lote", { method: "POST", body: JSON.stringify(data) }),
+      onSuccess: (result: any) => {
+        setProgreso({ timbrados: result?.timbrados || 0, errores: result?.errores || 0, total: result?.total || 0 });
+        toast({ title: `Timbrado completado`, description: `${result?.timbrados || 0} CFDIs generados, ${result?.errores || 0} errores` });
+        queryClient.invalidateQueries({ queryKey: ["/api/fiscal/pendientes-cfdi"] });
+        setSeleccionados(new Set());
+      },
+      onError: () => toast({ title: "Error en timbrado masivo", variant: "destructive" }),
+    });
+
+    const toggleSel = (id: number) => setSeleccionados(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    const toggleTodos = () => setSeleccionados(s => s.size === pagosPendientes.length ? new Set() : new Set(pagosPendientes.map((p: any) => p.id)));
+
+    return (
+      <div className="space-y-5">
+        <div className="bg-white rounded-xl border p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-semibold text-slate-800">Pagos sin CFDI — Timbrado en lote</h3>
+              <p className="text-sm text-slate-500">Selecciona uno o todos los pagos y tímbra con un clic</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div>
+                <label className="text-xs text-slate-500 block mb-1">Filtrar por mes</label>
+                <input type="month" value={mesFiltro} onChange={e => { setMesFiltro(e.target.value); setSeleccionados(new Set()); }}
+                  className="border rounded px-2 py-1 text-sm" />
+              </div>
+              <Button
+                className="bg-purple-600 hover:bg-purple-700 gap-2"
+                disabled={seleccionados.size === 0 || timbrarLote.isPending}
+                onClick={() => timbrarLote.mutate({ payment_ids: Array.from(seleccionados), campus_id: campusId })}
+              >
+                <Receipt className="w-4 h-4" />
+                {timbrarLote.isPending ? "Timbrando..." : `Timbrar ${seleccionados.size > 0 ? seleccionados.size : ""} CFDIs`}
+              </Button>
+            </div>
+          </div>
+
+          {progreso && (
+            <div className={`mb-4 p-3 rounded-lg border text-sm font-medium ${progreso.errores === 0 ? "bg-green-50 border-green-200 text-green-800" : "bg-amber-50 border-amber-200 text-amber-800"}`}>
+              ✓ {progreso.timbrados} CFDIs generados de {progreso.total} — {progreso.errores > 0 ? `${progreso.errores} con error` : "Sin errores"}
+            </div>
+          )}
+
+          {loadingPendientes ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin w-6 h-6 border-4 border-purple-600 border-t-transparent rounded-full" />
+            </div>
+          ) : pagosPendientes.length === 0 ? (
+            <div className="text-center py-10 text-slate-500">
+              <CheckCircle className="w-10 h-10 mx-auto mb-2 text-green-500 opacity-70" />
+              <p className="font-medium">Todos los pagos tienen CFDI</p>
+              <p className="text-sm text-slate-400">No hay pagos pendientes de timbrar en {mesFiltro}</p>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-3 mb-3 p-2 bg-slate-50 rounded-lg">
+                <input type="checkbox" checked={seleccionados.size === pagosPendientes.length} onChange={toggleTodos} className="w-4 h-4" />
+                <span className="text-sm text-slate-600">{pagosPendientes.length} pagos sin CFDI — {seleccionados.size} seleccionados</span>
+              </div>
+              <div className="overflow-x-auto max-h-96 border rounded-lg">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 sticky top-0">
+                    <tr>
+                      <th className="p-3 w-8"></th>
+                      <th className="p-3 text-left font-medium text-slate-600">Estudiante</th>
+                      <th className="p-3 text-left font-medium text-slate-600">Responsable</th>
+                      <th className="p-3 text-right font-medium text-slate-600">Monto</th>
+                      <th className="p-3 text-left font-medium text-slate-600">Fecha pago</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagosPendientes.map((p: any) => (
+                      <tr key={p.id} className={`border-b hover:bg-slate-50 ${seleccionados.has(p.id) ? "bg-purple-50" : ""}`}
+                        onClick={() => toggleSel(p.id)} style={{cursor: "pointer"}}>
+                        <td className="p-3"><input type="checkbox" checked={seleccionados.has(p.id)} onChange={() => toggleSel(p.id)} onClick={e => e.stopPropagation()} /></td>
+                        <td className="p-3 font-medium">{p.estudiante}</td>
+                        <td className="p-3 text-slate-500 text-xs">{p.guardian_nombre}<br />{p.email}</td>
+                        <td className="p-3 text-right font-bold text-green-700">${((p.amount_centavos || 0) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td>
+                        <td className="p-3 text-slate-500 text-xs">{new Date(p.created_at).toLocaleDateString("es-MX")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   // Integración con contadores
   const IntegracionContadores = () => {
     const { data: reportesContables } = useQuery({
@@ -646,8 +753,9 @@ export default function FiscalContable() {
         </div>
 
         <Tabs defaultValue="gestion-cfdi" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="gestion-cfdi">Gestión CFDI</TabsTrigger>
+            <TabsTrigger value="timbrado-lote">Timbrado masivo</TabsTrigger>
             <TabsTrigger value="facturacion-automatica">Facturación Automática</TabsTrigger>
             <TabsTrigger value="integracion-pac">Integración PAC</TabsTrigger>
             <TabsTrigger value="contadores-externos">Contadores Externos</TabsTrigger>
@@ -655,6 +763,10 @@ export default function FiscalContable() {
 
           <TabsContent value="gestion-cfdi">
             <GestionCFDI />
+          </TabsContent>
+
+          <TabsContent value="timbrado-lote">
+            <TimbradoMasivo />
           </TabsContent>
 
           <TabsContent value="facturacion-automatica">

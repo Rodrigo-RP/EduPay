@@ -48,6 +48,11 @@ import Profile from "@/pages/profile";
 import MigrationRefeerence from "@/pages/migration-refeerence";
 import Historial from "@/pages/historial";
 import DemoSetup from "@/pages/demo-setup";
+import CentroComandos from "@/pages/centro-comandos";
+import SemaforoRiesgo from "@/pages/semaforo-riesgo";
+import PlanesPago from "@/pages/planes-pago";
+import CalendarioFinanciero from "@/pages/calendario-financiero";
+import ReporteConsejo from "@/pages/reporte-consejo";
 
 function AuthenticatedRoutes() {
   const { user, guardian, isLoading } = useAuth();
@@ -141,6 +146,11 @@ function AuthenticatedRoutes() {
             <Route path="/historial" component={Historial} />
             <Route path="/profile" component={Profile} />
             <Route path="/demo-setup" component={DemoSetup} />
+            <Route path="/comandos-contador" component={CentroComandos} />
+            <Route path="/semaforo-riesgo" component={SemaforoRiesgo} />
+            <Route path="/planes-pago" component={PlanesPago} />
+            <Route path="/calendario-financiero" component={CalendarioFinanciero} />
+            <Route path="/reporte-consejo" component={ReporteConsejo} />
             <Route component={NotFound} />
           </Switch>
         </main>

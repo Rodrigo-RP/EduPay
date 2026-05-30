@@ -879,4 +879,79 @@ export const insertInstitutionalCredentialSchema = createInsertSchema(institutio
 export type InstitutionalCredential = typeof institutional_credentials.$inferSelect;
 export type InsertInstitutionalCredential = z.infer<typeof insertInstitutionalCredentialSchema>;
 
+// ── TRANSACCIONES BANCARIAS (Conciliación SPEI) ──────────────────────────────
+export const bank_transactions = pgTable("bank_transactions", {
+  id: serial("id").primaryKey(),
+  campus_id: integer("campus_id").references(() => campuses.id),
+  fecha: date("fecha").notNull(),
+  descripcion: text("descripcion"),
+  monto_centavos: bigint("monto_centavos", { mode: "number" }).notNull(),
+  tipo: varchar("tipo", { length: 10 }).default("credito"),
+  referencia: varchar("referencia", { length: 255 }),
+  clabe_ordenante: varchar("clabe_ordenante", { length: 18 }),
+  nombre_ordenante: varchar("nombre_ordenante", { length: 255 }),
+  estado_conciliacion: varchar("estado_conciliacion", { length: 20 }).default("pendiente"),
+  charge_id: integer("charge_id").references(() => charges.id),
+  payment_id: integer("payment_id").references(() => payments.id),
+  created_at: timestamp("created_at").defaultNow(),
+});
+export type BankTransaction = typeof bank_transactions.$inferSelect;
+
+// ── PLANES DE PAGO NEGOCIADOS (Convenios) ────────────────────────────────────
+export const payment_plans = pgTable("payment_plans", {
+  id: serial("id").primaryKey(),
+  campus_id: integer("campus_id").references(() => campuses.id),
+  student_id: integer("student_id").references(() => students.id),
+  guardian_id: integer("guardian_id").references(() => guardians.id),
+  total_adeudo_centavos: bigint("total_adeudo_centavos", { mode: "number" }).notNull(),
+  monto_inicial_centavos: bigint("monto_inicial_centavos", { mode: "number" }).default(0),
+  numero_pagos: integer("numero_pagos").notNull(),
+  frecuencia: varchar("frecuencia", { length: 20 }).default("mensual"),
+  fecha_inicio: date("fecha_inicio").notNull(),
+  estado: varchar("estado", { length: 20 }).default("activo"),
+  observaciones: text("observaciones"),
+  created_by: integer("created_by").references(() => users.id),
+  created_at: timestamp("created_at").defaultNow(),
+});
+export type PaymentPlan = typeof payment_plans.$inferSelect;
+
+export const payment_plan_installments = pgTable("payment_plan_installments", {
+  id: serial("id").primaryKey(),
+  plan_id: integer("plan_id").references(() => payment_plans.id, { onDelete: "cascade" }),
+  numero: integer("numero").notNull(),
+  monto_centavos: bigint("monto_centavos", { mode: "number" }).notNull(),
+  fecha_vencimiento: date("fecha_vencimiento").notNull(),
+  fecha_pago: date("fecha_pago"),
+  estado: varchar("estado", { length: 20 }).default("pendiente"),
+});
+export type PaymentPlanInstallment = typeof payment_plan_installments.$inferSelect;
+
+// ── REGLAS AUTOMÁTICAS DE BECAS ──────────────────────────────────────────────
+export const scholarship_auto_rules = pgTable("scholarship_auto_rules", {
+  id: serial("id").primaryKey(),
+  campus_id: integer("campus_id").references(() => campuses.id),
+  nombre: varchar("nombre", { length: 255 }).notNull(),
+  tipo: varchar("tipo", { length: 50 }).notNull(),
+  condicion_json: text("condicion_json"),
+  descuento_porcentaje: numeric("descuento_porcentaje", { precision: 5, scale: 2 }).notNull(),
+  aplica_a: varchar("aplica_a", { length: 50 }).default("todos"),
+  activo: boolean("activo").default(true),
+  created_at: timestamp("created_at").defaultNow(),
+});
+export type ScholarshipAutoRule = typeof scholarship_auto_rules.$inferSelect;
+
+// ── CALENDARIO FINANCIERO ─────────────────────────────────────────────────────
+export const financial_events = pgTable("financial_events", {
+  id: serial("id").primaryKey(),
+  campus_id: integer("campus_id").references(() => campuses.id),
+  titulo: varchar("titulo", { length: 255 }).notNull(),
+  descripcion: text("descripcion"),
+  fecha: date("fecha").notNull(),
+  tipo: varchar("tipo", { length: 50 }).notNull(),
+  urgencia: varchar("urgencia", { length: 20 }).default("normal"),
+  completado: boolean("completado").default(false),
+  created_at: timestamp("created_at").defaultNow(),
+});
+export type FinancialEvent = typeof financial_events.$inferSelect;
+
 

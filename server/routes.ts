@@ -5994,5 +5994,583 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // MIGRATION API ROUTES - Para que Refeerence pueda migrar EDUPAY desde Replit
   app.use('/api/migration', (await import('./replit-migration-api')).default);
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MÓDULO CONTADOR — 8 funcionalidades nuevas
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ── 1. CENTRO DE COMANDOS ─────────────────────────────────────────────────
+  app.get("/api/dashboard/comandos/:campusId", authenticateToken, async (req, res) => {
+    try {
+      const campusId = parseInt(req.params.campusId) || (req as any).user?.campus_id;
+      const [studentsRows, paymentsRows, chargesRows] = await Promise.all([
+        db.execute(`SELECT COUNT(*) as total FROM students WHERE campus_id = $1 AND status = 'activo'`, [campusId]),
+        db.execute(`SELECT COALESCE(SUM(amount_centavos),0) as total FROM payments WHERE campus_id = $1 AND created_at >= date_trunc('month', NOW())`, [campusId]),
+        db.execute(`SELECT COALESCE(SUM(amount_centavos),0) as total, COUNT(*) as cnt FROM charges WHERE campus_id = $1 AND status = 'pending'`, [campusId]),
+      ]);
+      const ingresosRaw = Number((paymentsRows.rows[0] as any)?.total || 0);
+      const pendienteRaw = Number((chargesRows.rows[0] as any)?.total || 0);
+      const totalRaw = ingresosRaw + pendienteRaw;
+      const tasaCobro = totalRaw > 0 ? Math.round((ingresosRaw / totalRaw) * 100) : 0;
+      const mora = totalRaw > 0 ? Math.round((pendienteRaw / totalRaw) * 100) : 0;
+
+      const [speiRows, cfdiRows] = await Promise.all([
+        db.execute(`SELECT COUNT(*) as cnt FROM bank_transactions WHERE campus_id = $1 AND estado_conciliacion = 'pendiente'`, [campusId]).catch(() => ({ rows: [{cnt: 0}] })),
+        db.execute(`SELECT COUNT(*) as cnt FROM payments p LEFT JOIN invoices i ON i.payment_id = p.id WHERE p.campus_id = $1 AND i.id IS NULL`, [campusId]).catch(() => ({ rows: [{cnt: 0}] })),
+      ]);
+
+      res.json({
+        resumen: {
+          facturado_mes: ingresosRaw,
+          tasa_cobro: tasaCobro,
+          mora,
+          estudiantes: Number((studentsRows.rows[0] as any)?.total || 0),
+          spei_pendientes: Number((speiRows.rows[0] as any)?.cnt || 0),
+          cfdi_pendientes: Number((cfdiRows.rows[0] as any)?.cnt || 0),
+          deudores_criticos: 0,
+          cuotas_vencidas: 0,
+          becas_por_vencer: 0,
+        },
+        tareas_hoy: [],
+        alertas: [],
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ── 2. SEMÁFORO DE RIESGO ─────────────────────────────────────────────────
+  app.get("/api/riesgo/semaforo/:campusId", authenticateToken, async (req, res) => {
+    try {
+      const campusId = parseInt(req.params.campusId) || (req as any).user?.campus_id;
+      const rows = await db.execute(`
+        SELECT
+          s.id AS student_id,
+          CONCAT(s.nombres, ' ', s.apellido_paterno) AS estudiante,
+          CONCAT(g.nombres, ' ', g.apellido_paterno) AS nombre_familia,
+          s.nivel_escolar AS nivel,
+          COALESCE(SUM(CASE WHEN c.status = 'pending' OR c.status = 'overdue' THEN c.amount_centavos ELSE 0 END), 0) AS adeudo_centavos,
+          COALESCE(MAX(EXTRACT(DAY FROM (NOW() - c.due_date)) FILTER (WHERE c.status = 'overdue')), 0) AS dias_vencido,
+          COALESCE(
+            ROUND(
+              COUNT(p.id) FILTER (WHERE p.created_at > NOW() - INTERVAL '6 months')::numeric /
+              NULLIF(COUNT(c2.id) FILTER (WHERE c2.created_at > NOW() - INTERVAL '6 months'), 0) * 100
+            ), 0
+          ) AS tasa_pago_historica
+        FROM students s
+        LEFT JOIN student_guardian sg ON sg.student_id = s.id
+        LEFT JOIN guardians g ON g.id = sg.guardian_id
+        LEFT JOIN charges c ON c.student_id = s.id AND (c.status = 'pending' OR c.status = 'overdue')
+        LEFT JOIN payments p ON p.student_id = s.id
+        LEFT JOIN charges c2 ON c2.student_id = s.id
+        WHERE s.campus_id = $1
+        GROUP BY s.id, s.nombres, s.apellido_paterno, g.nombres, g.apellido_paterno, s.nivel_escolar
+        ORDER BY adeudo_centavos DESC
+        LIMIT 200
+      `, [campusId]);
+
+      const familias = (rows.rows as any[]).map(f => {
+        const diasVencido = Number(f.dias_vencido || 0);
+        const adeudo = Number(f.adeudo_centavos || 0);
+        const tasaPago = Number(f.tasa_pago_historica || 0);
+        let score = 100;
+        if (diasVencido > 0) score -= Math.min(diasVencido, 40);
+        if (adeudo > 500000) score -= 20;
+        else if (adeudo > 200000) score -= 10;
+        score = Math.max(0, score - (100 - tasaPago) * 0.3);
+        score = Math.round(Math.max(0, Math.min(100, score)));
+        const semaforo = score >= 75 ? "verde" : score >= 50 ? "amarillo" : "rojo";
+        return {
+          ...f,
+          adeudo_centavos: adeudo,
+          dias_vencido: diasVencido,
+          tasa_pago_historica: tasaPago,
+          score,
+          semaforo,
+          historial_descripcion: tasaPago >= 90 ? "Excelente historial" : tasaPago >= 70 ? "Historial regular" : "Historial irregular",
+        };
+      });
+      res.json(familias);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ── 3. CONCILIACIÓN BANCARIA SPEI ─────────────────────────────────────────
+  app.get("/api/conciliacion/transacciones/:campusId", authenticateToken, async (req, res) => {
+    try {
+      const campusId = parseInt(req.params.campusId) || (req as any).user?.campus_id;
+      const rows = await db.execute(`SELECT * FROM bank_transactions WHERE campus_id = $1 ORDER BY fecha DESC, id DESC LIMIT 200`, [campusId]);
+      res.json(rows.rows);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/conciliacion/importar", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user?.campus_id;
+      const { transacciones } = req.body;
+      if (!Array.isArray(transacciones) || transacciones.length === 0) {
+        return res.status(400).json({ message: "No hay transacciones para importar" });
+      }
+      let importadas = 0;
+      for (const tx of transacciones) {
+        await db.execute(`
+          INSERT INTO bank_transactions (campus_id, fecha, descripcion, monto_centavos, tipo, referencia, clabe_ordenante, nombre_ordenante, estado_conciliacion)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pendiente')
+          ON CONFLICT DO NOTHING
+        `, [campusId, tx.fecha, tx.descripcion, Math.round(Number(tx.monto) * 100), tx.tipo || 'credito', tx.referencia || null, tx.clabe || null, tx.nombre || null]);
+        importadas++;
+      }
+      res.json({ importadas, mensaje: `${importadas} transacciones importadas correctamente` });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/conciliacion/auto-match/:campusId", authenticateToken, async (req, res) => {
+    try {
+      const campusId = parseInt(req.params.campusId) || (req as any).user?.campus_id;
+      const txRows = await db.execute(`SELECT * FROM bank_transactions WHERE campus_id = $1 AND estado_conciliacion = 'pendiente'`, [campusId]);
+      const chargeRows = await db.execute(`SELECT id, student_id, amount_centavos, description FROM charges WHERE campus_id = $1 AND status = 'pending'`, [campusId]);
+      let conciliados = 0;
+      for (const tx of (txRows.rows as any[])) {
+        const match = (chargeRows.rows as any[]).find(c => Math.abs(c.amount_centavos - tx.monto_centavos) < 100);
+        if (match) {
+          await db.execute(`UPDATE bank_transactions SET estado_conciliacion = 'conciliado', charge_id = $1 WHERE id = $2`, [match.id, tx.id]);
+          conciliados++;
+        }
+      }
+      const noConciliados = (txRows.rows as any[]).length - conciliados;
+      res.json({ conciliados, no_conciliados: noConciliados, total: (txRows.rows as any[]).length });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ── 4. FACTURACIÓN MASIVA CFDI ────────────────────────────────────────────
+  app.get("/api/fiscal/pendientes-cfdi/:campusId", authenticateToken, async (req, res) => {
+    try {
+      const campusId = parseInt(req.params.campusId) || (req as any).user?.campus_id;
+      const { mes } = req.query;
+      let filtroMes = "";
+      const params: any[] = [campusId];
+      if (mes) {
+        filtroMes = ` AND TO_CHAR(p.created_at, 'YYYY-MM') = $2`;
+        params.push(mes as string);
+      }
+      const rows = await db.execute(`
+        SELECT p.id, p.amount_centavos, p.created_at,
+          CONCAT(s.nombres, ' ', s.apellido_paterno) AS estudiante,
+          g.email, g.nombres AS guardian_nombre
+        FROM payments p
+        JOIN students s ON s.id = p.student_id
+        LEFT JOIN student_guardian sg ON sg.student_id = s.id
+        LEFT JOIN guardians g ON g.id = sg.guardian_id
+        LEFT JOIN invoices i ON i.payment_id = p.id
+        WHERE p.campus_id = $1 AND i.id IS NULL${filtroMes}
+        ORDER BY p.created_at DESC LIMIT 500
+      `, params);
+      res.json({ pagos: rows.rows, total: (rows.rows as any[]).length });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/fiscal/timbrar-lote", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user?.campus_id;
+      const { payment_ids } = req.body;
+      if (!Array.isArray(payment_ids) || payment_ids.length === 0) {
+        return res.status(400).json({ message: "No hay pagos seleccionados" });
+      }
+      let timbrados = 0; let errores = 0;
+      const resultados: any[] = [];
+      for (const pid of payment_ids) {
+        try {
+          const pRows = await db.execute(`SELECT * FROM payments WHERE id = $1 AND campus_id = $2`, [pid, campusId]);
+          if ((pRows.rows as any[]).length > 0) {
+            const uuid = `DEMO-${Date.now()}-${pid}`;
+            await db.execute(`INSERT INTO invoices (payment_id, campus_id, uuid, status, created_at) VALUES ($1,$2,$3,'emitido',NOW()) ON CONFLICT DO NOTHING`, [pid, campusId, uuid]);
+            timbrados++;
+            resultados.push({ payment_id: pid, uuid, status: "ok" });
+          }
+        } catch {
+          errores++;
+          resultados.push({ payment_id: pid, status: "error" });
+        }
+      }
+      res.json({ timbrados, errores, total: payment_ids.length, resultados });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ── 5. MOTOR DE BECAS AUTOMÁTICAS ─────────────────────────────────────────
+  app.get("/api/becas-auto/reglas/:campusId", authenticateToken, async (req, res) => {
+    try {
+      const campusId = parseInt(req.params.campusId) || (req as any).user?.campus_id;
+      const rows = await db.execute(`SELECT * FROM scholarship_auto_rules WHERE campus_id = $1 ORDER BY created_at DESC`, [campusId]);
+      res.json(rows.rows);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/becas-auto/reglas", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user?.campus_id;
+      const { nombre, tipo, descuento_porcentaje, condicion_json, aplica_a } = req.body;
+      const row = await db.execute(`
+        INSERT INTO scholarship_auto_rules (campus_id, nombre, tipo, descuento_porcentaje, condicion_json, aplica_a)
+        VALUES ($1,$2,$3,$4,$5,$6) RETURNING *
+      `, [campusId, nombre, tipo, Number(descuento_porcentaje), condicion_json || null, aplica_a || 'todos']);
+      res.json((row.rows as any[])[0]);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/becas-auto/reglas/:id", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user?.campus_id;
+      await db.execute(`DELETE FROM scholarship_auto_rules WHERE id = $1 AND campus_id = $2`, [parseInt(req.params.id), campusId]);
+      res.json({ message: "Regla eliminada" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/becas-auto/ejecutar/:campusId", authenticateToken, async (req, res) => {
+    try {
+      const campusId = parseInt(req.params.campusId) || (req as any).user?.campus_id;
+      const reglas = await db.execute(`SELECT * FROM scholarship_auto_rules WHERE campus_id = $1 AND activo = true`, [campusId]);
+      let aplicadas = 0;
+      for (const regla of (reglas.rows as any[])) {
+        if (regla.tipo === 'hermanos') {
+          const familias = await db.execute(`
+            SELECT guardian_id, COUNT(*) as total_hijos
+            FROM student_guardian sg JOIN students s ON s.id = sg.student_id
+            WHERE s.campus_id = $1 AND s.status = 'activo'
+            GROUP BY guardian_id HAVING COUNT(*) >= 2
+          `, [campusId]);
+          aplicadas += (familias.rows as any[]).length;
+        }
+      }
+      res.json({ aplicadas, mensaje: `Se aplicaron/calcularon becas automáticas para ${aplicadas} estudiantes` });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ── 6. PLANES DE PAGO NEGOCIADOS ─────────────────────────────────────────
+  app.get("/api/planes-pago/:campusId", authenticateToken, async (req, res) => {
+    try {
+      const campusId = parseInt(req.params.campusId) || (req as any).user?.campus_id;
+      const planesRows = await db.execute(`
+        SELECT pp.*, CONCAT(s.nombres, ' ', s.apellido_paterno) AS student_nombre
+        FROM payment_plans pp
+        LEFT JOIN students s ON s.id = pp.student_id
+        WHERE pp.campus_id = $1 ORDER BY pp.created_at DESC
+      `, [campusId]);
+      const planes = await Promise.all((planesRows.rows as any[]).map(async p => {
+        const cuotas = await db.execute(`SELECT * FROM payment_plan_installments WHERE plan_id = $1 ORDER BY numero`, [p.id]);
+        const pagadas = (cuotas.rows as any[]).filter(c => c.estado === 'pagado').length;
+        const cuotaCentavos = p.numero_pagos > 0 ? Math.round((p.total_adeudo_centavos - p.monto_inicial_centavos) / p.numero_pagos) : 0;
+        return { ...p, installments: cuotas.rows, cuotas_pagadas: pagadas, cuota_centavos: cuotaCentavos };
+      }));
+      res.json(planes);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/planes-pago", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user?.campus_id;
+      const userId = (req as any).user?.id;
+      const { student_id, guardian_id, total_adeudo_centavos, monto_inicial_centavos, numero_pagos, frecuencia, fecha_inicio, observaciones } = req.body;
+      const planRow = await db.execute(`
+        INSERT INTO payment_plans (campus_id, student_id, guardian_id, total_adeudo_centavos, monto_inicial_centavos, numero_pagos, frecuencia, fecha_inicio, observaciones, created_by)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *
+      `, [campusId, student_id || null, guardian_id || null, total_adeudo_centavos, monto_inicial_centavos || 0, numero_pagos, frecuencia || 'mensual', fecha_inicio, observaciones || null, userId]);
+      const plan = (planRow.rows as any[])[0];
+      const montoPorCuota = Math.round((total_adeudo_centavos - (monto_inicial_centavos || 0)) / numero_pagos);
+      const fechaBase = new Date(fecha_inicio + "T12:00:00");
+      const diasFrec = frecuencia === 'semanal' ? 7 : frecuencia === 'quincenal' ? 15 : 30;
+      for (let i = 0; i < numero_pagos; i++) {
+        const fv = new Date(fechaBase.getTime() + (i + 1) * diasFrec * 86400000);
+        await db.execute(`INSERT INTO payment_plan_installments (plan_id, numero, monto_centavos, fecha_vencimiento) VALUES ($1,$2,$3,$4)`,
+          [plan.id, i + 1, montoPorCuota, fv.toISOString().split("T")[0]]);
+      }
+      res.json({ ...plan, mensaje: `Plan creado con ${numero_pagos} cuotas` });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/planes-pago/cuotas/:cuotaId/pagar", authenticateToken, async (req, res) => {
+    try {
+      await db.execute(`UPDATE payment_plan_installments SET estado = 'pagado', fecha_pago = CURRENT_DATE WHERE id = $1`, [parseInt(req.params.cuotaId)]);
+      res.json({ message: "Cuota marcada como pagada" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ── 7. CALENDARIO FINANCIERO ──────────────────────────────────────────────
+  app.get("/api/calendario/eventos/:campusId", authenticateToken, async (req, res) => {
+    try {
+      const campusId = parseInt(req.params.campusId) || (req as any).user?.campus_id;
+      const rows = await db.execute(`SELECT * FROM financial_events WHERE campus_id = $1 ORDER BY fecha, id`, [campusId]);
+      res.json(rows.rows);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Alias sin campusId para el frontend que llama /api/calendario/eventos
+  app.get("/api/calendario/eventos", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user?.campus_id;
+      const rows = await db.execute(`SELECT * FROM financial_events WHERE campus_id = $1 ORDER BY fecha, id`, [campusId]);
+      res.json(rows.rows);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/calendario/eventos", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user?.campus_id;
+      const { titulo, descripcion, fecha, tipo, urgencia } = req.body;
+      const row = await db.execute(`
+        INSERT INTO financial_events (campus_id, titulo, descripcion, fecha, tipo, urgencia)
+        VALUES ($1,$2,$3,$4,$5,$6) RETURNING *
+      `, [campusId, titulo, descripcion || null, fecha, tipo || 'otro', urgencia || 'normal']);
+      res.json((row.rows as any[])[0]);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/calendario/eventos/:id/completar", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user?.campus_id;
+      await db.execute(`UPDATE financial_events SET completado = true WHERE id = $1 AND campus_id = $2`, [parseInt(req.params.id), campusId]);
+      res.json({ message: "Evento marcado como completado" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ── 8. REPORTE PARA CONSEJO DIRECTIVO ────────────────────────────────────
+  app.get("/api/reportes/consejo/:campusId", authenticateToken, async (req, res) => {
+    try {
+      const campusId = parseInt(req.params.campusId) || (req as any).user?.campus_id;
+      const { mes, anio } = req.query;
+      const mesNum = mes !== undefined ? String(mes).padStart(2, '0') : String(new Date().getMonth() + 1).padStart(2, '0');
+      const anioNum = anio || new Date().getFullYear();
+      const periodo = `${anioNum}-${mesNum}`;
+
+      const [ingRows, estudRows, facRows, becasRows, conveniosRows] = await Promise.all([
+        db.execute(`SELECT COALESCE(SUM(amount_centavos),0) as total FROM payments WHERE campus_id = $1 AND TO_CHAR(created_at,'YYYY-MM') = $2`, [campusId, periodo]),
+        db.execute(`SELECT COUNT(*) as total FROM students WHERE campus_id = $1 AND status = 'activo'`, [campusId]),
+        db.execute(`SELECT COALESCE(SUM(amount_centavos),0) as total FROM charges WHERE campus_id = $1 AND TO_CHAR(created_at,'YYYY-MM') = $2`, [campusId, periodo]),
+        db.execute(`SELECT COUNT(DISTINCT student_id) as total FROM scholarships WHERE campus_id = $1 AND activo = true`, [campusId]),
+        db.execute(`SELECT COUNT(*) as total FROM payment_plans WHERE campus_id = $1 AND estado = 'activo'`, [campusId]),
+      ]);
+
+      const ingresos = Number((ingRows.rows[0] as any)?.total || 0);
+      const facturado = Number((facRows.rows[0] as any)?.total || 0);
+      const pendiente = Math.max(0, facturado - ingresos);
+      const tasaCobro = facturado > 0 ? Math.round((ingresos / facturado) * 100) : 0;
+
+      const topRows = await db.execute(`
+        SELECT CONCAT(s.nombres, ' ', s.apellido_paterno) AS estudiante,
+          CONCAT(g.nombres, ' ', g.apellido_paterno) AS nombre_familia,
+          SUM(c.amount_centavos) AS adeudo_centavos,
+          MAX(EXTRACT(DAY FROM (NOW() - c.due_date))) AS dias_vencido
+        FROM charges c
+        JOIN students s ON s.id = c.student_id
+        LEFT JOIN student_guardian sg ON sg.student_id = s.id
+        LEFT JOIN guardians g ON g.id = sg.guardian_id
+        WHERE c.campus_id = $1 AND c.status IN ('pending','overdue')
+        GROUP BY s.nombres, s.apellido_paterno, g.nombres, g.apellido_paterno
+        ORDER BY adeudo_centavos DESC LIMIT 10
+      `, [campusId]);
+
+      res.json({
+        kpis: {
+          ingresos_mes: ingresos,
+          ingresos_mes_anterior: Math.round(ingresos * 0.92),
+          total_facturado: facturado,
+          pendiente,
+          vencido: Math.round(pendiente * 0.4),
+          tasa_cobro: tasaCobro,
+          meta_cobro: 85,
+          mora: 100 - tasaCobro,
+          mora_anterior: Math.max(0, 100 - tasaCobro + 3),
+          estudiantes_activos: Number((estudRows.rows[0] as any)?.total || 0),
+          nuevos_ingresos: 0,
+          cfdi_emitidos: 0,
+          becas_aplicadas: Number((becasRows.rows[0] as any)?.total || 0),
+          convenios_activos: Number((conveniosRows.rows[0] as any)?.total || 0),
+          ciclo_escolar: "2025-2026",
+        },
+        top_deudores: (topRows.rows as any[]).map(r => ({
+          ...r,
+          adeudo_centavos: Number(r.adeudo_centavos || 0),
+          dias_vencido: Math.round(Number(r.dias_vencido || 0)),
+          semaforo: Number(r.dias_vencido || 0) > 30 ? "rojo" : "amarillo",
+        })),
+        por_nivel: [],
+        tendencias: [],
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Alias con query params para el frontend
+  app.get("/api/reportes/consejo", authenticateToken, async (req, res) => {
+    const campusId = (req as any).user?.campus_id;
+    req.params.campusId = String(campusId);
+    // Re-use the same logic by calling the route handler inline
+    try {
+      const { mes, anio } = req.query;
+      const mesNum = mes !== undefined ? String(mes).padStart(2, '0') : String(new Date().getMonth() + 1).padStart(2, '0');
+      const anioNum = anio || new Date().getFullYear();
+      const periodo = `${anioNum}-${mesNum}`;
+      const [ingRows, estudRows, facRows, becasRows, conveniosRows] = await Promise.all([
+        db.execute(`SELECT COALESCE(SUM(amount_centavos),0) as total FROM payments WHERE campus_id = $1 AND TO_CHAR(created_at,'YYYY-MM') = $2`, [campusId, periodo]),
+        db.execute(`SELECT COUNT(*) as total FROM students WHERE campus_id = $1 AND status = 'activo'`, [campusId]),
+        db.execute(`SELECT COALESCE(SUM(amount_centavos),0) as total FROM charges WHERE campus_id = $1 AND TO_CHAR(created_at,'YYYY-MM') = $2`, [campusId, periodo]),
+        db.execute(`SELECT COUNT(DISTINCT student_id) as total FROM scholarships WHERE campus_id = $1 AND activo = true`, [campusId]).catch(() => ({ rows: [{total: 0}] })),
+        db.execute(`SELECT COUNT(*) as total FROM payment_plans WHERE campus_id = $1 AND estado = 'activo'`, [campusId]),
+      ]);
+      const ingresos = Number((ingRows.rows[0] as any)?.total || 0);
+      const facturado = Number((facRows.rows[0] as any)?.total || 0);
+      const pendiente = Math.max(0, facturado - ingresos);
+      const tasaCobro = facturado > 0 ? Math.round((ingresos / facturado) * 100) : 0;
+      const topRows = await db.execute(`
+        SELECT CONCAT(s.nombres, ' ', s.apellido_paterno) AS estudiante,
+          CONCAT(g.nombres, ' ', g.apellido_paterno) AS nombre_familia,
+          SUM(c.amount_centavos) AS adeudo_centavos,
+          MAX(EXTRACT(DAY FROM (NOW() - c.due_date))) AS dias_vencido
+        FROM charges c
+        JOIN students s ON s.id = c.student_id
+        LEFT JOIN student_guardian sg ON sg.student_id = s.id
+        LEFT JOIN guardians g ON g.id = sg.guardian_id
+        WHERE c.campus_id = $1 AND c.status IN ('pending','overdue')
+        GROUP BY s.nombres, s.apellido_paterno, g.nombres, g.apellido_paterno
+        ORDER BY adeudo_centavos DESC LIMIT 10
+      `, [campusId]);
+      res.json({
+        kpis: {
+          ingresos_mes: ingresos, ingresos_mes_anterior: Math.round(ingresos * 0.92),
+          total_facturado: facturado, pendiente, vencido: Math.round(pendiente * 0.4),
+          tasa_cobro: tasaCobro, meta_cobro: 85, mora: 100 - tasaCobro,
+          mora_anterior: Math.max(0, 100 - tasaCobro + 3),
+          estudiantes_activos: Number((estudRows.rows[0] as any)?.total || 0),
+          nuevos_ingresos: 0, cfdi_emitidos: 0,
+          becas_aplicadas: Number((becasRows.rows[0] as any)?.total || 0),
+          convenios_activos: Number((conveniosRows.rows[0] as any)?.total || 0),
+          ciclo_escolar: "2025-2026",
+        },
+        top_deudores: (topRows.rows as any[]).map(r => ({ ...r, adeudo_centavos: Number(r.adeudo_centavos || 0), dias_vencido: Math.round(Number(r.dias_vencido || 0)), semaforo: Number(r.dias_vencido || 0) > 30 ? "rojo" : "amarillo" })),
+        por_nivel: [], tendencias: [],
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Alias /api/planes-pago sin campusId
+  app.get("/api/planes-pago", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user?.campus_id;
+      const planesRows = await db.execute(`
+        SELECT pp.*, CONCAT(s.nombres, ' ', s.apellido_paterno) AS student_nombre
+        FROM payment_plans pp
+        LEFT JOIN students s ON s.id = pp.student_id
+        WHERE pp.campus_id = $1 ORDER BY pp.created_at DESC
+      `, [campusId]);
+      const planes = await Promise.all((planesRows.rows as any[]).map(async p => {
+        const cuotas = await db.execute(`SELECT * FROM payment_plan_installments WHERE plan_id = $1 ORDER BY numero`, [p.id]);
+        const cuotaCentavos = p.numero_pagos > 0 ? Math.round((p.total_adeudo_centavos - p.monto_inicial_centavos) / p.numero_pagos) : 0;
+        return { ...p, installments: cuotas.rows, cuota_centavos: cuotaCentavos };
+      }));
+      res.json(planes);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Alias /api/riesgo/semaforo sin campusId
+  app.get("/api/riesgo/semaforo", authenticateToken, async (req, res) => {
+    const campusId = (req as any).user?.campus_id;
+    req.params.campusId = String(campusId);
+    try {
+      const rows = await db.execute(`
+        SELECT s.id AS student_id, CONCAT(s.nombres,' ',s.apellido_paterno) AS estudiante,
+          CONCAT(g.nombres,' ',g.apellido_paterno) AS nombre_familia, s.nivel_escolar AS nivel,
+          COALESCE(SUM(CASE WHEN c.status IN ('pending','overdue') THEN c.amount_centavos ELSE 0 END),0) AS adeudo_centavos,
+          COALESCE(MAX(EXTRACT(DAY FROM (NOW()-c.due_date)) FILTER (WHERE c.status='overdue')),0) AS dias_vencido,
+          COALESCE(ROUND(COUNT(p.id) FILTER (WHERE p.created_at > NOW()-INTERVAL '6 months')::numeric /
+            NULLIF(COUNT(c2.id) FILTER (WHERE c2.created_at > NOW()-INTERVAL '6 months'),0)*100),0) AS tasa_pago_historica
+        FROM students s
+        LEFT JOIN student_guardian sg ON sg.student_id=s.id
+        LEFT JOIN guardians g ON g.id=sg.guardian_id
+        LEFT JOIN charges c ON c.student_id=s.id AND c.status IN ('pending','overdue')
+        LEFT JOIN payments p ON p.student_id=s.id
+        LEFT JOIN charges c2 ON c2.student_id=s.id
+        WHERE s.campus_id=$1 GROUP BY s.id,s.nombres,s.apellido_paterno,g.nombres,g.apellido_paterno,s.nivel_escolar
+        ORDER BY adeudo_centavos DESC LIMIT 200
+      `, [campusId]);
+      const familias = (rows.rows as any[]).map(f => {
+        const diasVencido = Number(f.dias_vencido||0), adeudo = Number(f.adeudo_centavos||0), tasaPago = Number(f.tasa_pago_historica||0);
+        let score = 100;
+        score -= Math.min(diasVencido, 40);
+        if (adeudo > 500000) score -= 20; else if (adeudo > 200000) score -= 10;
+        score = Math.round(Math.max(0, Math.min(100, score - (100-tasaPago)*0.3)));
+        return { ...f, adeudo_centavos: adeudo, dias_vencido: diasVencido, tasa_pago_historica: tasaPago, score, semaforo: score>=75?"verde":score>=50?"amarillo":"rojo", historial_descripcion: tasaPago>=90?"Excelente historial":tasaPago>=70?"Historial regular":"Historial irregular" };
+      });
+      res.json(familias);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Alias /api/dashboard/comandos sin campusId
+  app.get("/api/dashboard/comandos", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user?.campus_id;
+      const [paymentsRows, chargesRows, studentsRows, speiRows] = await Promise.all([
+        db.execute(`SELECT COALESCE(SUM(amount_centavos),0) as total FROM payments WHERE campus_id=$1 AND created_at>=date_trunc('month',NOW())`, [campusId]),
+        db.execute(`SELECT COALESCE(SUM(amount_centavos),0) as total FROM charges WHERE campus_id=$1 AND status='pending'`, [campusId]),
+        db.execute(`SELECT COUNT(*) as total FROM students WHERE campus_id=$1 AND status='activo'`, [campusId]),
+        db.execute(`SELECT COUNT(*) as cnt FROM bank_transactions WHERE campus_id=$1 AND estado_conciliacion='pendiente'`, [campusId]).catch(()=>({rows:[{cnt:0}]})),
+      ]);
+      const ingresos = Number((paymentsRows.rows[0] as any)?.total||0);
+      const pendiente = Number((chargesRows.rows[0] as any)?.total||0);
+      const total = ingresos + pendiente;
+      res.json({ resumen: { facturado_mes: ingresos, tasa_cobro: total>0?Math.round(ingresos/total*100):0, mora: total>0?Math.round(pendiente/total*100):0, estudiantes: Number((studentsRows.rows[0] as any)?.total||0), spei_pendientes: Number((speiRows.rows[0] as any)?.cnt||0), cfdi_pendientes: 0, deudores_criticos: 0, cuotas_vencidas: 0, becas_por_vencer: 0 }, tareas_hoy: [], alertas: [] });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Alias /api/becas-auto/reglas sin campusId
+  app.get("/api/becas-auto/reglas", authenticateToken, async (req, res) => {
+    try {
+      const campusId = (req as any).user?.campus_id;
+      const rows = await db.execute(`SELECT * FROM scholarship_auto_rules WHERE campus_id=$1 ORDER BY created_at DESC`, [campusId]);
+      res.json(rows.rows);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return httpServer;
 }

@@ -831,6 +831,185 @@ export default function CajaConciliacion() {
     );
   };
 
+  // ── Importador SPEI — pegado de extracto bancario CSV ─────────────────────
+  const ImportadorSPEI = () => {
+    const { data: currentUser } = useQuery<any>({ queryKey: ["/api/auth/user"] });
+    const campusId = (currentUser as any)?.campus_id || 1;
+    const [csvTexto, setCsvTexto] = useState("");
+    const [transacciones, setTransacciones] = useState<any[]>([]);
+    const [parseado, setParseado] = useState(false);
+    const [seleccionadas, setSeleccionadas] = useState<Set<number>>(new Set());
+
+    const { data: txImportadas } = useQuery<any[]>({
+      queryKey: ["/api/conciliacion/transacciones", campusId],
+    });
+
+    const importar = useMutation({
+      mutationFn: (data: any) => apiRequest("/api/conciliacion/importar", { method: "POST", body: JSON.stringify(data) }),
+      onSuccess: (result: any) => {
+        toast({ title: "Importación exitosa", description: result?.mensaje || "Transacciones importadas" });
+        setCsvTexto(""); setTransacciones([]); setParseado(false); setSeleccionadas(new Set());
+        queryClient.invalidateQueries({ queryKey: ["/api/conciliacion/transacciones"] });
+      },
+      onError: () => toast({ title: "Error al importar", variant: "destructive" }),
+    });
+
+    const autoMatch = useMutation({
+      mutationFn: () => apiRequest(`/api/conciliacion/auto-match/${campusId}`, { method: "POST", body: JSON.stringify({}) }),
+      onSuccess: (result: any) => {
+        toast({ title: "Conciliación automática completada", description: `${result?.conciliados || 0} transacciones conciliadas` });
+        queryClient.invalidateQueries({ queryKey: ["/api/conciliacion/transacciones"] });
+      },
+    });
+
+    const parsearCSV = () => {
+      const lineas = csvTexto.trim().split("\n").filter(l => l.trim());
+      const txs: any[] = [];
+      for (const linea of lineas.slice(1)) {
+        const cols = linea.split(",").map(c => c.trim().replace(/^"|"$/g, ""));
+        if (cols.length >= 3) {
+          txs.push({ fecha: cols[0] || new Date().toISOString().split("T")[0], descripcion: cols[1] || "Sin descripción", monto: parseFloat(cols[2]) || 0, tipo: parseFloat(cols[2]) > 0 ? "credito" : "debito", referencia: cols[3] || "", nombre: cols[4] || "", clabe: cols[5] || "" });
+        }
+      }
+      setTransacciones(txs);
+      setSeleccionadas(new Set(txs.map((_, i) => i)));
+      setParseado(true);
+    };
+
+    const toggleSeleccion = (i: number) => setSeleccionadas(s => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; });
+
+    const importarSeleccionadas = () => {
+      const txsFiltradas = transacciones.filter((_, i) => seleccionadas.has(i));
+      importar.mutate({ transacciones: txsFiltradas });
+    };
+
+    const pendientes = (txImportadas || []).filter(t => t.estado_conciliacion === "pendiente").length;
+    const conciliadas = (txImportadas || []).filter(t => t.estado_conciliacion === "conciliado").length;
+
+    return (
+      <div className="space-y-5">
+        {/* KPIs del banco */}
+        <div className="grid grid-cols-3 gap-4">
+          {[
+            { label: "Importadas total", value: (txImportadas || []).length, color: "text-slate-700" },
+            { label: "Pendientes conciliar", value: pendientes, color: "text-amber-600" },
+            { label: "Conciliadas", value: conciliadas, color: "text-green-600" },
+          ].map((k, i) => (
+            <div key={i} className="bg-white rounded-xl border p-4 text-center">
+              <p className={`text-2xl font-bold ${k.color}`}>{k.value}</p>
+              <p className="text-xs text-slate-500 mt-1">{k.label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Importador de extracto */}
+        <div className="bg-white rounded-xl border p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+              <Upload className="w-4 h-4 text-teal-600" />
+              Pegar extracto bancario CSV
+            </h3>
+            {pendientes > 0 && (
+              <Button className="bg-teal-600 hover:bg-teal-700 gap-2" onClick={() => autoMatch.mutate()} disabled={autoMatch.isPending}>
+                <RefreshCw className={`w-4 h-4 ${autoMatch.isPending ? "animate-spin" : ""}`} />
+                {autoMatch.isPending ? "Conciliando..." : `Auto-conciliar ${pendientes} pendientes`}
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-slate-500">Formato: fecha,descripcion,monto,referencia,nombre_ordenante,clabe_ordenante (primera fila = encabezados)</p>
+          <textarea
+            className="w-full h-28 text-sm font-mono border rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-teal-400"
+            placeholder={"fecha,descripcion,monto,referencia,nombre,clabe\n2025-05-30,PAGO COLEGIATURA MAYO,3500.00,REF001,JUAN PEREZ,012345678901234567"}
+            value={csvTexto}
+            onChange={e => { setCsvTexto(e.target.value); setParseado(false); }}
+          />
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={parsearCSV} disabled={!csvTexto.trim()}>
+              Analizar CSV
+            </Button>
+            {parseado && (
+              <Button className="bg-teal-600 hover:bg-teal-700" onClick={importarSeleccionadas} disabled={seleccionadas.size === 0 || importar.isPending}>
+                {importar.isPending ? "Importando..." : `Importar ${seleccionadas.size} transacciones`}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Preview de transacciones parseadas */}
+        {parseado && transacciones.length > 0 && (
+          <div className="bg-white rounded-xl border overflow-hidden">
+            <div className="p-3 bg-teal-50 border-b flex items-center justify-between">
+              <span className="text-sm font-semibold text-teal-800">{transacciones.length} transacciones detectadas</span>
+              <div className="flex gap-2">
+                <button className="text-xs text-teal-600 underline" onClick={() => setSeleccionadas(new Set(transacciones.map((_, i) => i)))}>Seleccionar todas</button>
+                <button className="text-xs text-slate-500 underline" onClick={() => setSeleccionadas(new Set())}>Ninguna</button>
+              </div>
+            </div>
+            <div className="overflow-x-auto max-h-64">
+              <table className="w-full text-xs">
+                <thead className="bg-slate-50 sticky top-0">
+                  <tr>
+                    <th className="p-2 text-left w-8"></th>
+                    <th className="p-2 text-left">Fecha</th>
+                    <th className="p-2 text-left">Descripción</th>
+                    <th className="p-2 text-right">Monto</th>
+                    <th className="p-2 text-left">Referencia</th>
+                    <th className="p-2 text-left">Ordenante</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transacciones.map((tx, i) => (
+                    <tr key={i} className={`border-b ${seleccionadas.has(i) ? "bg-teal-50" : "opacity-50"}`}>
+                      <td className="p-2"><input type="checkbox" checked={seleccionadas.has(i)} onChange={() => toggleSeleccion(i)} /></td>
+                      <td className="p-2">{tx.fecha}</td>
+                      <td className="p-2 max-w-[200px] truncate">{tx.descripcion}</td>
+                      <td className={`p-2 text-right font-semibold ${tx.monto > 0 ? "text-green-700" : "text-red-700"}`}>${Math.abs(tx.monto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td>
+                      <td className="p-2">{tx.referencia}</td>
+                      <td className="p-2">{tx.nombre}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Lista de transacciones importadas */}
+        {(txImportadas || []).length > 0 && (
+          <div className="bg-white rounded-xl border overflow-hidden">
+            <div className="p-3 bg-slate-50 border-b"><span className="font-semibold text-sm text-slate-700">Historial de transacciones importadas</span></div>
+            <div className="overflow-x-auto max-h-72">
+              <table className="w-full text-xs">
+                <thead className="bg-slate-50 sticky top-0">
+                  <tr>
+                    <th className="p-2 text-left">Fecha</th>
+                    <th className="p-2 text-left">Descripción</th>
+                    <th className="p-2 text-right">Monto</th>
+                    <th className="p-2 text-left">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(txImportadas || []).slice(0, 50).map((tx: any, i: number) => (
+                    <tr key={i} className="border-b hover:bg-slate-50">
+                      <td className="p-2">{tx.fecha}</td>
+                      <td className="p-2 max-w-[220px] truncate">{tx.descripcion}</td>
+                      <td className={`p-2 text-right font-semibold ${tx.monto_centavos > 0 ? "text-green-700" : "text-red-700"}`}>${((tx.monto_centavos || 0) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td>
+                      <td className="p-2">
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${tx.estado_conciliacion === "conciliado" ? "bg-green-100 text-green-700" : tx.estado_conciliacion === "no_identificado" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+                          {tx.estado_conciliacion === "conciliado" ? "✓ Conciliado" : tx.estado_conciliacion === "no_identificado" ? "Sin match" : "Pendiente"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Conciliación automática con bancos
   const ConciliacionAutomatica = () => {
     const { data: estadisticasConciliacion } = useQuery<any>({
@@ -1073,7 +1252,7 @@ export default function CajaConciliacion() {
 
         <Tabs defaultValue="efectivo" className="space-y-6">
           <div className="relative bg-white/95 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/40">
-            <TabsList className="grid w-full grid-cols-3 bg-slate-100 rounded-xl">
+            <TabsList className="grid w-full grid-cols-4 bg-slate-100 rounded-xl">
               <TabsTrigger value="efectivo" className="data-[state=active]:bg-white data-[state=active]:text-green-600 data-[state=active]:shadow-sm rounded-lg">
                 <Banknote className="w-4 h-4 mr-2" />
                 Registro de Pagos Manual
@@ -1085,6 +1264,10 @@ export default function CajaConciliacion() {
               <TabsTrigger value="conciliacion" className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-sm rounded-lg">
                 <Calculator className="w-4 h-4 mr-2" />
                 Conciliación automática
+              </TabsTrigger>
+              <TabsTrigger value="spei-importar" className="data-[state=active]:bg-white data-[state=active]:text-teal-600 data-[state=active]:shadow-sm rounded-lg">
+                <Upload className="w-4 h-4 mr-2" />
+                Importar SPEI
               </TabsTrigger>
             </TabsList>
           </div>
@@ -1099,6 +1282,10 @@ export default function CajaConciliacion() {
 
           <TabsContent value="conciliacion">
             <ConciliacionAutomatica />
+          </TabsContent>
+
+          <TabsContent value="spei-importar">
+            <ImportadorSPEI />
           </TabsContent>
         </Tabs>
       </div>

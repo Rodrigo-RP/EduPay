@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +19,188 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { createAuthenticatedRequest, handleAuthError } from "@/lib/authUtils";
 import { Gift, Percent, Users, Plus, Edit, Trash2, GraduationCap, DollarSign, Calculator, Zap, Target, Award, FileText, Building, Download, AlertTriangle, CheckCircle, XCircle, Clock, MoreVertical, Upload, FileSpreadsheet, Eye } from "lucide-react";
+
+// ── Motor de Becas Automáticas ────────────────────────────────────────────────
+function BecasReglaAuto() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const campusId = user?.campus_id || 1;
+  const [showModal, setShowModal] = useState(false);
+  const [form, setForm] = useState({ nombre: "", tipo: "hermanos", descuento_porcentaje: "", condicion_json: "", aplica_a: "todos" });
+
+  const { data: reglas, isLoading } = useQuery<any[]>({
+    queryKey: ["/api/becas-auto/reglas", campusId],
+  });
+
+  const crearRegla = useMutation({
+    mutationFn: (data: any) => apiRequest("/api/becas-auto/reglas", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      toast({ title: "Regla creada", description: "La regla automática quedó activa" });
+      setShowModal(false);
+      setForm({ nombre: "", tipo: "hermanos", descuento_porcentaje: "", condicion_json: "", aplica_a: "todos" });
+      queryClient.invalidateQueries({ queryKey: ["/api/becas-auto/reglas"] });
+    },
+    onError: () => toast({ title: "Error al crear regla", variant: "destructive" }),
+  });
+
+  const eliminarRegla = useMutation({
+    mutationFn: (id: number) => apiRequest(`/api/becas-auto/reglas/${id}`, { method: "DELETE", body: JSON.stringify({}) }),
+    onSuccess: () => { toast({ title: "Regla eliminada" }); queryClient.invalidateQueries({ queryKey: ["/api/becas-auto/reglas"] }); },
+  });
+
+  const ejecutarBecas = useMutation({
+    mutationFn: () => apiRequest(`/api/becas-auto/ejecutar/${campusId}`, { method: "POST", body: JSON.stringify({}) }),
+    onSuccess: (r: any) => toast({ title: "Motor ejecutado", description: r?.mensaje || "Becas automáticas aplicadas" }),
+  });
+
+  const TIPOS: Record<string, { label: string; desc: string; icon: string }> = {
+    hermanos: { label: "Descuento por hermanos", desc: "Se aplica a familias con 2+ estudiantes activos", icon: "👨‍👩‍👧‍👦" },
+    academica: { label: "Beca académica", desc: "Requiere promedio mínimo configurable", icon: "🏆" },
+    empleado: { label: "Hijo de empleado", desc: "Aplica a hijos de trabajadores de la institución", icon: "🏫" },
+    socioeconomica: { label: "Apoyo socioeconómico", desc: "Basado en estudio socioeconómico", icon: "🤝" },
+    deportiva: { label: "Beca deportiva", desc: "Para estudiantes de alto rendimiento deportivo", icon: "⚽" },
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+            <Zap className="w-5 h-5 text-amber-500" />
+            Motor de Becas Automáticas
+          </h3>
+          <p className="text-slate-500 text-sm">Define reglas: el sistema aplica las becas automáticamente sin trabajo manual</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => ejecutarBecas.mutate()} disabled={ejecutarBecas.isPending}>
+            <Zap className={`w-4 h-4 ${ejecutarBecas.isPending ? "animate-spin" : ""}`} />
+            {ejecutarBecas.isPending ? "Calculando..." : "Ejecutar motor"}
+          </Button>
+          <Button className="gap-2 bg-green-600 hover:bg-green-700" onClick={() => setShowModal(true)}>
+            <Plus className="w-4 h-4" /> Nueva regla
+          </Button>
+        </div>
+      </div>
+
+      {/* Tipos disponibles */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        {Object.entries(TIPOS).map(([k, v]) => (
+          <div key={k} className={`p-3 rounded-xl border-2 cursor-pointer transition-all ${form.tipo === k ? "border-green-500 bg-green-50" : "border-slate-200 hover:border-slate-300"}`}
+            onClick={() => { if (showModal) setForm(f => ({ ...f, tipo: k })); }}>
+            <div className="text-2xl mb-1">{v.icon}</div>
+            <p className="font-semibold text-sm text-slate-800">{v.label}</p>
+            <p className="text-xs text-slate-500 mt-0.5">{v.desc}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Modal para crear regla */}
+      {showModal && (
+        <Card className="border-2 border-green-300 bg-green-50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Plus className="w-4 h-4" /> Nueva regla automática
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Nombre de la regla</Label>
+                <Input placeholder="Ej: Beca segundo hermano 15%" value={form.nombre}
+                  onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Tipo de regla</Label>
+                <Select value={form.tipo} onValueChange={v => setForm(f => ({ ...f, tipo: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(TIPOS).map(([k, v]) => <SelectItem key={k} value={k}>{v.icon} {v.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Descuento (%)</Label>
+                <Input type="number" placeholder="15" min="1" max="100" value={form.descuento_porcentaje}
+                  onChange={e => setForm(f => ({ ...f, descuento_porcentaje: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Aplica a</Label>
+                <Select value={form.aplica_a} onValueChange={v => setForm(f => ({ ...f, aplica_a: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los hijos</SelectItem>
+                    <SelectItem value="segundo_hijo">Segundo hijo</SelectItem>
+                    <SelectItem value="tercer_hijo">Tercer hijo en adelante</SelectItem>
+                    <SelectItem value="nuevo_ingreso">Solo nuevos ingresos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex gap-3 pt-1">
+              <Button className="bg-green-600 hover:bg-green-700"
+                disabled={!form.nombre || !form.descuento_porcentaje || crearRegla.isPending}
+                onClick={() => crearRegla.mutate({ ...form, campus_id: campusId, descuento_porcentaje: Number(form.descuento_porcentaje) })}>
+                {crearRegla.isPending ? "Creando..." : "Crear regla"}
+              </Button>
+              <Button variant="outline" onClick={() => setShowModal(false)}>Cancelar</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Lista de reglas activas */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-10">
+          <div className="animate-spin w-6 h-6 border-4 border-green-600 border-t-transparent rounded-full" />
+        </div>
+      ) : (reglas || []).length === 0 ? (
+        <Card>
+          <CardContent className="py-10 text-center text-slate-500">
+            <Zap className="w-10 h-10 mx-auto mb-2 opacity-30" />
+            <p className="font-medium">No hay reglas automáticas configuradas</p>
+            <p className="text-sm">Crea la primera regla con el botón "Nueva regla"</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {(reglas || []).map((r: any) => {
+            const cfg = TIPOS[r.tipo] || { label: r.tipo, desc: "", icon: "📋" };
+            return (
+              <Card key={r.id} className="border border-slate-200">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{cfg.icon}</span>
+                    <div>
+                      <p className="font-semibold text-slate-900">{r.nombre}</p>
+                      <p className="text-sm text-slate-500">{cfg.label} • Aplica a: {r.aplica_a}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-green-700">{r.descuento_porcentaje}%</p>
+                      <p className="text-xs text-slate-500">descuento</p>
+                    </div>
+                    <Badge className={r.activo ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-600"}>
+                      {r.activo ? "Activa" : "Inactiva"}
+                    </Badge>
+                    <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => eliminarRegla.mutate(r.id)}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Becas() {
   const [showAddModal, setShowAddModal] = useState(false);
@@ -1016,9 +1201,10 @@ ${b.nombre}:
 
       {/* Main Content */}
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="becas">Tipos de Becas</TabsTrigger>
           <TabsTrigger value="estudiantes">Estudiantes con Becas</TabsTrigger>
+          <TabsTrigger value="reglas-auto">⚡ Reglas automáticas</TabsTrigger>
           <TabsTrigger value="reportes">Reportes y Control</TabsTrigger>
         </TabsList>
 
@@ -1196,6 +1382,11 @@ ${b.nombre}:
               </Card>
             ))}
           </div>
+        </TabsContent>
+
+        {/* ── Reglas automáticas de becas ───────────────────────────── */}
+        <TabsContent value="reglas-auto" className="space-y-4">
+          <BecasReglaAuto />
         </TabsContent>
 
         <TabsContent value="reportes" className="space-y-4">

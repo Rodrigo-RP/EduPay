@@ -192,6 +192,53 @@ export default function Sidebar() {
       action: ACTIONS.READ
     },
 
+    // ── Módulo Contador ──────────────────────────────────────────────────────
+    {
+      icon: "fas fa-bolt",
+      label: "Centro de Comandos",
+      href: "/comandos-contador",
+      active: location === "/comandos-contador",
+      category: "contador",
+      module: MODULES.FISCAL,
+      action: ACTIONS.READ
+    },
+    {
+      icon: "fas fa-traffic-light",
+      label: "Semáforo de Riesgo",
+      href: "/semaforo-riesgo",
+      active: location === "/semaforo-riesgo",
+      category: "contador",
+      module: MODULES.RECEIVABLES,
+      action: ACTIONS.READ
+    },
+    {
+      icon: "fas fa-handshake",
+      label: "Planes de Pago",
+      href: "/planes-pago",
+      active: location === "/planes-pago",
+      category: "contador",
+      module: MODULES.RECEIVABLES,
+      action: ACTIONS.READ
+    },
+    {
+      icon: "fas fa-calendar-alt",
+      label: "Calendario Fiscal",
+      href: "/calendario-financiero",
+      active: location === "/calendario-financiero",
+      category: "contador",
+      module: MODULES.FISCAL,
+      action: ACTIONS.READ
+    },
+    {
+      icon: "fas fa-chart-pie",
+      label: "Reporte Consejo",
+      href: "/reporte-consejo",
+      active: location === "/reporte-consejo",
+      category: "contador",
+      module: MODULES.REPORTS,
+      action: ACTIONS.READ
+    },
+
   ];
 
   // Filtrar elementos específicos para el perfil de Admisiones
@@ -283,6 +330,14 @@ export default function Sidebar() {
           activeText: "text-red-700",
           hoverBackground: "hover:bg-red-25",
           borderColor: "border-l-red-400"
+        };
+      case "contador":
+        return {
+          titleColor: "text-teal-600",
+          activeBackground: "bg-teal-50",
+          activeText: "text-teal-700",
+          hoverBackground: "hover:bg-teal-25",
+          borderColor: "border-l-teal-400"
         };
       default:
         return {

@@ -176,8 +176,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getGuardianByEmail(email: string): Promise<Guardian | undefined> {
-    const [guardian] = await db.select().from(guardians).where(eq(guardians.email, email));
-    return guardian || undefined;
+    const [byEmail] = await db.select().from(guardians).where(eq(guardians.email, email));
+    if (byEmail) return byEmail;
+    const [byCorrecto] = await db.select().from(guardians).where(eq(guardians.correo_institucional_familiar, email));
+    return byCorrecto || undefined;
   }
 
   async getGuardiansByCampus(campusId: number): Promise<Guardian[]> {

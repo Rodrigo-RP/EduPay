@@ -47,6 +47,7 @@ import RoleBasedDashboard from "@/components/RoleBasedDashboard";
 import Profile from "@/pages/profile";
 import MigrationRefeerence from "@/pages/migration-refeerence";
 import Historial from "@/pages/historial";
+import DemoSetup from "@/pages/demo-setup";
 
 function AuthenticatedRoutes() {
   const { user, guardian, isLoading } = useAuth();
@@ -139,6 +140,7 @@ function AuthenticatedRoutes() {
             <Route path="/migration-refeerence" component={MigrationRefeerence} />
             <Route path="/historial" component={Historial} />
             <Route path="/profile" component={Profile} />
+            <Route path="/demo-setup" component={DemoSetup} />
             <Route component={NotFound} />
           </Switch>
         </main>
@@ -158,6 +160,7 @@ function App() {
                 <div className="min-h-screen bg-slate-50">
                   <Switch>
                     <Route path="/cuentas-standalone" component={CuentasPorCobrarStandalone} />
+                    <Route path="/demo-setup" component={DemoSetup} />
                     <Route component={AuthenticatedRoutes} />
                   </Switch>
                   <Toaster />

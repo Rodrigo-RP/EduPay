@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { seedDemoData } from "./seed-demo";
 import { storage } from "./storage";
 import securityMiddleware, { 
   rateLimits, 
@@ -15,7 +16,7 @@ import securityMiddleware, {
 
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { insertUserSchema, insertGuardianSchema, insertChargeSchema, insertPaymentSchema, insertInstitutionalInfoSchema, students, guardians, student_guardian, payment_rules, late_fee_calculations, payments, charges, concepts, institutional_credentials, institutional_info, users, scholarships, payment_due_dates, payment_surcharge_rules } from "@shared/schema";
+import { insertUserSchema, insertGuardianSchema, insertChargeSchema, insertPaymentSchema, insertInstitutionalInfoSchema, students, guardians, student_guardian, payment_rules, late_fee_calculations, payments, charges, concepts, institutional_credentials, institutional_info, users, scholarships, payment_due_dates, payment_surcharge_rules, invoices } from "@shared/schema";
 import { canEditUser, UserRole } from "@shared/permissions";
 import { NotificationSystem as ServerNotificationSystem } from './notification-system';
 import { wsManager } from './websocket-manager';
@@ -833,15 +834,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/dashboard/:campusId", requireAuth, async (req, res) => {
     try {
       const campusId = parseInt(req.params.campusId);
-      
-      // Mock KPI data para demo
+
+      // Estudiantes activos
+      const studentsResult = await db
+        .select({ id: students.id })
+        .from(students)
+        .where(eq(students.campus_id, campusId));
+      const activeStudents = studentsResult.length;
+
+      // Todos los cargos del campus
+      const allCharges = await db
+        .select({ estado: charges.estado, monto_base_centavos: charges.monto_base_centavos })
+        .from(charges)
+        .innerJoin(students, eq(charges.student_id, students.id))
+        .where(eq(students.campus_id, campusId));
+
+      const totalCharges = allCharges.length || 1;
+      const paidCharges = allCharges.filter(c => c.estado === "pagado");
+      const overdueCharges = allCharges.filter(c => c.estado === "vencido");
+      const totalBilled = allCharges.reduce((s, c) => s + (c.monto_base_centavos || 0), 0);
+
       const kpis = {
-        totalBilled: 2850000, // $28,500 MXN facturado
-        paymentRate: 75, // 75% tasa de pago
-        overdueRate: 25, // 25% morosidad
-        activeStudents: 4
+        totalBilled,
+        paymentRate: Math.round((paidCharges.length / totalCharges) * 100),
+        overdueRate: Math.round((overdueCharges.length / totalCharges) * 100),
+        activeStudents,
       };
-      
+
       res.json(kpis);
     } catch (error: any) {
       res.status(500).json({ message: "Error fetching KPIs: " + error.message });
@@ -4743,6 +4762,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     ];
     return months[month - 1];
   }
+
+  // ── DEMO DATA SEED ──────────────────────────────────────────────────────────
+  app.post("/api/demo/seed", async (req, res) => {
+    try {
+      const result = await seedDemoData();
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Guardian pagar alias — acepta array de charge_ids y procesa cada uno
+  app.post("/api/guardian/pagar", async (req: any, res: any) => {
+    try {
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+      if (!token) return res.status(401).json({ message: "No autorizado" });
+
+      const decoded: any = jwt.verify(token, JWT_SECRET);
+      const guardianId = decoded.id;
+
+      const { charge_ids, metodo_pago = "tarjeta" } = req.body;
+      if (!charge_ids || !Array.isArray(charge_ids) || charge_ids.length === 0) {
+        return res.status(400).json({ message: "Se requiere al menos un cargo" });
+      }
+
+      const results = [];
+      for (const chargeId of charge_ids) {
+        const [charge] = await db.select().from(charges).where(eq(charges.id, chargeId));
+        if (!charge) continue;
+
+        const payment = await storage.createPayment({
+          charge_id: chargeId,
+          guardian_id: guardianId,
+          metodo: metodo_pago,
+          referencia_pasarela: `sim_${Date.now()}_${chargeId}`,
+          monto_centavos: charge.monto_base_centavos + (charge.recargo_aplicado_centavos || 0),
+          estado: "exitoso",
+        });
+
+        await storage.updateChargeStatus(chargeId, "pagado");
+
+        // Factura CFDI simulada
+        const cfdiUUID = `${Date.now()}-${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
+        await db.insert(invoices).values({
+          payment_id: payment.id,
+          uuid_cfdi: cfdiUUID,
+          xml_url: `/api/demo/cfdi/${cfdiUUID}.xml`,
+          pdf_url: `/api/demo/cfdi/${cfdiUUID}.pdf`,
+          estado: "emitido",
+        });
+
+        results.push({ charge_id: chargeId, payment_id: payment.id, cfdi: cfdiUUID });
+      }
+
+      wsManager.notifyPaymentUpdate(results[0], "create", {
+        campus_id: 1, tenant_id: 1, created_by: guardianId,
+      });
+
+      res.json({
+        success: true,
+        payments: results,
+        message: `${results.length} pago(s) procesados correctamente`,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error procesando pago: " + error.message });
+    }
+  });
 
   // ADMISSIONS DATA SEEDING - ENDPOINT ESPECÍFICO
   app.post("/api/seed-admissions-data", authenticateToken, async (req, res) => {

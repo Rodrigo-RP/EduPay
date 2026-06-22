@@ -89,14 +89,39 @@ function AuthenticatedRoutes() {
     );
   }
 
-  // Super Admin routing - redirect to dashboard
+  // Super Admin routing - with full layout (Sidebar + Header)
   if (user && user.role === 'super_admin') {
     return (
-      <Switch>
-        <Route path="/" component={AdminDashboard} />
-        <Route path="/admin" component={AdminDashboard} />
-        <Route component={AdminDashboard} />
-      </Switch>
+      <div className="min-h-screen bg-slate-50 flex">
+        <Sidebar />
+        <div className="flex-1 flex flex-col">
+          <Header />
+          <main className="flex-1 p-6 bg-slate-50">
+            <Switch>
+              <Route path="/" component={AdminDashboard} />
+              <Route path="/admin" component={AdminDashboard} />
+              <Route path="/usuarios" component={UsuariosUnificado} />
+              <Route path="/estudiantes" component={Estudiantes} />
+              <Route path="/familias" component={Familias} />
+              <Route path="/reportes" component={Reportes} />
+              <Route path="/configuracion" component={Configuracion} />
+              <Route path="/emision-cargos" component={EmisionCargos} />
+              <Route path="/caja-conciliacion" component={CajaConciliacion} />
+              <Route path="/fiscal-contable" component={FiscalContable} />
+              <Route path="/perfil" component={Profile} />
+              <Route path="/historial" component={Historial} />
+              <Route path="/centro-comandos" component={CentroComandos} />
+              <Route path="/semaforo-riesgo" component={SemaforoRiesgo} />
+              <Route path="/planes-pago" component={PlanesPago} />
+              <Route path="/calendario-financiero" component={CalendarioFinanciero} />
+              <Route path="/reporte-consejo" component={ReporteConsejo} />
+              <Route path="/importacion-datos" component={ImportacionDatos} />
+              <Route path="/migracion" component={MigrationRefeerence} />
+              <Route component={AdminDashboard} />
+            </Switch>
+          </main>
+        </div>
+      </div>
     );
   }
 

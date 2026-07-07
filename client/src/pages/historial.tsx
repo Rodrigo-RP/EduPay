@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { Calendar, Filter, Search, Download, Clock, User, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +29,12 @@ export default function Historial() {
   const [filtroTipo, setFiltroTipo] = useState("todos");
   const [busqueda, setBusqueda] = useState("");
 
+  // Cargar eventos del sistema desde la API
+  const { isLoading: historialLoading, isError: historialError } = useQuery<any[]>({
+    queryKey: ['/api/security-events'],
+    enabled: !!user,
+  });
+
   // Datos vacíos - se llenarán con datos reales del backend
   const movimientos: Movimiento[] = [];
 
@@ -56,6 +63,25 @@ export default function Historial() {
   const exportarHistorial = () => {
     // Funcionalidad de exportación - se implementará con datos reales
   };
+
+  if (historialLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (historialError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <p className="text-lg font-semibold text-red-600">Error al cargar el historial</p>
+          <p className="text-sm text-slate-500">No se pudo conectar con el servidor. Intenta recargar la página.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

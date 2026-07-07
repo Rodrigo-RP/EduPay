@@ -6400,7 +6400,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         WHERE pp.campus_id = $1 ORDER BY pp.created_at DESC
       `, [campusId]);
       const planes = await Promise.all((planesRows.rows as any[]).map(async p => {
-        const cuotas = await pool.query(`SELECT * FROM payment_plan_installments WHERE plan_id = $1 ORDER BY numero`, [p.id]);
+        const cuotas = await pool.query(`SELECT * FROM payment_plan_installments WHERE plan_id = $1 ORDER BY numero`, [p.id]).catch(() => ({ rows: [] }));
         const pagadas = (cuotas.rows as any[]).filter(c => c.estado === 'pagado').length;
         const cuotaCentavos = p.numero_pagos > 0 ? Math.round((p.total_adeudo_centavos - p.monto_inicial_centavos) / p.numero_pagos) : 0;
         return { ...p, installments: cuotas.rows, cuotas_pagadas: pagadas, cuota_centavos: cuotaCentavos };
@@ -6621,7 +6621,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         WHERE pp.campus_id = $1 ORDER BY pp.created_at DESC
       `, [campusId]);
       const planes = await Promise.all((planesRows.rows as any[]).map(async p => {
-        const cuotas = await pool.query(`SELECT * FROM payment_plan_installments WHERE plan_id = $1 ORDER BY numero`, [p.id]);
+        const cuotas = await pool.query(`SELECT * FROM payment_plan_installments WHERE plan_id = $1 ORDER BY numero`, [p.id]).catch(() => ({ rows: [] }));
         const cuotaCentavos = p.numero_pagos > 0 ? Math.round((p.total_adeudo_centavos - p.monto_inicial_centavos) / p.numero_pagos) : 0;
         return { ...p, installments: cuotas.rows, cuota_centavos: cuotaCentavos };
       }));
@@ -6789,9 +6789,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const campusId = (req as any).user?.campus_id;
       const [studentsRows, paymentsRows, chargesRows] = await Promise.all([
-        pool.query(`SELECT COUNT(*) as total FROM students WHERE campus_id=$1`, [campusId]),
-        pool.query(`SELECT COALESCE(SUM(p.monto_centavos),0) as total FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1`, [campusId]),
-        pool.query(`SELECT COALESCE(SUM(c.monto_base_centavos),0) as pendiente FROM charges c JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND c.estado='pendiente'`, [campusId]),
+        pool.query(`SELECT COUNT(*) as total FROM students WHERE campus_id=$1`, [campusId]).catch(() => ({ rows: [{ total: 0 }] })),
+        pool.query(`SELECT COALESCE(SUM(p.monto_centavos),0) as total FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1`, [campusId]).catch(() => ({ rows: [{ total: 0 }] })),
+        pool.query(`SELECT COALESCE(SUM(c.monto_base_centavos),0) as pendiente FROM charges c JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND c.estado='pendiente'`, [campusId]).catch(() => ({ rows: [{ pendiente: 0 }] })),
       ]);
       res.json({
         total_students: Number((studentsRows.rows[0] as any)?.total || 0),

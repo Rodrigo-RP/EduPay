@@ -50,7 +50,7 @@ export default function ReportesAdmisiones() {
   const campusId = user?.campus_id ?? 1;
 
   // Obtener datos de estudiantes
-  const { data: estudiantes = [], isLoading } = useQuery<Student[]>({
+  const { data: estudiantes = [], isLoading, isError } = useQuery<Student[]>({
     queryKey: ['/api/admin/students', campusId],
     enabled: !!user,
   });
@@ -230,6 +230,17 @@ export default function ReportesAdmisiones() {
       description: "Se abrió una ventana para imprimir el reporte",
     });
   };
+
+  if (isError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <p className="text-lg font-semibold text-red-600">Error al cargar estudiantes</p>
+          <p className="text-sm text-slate-500">No se pudo obtener los datos del servidor. Intenta recargar la página.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">

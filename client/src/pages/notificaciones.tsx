@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,11 @@ export default function Notificaciones() {
   const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Cargar historial de notificaciones desde la API
+  const { data: notificacionesApi = [], isLoading: notifLoading, isError: notifError } = useQuery<any[]>({
+    queryKey: ['/api/notifications'],
+  });
 
   // Datos simulados de estudiantes con pagos pendientes
   const estudiantesPendientes = [
@@ -171,16 +176,39 @@ export default function Notificaciones() {
     }
   ];
 
-  const filteredNotificaciones = selectedChannel === "all" 
-    ? notificaciones 
-    : notificaciones.filter(n => n.canal === selectedChannel);
+  // Usar datos de la API si están disponibles, si no usar los datos de demostración
+  const notificacionesSource = notificacionesApi.length > 0 ? notificacionesApi : notificaciones;
+  const filteredNotificaciones = selectedChannel === "all"
+    ? notificacionesSource
+    : notificacionesSource.filter((n: any) => n.canal === selectedChannel);
 
   const estadisticas = {
-    totalEnviadas: notificaciones.filter(n => n.estado === "enviado").length,
-    pendientes: notificaciones.filter(n => n.estado === "pendiente").length,
-    errores: notificaciones.filter(n => n.estado === "error").length,
-    tasaEntrega: (notificaciones.filter(n => n.estado === "enviado").length / notificaciones.length) * 100
+    totalEnviadas: notificacionesSource.filter((n: any) => n.estado === "enviado").length,
+    pendientes: notificacionesSource.filter((n: any) => n.estado === "pendiente").length,
+    errores: notificacionesSource.filter((n: any) => n.estado === "error").length,
+    tasaEntrega: notificacionesSource.length > 0
+      ? (notificacionesSource.filter((n: any) => n.estado === "enviado").length / notificacionesSource.length) * 100
+      : 0
   };
+
+  if (notifLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (notifError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <p className="text-lg font-semibold text-red-600">Error al cargar notificaciones</p>
+          <p className="text-sm text-slate-500">No se pudo conectar con el servidor. Intenta recargar la página.</p>
+        </div>
+      </div>
+    );
+  }
 
   const getStatusBadge = (estado: string) => {
     switch (estado) {

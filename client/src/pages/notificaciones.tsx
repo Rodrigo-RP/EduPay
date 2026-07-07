@@ -199,6 +199,13 @@ export default function Notificaciones() {
     );
   }
 
+  const notifErrorBanner = notifError ? (
+    <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+      <span className="font-medium">No se pudo cargar el historial de notificaciones.</span>
+      <button onClick={() => window.location.reload()} className="underline hover:no-underline">Reintentar</button>
+    </div>
+  ) : null;
+
   const getStatusBadge = (estado: string) => {
     switch (estado) {
       case "enviado":
@@ -245,6 +252,7 @@ export default function Notificaciones() {
       <div >
         
         <div className="p-6">
+      {notifErrorBanner}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Notificaciones Automáticas</h1>

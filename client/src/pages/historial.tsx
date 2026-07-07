@@ -79,6 +79,12 @@ export default function Historial() {
         <p className="mt-2 text-sm text-gray-600">
           Registro de todos los cambios y movimientos realizados por los usuarios del sistema
         </p>
+        {historialError && (
+          <div className="mt-3 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+            <span className="font-medium">No se pudieron cargar los eventos del servidor.</span>
+            <button onClick={() => window.location.reload()} className="underline hover:no-underline">Reintentar</button>
+          </div>
+        )}
       </div>
 
       {/* Filtros */}

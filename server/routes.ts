@@ -3545,6 +3545,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // NOTIFICATION SYSTEM API - Sistema de notificaciones automáticas
+  app.get("/api/notifications", authenticateToken, async (req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT id, tipo, canal, estado, destinatario, asunto, created_at
+         FROM notificaciones_log
+         ORDER BY created_at DESC
+         LIMIT 100`
+      ).catch(() => ({ rows: [] }));
+      res.json(result.rows);
+    } catch (error) {
+      res.json([]);
+    }
+  });
+
   app.post("/api/notifications/send", authenticateToken, async (req, res) => {
     try {
       const { tipo, canal, modo, estudiantesIds } = req.body;

@@ -199,17 +199,6 @@ export default function Notificaciones() {
     );
   }
 
-  if (notifError) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-3">
-          <p className="text-lg font-semibold text-red-600">Error al cargar notificaciones</p>
-          <p className="text-sm text-slate-500">No se pudo conectar con el servidor. Intenta recargar la página.</p>
-        </div>
-      </div>
-    );
-  }
-
   const getStatusBadge = (estado: string) => {
     switch (estado) {
       case "enviado":

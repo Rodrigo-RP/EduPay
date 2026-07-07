@@ -143,29 +143,21 @@ export default function AdminDashboard() {
                 icon={DollarSign}
                 label="Total Facturado"
                 value={`$${(kpiData?.totalBilled ? kpiData.totalBilled / 100 : 0).toLocaleString()}`}
-                change="+12.5%"
-                changeType="positive"
               />
               <KPICard
                 icon={CheckCircle}
                 label="Tasa de Pago"
                 value={`${kpiData?.paymentRate?.toFixed(1) || '0.0'}%`}
-                change="+2.3%"
-                changeType="positive"
               />
               <KPICard
                 icon={AlertTriangle}
                 label="Morosidad"
                 value={`${kpiData?.overdueRate?.toFixed(1) || '0.0'}%`}
-                change="-1.2%"
-                changeType="positive"
               />
               <KPICard
                 icon={Users2}
                 label="Estudiantes Activos"
                 value={kpiData?.activeStudents?.toString() || '0'}
-                change="+5"
-                changeType="positive"
               />
             </div>
           </CardContent>

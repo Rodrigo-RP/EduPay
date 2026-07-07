@@ -64,6 +64,14 @@ export default function DashboardCaja() {
     .sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
     .slice(0, 10);
 
+  if (paymentsLoading || receivablesLoading || studentsLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}

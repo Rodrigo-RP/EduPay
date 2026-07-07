@@ -447,7 +447,7 @@ export default function ImportacionDatos() {
       });
 
       if (result.results.errors.length > 0) {
-        console.log('Errores encontrados:', result.results.errors);
+        // Errors are shown to the user via toast or table — no console needed
       }
 
     } catch (error) {

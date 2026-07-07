@@ -100,17 +100,8 @@ export default function Pagos() {
     staleTime: 0
   });
   
-  console.log('Payments query state:', {
-    paymentsData,
-    paymentsLoading,
-    paymentsError,
-    userCampusId: user?.campus_id,
-    queryEnabled: !!user?.campus_id
-  });
-
   // Si no hay campus_id, mostrar mensaje de error
   if (user && !user.campus_id) {
-    console.log('User sin campus_id, necesita reautenticar...');
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -151,7 +142,6 @@ export default function Pagos() {
         // Solo puede ver pagos relacionados con inscripciones (NO becas)
         const isInscripcion = conceptName.toLowerCase().includes('inscripción') ||
                             conceptName.toLowerCase().includes('inscripcion');
-        console.log('Checking admisiones concept:', conceptName, 'isInscripcion:', isInscripcion);
         return isInscripcion;
       
       case 'caja':
@@ -240,11 +230,6 @@ export default function Pagos() {
       origen: 'Portal Padres'
     };
     
-    // Debug log para verificar datos
-    console.log('Payment transformado:', transformedPayment);
-    console.log('Concept match:', canViewConcept(transformedPayment.concepto));
-    console.log('Status match:', canViewStatus(transformedPayment.estado));
-    
     return transformedPayment;
   }) : [];
 
@@ -270,16 +255,6 @@ export default function Pagos() {
         dateMatch = dateMatch && pagoDate <= toDate;
       }
     }
-    
-    console.log('Filtrado completo:', {
-      pago: pago.concepto,
-      methodMatch,
-      statusMatch,
-      dateMatch,
-      conceptMatch,
-      statusRoleMatch,
-      finalResult: methodMatch && statusMatch && dateMatch && conceptMatch && statusRoleMatch
-    });
     
     return methodMatch && statusMatch && dateMatch && conceptMatch && statusRoleMatch;
   });

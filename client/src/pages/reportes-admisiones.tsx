@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +33,7 @@ interface Student {
 }
 
 export default function ReportesAdmisiones() {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [filtrosPeriodo, setFiltrosPeriodo] = useState({
     periodo: "mensual",
@@ -45,10 +47,12 @@ export default function ReportesAdmisiones() {
     beca: "todos"
   });
 
+  const campusId = user?.campus_id ?? 1;
+
   // Obtener datos de estudiantes
   const { data: estudiantes = [], isLoading } = useQuery<Student[]>({
-    queryKey: ['/api/admin/students/24'],
-    enabled: true
+    queryKey: ['/api/admin/students', campusId],
+    enabled: !!user,
   });
 
   // Detectar nivel académico desde el grado

@@ -55,7 +55,6 @@ export default function Historial() {
 
   const exportarHistorial = () => {
     // Funcionalidad de exportación - se implementará con datos reales
-    console.log("Exportando historial...");
   };
 
   return (

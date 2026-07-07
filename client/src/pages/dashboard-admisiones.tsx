@@ -31,18 +31,18 @@ export default function DashboardAdmisiones() {
   const { institutionName, logoUrl } = useInstitution();
 
   // Obtener datos de estudiantes
-  const { data: students = [], isLoading: studentsLoading } = useQuery<any[]>({
+  const { data: students = [], isLoading: studentsLoading, isError: studentsError } = useQuery<any[]>({
     queryKey: ['/api/students']
   });
 
   // Obtener datos de pagos (filtrados por rol)
-  const { data: payments = [], isLoading: paymentsLoading } = useQuery<any[]>({
+  const { data: payments = [], isLoading: paymentsLoading, isError: paymentsError } = useQuery<any[]>({
     queryKey: ['/api/payments'],
     select: (data) => filterPaymentData(data)
   });
 
   // Obtener datos de cargos (filtrados por rol)
-  const { data: charges = [], isLoading: chargesLoading } = useQuery<any[]>({
+  const { data: charges = [], isLoading: chargesLoading, isError: chargesError } = useQuery<any[]>({
     queryKey: ['/api/charges'],
     select: (data) => filterChargesData(data)
   });
@@ -96,6 +96,17 @@ export default function DashboardAdmisiones() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-lg font-medium">Cargando dashboard de admisiones...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (studentsError || paymentsError || chargesError) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center space-y-3">
+          <p className="text-lg font-semibold text-red-600">Error al cargar datos</p>
+          <p className="text-sm text-slate-500">No se pudo conectar con el servidor. Intenta recargar la página.</p>
         </div>
       </div>
     );

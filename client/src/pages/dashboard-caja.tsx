@@ -19,7 +19,7 @@ export default function DashboardCaja() {
   const { institutionName, logoUrl } = useInstitution();
   
   // Obtener datos de pagos - enfoque en transacciones y cobranza
-  const { data: payments = [], isLoading: paymentsLoading } = useQuery<any[]>({
+  const { data: payments = [], isLoading: paymentsLoading, isError: paymentsError } = useQuery<any[]>({
     queryKey: ['/api/payments'],
     select: (data) => data.filter((p: any) => 
       // Solo pagos relacionados con caja: colegiaturas, mensualidades, recargos
@@ -33,12 +33,12 @@ export default function DashboardCaja() {
   });
 
   // Obtener datos de cuentas por cobrar
-  const { data: receivables = [], isLoading: receivablesLoading } = useQuery<any[]>({
+  const { data: receivables = [], isLoading: receivablesLoading, isError: receivablesError } = useQuery<any[]>({
     queryKey: ['/api/receivables']
   });
 
   // Obtener datos de estudiantes para contexto
-  const { data: students = [], isLoading: studentsLoading } = useQuery<any[]>({
+  const { data: students = [], isLoading: studentsLoading, isError: studentsError } = useQuery<any[]>({
     queryKey: ['/api/students']
   });
 
@@ -68,6 +68,17 @@ export default function DashboardCaja() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (paymentsError || receivablesError || studentsError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <p className="text-lg font-semibold text-red-600">Error al cargar el dashboard</p>
+          <p className="text-sm text-slate-500">No se pudo conectar con el servidor. Intenta recargar la página.</p>
+        </div>
       </div>
     );
   }

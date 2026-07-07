@@ -5849,9 +5849,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const campusId = parseInt(req.params.campusId) || (req as any).user?.campus_id;
       const [studentsRows, paymentsRows, chargesRows] = await Promise.all([
-        pool.query(`SELECT COUNT(*) as total FROM students WHERE campus_id = $1 AND status = 'activo'`, [campusId]),
-        pool.query(`SELECT COALESCE(SUM(p.monto_centavos),0) as total FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND p.created_at>=date_trunc('month',NOW())`, [campusId]),
-        pool.query(`SELECT COALESCE(SUM(c.monto_base_centavos),0) as total, COUNT(*) as cnt FROM charges c JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND c.estado='pendiente'`, [campusId]),
+        pool.query(`SELECT COUNT(*) as total FROM students WHERE campus_id = $1 AND status = 'activo'`, [campusId]).catch(() => ({ rows: [{ total: 0 }] })),
+        pool.query(`SELECT COALESCE(SUM(p.monto_centavos),0) as total FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND p.created_at>=date_trunc('month',NOW())`, [campusId]).catch(() => ({ rows: [{ total: 0 }] })),
+        pool.query(`SELECT COALESCE(SUM(c.monto_base_centavos),0) as total, COUNT(*) as cnt FROM charges c JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND c.estado='pendiente'`, [campusId]).catch(() => ({ rows: [{ total: 0, cnt: 0 }] })),
       ]);
       const ingresosRaw = Number((paymentsRows.rows[0] as any)?.total || 0);
       const pendienteRaw = Number((chargesRows.rows[0] as any)?.total || 0);

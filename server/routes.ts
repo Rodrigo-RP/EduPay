@@ -1079,6 +1079,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  /**
+   * GET /api/admin/students/:studentId/guardians
+   * Devuelve los tutores vinculados a un alumno con su estado de responsabilidad de pago.
+   * Solo accesible para administradores del mismo tenant.
+   */
+  app.get("/api/admin/students/:studentId/guardians", authenticateToken, async (req: any, res) => {
+    try {
+      const studentId = parseInt(req.params.studentId);
+      const tenantId  = req.user?.tenant_id;
+
+      // Verificar que el alumno pertenece al tenant del usuario
+      const studentCheck = await pool.query(
+        `SELECT id FROM students WHERE id = $1 AND tenant_id = $2`,
+        [studentId, tenantId]
+      );
+      if (studentCheck.rows.length === 0) {
+        return res.status(404).json({ message: "Alumno no encontrado" });
+      }
+
+      const result = await pool.query(`
+        SELECT
+          g.id,
+          g.nombres,
+          g.apellido_paterno,
+          g.apellido_materno,
+          g.nombre_completo,
+          g.tipo_guardian,
+          g.es_padre,
+          g.es_madre,
+          g.email,
+          g.correo_institucional_familiar,
+          g.celular,
+          g.telefono,
+          g.telefono_casa_oficina,
+          sg.es_responsable_pago,
+          sg.porcentaje_responsabilidad
+        FROM student_guardian sg
+        JOIN guardians g ON g.id = sg.guardian_id
+        WHERE sg.student_id = $1
+        ORDER BY sg.es_responsable_pago DESC, g.apellido_paterno ASC
+      `, [studentId]);
+
+      res.json(result.rows);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  /**
+   * PATCH /api/admin/students/:studentId/guardians/:guardianId
+   * Actualiza es_responsable_pago y/o porcentaje_responsabilidad en student_guardian.
+   * Valida que no se deje al alumno sin ningún responsable de pago.
+   */
+  app.patch("/api/admin/students/:studentId/guardians/:guardianId", authenticateToken, async (req: any, res) => {
+    try {
+      const studentId  = parseInt(req.params.studentId);
+      const guardianId = parseInt(req.params.guardianId);
+      const tenantId   = req.user?.tenant_id;
+      const { es_responsable_pago, porcentaje_responsabilidad } = req.body;
+
+      // Verificar tenant
+      const studentCheck = await pool.query(
+        `SELECT id FROM students WHERE id = $1 AND tenant_id = $2`,
+        [studentId, tenantId]
+      );
+      if (studentCheck.rows.length === 0) {
+        return res.status(404).json({ message: "Alumno no encontrado" });
+      }
+
+      // Si se intenta desactivar, verificar que quede al menos otro responsable
+      if (es_responsable_pago === false) {
+        const otrosResponsables = await pool.query(`
+          SELECT COUNT(*) AS cnt
+          FROM student_guardian
+          WHERE student_id = $1
+            AND guardian_id != $2
+            AND es_responsable_pago = true
+        `, [studentId, guardianId]);
+
+        if (Number((otrosResponsables.rows[0] as any).cnt) === 0) {
+          return res.status(422).json({
+            message: "No se puede desactivar: el alumno quedaría sin ningún responsable de pago. Asigna primero a otro tutor como responsable."
+          });
+        }
+      }
+
+      // Construir campos a actualizar
+      const updates: string[] = [];
+      const values: any[]    = [];
+      let idx = 1;
+
+      if (es_responsable_pago !== undefined) {
+        updates.push(`es_responsable_pago = $${idx++}`);
+        values.push(es_responsable_pago);
+      }
+      if (porcentaje_responsabilidad !== undefined) {
+        updates.push(`porcentaje_responsabilidad = $${idx++}`);
+        values.push(porcentaje_responsabilidad);
+      }
+
+      if (updates.length === 0) {
+        return res.status(400).json({ message: "Sin campos para actualizar" });
+      }
+
+      values.push(studentId, guardianId);
+      const result = await pool.query(`
+        UPDATE student_guardian
+        SET ${updates.join(", ")}
+        WHERE student_id = $${idx} AND guardian_id = $${idx + 1}
+        RETURNING *
+      `, values);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ message: "Relación alumno-tutor no encontrada" });
+      }
+
+      res.json(result.rows[0]);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Export students to Excel/CSV
   app.get("/api/admin/students/:campusId/export", authenticateToken, async (req: any, res) => {
     try {

@@ -5,13 +5,202 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Plus, Search, Edit, Trash2, UserCheck, UserX, Phone, Mail, MapPin, AlertTriangle, FileSpreadsheet, Download, Upload, Eye, Loader2, Settings } from "lucide-react";
+import { Users, Plus, Search, Edit, Trash2, UserCheck, UserX, Phone, Mail, MapPin, AlertTriangle, FileSpreadsheet, Download, Upload, Eye, Loader2, Settings, CreditCard, ShieldCheck, ShieldOff } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+
+// ─── TutoresPanel ─────────────────────────────────────────────────────────────
+// Subcomponente: lista los tutores de un alumno y permite cambiar el responsable
+// de pago sin salir del modal.
+
+interface GuardianRow {
+  id: number;
+  nombres: string;
+  apellido_paterno: string | null;
+  apellido_materno: string | null;
+  nombre_completo: string | null;
+  tipo_guardian: string | null;
+  es_padre: boolean;
+  es_madre: boolean;
+  email: string | null;
+  correo_institucional_familiar: string | null;
+  celular: string | null;
+  telefono: string | null;
+  es_responsable_pago: boolean;
+  porcentaje_responsabilidad: string | null;
+}
+
+function TutoresPanel({ studentId, isOpen }: { studentId?: number; isOpen: boolean }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const token = localStorage.getItem("auth_token");
+  const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const { data: tutores = [], isLoading, isError } = useQuery<GuardianRow[]>({
+    queryKey: ["/api/admin/students", studentId, "guardians"],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/students/${studentId}/guardians`, { headers });
+      if (!res.ok) throw new Error(`${res.status}`);
+      return res.json();
+    },
+    enabled: !!studentId && isOpen,
+  });
+
+  const patchMutation = useMutation({
+    mutationFn: async ({
+      guardianId,
+      es_responsable_pago,
+    }: {
+      guardianId: number;
+      es_responsable_pago: boolean;
+    }) => {
+      const res = await fetch(`/api/admin/students/${studentId}/guardians/${guardianId}`, {
+        method: "PATCH",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ es_responsable_pago }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as any).message ?? `Error ${res.status}`);
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/students", studentId, "guardians"] });
+      toast({ title: "Responsable actualizado", description: "El cambio se guardó correctamente." });
+    },
+    onError: (err: Error) => {
+      toast({ title: "No se pudo actualizar", description: err.message, variant: "destructive" });
+    },
+  });
+
+  if (!studentId) return null;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-10">
+        <Loader2 className="w-5 h-5 animate-spin text-blue-500 mr-2" />
+        <span className="text-sm text-gray-500">Cargando tutores...</span>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        No se pudieron cargar los tutores vinculados a este alumno.
+      </div>
+    );
+  }
+
+  if (tutores.length === 0) {
+    return (
+      <div className="py-10 text-center text-gray-500">
+        <Users className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+        <p className="text-sm">Este alumno no tiene tutores vinculados.</p>
+      </div>
+    );
+  }
+
+  const nombreCompleto = (t: GuardianRow) =>
+    t.nombre_completo?.trim() ||
+    [t.nombres, t.apellido_paterno, t.apellido_materno].filter(Boolean).join(" ");
+
+  const contacto = (t: GuardianRow) =>
+    t.email ?? t.correo_institucional_familiar ?? t.celular ?? t.telefono ?? "Sin contacto";
+
+  const tipoLabel = (t: GuardianRow) => {
+    if (t.es_madre) return "Madre";
+    if (t.es_padre) return "Padre";
+    return t.tipo_guardian ?? "Tutor";
+  };
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-gray-500 bg-blue-50 rounded px-3 py-2">
+        <strong>Responsable de pago</strong> — el tutor marcado recibe los cargos, estados de
+        cuenta y notificaciones de cobro. Desactívalo solo si otro tutor asume la responsabilidad.
+      </p>
+
+      {tutores.map((tutor) => {
+        const isPending = patchMutation.isPending && (patchMutation.variables as any)?.guardianId === tutor.id;
+
+        return (
+          <div
+            key={tutor.id}
+            className={`flex items-start gap-4 rounded-lg border p-4 transition-colors ${
+              tutor.es_responsable_pago
+                ? "border-green-200 bg-green-50"
+                : "border-gray-200 bg-white"
+            }`}
+          >
+            {/* Avatar */}
+            <div
+              className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-sm font-semibold ${
+                tutor.es_responsable_pago
+                  ? "bg-green-600 text-white"
+                  : "bg-gray-200 text-gray-600"
+              }`}
+            >
+              {nombreCompleto(tutor).charAt(0).toUpperCase()}
+            </div>
+
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium text-sm">{nombreCompleto(tutor)}</span>
+                <Badge variant="secondary" className="text-xs">{tipoLabel(tutor)}</Badge>
+                {tutor.es_responsable_pago ? (
+                  <Badge className="bg-green-100 text-green-800 text-xs gap-1">
+                    <ShieldCheck className="w-3 h-3" />Responsable de pago
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs gap-1 text-gray-500">
+                    <ShieldOff className="w-3 h-3" />Solo contacto
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5 truncate">{contacto(tutor)}</p>
+              {tutor.porcentaje_responsabilidad && tutor.es_responsable_pago && (
+                <div className="flex items-center gap-1 mt-1">
+                  <CreditCard className="w-3 h-3 text-gray-400" />
+                  <span className="text-xs text-gray-500">
+                    {parseFloat(tutor.porcentaje_responsabilidad).toFixed(0)}% del cargo
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Toggle */}
+            <div className="flex flex-col items-center gap-1 shrink-0">
+              {isPending ? (
+                <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+              ) : (
+                <Switch
+                  checked={tutor.es_responsable_pago}
+                  onCheckedChange={(checked) =>
+                    patchMutation.mutate({ guardianId: tutor.id, es_responsable_pago: checked })
+                  }
+                  disabled={patchMutation.isPending}
+                />
+              )}
+              <span className="text-xs text-gray-400">
+                {tutor.es_responsable_pago ? "Activo" : "Inactivo"}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Página principal ──────────────────────────────────────────────────────────
 
 export default function Estudiantes() {
   const { toast } = useToast();
@@ -1033,6 +1222,56 @@ export default function Estudiantes() {
           ))}
         </div>
       )}
+
+      {/* ── Modal de vista del estudiante con gestión de tutores ────────────── */}
+      <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-blue-600" />
+              {viewingStudent?.nombre_completo}
+            </DialogTitle>
+            <DialogDescription>
+              {viewingStudent?.grado} {viewingStudent?.grupo ? `· Grupo ${viewingStudent.grupo}` : ""}
+              {viewingStudent?.nivel_escolar ? ` · ${viewingStudent.nivel_escolar}` : ""}
+            </DialogDescription>
+          </DialogHeader>
+
+          <Tabs defaultValue="tutores">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="datos">Datos del alumno</TabsTrigger>
+              <TabsTrigger value="tutores">Tutores y pago</TabsTrigger>
+            </TabsList>
+
+            {/* ── Pestaña datos ─────────────────────────────────────────────── */}
+            <TabsContent value="datos" className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                {[
+                  ["CURP",       viewingStudent?.curp],
+                  ["Correo institucional", viewingStudent?.correo_institucional],
+                  ["Fecha de nacimiento", viewingStudent?.fecha_nacimiento],
+                  ["Tipo de sangre",      viewingStudent?.tipo_sangre],
+                  ["Turno",              viewingStudent?.turno],
+                  ["Estatus",            viewingStudent?.status],
+                ].map(([label, val]) => val ? (
+                  <div key={label as string} className="bg-gray-50 rounded p-3">
+                    <div className="text-xs text-gray-500 mb-0.5">{label}</div>
+                    <div className="font-medium">{val}</div>
+                  </div>
+                ) : null)}
+              </div>
+            </TabsContent>
+
+            {/* ── Pestaña tutores ────────────────────────────────────────────── */}
+            <TabsContent value="tutores" className="mt-4">
+              <TutoresPanel
+                studentId={viewingStudent?.id}
+                isOpen={showViewModal}
+              />
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal para agregar estudiante */}
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>

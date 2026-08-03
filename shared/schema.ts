@@ -899,6 +899,63 @@ export const insertInstitutionalCredentialSchema = createInsertSchema(institutio
 export type InstitutionalCredential = typeof institutional_credentials.$inferSelect;
 export type InsertInstitutionalCredential = z.infer<typeof insertInstitutionalCredentialSchema>;
 
+// ── NÚCLEO DE FAMILIA ─────────────────────────────────────────────────────────
+/**
+ * Familia: unidad de cobro consolidada.
+ * El saldo NUNCA se almacena aquí — siempre se calcula desde payment_applications.
+ */
+export const families = pgTable("families", {
+  id: serial("id").primaryKey(),
+  tenant_id: integer("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  campus_id: integer("campus_id").references(() => campuses.id, { onDelete: "cascade" }).notNull(),
+  nombre: varchar("nombre", { length: 300 }).notNull(),
+  clabe_virtual: varchar("clabe_virtual", { length: 18 }), // Placeholder; CLABE real en fase posterior
+  guardian_id_principal: integer("guardian_id_principal").references(() => guardians.id),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+export type Family = typeof families.$inferSelect;
+export type InsertFamily = typeof families.$inferInsert;
+
+/** Relación familia ↔ alumnos */
+export const family_students = pgTable("family_students", {
+  family_id: integer("family_id").references(() => families.id, { onDelete: "cascade" }).notNull(),
+  student_id: integer("student_id").references(() => students.id, { onDelete: "cascade" }).notNull(),
+}, (table) => ({ pk: primaryKey({ columns: [table.family_id, table.student_id] }) }));
+
+/**
+ * Tabla puente de aplicaciones de pago.
+ * Un pago puede cubrir parcialmente uno o varios cargos.
+ * La suma de payment_applications por charge_id define cuánto está pagado de ese cargo.
+ */
+export const payment_applications = pgTable("payment_applications", {
+  id: serial("id").primaryKey(),
+  payment_id: integer("payment_id").references(() => payments.id, { onDelete: "cascade" }).notNull(),
+  charge_id: integer("charge_id").references(() => charges.id, { onDelete: "cascade" }).notNull(),
+  amount_centavos: bigint("amount_centavos", { mode: "number" }).notNull(),
+  applied_at: timestamp("applied_at").defaultNow().notNull(),
+});
+export type PaymentApplication = typeof payment_applications.$inferSelect;
+export type InsertPaymentApplication = typeof payment_applications.$inferInsert;
+
+/**
+ * Registro crudo de webhooks/eventos de pasarela de pagos.
+ * La constraint UNIQUE (provider, provider_event_id) garantiza idempotencia.
+ */
+export const payment_events = pgTable("payment_events", {
+  id: serial("id").primaryKey(),
+  tenant_id: integer("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  provider: varchar("provider", { length: 50 }).notNull(), // 'conekta', 'stripe', 'spei', 'oxxo'
+  provider_event_id: varchar("provider_event_id", { length: 255 }).notNull(), // ID único del evento en el proveedor
+  payload: text("payload"), // JSON raw del webhook
+  processed_at: timestamp("processed_at"),
+  status: varchar("status", { length: 20 }).default("received").notNull(), // 'received', 'processed', 'failed', 'duplicate'
+  error_message: text("error_message"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+export type PaymentEvent = typeof payment_events.$inferSelect;
+export type InsertPaymentEvent = typeof payment_events.$inferInsert;
+
 // ── TRANSACCIONES BANCARIAS (Conciliación SPEI) ──────────────────────────────
 export const bank_transactions = pgTable("bank_transactions", {
   id: serial("id").primaryKey(),

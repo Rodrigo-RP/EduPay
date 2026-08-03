@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,7 +91,67 @@ export default function Familias() {
     }
   ]);
 
-  const [familias, setFamilias] = useState([
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [familias, setFamilias] = useState<any[]>([]);
+
+  // Cargar familias reales desde la API
+  useEffect(() => {
+    async function loadFamilias() {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const token = localStorage.getItem("auth_token");
+        const userData = localStorage.getItem("auth_user");
+        const user = userData ? JSON.parse(userData) : null;
+        const campusId = user?.campus_id;
+        if (!campusId) {
+          setLoadError("No se encontró campus del usuario. Inicia sesión nuevamente.");
+          return;
+        }
+        const res = await fetch(`/api/families/${campusId}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) throw new Error(`Error ${res.status}: ${await res.text()}`);
+        const data: any[] = await res.json();
+        // Normalizar campos para compatibilidad con la UI existente
+        const normalized = data.map((f) => ({
+          ...f,
+          numero_familia: `FAM${String(f.id).padStart(3, "0")}`,
+          padre_nombre: f.nombre,
+          padre_telefono: "",
+          padre_email: "",
+          madre_nombre: "",
+          madre_telefono: "",
+          madre_email: "",
+          direccion: "",
+          ciudad: "Querétaro",
+          codigo_postal: "",
+          razon_social: f.nombre,
+          rfc: "",
+          estatus: "activo",
+          // La API devuelve estudiantes bajo "estudiantes"
+          estudiantes_vinculados: (f.estudiantes || []).map((s: any) => ({
+            id: s.id,
+            nombre: s.nombre_completo,
+            grado: `${s.grado || ""} ${s.grupo || ""}`.trim(),
+          })),
+          saldo_total: f.saldo_pendiente_centavos ?? 0,
+          fecha_registro: f.created_at ? f.created_at.split("T")[0] : "",
+        }));
+        setFamilias(normalized);
+      } catch (err: any) {
+        setLoadError(err.message || "Error al cargar familias");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadFamilias();
+  }, []);
+
+  // ── PLACEHOLDER (mantenido para que los formularios de alta sigan funcionando) ──
+  const _unusedPlaceholder = [
     {
       id: 1,
       numero_familia: "FAM001",
@@ -304,7 +364,7 @@ export default function Familias() {
       saldo_total: 760000,
       fecha_registro: "2024-08-26"
     }
-  ]);
+  ]; // _unusedPlaceholder — solo referencia para los formularios de alta
 
   // Lista de estudiantes disponibles para vincular
   const estudiantesDisponibles = [
@@ -923,6 +983,28 @@ export default function Familias() {
     promedioHijos: familias.reduce((sum, f) => sum + f.estudiantes_vinculados.length, 0) / familias.length
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-slate-600">Cargando familias…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50">
+        <div className="bg-white rounded-xl p-8 shadow-lg border border-red-100 max-w-md text-center">
+          <p className="text-red-600 font-semibold mb-2">Error al cargar familias</p>
+          <p className="text-slate-500 text-sm">{loadError}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 relative overflow-hidden">
       {/* Decorative background elements */}
@@ -1134,7 +1216,7 @@ export default function Familias() {
                           <span className="text-xs font-medium text-slate-700">Estudiantes vinculados:</span>
                           {familia.estudiantes_vinculados.length > 0 ? (
                             <div className="flex gap-1">
-                              {familia.estudiantes_vinculados.map((estudiante, index) => (
+                              {familia.estudiantes_vinculados.map((estudiante: any, index: number) => (
                                 <Badge key={index} variant="outline" className="text-xs">
                                   {estudiante.nombre} ({estudiante.grado})
                                 </Badge>

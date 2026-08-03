@@ -6944,6 +6944,155 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) { res.status(500).json({ message: error.message }); }
   });
 
+  // ── FAMILIAS ──────────────────────────────────────────────────────────────
+
+  /**
+   * GET /api/families/:campusId
+   * Lista las familias del campus con su balance consolidado.
+   * Exclusivo para usuarios de tipo 'user' (staff/admin). Los guardianes no tienen acceso.
+   */
+  app.get("/api/families/:campusId", authenticateToken, async (req, res) => {
+    try {
+      const { campusId: campusIdStr } = req.params;
+      const campusId = Number(campusIdStr);
+      if (isNaN(campusId)) return res.status(400).json({ message: "campusId inválido" });
+
+      const user = (req as any).user;
+      // Bloquear guardianes: type='guardian' no debe acceder a datos financieros de otras familias
+      if (user?.type === 'guardian') {
+        return res.status(403).json({ message: "Acceso denegado: solo personal administrativo puede ver la lista de familias" });
+      }
+      const tenantId = user?.tenant_id;
+      if (!tenantId) return res.status(403).json({ message: "Sin contexto de tenant" });
+
+      // Validar que el campus pertenece al tenant del admin
+      const campus = await storage.getCampusScoped(campusId, tenantId);
+      if (!campus) return res.status(403).json({ message: "Campus no autorizado para este tenant" });
+
+      // Obtener familias del campus
+      const familyList = await storage.getFamiliesByTenant(tenantId, campusId);
+
+      // Calcular balance para cada familia en paralelo
+      const withBalance = await Promise.all(
+        familyList.map(async (f) => {
+          const balance = await storage.getFamilyBalance(f.id, tenantId);
+          return { ...f, ...balance };
+        })
+      );
+
+      // Añadir alumnos vinculados
+      const withStudents = await Promise.all(
+        withBalance.map(async (f) => {
+          const rows = await pool.query(
+            `SELECT s.id, s.nombre_completo, s.grado, s.grupo
+             FROM family_students fs
+             JOIN students s ON s.id = fs.student_id
+             WHERE fs.family_id = $1`,
+            [f.id]
+          );
+          return { ...f, estudiantes: rows.rows };
+        })
+      );
+
+      res.json(withStudents);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  /**
+   * GET /api/family/:id/balance
+   * Retorna el balance detallado de una familia.
+   * id = family id (no campus id).
+   * Exclusivo para usuarios de tipo 'user' (staff/admin).
+   */
+  app.get("/api/family/:id/balance", authenticateToken, async (req, res) => {
+    try {
+      const familyId = Number(req.params.id);
+      if (isNaN(familyId)) return res.status(400).json({ message: "id inválido" });
+
+      const user = (req as any).user;
+      if (user?.type === 'guardian') {
+        return res.status(403).json({ message: "Acceso denegado: solo personal administrativo puede consultar balances de familia" });
+      }
+      const tenantId = user?.tenant_id;
+      if (!tenantId) return res.status(403).json({ message: "Sin contexto de tenant" });
+
+      const family = await storage.getFamilyScoped(familyId, tenantId);
+      if (!family) return res.status(404).json({ message: "Familia no encontrada" });
+
+      const balance = await storage.getFamilyBalance(familyId, tenantId);
+
+      // Detalle de cargos y pagos aplicados
+      const chargesDetail = await pool.query(
+        `SELECT c.id, c.concepto_nombre, c.monto_base_centavos, c.estado,
+                s.nombre_completo AS alumno,
+                COALESCE(SUM(pa.amount_centavos), 0) AS pagado_centavos
+         FROM family_students fs
+         JOIN students s ON s.id = fs.student_id
+         JOIN charges c ON c.student_id = fs.student_id
+         LEFT JOIN payment_applications pa ON pa.charge_id = c.id
+         WHERE fs.family_id = $1
+         GROUP BY c.id, c.concepto_nombre, c.monto_base_centavos, c.estado, s.nombre_completo
+         ORDER BY c.id`,
+        [familyId]
+      );
+
+      res.json({
+        familia: {
+          id: family.id,
+          nombre: family.nombre,
+          campus_id: family.campus_id,
+          guardian_id_principal: family.guardian_id_principal,
+        },
+        balance,
+        cargos: chargesDetail.rows,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  /**
+   * POST /api/payment-events
+   * Recibe eventos de pasarela de pagos de forma idempotente.
+   * Retorna 200 si ya existía (duplicado silencioso), 201 si nuevo.
+   * Exclusivo para personal administrativo. En producción también debe validarse
+   * la firma HMAC del proveedor antes de llegar aquí.
+   */
+  app.post("/api/payment-events", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      if (user?.type === 'guardian') {
+        return res.status(403).json({ message: "Acceso denegado: solo personal administrativo puede registrar eventos de pago" });
+      }
+      const tenantId = user?.tenant_id;
+      if (!tenantId) return res.status(403).json({ message: "Sin contexto de tenant" });
+
+      const { provider, provider_event_id, payload } = req.body;
+      if (!provider || !provider_event_id) {
+        return res.status(400).json({ message: "provider y provider_event_id son requeridos" });
+      }
+
+      const { created, event } = await storage.recordPaymentEvent({
+        tenant_id: tenantId,
+        provider: String(provider),
+        provider_event_id: String(provider_event_id),
+        payload: payload ? JSON.stringify(payload) : null,
+        status: "received",
+      });
+
+      res.status(created ? 201 : 200).json({
+        created,
+        duplicate: !created,
+        event_id: event.id,
+        status: event.status,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // /api/admin/dashboard — alias sin campusId (lee del JWT)
   app.get("/api/admin/dashboard", authenticateToken, async (req, res) => {
     try {

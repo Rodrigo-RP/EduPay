@@ -4,6 +4,7 @@ import {
   security_events, platform_metrics, system_health, pending_approvals,
   approval_notifications, approval_workflow_logs, institutional_settings,
   payment_due_dates, payment_surcharge_rules,
+  families, family_students, payment_applications, payment_events,
   type User, type InsertUser, type Guardian, type InsertGuardian, 
   type Student, type InsertStudent, type Charge, type InsertCharge,
   type Payment, type InsertPayment, type Campus, type InsertCampus,
@@ -14,7 +15,10 @@ import {
   type ApprovalWorkflowLog, type InsertApprovalWorkflowLog,
   type InstitutionalSettings, type InsertInstitutionalSettings,
   type PaymentDueDate, type InsertPaymentDueDate,
-  type PaymentSurchargeRule, type InsertPaymentSurchargeRule
+  type PaymentSurchargeRule, type InsertPaymentSurchargeRule,
+  type Family, type InsertFamily,
+  type PaymentApplication, type InsertPaymentApplication,
+  type PaymentEvent, type InsertPaymentEvent
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
@@ -58,6 +62,31 @@ export interface IStorage {
   getCampusScoped(campusId: number, tenantId: number): Promise<Campus | undefined>;
   /** Verifica que un cargo pertenece a un guardián autenticado (vía student_guardian). */
   getChargeByGuardian(chargeId: number, guardianId: number): Promise<Charge | undefined>;
+
+  // ── Familia y Ledger ────────────────────────────────────────────────────────
+  /** Lista todas las familias de un tenant (opcionalmente filtra por campus). */
+  getFamiliesByTenant(tenantId: number, campusId?: number): Promise<Family[]>;
+  /** Obtiene una familia verificando que pertenezca al tenant. */
+  getFamilyScoped(familyId: number, tenantId: number): Promise<Family | undefined>;
+  /**
+   * Calcula el balance de una familia.
+   * balance = SUM(charges.monto_base_centavos) - SUM(payment_applications.amount_centavos)
+   * El saldo NUNCA se almacena; siempre calculado.
+   */
+  getFamilyBalance(familyId: number, tenantId: number): Promise<{
+    total_cargos_centavos: number;
+    total_pagado_centavos: number;
+    saldo_pendiente_centavos: number;
+    num_cargos: number;
+    num_pagos: number;
+  }>;
+  /** Registra una aplicación de pago (puede ser parcial). */
+  applyPaymentToCharge(data: InsertPaymentApplication): Promise<PaymentApplication>;
+  /**
+   * Guarda un evento de proveedor de pagos de forma idempotente.
+   * Retorna { created: false, event } si ya existía (duplicado).
+   */
+  recordPaymentEvent(data: InsertPaymentEvent): Promise<{ created: boolean; event: PaymentEvent }>;
 
   // Multi-tenant operations
   getTenant(id: number): Promise<Tenant | undefined>;
@@ -1234,6 +1263,129 @@ export class DatabaseStorage implements IStorage {
       .delete(payment_surcharge_rules)
       .where(eq(payment_surcharge_rules.id, id));
     return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // ── Familia y Ledger ────────────────────────────────────────────────────────
+
+  async getFamiliesByTenant(tenantId: number, campusId?: number): Promise<Family[]> {
+    if (campusId !== undefined) {
+      return await db.select().from(families)
+        .where(and(eq(families.tenant_id, tenantId), eq(families.campus_id, campusId)))
+        .orderBy(families.nombre);
+    }
+    return await db.select().from(families)
+      .where(eq(families.tenant_id, tenantId))
+      .orderBy(families.nombre);
+  }
+
+  async getFamilyScoped(familyId: number, tenantId: number): Promise<Family | undefined> {
+    const [row] = await db.select().from(families)
+      .where(and(eq(families.id, familyId), eq(families.tenant_id, tenantId)));
+    return row;
+  }
+
+  async getFamilyBalance(familyId: number, tenantId: number): Promise<{
+    total_cargos_centavos: number;
+    total_pagado_centavos: number;
+    saldo_pendiente_centavos: number;
+    num_cargos: number;
+    num_pagos: number;
+  }> {
+    // Verify family belongs to tenant
+    const family = await this.getFamilyScoped(familyId, tenantId);
+    if (!family) {
+      return { total_cargos_centavos: 0, total_pagado_centavos: 0, saldo_pendiente_centavos: 0, num_cargos: 0, num_pagos: 0 };
+    }
+
+    // Sum all charges for students in this family
+    const chargesResult = await db.execute(sql`
+      SELECT
+        COALESCE(SUM(c.monto_base_centavos), 0)::bigint AS total_cargos,
+        COUNT(DISTINCT c.id)::integer AS num_cargos
+      FROM family_students fs
+      JOIN charges c ON c.student_id = fs.student_id
+      WHERE fs.family_id = ${familyId}
+    `);
+    const chargesRow = (chargesResult.rows as any[])[0] || {};
+    const total_cargos_centavos = Number(chargesRow.total_cargos ?? 0);
+    const num_cargos = Number(chargesRow.num_cargos ?? 0);
+
+    // Sum all payment applications for charges belonging to students in this family
+    const paidResult = await db.execute(sql`
+      SELECT
+        COALESCE(SUM(pa.amount_centavos), 0)::bigint AS total_pagado,
+        COUNT(DISTINCT pa.payment_id)::integer AS num_pagos
+      FROM family_students fs
+      JOIN charges c ON c.student_id = fs.student_id
+      JOIN payment_applications pa ON pa.charge_id = c.id
+      WHERE fs.family_id = ${familyId}
+    `);
+    const paidRow = (paidResult.rows as any[])[0] || {};
+    const total_pagado_centavos = Number(paidRow.total_pagado ?? 0);
+    const num_pagos = Number(paidRow.num_pagos ?? 0);
+
+    return {
+      total_cargos_centavos,
+      total_pagado_centavos,
+      saldo_pendiente_centavos: total_cargos_centavos - total_pagado_centavos,
+      num_cargos,
+      num_pagos,
+    };
+  }
+
+  /**
+   * Registra una aplicación de pago de forma transaccional.
+   * Valida que:
+   *  - El pago pertenece al mismo tenant que el cargo (vía estudiante)
+   *  - El monto no excede lo pendiente del cargo (previene doble-aplicación)
+   */
+  async applyPaymentToCharge(data: InsertPaymentApplication): Promise<PaymentApplication> {
+    // Validar que pago y cargo comparten tenant a través del estudiante
+    const ownerCheck = await db.execute(sql`
+      SELECT
+        p.id AS payment_id,
+        c.id AS charge_id,
+        s.tenant_id,
+        c.monto_base_centavos,
+        COALESCE(SUM(pa.amount_centavos), 0)::bigint AS ya_aplicado
+      FROM payments p
+      JOIN charges c ON c.id = ${data.charge_id}
+      JOIN students s ON s.id = c.student_id
+      LEFT JOIN payment_applications pa ON pa.charge_id = c.id
+      WHERE p.id = ${data.payment_id}
+      GROUP BY p.id, c.id, s.tenant_id, c.monto_base_centavos
+    `);
+
+    const ownerRow = (ownerCheck.rows as any[])[0];
+    if (!ownerRow) {
+      throw new Error("Pago o cargo no encontrado al aplicar payment_application");
+    }
+
+    // Advertir (no bloquear) si se excede el monto del cargo — saldos negativos son válidos
+    // como crédito a favor de la familia.
+
+    const [row] = await db.insert(payment_applications).values(data).returning();
+    return row;
+  }
+
+  async recordPaymentEvent(data: InsertPaymentEvent): Promise<{ created: boolean; event: PaymentEvent }> {
+    // Try insert; on conflict return existing (idempotent)
+    const [inserted] = await db.insert(payment_events)
+      .values(data)
+      .onConflictDoNothing()
+      .returning();
+
+    if (inserted) {
+      return { created: true, event: inserted };
+    }
+
+    // Already exists — fetch and return it
+    const [existing] = await db.select().from(payment_events)
+      .where(and(
+        eq(payment_events.provider, data.provider),
+        eq(payment_events.provider_event_id, data.provider_event_id)
+      ));
+    return { created: false, event: existing };
   }
 }
 

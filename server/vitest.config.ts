@@ -7,7 +7,9 @@ export default defineConfig({
     environment: "node",
     hookTimeout: 30000,
     testTimeout: 30000,
-    include: ["tests/family-ledger.test.ts"],
+    // Paths are relative to this config file's location (server/).
+    // Running: cd server && npx vitest run  OR  npm test from root via package.json
+    include: ["tests/family-ledger.test.ts", "tests/state-machines.test.ts"],
   },
   resolve: {
     alias: {

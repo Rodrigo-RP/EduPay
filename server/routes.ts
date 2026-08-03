@@ -1700,18 +1700,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Derivar monto del cargo validado, no del body del request
+      const tenantIdPago = (ownedCharge as any).tenant_id ?? req.guardian?.tenant_id;
       const payment = await storage.createPayment({
         charge_id,
         guardian_id: guardianId,
-        tenant_id: (ownedCharge as any).tenant_id ?? req.guardian?.tenant_id,
+        tenant_id: tenantIdPago,
         metodo: payment_method,
         referencia_pasarela: `ref_${Date.now()}`,
         monto_centavos: ownedCharge.monto_base_centavos + (ownedCharge.recargo_aplicado_centavos || 0),
-        estado: "exitoso",
+        estado: "pendiente", // Siempre crear en pendiente y transicionar via state machine
       });
 
-      // Update charge status
-      await storage.updateChargeStatus(charge_id, "pagado");
+      // Confirmar pago: pendiente → exitoso (auditado)
+      await storage.updatePaymentStatus(payment.id, "exitoso", {
+        tenantId:   tenantIdPago,
+        guardianId: guardianId,
+        ip:         req.ip,
+        metadata:   { flujo: 'guardian_pago', referencia: payment.referencia_pasarela },
+      });
+
+      // Update charge status con contexto de actor (guardian + IP)
+      await storage.updateChargeStatus(charge_id, "pagado", {
+        tenantId:   tenantIdPago,
+        guardianId: guardianId,
+        ip:         req.ip,
+        metadata:   { flujo: 'guardian_pago', monto_centavos: payment.monto_centavos },
+      });
 
       // Notify real-time update for payment
       const guardianUser = (req as any).guardian;
@@ -4374,19 +4388,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       case 'cancel_payment':
         if (entity_type === 'payment' && entity_id) {
-          // Update payment status to cancelled
-          await db.update(payments)
-            .set({ estado: 'cancelled' })
-            .where(eq(payments.id, entity_id));
+          // pendiente → fallido es la transición de cancelación válida
+          // (exitoso ya no se puede cancelar — usar refund_payment para reversarlo)
+          await storage.updatePaymentStatus(entity_id, 'fallido', {
+            tenantId: approval.tenant_id,
+            userId:   approval.approved_by ?? approval.requested_by,
+            metadata: { flujo: 'approval_workflow', action: 'cancel_payment' },
+          });
         }
         break;
 
       case 'refund_payment':
         if (entity_type === 'payment' && entity_id) {
-          // Update payment status to refunded
-          await db.update(payments)
-            .set({ estado: 'refunded' })
-            .where(eq(payments.id, entity_id));
+          // exitoso → reversado es la única transición válida para reembolso
+          await storage.updatePaymentStatus(entity_id, 'reversado', {
+            tenantId: approval.tenant_id,
+            userId:   approval.approved_by ?? approval.requested_by,
+            metadata: { flujo: 'approval_workflow', action: 'refund_payment' },
+          });
         }
         break;
 
@@ -4735,27 +4754,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
+        const tenantIdLote = (charge as any).tenant_id ?? req.guardian.tenant_id;
         const payment = await storage.createPayment({
           charge_id: chargeId,
           guardian_id: guardianId,
-          tenant_id: (charge as any).tenant_id ?? req.guardian.tenant_id,
+          tenant_id: tenantIdLote,
           metodo: metodo_pago,
           referencia_pasarela: `sim_${Date.now()}_${chargeId}`,
           monto_centavos: charge.monto_base_centavos + (charge.recargo_aplicado_centavos || 0),
-          estado: "exitoso",
+          estado: "pendiente", // crear como pendiente y transicionar via state machine
         });
 
-        await storage.updateChargeStatus(chargeId, "pagado");
+        // Confirmar pago: pendiente → exitoso (auditado)
+        await storage.updatePaymentStatus(payment.id, "exitoso", {
+          tenantId:   tenantIdLote,
+          guardianId: guardianId,
+          ip:         req.ip,
+          metadata:   { flujo: 'guardian_pagar_lote', referencia: payment.referencia_pasarela },
+        });
 
-        // Factura CFDI simulada
+        await storage.updateChargeStatus(chargeId, "pagado", {
+          tenantId:   tenantIdLote,
+          guardianId: guardianId,
+          ip:         req.ip,
+          metadata:   { flujo: 'guardian_pagar_lote', monto_centavos: payment.monto_centavos },
+        });
+
+        // Factura CFDI simulada: crear en pendiente y transicionar a emitido (auditado)
         const cfdiUUID = `${Date.now()}-${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
-        await db.insert(invoices).values({
+        const [newInvoice] = await db.insert(invoices).values({
           payment_id: payment.id,
-          tenant_id: (charge as any).tenant_id ?? req.guardian.tenant_id,
+          tenant_id: tenantIdLote,
           uuid_cfdi: cfdiUUID,
           xml_url: `/api/demo/cfdi/${cfdiUUID}.xml`,
           pdf_url: `/api/demo/cfdi/${cfdiUUID}.pdf`,
-          estado: "emitido",
+          estado: "pendiente", // pendiente → emitido via state machine
+        }).returning();
+
+        // Timbrar: pendiente → emitido (auditado)
+        await storage.updateInvoiceStatus(newInvoice.id, "emitido", {
+          tenantId:   tenantIdLote,
+          guardianId: guardianId,
+          ip:         req.ip,
+          metadata:   { flujo: 'guardian_pagar_lote_cfdi', uuid: cfdiUUID },
         });
 
         results.push({ charge_id: chargeId, payment_id: payment.id, cfdi: cfdiUUID });
@@ -6085,12 +6126,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const chargeId = (chargeRow.rows as any[])[0]?.id;
       let paymentId;
       if (chargeId) {
+        const referencia = `CAJA-${Date.now()}`;
+        const tenantIdCaja = (req as any).user?.tenant_id;
+        const userIdCaja   = (req as any).user?.id;
+        // Crear pago como pendiente y confirmar via state machine (queda auditado)
         const paymentRow = await pool.query(`
-          INSERT INTO payments (charge_id, guardian_id, metodo, monto_centavos, estado, referencia_pasarela)
-          VALUES ($1, NULL, 'efectivo', $2, 'exitoso', $3) RETURNING id
-        `, [chargeId, montoCentavos, `CAJA-${Date.now()}`]);
+          INSERT INTO payments (charge_id, guardian_id, metodo, monto_centavos, estado, referencia_pasarela, tenant_id)
+          VALUES ($1, NULL, 'efectivo', $2, 'pendiente', $3, $4) RETURNING id
+        `, [chargeId, montoCentavos, referencia, tenantIdCaja]);
         paymentId = (paymentRow.rows as any[])[0]?.id;
-        await pool.query(`UPDATE charges SET estado = 'pagado' WHERE id = $1`, [chargeId]);
+        // pendiente → exitoso
+        await storage.updatePaymentStatus(paymentId, 'exitoso', {
+          tenantId: tenantIdCaja,
+          userId:   userIdCaja,
+          ip:       req.ip,
+          metadata: { flujo: 'caja_efectivo', referencia },
+        });
+        // pendiente → pagado (cargo)
+        await storage.updateChargeStatus(chargeId, 'pagado', {
+          tenantId: tenantIdCaja,
+          userId:   userIdCaja,
+          ip:       req.ip,
+          metadata: { flujo: 'caja_efectivo', monto_centavos: montoCentavos },
+        });
       }
       res.json({ message: "Pago en efectivo registrado", payment_id: paymentId, monto_centavos: montoCentavos });
     } catch (error: any) {
@@ -6378,7 +6436,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const uuid = `REGEN-${Date.now()}-${id}`;
-      await pool.query(`UPDATE invoices SET uuid_cfdi=$1, estado='emitido', created_at=NOW() WHERE id=$2`, [uuid, id]).catch(() => {});
+      // UUID + estado se actualizan atómicamente en una sola transacción (sin .catch — errores propagan)
+      await storage.updateInvoiceStatus(
+        id,
+        'emitido',
+        {
+          tenantId: (req as any).user?.tenant_id,
+          userId:   (req as any).user?.id,
+          ip:       req.ip,
+          metadata: { flujo: 'cfdi_regenerado', uuid },
+        },
+        { uuid_cfdi: uuid }   // extraFields: actualiza UUID en la misma txn
+      );
       res.json({ uuid, mensaje: "CFDI regenerado correctamente" });
     } catch (error: any) { res.status(500).json({ message: error.message }); }
   });
@@ -6386,7 +6455,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/fiscal/cancelar-cfdi", authenticateToken, async (req, res) => {
     try {
       const { invoice_id, motivo } = req.body;
-      await pool.query(`UPDATE invoices SET estado='cancelado' WHERE id=$1`, [invoice_id]).catch(() => {});
+      // Sin .catch — la transición emitido → cancelado debe auditarse o fallar explícitamente
+      await storage.updateInvoiceStatus(invoice_id, 'cancelado', {
+        tenantId: (req as any).user?.tenant_id,
+        userId:   (req as any).user?.id,
+        ip:       req.ip,
+        metadata: { flujo: 'cancelacion_cfdi', motivo },
+      });
       res.json({ mensaje: "CFDI cancelado correctamente", motivo });
     } catch (error: any) { res.status(500).json({ message: error.message }); }
   });
@@ -7088,6 +7163,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         event_id: event.id,
         status: event.status,
       });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ── AUDIT LOG ────────────────────────────────────────────────────────────────
+
+  /**
+   * GET /api/audit-log
+   * Devuelve el log de auditoría filtrable por fecha, acción, tipo de entidad y búsqueda.
+   * Exclusivo para usuarios de tipo 'user' (staff/admin). Los guardianes no tienen acceso.
+   *
+   * Query params:
+   *   limit  (default 50, max 200)
+   *   offset (default 0)
+   *   desde  (fecha YYYY-MM-DD)
+   *   hasta  (fecha YYYY-MM-DD)
+   *   action (ej. 'charge.status_changed')
+   *   entityType
+   *   userId
+   *   search
+   */
+  app.get("/api/audit-log", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      if (user?.type === "guardian") {
+        return res.status(403).json({ message: "Acceso denegado: solo personal administrativo puede ver el historial de auditoría" });
+      }
+      const tenantId = user?.tenant_id;
+      if (!tenantId) return res.status(403).json({ message: "Sin contexto de tenant" });
+
+      const { limit, offset, desde, hasta, action, entityType, userId, search } = req.query as Record<string, string | undefined>;
+
+      const result = await storage.getAuditLog(tenantId, {
+        limit:      limit  ? Number(limit)  : undefined,
+        offset:     offset ? Number(offset) : undefined,
+        desde,
+        hasta,
+        action,
+        entityType,
+        userId:     userId ? Number(userId) : undefined,
+        search,
+      });
+
+      res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

@@ -288,7 +288,7 @@ export const payments = pgTable("payments", {
   referencia_pasarela: varchar("referencia_pasarela", { length: 255 }),
   monto_centavos: bigint("monto_centavos", { mode: "number" }).notNull(),
   fecha_pago: timestamp("fecha_pago").defaultNow(),
-  estado: varchar("estado", { length: 50 }).default("exitoso"), // 'exitoso', 'fallido', 'reversado'
+  estado: varchar("estado", { length: 50 }).default("pendiente"), // 'pendiente' → 'exitoso' | 'fallido' → 'reversado'
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
@@ -314,7 +314,7 @@ export const invoices = pgTable("invoices", {
   uuid_cfdi: varchar("uuid_cfdi", { length: 255 }),
   xml_url: text("xml_url"),
   pdf_url: text("pdf_url"),
-  estado: varchar("estado", { length: 50 }).default("emitido"), // 'emitido', 'cancelado'
+  estado: varchar("estado", { length: 50 }).default("pendiente"), // 'pendiente' → 'emitido' | 'cancelado'
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
@@ -1034,5 +1034,28 @@ export const financial_events = pgTable("financial_events", {
   created_at: timestamp("created_at").defaultNow(),
 });
 export type FinancialEvent = typeof financial_events.$inferSelect;
+
+// ── AUDIT LOG (Inmutable) ─────────────────────────────────────────────────────
+/**
+ * Registro de auditoría inmutable para acciones financieras sensibles.
+ * RLS: solo INSERT; UPDATE y DELETE bloqueados a nivel de base de datos.
+ * Nunca borres ni actualices registros de esta tabla desde el código.
+ */
+export const audit_log = pgTable("audit_log", {
+  id:              serial("id").primaryKey(),
+  tenant_id:       integer("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  user_id:         integer("user_id").references(() => users.id, { onDelete: "set null" }),       // null si acción de sistema/guardian
+  guardian_id:     integer("guardian_id").references(() => guardians.id, { onDelete: "set null" }), // null si acción de admin
+  action:          varchar("action", { length: 100 }).notNull(),         // 'charge.status_changed', 'payment.confirmed', etc.
+  entity_type:     varchar("entity_type", { length: 50 }).notNull(),     // 'charge', 'payment', 'invoice'
+  entity_id:       integer("entity_id").notNull(),
+  previous_value:  text("previous_value"),  // JSON del estado/valor anterior
+  new_value:       text("new_value"),       // JSON del estado/valor nuevo
+  ip_address:      varchar("ip_address", { length: 45 }),
+  metadata:        text("metadata"),        // JSON con contexto adicional (monto, alumno, etc.)
+  created_at:      timestamp("created_at").defaultNow().notNull(),
+});
+export type AuditLogEntry = typeof audit_log.$inferSelect;
+export type InsertAuditLogEntry = typeof audit_log.$inferInsert;
 
 

@@ -5,6 +5,7 @@ import {
   approval_notifications, approval_workflow_logs, institutional_settings,
   payment_due_dates, payment_surcharge_rules,
   families, family_students, payment_applications, payment_events,
+  audit_log,
   type User, type InsertUser, type Guardian, type InsertGuardian, 
   type Student, type InsertStudent, type Charge, type InsertCharge,
   type Payment, type InsertPayment, type Campus, type InsertCampus,
@@ -18,8 +19,10 @@ import {
   type PaymentSurchargeRule, type InsertPaymentSurchargeRule,
   type Family, type InsertFamily,
   type PaymentApplication, type InsertPaymentApplication,
-  type PaymentEvent, type InsertPaymentEvent
+  type PaymentEvent, type InsertPaymentEvent,
+  type AuditLogEntry, type InsertAuditLogEntry
 } from "@shared/schema";
+import { transition, InvalidStateTransitionError, type StateMachineEntity } from "./state-machines";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import bcrypt from "bcrypt";
@@ -108,7 +111,44 @@ export interface IStorage {
   getChargesByCampus(campusId: number): Promise<Charge[]>;
   getPendingChargesByGuardian(guardianId: number): Promise<(Charge & { student: Student; concept: Concept })[]>;
   createCharge(charge: InsertCharge): Promise<Charge>;
-  updateChargeStatus(chargeId: number, status: string): Promise<void>;
+  /** Valida transición de estado (state machine), actualiza y emite audit_log. Atómico con SELECT FOR UPDATE. */
+  updateChargeStatus(
+    chargeId: number,
+    status: string,
+    ctx?: { tenantId?: number; userId?: number; guardianId?: number; ip?: string; metadata?: Record<string, unknown> }
+  ): Promise<void>;
+  /** Valida transición de estado de pago, actualiza y emite audit_log. Atómico con SELECT FOR UPDATE. */
+  updatePaymentStatus(
+    paymentId: number,
+    status: string,
+    ctx?: { tenantId?: number; userId?: number; guardianId?: number; ip?: string; metadata?: Record<string, unknown> }
+  ): Promise<void>;
+  /** Valida transición de estado de factura, actualiza y emite audit_log. Atómico con SELECT FOR UPDATE.
+   *  @param extraFields  Campos adicionales (ej. uuid_cfdi al regenerar CFDI) actualizados en la misma txn. */
+  updateInvoiceStatus(
+    invoiceId: number,
+    status: string,
+    ctx?: { tenantId?: number; userId?: number; guardianId?: number; ip?: string; metadata?: Record<string, unknown> },
+    extraFields?: Partial<{ uuid_cfdi: string; xml_url: string; pdf_url: string }>
+  ): Promise<void>;
+
+  // ── Audit Log ────────────────────────────────────────────────────────────────
+  /**
+   * Registra una entrada de auditoría. Solo INSERT; nunca UPDATE ni DELETE.
+   * Debe llamarse dentro de la misma transacción que la operación auditada.
+   */
+  appendAuditLog(entry: InsertAuditLogEntry): Promise<AuditLogEntry>;
+  /** Consulta entradas de auditoría con filtros opcionales. */
+  getAuditLog(tenantId: number, opts?: {
+    limit?: number;
+    offset?: number;
+    entityType?: string;
+    action?: string;
+    userId?: number;
+    desde?: string;
+    hasta?: string;
+    search?: string;
+  }): Promise<{ entries: AuditLogEntry[]; total: number }>;
   
   // Payment operations
   createPayment(payment: InsertPayment): Promise<Payment>;
@@ -541,10 +581,131 @@ export class DatabaseStorage implements IStorage {
     return newCharge;
   }
 
-  async updateChargeStatus(chargeId: number, status: string): Promise<void> {
-    await db.update(charges)
-      .set({ estado: status })
-      .where(eq(charges.id, chargeId));
+  /**
+   * Actualiza el estado de un cargo validando la máquina de estados y generando
+   * una entrada de auditoría. Todo ocurre dentro de una transacción atómica con
+   * SELECT FOR UPDATE para evitar race conditions concurrentes.
+   * Lanza `InvalidStateTransitionError` si la transición no está permitida.
+   */
+  async updateChargeStatus(
+    chargeId: number,
+    newStatus: string,
+    ctx?: { tenantId?: number; userId?: number; guardianId?: number; ip?: string; metadata?: Record<string, unknown> }
+  ): Promise<void> {
+    await db.transaction(async (tx) => {
+      // 1. Lock + leer estado actual en la misma transacción (previene race conditions)
+      const locked = await tx.execute(
+        sql`SELECT id, estado, tenant_id FROM charges WHERE id = ${chargeId} FOR UPDATE`
+      );
+      const current = (locked.rows as any[])[0];
+      if (!current) throw new Error(`Cargo ${chargeId} no encontrado`);
+
+      // 2. Validar transición (lanza InvalidStateTransitionError si inválida)
+      transition("charge", current.estado ?? "pendiente", newStatus);
+
+      const tenantId = ctx?.tenantId ?? Number(current.tenant_id) ?? 0;
+
+      // 3. Actualizar estado
+      await tx.update(charges)
+        .set({ estado: newStatus })
+        .where(eq(charges.id, chargeId));
+
+      // 4. Emitir audit log dentro de la misma transacción
+      await tx.insert(audit_log).values({
+        tenant_id:      tenantId,
+        user_id:        ctx?.userId ?? null,
+        guardian_id:    ctx?.guardianId ?? null,
+        action:         "charge.status_changed",
+        entity_type:    "charge",
+        entity_id:      chargeId,
+        previous_value: JSON.stringify({ estado: current.estado }),
+        new_value:      JSON.stringify({ estado: newStatus }),
+        ip_address:     ctx?.ip ?? null,
+        metadata:       ctx?.metadata ? JSON.stringify(ctx.metadata) : null,
+      });
+    });
+  }
+
+  /**
+   * Actualiza el estado de un pago validando la máquina de estados y generando
+   * una entrada de auditoría. Transacción atómica con SELECT FOR UPDATE.
+   * Lanza `InvalidStateTransitionError` si la transición no está permitida.
+   */
+  async updatePaymentStatus(
+    paymentId: number,
+    newStatus: string,
+    ctx?: { tenantId?: number; userId?: number; guardianId?: number; ip?: string; metadata?: Record<string, unknown> }
+  ): Promise<void> {
+    await db.transaction(async (tx) => {
+      const locked = await tx.execute(
+        sql`SELECT id, estado, tenant_id FROM payments WHERE id = ${paymentId} FOR UPDATE`
+      );
+      const current = (locked.rows as any[])[0];
+      if (!current) throw new Error(`Pago ${paymentId} no encontrado`);
+
+      transition("payment", current.estado ?? "pendiente", newStatus);
+
+      const tenantId = ctx?.tenantId ?? Number(current.tenant_id) ?? 0;
+
+      await tx.update(payments)
+        .set({ estado: newStatus })
+        .where(eq(payments.id, paymentId));
+
+      await tx.insert(audit_log).values({
+        tenant_id:      tenantId,
+        user_id:        ctx?.userId ?? null,
+        guardian_id:    ctx?.guardianId ?? null,
+        action:         "payment.status_changed",
+        entity_type:    "payment",
+        entity_id:      paymentId,
+        previous_value: JSON.stringify({ estado: current.estado }),
+        new_value:      JSON.stringify({ estado: newStatus }),
+        ip_address:     ctx?.ip ?? null,
+        metadata:       ctx?.metadata ? JSON.stringify(ctx.metadata) : null,
+      });
+    });
+  }
+
+  /**
+   * Actualiza el estado de una factura validando la máquina de estados y generando
+   * una entrada de auditoría. Transacción atómica con SELECT FOR UPDATE.
+   * Lanza `InvalidStateTransitionError` si la transición no está permitida.
+   * @param extraFields  Campos adicionales a actualizar en la misma transacción (ej. uuid_cfdi al regenerar).
+   */
+  async updateInvoiceStatus(
+    invoiceId: number,
+    newStatus: string,
+    ctx?: { tenantId?: number; userId?: number; guardianId?: number; ip?: string; metadata?: Record<string, unknown> },
+    extraFields?: Partial<{ uuid_cfdi: string; xml_url: string; pdf_url: string }>
+  ): Promise<void> {
+    await db.transaction(async (tx) => {
+      const locked = await tx.execute(
+        sql`SELECT id, estado, tenant_id FROM invoices WHERE id = ${invoiceId} FOR UPDATE`
+      );
+      const current = (locked.rows as any[])[0];
+      if (!current) throw new Error(`Factura ${invoiceId} no encontrada`);
+
+      transition("invoice", current.estado ?? "pendiente", newStatus);
+
+      const tenantId = ctx?.tenantId ?? Number(current.tenant_id) ?? 0;
+
+      await tx.update(invoices)
+        .set({ estado: newStatus, ...extraFields })
+        .where(eq(invoices.id, invoiceId));
+
+      await tx.insert(audit_log).values({
+        tenant_id:      tenantId,
+        user_id:        ctx?.userId ?? null,
+        guardian_id:    ctx?.guardianId ?? null,
+        action:         "invoice.status_changed",
+        entity_type:    "invoice",
+        entity_id:      invoiceId,
+        previous_value: JSON.stringify({ estado: current.estado }),
+        new_value:      JSON.stringify({ estado: newStatus, ...extraFields }),
+        ip_address:     ctx?.ip ?? null,
+        metadata:       ctx?.metadata ? JSON.stringify(ctx.metadata) : null,
+      });
+    });
   }
 
   async createPayment(payment: InsertPayment): Promise<Payment> {
@@ -1366,6 +1527,61 @@ export class DatabaseStorage implements IStorage {
 
     const [row] = await db.insert(payment_applications).values(data).returning();
     return row;
+  }
+
+  // ── Audit Log ────────────────────────────────────────────────────────────────
+
+  async appendAuditLog(entry: InsertAuditLogEntry): Promise<AuditLogEntry> {
+    const [row] = await db.insert(audit_log).values(entry).returning();
+    return row;
+  }
+
+  async getAuditLog(tenantId: number, opts?: {
+    limit?: number;
+    offset?: number;
+    entityType?: string;
+    action?: string;
+    userId?: number;
+    desde?: string;
+    hasta?: string;
+    search?: string;
+  }): Promise<{ entries: AuditLogEntry[]; total: number }> {
+    const limit  = Math.min(opts?.limit  ?? 50, 200);
+    const offset = opts?.offset ?? 0;
+
+    // Build WHERE clauses dynamically via raw SQL
+    const conditions: string[] = [`al.tenant_id = ${tenantId}`];
+    if (opts?.entityType) conditions.push(`al.entity_type = '${opts.entityType.replace(/'/g, "''")}'`);
+    if (opts?.action)     conditions.push(`al.action = '${opts.action.replace(/'/g, "''")}'`);
+    if (opts?.userId)     conditions.push(`al.user_id = ${Number(opts.userId)}`);
+    if (opts?.desde)      conditions.push(`al.created_at >= '${opts.desde.replace(/'/g, "''")}'`);
+    if (opts?.hasta)      conditions.push(`al.created_at <= '${opts.hasta.replace(/'/g, "''")} 23:59:59'`);
+    if (opts?.search) {
+      const s = opts.search.replace(/'/g, "''");
+      conditions.push(`(al.action ILIKE '%${s}%' OR al.metadata ILIKE '%${s}%' OR al.new_value ILIKE '%${s}%')`);
+    }
+
+    const where = conditions.join(" AND ");
+
+    const [countResult, rowsResult] = await Promise.all([
+      db.execute(sql.raw(`SELECT COUNT(*) AS total FROM audit_log al WHERE ${where}`)),
+      db.execute(sql.raw(`
+        SELECT al.*,
+               u.name     AS user_name,
+               u.email    AS user_email,
+               g.nombre_completo AS guardian_name
+        FROM audit_log al
+        LEFT JOIN users     u ON u.id = al.user_id
+        LEFT JOIN guardians g ON g.id = al.guardian_id
+        WHERE ${where}
+        ORDER BY al.created_at DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `))
+    ]);
+
+    const total   = Number((countResult.rows as any[])[0]?.total ?? 0);
+    const entries = rowsResult.rows as AuditLogEntry[];
+    return { entries, total };
   }
 
   async recordPaymentEvent(data: InsertPaymentEvent): Promise<{ created: boolean; event: PaymentEvent }> {

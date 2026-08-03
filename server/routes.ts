@@ -3784,7 +3784,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         FROM students s
         JOIN charges c ON c.student_id = s.id
         LEFT JOIN concepts con ON con.id = c.concept_id
-        LEFT JOIN student_guardian sg ON sg.student_id = s.id
+        LEFT JOIN student_guardian sg ON sg.student_id = s.id AND sg.es_responsable_pago = true
         LEFT JOIN guardians g ON g.id = sg.guardian_id
         WHERE s.campus_id = $1
           AND s.tenant_id = $2
@@ -3840,7 +3840,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         FROM students s
         JOIN charges c ON c.student_id = s.id
         LEFT JOIN concepts con ON con.id = c.concept_id
-        LEFT JOIN student_guardian sg ON sg.student_id = s.id
+        LEFT JOIN student_guardian sg ON sg.student_id = s.id AND sg.es_responsable_pago = true
         LEFT JOIN guardians g ON g.id = sg.guardian_id
         WHERE s.campus_id = $1
           AND s.tenant_id = $2

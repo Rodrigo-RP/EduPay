@@ -185,9 +185,19 @@ export const guardians = pgTable("guardians", {
 
 // STUDENT-GUARDIAN RELATIONSHIP
 export const student_guardian = pgTable("student_guardian", {
-  student_id: integer("student_id").references(() => students.id, { onDelete: "cascade" }),
-  guardian_id: integer("guardian_id").references(() => guardians.id, { onDelete: "cascade" }),
+  student_id:             integer("student_id").references(() => students.id, { onDelete: "cascade" }),
+  guardian_id:            integer("guardian_id").references(() => guardians.id, { onDelete: "cascade" }),
   porcentaje_responsabilidad: numeric("porcentaje_responsabilidad", { precision: 5, scale: 2 }).default("100.00"),
+  /**
+   * Marca al tutor como responsable financiero del alumno.
+   * Caso de uso principal: padres divorciados donde solo uno paga.
+   * - true  → recibe cargos, notificaciones y estado de cuenta (default)
+   * - false → tutor de contacto pero sin responsabilidad de pago
+   *
+   * Un alumno puede tener múltiples tutores con es_responsable_pago = true
+   * si el pago es compartido (porcentaje_responsabilidad define la proporción).
+   */
+  es_responsable_pago:    boolean("es_responsable_pago").default(true).notNull(),
 }, (table) => {
   return {
     pk: primaryKey({ columns: [table.student_id, table.guardian_id] }),

@@ -333,14 +333,23 @@ export const discounts = pgTable("discounts", {
 
 // NOTIFICATIONS
 export const notifications = pgTable("notifications", {
-  id: serial("id").primaryKey(),
-  tenant_id: integer("tenant_id").references(() => tenants.id),
-  user_id: integer("user_id").references(() => users.id),
-  guardian_id: integer("guardian_id").references(() => guardians.id),
-  canal: varchar("canal", { length: 50 }).notNull(), // 'email', 'sms', 'whatsapp'
-  contenido: text("contenido"),
-  enviado_en: timestamp("enviado_en").defaultNow(),
+  id:           serial("id").primaryKey(),
+  tenant_id:    integer("tenant_id").references(() => tenants.id),
+  user_id:      integer("user_id").references(() => users.id),
+  guardian_id:  integer("guardian_id").references(() => guardians.id),
+  student_id:   integer("student_id").references(() => students.id, { onDelete: "set null" }),
+  canal:        varchar("canal", { length: 50 }).notNull(), // 'EMAIL','SMS','WHATSAPP'
+  tipo:         varchar("tipo", { length: 100 }),           // 'RECORDATORIO_VENCIMIENTO','AVISO_MORA','CARGO_EMITIDO','PAGO_CONFIRMADO'
+  destinatario: varchar("destinatario", { length: 255 }),  // email o teléfono
+  asunto:       text("asunto"),                             // asunto del email (null para SMS/WhatsApp)
+  mensaje:      text("mensaje"),                            // contenido completo del mensaje
+  contenido:    text("contenido"),                          // alias legacy de mensaje
+  estado:       varchar("estado", { length: 50 }).default("pendiente"), // 'pendiente','enviado','error'
+  intentos:     integer("intentos").default(0),
+  enviado_en:   timestamp("enviado_en").defaultNow(),
 });
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = typeof notifications.$inferInsert;
 
 // RECONCILIATION BATCHES
 export const reconciliation_batches = pgTable("reconciliation_batches", {

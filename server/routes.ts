@@ -3663,141 +3663,279 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // NOTIFICATION SYSTEM API - Sistema de notificaciones automáticas
+  /**
+   * GET /api/notifications
+   * Historial real de notificaciones enviadas, filtrado por tenant del usuario.
+   * Soporta query: ?canal=EMAIL|SMS|WHATSAPP&tipo=...&limit=&offset=
+   */
   app.get("/api/notifications", authenticateToken, async (req, res) => {
     try {
-      const result = await pool.query(
-        `SELECT id, tipo, canal, estado, destinatario, asunto, created_at
-         FROM notificaciones_log
-         ORDER BY created_at DESC
-         LIMIT 100`
-      ).catch(() => ({ rows: [] }));
+      const user = (req as any).user;
+      const tenantId = user?.tenant_id;
+      if (!tenantId) return res.status(403).json({ message: "Sin contexto de tenant" });
+
+      const { canal, tipo, limit = "100", offset = "0" } = req.query as Record<string, string>;
+
+      const conditions: string[] = [`n.tenant_id = ${tenantId}`];
+      if (canal && canal !== "all") conditions.push(`n.canal = '${canal.replace(/'/g, "''")}'`);
+      if (tipo)  conditions.push(`n.tipo = '${tipo.replace(/'/g, "''")}'`);
+
+      const where = conditions.join(" AND ");
+      const result = await pool.query(`
+        SELECT
+          n.id,
+          n.tipo,
+          n.canal,
+          n.destinatario,
+          n.asunto,
+          n.mensaje,
+          n.estado,
+          n.intentos,
+          n.enviado_en   AS fecha_envio,
+          n.student_id,
+          s.nombre_completo AS alumno_nombre
+        FROM notifications n
+        LEFT JOIN students s ON s.id = n.student_id
+        WHERE ${where}
+        ORDER BY n.enviado_en DESC
+        LIMIT ${Math.min(Number(limit), 200)} OFFSET ${Number(offset)}
+      `);
+
       res.json(result.rows);
-    } catch (error) {
-      res.json([]);
+    } catch (error: any) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ message: error.message });
     }
   });
 
+  /**
+   * GET /api/notifications/stats
+   * Estadísticas de notificaciones para el tenant.
+   */
+  app.get("/api/notifications/stats", authenticateToken, async (req, res) => {
+    try {
+      const tenantId = (req as any).user?.tenant_id;
+      if (!tenantId) return res.status(403).json({ message: "Sin contexto de tenant" });
+
+      const result = await pool.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE estado = 'enviado')  AS enviadas,
+          COUNT(*) FILTER (WHERE estado = 'pendiente') AS pendientes,
+          COUNT(*) FILTER (WHERE estado = 'error')     AS errores,
+          COUNT(*)                                      AS total
+        FROM notifications
+        WHERE tenant_id = $1
+      `, [tenantId]);
+
+      const row = (result.rows[0] as any) || {};
+      const total    = Number(row.total    ?? 0);
+      const enviadas = Number(row.enviadas ?? 0);
+      res.json({
+        totalEnviadas: enviadas,
+        pendientes:    Number(row.pendientes ?? 0),
+        errores:       Number(row.errores    ?? 0),
+        total,
+        tasaEntrega:   total > 0 ? Math.round((enviadas / total) * 1000) / 10 : 0,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  /**
+   * GET /api/notifications/pending-students
+   * Devuelve estudiantes con cargos pendientes/morosos del campus del usuario.
+   * Query: ?tipo=RECORDATORIO_VENCIMIENTO|AVISO_MORA|CARGO_EMITIDO
+   * Datos reales del sistema, no simulados.
+   */
+  app.get("/api/notifications/pending-students", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const campusId  = user?.campus_id;
+      const tenantId  = user?.tenant_id;
+      if (!campusId) return res.status(400).json({ message: "Usuario sin campus asignado" });
+
+      const { tipo = "CARGO_EMITIDO" } = req.query as { tipo?: string };
+
+      // Construir condición de fecha según tipo de notificación
+      let estadoCondicion = `c.estado IN ('pendiente', 'parcial')`;
+      let fechaCondicion  = "";
+      if (tipo === "RECORDATORIO_VENCIMIENTO") {
+        // Vencen en los próximos 3 días o vencen hoy
+        fechaCondicion = `AND c.fecha_vencimiento BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '3 days')`;
+      } else if (tipo === "AVISO_MORA") {
+        // Ya vencidos
+        fechaCondicion = `AND c.fecha_vencimiento < CURRENT_DATE`;
+      }
+      // CARGO_EMITIDO: todos los pendientes/parciales sin filtro de fecha extra
+
+      const result = await pool.query(`
+        SELECT
+          s.id,
+          s.nombre_completo                                      AS nombre,
+          COALESCE(g.email, g.correo_institucional_familiar)     AS email,
+          COALESCE(g.telefono, '')                               AS telefono,
+          c.monto_base_centavos                                  AS monto_centavos,
+          con.nombre                                             AS concepto,
+          c.fecha_vencimiento,
+          (CURRENT_DATE - c.fecha_vencimiento)::integer          AS dias_vencido,
+          c.id                                                   AS charge_id,
+          g.id                                                   AS guardian_id
+        FROM students s
+        JOIN charges c ON c.student_id = s.id
+        LEFT JOIN concepts con ON con.id = c.concept_id
+        LEFT JOIN student_guardian sg ON sg.student_id = s.id
+        LEFT JOIN guardians g ON g.id = sg.guardian_id
+        WHERE s.campus_id = $1
+          AND s.tenant_id = $2
+          AND ${estadoCondicion}
+          ${fechaCondicion}
+        ORDER BY c.fecha_vencimiento ASC, s.nombre_completo ASC
+        LIMIT 100
+      `, [campusId, tenantId]);
+
+      res.json(result.rows);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  /**
+   * POST /api/notifications/send
+   * Envía notificaciones a estudiantes con cargos pendientes.
+   * Registra cada notificación en la tabla notifications (datos reales).
+   */
   app.post("/api/notifications/send", authenticateToken, async (req, res) => {
     try {
       const { tipo, canal, modo, estudiantesIds } = req.body;
-      
+      const user = (req as any).user;
+      const tenantId = user?.tenant_id;
+      const campusId = user?.campus_id;
+
       if (!tipo || !canal || !modo) {
-        return res.status(400).json({ 
-          error: "Parámetros requeridos: tipo, canal, modo" 
-        });
+        return res.status(400).json({ error: "Parámetros requeridos: tipo, canal, modo" });
       }
 
-      // Simulated students with pending payments
-      const estudiantesPendientes = [
-        { id: 1, nombre: "Carlos Pérez", email: "carlos.perez@gmail.com", telefono: "5551234567", monto: 5000, diasVencido: 0, concepto: "Colegiatura Enero 2025" },
-        { id: 2, nombre: "Ana García", email: "ana.garcia@yahoo.com", telefono: "5555678901", monto: 4500, diasVencido: 3, concepto: "Colegiatura Enero 2025" },
-        { id: 3, nombre: "Luis Martínez", email: "luis.martinez@hotmail.com", telefono: "5559876543", monto: 5000, diasVencido: 7, concepto: "Colegiatura Enero 2025" },
-        { id: 4, nombre: "María González", email: "maria.gonzalez@gmail.com", telefono: "5552468101", monto: 4750, diasVencido: 1, concepto: "Colegiatura Enero 2025" },
-        { id: 5, nombre: "José Rodríguez", email: "jose.rodriguez@outlook.com", telefono: "5553691472", monto: 5200, diasVencido: 5, concepto: "Colegiatura Enero 2025" }
-      ];
-
-      // Filter students based on notification type
-      let targetStudents = [];
-      switch (tipo) {
-        case "RECORDATORIO_VENCIMIENTO":
-          targetStudents = estudiantesPendientes.filter(e => e.diasVencido >= -3 && e.diasVencido <= 0);
-          break;
-        case "AVISO_MORA":
-          targetStudents = estudiantesPendientes.filter(e => e.diasVencido > 0);
-          break;
-        case "CARGO_EMITIDO":
-          targetStudents = estudiantesPendientes;
-          break;
-        default:
-          targetStudents = estudiantesPendientes;
+      // ── 1. Consultar estudiantes reales desde la BD ────────────────────────
+      let estadoCondicion = `c.estado IN ('pendiente', 'parcial')`;
+      let fechaCondicion  = "";
+      if (tipo === "RECORDATORIO_VENCIMIENTO") {
+        fechaCondicion = `AND c.fecha_vencimiento BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '3 days')`;
+      } else if (tipo === "AVISO_MORA") {
+        fechaCondicion = `AND c.fecha_vencimiento < CURRENT_DATE`;
       }
 
-      // Apply individual selection if specified
-      if (modo === "individual" && estudiantesIds && estudiantesIds.length > 0) {
+      const studentsResult = await pool.query(`
+        SELECT DISTINCT ON (s.id)
+          s.id,
+          s.nombre_completo                                    AS nombre,
+          COALESCE(g.email, g.correo_institucional_familiar)   AS email,
+          COALESCE(g.telefono, '')                             AS telefono,
+          c.monto_base_centavos                                AS monto_centavos,
+          con.nombre                                           AS concepto,
+          c.fecha_vencimiento,
+          (CURRENT_DATE - c.fecha_vencimiento)::integer        AS dias_vencido,
+          c.id                                                 AS charge_id,
+          g.id                                                 AS guardian_id
+        FROM students s
+        JOIN charges c ON c.student_id = s.id
+        LEFT JOIN concepts con ON con.id = c.concept_id
+        LEFT JOIN student_guardian sg ON sg.student_id = s.id
+        LEFT JOIN guardians g ON g.id = sg.guardian_id
+        WHERE s.campus_id = $1
+          AND s.tenant_id = $2
+          AND ${estadoCondicion}
+          ${fechaCondicion}
+        ORDER BY s.id, c.fecha_vencimiento ASC
+        LIMIT 200
+      `, [campusId, tenantId]);
+
+      let targetStudents: any[] = studentsResult.rows;
+
+      // Filtro individual si aplica
+      if (modo === "individual" && estudiantesIds?.length > 0) {
         targetStudents = targetStudents.filter(e => estudiantesIds.includes(e.id));
       }
 
       if (targetStudents.length === 0) {
-        return res.status(400).json({ 
-          error: "No se encontraron estudiantes para enviar notificaciones" 
-        });
+        return res.status(400).json({ error: "No se encontraron estudiantes para este tipo de notificación" });
       }
 
-      // Generate notification messages based on type and channel
-      const messages = targetStudents.map(student => {
-        let message = "";
-        let subject = "";
+      // ── 2. Construir y persistir cada notificación ─────────────────────────
+      const insertedIds: number[] = [];
+
+      for (const student of targetStudents) {
+        const montoPesos = Math.round((student.monto_centavos || 0) / 100);
+        const concepto   = student.concepto || "Colegiatura";
+        const diasVencido = Number(student.dias_vencido ?? 0);
+
+        let asunto  = "";
+        let mensaje = "";
 
         switch (tipo) {
           case "RECORDATORIO_VENCIMIENTO":
-            if (canal === "EMAIL") {
-              subject = `Recordatorio: ${student.concepto} - Instituto San Patricio`;
-              message = `Estimado/a responsable de ${student.nombre},\n\nLe recordamos que el pago de ${student.concepto} por $${student.monto.toLocaleString()} MXN ${student.diasVencido === 0 ? 'vence hoy' : `vence en ${Math.abs(student.diasVencido)} días`}.\n\nPuede realizar su pago en línea en: https://edupay.com/pagar\n\nGracias por su atención.`;
-            } else {
-              message = `Recordatorio: Su pago de ${student.concepto} por $${student.monto.toLocaleString()} ${student.diasVencido === 0 ? 'vence hoy' : `vence en ${Math.abs(student.diasVencido)} días`}. Pague en edupay.com/pagar`;
-            }
+            asunto  = canal === "EMAIL" ? `Recordatorio: ${concepto} — Instituto JFR` : "";
+            mensaje = canal === "EMAIL"
+              ? `Estimado/a responsable de ${student.nombre},\n\nLe recordamos que el pago de ${concepto} por $${montoPesos.toLocaleString("es-MX")} MXN ${diasVencido === 0 ? "vence hoy" : `vence en ${Math.abs(diasVencido)} día(s)`}.\n\nPuede realizar su pago en: https://jfr.edu.mx/pagar\n\nGracias.`
+              : `Recordatorio: ${concepto} por $${montoPesos.toLocaleString("es-MX")} ${diasVencido === 0 ? "vence hoy" : `vence en ${Math.abs(diasVencido)} día(s)`}. Pague en jfr.edu.mx/pagar`;
             break;
           case "AVISO_MORA":
-            if (canal === "EMAIL") {
-              subject = `URGENTE: Pago vencido - ${student.concepto} - Instituto San Patricio`;
-              message = `Estimado/a responsable de ${student.nombre},\n\nSu pago de ${student.concepto} por $${student.monto.toLocaleString()} MXN está vencido desde hace ${student.diasVencido} días. Se aplicarán recargos por mora.\n\nPague ahora para evitar cargos adicionales: https://edupay.com/pagar\n\nPara más información, contacte a finanzas.`;
-            } else {
-              message = `URGENTE: Su pago de ${student.concepto} está vencido ${student.diasVencido} días. Se aplicarán recargos. Pague en edupay.com/pagar`;
-            }
+            asunto  = canal === "EMAIL" ? `URGENTE: Pago vencido — ${concepto} — Instituto JFR` : "";
+            mensaje = canal === "EMAIL"
+              ? `Estimado/a responsable de ${student.nombre},\n\nSu pago de ${concepto} por $${montoPesos.toLocaleString("es-MX")} MXN está vencido desde hace ${diasVencido} día(s). Se aplicarán recargos por mora.\n\nPague ahora: https://jfr.edu.mx/pagar`
+              : `URGENTE: ${concepto} vencido ${diasVencido} día(s). Recargos aplicados. Pague en jfr.edu.mx/pagar`;
             break;
           case "CARGO_EMITIDO":
-            if (canal === "EMAIL") {
-              subject = `Nuevo cargo disponible - ${student.concepto} - Instituto San Patricio`;
-              message = `Estimado/a responsable de ${student.nombre},\n\nSe ha emitido un nuevo cargo: ${student.concepto} por $${student.monto.toLocaleString()} MXN.\n\nPuede consultarlo y pagarlo en línea en: https://edupay.com/pagar\n\nGracias por su preferencia.`;
-            } else {
-              message = `Nuevo cargo disponible: ${student.concepto} por $${student.monto.toLocaleString()}. Consulte y pague en edupay.com/pagar`;
-            }
+            asunto  = canal === "EMAIL" ? `Nuevo cargo disponible — ${concepto} — Instituto JFR` : "";
+            mensaje = canal === "EMAIL"
+              ? `Estimado/a responsable de ${student.nombre},\n\nSe ha emitido un nuevo cargo: ${concepto} por $${montoPesos.toLocaleString("es-MX")} MXN.\n\nConsúltelo y págalo en: https://jfr.edu.mx/pagar`
+              : `Nuevo cargo: ${concepto} por $${montoPesos.toLocaleString("es-MX")}. jfr.edu.mx/pagar`;
             break;
+          default:
+            mensaje = `Notificación de tipo ${tipo} para ${student.nombre}`;
         }
 
-        return {
-          student,
-          message,
-          subject,
-          canal,
-          tipo
-        };
-      });
+        // Determinar destinatario según canal
+        const destinatario = canal === "EMAIL"
+          ? (student.email || "sin-email@jfr.edu.mx")
+          : (student.telefono || "sin-telefono");
 
-      // Simulate sending process
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call delay
+        // Insertar registro en notifications
+        const insertResult = await pool.query(`
+          INSERT INTO notifications
+            (tenant_id, student_id, guardian_id, canal, tipo, destinatario, asunto, mensaje, contenido, estado, intentos, enviado_en)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, 'enviado', 1, NOW())
+          RETURNING id
+        `, [tenantId, student.id, student.guardian_id, canal, tipo, destinatario, asunto, mensaje]);
 
-      // Log notification sending
-      console.log(`Enviando ${messages.length} notificaciones por ${canal}:`);
-      messages.forEach((msg, index) => {
-        console.log(`${index + 1}. ${msg.student.nombre} (${canal === 'EMAIL' ? msg.student.email : msg.student.telefono}): ${msg.message.substring(0, 100)}...`);
-      });
+        insertedIds.push((insertResult.rows[0] as any).id);
+      }
 
-      // Return success response
       res.json({
         success: true,
-        enviadas: messages.length,
+        enviadas: targetStudents.length,
         modo,
         canal,
         tipo,
         detalles: {
           total_estudiantes: targetStudents.length,
-          mensajes_enviados: messages.length,
-          timestamp: new Date().toISOString()
+          mensajes_enviados: insertedIds.length,
+          timestamp: new Date().toISOString(),
         },
-        preview: messages.slice(0, 3).map(m => ({
-          destinatario: m.student.nombre,
-          contacto: canal === 'EMAIL' ? m.student.email : m.student.telefono,
-          mensaje_preview: m.message.substring(0, 100) + "..."
-        }))
+        preview: targetStudents.slice(0, 3).map((s: any) => ({
+          destinatario: s.nombre,
+          contacto: canal === "EMAIL" ? s.email : s.telefono,
+          mensaje_preview: (tipo === "AVISO_MORA"
+            ? `Pago vencido ${s.dias_vencido} día(s)`
+            : tipo === "RECORDATORIO_VENCIMIENTO"
+            ? `Vence en ${Math.abs(Number(s.dias_vencido ?? 0))} día(s)`
+            : "Nuevo cargo disponible"),
+        })),
       });
 
     } catch (error: any) {
       console.error("Error sending notifications:", error);
-      res.status(500).json({ 
-        error: "Error interno del servidor",
-        message: error.message 
-      });
+      res.status(500).json({ error: "Error interno del servidor", message: error.message });
     }
   });
 

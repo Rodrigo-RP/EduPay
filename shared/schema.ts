@@ -49,6 +49,7 @@ export const institutional_credentials = pgTable("institutional_credentials", {
   id: serial("id").primaryKey(),
   user_id: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
   campus_id: integer("campus_id").references(() => campuses.id, { onDelete: "cascade" }),
+  tenant_id: integer("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
   credential_type: varchar("credential_type", { length: 50 }).notNull(), // 'firma_electronica', 'sellos_digitales', 'idse', 'tarjeta_patronal', 'infonavit', 'otra'
   credential_name: varchar("credential_name", { length: 255 }), // Nombre personalizado para "Otra"
   username: varchar("username", { length: 255 }),
@@ -64,6 +65,7 @@ export const institutional_credentials = pgTable("institutional_credentials", {
 export const institutional_info = pgTable("institutional_info", {
   id: serial("id").primaryKey(),
   campus_id: integer("campus_id").references(() => campuses.id, { onDelete: "cascade" }),
+  tenant_id: integer("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
   seccion_educativa: varchar("seccion_educativa", { length: 50 }).notNull(), // 'KINDER', 'PRIMARIA', 'SECUNDARIA', 'BACHILLERATO'
   rfc: varchar("rfc", { length: 13 }),
   cct: varchar("cct", { length: 20 }), // Clave de Centro de Trabajo
@@ -109,6 +111,7 @@ export const platform_profiles = pgTable("platform_profiles", {
 export const students = pgTable("students", {
   id: serial("id").primaryKey(),
   campus_id: integer("campus_id").references(() => campuses.id, { onDelete: "cascade" }),
+  tenant_id: integer("tenant_id").references(() => tenants.id),
   
   // Campos institucionales importantes
   id_referencia: varchar("id_referencia", { length: 50 }), // ID de Reference/Matricula
@@ -171,7 +174,11 @@ export const guardians = pgTable("guardians", {
   telefono: varchar("telefono", { length: 20 }),
   nombre_completo: varchar("nombre_completo", { length: 300 }),
   rfc: varchar("rfc", { length: 13 }),
-  
+
+  // Multi-tenancy: campus_id derivado del primer alumno vinculado
+  campus_id: integer("campus_id").references(() => campuses.id),
+  tenant_id: integer("tenant_id").references(() => tenants.id),
+
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
@@ -191,6 +198,7 @@ export const student_guardian = pgTable("student_guardian", {
 export const concepts = pgTable("concepts", {
   id: serial("id").primaryKey(),
   campus_id: integer("campus_id").references(() => campuses.id, { onDelete: "cascade" }),
+  tenant_id: integer("tenant_id").references(() => tenants.id),
   nombre: varchar("nombre", { length: 255 }).notNull(),
   tipo: varchar("tipo", { length: 50 }).notNull(), // 'colegiatura', 'inscripcion', 'extra'
   periodicidad: varchar("periodicidad", { length: 50 }).notNull(), // 'mensual', 'anual', 'eventual'
@@ -237,6 +245,7 @@ export const scholarship_benefits = pgTable("scholarship_benefits", {
 
 export const scholarships = pgTable("scholarships", {
   id: serial("id").primaryKey(),
+  tenant_id: integer("tenant_id").references(() => tenants.id),
   student_id: integer("student_id").references(() => students.id, { onDelete: "cascade" }),
   scholarship_type_id: integer("scholarship_type_id").references(() => scholarship_types.id),
   metodo_asignacion: varchar("metodo_asignacion", { length: 50 }).default("manual"), // 'manual', 'automatico'
@@ -255,6 +264,7 @@ export const scholarships = pgTable("scholarships", {
 // CHARGES
 export const charges = pgTable("charges", {
   id: serial("id").primaryKey(),
+  tenant_id: integer("tenant_id").references(() => tenants.id),
   student_id: integer("student_id").references(() => students.id, { onDelete: "cascade" }),
   concept_id: integer("concept_id").references(() => concepts.id),
   ciclo_escolar: varchar("ciclo_escolar", { length: 50 }),
@@ -271,6 +281,7 @@ export const charges = pgTable("charges", {
 // PAYMENTS
 export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),
+  tenant_id: integer("tenant_id").references(() => tenants.id),
   charge_id: integer("charge_id").references(() => charges.id, { onDelete: "cascade" }),
   guardian_id: integer("guardian_id").references(() => guardians.id),
   metodo: varchar("metodo", { length: 50 }).notNull(), // 'tarjeta', 'spei', 'paypal', 'efectivo', 'oxxo'
@@ -285,6 +296,7 @@ export const payments = pgTable("payments", {
 // PAYMENT METHODS (Tokenized)
 export const payment_methods = pgTable("payment_methods", {
   id: serial("id").primaryKey(),
+  tenant_id: integer("tenant_id").references(() => tenants.id),
   guardian_id: integer("guardian_id").references(() => guardians.id, { onDelete: "cascade" }),
   tipo: varchar("tipo", { length: 50 }).notNull(), // 'card', 'spei', 'paypal'
   token_pasarela: varchar("token_pasarela", { length: 255 }),
@@ -297,6 +309,7 @@ export const payment_methods = pgTable("payment_methods", {
 // INVOICES (CFDI)
 export const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),
+  tenant_id: integer("tenant_id").references(() => tenants.id),
   payment_id: integer("payment_id").references(() => payments.id, { onDelete: "cascade" }),
   uuid_cfdi: varchar("uuid_cfdi", { length: 255 }),
   xml_url: text("xml_url"),
@@ -310,6 +323,7 @@ export const invoices = pgTable("invoices", {
 export const discounts = pgTable("discounts", {
   id: serial("id").primaryKey(),
   campus_id: integer("campus_id").references(() => campuses.id, { onDelete: "cascade" }),
+  tenant_id: integer("tenant_id").references(() => tenants.id),
   nombre: varchar("nombre", { length: 255 }),
   regla_sql: text("regla_sql"),
   monto_pct: numeric("monto_pct", { precision: 5, scale: 2 }),
@@ -320,6 +334,7 @@ export const discounts = pgTable("discounts", {
 // NOTIFICATIONS
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
+  tenant_id: integer("tenant_id").references(() => tenants.id),
   user_id: integer("user_id").references(() => users.id),
   guardian_id: integer("guardian_id").references(() => guardians.id),
   canal: varchar("canal", { length: 50 }).notNull(), // 'email', 'sms', 'whatsapp'
@@ -331,6 +346,7 @@ export const notifications = pgTable("notifications", {
 export const reconciliation_batches = pgTable("reconciliation_batches", {
   id: serial("id").primaryKey(),
   campus_id: integer("campus_id").references(() => campuses.id),
+  tenant_id: integer("tenant_id").references(() => tenants.id),
   banco: varchar("banco", { length: 255 }),
   fecha_inicial: date("fecha_inicial").notNull(),
   fecha_final: date("fecha_final").notNull(),
@@ -506,6 +522,7 @@ export type InstitutionalSettings = typeof institutional_settings.$inferSelect;
 export const payment_rules = pgTable("payment_rules", {
   id: serial("id").primaryKey(),
   campus_id: integer("campus_id").references(() => campuses.id).notNull(),
+  tenant_id: integer("tenant_id").references(() => tenants.id),
   name: text("name").notNull(),
   description: text("description"),
   rule_type: text("rule_type").notNull(), // 'percentage', 'fixed_amount', 'progressive', 'compound'
@@ -540,6 +557,7 @@ export const late_fee_calculations = pgTable("late_fee_calculations", {
   id: serial("id").primaryKey(),
   charge_id: integer("charge_id").references(() => charges.id).notNull(),
   payment_rule_id: integer("payment_rule_id").references(() => payment_rules.id).notNull(),
+  tenant_id: integer("tenant_id").references(() => tenants.id),
   original_amount_centavos: integer("original_amount_centavos").notNull(),
   due_date: timestamp("due_date").notNull(),
   adjusted_due_date: timestamp("adjusted_due_date").notNull(), // Fecha ajustada por días hábiles
@@ -574,6 +592,7 @@ export const lateFeeCalculationsRelations = relations(late_fee_calculations, ({ 
 export const payment_due_dates = pgTable("payment_due_dates", {
   id: serial("id").primaryKey(),
   campus_id: integer("campus_id").references(() => campuses.id).notNull(),
+  tenant_id: integer("tenant_id").references(() => tenants.id),
   concepto: text("concepto").notNull(),
   dia_vencimiento: integer("dia_vencimiento").notNull(),
   mes_aplicacion: text("mes_aplicacion").notNull(), // JSON array or "todos"
@@ -586,6 +605,7 @@ export const payment_due_dates = pgTable("payment_due_dates", {
 export const payment_surcharge_rules = pgTable("payment_surcharge_rules", {
   id: serial("id").primaryKey(),
   campus_id: integer("campus_id").references(() => campuses.id).notNull(),
+  tenant_id: integer("tenant_id").references(() => tenants.id),
   concepto: text("concepto").notNull(), // Nombre del concepto
   nombre: text("nombre").notNull(),
   tipo: text("tipo").notNull(), // 'porcentaje_fijo', 'porcentaje_diario', 'monto_fijo'
@@ -883,6 +903,7 @@ export type InsertInstitutionalCredential = z.infer<typeof insertInstitutionalCr
 export const bank_transactions = pgTable("bank_transactions", {
   id: serial("id").primaryKey(),
   campus_id: integer("campus_id").references(() => campuses.id),
+  tenant_id: integer("tenant_id").references(() => tenants.id),
   fecha: date("fecha").notNull(),
   descripcion: text("descripcion"),
   monto_centavos: bigint("monto_centavos", { mode: "number" }).notNull(),
@@ -901,6 +922,7 @@ export type BankTransaction = typeof bank_transactions.$inferSelect;
 export const payment_plans = pgTable("payment_plans", {
   id: serial("id").primaryKey(),
   campus_id: integer("campus_id").references(() => campuses.id),
+  tenant_id: integer("tenant_id").references(() => tenants.id),
   student_id: integer("student_id").references(() => students.id),
   guardian_id: integer("guardian_id").references(() => guardians.id),
   total_adeudo_centavos: bigint("total_adeudo_centavos", { mode: "number" }).notNull(),
@@ -930,6 +952,7 @@ export type PaymentPlanInstallment = typeof payment_plan_installments.$inferSele
 export const scholarship_auto_rules = pgTable("scholarship_auto_rules", {
   id: serial("id").primaryKey(),
   campus_id: integer("campus_id").references(() => campuses.id),
+  tenant_id: integer("tenant_id").references(() => tenants.id),
   nombre: varchar("nombre", { length: 255 }).notNull(),
   tipo: varchar("tipo", { length: 50 }).notNull(),
   condicion_json: text("condicion_json"),
@@ -944,6 +967,7 @@ export type ScholarshipAutoRule = typeof scholarship_auto_rules.$inferSelect;
 export const financial_events = pgTable("financial_events", {
   id: serial("id").primaryKey(),
   campus_id: integer("campus_id").references(() => campuses.id),
+  tenant_id: integer("tenant_id").references(() => tenants.id),
   titulo: varchar("titulo", { length: 255 }).notNull(),
   descripcion: text("descripcion"),
   fecha: date("fecha").notNull(),

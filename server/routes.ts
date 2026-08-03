@@ -32,6 +32,21 @@ import { cuentasPorCobrarHTML } from "./static-pages";
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
 
+/**
+ * CAMPUS TENANT CHECK — Verifica que campusId pertenece al tenant del usuario autenticado.
+ * Retorna false y envía 403 si el campus no pertenece al tenant.
+ * Los super admin (sin tenant_id en el JWT) tienen acceso libre.
+ */
+async function checkCampusTenant(campusId: number, tenantId: number | null | undefined, res: any): Promise<boolean> {
+  if (!tenantId) return true; // Super admin: acceso irrestricto
+  const owned = await storage.getCampusScoped(campusId, tenantId);
+  if (!owned) {
+    res.status(403).json({ message: "Acceso denegado: campus no pertenece a este tenant" });
+    return false;
+  }
+  return true;
+}
+
 // Configure multer for file uploads
 const upload = multer({ 
   storage: multer.memoryStorage(),
@@ -79,6 +94,8 @@ const authenticateToken = async (req: any, res: any, next: any) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     req.user = decoded;
+    // Exponer tenant_id directamente en el request para uso en handlers
+    req.tenantId = decoded.tenant_id ?? null;
     next();
   } catch (error) {
     return res.status(403).json({ message: 'Token inválido' });
@@ -122,6 +139,8 @@ const requireAuth = async (req: any, res: any, next: any) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     req.user = decoded;
+    // Exponer tenant_id directamente en el request para uso en handlers
+    req.tenantId = decoded.tenant_id ?? null;
     next();
   } catch (error) {
     return res.status(403).json({ 
@@ -208,12 +227,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const token = jwt.sign(
-        { id: user.id, email: user.email, role: user.role, campus_id: user.campus_id, type: 'user' },
+        { id: user.id, email: user.email, role: user.role, campus_id: user.campus_id, tenant_id: user.tenant_id, type: 'user' },
         JWT_SECRET,
         { expiresIn: '24h' }
       );
 
-      res.json({ token, user: { id: user.id, email: user.email, role: user.role, campus_id: user.campus_id } });
+      res.json({ token, user: { id: user.id, email: user.email, role: user.role, campus_id: user.campus_id, tenant_id: user.tenant_id } });
     } catch (error: any) {
       res.status(500).json({ message: "Login failed: " + error.message });
     }
@@ -250,7 +269,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             id: decoded.id, 
             email: decoded.email, 
             role: decoded.role, 
-            campus_id: decoded.campus_id, 
+            campus_id: decoded.campus_id,
+            tenant_id: decoded.tenant_id,
             type: decoded.type || 'user' 
           },
           JWT_SECRET,
@@ -271,7 +291,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 id: user.id, 
                 email: user.email, 
                 role: user.role, 
-                campus_id: user.campus_id, 
+                campus_id: user.campus_id,
+                tenant_id: user.tenant_id,
                 type: decoded.type || 'user' 
               },
               JWT_SECRET,
@@ -306,12 +327,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const token = jwt.sign(
-        { id: guardian.id, email: guardian.email, type: 'guardian' },
+        { id: guardian.id, email: guardian.email, tenant_id: (guardian as any).tenant_id, type: 'guardian' },
         JWT_SECRET,
         { expiresIn: '24h' }
       );
 
-      res.json({ token, guardian: { id: guardian.id, email: guardian.email, nombre_completo: guardian.nombre_completo } });
+      res.json({ token, guardian: { id: guardian.id, email: guardian.email, nombre_completo: guardian.nombre_completo, tenant_id: (guardian as any).tenant_id } });
     } catch (error: any) {
       res.status(500).json({ message: "Login failed: " + error.message });
     }
@@ -410,17 +431,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get guardian profile
-  app.get("/api/guardian/profile", authenticateGuardian, async (req, res) => {
+  app.get("/api/guardian/profile", authenticateGuardian, async (req: any, res) => {
     try {
-      const guardianId = (req as any).guardian?.id;
-      const guardian = await storage.getGuardian(guardianId);
-      
+      const guardianId = req.guardian?.id;
+      const tenantId = req.guardian?.tenant_id;
+      // getGuardianScoped verifica que el guardián pertenece al tenant del JWT
+      const guardian = await storage.getGuardianScoped(guardianId, tenantId);
       if (!guardian) {
         return res.status(404).json({ message: "Guardian not found" });
       }
-      
-      // Return guardian profile without password
-      const { password_hash, ...profile } = guardian;
+      // Nunca serializar password_hash
+      const { password_hash, ...profile } = guardian as any;
       res.json(profile);
     } catch (error: any) {
       res.status(500).json({ message: "Error fetching profile: " + error.message });
@@ -428,11 +449,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update guardian profile
-  app.put("/api/guardian/profile", authenticateGuardian, async (req, res) => {
+  app.put("/api/guardian/profile", authenticateGuardian, async (req: any, res) => {
     try {
-      const guardianId = (req as any).guardian?.id;
+      const guardianId = req.guardian?.id;
+      const tenantId = req.guardian?.tenant_id;
+
+      // Verificar ownership antes de actualizar
+      const existing = await storage.getGuardianScoped(guardianId, tenantId);
+      if (!existing) {
+        return res.status(403).json({ message: "Acceso denegado" });
+      }
+
       const { nombre_completo, email, telefono, foto_url } = req.body;
-      
       const updates: any = {};
       if (nombre_completo !== undefined) updates.nombre_completo = nombre_completo;
       if (email !== undefined) updates.email = email;
@@ -441,10 +469,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await storage.updateGuardianProfile(guardianId, updates);
       
-      // Get updated guardian data
-      const updatedGuardian = await storage.getGuardian(guardianId);
+      const updatedGuardian = await storage.getGuardianScoped(guardianId, tenantId);
       if (updatedGuardian) {
-        const { password_hash, ...profile } = updatedGuardian;
+        const { password_hash, ...profile } = updatedGuardian as any;
         res.json({ message: "Profile updated successfully", profile });
       } else {
         res.status(404).json({ message: "Guardian not found" });
@@ -455,22 +482,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update guardian password
-  app.put("/api/guardian/profile/password", authenticateGuardian, async (req, res) => {
+  app.put("/api/guardian/profile/password", authenticateGuardian, async (req: any, res) => {
     try {
-      const guardianId = (req as any).guardian?.id;
+      const guardianId = req.guardian?.id;
+      const tenantId = req.guardian?.tenant_id;
       const { currentPassword, newPassword } = req.body;
       
       if (!currentPassword || !newPassword) {
         return res.status(400).json({ message: "Current password and new password are required" });
       }
       
-      // Verify current password
-      const guardian = await storage.getGuardian(guardianId);
-      if (!guardian || !guardian.password_hash || !await bcrypt.compare(currentPassword, guardian.password_hash)) {
+      // Verificar ownership y luego contraseña actual
+      const guardian = await storage.getGuardianScoped(guardianId, tenantId);
+      if (!guardian) {
+        return res.status(403).json({ message: "Acceso denegado" });
+      }
+      const fullGuardian = await storage.getGuardian(guardianId);
+      if (!fullGuardian?.password_hash || !await bcrypt.compare(currentPassword, fullGuardian.password_hash)) {
         return res.status(401).json({ message: "Current password is incorrect" });
       }
       
-      // Hash new password and update guardian
       const hashedPassword = await bcrypt.hash(newPassword, 10);
       await storage.updateGuardianProfile(guardianId, { password_hash: hashedPassword } as any);
       
@@ -822,13 +853,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GUARDIAN PORTAL ROUTES
 
   // Get guardian's students and their pending charges
-  app.get("/api/guardian/dashboard", authenticateGuardian, async (req, res) => {
+  app.get("/api/guardian/dashboard", authenticateGuardian, async (req: any, res) => {
     try {
-      const guardianId = (req as any).guardian?.id;
+      const guardianId = req.guardian?.id;
+      const tenantId = req.guardian?.tenant_id;
+
+      // Verificar que el guardián pertenece al tenant del JWT antes de devolver datos
+      if (tenantId) {
+        const owned = await storage.getGuardianScoped(guardianId, tenantId);
+        if (!owned) return res.status(403).json({ message: "Acceso denegado" });
+      }
       
       const students = await storage.getStudentsByGuardian(guardianId);
-      const pendingCharges = await storage.getPendingChargesByGuardian(guardianId);
-      const paymentHistory = await storage.getPaymentsByGuardian(guardianId);
+      // Filtrar alumnos, cargos y pagos por tenant del JWT
+      const tenantStudents = tenantId ? students.filter((s: any) => !s.tenant_id || s.tenant_id === tenantId) : students;
+      const pendingCharges = (await storage.getPendingChargesByGuardian(guardianId))
+        .filter((c: any) => !tenantId || !c.tenant_id || c.tenant_id === tenantId);
+      const paymentHistory = (await storage.getPaymentsByGuardian(guardianId))
+        .filter((p: any) => !tenantId || !p.tenant_id || p.tenant_id === tenantId);
       const paymentMethods = await storage.getPaymentMethodsByGuardian(guardianId);
 
       // Calculate total pending balance
@@ -840,7 +882,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }, 0);
 
       res.json({
-        students,
+        students: tenantStudents,
         pendingCharges: pendingCharges.map(charge => ({
           ...charge,
           total_amount_centavos: charge.monto_base_centavos - (charge.monto_base_centavos * Number(charge.beca_aplicada) / 100) + (charge.recargo_aplicado_centavos || 0),
@@ -857,9 +899,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ADMIN PORTAL ROUTES
 
   // Get dashboard KPIs - PROTEGIDO
-  app.get("/api/admin/dashboard/:campusId", requireAuth, async (req, res) => {
+  app.get("/api/admin/dashboard/:campusId", requireAuth, async (req: any, res) => {
     try {
       const campusId = parseInt(req.params.campusId);
+      if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
 
       // Estudiantes activos
       const studentsResult = await db
@@ -907,28 +950,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get students by campus
-  app.get("/api/admin/students/:campusId", async (req, res) => {
+  // Get students by campus — requiere autenticación y campus del tenant
+  app.get("/api/admin/students/:campusId", authenticateToken, async (req: any, res) => {
     try {
       const campusId = parseInt(req.params.campusId);
-      
-      // Get real students from database
+      if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
       const students = await storage.getStudentsByCampus(campusId);
-      
       res.json(students);
     } catch (error: any) {
       res.status(500).json({ message: "Error fetching students: " + error.message });
     }
   });
 
-  // Get guardians by campus
-  app.get("/api/admin/guardians/:campusId", async (req, res) => {
+  // Get guardians by campus — requiere autenticación y campus del tenant
+  app.get("/api/admin/guardians/:campusId", authenticateToken, async (req: any, res) => {
     try {
       const campusId = parseInt(req.params.campusId);
-      
-      // Get real guardians from database
+      if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
       const guardians = await storage.getGuardiansByCampus(campusId);
-      
       res.json(guardians);
     } catch (error: any) {
       res.status(500).json({ message: "Error fetching guardians: " + error.message });
@@ -1021,10 +1060,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const studentData = req.body;
       const user = (req as any).user;
       
-      // Add campus_id from authenticated user if not provided
-      if (!studentData.campus_id) {
-        studentData.campus_id = user.campus_id;
-      }
+      // campus_id y tenant_id SIEMPRE se derivan del JWT, nunca del body del request
+      studentData.campus_id = user.campus_id;
+      studentData.tenant_id = user.tenant_id;
       
       const student = await storage.createStudent(studentData);
       
@@ -1042,9 +1080,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Export students to Excel/CSV
-  app.get("/api/admin/students/:campusId/export", authenticateToken, async (req, res) => {
+  app.get("/api/admin/students/:campusId/export", authenticateToken, async (req: any, res) => {
     try {
       const campusId = parseInt(req.params.campusId);
+      if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
       const format = req.query.format as string || 'xlsx';
       
       const students = await storage.getStudentsByCampus(campusId);
@@ -1153,6 +1192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Map column names (flexible mapping)
           const studentData = {
             campus_id: user.campus_id,
+            tenant_id: user.tenant_id,  // SIEMPRE del JWT
             curp: row['CURP'] || row['curp'] || '',
             nombres: row['Nombre Completo'] || row['nombre_completo'] || row['Nombre'] || '',
             grado: row['Grado'] || row['grado'] || '',
@@ -1219,9 +1259,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get concepts by campus
-  app.get("/api/admin/concepts/:campusId", authenticateToken, async (req, res) => {
+  app.get("/api/admin/concepts/:campusId", authenticateToken, async (req: any, res) => {
     try {
       const campusId = parseInt(req.params.campusId);
+      if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
       const concepts = await storage.getConceptsByCampus(campusId);
       
       res.json(concepts);
@@ -1231,11 +1272,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create new concept
-  app.post("/api/admin/concepts", authenticateToken, async (req, res) => {
+  app.post("/api/admin/concepts", authenticateToken, async (req: any, res) => {
     try {
-      const conceptData = req.body;
+      // campus_id y tenant_id SIEMPRE del JWT — nunca del body (previene cross-tenant)
+      const conceptData = { ...req.body };
+      conceptData.campus_id = req.user?.campus_id;
+      conceptData.tenant_id = req.user?.tenant_id;
+
+      // Verificar campus pertenece al tenant antes de crear
+      if (conceptData.campus_id && conceptData.tenant_id) {
+        const owned = await storage.getCampusScoped(conceptData.campus_id, conceptData.tenant_id);
+        if (!owned) {
+          return res.status(403).json({ message: "Acceso denegado: campus no pertenece a este tenant" });
+        }
+      }
+
       const concept = await storage.createConcept(conceptData);
-      
       res.status(201).json(concept);
     } catch (error: any) {
       res.status(500).json({ message: "Error creating concept: " + error.message });
@@ -1246,7 +1298,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/charges/bulk", authenticateToken, async (req, res) => {
     try {
       const { campus_id, concept_id, ciclo_escolar, fecha_vencimiento } = req.body;
-      
+      const tenantId = (req as any).user?.tenant_id;
+
+      // IDOR PROTECTION: verificar que el campus pertenece al tenant del usuario autenticado
+      if (tenantId && campus_id) {
+        const ownedCampus = await storage.getCampusScoped(parseInt(campus_id), tenantId);
+        if (!ownedCampus) {
+          return res.status(403).json({ message: "Acceso denegado: el campus no pertenece a este tenant" });
+        }
+      }
+
       const students = await storage.getStudentsByCampus(campus_id);
       const concepts = await storage.getConceptsByCampus(campus_id);
       const concept = concepts.find(c => c.id === concept_id);
@@ -1258,9 +1319,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const charges = [];
       for (const student of students) {
         if (student.status === 'activo') {
+          const user = (req as any).user;
           const charge = await storage.createCharge({
             student_id: student.id,
             concept_id: concept.id,
+            tenant_id: user.tenant_id ?? student.tenant_id,
             ciclo_escolar,
             fecha_emision: new Date().toISOString().split('T')[0],
             fecha_vencimiento,
@@ -1340,10 +1403,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const fechaVencimiento = periodo ? `${periodo}-15` : new Date().toISOString().split('T')[0];
       const fechaEmision = new Date().toISOString().split('T')[0];
       let created = 0;
+      const monthlyUser = (req as any).user;
       for (const student of activeStudents) {
         await storage.createCharge({
           student_id: student.id,
           concept_id: concept.id,
+          tenant_id: monthlyUser?.tenant_id ?? (student as any).tenant_id,
           ciclo_escolar: ciclo_escolar || new Date().getFullYear().toString(),
           fecha_emision: fechaEmision,
           fecha_vencimiento: fechaVencimiento,
@@ -1364,15 +1429,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/cargos/extraordinario", authenticateToken, async (req: any, res: any) => {
     try {
       const campusId = req.user.campus_id;
+      const tenantId = req.user.tenant_id;
       const { student_id, concept_id, monto, descripcion, fecha_vencimiento } = req.body;
       if (!student_id || !monto) return res.status(400).json({ message: "Estudiante y monto son requeridos" });
+
+      // IDOR PROTECTION: verificar que el alumno pertenece al tenant del usuario autenticado
+      if (tenantId) {
+        const ownedStudent = await storage.getStudentScoped(parseInt(student_id), tenantId);
+        if (!ownedStudent) {
+          return res.status(403).json({ message: "Acceso denegado: el alumno no pertenece a este tenant" });
+        }
+      }
+
       let conceptId = concept_id;
+      // Si se provee concept_id, validar que pertenece al tenant
+      if (conceptId && tenantId) {
+        const ownedConcept = await storage.getConceptScoped(parseInt(conceptId), tenantId);
+        if (!ownedConcept) {
+          return res.status(403).json({ message: "Acceso denegado: el concepto no pertenece a este tenant" });
+        }
+      }
       if (!conceptId && descripcion) {
         const concepts = await storage.getConceptsByCampus(campusId);
         let found = concepts.find((c: any) => c.nombre === descripcion);
         if (!found) {
           found = await storage.createConcept({
             campus_id: campusId,
+            tenant_id: tenantId,  // tenant_id SIEMPRE del JWT
             nombre: descripcion || 'Cargo Extraordinario',
             tipo: 'extraordinario',
             periodicidad: 'unica',
@@ -1381,9 +1464,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         conceptId = found.id;
       }
+      const extraUser = (req as any).user;
       const charge = await storage.createCharge({
         student_id: parseInt(student_id),
         concept_id: conceptId,
+        tenant_id: extraUser?.tenant_id,
         ciclo_escolar: new Date().getFullYear().toString(),
         fecha_emision: new Date().toISOString().split('T')[0],
         fecha_vencimiento: fecha_vencimiento || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -1520,6 +1605,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!concept) {
           concept = await storage.createConcept({
             campus_id: userCampusId,
+            tenant_id: (req as any).user?.tenant_id,  // tenant_id SIEMPRE del JWT
             nombre: product.nombre,
             tipo: product.categoria.toLowerCase(),
             periodicidad: "unica",
@@ -1541,9 +1627,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const specificPrice = product.precios_por_nivel[academicLevel];
 
           // Create charge with academic level-specific pricing
+          const productUser = (req as any).user;
           const charge = await storage.createCharge({
             student_id: student.id,
             concept_id: concept.id,
+            tenant_id: productUser?.tenant_id ?? (student as any).tenant_id,
             ciclo_escolar: "2024-2025",
             fecha_emision: new Date().toISOString().split('T')[0],
             fecha_vencimiento: fecha_vencimiento || "2025-02-15",
@@ -1578,17 +1666,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PAYMENT PROCESSING
 
   // Create payment intent (for Stripe integration)
-  app.post("/api/payments/create-intent", authenticateGuardian, async (req, res) => {
+  app.post("/api/payments/create-intent", authenticateGuardian, async (req: any, res) => {
     try {
-      const { charge_id, amount } = req.body;
-      
-      // In a real implementation, this would create a Stripe payment intent
-      // For now, we'll return a mock client secret
+      const { charge_id } = req.body;
+      const guardianId = req.guardian?.id;
+
+      // IDOR PROTECTION: verificar que el cargo pertenece a un alumno del guardián
+      const ownedCharge = await storage.getChargeByGuardian(charge_id, guardianId);
+      if (!ownedCharge) {
+        return res.status(403).json({ message: "Acceso denegado: el cargo no pertenece a los alumnos de este tutor" });
+      }
+
       const clientSecret = `pi_mock_${Date.now()}_secret_${Math.random().toString(36).substr(2, 9)}`;
-      
       res.json({ 
         clientSecret,
-        amount: amount * 100, // Convert to centavos for Stripe
+        amount: ownedCharge.monto_base_centavos + (ownedCharge.recargo_aplicado_centavos || 0),
       });
     } catch (error: any) {
       res.status(500).json({ message: "Error creating payment intent: " + error.message });
@@ -1596,18 +1688,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Process payment
-  app.post("/api/payments/process", authenticateGuardian, async (req, res) => {
+  app.post("/api/payments/process", authenticateGuardian, async (req: any, res) => {
     try {
-      const { charge_id, payment_method, amount_centavos } = req.body;
-      const guardianId = (req as any).guardian?.id;
+      const { charge_id, payment_method } = req.body;
+      const guardianId = req.guardian?.id;
 
-      // Create payment record
+      // IDOR PROTECTION: verificar que el cargo pertenece a un alumno del guardián
+      const ownedCharge = await storage.getChargeByGuardian(charge_id, guardianId);
+      if (!ownedCharge) {
+        return res.status(403).json({ message: "Acceso denegado: el cargo no pertenece a los alumnos de este tutor" });
+      }
+
+      // Derivar monto del cargo validado, no del body del request
       const payment = await storage.createPayment({
         charge_id,
         guardian_id: guardianId,
+        tenant_id: (ownedCharge as any).tenant_id ?? req.guardian?.tenant_id,
         metodo: payment_method,
         referencia_pasarela: `ref_${Date.now()}`,
-        monto_centavos: amount_centavos,
+        monto_centavos: ownedCharge.monto_base_centavos + (ownedCharge.recargo_aplicado_centavos || 0),
         estado: "exitoso",
       });
 
@@ -1940,9 +2039,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 continue;
               }
 
-              // Create student
+              // Create student con tenant_id del usuario autenticado
+              const importUser = (req as any).user;
               await storage.createStudent({
                 campus_id: campusId,
+                tenant_id: importUser?.tenant_id,
                 nombres: studentData.nombre_completo || '',
                 curp: studentData.curp,
                 grado: studentData.grado || '',
@@ -1968,12 +2069,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 continue;
               }
 
-              // Create guardian
+              // Create guardian con tenant_id y campus_id del usuario autenticado
+              const importUser2 = (req as any).user;
               await storage.createGuardian({
                 nombres: tutorData.nombre_completo || '',
                 correo_institucional_familiar: tutorData.email || '',
-                celular: tutorData.telefono || ''
-              });
+                celular: tutorData.telefono || '',
+                campus_id: importUser2?.campus_id,
+                tenant_id: importUser2?.tenant_id,
+              } as any);
               
               results.successful++;
             } catch (error: any) {
@@ -4611,14 +4715,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Guardian pagar alias — acepta array de charge_ids y procesa cada uno
-  app.post("/api/guardian/pagar", async (req: any, res: any) => {
+  app.post("/api/guardian/pagar", authenticateGuardian, async (req: any, res: any) => {
     try {
-      const authHeader = req.headers["authorization"];
-      const token = authHeader && authHeader.split(" ")[1];
-      if (!token) return res.status(401).json({ message: "No autorizado" });
-
-      const decoded: any = jwt.verify(token, JWT_SECRET);
-      const guardianId = decoded.id;
+      // guardianId y tenantId SIEMPRE del token de tipo 'guardian' (verificado por authenticateGuardian)
+      const guardianId = req.guardian.id;
 
       const { charge_ids, metodo_pago = "tarjeta" } = req.body;
       if (!charge_ids || !Array.isArray(charge_ids) || charge_ids.length === 0) {
@@ -4627,12 +4727,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const results = [];
       for (const chargeId of charge_ids) {
-        const [charge] = await db.select().from(charges).where(eq(charges.id, chargeId));
-        if (!charge) continue;
+        // IDOR PROTECTION: verificar que el cargo pertenece a un alumno del guardián autenticado
+        const charge = await storage.getChargeByGuardian(chargeId, guardianId);
+        if (!charge) {
+          return res.status(403).json({ 
+            message: `Acceso denegado: el cargo ${chargeId} no pertenece a los alumnos de este tutor` 
+          });
+        }
 
         const payment = await storage.createPayment({
           charge_id: chargeId,
           guardian_id: guardianId,
+          tenant_id: (charge as any).tenant_id ?? req.guardian.tenant_id,
           metodo: metodo_pago,
           referencia_pasarela: `sim_${Date.now()}_${chargeId}`,
           monto_centavos: charge.monto_base_centavos + (charge.recargo_aplicado_centavos || 0),
@@ -4645,6 +4751,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const cfdiUUID = `${Date.now()}-${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
         await db.insert(invoices).values({
           payment_id: payment.id,
+          tenant_id: (charge as any).tenant_id ?? req.guardian.tenant_id,
           uuid_cfdi: cfdiUUID,
           xml_url: `/api/demo/cfdi/${cfdiUUID}.xml`,
           pdf_url: `/api/demo/cfdi/${cfdiUUID}.pdf`,
@@ -4849,10 +4956,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lateFee = Math.floor(baseAmount * 0.05); // 5% late fee
         }
         
-        // Create the charge
+        // Create the charge con tenant_id del usuario autenticado
         const charge = await storage.createCharge({
           student_id: student.id,
           concept_id: concept.id,
+          tenant_id: (req as any).user?.tenant_id ?? (student as any).tenant_id,
           ciclo_escolar: "2024-2025",
           fecha_emision: fecha_emision,
           fecha_vencimiento: fecha_vencimiento,
@@ -5259,15 +5367,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create new concept
-  app.post("/api/concepts", authenticateToken, async (req, res) => {
+  app.post("/api/concepts", authenticateToken, async (req: any, res) => {
     try {
-      const campusId = (req as any).user.campus_id;
+      // campus_id y tenant_id SIEMPRE del JWT — nunca del body
+      const campusId = req.user.campus_id;
+      const tenantId = req.user.tenant_id;
       const { nombre, tipo, periodicidad, monto_centavos, iva } = req.body;
       
       const [newConcept] = await db
         .insert(concepts)
         .values({
           campus_id: campusId,
+          tenant_id: tenantId,
           nombre,
           tipo,
           periodicidad,
@@ -5859,9 +5970,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   // ── 1. CENTRO DE COMANDOS ─────────────────────────────────────────────────
-  app.get("/api/dashboard/comandos/:campusId", authenticateToken, async (req, res) => {
+  app.get("/api/dashboard/comandos/:campusId", authenticateToken, async (req: any, res) => {
     try {
-      const campusId = parseInt(req.params.campusId) || (req as any).user?.campus_id;
+      const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
+      if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
       const [studentsRows, paymentsRows, chargesRows] = await Promise.all([
         pool.query(`SELECT COUNT(*) as total FROM students WHERE campus_id = $1 AND status = 'activo'`, [campusId]).catch(() => ({ rows: [{ total: 0 }] })),
         pool.query(`SELECT COALESCE(SUM(p.monto_centavos),0) as total FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND p.created_at>=date_trunc('month',NOW())`, [campusId]).catch(() => ({ rows: [{ total: 0 }] })),
@@ -5899,9 +6011,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ── 2. SEMÁFORO DE RIESGO ─────────────────────────────────────────────────
-  app.get("/api/riesgo/semaforo/:campusId", authenticateToken, async (req, res) => {
+  app.get("/api/riesgo/semaforo/:campusId", authenticateToken, async (req: any, res) => {
     try {
-      const campusId = parseInt(req.params.campusId) || (req as any).user?.campus_id;
+      const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
+      if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
       const rows = await pool.query(`
         SELECT
           s.id AS student_id,
@@ -6094,9 +6207,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/conciliacion/transacciones/:campusId", authenticateToken, async (req, res) => {
+  app.get("/api/conciliacion/transacciones/:campusId", authenticateToken, async (req: any, res) => {
     try {
-      const campusId = parseInt(req.params.campusId) || (req as any).user?.campus_id;
+      const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
+      if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
       const rows = await pool.query(`SELECT * FROM bank_transactions WHERE campus_id = $1 ORDER BY fecha DESC, id DESC LIMIT 200`, [campusId]);
       res.json(rows.rows);
     } catch (error: any) {
@@ -6126,9 +6240,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/conciliacion/auto-match/:campusId", authenticateToken, async (req, res) => {
+  app.post("/api/conciliacion/auto-match/:campusId", authenticateToken, async (req: any, res) => {
     try {
-      const campusId = parseInt(req.params.campusId) || (req as any).user?.campus_id;
+      const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
+      if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
       const txRows = await pool.query(`SELECT * FROM bank_transactions WHERE campus_id = $1 AND estado_conciliacion = 'pendiente'`, [campusId]);
       const chargeRows = await pool.query(`SELECT c.id, c.monto_base_centavos FROM charges c JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND c.estado='pendiente'`, [campusId]);
       let conciliados = 0;
@@ -6147,9 +6262,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ── 4. FACTURACIÓN MASIVA CFDI ────────────────────────────────────────────
-  app.get("/api/fiscal/pendientes-cfdi/:campusId", authenticateToken, async (req, res) => {
+  app.get("/api/fiscal/pendientes-cfdi/:campusId", authenticateToken, async (req: any, res) => {
     try {
-      const campusId = parseInt(req.params.campusId) || (req as any).user?.campus_id;
+      const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
+      if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
       const { mes } = req.query;
       let filtroMes = "";
       const params: any[] = [campusId];
@@ -6347,9 +6463,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ── 5. MOTOR DE BECAS AUTOMÁTICAS ─────────────────────────────────────────
-  app.get("/api/becas-auto/reglas/:campusId", authenticateToken, async (req, res) => {
+  app.get("/api/becas-auto/reglas/:campusId", authenticateToken, async (req: any, res) => {
     try {
-      const campusId = parseInt(req.params.campusId) || (req as any).user?.campus_id;
+      const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
+      if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
       const rows = await pool.query(`SELECT * FROM scholarship_auto_rules WHERE campus_id = $1 ORDER BY created_at DESC`, [campusId]);
       res.json(rows.rows);
     } catch (error: any) {
@@ -6357,14 +6474,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/becas-auto/reglas", authenticateToken, async (req, res) => {
+  app.post("/api/becas-auto/reglas", authenticateToken, async (req: any, res) => {
     try {
-      const campusId = (req as any).user?.campus_id;
+      const campusId = req.user?.campus_id;
+      const tenantId = req.user?.tenant_id;
       const { nombre, tipo, descuento_porcentaje, condicion_json, aplica_a } = req.body;
       const row = await pool.query(`
-        INSERT INTO scholarship_auto_rules (campus_id, nombre, tipo, descuento_porcentaje, condicion_json, aplica_a)
-        VALUES ($1,$2,$3,$4,$5,$6) RETURNING *
-      `, [campusId, nombre, tipo, Number(descuento_porcentaje), condicion_json || null, aplica_a || 'todos']);
+        INSERT INTO scholarship_auto_rules (campus_id, tenant_id, nombre, tipo, descuento_porcentaje, condicion_json, aplica_a)
+        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *
+      `, [campusId, tenantId, nombre, tipo, Number(descuento_porcentaje), condicion_json || null, aplica_a || 'todos']);
       res.json((row.rows as any[])[0]);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -6381,9 +6499,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/becas-auto/ejecutar/:campusId", authenticateToken, async (req, res) => {
+  app.post("/api/becas-auto/ejecutar/:campusId", authenticateToken, async (req: any, res) => {
     try {
-      const campusId = parseInt(req.params.campusId) || (req as any).user?.campus_id;
+      const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
+      if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
       const reglas = await pool.query(`SELECT * FROM scholarship_auto_rules WHERE campus_id = $1 AND activo = true`, [campusId]);
       let aplicadas = 0;
       for (const regla of (reglas.rows as any[])) {
@@ -6404,9 +6523,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ── 6. PLANES DE PAGO NEGOCIADOS ─────────────────────────────────────────
-  app.get("/api/planes-pago/:campusId", authenticateToken, async (req, res) => {
+  app.get("/api/planes-pago/:campusId", authenticateToken, async (req: any, res) => {
     try {
-      const campusId = parseInt(req.params.campusId) || (req as any).user?.campus_id;
+      const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
+      if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
       const planesRows = await pool.query(`
         SELECT pp.*, CONCAT(s.nombres, ' ', s.apellido_paterno) AS student_nombre
         FROM payment_plans pp
@@ -6425,15 +6545,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/planes-pago", authenticateToken, async (req, res) => {
+  app.post("/api/planes-pago", authenticateToken, async (req: any, res) => {
     try {
-      const campusId = (req as any).user?.campus_id;
-      const userId = (req as any).user?.id;
+      const campusId = req.user?.campus_id;
+      const tenantId = req.user?.tenant_id;
+      const userId = req.user?.id;
       const { student_id, guardian_id, total_adeudo_centavos, monto_inicial_centavos, numero_pagos, frecuencia, fecha_inicio, observaciones } = req.body;
+
+      // IDOR: validar que student_id y guardian_id pertenecen a este tenant
+      if (student_id && tenantId) {
+        const owned = await storage.getStudentScoped(parseInt(student_id), tenantId);
+        if (!owned) return res.status(403).json({ message: "Acceso denegado: alumno no pertenece a este tenant" });
+      }
+      if (guardian_id && tenantId) {
+        const owned = await storage.getGuardianScoped(parseInt(guardian_id), tenantId);
+        if (!owned) return res.status(403).json({ message: "Acceso denegado: guardián no pertenece a este tenant" });
+      }
+
       const planRow = await pool.query(`
-        INSERT INTO payment_plans (campus_id, student_id, guardian_id, total_adeudo_centavos, monto_inicial_centavos, numero_pagos, frecuencia, fecha_inicio, observaciones, created_by)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *
-      `, [campusId, student_id || null, guardian_id || null, total_adeudo_centavos, monto_inicial_centavos || 0, numero_pagos, frecuencia || 'mensual', fecha_inicio, observaciones || null, userId]);
+        INSERT INTO payment_plans (campus_id, tenant_id, student_id, guardian_id, total_adeudo_centavos, monto_inicial_centavos, numero_pagos, frecuencia, fecha_inicio, observaciones, created_by)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *
+      `, [campusId, tenantId, student_id || null, guardian_id || null, total_adeudo_centavos, monto_inicial_centavos || 0, numero_pagos, frecuencia || 'mensual', fecha_inicio, observaciones || null, userId]);
       const plan = (planRow.rows as any[])[0];
       const montoPorCuota = Math.round((total_adeudo_centavos - (monto_inicial_centavos || 0)) / numero_pagos);
       const fechaBase = new Date(fecha_inicio + "T12:00:00");
@@ -6449,9 +6581,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/planes-pago/cuotas/:cuotaId/pagar", authenticateToken, async (req, res) => {
+  app.post("/api/planes-pago/cuotas/:cuotaId/pagar", authenticateToken, async (req: any, res) => {
     try {
-      await pool.query(`UPDATE payment_plan_installments SET estado = 'pagado', fecha_pago = CURRENT_DATE WHERE id = $1`, [parseInt(req.params.cuotaId)]);
+      const tenantId = req.user?.tenant_id;
+      const cuotaId = parseInt(req.params.cuotaId);
+      // Verificar que la cuota pertenece a un plan del tenant autenticado
+      const check = await pool.query(`
+        SELECT ppi.id FROM payment_plan_installments ppi
+        JOIN payment_plans pp ON pp.id = ppi.plan_id
+        WHERE ppi.id = $1 AND pp.tenant_id = $2
+      `, [cuotaId, tenantId]);
+      if ((check.rows as any[]).length === 0) {
+        return res.status(403).json({ message: "Acceso denegado: cuota no pertenece a este tenant" });
+      }
+      await pool.query(`UPDATE payment_plan_installments SET estado = 'pagado', fecha_pago = CURRENT_DATE WHERE id = $1`, [cuotaId]);
       res.json({ message: "Cuota marcada como pagada" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -6459,9 +6602,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ── 7. CALENDARIO FINANCIERO ──────────────────────────────────────────────
-  app.get("/api/calendario/eventos/:campusId", authenticateToken, async (req, res) => {
+  app.get("/api/calendario/eventos/:campusId", authenticateToken, async (req: any, res) => {
     try {
-      const campusId = parseInt(req.params.campusId) || (req as any).user?.campus_id;
+      const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
+      if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
       const rows = await pool.query(`SELECT * FROM financial_events WHERE campus_id = $1 ORDER BY fecha, id`, [campusId]);
       res.json(rows.rows);
     } catch (error: any) {
@@ -6480,14 +6624,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/calendario/eventos", authenticateToken, async (req, res) => {
+  app.post("/api/calendario/eventos", authenticateToken, async (req: any, res) => {
     try {
-      const campusId = (req as any).user?.campus_id;
+      const campusId = req.user?.campus_id;
+      const tenantId = req.user?.tenant_id;
       const { titulo, descripcion, fecha, tipo, urgencia } = req.body;
       const row = await pool.query(`
-        INSERT INTO financial_events (campus_id, titulo, descripcion, fecha, tipo, urgencia)
-        VALUES ($1,$2,$3,$4,$5,$6) RETURNING *
-      `, [campusId, titulo, descripcion || null, fecha, tipo || 'otro', urgencia || 'normal']);
+        INSERT INTO financial_events (campus_id, tenant_id, titulo, descripcion, fecha, tipo, urgencia)
+        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *
+      `, [campusId, tenantId, titulo, descripcion || null, fecha, tipo || 'otro', urgencia || 'normal']);
       res.json((row.rows as any[])[0]);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -6505,9 +6650,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ── 8. REPORTE PARA CONSEJO DIRECTIVO ────────────────────────────────────
-  app.get("/api/reportes/consejo/:campusId", authenticateToken, async (req, res) => {
+  app.get("/api/reportes/consejo/:campusId", authenticateToken, async (req: any, res) => {
     try {
-      const campusId = parseInt(req.params.campusId) || (req as any).user?.campus_id;
+      const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
+      if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
       const { mes, anio } = req.query;
       const mesNum = mes !== undefined ? String(mes).padStart(2, '0') : String(new Date().getMonth() + 1).padStart(2, '0');
       const anioNum = anio || new Date().getFullYear();

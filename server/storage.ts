@@ -48,7 +48,17 @@ export interface IStorage {
   getGuardian(id: number): Promise<Guardian | undefined>;
   getGuardianByEmail(email: string): Promise<Guardian | undefined>;
   createGuardian(guardian: InsertGuardian): Promise<Guardian>;
-  
+
+  // Tenant-scoped lookups (primary security layer — always prefer over unscoped)
+  getGuardianScoped(id: number, tenantId: number): Promise<Guardian | undefined>;
+  getStudentScoped(id: number, tenantId: number): Promise<Student | undefined>;
+  getChargeScoped(id: number, tenantId: number): Promise<Charge | undefined>;
+  getConceptScoped(id: number, tenantId: number): Promise<Concept | undefined>;
+  /** Verifica que un campus pertenece al tenant indicado. Retorna undefined si no. */
+  getCampusScoped(campusId: number, tenantId: number): Promise<Campus | undefined>;
+  /** Verifica que un cargo pertenece a un guardián autenticado (vía student_guardian). */
+  getChargeByGuardian(chargeId: number, guardianId: number): Promise<Charge | undefined>;
+
   // Multi-tenant operations
   getTenant(id: number): Promise<Tenant | undefined>;
   createTenant(tenant: InsertTenant): Promise<Tenant>;
@@ -175,6 +185,74 @@ export class DatabaseStorage implements IStorage {
     return guardian || undefined;
   }
 
+  /**
+   * Versión segura de getGuardian que verifica la pertenencia al tenant.
+   * Retorna undefined si el guardian no pertenece al tenant indicado.
+   */
+  async getGuardianScoped(id: number, tenantId: number): Promise<Guardian | undefined> {
+    const [guardian] = await db.select().from(guardians)
+      .where(and(eq(guardians.id, id), eq(guardians.tenant_id, tenantId)));
+    return guardian || undefined;
+  }
+
+  /**
+   * Versión segura de getStudent que verifica la pertenencia al tenant.
+   * Retorna undefined si el alumno no pertenece al tenant indicado.
+   */
+  async getStudentScoped(id: number, tenantId: number): Promise<Student | undefined> {
+    const [student] = await db.select().from(students)
+      .where(and(eq(students.id, id), eq(students.tenant_id, tenantId)));
+    return student || undefined;
+  }
+
+  /**
+   * Versión segura de getConcept que verifica la pertenencia al tenant.
+   * Retorna undefined si el concepto no pertenece al tenant indicado.
+   */
+  async getConceptScoped(id: number, tenantId: number): Promise<Concept | undefined> {
+    const [concept] = await db.select().from(concepts)
+      .where(and(eq(concepts.id, id), eq(concepts.tenant_id, tenantId)));
+    return concept || undefined;
+  }
+
+  /**
+   * Versión segura de getCharge que verifica la pertenencia al tenant.
+   * Retorna undefined si el cargo no pertenece al tenant indicado.
+   */
+  async getChargeScoped(id: number, tenantId: number): Promise<Charge | undefined> {
+    const [charge] = await db.select().from(charges)
+      .where(and(eq(charges.id, id), eq(charges.tenant_id, tenantId)));
+    return charge || undefined;
+  }
+
+  /**
+   * Verifica que un campus pertenece al tenant indicado.
+   * Retorna undefined si el campus no pertenece al tenant o no existe.
+   */
+  async getCampusScoped(campusId: number, tenantId: number): Promise<Campus | undefined> {
+    const [campus] = await db.select().from(campuses)
+      .where(and(eq(campuses.id, campusId), eq(campuses.tenant_id, tenantId)));
+    return campus || undefined;
+  }
+
+  /**
+   * Verifica que un cargo pertenece a los estudiantes de un guardián autenticado.
+   * Previene IDOR en el portal de pagos de tutores.
+   */
+  async getChargeByGuardian(chargeId: number, guardianId: number): Promise<Charge | undefined> {
+    const result = await db
+      .select({ charge: charges })
+      .from(charges)
+      .innerJoin(students, eq(charges.student_id, students.id))
+      .innerJoin(student_guardian, eq(students.id, student_guardian.student_id))
+      .where(and(
+        eq(charges.id, chargeId),
+        eq(student_guardian.guardian_id, guardianId)
+      ))
+      .limit(1);
+    return result[0]?.charge || undefined;
+  }
+
   async getGuardianByEmail(email: string): Promise<Guardian | undefined> {
     const [byEmail] = await db.select().from(guardians).where(eq(guardians.email, email));
     if (byEmail) return byEmail;
@@ -182,25 +260,27 @@ export class DatabaseStorage implements IStorage {
     return byCorrecto || undefined;
   }
 
-  async getGuardiansByCampus(campusId: number): Promise<Guardian[]> {
+  async getGuardiansByCampus(campusId: number): Promise<Omit<Guardian, 'password_hash'>[]> {
+    // Filtrar SIEMPRE por guardians.campus_id (columna directa, sin cruzar tenants)
+    // Excluir password_hash de la respuesta — nunca se serializa por API
     const results = await db
       .select({
         id: guardians.id,
         email: guardians.email,
-        password_hash: guardians.password_hash,
+        nombres: guardians.nombres,
         telefono: guardians.telefono,
         nombre_completo: guardians.nombre_completo,
         rfc: guardians.rfc,
+        campus_id: guardians.campus_id,
+        tenant_id: guardians.tenant_id,
+        correo_institucional_familiar: guardians.correo_institucional_familiar,
         created_at: guardians.created_at,
         updated_at: guardians.updated_at,
       })
       .from(guardians)
-      .innerJoin(student_guardian, eq(guardians.id, student_guardian.guardian_id))
-      .innerJoin(students, eq(student_guardian.student_id, students.id))
-      .where(eq(students.campus_id, campusId))
-      .groupBy(guardians.id)
+      .where(eq(guardians.campus_id, campusId))
       .orderBy(guardians.nombre_completo);
-    
+
     return results as any;
   }
 
@@ -275,6 +355,7 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select({
         id: charges.id,
+        tenant_id: charges.tenant_id,
         student_id: charges.student_id,
         concept_id: charges.concept_id,
         ciclo_escolar: charges.ciclo_escolar,
@@ -398,6 +479,7 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select({
         id: charges.id,
+        tenant_id: charges.tenant_id,
         student_id: charges.student_id,
         concept_id: charges.concept_id,
         ciclo_escolar: charges.ciclo_escolar,

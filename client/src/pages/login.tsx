@@ -11,7 +11,7 @@ import { Eye, EyeOff, Shield, Users, Building2, Calculator, UserCheck, Clipboard
 type Step = "credentials" | "totp";
 
 export default function Login() {
-  const [email, setEmail] = useState("rodrigorp@institutojfr.edu.mx");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("[REDACTED]");
   const [totpCode, setTotpCode] = useState("");
   const [step, setStep] = useState<Step>("credentials");

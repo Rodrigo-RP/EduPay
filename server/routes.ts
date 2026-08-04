@@ -7,7 +7,7 @@
 
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import securityMiddleware, {
+import {
   rateLimits,
   sanitizeInput,
   secureCors,

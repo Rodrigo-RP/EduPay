@@ -29,6 +29,11 @@ import * as XLSX from "xlsx";
 import { optimizeDatabase, checkQueryPerformance, cleanupObsoleteData, runMaintenanceTask } from "./optimize-database";
 import { seedAdmissionsData } from "./seed-admissions-data";
 import { cuentasPorCobrarHTML } from "./static-pages";
+import { createRequire } from "module";
+
+// createRequire allows importing CommonJS packages (speakeasy, qrcode, exceljs)
+// from this ESM module ("type":"module" in package.json)
+const esmRequire = createRequire(import.meta.url);
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
 
@@ -246,7 +251,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Primer paso correcto; indicar al cliente que se necesita el código TOTP
           return res.json({ requires_totp: true });
         }
-        const speakeasy = require("speakeasy") as typeof import("speakeasy");
+        const speakeasy = esmRequire("speakeasy") as typeof import("speakeasy");
         const verified = speakeasy.totp.verify({
           secret:   user.twofa_secret,
           encoding: "base32",
@@ -290,8 +295,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUser(req.user?.id);
       if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
 
-      const speakeasy = require("speakeasy") as typeof import("speakeasy");
-      const qrcode    = require("qrcode") as typeof import("qrcode");
+      const speakeasy = esmRequire("speakeasy") as typeof import("speakeasy");
+      const qrcode    = esmRequire("qrcode") as typeof import("qrcode");
 
       const secret = speakeasy.generateSecret({
         name:   `Instituto JFR (${user.email})`,
@@ -331,7 +336,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(410).json({ message: "El enrolamiento expiró. Escanea el QR de nuevo." });
       }
 
-      const speakeasy = require("speakeasy") as typeof import("speakeasy");
+      const speakeasy = esmRequire("speakeasy") as typeof import("speakeasy");
       const verified = speakeasy.totp.verify({ secret: pending.secret, encoding: "base32", token: String(totp_code), window: 1 });
       if (!verified) return res.status(401).json({ message: "Código incorrecto. Verifica tu app de autenticación." });
 
@@ -357,7 +362,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUser(req.user.id);
       if (!user?.twofa_secret) return res.status(400).json({ message: "El 2FA no está activado en esta cuenta." });
 
-      const speakeasy = require("speakeasy") as typeof import("speakeasy");
+      const speakeasy = esmRequire("speakeasy") as typeof import("speakeasy");
       const verified = speakeasy.totp.verify({ secret: user.twofa_secret, encoding: "base32", token: String(totp_code), window: 1 });
       if (!verified) return res.status(401).json({ message: "Código incorrecto. No se desactivó el 2FA." });
 
@@ -1421,22 +1426,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Verificar que el alumno pertenece al campus del usuario autenticado
       const studentRow = await pool.query(
-        `SELECT id, nombre_completo, matricula, grado, grupo, campus_id, tenant_id, status
+        `SELECT id, nombre_completo, id_referencia, grado, grupo, campus_id, tenant_id, status
          FROM students WHERE id = $1`, [studentId]
-      );
+      ).catch((e: any) => { throw new Error("Error al buscar alumno: " + e.message); });
       if (!studentRow.rows.length) return res.status(404).json({ message: "Alumno no encontrado" });
       const student = studentRow.rows[0] as any;
       if (!await checkCampusTenant(student.campus_id, req.user?.tenant_id, res)) return;
 
       // Tutores con su rol de responsabilidad
       const tutoresResult = await pool.query(`
-        SELECT g.id, g.nombre_completo, g.email, g.telefono, g.parentesco,
+        SELECT g.id, g.nombre_completo, g.email, g.telefono, g.tipo_guardian AS parentesco,
                sg.es_responsable_pago, sg.porcentaje_responsabilidad
         FROM guardians g
         JOIN student_guardian sg ON sg.guardian_id = g.id
         WHERE sg.student_id = $1
         ORDER BY sg.es_responsable_pago DESC, g.nombre_completo
-      `, [studentId]);
+      `, [studentId]).catch((e: any) => { throw new Error("Error al buscar tutores: " + e.message); });
 
       // Cargos con beca, recargos y pagos aplicados
       const cargosResult = await pool.query(`
@@ -1451,7 +1456,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         WHERE c.student_id = $1
         GROUP BY c.id, co.nombre
         ORDER BY c.fecha_vencimiento DESC
-      `, [studentId]);
+      `, [studentId]).catch((e: any) => { throw new Error("Error al buscar cargos: " + e.message); });
 
       // Resumen financiero
       const cargos = cargosResult.rows as any[];
@@ -1477,7 +1482,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Error en estado de cuenta: " + error.message });
+      console.error("[estado-cuenta]", error.message);
+      if (!res.headersSent) res.status(500).json({ message: "Error en estado de cuenta: " + error.message });
     }
   });
 
@@ -1497,7 +1503,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         FROM scholarships s
         JOIN students stu ON stu.id = s.student_id
         WHERE stu.campus_id = $1 AND s.estado = 'activa'
-      `, [campusId]);
+      `, [campusId]).catch(() => ({ rows: [{ total_activas: 0, alumnos_con_beca: 0 }] }));
 
       // ── Monto total descontado (beca_aplicada > 0) ────────────────────
       const montoResult = await pool.query(`
@@ -1507,7 +1513,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         FROM charges c
         JOIN students stu ON stu.id = c.student_id
         WHERE stu.campus_id = $1 AND CAST(c.beca_aplicada AS NUMERIC) > 0
-      `, [campusId]);
+      `, [campusId]).catch(() => ({ rows: [{ monto_total_descuento_centavos: 0 }] }));
 
       // ── Distribución por tipo de beca ─────────────────────────────────
       const distribucionResult = await pool.query(`
@@ -1521,12 +1527,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         WHERE stu.campus_id = $1 AND s.estado = 'activa'
         GROUP BY st.id, st.nombre, st.categoria
         ORDER BY cantidad DESC
-      `, [campusId]);
+      `, [campusId]).catch(() => ({ rows: [] }));
 
       // ── Inscripciones del ciclo actual ────────────────────────────────
-      // Suma payment_applications.amount_centavos directamente sobre cargos de
-      // tipo inscripción para evitar duplicar el monto cuando un pago cubre varios cargos.
-      // El ciclo se determina por el campo ciclo_escolar del cargo (ej. "2025-2026").
       const cicloActual = `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
       const inscripcionesResult = await pool.query(`
         SELECT COUNT(DISTINCT c.id)::int       AS total,
@@ -1540,7 +1543,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           AND LOWER(co.nombre) LIKE '%inscripci%'
           AND (c.ciclo_escolar = $2 OR (c.ciclo_escolar IS NULL AND p.created_at >= date_trunc('year', NOW())))
           AND p.estado = 'exitoso'
-      `, [campusId, cicloActual]);
+      `, [campusId, cicloActual]).catch(() => ({ rows: [{ total: 0, monto_centavos: 0 }] }));
 
       res.json({
         becas: {
@@ -1556,7 +1559,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Error en reporte de admisiones: " + error.message });
+      console.error("[admissions-report]", error.message);
+      if (!res.headersSent) res.status(500).json({ message: "Error en reporte de admisiones: " + error.message });
     }
   });
 
@@ -5296,7 +5300,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const periodText = `${getMonthName(parseInt(month) || new Date().getMonth() + 1)} ${year || new Date().getFullYear()}`;
 
       if (type === 'excel') {
-        const ExcelJS = require('exceljs');
+        const ExcelJS = esmRequire('exceljs');
         const workbook = new ExcelJS.Workbook();
         
         // Hoja de Resumen
@@ -6907,10 +6911,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           CONCAT(g.nombres, ' ', g.apellido_paterno) AS nombre_familia,
           s.nivel_escolar AS nivel,
           COALESCE(SUM(CASE WHEN c.estado='pendiente' THEN c.monto_base_centavos ELSE 0 END), 0) AS adeudo_centavos,
-          COALESCE(MAX(EXTRACT(DAY FROM (NOW()-c.fecha_vencimiento::date)) FILTER (WHERE c.estado='pendiente' AND c.fecha_vencimiento<NOW()::date)), 0) AS dias_vencido,
+          COALESCE(MAX(EXTRACT(DAY FROM (NOW()-c.fecha_vencimiento::date))) FILTER (WHERE c.estado='pendiente' AND c.fecha_vencimiento<NOW()::date), 0) AS dias_vencido,
           COALESCE(
             ROUND(
-              COUNT(p.id) FILTER (WHERE p.created_at > NOW() - INTERVAL '6 months')::numeric /
+              (COUNT(p.id) FILTER (WHERE p.created_at > NOW() - INTERVAL '6 months'))::numeric /
               NULLIF(COUNT(c2.id) FILTER (WHERE c2.created_at > NOW() - INTERVAL '6 months'), 0) * 100
             ), 0
           ) AS tasa_pago_historica

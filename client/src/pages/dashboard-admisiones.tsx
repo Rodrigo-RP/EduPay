@@ -47,9 +47,14 @@ export default function DashboardAdmisiones() {
     select: (data) => filterChargesData(data)
   });
 
-  // Obtener datos de becas
+  // Obtener datos de becas (lista de becas individuales)
   const { data: scholarships = [], isLoading: scholarshipsLoading } = useQuery<any[]>({
     queryKey: ['/api/scholarships']
+  });
+
+  // Reporte de admisiones con estadísticas de becas reales
+  const { data: admissionsReport } = useQuery<any>({
+    queryKey: ['/api/admin/admissions-report']
   });
 
   // Obtener datos de CRM (prospectos)
@@ -64,7 +69,7 @@ export default function DashboardAdmisiones() {
     enrollmentRevenue: payments
       .filter(p => p.concept?.name?.toLowerCase().includes('inscripcion') || p.concept?.name?.toLowerCase().includes('inscription'))
       .reduce((sum, p) => sum + p.amount, 0),
-    activeScholarships: scholarships.filter(s => s.status === 'activo').length,
+    activeScholarships: admissionsReport?.becas?.total_activas ?? scholarships.filter(s => s.estado === 'activa').length,
     pendingEnrollments: prospects.filter(p => p.status === 'interested' || p.status === 'pending').length,
     completedEnrollments: prospects.filter(p => p.status === 'enrolled').length,
     totalProspects: prospects.length,
@@ -375,43 +380,103 @@ export default function DashboardAdmisiones() {
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Ahorro Total</CardTitle>
+                <CardTitle className="text-sm font-medium">Monto Descontado</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-purple-600">
-                  ${scholarships.reduce((sum, s) => sum + (s.amount || 0), 0).toLocaleString()}
+                  ${(((admissionsReport?.becas?.monto_total_descuento_centavos ?? 0) / 100)).toLocaleString("es-MX", { maximumFractionDigits: 0 })}
                 </div>
                 <p className="text-sm text-gray-500">Descuentos otorgados</p>
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Alumnos Beneficiados</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600">
+                  {admissionsReport?.becas?.alumnos_con_beca ?? scholarships.filter(s => s.estado === 'activa').length}
+                </div>
+                <p className="text-sm text-gray-500">Con beca activa</p>
+              </CardContent>
+            </Card>
           </div>
 
-          {/* Lista de becas */}
+          {/* Distribución por tipo de beca */}
+          {admissionsReport?.becas?.por_tipo?.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Distribución por Tipo de Beca</CardTitle>
+                <CardDescription>Becas activas agrupadas por categoría</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {admissionsReport.becas.por_tipo.map((tipo: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between p-3 border rounded-lg bg-yellow-50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                          <Award className="w-4 h-4 text-yellow-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{tipo.tipo ?? "Sin tipo"}</p>
+                          <p className="text-sm text-gray-500 capitalize">{tipo.categoria ?? "general"}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-yellow-700">{tipo.cantidad}</p>
+                        <p className="text-xs text-gray-500">becas</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Lista de becas individuales */}
           <Card>
             <CardHeader>
               <CardTitle>Becas Otorgadas</CardTitle>
-              <CardDescription>Estudiantes con apoyo económico</CardDescription>
+              <CardDescription>Estudiantes con apoyo económico activo</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {scholarships.slice(0, 5).map((scholarship) => (
-                  <div key={scholarship.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                        <Award className="w-5 h-5 text-yellow-600" />
+              {scholarships.filter(s => s.estado === 'activa').length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-6">No hay becas activas registradas para este campus.</p>
+              ) : (
+                <div className="space-y-3">
+                  {scholarships.filter(s => s.estado === 'activa').slice(0, 8).map((scholarship: any) => (
+                    <div key={scholarship.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                          <Award className="w-5 h-5 text-yellow-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{scholarship.alumno}</p>
+                          <p className="text-sm text-gray-500">
+                            {scholarship.tipo_nombre ?? "Beca"} •{" "}
+                            {scholarship.porcentaje_aplicado != null
+                              ? `${scholarship.porcentaje_aplicado}% de descuento`
+                              : scholarship.monto_fijo_aplicado_centavos
+                              ? `$${(scholarship.monto_fijo_aplicado_centavos / 100).toLocaleString("es-MX")} fijo`
+                              : "Sin monto definido"}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium">{scholarship.student_name}</p>
-                        <p className="text-sm text-gray-500">{scholarship.type} • {scholarship.percentage}%</p>
+                      <div className="text-right">
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                          Activa
+                        </span>
+                        {scholarship.vigencia_fin && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            Vence: {new Date(scholarship.vigencia_fin).toLocaleDateString("es-MX")}
+                          </p>
+                        )}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium text-green-600">${scholarship.amount?.toLocaleString()}</p>
-                      <p className="text-sm text-gray-500">Ahorro mensual</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

@@ -570,6 +570,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(student_guardian.guardian_id, guardianId),
+          eq(student_guardian.es_responsable_pago, true),   // solo cargos del tutor pagador
           eq(charges.estado, "pendiente")
         )
       )

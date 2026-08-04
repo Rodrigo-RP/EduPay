@@ -1410,6 +1410,156 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── GET /api/students/:studentId/estado-cuenta ────────────────────────────
+  // Estado de cuenta completo del alumno para el admin.
+  // Incluye: tutores (responsable de pago vs. solo contacto), todos los cargos
+  // con su historia de pagos, y un resumen numérico.
+  app.get("/api/students/:studentId/estado-cuenta", authenticateToken, async (req: any, res) => {
+    try {
+      const studentId = parseInt(req.params.studentId);
+      if (isNaN(studentId)) return res.status(400).json({ message: "ID de alumno inválido" });
+
+      // Verificar que el alumno pertenece al campus del usuario autenticado
+      const studentRow = await pool.query(
+        `SELECT id, nombre_completo, matricula, grado, grupo, campus_id, tenant_id, status
+         FROM students WHERE id = $1`, [studentId]
+      );
+      if (!studentRow.rows.length) return res.status(404).json({ message: "Alumno no encontrado" });
+      const student = studentRow.rows[0] as any;
+      if (!await checkCampusTenant(student.campus_id, req.user?.tenant_id, res)) return;
+
+      // Tutores con su rol de responsabilidad
+      const tutoresResult = await pool.query(`
+        SELECT g.id, g.nombre_completo, g.email, g.telefono, g.parentesco,
+               sg.es_responsable_pago, sg.porcentaje_responsabilidad
+        FROM guardians g
+        JOIN student_guardian sg ON sg.guardian_id = g.id
+        WHERE sg.student_id = $1
+        ORDER BY sg.es_responsable_pago DESC, g.nombre_completo
+      `, [studentId]);
+
+      // Cargos con beca, recargos y pagos aplicados
+      const cargosResult = await pool.query(`
+        SELECT c.id, c.ciclo_escolar, c.fecha_emision, c.fecha_vencimiento,
+               c.monto_base_centavos, c.beca_aplicada, c.recargo_aplicado_centavos,
+               c.estado, co.nombre AS concepto,
+               COALESCE(SUM(pa.amount_centavos), 0)::bigint AS pagado_centavos,
+               ROUND(c.monto_base_centavos * COALESCE(c.beca_aplicada,0) / 100)::bigint AS descuento_centavos
+        FROM charges c
+        JOIN concepts co ON co.id = c.concept_id
+        LEFT JOIN payment_applications pa ON pa.charge_id = c.id
+        WHERE c.student_id = $1
+        GROUP BY c.id, co.nombre
+        ORDER BY c.fecha_vencimiento DESC
+      `, [studentId]);
+
+      // Resumen financiero
+      const cargos = cargosResult.rows as any[];
+      const totalCargos = cargos.reduce((s, c) => s + Number(c.monto_base_centavos), 0);
+      const totalDescuentos = cargos.reduce((s, c) => s + Number(c.descuento_centavos), 0);
+      const totalRecargos = cargos.reduce((s, c) => s + Number(c.recargo_aplicado_centavos || 0), 0);
+      const totalPagado = cargos.reduce((s, c) => s + Number(c.pagado_centavos), 0);
+      const saldoPendiente = totalCargos - totalDescuentos + totalRecargos - totalPagado;
+
+      res.json({
+        alumno: student,
+        tutores: (tutoresResult.rows as any[]).map(t => ({
+          ...t,
+          rol: t.es_responsable_pago ? "responsable_pago" : "solo_contacto",
+        })),
+        cargos,
+        resumen: {
+          total_cargos_centavos:    totalCargos,
+          total_descuentos_centavos: totalDescuentos,
+          total_recargos_centavos:  totalRecargos,
+          total_pagado_centavos:    totalPagado,
+          saldo_pendiente_centavos: Math.max(0, saldoPendiente),
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error en estado de cuenta: " + error.message });
+    }
+  });
+
+  // ── GET /api/admin/admissions-report ──────────────────────────────────────
+  // Reporte de admisiones con sección de becas reales.
+  // Devuelve: métricas de inscripción + becas activas, monto descontado y
+  // distribución por tipo de beca.
+  app.get("/api/admin/admissions-report", authenticateToken, async (req: any, res) => {
+    try {
+      const campusId = req.user?.campus_id;
+      if (!campusId) return res.status(400).json({ message: "Campus ID requerido" });
+
+      // ── Becas activas ──────────────────────────────────────────────────
+      const becasActivasResult = await pool.query(`
+        SELECT COUNT(*)::int            AS total_activas,
+               COUNT(DISTINCT s.student_id)::int AS alumnos_con_beca
+        FROM scholarships s
+        JOIN students stu ON stu.id = s.student_id
+        WHERE stu.campus_id = $1 AND s.estado = 'activa'
+      `, [campusId]);
+
+      // ── Monto total descontado (beca_aplicada > 0) ────────────────────
+      const montoResult = await pool.query(`
+        SELECT COALESCE(SUM(
+          ROUND(c.monto_base_centavos * CAST(c.beca_aplicada AS NUMERIC) / 100)
+        ), 0)::bigint AS monto_total_descuento_centavos
+        FROM charges c
+        JOIN students stu ON stu.id = c.student_id
+        WHERE stu.campus_id = $1 AND CAST(c.beca_aplicada AS NUMERIC) > 0
+      `, [campusId]);
+
+      // ── Distribución por tipo de beca ─────────────────────────────────
+      const distribucionResult = await pool.query(`
+        SELECT st.nombre     AS tipo,
+               st.categoria  AS categoria,
+               COUNT(*)::int AS cantidad,
+               COALESCE(SUM(s.porcentaje_aplicado), 0)::int AS porcentaje_total
+        FROM scholarships s
+        JOIN students stu ON stu.id = s.student_id
+        LEFT JOIN scholarship_types st ON st.id = s.scholarship_type_id
+        WHERE stu.campus_id = $1 AND s.estado = 'activa'
+        GROUP BY st.id, st.nombre, st.categoria
+        ORDER BY cantidad DESC
+      `, [campusId]);
+
+      // ── Inscripciones del ciclo actual ────────────────────────────────
+      // Suma payment_applications.amount_centavos directamente sobre cargos de
+      // tipo inscripción para evitar duplicar el monto cuando un pago cubre varios cargos.
+      // El ciclo se determina por el campo ciclo_escolar del cargo (ej. "2025-2026").
+      const cicloActual = `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
+      const inscripcionesResult = await pool.query(`
+        SELECT COUNT(DISTINCT c.id)::int       AS total,
+               COALESCE(SUM(pa.amount_centavos), 0)::bigint AS monto_centavos
+        FROM payment_applications pa
+        JOIN charges c   ON c.id  = pa.charge_id
+        JOIN concepts co ON co.id = c.concept_id
+        JOIN students stu ON stu.id = c.student_id
+        JOIN payments p  ON p.id  = pa.payment_id
+        WHERE stu.campus_id = $1
+          AND LOWER(co.nombre) LIKE '%inscripci%'
+          AND (c.ciclo_escolar = $2 OR (c.ciclo_escolar IS NULL AND p.created_at >= date_trunc('year', NOW())))
+          AND p.estado = 'exitoso'
+      `, [campusId, cicloActual]);
+
+      res.json({
+        becas: {
+          total_activas:                 becasActivasResult.rows[0].total_activas,
+          alumnos_con_beca:              becasActivasResult.rows[0].alumnos_con_beca,
+          monto_total_descuento_centavos: Number(montoResult.rows[0].monto_total_descuento_centavos),
+          por_tipo:                      distribucionResult.rows,
+        },
+        inscripciones: {
+          total:          inscripcionesResult.rows[0].total,
+          monto_centavos: Number(inscripcionesResult.rows[0].monto_centavos),
+          ciclo:          cicloActual,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error en reporte de admisiones: " + error.message });
+    }
+  });
+
   // Create new student
   app.post("/api/admin/students", authenticateToken, async (req, res) => {
     try {

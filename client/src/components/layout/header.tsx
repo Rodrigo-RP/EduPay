@@ -6,6 +6,7 @@ import { useAcademicFilter } from "@/hooks/use-academic-filter";
 import { Calendar, GraduationCap, User, Settings } from "lucide-react";
 import { useLocation } from "wouter";
 import { RealTimeStatus } from "@/components/RealTimeStatus";
+import GlobalSearch from "@/components/GlobalSearch";
 
 export default function Header() {
   const { user, guardian } = useAuth();
@@ -66,6 +67,9 @@ export default function Header() {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Buscador universal */}
+          <GlobalSearch />
 
           <RealTimeStatus />
           

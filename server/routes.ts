@@ -7932,6 +7932,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── GET /api/search?q= ────────────────────────────────────────────────────
+  // Buscador universal: alumnos, tutores, pagos y cargos del tenant del usuario.
+  app.get("/api/search", authenticateToken, async (req: any, res) => {
+    try {
+      const q        = ((req.query.q as string) || "").trim();
+      const tenantId = req.user?.tenant_id;
+      const campusId = req.user?.campus_id;
+
+      if (!q || q.length < 3) return res.json({ alumnos: [], tutores: [], pagos: [], cargos: [] });
+
+      const like = `%${q}%`;
+
+      // 4 búsquedas en paralelo
+      const [studRows, guardRows, payRows, chargeRows] = await Promise.all([
+        // Alumnos: por nombre completo o matrícula
+        pool.query(`
+          SELECT s.id,
+                 CONCAT(s.nombres, ' ', s.apellido_paterno, COALESCE(' ' || s.apellido_materno, '')) AS label,
+                 s.grado                         AS sublabel,
+                 s.id_referencia                 AS matricula,
+                 s.status
+          FROM   students s
+          WHERE  s.tenant_id = $1
+            AND  (s.nombre_completo ILIKE $2
+              OR CONCAT(s.nombres, ' ', s.apellido_paterno) ILIKE $2
+              OR s.id_referencia ILIKE $2
+              OR s.nombres ILIKE $2)
+          ORDER  BY s.apellido_paterno, s.nombres
+          LIMIT  10
+        `, [tenantId, like]),
+
+        // Tutores: por nombre o correo
+        pool.query(`
+          SELECT g.id,
+                 CONCAT(g.nombres, ' ', g.apellido_paterno, COALESCE(' ' || g.apellido_materno, '')) AS label,
+                 g.correo_institucional_familiar AS sublabel
+          FROM   guardians g
+          WHERE  g.tenant_id = $1
+            AND  (g.nombre_completo ILIKE $2
+              OR CONCAT(g.nombres, ' ', g.apellido_paterno) ILIKE $2
+              OR g.correo_institucional_familiar ILIKE $2
+              OR g.nombres ILIKE $2)
+          ORDER  BY g.apellido_paterno, g.nombres
+          LIMIT  10
+        `, [tenantId, like]),
+
+        // Pagos: por referencia de pasarela
+        pool.query(`
+          SELECT p.id,
+                 p.referencia_pasarela           AS label,
+                 TO_CHAR(p.fecha_pago, 'DD/MM/YYYY') || ' — $' ||
+                   TO_CHAR(p.monto_centavos / 100.0, 'FM999,999.00') AS sublabel,
+                 p.estado,
+                 c.student_id
+          FROM   payments p
+          JOIN   charges  c ON c.id = p.charge_id
+          JOIN   students s ON s.id = c.student_id
+          WHERE  s.tenant_id = $1
+            AND  p.referencia_pasarela ILIKE $2
+          ORDER  BY p.fecha_pago DESC
+          LIMIT  10
+        `, [tenantId, like]),
+
+        // Cargos: por id numérico o concept name
+        pool.query(`
+          SELECT c.id,
+                 CONCAT('#', c.id, ' — ', COALESCE(con.nombre, 'Cargo')) AS label,
+                 CONCAT(s.nombres, ' ', s.apellido_paterno, ' — $',
+                   TO_CHAR(c.monto_base_centavos / 100.0, 'FM999,999.00')) AS sublabel,
+                 c.estado,
+                 c.student_id
+          FROM   charges  c
+          JOIN   students s ON s.id = c.student_id
+          LEFT   JOIN concepts con ON con.id = c.concept_id
+          WHERE  s.tenant_id = $1
+            AND  (CAST(c.id AS TEXT) = $3
+              OR  con.nombre ILIKE $2)
+          ORDER  BY c.fecha_vencimiento DESC
+          LIMIT  10
+        `, [tenantId, like, q]),
+      ]);
+
+      res.json({
+        alumnos: studRows.rows,
+        tutores: guardRows.rows,
+        pagos:   payRows.rows,
+        cargos:  chargeRows.rows,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // /api/admin/dashboard — alias sin campusId (lee del JWT)
   app.get("/api/admin/dashboard", authenticateToken, async (req, res) => {
     try {

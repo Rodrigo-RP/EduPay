@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useInstitution } from "@/hooks/use-institution";
 import TrainingModal from "@/components/training-modal";
 import { hasPermission, MODULES, ACTIONS, UserRole } from "@shared/permissions";
+import { Badge } from "@/components/ui/badge";
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
@@ -12,6 +13,31 @@ export default function Sidebar() {
   const [trainingOpen, setTrainingOpen] = useState(false);
 
   const userRole = (user?.role as UserRole) || 'asistente';
+
+  // ── Conteo de excepciones bancarias pendientes (polling cada 60 s) ───────────
+  const [excepcionesPendientes, setExcepcionesPendientes] = useState(0);
+  useEffect(() => {
+    const token = localStorage.getItem("auth_token");
+    if (!token) return;
+
+    const fetchCount = () => {
+      const campusId = (user as any)?.campus_id ?? 48;
+      fetch(`/api/admin/dashboard/${campusId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => {
+          if (data && typeof data.excepciones_pendientes === "number") {
+            setExcepcionesPendientes(data.excepciones_pendientes);
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchCount();
+    const interval = setInterval(fetchCount, 60_000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   // Definir elementos del menú con permisos
   const getAllMenuItems = () => [
@@ -80,6 +106,25 @@ export default function Sidebar() {
       action: ACTIONS.READ
     },
 
+    { 
+      icon: "fas fa-university", 
+      label: "Caja y Conciliación", 
+      href: "/caja-conciliacion", 
+      active: location === "/caja-conciliacion",
+      category: "financiero",
+      module: MODULES.RECEIVABLES,
+      action: ACTIONS.READ
+    },
+    { 
+      icon: "fas fa-exclamation-circle", 
+      label: "Excepciones bancarias", 
+      href: "/excepciones-conciliacion", 
+      active: location === "/excepciones-conciliacion",
+      category: "financiero",
+      module: MODULES.RECEIVABLES,
+      action: ACTIONS.READ,
+      count: excepcionesPendientes,
+    },
     { 
       icon: "fas fa-file-alt", 
       label: "Reportes Financieros", 
@@ -453,6 +498,7 @@ export default function Sidebar() {
             <div className="mt-2 space-y-1">
               {menuItems.filter(item => item.category === "financiero").map((item, index) => {
                 const colors = getSectionColors("financiero");
+                const itemCount = (item as any).count as number | undefined;
                 return (
                   <a
                     key={index}
@@ -468,7 +514,12 @@ export default function Sidebar() {
                     }`}
                   >
                     <i className={`${item.icon} mr-3 text-sm`}></i>
-                    {item.label}
+                    <span className="flex-1">{item.label}</span>
+                    {itemCount != null && itemCount > 0 && (
+                      <Badge className="ml-1 px-1.5 py-0 text-[10px] leading-4 min-w-[18px] text-center bg-red-500 text-white border-0 hover:bg-red-500">
+                        {itemCount}
+                      </Badge>
+                    )}
                   </a>
                 );
               })}

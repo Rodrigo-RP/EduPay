@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, Mail, Phone, Lock, Camera, Save, X, Upload, Eye, EyeOff, Building2, Calendar, Shield, Plus, Edit, Trash2, Bell } from "lucide-react";
+import { User, Mail, Phone, Lock, Camera, Save, X, Upload, Eye, EyeOff, Building2, Calendar, Shield, Plus, Edit, Trash2, Bell, Smartphone, CheckCircle, AlertCircle, QrCode } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
@@ -71,6 +71,14 @@ export default function Profile() {
   const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
   const [editingInfo, setEditingInfo] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── 2FA state ──────────────────────────────────────────────────────────────
+  type TwofaStep = "idle" | "qr" | "disabling";
+  const [twofaStep, setTwofaStep]           = useState<TwofaStep>("idle");
+  const [twofaSecret, setTwofaSecret]       = useState("");
+  const [twofaQrUrl, setTwofaQrUrl]         = useState("");
+  const [twofaCode, setTwofaCode]           = useState("");
+  const [twofaDisableCode, setTwofaDisableCode] = useState("");
 
   const isGuardian = !!guardian;
   const profileEndpoint = isGuardian ? "/api/guardian/profile" : "/api/profile";
@@ -247,6 +255,69 @@ export default function Profile() {
         variant: "destructive",
       });
     },
+  });
+
+  // ── 2FA mutations ──────────────────────────────────────────────────────────
+  const setup2faMutation = useMutation({
+    mutationFn: async () => {
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch("/api/auth/2fa/setup", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      setTwofaSecret(data.manual_code);  // manual_code es el código de respaldo para la app
+      setTwofaQrUrl(data.qr_data_url);
+      setTwofaCode("");
+      setTwofaStep("qr");
+    },
+    onError: (err: any) => toast({ title: "Error iniciando 2FA", description: err.message, variant: "destructive" }),
+  });
+
+  const confirm2faMutation = useMutation({
+    mutationFn: async () => {
+      const token = localStorage.getItem("auth_token");
+      // El servidor lee el secreto de su propio estado pendiente — solo enviamos el código
+      const res = await fetch("/api/auth/2fa/confirm", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ totp_code: twofaCode }),
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "2FA activado", description: "Autenticación de dos factores activada correctamente." });
+      setTwofaStep("idle");
+      setTwofaSecret("");
+      setTwofaQrUrl("");
+      setTwofaCode("");
+      queryClient.invalidateQueries({ queryKey: [profileEndpoint] });
+    },
+    onError: (err: any) => toast({ title: "Código incorrecto", description: err.message, variant: "destructive" }),
+  });
+
+  const disable2faMutation = useMutation({
+    mutationFn: async () => {
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch("/api/auth/2fa", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ totp_code: twofaDisableCode }),
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "2FA desactivado", description: "Autenticación de dos factores desactivada." });
+      setTwofaStep("idle");
+      setTwofaDisableCode("");
+      queryClient.invalidateQueries({ queryKey: [profileEndpoint] });
+    },
+    onError: (err: any) => toast({ title: "Código incorrecto", description: err.message, variant: "destructive" }),
   });
 
   // Institutional credential mutations
@@ -566,6 +637,12 @@ export default function Profile() {
         <TabsList>
           <TabsTrigger value="profile">Información Personal</TabsTrigger>
           <TabsTrigger value="password">Cambiar Contraseña</TabsTrigger>
+          {!isGuardian && ['administrador_general','administrador_campus','super_admin','contador_general','auxiliar_contable','asistente','admisiones'].includes(user?.role ?? '') && (
+            <TabsTrigger value="seguridad" className="flex items-center gap-2">
+              <Shield className="w-4 h-4" />
+              Seguridad
+            </TabsTrigger>
+          )}
           {canViewInstitutional && (
             <TabsTrigger value="institutional">Información Institucional</TabsTrigger>
           )}
@@ -814,6 +891,145 @@ export default function Profile() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {!isGuardian && ['administrador_general','administrador_campus','super_admin','contador_general','auxiliar_contable','asistente','admisiones'].includes(user?.role ?? '') && (
+          <TabsContent value="seguridad" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Smartphone className="w-5 h-5" />
+                  Autenticación de dos factores (2FA)
+                </CardTitle>
+                <CardDescription>
+                  Protege tu cuenta con un código temporal generado por tu aplicación de autenticación.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {/* Status banner */}
+                {(profileData as any)?.has_twofa ? (
+                  <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-lg p-4">
+                    <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
+                    <div>
+                      <p className="font-medium text-green-800">2FA activado</p>
+                      <p className="text-sm text-green-600">Tu cuenta está protegida con autenticación de dos factores.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+                    <div>
+                      <p className="font-medium text-amber-800">2FA no activado</p>
+                      <p className="text-sm text-amber-600">Tu cuenta solo está protegida por contraseña. Activa 2FA para mayor seguridad.</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── ACTIVAR 2FA ─────────────────────────────────── */}
+                {!(profileData as any)?.has_twofa && twofaStep === "idle" && (
+                  <Button
+                    onClick={() => setup2faMutation.mutate()}
+                    disabled={setup2faMutation.isPending}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    {setup2faMutation.isPending ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Generando QR...
+                      </div>
+                    ) : (
+                      <><QrCode className="w-4 h-4 mr-2" />Activar 2FA</>
+                    )}
+                  </Button>
+                )}
+
+                {/* ── QR + confirmación ───────────────────────────── */}
+                {twofaStep === "qr" && (
+                  <div className="space-y-4 border rounded-lg p-5">
+                    <div className="space-y-2">
+                      <p className="font-medium text-slate-800">Paso 1 — Escanea el código QR</p>
+                      <p className="text-sm text-slate-500">
+                        Abre Google Authenticator, Authy u otra app compatible con TOTP y escanea el código:
+                      </p>
+                      {twofaQrUrl && (
+                        <div className="flex justify-center py-3">
+                          <img src={twofaQrUrl} alt="QR 2FA" className="w-48 h-48 border rounded-lg" />
+                        </div>
+                      )}
+                      <p className="text-xs text-slate-400 text-center">
+                        ¿No puedes escanear? Código manual:
+                        <code className="ml-1 bg-slate-100 px-2 py-0.5 rounded font-mono text-slate-700">{twofaSecret}</code>
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="font-medium text-slate-800">Paso 2 — Confirma con el primer código</p>
+                      <div className="flex gap-3">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={6}
+                          placeholder="000000"
+                          value={twofaCode}
+                          onChange={(e) => setTwofaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          className="flex-1 border rounded-md px-3 py-2 text-center text-lg tracking-widest font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <Button
+                          onClick={() => confirm2faMutation.mutate()}
+                          disabled={twofaCode.length < 6 || confirm2faMutation.isPending}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          {confirm2faMutation.isPending ? "Verificando..." : "Confirmar"}
+                        </Button>
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => { setTwofaStep("idle"); setTwofaSecret(""); setTwofaQrUrl(""); }}>
+                      Cancelar
+                    </Button>
+                  </div>
+                )}
+
+                {/* ── DESACTIVAR 2FA ──────────────────────────────── */}
+                {(profileData as any)?.has_twofa && twofaStep === "idle" && (
+                  <Button
+                    variant="outline"
+                    className="border-red-200 text-red-600 hover:bg-red-50"
+                    onClick={() => { setTwofaStep("disabling"); setTwofaDisableCode(""); }}
+                  >
+                    <Shield className="w-4 h-4 mr-2" />
+                    Desactivar 2FA
+                  </Button>
+                )}
+
+                {twofaStep === "disabling" && (
+                  <div className="space-y-3 border border-red-200 rounded-lg p-5 bg-red-50">
+                    <p className="font-medium text-red-800">Confirma tu identidad para desactivar 2FA</p>
+                    <p className="text-sm text-red-600">Ingresa el código de 6 dígitos de tu aplicación de autenticación:</p>
+                    <div className="flex gap-3">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        placeholder="000000"
+                        value={twofaDisableCode}
+                        onChange={(e) => setTwofaDisableCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        className="flex-1 border rounded-md px-3 py-2 text-center text-lg tracking-widest font-mono focus:outline-none focus:ring-2 focus:ring-red-400"
+                      />
+                      <Button
+                        onClick={() => disable2faMutation.mutate()}
+                        disabled={twofaDisableCode.length < 6 || disable2faMutation.isPending}
+                        className="bg-red-600 hover:bg-red-700 text-white"
+                      >
+                        {disable2faMutation.isPending ? "Desactivando..." : "Desactivar"}
+                      </Button>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => { setTwofaStep("idle"); setTwofaDisableCode(""); }}>
+                      Cancelar
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
         {canViewInstitutional && (
           <TabsContent value="institutional" className="space-y-4">

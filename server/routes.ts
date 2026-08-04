@@ -170,6 +170,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/admin', rateLimits.api);
   app.use('/api/super-admin', rateLimits.api);
 
+  // ── Serialización segura de usuarios ────────────────────────────────────────
+  // Nunca exponer password_hash ni twofa_secret en respuestas de API.
+  // has_twofa (bool) es el único indicador seguro de 2FA que llega al cliente.
+  function serializeUser(user: any): any {
+    const { password_hash, twofa_secret, ...safe } = user ?? {};
+    return { ...safe, has_twofa: !!twofa_secret };
+  }
+
+  // ── Estado de enrolamiento 2FA pendiente ─────────────────────────────────────
+  // El secreto temporal se guarda aquí server-side (vinculado al user_id) con TTL
+  // de 10 minutos. /2fa/confirm lo lee y lo destruye; el cliente nunca puede
+  // inyectar un secreto arbitrario en la confirmación.
+  const pendingTwofaEnrollment = new Map<number, { secret: string; expiresAt: number }>();
+
   // Middleware para verificar Super Admin
   const requireSuperAdmin = async (req: any, res: any, next: any) => {
     try {
@@ -215,7 +229,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin/Staff login
   app.post("/api/auth/login", async (req, res) => {
     try {
-      const { email, password } = req.body;
+      const { email, password, totp_code } = req.body;
       
       if (!email || !password) {
         return res.status(400).json({ message: "Email and password required" });
@@ -223,11 +237,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const user = await storage.getUserByEmail(email);
       if (!user || !await bcrypt.compare(password, user.password_hash)) {
-        return res.status(401).json({ message: "Invalid credentials" });
+        return res.status(401).json({ message: "Credenciales inválidas" });
+      }
+
+      // ── Verificación TOTP (2FA) ──────────────────────────────────────────
+      if (user.twofa_secret) {
+        if (!totp_code) {
+          // Primer paso correcto; indicar al cliente que se necesita el código TOTP
+          return res.json({ requires_totp: true });
+        }
+        const speakeasy = require("speakeasy") as typeof import("speakeasy");
+        const verified = speakeasy.totp.verify({
+          secret:   user.twofa_secret,
+          encoding: "base32",
+          token:    String(totp_code),
+          window:   1,  // tolera ±30 s de desfase de reloj
+        });
+        if (!verified) {
+          return res.status(401).json({ message: "Código de verificación incorrecto. Intenta de nuevo." });
+        }
       }
 
       const token = jwt.sign(
-        { id: user.id, email: user.email, role: user.role, campus_id: user.campus_id, tenant_id: user.tenant_id, type: 'user' },
+        { id: user.id, email: user.email, role: user.role, campus_id: user.campus_id, tenant_id: user.tenant_id, is_super_admin: user.is_super_admin, type: 'user' },
         JWT_SECRET,
         { expiresIn: '24h' }
       );
@@ -238,14 +270,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── POST /api/auth/2fa/setup ───────────────────────────────────────────────
+  // Genera un secreto TOTP temporal, lo almacena server-side vinculado al
+  // user_id con TTL de 10 min, y devuelve el QR. El cliente NUNCA maneja
+  // el secreto — /2fa/confirm lo lee del Map, no del body.
+  // Roles autorizados para 2FA — solo cuentas con capacidad de gestión administrativa
+  const ROLES_2FA = ['administrador_general','administrador_campus','super_admin',
+                     'contador_general','auxiliar_contable','asistente','admisiones'];
+  const require2faRole = (req: any, res: any, next: any) => {
+    const u = req.user;
+    if (u?.type === "guardian" || (!u?.is_super_admin && !ROLES_2FA.includes(u?.role))) {
+      return res.status(403).json({ message: "Solo los administradores pueden configurar 2FA" });
+    }
+    next();
+  };
+
+  app.post("/api/auth/2fa/setup", authenticateToken, require2faRole, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user?.id);
+      if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+
+      const speakeasy = require("speakeasy") as typeof import("speakeasy");
+      const qrcode    = require("qrcode") as typeof import("qrcode");
+
+      const secret = speakeasy.generateSecret({
+        name:   `Instituto JFR (${user.email})`,
+        length: 32,
+        issuer: "Edupay",
+      });
+
+      // Guardar estado de enrolamiento pendiente — expira en 10 minutos
+      pendingTwofaEnrollment.set(req.user.id, {
+        secret:    secret.base32 as string,
+        expiresAt: Date.now() + 10 * 60 * 1000,
+      });
+
+      const qrDataUrl = await qrcode.toDataURL(secret.otpauth_url as string);
+      // No se devuelve el secreto base32 al cliente — solo el QR y el código manual
+      res.json({ qr_data_url: qrDataUrl, manual_code: secret.base32 });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ── POST /api/auth/2fa/confirm ─────────────────────────────────────────────
+  // Verifica el primer código TOTP contra el secreto pendiente guardado
+  // server-side. Ignora cualquier secreto enviado por el cliente.
+  app.post("/api/auth/2fa/confirm", authenticateToken, require2faRole, async (req: any, res) => {
+    try {
+      const { totp_code } = req.body;
+      if (!totp_code) return res.status(400).json({ message: "totp_code requerido" });
+
+      // Leer secreto del estado server-side — el cliente no puede inyectar uno
+      const pending = pendingTwofaEnrollment.get(req.user.id);
+      if (!pending) {
+        return res.status(400).json({ message: "No hay enrolamiento pendiente. Inicia el proceso desde Perfil > Seguridad." });
+      }
+      if (Date.now() > pending.expiresAt) {
+        pendingTwofaEnrollment.delete(req.user.id);
+        return res.status(410).json({ message: "El enrolamiento expiró. Escanea el QR de nuevo." });
+      }
+
+      const speakeasy = require("speakeasy") as typeof import("speakeasy");
+      const verified = speakeasy.totp.verify({ secret: pending.secret, encoding: "base32", token: String(totp_code), window: 1 });
+      if (!verified) return res.status(401).json({ message: "Código incorrecto. Verifica tu app de autenticación." });
+
+      // Persistir y limpiar estado pendiente (consumo único)
+      await db.update(users)
+        .set({ twofa_secret: pending.secret, updated_at: new Date() })
+        .where(eq(users.id, req.user.id));
+      pendingTwofaEnrollment.delete(req.user.id);
+
+      res.json({ message: "Autenticación de dos factores activada correctamente." });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ── DELETE /api/auth/2fa ───────────────────────────────────────────────────
+  // Desactiva el 2FA después de verificar el código TOTP actual.
+  app.delete("/api/auth/2fa", authenticateToken, require2faRole, async (req: any, res) => {
+    try {
+      const { totp_code } = req.body;
+      if (!totp_code) return res.status(400).json({ message: "totp_code requerido" });
+
+      const user = await storage.getUser(req.user.id);
+      if (!user?.twofa_secret) return res.status(400).json({ message: "El 2FA no está activado en esta cuenta." });
+
+      const speakeasy = require("speakeasy") as typeof import("speakeasy");
+      const verified = speakeasy.totp.verify({ secret: user.twofa_secret, encoding: "base32", token: String(totp_code), window: 1 });
+      if (!verified) return res.status(401).json({ message: "Código incorrecto. No se desactivó el 2FA." });
+
+      await db.update(users)
+        .set({ twofa_secret: null, updated_at: new Date() })
+        .where(eq(users.id, req.user.id));
+
+      res.json({ message: "Autenticación de dos factores desactivada." });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // GET /api/auth/user — perfil del usuario autenticado (usado por caja-conciliacion y fiscal-contable)
   app.get("/api/auth/user", authenticateToken, async (req, res) => {
     try {
       const userId = (req as any).user?.id;
       const user = await storage.getUserById(userId);
       if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
-      const { password_hash, ...safeUser } = user as any;
-      res.json(safeUser);
+      res.json(serializeUser(user));
     } catch (error: any) { res.status(500).json({ message: error.message }); }
   });
 
@@ -553,9 +685,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
       
-      // Return user profile without password
-      const { password_hash, ...profile } = user;
-      res.json(profile);
+      // Return user profile without password or 2FA secret; expose only has_twofa flag
+      const { password_hash, twofa_secret, ...profile } = user;
+      res.json({ ...profile, has_twofa: !!twofa_secret });
     } catch (error: any) {
       res.status(500).json({ message: "Error fetching profile: " + error.message });
     }
@@ -594,8 +726,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get updated user data
       const updatedUser = await storage.getUser(userId);
       if (updatedUser) {
-        const { password_hash, ...profile } = updatedUser;
-        res.json({ message: "Perfil actualizado exitosamente", profile });
+        res.json({ message: "Perfil actualizado exitosamente", profile: serializeUser(updatedUser) });
       } else {
         res.status(404).json({ message: "Usuario no encontrado" });
       }
@@ -725,7 +856,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const users = await storage.getUsersByCampus(campusId);
-      res.json(users);
+      res.json(users.map(serializeUser));
     } catch (error: any) {
       res.status(500).json({ message: "Error obteniendo usuarios: " + error.message });
     }
@@ -742,7 +873,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Validate request body first
-      const { name, email, password_hash, role, telefono, foto_url, twofa_secret, is_active, is_super_admin, platform_permissions, custom_permissions } = req.body;
+      // twofa_secret se excluye intencionalmente — solo se puede configurar
+      // a través del flujo seguro de /api/auth/2fa/setup + /confirm
+      const { name, email, password_hash, role, telefono, foto_url, is_active, is_super_admin, platform_permissions, custom_permissions } = req.body;
       
       // SEGURIDAD: Verificar que el usuario actual puede crear usuarios con el rol especificado
       if (user.role !== 'super_admin' && !canEditUser(user.role as UserRole, role as UserRole)) {
@@ -762,7 +895,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tenant_id: user.tenant_id,
         telefono: telefono || null,
         foto_url: foto_url || null,
-        twofa_secret: twofa_secret || null,
+        twofa_secret: null,   // siempre null — se configura via /api/auth/2fa/setup
         is_active: is_active !== undefined ? is_active : true,
         is_super_admin: is_super_admin || false,
         platform_permissions: platform_permissions || [],
@@ -778,7 +911,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         created_by: user.id
       });
       
-      res.status(201).json(newUser);
+      res.status(201).json(serializeUser(newUser));
     } catch (error: any) {
       console.error('Error creating user:', error);
       if (error instanceof z.ZodError) {
@@ -812,8 +945,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Remove fields that shouldn't be updated via this endpoint
-      const { id, campus_id, tenant_id, created_at, updated_at, password_hash, ...updateData } = req.body;
+      // Eliminar campos protegidos del cuerpo de actualización.
+      // twofa_secret solo se puede modificar via /api/auth/2fa/* (flujo seguro).
+      const { id, campus_id, tenant_id, created_at, updated_at, password_hash, twofa_secret: _ignored, ...updateData } = req.body;
 
       const updatedUser = await storage.updateUser(userId, updateData);
       if (!updatedUser) {
@@ -827,7 +961,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         created_by: user.id
       });
 
-      res.json(updatedUser);
+      res.json(serializeUser(updatedUser));
     } catch (error: any) {
       console.error('Error updating user:', error);
       res.status(500).json({ message: "Error interno del servidor" });
@@ -3518,7 +3652,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const tenantId = parseInt(req.params.tenantId);
       const users = await storage.getUsersByTenant(tenantId);
-      res.json(users);
+      res.json(users.map(serializeUser));
     } catch (error: any) {
       res.status(500).json({ message: "Error obteniendo usuarios: " + error.message });
     }

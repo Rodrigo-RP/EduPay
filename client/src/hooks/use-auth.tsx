@@ -23,7 +23,7 @@ interface AuthContextType {
   user: User | null;
   guardian: Guardian | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, totp_code?: string) => Promise<void>;
   guardianLogin: (email: string, password: string) => Promise<void>;
   logout: () => void;
 }
@@ -60,22 +60,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, totp_code?: string) => {
     try {
+      const body: Record<string, string> = { email, password };
+      if (totp_code) body.totp_code = totp_code;
+
       const response = await apiRequest("/api/auth/login", {
         method: "POST",
-        body: JSON.stringify({
-          email,
-          password,
-        })
+        body: JSON.stringify(body),
       });
-      
+
       const data = await response.json();
-      
+
+      // Server returns { requires_totp: true } when 2FA is configured but no code sent yet
+      if (data.requires_totp) {
+        const err = new Error("REQUIRES_TOTP");
+        (err as any).requires_totp = true;
+        throw err;
+      }
+
       localStorage.setItem("auth_token", data.token);
       localStorage.setItem("auth_type", "user");
       localStorage.setItem("auth_user", JSON.stringify(data.user));
-      
+
       setUser(data.user);
       setGuardian(null);
     } catch (error) {

@@ -57,8 +57,9 @@ export default function ExcepcionesConciliacion() {
     excepcion: null,
   });
   const [resolverForm, setResolverForm] = useState({
-    accion: "" as "aplicar" | "ignorar" | "",
+    accion: "" as "aplicar" | "descartar" | "",
     charge_id: "",
+    motivo: "",
     nota: "",
   });
 
@@ -89,6 +90,7 @@ export default function ExcepcionesConciliacion() {
   // ── Mutations ────────────────────────────────────────────────────────────────
   const resolverMutation = useMutation({
     mutationFn: async ({ id, body }: { id: number; body: any }) => {
+      // Normalize: the UI now uses 'descartar'; backend accepts both 'descartar' and 'ignorar'
       const res = await fetch(`/api/conciliacion/excepciones/${id}/resolver`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
@@ -103,7 +105,7 @@ export default function ExcepcionesConciliacion() {
     onSuccess: (data) => {
       toast({ title: "Excepción resuelta", description: data.message });
       setResolverModal({ open: false, excepcion: null });
-      setResolverForm({ accion: "", charge_id: "", nota: "" });
+      setResolverForm({ accion: "", charge_id: "", motivo: "", nota: "" });
       queryClient.invalidateQueries({ queryKey: ["/api/conciliacion/excepciones"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard/48"] });
     },
@@ -123,6 +125,7 @@ export default function ExcepcionesConciliacion() {
       body: {
         accion: resolverForm.accion,
         charge_id: resolverForm.charge_id ? parseInt(resolverForm.charge_id) : undefined,
+        motivo: resolverForm.motivo || undefined,
         nota: resolverForm.nota,
       },
     });
@@ -130,8 +133,15 @@ export default function ExcepcionesConciliacion() {
 
   const openModal = (exc: Excepcion) => {
     setResolverModal({ open: true, excepcion: exc });
-    setResolverForm({ accion: "", charge_id: "", nota: "" });
+    setResolverForm({ accion: "", charge_id: "", motivo: "", nota: "" });
   };
+
+  const MOTIVOS_DESCARTE = [
+    "Pago identificado manualmente",
+    "Error del banco",
+    "Duplicado confirmado",
+    "Otro",
+  ];
 
   const diasBadge = (dias: number) => {
     const d = Number(dias);
@@ -317,15 +327,35 @@ export default function ExcepcionesConciliacion() {
                       Aplicar a un cargo existente
                     </div>
                   </SelectItem>
-                  <SelectItem value="ignorar">
+                  <SelectItem value="descartar">
                     <div className="flex items-center gap-2">
                       <XCircle className="w-4 h-4 text-gray-500" />
-                      Marcar como no escolar
+                      Descartar (no escolar)
                     </div>
                   </SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Motivo de descarte (solo si acción = descartar) */}
+            {resolverForm.accion === "descartar" && (
+              <div className="space-y-2">
+                <Label>Motivo del descarte <span className="text-red-500">*</span></Label>
+                <Select
+                  value={resolverForm.motivo}
+                  onValueChange={(v) => setResolverForm({ ...resolverForm, motivo: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona el motivo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MOTIVOS_DESCARTE.map((m) => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Selector de cargo (solo si acción = aplicar) */}
             {resolverForm.accion === "aplicar" && (
@@ -355,12 +385,12 @@ export default function ExcepcionesConciliacion() {
             {/* Nota */}
             <div className="space-y-2">
               <Label>
-                Nota{resolverForm.accion === "ignorar" ? " (obligatoria)" : " (opcional)"}
+                Nota{resolverForm.accion === "descartar" ? " (opcional)" : " (opcional)"}
               </Label>
               <Textarea
                 rows={3}
                 placeholder={
-                  resolverForm.accion === "ignorar"
+                  resolverForm.accion === "descartar"
                     ? "Ej: Depósito por error de tercero, devolución en proceso…"
                     : "Ej: Confirmado con tesorero, aplicado a colegiatura marzo…"
                 }
@@ -375,13 +405,16 @@ export default function ExcepcionesConciliacion() {
               </Button>
               <Button
                 onClick={handleResolver}
-                disabled={resolverMutation.isPending}
-                className={resolverForm.accion === "ignorar" ? "bg-gray-600 hover:bg-gray-700" : "bg-green-600 hover:bg-green-700"}
+                disabled={
+                  resolverMutation.isPending ||
+                  (resolverForm.accion === "descartar" && !resolverForm.motivo)
+                }
+                className={resolverForm.accion === "descartar" ? "bg-slate-700 hover:bg-slate-800" : "bg-green-600 hover:bg-green-700"}
               >
                 {resolverMutation.isPending ? (
                   <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />Procesando…</>
-                ) : resolverForm.accion === "ignorar" ? (
-                  <><XCircle className="w-4 h-4 mr-2" />Marcar como no escolar</>
+                ) : resolverForm.accion === "descartar" ? (
+                  <><XCircle className="w-4 h-4 mr-2" />Confirmar descarte</>
                 ) : (
                   <><CheckCircle className="w-4 h-4 mr-2" />Aplicar pago</>
                 )}

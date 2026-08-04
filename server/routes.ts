@@ -7401,7 +7401,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const txId      = parseInt(req.params.id);
     const campusId  = user?.campus_id;
     const tenantId  = user?.tenant_id;
-    const { accion, charge_id, nota } = req.body;
+    const { accion: accionRaw, charge_id, nota, motivo } = req.body;
+    // 'descartar' es el alias moderno de 'ignorar'
+    const accion = accionRaw === 'descartar' ? 'ignorar' : accionRaw;
 
     // ── Autorización ──────────────────────────────────────────────────────────
     const ROLES_RESOLVER = ['administrador_general','administrador_campus','super_admin','caja','auxiliar_caja'];
@@ -7411,10 +7413,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     // ── Validación de parámetros (antes de abrir la transacción) ─────────────
     if (!['aplicar', 'ignorar'].includes(accion)) {
-      return res.status(400).json({ message: "accion debe ser 'aplicar' o 'ignorar'" });
+      return res.status(400).json({ message: "accion debe ser 'aplicar', 'ignorar' o 'descartar'" });
     }
-    if (accion === 'ignorar' && !nota?.trim()) {
-      return res.status(400).json({ message: "Se requiere una nota para marcar como no escolar" });
+    if (accion === 'ignorar' && !nota?.trim() && !motivo?.trim()) {
+      return res.status(400).json({ message: "Se requiere motivo o nota para descartar" });
     }
     if (accion === 'aplicar' && !charge_id) {
       return res.status(400).json({ message: "Se requiere charge_id para aplicar el pago" });
@@ -7509,15 +7511,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json({ message: "Pago aplicado correctamente al cargo seleccionado", payment_id: paymentId });
 
       } else {
-        // ── ignorar: marcar como no escolar (nota obligatoria ya validada arriba)
+        // ── descartar/ignorar: marcar como no escolar (motivo obligatorio)
+        const notaFinal = nota?.trim() || motivo?.trim() || 'Descartado manualmente';
         await client.query(
           `UPDATE bank_transactions
            SET estado_conciliacion = 'ignorado', nota_conciliacion = $1
            WHERE id = $2`,
-          [nota.trim(), txId]
+          [notaFinal, txId]
         );
+
+        // ── Registrar en audit_log con motivo estructurado
+        if (tenantId && user?.id) {
+          await client.query(
+            `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
+             VALUES ($1, $2, 'descartar_excepcion', 'bank_transaction', $3, $4::jsonb, NOW())`,
+            [
+              tenantId,
+              user.id,
+              txId,
+              JSON.stringify({
+                motivo:          motivo?.trim() || null,
+                nota:            nota?.trim() || null,
+                monto_centavos:  Number(tx.monto_centavos),
+                referencia:      tx.referencia || null,
+              }),
+            ]
+          ).catch(() => {}); // audit never blocks the main operation
+        }
+
         await client.query('COMMIT');
-        res.json({ message: "Transacción marcada como no escolar" });
+        res.json({ message: "Excepción descartada y registrada en auditoría" });
       }
     } catch (error: any) {
       await client.query('ROLLBACK').catch(() => {});

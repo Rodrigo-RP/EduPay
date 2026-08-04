@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Plus, Search, Edit, Trash2, UserCheck, UserX, Phone, Mail, MapPin, AlertTriangle, FileSpreadsheet, Download, Upload, Eye, Loader2, Settings, CreditCard, ShieldCheck, ShieldOff } from "lucide-react";
+import { Users, Plus, Search, Edit, Trash2, UserCheck, UserX, Phone, Mail, MapPin, AlertTriangle, FileSpreadsheet, Download, Upload, Eye, Loader2, Settings, CreditCard, ShieldCheck, ShieldOff, Link2, Copy, CheckCircle, History } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 // ─── TutoresPanel ─────────────────────────────────────────────────────────────
@@ -40,6 +40,52 @@ function TutoresPanel({ studentId, isOpen }: { studentId?: number; isOpen: boole
   const queryClient = useQueryClient();
   const token = localStorage.getItem("auth_token");
   const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  // ── Liga mágica ───────────────────────────────────────────────────────────
+  const [magicLinkDialog, setMagicLinkDialog] = useState<{ open: boolean; url: string; guardian: string; usos: number } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [historyDialog, setHistoryDialog] = useState<{ open: boolean; guardianId: number; nombre: string } | null>(null);
+
+  const magicLinkMutation = useMutation({
+    mutationFn: async (guardianId: number) => {
+      const res = await fetch("/api/admin/magic-link", {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ guardian_id: guardianId }),
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      setMagicLinkDialog({
+        open:     true,
+        url:      data.url,
+        guardian: data.guardian?.nombre || "Tutor",
+        usos:     3,
+      });
+    },
+    onError: (err: Error) => {
+      toast({ title: "No se pudo generar la liga", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const { data: historyData = [] } = useQuery<any[]>({
+    queryKey: ["/api/admin/magic-link/history", historyDialog?.guardianId],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/magic-link/history/${historyDialog!.guardianId}`, { headers });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!historyDialog?.open && !!historyDialog.guardianId,
+  });
+
+  const handleCopy = (url: string) => {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+  // ─────────────────────────────────────────────────────────────────────────
 
   const { data: tutores = [], isLoading, isError } = useQuery<GuardianRow[]>({
     queryKey: ["/api/admin/students", studentId, "guardians"],
@@ -176,26 +222,143 @@ function TutoresPanel({ studentId, isOpen }: { studentId?: number; isOpen: boole
               )}
             </div>
 
-            {/* Toggle */}
-            <div className="flex flex-col items-center gap-1 shrink-0">
-              {isPending ? (
-                <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-              ) : (
-                <Switch
-                  checked={tutor.es_responsable_pago}
-                  onCheckedChange={(checked) =>
-                    patchMutation.mutate({ guardianId: tutor.id, es_responsable_pago: checked })
-                  }
-                  disabled={patchMutation.isPending}
-                />
-              )}
-              <span className="text-xs text-gray-400">
-                {tutor.es_responsable_pago ? "Activo" : "Inactivo"}
-              </span>
+            {/* Acciones */}
+            <div className="flex flex-col items-end gap-2 shrink-0">
+              {/* Toggle responsable */}
+              <div className="flex flex-col items-center gap-1">
+                {isPending ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                ) : (
+                  <Switch
+                    checked={tutor.es_responsable_pago}
+                    onCheckedChange={(checked) =>
+                      patchMutation.mutate({ guardianId: tutor.id, es_responsable_pago: checked })
+                    }
+                    disabled={patchMutation.isPending}
+                  />
+                )}
+                <span className="text-xs text-gray-400">
+                  {tutor.es_responsable_pago ? "Activo" : "Inactivo"}
+                </span>
+              </div>
+
+              {/* Botón generar liga mágica */}
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2 text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+                  onClick={() => magicLinkMutation.mutate(tutor.id)}
+                  disabled={magicLinkMutation.isPending}
+                  title="Generar liga de pago sin contraseña"
+                >
+                  {magicLinkMutation.isPending && (magicLinkMutation.variables as any) === tutor.id ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Link2 className="w-3 h-3" />
+                  )}
+                  <span className="ml-1">Liga</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-xs text-gray-500 hover:bg-gray-100"
+                  onClick={() => setHistoryDialog({ open: true, guardianId: tutor.id, nombre: nombreCompleto(tutor) })}
+                  title="Historial de ligas generadas"
+                >
+                  <History className="w-3 h-3" />
+                </Button>
+              </div>
             </div>
           </div>
         );
       })}
+
+      {/* ── Dialog: Liga mágica generada ──────────────────────────────────── */}
+      <Dialog
+        open={!!magicLinkDialog?.open}
+        onOpenChange={(open) => { if (!open) setMagicLinkDialog(null); }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="w-5 h-5 text-blue-500" />
+              Liga de pago generada
+            </DialogTitle>
+            <DialogDescription>
+              Envía esta liga a <strong>{magicLinkDialog?.guardian}</strong> por WhatsApp o correo. Expira en 72 horas y puede usarse hasta 3 veces.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-slate-50 rounded-lg p-3 border break-all">
+              <p className="text-sm font-mono text-slate-700">{magicLinkDialog?.url}</p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+                onClick={() => handleCopy(magicLinkDialog?.url || "")}
+              >
+                {copied ? (
+                  <><CheckCircle className="w-4 h-4 mr-2" />¡Copiado!</>
+                ) : (
+                  <><Copy className="w-4 h-4 mr-2" />Copiar liga</>
+                )}
+              </Button>
+              <Button variant="outline" onClick={() => setMagicLinkDialog(null)}>
+                Cerrar
+              </Button>
+            </div>
+            <p className="text-xs text-slate-400 text-center">
+              El padre puede abrir esta liga directamente desde el teléfono, sin instalar nada ni recordar contraseñas.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog: Historial de ligas ─────────────────────────────────────── */}
+      <Dialog
+        open={!!historyDialog?.open}
+        onOpenChange={(open) => { if (!open) setHistoryDialog(null); }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="w-5 h-5 text-slate-500" />
+              Historial de ligas — {historyDialog?.nombre}
+            </DialogTitle>
+            <DialogDescription>
+              Últimas 10 ligas generadas para este tutor.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {historyData.length === 0 ? (
+              <p className="text-sm text-slate-500 text-center py-6">Sin ligas generadas aún.</p>
+            ) : (
+              historyData.map((h: any) => (
+                <div key={h.id} className={`rounded-lg border p-3 text-xs flex gap-3 items-start ${h.expirada || h.agotada ? "bg-slate-50 border-slate-200 opacity-60" : "bg-green-50 border-green-200"}`}>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">
+                        {h.expirada ? "Expirada" : h.agotada ? "Agotada" : "Vigente"}
+                      </span>
+                      <span className="text-slate-400">· {h.usos}/{h.max_usos} usos</span>
+                    </div>
+                    <p className="text-slate-500 mt-0.5">
+                      Creada: {new Date(h.creado_en).toLocaleString("es-MX")} por {h.creado_por}
+                    </p>
+                    <p className="text-slate-400">
+                      Expira: {new Date(h.expira_en).toLocaleString("es-MX")}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <Button variant="outline" className="w-full mt-2" onClick={() => setHistoryDialog(null)}>
+            Cerrar
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

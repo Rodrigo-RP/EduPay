@@ -65,49 +65,21 @@ export const getQueryFn: <T>(options: {
       return null;
     }
 
-    if (res.status === 403 || res.status === 401) {
-      // Token expired, attempting re-authentication
-      
-      try {
-        // Auto-reauth with admin credentials
-        const authResponse = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: 'rodrigorp@institutojfr.edu.mx',
-            password: '[REDACTED]'
-          })
-        });
-        
-        if (authResponse.ok) {
-          const authData = await authResponse.json();
-          localStorage.setItem('auth_token', authData.token);
-          localStorage.setItem('auth_user', JSON.stringify(authData.user));
-          localStorage.setItem('auth_type', 'user');
-          
-          // Retry original request with new token
-          const newHeaders = { ...headers };
-          newHeaders["Authorization"] = `Bearer ${authData.token}`;
-          
-          const retryRes = await fetch(queryKey[0] as string, {
-            headers: newHeaders,
-            credentials: "include",
-          });
-          
-          if (retryRes.ok) {
-            return await retryRes.json();
-          }
-        }
-      } catch (reAuthError) {
-        // Re-authentication failed
-      }
-      
-      // Clear invalid token if reauth failed
+    if (res.status === 401) {
+      // Session expired or invalid — clear and redirect to login.
+      // NEVER auto-reauthenticate: doing so with stored credentials is a
+      // privilege-escalation risk (e.g. a guardian JWT expiring could silently
+      // log the user in as an admin).
       localStorage.removeItem("auth_token");
       localStorage.removeItem("auth_user");
       localStorage.removeItem("auth_type");
-      window.location.reload();
+      window.location.href = "/";
       return null;
+    }
+
+    if (res.status === 403) {
+      // Forbidden — throw so the UI can show an appropriate error.
+      throw new Error("403: No tienes permiso para realizar esta acción");
     }
 
     await throwIfResNotOk(res);

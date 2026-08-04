@@ -54,6 +54,7 @@ import PlanesPago from "@/pages/planes-pago";
 import CalendarioFinanciero from "@/pages/calendario-financiero";
 import ReporteConsejo from "@/pages/reporte-consejo";
 import ExcepcionesConciliacion from "@/pages/excepciones-conciliacion";
+import MagicLinkRedirect from "@/pages/magic-link-redirect";
 
 function AuthenticatedRoutes() {
   const { user, guardian, isLoading } = useAuth();
@@ -70,24 +71,9 @@ function AuthenticatedRoutes() {
     return <Login />;
   }
 
-  // Redirect guardians to mobile app notice (should not happen in SaaS version)
+  // Guardians authenticated via magic-link or password go directly to the payment portal.
   if (guardian) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-        <div className="max-w-md text-center">
-          <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <GraduationCap className="w-8 h-8 text-blue-600" />
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900 mb-4">Aplicación Móvil Requerida</h1>
-          <p className="text-slate-600 mb-6">
-            Los padres de familia deben utilizar la aplicación móvil dedicada de Edupay para acceder a sus servicios.
-          </p>
-          <Button onClick={() => window.location.href = "/"} variant="outline">
-            Ir al Portal Administrativo
-          </Button>
-        </div>
-      </div>
-    );
+    return <PortalPadres3Clics />;
   }
 
   // Super Admin routing - with full layout (Sidebar + Header)
@@ -199,6 +185,7 @@ function App() {
                   <Switch>
                     <Route path="/cuentas-standalone" component={CuentasPorCobrarStandalone} />
                     <Route path="/demo-setup" component={DemoSetup} />
+                    <Route path="/pagar/:token" component={MagicLinkRedirect} />
                     <Route component={AuthenticatedRoutes} />
                   </Switch>
                   <Toaster />

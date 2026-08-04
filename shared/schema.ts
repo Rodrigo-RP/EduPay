@@ -1055,6 +1055,20 @@ export const financial_events = pgTable("financial_events", {
 });
 export type FinancialEvent = typeof financial_events.$inferSelect;
 
+// ── MAGIC LINK TOKENS (Portal de padres sin contraseña) ──────────────────────
+export const magic_link_tokens = pgTable("magic_link_tokens", {
+  id:         serial("id").primaryKey(),
+  tenant_id:  integer("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  guardian_id: integer("guardian_id").references(() => guardians.id, { onDelete: "cascade" }).notNull(),
+  token:      varchar("token", { length: 128 }).notNull().unique(),
+  expires_at: timestamp("expires_at").notNull(),
+  uses:       integer("uses").default(0).notNull(),
+  max_uses:   integer("max_uses").default(3).notNull(),
+  created_by: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+export type MagicLinkToken = typeof magic_link_tokens.$inferSelect;
+
 // ── AUDIT LOG (Inmutable) ─────────────────────────────────────────────────────
 /**
  * Registro de auditoría inmutable para acciones financieras sensibles.

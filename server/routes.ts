@@ -923,11 +923,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const overdueCharges = allCharges.filter(c => c.estado === "vencido");
       const totalBilled = allCharges.reduce((s, c) => s + (c.monto_base_centavos || 0), 0);
 
+      // Excepciones bancarias pendientes (para badge)
+      const excepcionesResult = await pool.query(
+        `SELECT COUNT(*) AS cnt FROM bank_transactions WHERE campus_id = $1 AND estado_conciliacion = 'pendiente'`,
+        [campusId]
+      ).catch(() => ({ rows: [{ cnt: 0 }] }));
+      const excepcionesPendientes = Number((excepcionesResult.rows[0] as any)?.cnt ?? 0);
+
       const kpis = {
         totalBilled,
         paymentRate: Math.round((paidCharges.length / totalCharges) * 100),
         overdueRate: Math.round((overdueCharges.length / totalCharges) * 100),
         activeStudents,
+        excepciones_pendientes: excepcionesPendientes,
       };
 
       res.json(kpis);
@@ -6554,24 +6562,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Execute automatic conciliation
+  // Execute automatic conciliation (FIFO)
   app.post("/api/caja/ejecutar-conciliacion", authenticateToken, async (req, res) => {
     try {
-      const campusId = (req as any).user?.campus_id;
-      const txRows = await pool.query(`SELECT * FROM bank_transactions WHERE campus_id=$1 AND estado_conciliacion='pendiente'`, [campusId]).catch(() => ({ rows: [] }));
-      const chargeRows = await pool.query(`
-        SELECT c.id, c.monto_base_centavos FROM charges c
-        JOIN students s ON s.id = c.student_id
-        WHERE s.campus_id=$1 AND c.estado='pendiente'
+      const user      = (req as any).user;
+      const campusId  = user?.campus_id;
+      const tenantId  = user?.tenant_id;
+      const ROLES_CAJA = ['administrador_general','administrador_campus','super_admin','caja','auxiliar_caja'];
+      if (!user?.is_super_admin && !ROLES_CAJA.includes(user?.role)) {
+        return res.status(403).json({ message: "Sin permisos para ejecutar conciliación automática" });
+      }
+
+      // Solo créditos/entradas con monto positivo pueden liquidar cargos
+      const txRows = await pool.query(`
+        SELECT id, monto_centavos, referencia FROM bank_transactions
+        WHERE campus_id = $1 AND estado_conciliacion = 'pendiente'
+          AND tipo = 'credito' AND monto_centavos > 0
+        ORDER BY fecha ASC, id ASC
       `, [campusId]).catch(() => ({ rows: [] }));
-      let conciliados = 0;
+
+      const chargeRows = await pool.query(`
+        SELECT c.id,
+               ROUND(c.monto_base_centavos * (1 - COALESCE(c.beca_aplicada,0)::numeric/100))
+                 + COALESCE(c.recargo_aplicado_centavos, 0) AS monto_neto
+        FROM charges c
+        JOIN students s ON s.id = c.student_id
+        WHERE s.campus_id = $1 AND c.estado = 'pendiente'
+        ORDER BY c.fecha_vencimiento ASC, c.id ASC
+      `, [campusId]).catch(() => ({ rows: [] }));
+
+      const consumedIds = new Set<number>();
+      let conciliados   = 0;
+
       for (const tx of (txRows.rows as any[])) {
-        const match = (chargeRows.rows as any[]).find(c => Math.abs(c.monto_base_centavos - tx.monto_centavos) < 100);
-        if (match) {
-          await pool.query(`UPDATE bank_transactions SET estado_conciliacion='conciliado', charge_id=$1 WHERE id=$2`, [match.id, tx.id]);
+        const match = (chargeRows.rows as any[]).find(c =>
+          !consumedIds.has(c.id) &&
+          Math.abs(Number(c.monto_neto) - Number(tx.monto_centavos)) < 100
+        );
+        if (!match) continue;
+        consumedIds.add(match.id);
+
+        const client = await pool.connect();
+        try {
+          await client.query('BEGIN');
+
+          // Bloquear la transacción bancaria primero (SKIP LOCKED evita espera en concurrencia)
+          const txLock = await client.query(
+            `SELECT id FROM bank_transactions
+             WHERE id = $1 AND estado_conciliacion = 'pendiente'
+               AND tipo = 'credito' AND monto_centavos > 0
+             FOR UPDATE SKIP LOCKED`,
+            [tx.id]
+          );
+          if (!txLock.rows.length) { await client.query('ROLLBACK'); continue; }
+
+          // Luego bloquear el cargo
+          const chargeLock = await client.query(
+            `SELECT id FROM charges WHERE id = $1 AND estado = 'pendiente' FOR UPDATE SKIP LOCKED`,
+            [match.id]
+          );
+          if (!chargeLock.rows.length) { await client.query('ROLLBACK'); continue; }
+
+          // Crear el registro de pago
+          const payResult = await client.query(
+            `INSERT INTO payments (tenant_id, charge_id, guardian_id, metodo, referencia_pasarela,
+                                   monto_centavos, fecha_pago, estado)
+             VALUES ($1,$2,NULL,'spei',$3,$4,NOW(),'exitoso') RETURNING id`,
+            [tenantId, match.id, tx.referencia || `AUTO-${tx.id}`, Number(match.monto_neto)]
+          );
+          const paymentId = payResult.rows[0].id;
+
+          // Registrar la aplicación del pago (ledger familiar)
+          await client.query(
+            `INSERT INTO payment_applications (payment_id, charge_id, amount_centavos, applied_at)
+             VALUES ($1, $2, $3, NOW())`,
+            [paymentId, match.id, Number(match.monto_neto)]
+          );
+
+          // Marcar cargo como pagado
+          await client.query(`UPDATE charges SET estado = 'pagado' WHERE id = $1`, [match.id]);
+
+          // Marcar transacción bancaria como conciliada (condición en WHERE garantiza idempotencia)
+          const updTx = await client.query(
+            `UPDATE bank_transactions SET estado_conciliacion='conciliado', charge_id=$1, payment_id=$2
+             WHERE id = $3 AND estado_conciliacion = 'pendiente'`,
+            [match.id, paymentId, tx.id]
+          );
+          if ((updTx as any).rowCount !== 1) {
+            // Otra operación concurrente nos ganó — deshacer
+            await client.query('ROLLBACK');
+            continue;
+          }
+
+          await client.query('COMMIT');
           conciliados++;
+        } catch (txErr) {
+          await client.query('ROLLBACK');
+        } finally {
+          client.release();
         }
       }
+
       res.json({ conciliados, mensaje: `${conciliados} transacciones conciliadas` });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -6649,22 +6740,299 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/conciliacion/auto-match/:campusId", authenticateToken, async (req: any, res) => {
     try {
-      const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
-      if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
-      const txRows = await pool.query(`SELECT * FROM bank_transactions WHERE campus_id = $1 AND estado_conciliacion = 'pendiente'`, [campusId]);
-      const chargeRows = await pool.query(`SELECT c.id, c.monto_base_centavos FROM charges c JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND c.estado='pendiente'`, [campusId]);
-      let conciliados = 0;
+      const user      = req.user;
+      const campusId  = parseInt(req.params.campusId) || user?.campus_id;
+      const tenantId  = user?.tenant_id;
+      if (!await checkCampusTenant(campusId, tenantId, res)) return;
+
+      // Solo roles de caja/administración pueden conciliar
+      const ROLES_CAJA = ['administrador_general','administrador_campus','super_admin','caja','auxiliar_caja'];
+      if (!user?.is_super_admin && !ROLES_CAJA.includes(user?.role)) {
+        return res.status(403).json({ message: "Sin permisos para ejecutar conciliación automática" });
+      }
+
+      // Solo créditos/entradas con monto positivo pueden liquidar cargos
+      const txRows = await pool.query(`
+        SELECT id, monto_centavos, referencia FROM bank_transactions
+        WHERE campus_id = $1 AND estado_conciliacion = 'pendiente'
+          AND tipo = 'credito' AND monto_centavos > 0
+        ORDER BY fecha ASC, id ASC
+      `, [campusId]);
+
+      // Cargos pendientes FIFO — monto neto calculado server-side
+      const chargeRows = await pool.query(`
+        SELECT c.id,
+               ROUND(c.monto_base_centavos * (1 - COALESCE(c.beca_aplicada,0)::numeric/100))
+                 + COALESCE(c.recargo_aplicado_centavos, 0) AS monto_neto
+        FROM charges c
+        JOIN students s ON s.id = c.student_id
+        WHERE s.campus_id = $1 AND c.estado = 'pendiente'
+        ORDER BY c.fecha_vencimiento ASC, c.id ASC
+      `, [campusId]);
+
+      const consumedIds = new Set<number>();
+      let conciliados   = 0;
+
       for (const tx of (txRows.rows as any[])) {
-        const match = (chargeRows.rows as any[]).find(c => Math.abs(c.monto_base_centavos - tx.monto_centavos) < 100);
-        if (match) {
-          await pool.query(`UPDATE bank_transactions SET estado_conciliacion = 'conciliado', charge_id = $1 WHERE id = $2`, [match.id, tx.id]);
+        const match = (chargeRows.rows as any[]).find(c =>
+          !consumedIds.has(c.id) &&
+          Math.abs(Number(c.monto_neto) - Number(tx.monto_centavos)) < 100
+        );
+        if (!match) continue;
+        consumedIds.add(match.id);
+
+        const client = await pool.connect();
+        try {
+          await client.query('BEGIN');
+
+          // Bloquear la transacción bancaria primero (SKIP LOCKED = sin espera en concurrencia)
+          const txLock = await client.query(
+            `SELECT id FROM bank_transactions
+             WHERE id = $1 AND estado_conciliacion = 'pendiente'
+               AND tipo = 'credito' AND monto_centavos > 0
+             FOR UPDATE SKIP LOCKED`,
+            [tx.id]
+          );
+          if (!txLock.rows.length) { await client.query('ROLLBACK'); continue; }
+
+          // Luego bloquear el cargo
+          const chargeLock = await client.query(
+            `SELECT id FROM charges WHERE id = $1 AND estado = 'pendiente' FOR UPDATE SKIP LOCKED`,
+            [match.id]
+          );
+          if (!chargeLock.rows.length) { await client.query('ROLLBACK'); continue; }
+
+          // Crear registro de pago
+          const payResult = await client.query(
+            `INSERT INTO payments (tenant_id, charge_id, guardian_id, metodo, referencia_pasarela,
+                                   monto_centavos, fecha_pago, estado)
+             VALUES ($1,$2,NULL,'spei',$3,$4,NOW(),'exitoso') RETURNING id`,
+            [tenantId, match.id, tx.referencia || `AUTO-${tx.id}`, Number(match.monto_neto)]
+          );
+          const paymentId = payResult.rows[0].id;
+
+          // Registrar la aplicación del pago (ledger familiar)
+          await client.query(
+            `INSERT INTO payment_applications (payment_id, charge_id, amount_centavos, applied_at)
+             VALUES ($1, $2, $3, NOW())`,
+            [paymentId, match.id, Number(match.monto_neto)]
+          );
+
+          // Marcar cargo como pagado
+          await client.query(`UPDATE charges SET estado = 'pagado' WHERE id = $1`, [match.id]);
+
+          // Marcar transacción bancaria como conciliada (rowCount=0 = otra concurrencia nos ganó)
+          const updTx = await client.query(
+            `UPDATE bank_transactions
+             SET estado_conciliacion = 'conciliado', charge_id = $1, payment_id = $2
+             WHERE id = $3 AND estado_conciliacion = 'pendiente'`,
+            [match.id, paymentId, tx.id]
+          );
+          if ((updTx as any).rowCount !== 1) {
+            await client.query('ROLLBACK');
+            continue;
+          }
+
+          await client.query('COMMIT');
           conciliados++;
+        } catch (txErr) {
+          await client.query('ROLLBACK');
+        } finally {
+          client.release();
         }
       }
+
       const noConciliados = (txRows.rows as any[]).length - conciliados;
       res.json({ conciliados, no_conciliados: noConciliados, total: (txRows.rows as any[]).length });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ── GET /api/conciliacion/excepciones ─────────────────────────────────────
+  // Devuelve transacciones bancarias sin conciliar del campus del usuario.
+  // Requiere rol administrativo (no disponible para roles de sólo lectura).
+  app.get("/api/conciliacion/excepciones", authenticateToken, async (req: any, res) => {
+    try {
+      const user      = req.user;
+      const campusId  = user?.campus_id;
+      const ROLES_OK  = ['administrador_general','administrador_campus','super_admin','caja','auxiliar_caja','contador_general','asistente'];
+      if (!campusId) return res.status(400).json({ message: "Campus requerido" });
+      if (!user?.is_super_admin && !ROLES_OK.includes(user?.role)) {
+        return res.status(403).json({ message: "Sin permisos para ver excepciones de conciliación" });
+      }
+
+      // Asegurar que la columna existe antes de consultarla (migración idempotente)
+      await pool.query(
+        `ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS nota_conciliacion TEXT`
+      ).catch(() => {});
+
+      const rows = await pool.query(`
+        SELECT bt.id, bt.fecha, bt.descripcion, bt.monto_centavos, bt.tipo,
+               bt.referencia, bt.clabe_ordenante, bt.nombre_ordenante,
+               bt.estado_conciliacion, bt.nota_conciliacion,
+               GREATEST(0, NOW()::date - bt.fecha::date) AS dias_sin_conciliar
+        FROM bank_transactions bt
+        WHERE bt.campus_id = $1 AND bt.estado_conciliacion = 'pendiente'
+        ORDER BY bt.fecha ASC, bt.id ASC
+      `, [campusId]);
+
+      const cargosRows = await pool.query(`
+        SELECT c.id, c.fecha_vencimiento,
+               CONCAT(s.nombres, ' ', s.apellido_paterno) AS alumno,
+               s.grado,
+               ROUND(c.monto_base_centavos * (1 - COALESCE(c.beca_aplicada,0)::numeric/100))
+                 + COALESCE(c.recargo_aplicado_centavos,0) AS monto_neto,
+               con.nombre AS concepto
+        FROM charges c
+        JOIN students s ON s.id = c.student_id
+        LEFT JOIN concepts con ON con.id = c.concept_id
+        WHERE s.campus_id = $1 AND c.estado = 'pendiente'
+        ORDER BY c.fecha_vencimiento ASC, s.apellido_paterno ASC
+      `, [campusId]);
+
+      res.json({
+        excepciones:        rows.rows,
+        cargos_disponibles: cargosRows.rows,
+        total_pendiente:    rows.rows.length,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ── POST /api/conciliacion/excepciones/:id/resolver ───────────────────────
+  // Aplica o descarta manualmente una excepción bancaria.
+  // Atómico: usa transacción DB con bloqueo de filas para evitar concurrencia.
+  // Requiere rol administrativo de caja.
+  app.post("/api/conciliacion/excepciones/:id/resolver", authenticateToken, async (req: any, res) => {
+    const user      = req.user;
+    const txId      = parseInt(req.params.id);
+    const campusId  = user?.campus_id;
+    const tenantId  = user?.tenant_id;
+    const { accion, charge_id, nota } = req.body;
+
+    // ── Autorización ──────────────────────────────────────────────────────────
+    const ROLES_RESOLVER = ['administrador_general','administrador_campus','super_admin','caja','auxiliar_caja'];
+    if (!user?.is_super_admin && !ROLES_RESOLVER.includes(user?.role)) {
+      return res.status(403).json({ message: "Sin permisos para resolver excepciones de conciliación" });
+    }
+
+    // ── Validación de parámetros (antes de abrir la transacción) ─────────────
+    if (!['aplicar', 'ignorar'].includes(accion)) {
+      return res.status(400).json({ message: "accion debe ser 'aplicar' o 'ignorar'" });
+    }
+    if (accion === 'ignorar' && !nota?.trim()) {
+      return res.status(400).json({ message: "Se requiere una nota para marcar como no escolar" });
+    }
+    if (accion === 'aplicar' && !charge_id) {
+      return res.status(400).json({ message: "Se requiere charge_id para aplicar el pago" });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // ── Bloquear la transacción bancaria (FOR UPDATE) y verificar que sigue pendiente
+      const txLock = await client.query(
+        `SELECT id, monto_centavos, referencia, campus_id, estado_conciliacion
+         FROM bank_transactions WHERE id = $1 FOR UPDATE`,
+        [txId]
+      );
+      if (!txLock.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ message: "Transacción no encontrada" });
+      }
+      const tx = txLock.rows[0] as any;
+      if (tx.campus_id !== campusId) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ message: "La transacción no pertenece a tu campus" });
+      }
+      if (tx.estado_conciliacion !== 'pendiente') {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ message: `La transacción ya fue ${tx.estado_conciliacion} por otra operación` });
+      }
+
+      if (accion === 'aplicar') {
+        // ── Bloquear el cargo y verificar que está pendiente
+        const chargeLock = await client.query(
+          `SELECT c.id,
+                  ROUND(c.monto_base_centavos * (1 - COALESCE(c.beca_aplicada,0)::numeric/100))
+                    + COALESCE(c.recargo_aplicado_centavos,0) AS monto_neto
+           FROM charges c JOIN students s ON s.id = c.student_id
+           WHERE c.id = $1 AND s.campus_id = $2 AND c.estado = 'pendiente'
+           FOR UPDATE`,
+          [charge_id, campusId]
+        );
+        if (!chargeLock.rows.length) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({ message: "Cargo no encontrado o ya pagado" });
+        }
+        const cargo = chargeLock.rows[0] as any;
+
+        // ── Validar que el importe bancario cubre el monto neto del cargo (±100 centavos)
+        const diff = Math.abs(Number(tx.monto_centavos) - Number(cargo.monto_neto));
+        if (diff > 100) {
+          await client.query('ROLLBACK');
+          return res.status(422).json({
+            message:
+              `El importe bancario ($${(Number(tx.monto_centavos)/100).toFixed(2)}) ` +
+              `no coincide con el monto neto del cargo ($${(Number(cargo.monto_neto)/100).toFixed(2)}). ` +
+              `Diferencia: $${(diff/100).toFixed(2)}. ` +
+              `Si es un pago parcial, usa "Marcar como no escolar" con nota y gestiona el cobro por separado.`,
+            diff_centavos: diff,
+            monto_banco:   Number(tx.monto_centavos),
+            monto_cargo:   Number(cargo.monto_neto),
+          });
+        }
+
+        // ── Crear el registro de pago (por el monto neto del cargo para cuadre contable)
+        const payResult = await client.query(
+          `INSERT INTO payments (tenant_id, charge_id, guardian_id, metodo, referencia_pasarela,
+                                 monto_centavos, fecha_pago, estado)
+           VALUES ($1,$2,NULL,'spei',$3,$4,NOW(),'exitoso') RETURNING id`,
+          [tenantId, charge_id, tx.referencia || `BANK-${txId}`, Number(cargo.monto_neto)]
+        );
+        const paymentId = payResult.rows[0].id;
+
+        // ── Registrar la aplicación del pago (ledger familiar — saldo calculado desde aquí)
+        await client.query(
+          `INSERT INTO payment_applications (payment_id, charge_id, amount_centavos, applied_at)
+           VALUES ($1, $2, $3, NOW())`,
+          [paymentId, charge_id, Number(cargo.monto_neto)]
+        );
+
+        // ── Marcar el cargo como pagado
+        await client.query(`UPDATE charges SET estado = 'pagado' WHERE id = $1`, [charge_id]);
+
+        // ── Marcar la transacción como conciliada, enlazando charge_id y payment_id
+        await client.query(
+          `UPDATE bank_transactions
+           SET estado_conciliacion = 'conciliado', charge_id = $1, payment_id = $2,
+               nota_conciliacion = $3
+           WHERE id = $4`,
+          [charge_id, paymentId, nota?.trim() || 'Aplicado manualmente por administrador', txId]
+        );
+
+        await client.query('COMMIT');
+        res.json({ message: "Pago aplicado correctamente al cargo seleccionado", payment_id: paymentId });
+
+      } else {
+        // ── ignorar: marcar como no escolar (nota obligatoria ya validada arriba)
+        await client.query(
+          `UPDATE bank_transactions
+           SET estado_conciliacion = 'ignorado', nota_conciliacion = $1
+           WHERE id = $2`,
+          [nota.trim(), txId]
+        );
+        await client.query('COMMIT');
+        res.json({ message: "Transacción marcada como no escolar" });
+      }
+    } catch (error: any) {
+      await client.query('ROLLBACK').catch(() => {});
+      res.status(500).json({ message: error.message });
+    } finally {
+      client.release();
     }
   });
 

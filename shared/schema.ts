@@ -990,6 +990,7 @@ export const bank_transactions = pgTable("bank_transactions", {
   estado_conciliacion: varchar("estado_conciliacion", { length: 20 }).default("pendiente"),
   charge_id: integer("charge_id").references(() => charges.id),
   payment_id: integer("payment_id").references(() => payments.id),
+  nota_conciliacion: text("nota_conciliacion"),
   created_at: timestamp("created_at").defaultNow(),
 });
 export type BankTransaction = typeof bank_transactions.$inferSelect;

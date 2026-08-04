@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import KPICard from "@/components/kpi-card";
 import { useAuth } from "@/hooks/use-auth";
 import { useRoleBasedData } from "@/hooks/useRoleBasedData";
@@ -21,6 +22,7 @@ interface KPIData {
   paymentRate: number;
   overdueRate: number;
   activeStudents: number;
+  excepciones_pendientes?: number;
 }
 
 interface Student {
@@ -36,7 +38,8 @@ export default function AdminDashboard() {
   const { userRole } = useRoleBasedData();
   const { institutionName, logoUrl } = useInstitution();
   const [, setLocation] = useLocation();
-  const campusId = 1;
+  const campusId = user?.campus_id || 48;
+  const [, navigate] = useLocation();
 
   // Redirección automática según el rol
   useEffect(() => {
@@ -171,23 +174,38 @@ export default function AdminDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-600">Plataforma SaaS</span>
                 <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Activo</span>
               </div>
-          <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-600">Pagos en línea</span>
                 <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Activo</span>
               </div>
-          <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-600">CFDI Automático</span>
                 <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Activo</span>
               </div>
-          <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-600">Notificaciones</span>
                 <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Activo</span>
               </div>
+              {/* Alerta de excepciones pendientes */}
+              {(kpiData?.excepciones_pendientes ?? 0) > 0 && (
+                <div
+                  className="flex items-center justify-between p-2 bg-red-50 rounded-lg border border-red-200 cursor-pointer hover:bg-red-100 transition-colors"
+                  onClick={() => navigate("/excepciones-conciliacion")}
+                >
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-500" />
+                    <span className="text-sm font-medium text-red-700">Excepciones bancarias</span>
+                  </div>
+                  <Badge className="bg-red-500 text-white text-xs">
+                    {kpiData!.excepciones_pendientes} pendiente{kpiData!.excepciones_pendientes !== 1 ? "s" : ""}
+                  </Badge>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

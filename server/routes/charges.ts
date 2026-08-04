@@ -18,7 +18,7 @@ export function registerChargesRoutes(app: Express): void {
       
       res.json(concepts);
     } catch (error: any) {
-      res.status(500).json({ message: "Error fetching concepts: " + error.message });
+      res.status(500).json({ message: "Error fetching concepts" });
     }
   });
 
@@ -41,7 +41,7 @@ export function registerChargesRoutes(app: Express): void {
       const concept = await storage.createConcept(conceptData);
       res.status(201).json(concept);
     } catch (error: any) {
-      res.status(500).json({ message: "Error creating concept: " + error.message });
+      res.status(500).json({ message: "Error creating concept" });
     }
   });
 
@@ -106,7 +106,7 @@ export function registerChargesRoutes(app: Express): void {
         charges: charges.length 
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Error creating charges: " + error.message });
+      res.status(500).json({ message: "Error creating charges" });
     }
   });
 
@@ -117,7 +117,7 @@ export function registerChargesRoutes(app: Express): void {
       const campusId = req.user?.campus_id;
       const rows = await pool.query(`SELECT c.*, CONCAT(s.nombres,' ',s.apellido_paterno) AS estudiante FROM charges c JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 ORDER BY c.created_at DESC LIMIT 200`, [campusId]).catch(()=>({rows:[]}));
       res.json(rows.rows);
-    } catch (error: any) { res.status(500).json({ message: error.message }); }
+    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
   app.get("/api/admin/cargos/estadisticas", authenticateToken, async (req: any, res: any) => {
@@ -136,7 +136,7 @@ export function registerChargesRoutes(app: Express): void {
         periodo: req.query.period || new Date().toISOString().slice(0, 7)
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Error obteniendo estadísticas: " + error.message });
+      res.status(500).json({ message: "Error obteniendo estadísticas" });
     }
   });
 
@@ -172,7 +172,7 @@ export function registerChargesRoutes(app: Express): void {
       }
       res.json({ message: `${created} cargos mensuales generados`, cargos_creados: created, periodo });
     } catch (error: any) {
-      res.status(500).json({ message: "Error generando cargos: " + error.message });
+      res.status(500).json({ message: "Error generando cargos" });
     }
   });
 
@@ -230,7 +230,7 @@ export function registerChargesRoutes(app: Express): void {
       });
       res.status(201).json({ message: "Cargo extraordinario creado", charge });
     } catch (error: any) {
-      res.status(500).json({ message: "Error creando cargo extraordinario: " + error.message });
+      res.status(500).json({ message: "Error creando cargo extraordinario" });
     }
   });
 
@@ -255,7 +255,7 @@ export function registerChargesRoutes(app: Express): void {
         cargos_vencidos: Number(r.cargos_vencidos || 0)
       })));
     } catch (error: any) {
-      res.status(500).json({ message: "Error obteniendo morosos: " + error.message });
+      res.status(500).json({ message: "Error obteniendo morosos" });
     }
   });
 
@@ -291,7 +291,7 @@ export function registerChargesRoutes(app: Express): void {
       }
       res.json({ message: `Recargos aplicados a ${actualizados} cargos`, actualizados });
     } catch (error: any) {
-      res.status(500).json({ message: "Error aplicando recargos: " + error.message });
+      res.status(500).json({ message: "Error aplicando recargos" });
     }
   });
 
@@ -383,9 +383,9 @@ export function registerChargesRoutes(app: Express): void {
             student_id: student.id,
             concept_id: concept.id,
             tenant_id: productUser?.tenant_id ?? (student as any).tenant_id,
-            ciclo_escolar: "2024-2025",
+            ciclo_escolar: (() => { const y = new Date().getFullYear(); const m = new Date().getMonth() + 1; return m >= 8 ? `${y}-${y+1}` : `${y-1}-${y}`; })(),
             fecha_emision: new Date().toISOString().split('T')[0],
-            fecha_vencimiento: fecha_vencimiento || "2025-02-15",
+            fecha_vencimiento: fecha_vencimiento || (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().split('T')[0]; })(),
             monto_base_centavos: specificPrice,
             beca_aplicada: "0.00",
             recargo_aplicado_centavos: 0,
@@ -410,7 +410,7 @@ export function registerChargesRoutes(app: Express): void {
       });
     } catch (error: any) {
       console.error("Error applying catalog charges:", error);
-      res.status(500).json({ message: "Error applying charges: " + error.message });
+      res.status(500).json({ message: "Error applying charges" });
     }
   });
 }

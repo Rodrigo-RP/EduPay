@@ -25,7 +25,7 @@ export function registerMiscRoutes(app: Express): void {
       }));
       res.json(planes);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -61,7 +61,7 @@ export function registerMiscRoutes(app: Express): void {
       }
       res.json({ ...plan, mensaje: `Plan creado con ${numero_pagos} cuotas` });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -81,7 +81,7 @@ export function registerMiscRoutes(app: Express): void {
       await pool.query(`UPDATE payment_plan_installments SET estado = 'pagado', fecha_pago = CURRENT_DATE WHERE id = $1`, [cuotaId]);
       res.json({ message: "Cuota marcada como pagada" });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -93,7 +93,7 @@ export function registerMiscRoutes(app: Express): void {
       const rows = await pool.query(`SELECT * FROM financial_events WHERE campus_id = $1 ORDER BY fecha, id`, [campusId]);
       res.json(rows.rows);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -104,7 +104,7 @@ export function registerMiscRoutes(app: Express): void {
       const rows = await pool.query(`SELECT * FROM financial_events WHERE campus_id = $1 ORDER BY fecha, id`, [campusId]);
       res.json(rows.rows);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -119,7 +119,7 @@ export function registerMiscRoutes(app: Express): void {
       `, [campusId, tenantId, titulo, descripcion || null, fecha, tipo || 'otro', urgencia || 'normal']);
       res.json((row.rows as any[])[0]);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -129,7 +129,7 @@ export function registerMiscRoutes(app: Express): void {
       await pool.query(`UPDATE financial_events SET completado = true WHERE id = $1 AND campus_id = $2`, [parseInt(req.params.id), campusId]);
       res.json({ message: "Evento marcado como completado" });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -198,7 +198,7 @@ export function registerMiscRoutes(app: Express): void {
         tendencias: [],
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -250,7 +250,7 @@ export function registerMiscRoutes(app: Express): void {
         por_nivel: [], tendencias: [],
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -271,7 +271,7 @@ export function registerMiscRoutes(app: Express): void {
       }));
       res.json(planes);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -305,7 +305,7 @@ export function registerMiscRoutes(app: Express): void {
       });
       res.json(familias);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -324,7 +324,7 @@ export function registerMiscRoutes(app: Express): void {
       const total = ingresos + pendiente;
       res.json({ resumen: { facturado_mes: ingresos, tasa_cobro: total>0?Math.round(ingresos/total*100):0, mora: total>0?Math.round(pendiente/total*100):0, estudiantes: Number((studentsRows.rows[0] as any)?.total||0), spei_pendientes: Number((speiRows.rows[0] as any)?.cnt||0), cfdi_pendientes: 0, deudores_criticos: 0, cuotas_vencidas: 0, becas_por_vencer: 0 }, tareas_hoy: [], alertas: [] });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -335,7 +335,7 @@ export function registerMiscRoutes(app: Express): void {
       const rows = await pool.query(`SELECT * FROM scholarship_auto_rules WHERE campus_id=$1 ORDER BY created_at DESC`, [campusId]);
       res.json(rows.rows);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -354,7 +354,7 @@ export function registerMiscRoutes(app: Express): void {
         ORDER BY c.fecha_vencimiento ASC LIMIT 500
       `, [campusId]).catch(() => ({ rows: [] }));
       res.json(rows.rows);
-    } catch (error: any) { res.status(500).json({ message: error.message }); }
+    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
   // /api/crm/prospects — prospectos para dashboard-admisiones
@@ -363,7 +363,7 @@ export function registerMiscRoutes(app: Express): void {
       const campusId = (req as any).user?.campus_id;
       const rows = await pool.query(`SELECT * FROM crm_prospects WHERE campus_id=$1 ORDER BY created_at DESC LIMIT 200`, [campusId]).catch(() => ({ rows: [] }));
       res.json(rows.rows);
-    } catch (error: any) { res.status(500).json({ message: error.message }); }
+    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
   app.post("/api/crm/prospects", authenticateToken, async (req, res) => {
@@ -375,7 +375,7 @@ export function registerMiscRoutes(app: Express): void {
         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *
       `, [campusId, nombre, email || null, telefono || null, nivel_interes || 'medio', nivel_escolar || null, notas || null]).catch(() => ({ rows: [req.body] }));
       res.status(201).json((row.rows as any[])[0] || req.body);
-    } catch (error: any) { res.status(500).json({ message: error.message }); }
+    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
   // /api/admin/configuracion/escuela — setup inicial de escuela
@@ -387,7 +387,7 @@ export function registerMiscRoutes(app: Express): void {
         UPDATE campuses SET nombre=COALESCE($2,nombre) WHERE id=$1
       `, [campusId, nombre]).catch(() => {});
       res.json({ mensaje: "Configuración de escuela guardada", campus_id: campusId });
-    } catch (error: any) { res.status(500).json({ message: error.message }); }
+    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
   // /api/admin/configuracion/completar-onboarding
@@ -395,7 +395,7 @@ export function registerMiscRoutes(app: Express): void {
     try {
       const campusId = (req as any).user?.campus_id;
       res.json({ mensaje: "Onboarding completado", campus_id: campusId, completado: true });
-    } catch (error: any) { res.status(500).json({ message: error.message }); }
+    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
   // /api/caja — alias resumen de caja (caja-conciliacion.tsx invalida esta key)
@@ -407,7 +407,7 @@ export function registerMiscRoutes(app: Express): void {
         pool.query(`SELECT COUNT(*) as cnt FROM bank_transactions WHERE campus_id=$1 AND estado_conciliacion='pendiente'`, [campusId]).catch(()=>({rows:[{cnt:0}]})),
       ]);
       res.json({ pagos_hoy: Number((pagosRows.rows[0] as any)?.cnt||0), total_hoy: Number((pagosRows.rows[0] as any)?.total||0), spei_pendientes: Number((txRows.rows[0] as any)?.cnt||0) });
-    } catch (error: any) { res.status(500).json({ message: error.message }); }
+    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
   // /api/admin/charges — alias para cargos administrativos
@@ -416,7 +416,7 @@ export function registerMiscRoutes(app: Express): void {
       const campusId = (req as any).user?.campus_id;
       const rows = await pool.query(`SELECT c.*, CONCAT(s.nombres,' ',s.apellido_paterno) AS estudiante FROM charges c JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 ORDER BY c.created_at DESC LIMIT 500`, [campusId]).catch(()=>({rows:[]}));
       res.json(rows.rows);
-    } catch (error: any) { res.status(500).json({ message: error.message }); }
+    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
   // /api/fiscal/estadisticas-sat — métricas SAT para fiscal-contable
@@ -425,7 +425,7 @@ export function registerMiscRoutes(app: Express): void {
       const campusId = (req as any).user?.campus_id;
       const rows = await pool.query(`SELECT COUNT(*) as total_cfdis, COUNT(CASE WHEN i.estado='emitido' THEN 1 END) as emitidos, COUNT(CASE WHEN i.estado='cancelado' THEN 1 END) as cancelados FROM invoices i JOIN payments p ON p.id=i.payment_id JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1`, [campusId]).catch(()=>({rows:[{total_cfdis:0,emitidos:0,cancelados:0}]}));
       res.json({ total_cfdis: Number((rows.rows[0] as any)?.total_cfdis||0), emitidos: Number((rows.rows[0] as any)?.emitidos||0), cancelados: Number((rows.rows[0] as any)?.cancelados||0), vigentes: Number((rows.rows[0] as any)?.emitidos||0), pac: "Facturama", estado_conexion: "activo" });
-    } catch (error: any) { res.status(500).json({ message: error.message }); }
+    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
   // ── FAMILIAS ──────────────────────────────────────────────────────────────
@@ -480,7 +480,7 @@ export function registerMiscRoutes(app: Express): void {
 
       res.json(withStudents);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -535,7 +535,7 @@ export function registerMiscRoutes(app: Express): void {
         cargos: chargesDetail.rows,
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -575,7 +575,7 @@ export function registerMiscRoutes(app: Express): void {
         status: event.status,
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -620,7 +620,7 @@ export function registerMiscRoutes(app: Express): void {
 
       res.json(result);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -713,7 +713,7 @@ export function registerMiscRoutes(app: Express): void {
         cargos:  chargeRows.rows,
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -731,6 +731,6 @@ export function registerMiscRoutes(app: Express): void {
         total_collected: Number((paymentsRows.rows[0] as any)?.total || 0),
         total_pending: Number((chargesRows.rows[0] as any)?.pendiente || 0),
       });
-    } catch (error: any) { res.status(500).json({ message: error.message }); }
+    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 }

@@ -54,7 +54,7 @@ export function registerAdminRoutes(app: Express): void {
         paymentMethods,
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Error fetching dashboard: " + error.message });
+      res.status(500).json({ message: "Error fetching dashboard" });
     }
   });
 
@@ -102,7 +102,7 @@ export function registerAdminRoutes(app: Express): void {
 
       res.json(kpis);
     } catch (error: any) {
-      res.status(500).json({ message: "Error fetching KPIs: " + error.message });
+      res.status(500).json({ message: "Error fetching KPIs" });
     }
   });
 
@@ -116,7 +116,7 @@ export function registerAdminRoutes(app: Express): void {
       const students = await storage.getStudentsByCampus(campusId);
       res.json(students);
     } catch (error: any) {
-      res.status(500).json({ message: "Error fetching students: " + error.message });
+      res.status(500).json({ message: "Error fetching students" });
     }
   });
 
@@ -128,7 +128,7 @@ export function registerAdminRoutes(app: Express): void {
       const students = await storage.getStudentsByCampus(campusId);
       res.json(students);
     } catch (error: any) {
-      res.status(500).json({ message: "Error fetching students: " + error.message });
+      res.status(500).json({ message: "Error fetching students" });
     }
   });
 
@@ -140,7 +140,7 @@ export function registerAdminRoutes(app: Express): void {
       const guardians = await storage.getGuardiansByCampus(campusId);
       res.json(guardians);
     } catch (error: any) {
-      res.status(500).json({ message: "Error fetching guardians: " + error.message });
+      res.status(500).json({ message: "Error fetching guardians" });
     }
   });
 
@@ -156,7 +156,7 @@ export function registerAdminRoutes(app: Express): void {
       const students = await storage.getStudentsByCampus(campusId);
       res.json(students);
     } catch (error: any) {
-      res.status(500).json({ message: "Error fetching students: " + error.message });
+      res.status(500).json({ message: "Error fetching students" });
     }
   });
 
@@ -172,7 +172,7 @@ export function registerAdminRoutes(app: Express): void {
       const payments = await storage.getPaymentsByCampus(campusId);
       res.json(payments);
     } catch (error: any) {
-      res.status(500).json({ message: "Error fetching payments: " + error.message });
+      res.status(500).json({ message: "Error fetching payments" });
     }
   });
 
@@ -188,7 +188,7 @@ export function registerAdminRoutes(app: Express): void {
       const charges = await storage.getChargesByCampus(campusId);
       res.json(charges);
     } catch (error: any) {
-      res.status(500).json({ message: "Error fetching charges: " + error.message });
+      res.status(500).json({ message: "Error fetching charges" });
     }
   });
 
@@ -204,7 +204,7 @@ export function registerAdminRoutes(app: Express): void {
       const accountsReceivable = await storage.getAccountsReceivableByCampus(campusId);
       res.json(accountsReceivable);
     } catch (error: any) {
-      res.status(500).json({ message: "Error fetching accounts receivable: " + error.message });
+      res.status(500).json({ message: "Error fetching accounts receivable" });
     }
   });
 
@@ -231,7 +231,7 @@ export function registerAdminRoutes(app: Express): void {
       `, [campusId]).catch(() => ({ rows: [] }));
       res.json(rows.rows);
     } catch (error: any) {
-      res.status(500).json({ message: "Error fetching scholarships: " + error.message });
+      res.status(500).json({ message: "Error fetching scholarships" });
     }
   });
 
@@ -303,7 +303,7 @@ export function registerAdminRoutes(app: Express): void {
       });
     } catch (error: any) {
       console.error("[estado-cuenta]", error.message);
-      if (!res.headersSent) res.status(500).json({ message: "Error en estado de cuenta: " + error.message });
+      if (!res.headersSent) res.status(500).json({ message: "Error en estado de cuenta" });
     }
   });
 
@@ -380,7 +380,7 @@ export function registerAdminRoutes(app: Express): void {
       });
     } catch (error: any) {
       console.error("[admissions-report]", error.message);
-      if (!res.headersSent) res.status(500).json({ message: "Error en reporte de admisiones: " + error.message });
+      if (!res.headersSent) res.status(500).json({ message: "Error en reporte de admisiones" });
     }
   });
 
@@ -405,7 +405,7 @@ export function registerAdminRoutes(app: Express): void {
       
       res.status(201).json(student);
     } catch (error: any) {
-      res.status(500).json({ message: "Error creating student: " + error.message });
+      res.status(500).json({ message: "Error creating student" });
     }
   });
 
@@ -453,7 +453,7 @@ export function registerAdminRoutes(app: Express): void {
 
       res.json(result.rows);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -527,7 +527,7 @@ export function registerAdminRoutes(app: Express): void {
 
       res.json(result.rows[0]);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -582,7 +582,7 @@ export function registerAdminRoutes(app: Express): void {
         res.send(buffer);
       }
     } catch (error: any) {
-      res.status(500).json({ message: "Error exporting students: " + error.message });
+      res.status(500).json({ message: "Error exporting students" });
     }
   });
 
@@ -706,7 +706,7 @@ export function registerAdminRoutes(app: Express): void {
       });
 
     } catch (error: any) {
-      res.status(500).json({ message: "Error importing students: " + error.message });
+      res.status(500).json({ message: "Error importing students" });
     }
   });
 }

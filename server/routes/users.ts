@@ -25,7 +25,7 @@ export function registerUserRoutes(app: Express): void {
       const { password_hash, twofa_secret, ...profile } = user;
       res.json({ ...profile, has_twofa: !!twofa_secret });
     } catch (error: any) {
-      res.status(500).json({ message: "Error fetching profile: " + error.message });
+      res.status(500).json({ message: "Error fetching profile" });
     }
   });
 
@@ -96,7 +96,7 @@ export function registerUserRoutes(app: Express): void {
       
       res.json({ message: "Password updated successfully" });
     } catch (error: any) {
-      res.status(500).json({ message: "Error updating password: " + error.message });
+      res.status(500).json({ message: "Error updating password" });
     }
   });
 
@@ -114,7 +114,7 @@ export function registerUserRoutes(app: Express): void {
       const { password_hash, ...profile } = guardian as any;
       res.json(profile);
     } catch (error: any) {
-      res.status(500).json({ message: "Error fetching profile: " + error.message });
+      res.status(500).json({ message: "Error fetching profile" });
     }
   });
 
@@ -147,7 +147,7 @@ export function registerUserRoutes(app: Express): void {
         res.status(404).json({ message: "Guardian not found" });
       }
     } catch (error: any) {
-      res.status(500).json({ message: "Error updating profile: " + error.message });
+      res.status(500).json({ message: "Error updating profile" });
     }
   });
 
@@ -177,7 +177,7 @@ export function registerUserRoutes(app: Express): void {
       
       res.json({ message: "Password updated successfully" });
     } catch (error: any) {
-      res.status(500).json({ message: "Error updating password: " + error.message });
+      res.status(500).json({ message: "Error updating password" });
     }
   });
 
@@ -194,7 +194,7 @@ export function registerUserRoutes(app: Express): void {
       const users = await storage.getUsersByCampus(campusId);
       res.json(users.map(serializeUser));
     } catch (error: any) {
-      res.status(500).json({ message: "Error obteniendo usuarios: " + error.message });
+      res.status(500).json({ message: "Error obteniendo usuarios" });
     }
   });
 
@@ -364,7 +364,7 @@ export function registerUserRoutes(app: Express): void {
       const deleted = await storage.deleteUser(userId);
       if (!deleted) return res.status(404).json({ message: "Usuario no encontrado" });
       res.json({ message: "Usuario eliminado exitosamente" });
-    } catch (error: any) { res.status(500).json({ message: error.message }); }
+    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
   // PLATFORM LOGIN for Support and Implementation users
@@ -458,7 +458,7 @@ export function registerUserRoutes(app: Express): void {
         profile: user.profile
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Platform login failed: " + error.message });
+      res.status(500).json({ message: "Platform login failed" });
     }
   });
 

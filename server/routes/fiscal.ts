@@ -33,7 +33,7 @@ export function registerFiscalRoutes(app: Express): void {
       `, params);
       res.json({ pagos: rows.rows, total: (rows.rows as any[]).length });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -62,7 +62,7 @@ export function registerFiscalRoutes(app: Express): void {
       }
       res.json({ timbrados, errores, total: payment_ids.length, resultados });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -74,7 +74,7 @@ export function registerFiscalRoutes(app: Express): void {
       const campusId = (req as any).user?.campus_id;
       const rows = await pool.query(`SELECT COUNT(*) as total_invoices FROM invoices i JOIN payments p ON p.id=i.payment_id JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1`, [campusId]).catch(()=>({rows:[{total_invoices:0}]}));
       res.json({ total_invoices: Number((rows.rows[0] as any)?.total_invoices||0) });
-    } catch (error: any) { res.status(500).json({ message: error.message }); }
+    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
   // Alias sin campusId — lee campus del JWT
@@ -99,7 +99,7 @@ export function registerFiscalRoutes(app: Express): void {
         ORDER BY p.created_at DESC LIMIT 500
       `, params);
       res.json({ pagos: rows.rows, total: (rows.rows as any[]).length });
-    } catch (error: any) { res.status(500).json({ message: error.message }); }
+    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
   app.get("/api/fiscal/estadisticas-cfdi", authenticateToken, async (req, res) => {
@@ -116,7 +116,7 @@ export function registerFiscalRoutes(app: Express): void {
         pendientes: Number((pendientesRows.rows[0] as any)?.cnt || 0),
         cancelados: Number((canceladosRows.rows[0] as any)?.cnt || 0),
       });
-    } catch (error: any) { res.status(500).json({ message: error.message }); }
+    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
   app.post("/api/fiscal/regenerar-cfdi/:id", authenticateToken, async (req, res) => {
@@ -136,7 +136,7 @@ export function registerFiscalRoutes(app: Express): void {
         { uuid_cfdi: uuid }   // extraFields: actualiza UUID en la misma txn
       );
       res.json({ uuid, mensaje: "CFDI regenerado correctamente" });
-    } catch (error: any) { res.status(500).json({ message: error.message }); }
+    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
   app.post("/api/fiscal/cancelar-cfdi", authenticateToken, async (req, res) => {
@@ -150,7 +150,7 @@ export function registerFiscalRoutes(app: Express): void {
         metadata: { flujo: 'cancelacion_cfdi', motivo },
       });
       res.json({ mensaje: "CFDI cancelado correctamente", motivo });
-    } catch (error: any) { res.status(500).json({ message: error.message }); }
+    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
   app.get("/api/fiscal/config-automatica", authenticateToken, async (req, res) => {
@@ -159,7 +159,7 @@ export function registerFiscalRoutes(app: Express): void {
       const rows = await pool.query(`SELECT * FROM fiscal_config WHERE campus_id=$1 LIMIT 1`, [campusId]).catch(() => ({ rows: [] }));
       if ((rows.rows as any[]).length > 0) { res.json((rows.rows as any[])[0]); }
       else { res.json({ habilitado: false, timbrado_automatico: false, pac_nombre: null, regimen_fiscal: "601", uso_cfdi: "G03" }); }
-    } catch (error: any) { res.status(500).json({ message: error.message }); }
+    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
   app.put("/api/fiscal/config-automatica", authenticateToken, async (req, res) => {
@@ -172,7 +172,7 @@ export function registerFiscalRoutes(app: Express): void {
         ON CONFLICT (campus_id) DO UPDATE SET habilitado=$2, timbrado_automatico=$3, pac_nombre=$4, regimen_fiscal=$5, uso_cfdi=$6
       `, [campusId, data.habilitado ?? false, data.timbrado_automatico ?? false, data.pac_nombre || null, data.regimen_fiscal || '601', data.uso_cfdi || 'G03']).catch(() => {});
       res.json({ mensaje: "Configuración guardada" });
-    } catch (error: any) { res.status(500).json({ message: error.message }); }
+    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
   app.get("/api/fiscal/estado-pac", authenticateToken, async (req, res) => {
@@ -184,7 +184,7 @@ export function registerFiscalRoutes(app: Express): void {
       const campusId = (req as any).user?.campus_id;
       const { pac_nombre, usuario, password, ambiente } = req.body;
       res.json({ pac_nombre, ambiente: ambiente || 'sandbox', conectado: true, mensaje: "PAC configurado correctamente" });
-    } catch (error: any) { res.status(500).json({ message: error.message }); }
+    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
   app.get("/api/fiscal/reportes-contables", authenticateToken, async (req, res) => {
@@ -205,7 +205,7 @@ export function registerFiscalRoutes(app: Express): void {
         ORDER BY mes DESC LIMIT 12
       `, [campusId]).catch(() => ({ rows: [] }));
       res.json({ reportes: rows.rows });
-    } catch (error: any) { res.status(500).json({ message: error.message }); }
+    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
   app.post("/api/fiscal/generar-reporte-contable", authenticateToken, async (req, res) => {
@@ -213,7 +213,7 @@ export function registerFiscalRoutes(app: Express): void {
       const campusId = (req as any).user?.campus_id;
       const { tipo, periodo } = req.body;
       res.json({ url: null, mensaje: `Reporte ${tipo} generado para ${periodo}`, tipo, periodo });
-    } catch (error: any) { res.status(500).json({ message: error.message }); }
+    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
   app.post("/api/fiscal/generar-reporte-sat", authenticateToken, async (req, res) => {
@@ -221,7 +221,7 @@ export function registerFiscalRoutes(app: Express): void {
       const campusId = (req as any).user?.campus_id;
       const { tipo, periodo, formato } = req.body;
       res.json({ url: null, mensaje: `Reporte SAT ${tipo} generado para ${periodo}`, tipo, periodo, formato: formato || 'xml' });
-    } catch (error: any) { res.status(500).json({ message: error.message }); }
+    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
   // ── 5. MOTOR DE BECAS AUTOMÁTICAS ─────────────────────────────────────────
@@ -232,7 +232,7 @@ export function registerFiscalRoutes(app: Express): void {
       const rows = await pool.query(`SELECT * FROM scholarship_auto_rules WHERE campus_id = $1 ORDER BY created_at DESC`, [campusId]);
       res.json(rows.rows);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -247,7 +247,7 @@ export function registerFiscalRoutes(app: Express): void {
       `, [campusId, tenantId, nombre, tipo, Number(descuento_porcentaje), condicion_json || null, aplica_a || 'todos']);
       res.json((row.rows as any[])[0]);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -257,7 +257,7 @@ export function registerFiscalRoutes(app: Express): void {
       await pool.query(`DELETE FROM scholarship_auto_rules WHERE id = $1 AND campus_id = $2`, [parseInt(req.params.id), campusId]);
       res.json({ message: "Regla eliminada" });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -280,7 +280,7 @@ export function registerFiscalRoutes(app: Express): void {
       }
       res.json({ aplicadas, mensaje: `Se aplicaron/calcularon becas automáticas para ${aplicadas} estudiantes` });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 }

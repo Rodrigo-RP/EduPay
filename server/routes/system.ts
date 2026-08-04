@@ -14,29 +14,35 @@ import jwt from "jsonwebtoken";
 import { z } from "zod";
 
 export function registerSystemRoutes(app: Express): void {
-  app.get("/api/payment-rules", async (req, res) => {
+  app.get("/api/payment-rules", authenticateToken, async (req: any, res) => {
     try {
-      const campusId = 24; // Current campus
+      const campusId = req.user?.campus_id;
+      if (!campusId) return res.status(400).json({ error: "Campus requerido" });
       const rules = await db.select().from(payment_rules).where(eq(payment_rules.campus_id, campusId));
       res.json(rules);
     } catch (error) {
       console.error("Error fetching payment rules:", error);
-      res.status(500).json({ error: "Failed to fetch payment rules" });
+      res.status(500).json({ error: "Error obteniendo reglas de pago" });
     }
   });
 
-  app.post("/api/payment-rules", async (req, res) => {
+  app.post("/api/payment-rules", authenticateToken, async (req: any, res) => {
     try {
-      const ruleData = req.body;
+      const campusId = req.user?.campus_id;
+      const tenantId = req.user?.tenant_id;
+      if (!campusId || !tenantId) return res.status(400).json({ error: "Campus y tenant requeridos" });
+      const { type, value, gracePeriodDays, description } = req.body;
+      if (!type || value === undefined) return res.status(400).json({ error: "type y value requeridos" });
+      const ruleData = { ...req.body, campus_id: campusId, tenant_id: tenantId };
       const [newRule] = await db.insert(payment_rules).values(ruleData).returning();
       res.json(newRule);
     } catch (error) {
       console.error("Error creating payment rule:", error);
-      res.status(500).json({ error: "Failed to create payment rule" });
+      res.status(500).json({ error: "Error creando regla de pago" });
     }
   });
 
-  app.post("/api/payment-rules/test", async (req, res) => {
+  app.post("/api/payment-rules/test", authenticateToken, async (req: any, res) => {
     try {
       const { rule, sampleAmounts } = req.body;
       
@@ -131,7 +137,7 @@ export function registerSystemRoutes(app: Express): void {
         foto_url: base64Image 
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Error actualizando foto: " + error.message });
+      res.status(500).json({ message: "Error actualizando foto" });
     }
   });
 
@@ -271,7 +277,7 @@ export function registerSystemRoutes(app: Express): void {
       const result = await optimizeDatabase();
       res.json(result);
     } catch (error: any) {
-      res.status(500).json({ error: "Error optimizando base de datos", details: error.message });
+      res.status(500).json({ error: "Error optimizando base de datos", details: "Ver logs del servidor" });
     }
   });
 
@@ -281,7 +287,7 @@ export function registerSystemRoutes(app: Express): void {
       const result = await checkQueryPerformance();
       res.json(result);
     } catch (error: any) {
-      res.status(500).json({ error: "Error verificando rendimiento", details: error.message });
+      res.status(500).json({ error: "Error verificando rendimiento", details: "Ver logs del servidor" });
     }
   });
 
@@ -291,7 +297,7 @@ export function registerSystemRoutes(app: Express): void {
       const result = await cleanupObsoleteData();
       res.json(result);
     } catch (error: any) {
-      res.status(500).json({ error: "Error limpiando datos", details: error.message });
+      res.status(500).json({ error: "Error limpiando datos", details: "Ver logs del servidor" });
     }
   });
 
@@ -301,7 +307,7 @@ export function registerSystemRoutes(app: Express): void {
       const result = await runMaintenanceTask();
       res.json(result);
     } catch (error: any) {
-      res.status(500).json({ error: "Error ejecutando mantenimiento", details: error.message });
+      res.status(500).json({ error: "Error ejecutando mantenimiento", details: "Ver logs del servidor" });
     }
   });
 
@@ -315,7 +321,7 @@ export function registerSystemRoutes(app: Express): void {
       const metrics = await storage.getPlatformMetrics();
       res.json(metrics);
     } catch (error: any) {
-      res.status(500).json({ message: "Error obteniendo métricas de plataforma: " + error.message });
+      res.status(500).json({ message: "Error obteniendo métricas de plataforma" });
     }
   });
 
@@ -325,7 +331,7 @@ export function registerSystemRoutes(app: Express): void {
       const tenants = await storage.getTenantsList();
       res.json(tenants);
     } catch (error: any) {
-      res.status(500).json({ message: "Error obteniendo lista de escuelas: " + error.message });
+      res.status(500).json({ message: "Error obteniendo lista de escuelas" });
     }
   });
 
@@ -336,7 +342,7 @@ export function registerSystemRoutes(app: Express): void {
       const events = await storage.getSecurityEvents(limit);
       res.json(events);
     } catch (error: any) {
-      res.status(500).json({ message: "Error obteniendo eventos de seguridad: " + error.message });
+      res.status(500).json({ message: "Error obteniendo eventos de seguridad" });
     }
   });
 
@@ -364,7 +370,7 @@ export function registerSystemRoutes(app: Express): void {
         ]
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Error iniciando escaneo de seguridad: " + error.message });
+      res.status(500).json({ message: "Error iniciando escaneo de seguridad" });
     }
   });
 
@@ -374,7 +380,7 @@ export function registerSystemRoutes(app: Express): void {
       const health = await storage.getSystemHealth();
       res.json(health);
     } catch (error: any) {
-      res.status(500).json({ message: "Error obteniendo estado del sistema: " + error.message });
+      res.status(500).json({ message: "Error obteniendo estado del sistema" });
     }
   });
 
@@ -439,7 +445,7 @@ export function registerSystemRoutes(app: Express): void {
       });
 
     } catch (error: any) {
-      res.status(500).json({ message: "Error obteniendo datos del dashboard: " + error.message });
+      res.status(500).json({ message: "Error obteniendo datos del dashboard" });
     }
   });
 
@@ -522,7 +528,7 @@ export function registerSystemRoutes(app: Express): void {
 
       res.json(schoolData);
     } catch (error: any) {
-      res.status(500).json({ message: "Error obteniendo detalles de escuela: " + error.message });
+      res.status(500).json({ message: "Error obteniendo detalles de escuela" });
     }
   });
 
@@ -559,7 +565,7 @@ export function registerSystemRoutes(app: Express): void {
         }
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Error creando usuario: " + error.message });
+      res.status(500).json({ message: "Error creando usuario" });
     }
   });
 
@@ -593,7 +599,7 @@ export function registerSystemRoutes(app: Express): void {
         newStatus: status
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Error actualizando estado de escuela: " + error.message });
+      res.status(500).json({ message: "Error actualizando estado de escuela" });
     }
   });
 
@@ -604,7 +610,7 @@ export function registerSystemRoutes(app: Express): void {
       const users = await storage.getUsersByTenant(tenantId);
       res.json(users.map(serializeUser));
     } catch (error: any) {
-      res.status(500).json({ message: "Error obteniendo usuarios: " + error.message });
+      res.status(500).json({ message: "Error obteniendo usuarios" });
     }
   });
 
@@ -625,7 +631,7 @@ export function registerSystemRoutes(app: Express): void {
         newStatus: status
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Error actualizando estado de usuario: " + error.message });
+      res.status(500).json({ message: "Error actualizando estado de usuario" });
     }
   });
 
@@ -657,7 +663,7 @@ export function registerSystemRoutes(app: Express): void {
         userId
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Error actualizando contraseña: " + error.message });
+      res.status(500).json({ message: "Error actualizando contraseña" });
     }
   });
 
@@ -688,12 +694,12 @@ export function registerSystemRoutes(app: Express): void {
         scope: 'platform_wide'
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Error bloqueando IP: " + error.message });
+      res.status(500).json({ message: "Error bloqueando IP" });
     }
   });
 
-  // Create super admin user (for initialization)
-  app.post("/api/super-admin/create", async (req, res) => {
+  // Create super admin user — requiere autenticación de super admin existente
+  app.post("/api/super-admin/create", requireSuperAdmin, async (req, res) => {
     try {
       const { email, password, name } = req.body;
       
@@ -725,7 +731,7 @@ export function registerSystemRoutes(app: Express): void {
         }
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Error creando super administrador: " + error.message });
+      res.status(500).json({ message: "Error creando super administrador" });
     }
   });
 
@@ -1042,19 +1048,18 @@ export function registerSystemRoutes(app: Express): void {
     } catch (error: any) {
       console.error("Error generating financial analysis:", error);
       res.status(500).json({ 
-        error: "Error generando análisis financiero", 
-        message: error.message 
-      });
+        error: "Error generando análisis financiero" });
     }
   });
 
   // FINANCIAL ANALYSIS CFO API - Dashboard ejecutivo financiero (sin período - usa actual)
-  app.get("/api/financial/analysis", async (req, res) => {
+  // NOTA: datos simulados — pendiente conectar a BD real
+  app.get("/api/financial/analysis", authenticateToken, async (req: any, res) => {
     try {
-      // Datos del Instituto San Patricio para análisis financiero
+      // TODO: reemplazar con consultas reales por tenant/campus
       const totalStudents = 1051;
-      const baseRevenue = totalStudents * 62000; // $62K promedio anual por estudiante
-      const operatingCosts = baseRevenue * 0.68; // 68% de costos operativos
+      const baseRevenue = totalStudents * 62000;
+      const operatingCosts = baseRevenue * 0.68;
       const netProfit = baseRevenue - operatingCosts;
       
       const financialAnalysis = {
@@ -1083,10 +1088,8 @@ export function registerSystemRoutes(app: Express): void {
       res.json(financialAnalysis);
     } catch (error: any) {
       console.error("Error generating financial analysis:", error);
-      res.status(500).json({ 
-        error: "Error generando análisis financiero", 
-        message: error.message 
-      });
+      console.error("Error generating financial analysis:", error);
+      res.status(500).json({ error: "Error generando análisis financiero" });
     }
   });
 

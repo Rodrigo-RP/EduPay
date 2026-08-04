@@ -43,7 +43,7 @@ export function registerConciliacionRoutes(app: Express): void {
         alertas: [],
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -101,7 +101,7 @@ export function registerConciliacionRoutes(app: Express): void {
       });
       res.json(familias);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -148,7 +148,7 @@ export function registerConciliacionRoutes(app: Express): void {
       }
       res.json({ message: "Pago en efectivo registrado", payment_id: paymentId, monto_centavos: montoCentavos });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -159,7 +159,7 @@ export function registerConciliacionRoutes(app: Express): void {
       const rows = await pool.query(`SELECT * FROM bank_transactions WHERE campus_id = $1 ORDER BY fecha DESC, id DESC LIMIT 100`, [campusId]).catch(() => ({ rows: [] }));
       res.json(rows.rows);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -175,7 +175,7 @@ export function registerConciliacionRoutes(app: Express): void {
       `, [campusId, fecha || new Date().toISOString().split('T')[0], descripcion, montoCentavos, tipo || 'credito', referencia || null, clabe || null, nombre || null]);
       res.json({ message: "Transferencia registrada", transaccion: (row.rows as any[])[0] });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -197,7 +197,7 @@ export function registerConciliacionRoutes(app: Express): void {
         monto_pendiente: Number((pendientesRows.rows[0] as any)?.monto || 0),
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -304,7 +304,7 @@ export function registerConciliacionRoutes(app: Express): void {
 
       res.json({ conciliados, mensaje: `${conciliados} transacciones conciliadas` });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -327,7 +327,7 @@ export function registerConciliacionRoutes(app: Express): void {
         observaciones
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -340,7 +340,7 @@ export function registerConciliacionRoutes(app: Express): void {
       const rows = await pool.query(`SELECT * FROM bank_transactions WHERE campus_id = $1 ORDER BY fecha DESC, id DESC LIMIT 200`, [campusId]);
       res.json(rows.rows);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -351,7 +351,7 @@ export function registerConciliacionRoutes(app: Express): void {
       const rows = await pool.query(`SELECT * FROM bank_transactions WHERE campus_id = $1 ORDER BY fecha DESC, id DESC LIMIT 200`, [campusId]);
       res.json(rows.rows);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -373,7 +373,7 @@ export function registerConciliacionRoutes(app: Express): void {
       }
       res.json({ importadas, mensaje: `${importadas} transacciones importadas correctamente` });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -484,7 +484,7 @@ export function registerConciliacionRoutes(app: Express): void {
       const noConciliados = (txRows.rows as any[]).length - conciliados;
       res.json({ conciliados, no_conciliados: noConciliados, total: (txRows.rows as any[]).length });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -500,11 +500,6 @@ export function registerConciliacionRoutes(app: Express): void {
       if (!user?.is_super_admin && !ROLES_OK.includes(user?.role)) {
         return res.status(403).json({ message: "Sin permisos para ver excepciones de conciliación" });
       }
-
-      // Asegurar que la columna existe antes de consultarla (migración idempotente)
-      await pool.query(
-        `ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS nota_conciliacion TEXT`
-      ).catch(() => {});
 
       const rows = await pool.query(`
         SELECT bt.id, bt.fecha, bt.descripcion, bt.monto_centavos, bt.tipo,
@@ -536,7 +531,7 @@ export function registerConciliacionRoutes(app: Express): void {
         total_pendiente:    rows.rows.length,
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -692,7 +687,7 @@ export function registerConciliacionRoutes(app: Express): void {
       }
     } catch (error: any) {
       await client.query('ROLLBACK').catch(() => {});
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     } finally {
       client.release();
     }

@@ -28,7 +28,7 @@ export function registerPaymentRoutes(app: Express): void {
         amount: ownedCharge.monto_base_centavos + (ownedCharge.recargo_aplicado_centavos || 0),
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Error creating payment intent: " + error.message });
+      res.status(500).json({ message: "Error creating payment intent" });
     }
   });
 
@@ -86,7 +86,7 @@ export function registerPaymentRoutes(app: Express): void {
         message: "Payment processed successfully"
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Error processing payment: " + error.message });
+      res.status(500).json({ message: "Error processing payment" });
     }
   });
 
@@ -258,7 +258,7 @@ export function registerPaymentRoutes(app: Express): void {
       
     } catch (error: any) {
       console.error('Error generating template:', error);
-      res.status(500).json({ message: "Error generando plantilla: " + error.message });
+      res.status(500).json({ message: "Error generando plantilla" });
     }
   });
 
@@ -451,7 +451,7 @@ export function registerPaymentRoutes(app: Express): void {
       
     } catch (error: any) {
       console.error('Error importing data:', error);
-      res.status(500).json({ message: "Error procesando archivo: " + error.message });
+      res.status(500).json({ message: "Error procesando archivo" });
     }
   });
 
@@ -494,7 +494,7 @@ export function registerPaymentRoutes(app: Express): void {
       res.send(excelBuffer);
 
     } catch (error: any) {
-      res.status(500).json({ message: "Error generando exportación: " + error.message });
+      res.status(500).json({ message: "Error generando exportación" });
     }
   });
 
@@ -537,7 +537,7 @@ export function registerPaymentRoutes(app: Express): void {
       res.send(excelBuffer);
 
     } catch (error: any) {
-      res.status(500).json({ message: "Error generando exportación: " + error.message });
+      res.status(500).json({ message: "Error generando exportación" });
     }
   });
 
@@ -613,7 +613,7 @@ export function registerPaymentRoutes(app: Express): void {
       });
 
     } catch (error: any) {
-      res.status(500).json({ message: "Error getting migration status: " + error.message });
+      res.status(500).json({ message: "Error getting migration status" });
     }
   });
 
@@ -637,7 +637,7 @@ export function registerPaymentRoutes(app: Express): void {
       res.json({ success: true, message: "Migration status updated" });
 
     } catch (error: any) {
-      res.status(500).json({ message: "Error updating migration status: " + error.message });
+      res.status(500).json({ message: "Error updating migration status" });
     }
   });
 
@@ -660,7 +660,7 @@ export function registerPaymentRoutes(app: Express): void {
       res.json({ success: true, message: "Migration progress reset" });
 
     } catch (error: any) {
-      res.status(500).json({ message: "Error resetting migration progress: " + error.message });
+      res.status(500).json({ message: "Error resetting migration progress" });
     }
   });
 
@@ -670,7 +670,7 @@ export function registerPaymentRoutes(app: Express): void {
       const user = (req as any).user;
       res.json({ valid: true, user_id: user?.id, campus_id: user?.campus_id, role: user?.role });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -684,7 +684,7 @@ export function registerPaymentRoutes(app: Express): void {
       ).catch(() => ({ rows: [] }));
       res.json(rows.rows);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -700,7 +700,7 @@ export function registerPaymentRoutes(app: Express): void {
       if (!row.rows.length) return res.status(404).json({ message: "Proyecto no encontrado" });
       res.json(row.rows[0]);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -712,7 +712,7 @@ export function registerPaymentRoutes(app: Express): void {
       const sessionId = `mig_${Date.now()}_${campusId}`;
       res.json({ sessionId, status: "iniciado", type, campus_id: campusId, message: "Migración iniciada correctamente" });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -730,7 +730,7 @@ export function registerPaymentRoutes(app: Express): void {
         message: "Proceso completado"
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -743,7 +743,7 @@ export function registerPaymentRoutes(app: Express): void {
       res.setHeader("Content-Disposition", `attachment; filename="migracion_${sessionId}.csv"`);
       res.send(csvContent);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -901,7 +901,7 @@ export function registerPaymentRoutes(app: Express): void {
       });
 
     } catch (error: any) {
-      res.status(500).json({ message: "Error running validation: " + error.message });
+      res.status(500).json({ message: "Error running validation" });
     }
   });
 
@@ -926,7 +926,7 @@ export function registerPaymentRoutes(app: Express): void {
       res.json(reportData);
 
     } catch (error: any) {
-      res.status(500).json({ message: "Error generating validation report: " + error.message });
+      res.status(500).json({ message: "Error generating validation report" });
     }
   });
 }

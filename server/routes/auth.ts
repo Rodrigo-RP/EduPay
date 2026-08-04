@@ -61,7 +61,7 @@ export function registerAuthRoutes(app: Express): void {
 
       res.json({ token, user: { id: user.id, email: user.email, role: user.role, campus_id: user.campus_id, tenant_id: user.tenant_id } });
     } catch (error: any) {
-      res.status(500).json({ message: "Login failed: " + error.message });
+      res.status(500).json({ message: "Login failed" });
     }
   });
 
@@ -93,7 +93,7 @@ export function registerAuthRoutes(app: Express): void {
       // No se devuelve el secreto base32 al cliente — solo el QR y el código manual
       res.json({ qr_data_url: qrDataUrl, manual_code: secret.base32 });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -127,7 +127,7 @@ export function registerAuthRoutes(app: Express): void {
 
       res.json({ message: "Autenticación de dos factores activada correctamente." });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -151,7 +151,7 @@ export function registerAuthRoutes(app: Express): void {
 
       res.json({ message: "Autenticación de dos factores desactivada." });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -162,7 +162,7 @@ export function registerAuthRoutes(app: Express): void {
       const user = await storage.getUserById(userId);
       if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
       res.json(serializeUser(user));
-    } catch (error: any) { res.status(500).json({ message: error.message }); }
+    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
   // Refresh token endpoint
@@ -224,7 +224,7 @@ export function registerAuthRoutes(app: Express): void {
         }
       }
     } catch (error: any) {
-      res.status(500).json({ message: "Token refresh failed: " + error.message });
+      res.status(500).json({ message: "Token refresh failed" });
     }
   });
 
@@ -250,7 +250,7 @@ export function registerAuthRoutes(app: Express): void {
 
       res.json({ token, guardian: { id: guardian.id, email: guardian.email, nombre_completo: guardian.nombre_completo, tenant_id: (guardian as any).tenant_id } });
     } catch (error: any) {
-      res.status(500).json({ message: "Login failed: " + error.message });
+      res.status(500).json({ message: "Login failed" });
     }
   });
 
@@ -324,7 +324,7 @@ export function registerAuthRoutes(app: Express): void {
         },
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -415,7 +415,7 @@ export function registerAuthRoutes(app: Express): void {
         usos_restantes: row.max_uses - row.uses,   // uses ya fue incrementado por el UPDATE
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -453,7 +453,7 @@ export function registerAuthRoutes(app: Express): void {
         creado_por:   r.creado_por || "Sistema",
       })));
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 }

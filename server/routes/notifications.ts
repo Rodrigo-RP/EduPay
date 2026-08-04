@@ -5,7 +5,7 @@ import { storage } from "../storage";
 import { authenticateToken, requireAuth, requireSuperAdmin, serializeUser } from "./shared";
 import { NotificationSystem as ServerNotificationSystem } from "../notification-system";
 import { wsManager } from "../websocket-manager";
-import { users, students, guardians, charges, payments, concepts, scholarships } from "@shared/schema";
+import { users, students, guardians, charges, payments, concepts, scholarships, payment_surcharge_rules } from "@shared/schema";
 import { z } from "zod";
 
 export function registerNotificationRoutes(app: Express): void {
@@ -45,7 +45,7 @@ export function registerNotificationRoutes(app: Express): void {
       res.json(result.rows);
     } catch (error: any) {
       console.error("Error fetching notifications:", error);
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -79,7 +79,7 @@ export function registerNotificationRoutes(app: Express): void {
         tasaEntrega:   total > 0 ? Math.round((enviadas / total) * 1000) / 10 : 0,
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -137,7 +137,7 @@ export function registerNotificationRoutes(app: Express): void {
 
       res.json(result.rows);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -276,192 +276,150 @@ export function registerNotificationRoutes(app: Express): void {
 
     } catch (error: any) {
       console.error("Error sending notifications:", error);
-      res.status(500).json({ error: "Error interno del servidor", message: error.message });
+      res.status(500).json({ error: "Error interno del servidor" });
     }
   });
 
-  // ===== PAYMENT CONFIGURATION APIs (legacy demo routes removed - real DB routes in later section) =====
+  // ===== PAYMENT CONFIGURATION APIs — conectados a payment_surcharge_rules en BD =====
 
-  // Get late fee rules configuration
-  app.get("/api/payment-config/late-fee-rules", authenticateToken, async (req, res) => {
+  // Get late fee rules configuration — lee de payment_surcharge_rules real
+  app.get("/api/payment-config/late-fee-rules", authenticateToken, async (req: any, res) => {
     try {
-      const user = (req as any).user;
-      const campusId = user.campus_id || 1;
-      
-      // Demo data for late fee rules - in production this would come from database
-      const lateFeeRules = [
-        {
-          id: "1",
-          nombre: "Estándar Mexicano",
-          tipo: "porcentaje",
-          dias_gracia: 5,
-          porcentaje: 3,
-          aplica_fines_semana: false,
-          aplica_festivos: false,
-          monto_maximo: 500000, // $5,000 MXN in centavos
-          activo: true,
-          campus_id: campusId
-        },
-        {
-          id: "2",
-          nombre: "Recargo Fijo Básico",
-          tipo: "fijo",
-          dias_gracia: 3,
-          monto_fijo: 20000, // $200 MXN in centavos
-          aplica_fines_semana: false,
-          aplica_festivos: false,
-          activo: true,
-          campus_id: campusId
-        },
-        {
-          id: "3",
-          nombre: "Progresivo por Días",
-          tipo: "progresivo",
-          dias_gracia: 7,
-          reglas_progresivas: [
-            { dias_desde: 1, dias_hasta: 15, porcentaje: 1 },
-            { dias_desde: 16, dias_hasta: 30, porcentaje: 2 },
-            { dias_desde: 31, dias_hasta: 999, porcentaje: 3 }
-          ],
-          aplica_fines_semana: false,
-          aplica_festivos: false,
-          activo: false,
-          campus_id: campusId
-        }
-      ];
-      
-      res.json(lateFeeRules);
+      const campusId = req.user?.campus_id;
+      if (!campusId) return res.status(400).json({ error: "Campus requerido" });
+
+      const rules = await db.select().from(payment_surcharge_rules)
+        .where(eq(payment_surcharge_rules.campus_id, campusId));
+
+      // Serializar reglas_progresivas si vienen como string
+      const mapped = rules.map((r: any) => ({
+        ...r,
+        reglas_progresivas: r.reglas_progresivas
+          ? (typeof r.reglas_progresivas === 'string' ? JSON.parse(r.reglas_progresivas) : r.reglas_progresivas)
+          : null,
+      }));
+      res.json(mapped);
     } catch (error: any) {
-      res.status(500).json({ error: "Error obteniendo reglas de recargo", message: error.message });
+      console.error("Error fetching late fee rules:", error);
+      res.status(500).json({ error: "Error obteniendo reglas de recargo" });
     }
   });
 
-  // Create new late fee rule
-  app.post("/api/payment-config/late-fee-rules", authenticateToken, async (req, res) => {
+  // Create new late fee rule — persiste en payment_surcharge_rules
+  app.post("/api/payment-config/late-fee-rules", authenticateToken, async (req: any, res) => {
     try {
-      const user = (req as any).user;
-      const campusId = user.campus_id || 1;
-      const { 
-        nombre, 
-        tipo, 
-        dias_gracia, 
-        porcentaje, 
-        monto_fijo, 
-        reglas_progresivas,
-        aplica_fines_semana, 
-        aplica_festivos, 
-        monto_maximo 
-      } = req.body;
-      
+      const campusId = req.user?.campus_id;
+      const tenantId = req.user?.tenant_id;
+      if (!campusId || !tenantId) return res.status(400).json({ error: "Campus y tenant requeridos" });
+
+      const { nombre, tipo, dias_gracia, porcentaje, monto_fijo, reglas_progresivas,
+              aplica_fines_semana, aplica_festivos, monto_maximo } = req.body;
+
       if (!nombre || !tipo || dias_gracia === undefined) {
         return res.status(400).json({ error: "Nombre, tipo y días de gracia son requeridos" });
       }
-
-      if (dias_gracia < 0 || dias_gracia > 30) {
+      const diasGracia = parseInt(dias_gracia);
+      if (isNaN(diasGracia) || diasGracia < 0 || diasGracia > 30) {
         return res.status(400).json({ error: "Los días de gracia deben estar entre 0 y 30" });
       }
-
-      if (tipo === 'porcentaje' && (!porcentaje || porcentaje <= 0 || porcentaje > 50)) {
+      if (!['porcentaje', 'fijo', 'progresivo'].includes(tipo)) {
+        return res.status(400).json({ error: "Tipo inválido: porcentaje|fijo|progresivo" });
+      }
+      if (tipo === 'porcentaje' && (!porcentaje || parseFloat(porcentaje) <= 0 || parseFloat(porcentaje) > 50)) {
         return res.status(400).json({ error: "El porcentaje debe estar entre 0.1 y 50" });
       }
-
-      if (tipo === 'fijo' && (!monto_fijo || monto_fijo <= 0)) {
+      if (tipo === 'fijo' && (!monto_fijo || parseInt(monto_fijo) <= 0)) {
         return res.status(400).json({ error: "El monto fijo debe ser mayor a 0" });
       }
-      
-      const newLateFeeRule = {
-        id: Date.now().toString(),
+
+      const [newRule] = await db.insert(payment_surcharge_rules).values({
         nombre,
+        concepto: nombre, // concepto identifica el nombre de la regla en el catálogo
         tipo,
-        dias_gracia: parseInt(dias_gracia),
-        porcentaje: tipo === 'porcentaje' ? parseFloat(porcentaje) : undefined,
-        monto_fijo: tipo === 'fijo' ? parseInt(monto_fijo) : undefined,
-        reglas_progresivas: tipo === 'progresivo' ? reglas_progresivas : undefined,
+        dias_gracia: diasGracia,
+        porcentaje: tipo === 'porcentaje' ? String(parseFloat(porcentaje)) : null,
+        monto_fijo_centavos: tipo === 'fijo' ? parseInt(monto_fijo) : null,
+        reglas_progresivas: tipo === 'progresivo' && reglas_progresivas ? JSON.stringify(reglas_progresivas) : null,
         aplica_fines_semana: !!aplica_fines_semana,
         aplica_festivos: !!aplica_festivos,
-        monto_maximo: monto_maximo ? parseInt(monto_maximo) : undefined,
+        monto_maximo_centavos: monto_maximo ? parseInt(monto_maximo) : null,
         activo: true,
         campus_id: campusId,
-        created_at: new Date().toISOString()
-      };
-      
-      res.json({ 
-        message: "Regla de recargo creada exitosamente",
-        lateFeeRule: newLateFeeRule
-      });
+        tenant_id: tenantId,
+      }).returning();
+
+      res.status(201).json({ message: "Regla de recargo creada exitosamente", lateFeeRule: newRule });
     } catch (error: any) {
-      res.status(500).json({ error: "Error creando regla de recargo", message: error.message });
+      console.error("Error creating late fee rule:", error);
+      res.status(500).json({ error: "Error creando regla de recargo" });
     }
   });
 
-  // Update late fee rule
-  app.put("/api/payment-config/late-fee-rules/:id", authenticateToken, async (req, res) => {
+  // Update late fee rule — actualiza en BD con ownership check
+  app.put("/api/payment-config/late-fee-rules/:id", authenticateToken, async (req: any, res) => {
     try {
-      const { id } = req.params;
-      const { 
-        nombre, 
-        tipo, 
-        dias_gracia, 
-        porcentaje, 
-        monto_fijo, 
-        reglas_progresivas,
-        aplica_fines_semana, 
-        aplica_festivos, 
-        monto_maximo,
-        activo 
-      } = req.body;
-      
+      const ruleId = parseInt(req.params.id);
+      if (!ruleId || isNaN(ruleId)) return res.status(400).json({ error: "ID inválido" });
+      const campusId = req.user?.campus_id;
+      if (!campusId) return res.status(400).json({ error: "Campus requerido" });
+
+      // Ownership check
+      const [existing] = await db.select({ id: payment_surcharge_rules.id })
+        .from(payment_surcharge_rules)
+        .where(and(eq(payment_surcharge_rules.id, ruleId), eq(payment_surcharge_rules.campus_id, campusId)))
+        .limit(1);
+      if (!existing) return res.status(404).json({ error: "Regla no encontrada" });
+
+      const { nombre, tipo, dias_gracia, porcentaje, monto_fijo, reglas_progresivas,
+              aplica_fines_semana, aplica_festivos, monto_maximo, activo } = req.body;
+
       if (!nombre || !tipo || dias_gracia === undefined) {
         return res.status(400).json({ error: "Nombre, tipo y días de gracia son requeridos" });
       }
-
-      if (dias_gracia < 0 || dias_gracia > 30) {
+      const diasGracia = parseInt(dias_gracia);
+      if (isNaN(diasGracia) || diasGracia < 0 || diasGracia > 30) {
         return res.status(400).json({ error: "Los días de gracia deben estar entre 0 y 30" });
       }
 
-      if (tipo === 'porcentaje' && (!porcentaje || porcentaje <= 0 || porcentaje > 50)) {
-        return res.status(400).json({ error: "El porcentaje debe estar entre 0.1 y 50" });
-      }
-
-      if (tipo === 'fijo' && (!monto_fijo || monto_fijo <= 0)) {
-        return res.status(400).json({ error: "El monto fijo debe ser mayor a 0" });
-      }
-      
-      const updatedLateFeeRule = {
-        id,
+      const [updated] = await db.update(payment_surcharge_rules).set({
         nombre,
         tipo,
-        dias_gracia: parseInt(dias_gracia),
-        porcentaje: tipo === 'porcentaje' ? parseFloat(porcentaje) : undefined,
-        monto_fijo: tipo === 'fijo' ? parseInt(monto_fijo) : undefined,
-        reglas_progresivas: tipo === 'progresivo' ? reglas_progresivas : undefined,
+        dias_gracia: diasGracia,
+        porcentaje: tipo === 'porcentaje' ? String(parseFloat(porcentaje)) : null,
+        monto_fijo_centavos: tipo === 'fijo' ? parseInt(monto_fijo) : null,
+        reglas_progresivas: tipo === 'progresivo' && reglas_progresivas ? JSON.stringify(reglas_progresivas) : null,
         aplica_fines_semana: !!aplica_fines_semana,
         aplica_festivos: !!aplica_festivos,
-        monto_maximo: monto_maximo ? parseInt(monto_maximo) : undefined,
-        activo: activo !== undefined ? activo : true,
-        updated_at: new Date().toISOString()
-      };
-      
-      res.json({ 
-        message: "Regla de recargo actualizada exitosamente",
-        lateFeeRule: updatedLateFeeRule
-      });
+        monto_maximo_centavos: monto_maximo ? parseInt(monto_maximo) : null,
+        activo: activo !== undefined ? !!activo : true,
+        updated_at: new Date(),
+      }).where(and(eq(payment_surcharge_rules.id, ruleId), eq(payment_surcharge_rules.campus_id, campusId)))
+        .returning();
+
+      res.json({ message: "Regla de recargo actualizada exitosamente", lateFeeRule: updated });
     } catch (error: any) {
-      res.status(500).json({ error: "Error actualizando regla de recargo", message: error.message });
+      console.error("Error updating late fee rule:", error);
+      res.status(500).json({ error: "Error actualizando regla de recargo" });
     }
   });
 
-  // Delete late fee rule
-  app.delete("/api/payment-config/late-fee-rules/:id", authenticateToken, async (req, res) => {
+  // Delete late fee rule — elimina de BD con ownership check
+  app.delete("/api/payment-config/late-fee-rules/:id", authenticateToken, async (req: any, res) => {
     try {
-      const { id } = req.params;
-      
-      res.json({ 
-        message: "Regla de recargo eliminada exitosamente",
-        deletedId: id
-      });
+      const ruleId = parseInt(req.params.id);
+      if (!ruleId || isNaN(ruleId)) return res.status(400).json({ error: "ID inválido" });
+      const campusId = req.user?.campus_id;
+      if (!campusId) return res.status(400).json({ error: "Campus requerido" });
+
+      const [deleted] = await db.delete(payment_surcharge_rules)
+        .where(and(eq(payment_surcharge_rules.id, ruleId), eq(payment_surcharge_rules.campus_id, campusId)))
+        .returning({ id: payment_surcharge_rules.id });
+
+      if (!deleted) return res.status(404).json({ error: "Regla no encontrada" });
+      res.json({ message: "Regla de recargo eliminada exitosamente", deletedId: ruleId });
     } catch (error: any) {
-      res.status(500).json({ error: "Error eliminando regla de recargo", message: error.message });
+      console.error("Error deleting late fee rule:", error);
+      res.status(500).json({ error: "Error eliminando regla de recargo" });
     }
   });
 
@@ -526,7 +484,7 @@ export function registerNotificationRoutes(app: Express): void {
       
       res.json(result);
     } catch (error: any) {
-      res.status(500).json({ error: "Error calculando recargo", message: error.message });
+      res.status(500).json({ error: "Error calculando recargo" });
     }
   });
 
@@ -573,7 +531,7 @@ export function registerNotificationRoutes(app: Express): void {
       
       res.json(presets);
     } catch (error: any) {
-      res.status(500).json({ error: "Error obteniendo presets", message: error.message });
+      res.status(500).json({ error: "Error obteniendo presets" });
     }
   });
 
@@ -588,7 +546,7 @@ export function registerNotificationRoutes(app: Express): void {
       const approvals = await storage.getPendingApprovalsForApprover(userId);
       res.json(approvals);
     } catch (error: any) {
-      res.status(500).json({ message: "Error obteniendo aprobaciones pendientes: " + error.message });
+      res.status(500).json({ message: "Error obteniendo aprobaciones pendientes" });
     }
   });
 
@@ -599,7 +557,7 @@ export function registerNotificationRoutes(app: Express): void {
       const requests = await storage.getPendingApprovalsByRequester(userId);
       res.json(requests);
     } catch (error: any) {
-      res.status(500).json({ message: "Error obteniendo mis solicitudes: " + error.message });
+      res.status(500).json({ message: "Error obteniendo mis solicitudes" });
     }
   });
 
@@ -609,7 +567,7 @@ export function registerNotificationRoutes(app: Express): void {
       const allApprovals = await storage.getAllApprovalsHistory();
       res.json(allApprovals);
     } catch (error: any) {
-      res.status(500).json({ message: "Error obteniendo historial de aprobaciones: " + error.message });
+      res.status(500).json({ message: "Error obteniendo historial de aprobaciones" });
     }
   });
 
@@ -667,7 +625,7 @@ export function registerNotificationRoutes(app: Express): void {
         approval_id: approval.id
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Error creando solicitud de aprobación: " + error.message });
+      res.status(500).json({ message: "Error creando solicitud de aprobación" });
     }
   });
 
@@ -743,7 +701,7 @@ export function registerNotificationRoutes(app: Express): void {
         decision
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Error procesando decisión: " + error.message });
+      res.status(500).json({ message: "Error procesando decisión" });
     }
   });
 
@@ -754,7 +712,7 @@ export function registerNotificationRoutes(app: Express): void {
       const logs = await storage.getWorkflowLogsByApproval(parseInt(approvalId));
       res.json(logs);
     } catch (error: any) {
-      res.status(500).json({ message: "Error obteniendo logs de aprobación: " + error.message });
+      res.status(500).json({ message: "Error obteniendo logs de aprobación" });
     }
   });
 
@@ -768,7 +726,7 @@ export function registerNotificationRoutes(app: Express): void {
       const notifications = await storage.getNotificationsByUser(adminUserId);
       res.json(notifications);
     } catch (error: any) {
-      res.status(500).json({ message: "Error obteniendo notificaciones: " + error.message });
+      res.status(500).json({ message: "Error obteniendo notificaciones" });
     }
   });
 
@@ -779,7 +737,7 @@ export function registerNotificationRoutes(app: Express): void {
       await storage.markNotificationAsRead(parseInt(id));
       res.json({ message: "Notificación marcada como leída" });
     } catch (error: any) {
-      res.status(500).json({ message: "Error marcando notificación como leída: " + error.message });
+      res.status(500).json({ message: "Error marcando notificación como leída" });
     }
   });
 
@@ -802,7 +760,7 @@ export function registerNotificationRoutes(app: Express): void {
         userRole: user.role
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Error verificando requisitos de aprobación: " + error.message });
+      res.status(500).json({ message: "Error verificando requisitos de aprobación" });
     }
   });
 

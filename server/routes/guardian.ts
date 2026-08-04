@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { pool, db } from "../db";
 import { eq, and, gte, lt } from "drizzle-orm";
 import { storage } from "../storage";
-import { authenticateToken, requireAuth, authenticateGuardian, checkCampusTenant, upload, esmRequire, JWT_SECRET } from "./shared";
+import { authenticateToken, requireAuth, requireSuperAdmin, authenticateGuardian, checkCampusTenant, upload, esmRequire, JWT_SECRET } from "./shared";
 import { students, guardians, student_guardian, charges, payments, concepts, scholarships, invoices, payment_due_dates, payment_surcharge_rules, families, family_students, payment_applications, payment_events, institutional_credentials, institutional_info } from "@shared/schema";
 import { insertPaymentSchema, insertChargeSchema } from "@shared/schema";
 import { getAcademicLevel } from "@shared/academic-levels";
@@ -113,7 +113,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       res.json(reportData);
     } catch (error: any) {
       console.error("Error generating financial report:", error);
-      res.status(500).json({ message: "Error generando reporte financiero: " + error.message });
+      res.status(500).json({ message: "Error generando reporte financiero" });
     }
   });
 
@@ -311,7 +311,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
 
     } catch (error: any) {
       console.error("Error exporting financial report:", error);
-      res.status(500).json({ message: "Error exportando reporte: " + error.message });
+      res.status(500).json({ message: "Error exportando reporte" });
     }
   });
 
@@ -324,13 +324,14 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
     return months[month - 1];
   }
 
-  // ── DEMO DATA SEED ──────────────────────────────────────────────────────────
-  app.post("/api/demo/seed", async (req, res) => {
+  // ── DEMO DATA SEED — solo super_admin ───────────────────────────────────────
+  app.post("/api/demo/seed", requireSuperAdmin, async (req, res) => {
     try {
       const result = await seedDemoData();
       res.json(result);
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      console.error("Error seeding demo data:", error);
+      res.status(500).json({ success: false, error: "Error ejecutando seed" });
     }
   });
 
@@ -403,8 +404,11 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
         results.push({ charge_id: chargeId, payment_id: payment.id, cfdi: cfdiUUID });
       }
 
-      wsManager.notifyPaymentUpdate(results[0], "create", {
-        campus_id: 1, tenant_id: 1, created_by: guardianId,
+      const firstCharge = results[0];
+      wsManager.notifyPaymentUpdate(firstCharge, "create", {
+        campus_id: (firstCharge as any).campus_id ?? req.guardian.campus_id,
+        tenant_id: req.guardian.tenant_id,
+        created_by: guardianId,
       });
 
       res.json({
@@ -413,7 +417,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
         message: `${results.length} pago(s) procesados correctamente`,
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Error procesando pago: " + error.message });
+      res.status(500).json({ message: "Error procesando pago" });
     }
   });
 
@@ -423,7 +427,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       await seedAdmissionsData();
       res.json({ message: "Datos de admisiones generados exitosamente" });
     } catch (error: any) {
-      res.status(500).json({ error: "Error generando datos de admisiones", details: error.message });
+      res.status(500).json({ error: "Error generando datos de admisiones", details: "Ver logs del servidor" });
     }
   });
 
@@ -525,7 +529,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       
     } catch (error: any) {
       console.error("Error exporting charges:", error);
-      res.status(500).json({ message: "Error exporting charges: " + error.message });
+      res.status(500).json({ message: "Error exporting charges" });
     }
   });
 
@@ -680,7 +684,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
             student_id:                student.id,
             concept_id:                concept?.id ?? null,
             tenant_id:                 userTenantId ?? (student as any).tenant_id,
-            ciclo_escolar:             ciclo_escolar || "2025-2026",
+            ciclo_escolar:             ciclo_escolar || (() => { const y = new Date().getFullYear(); const m = new Date().getMonth() + 1; return m >= 8 ? `${y}-${y+1}` : `${y-1}-${y}`; })(),
             fecha_emision:             fecha_emision,
             fecha_vencimiento:         fecha_vencimiento,
             monto_base_centavos:       baseAmount,
@@ -727,7 +731,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
 
     } catch (error: any) {
       console.error("Error generating charges:", error);
-      res.status(500).json({ message: "Error al generar cargos: " + error.message });
+      res.status(500).json({ message: "Error al generar cargos" });
     }
   });
 
@@ -755,7 +759,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       res.json(safeCredentials);
     } catch (error: any) {
       console.error("Error fetching institutional credentials:", error);
-      res.status(500).json({ message: "Error fetching credentials: " + error.message });
+      res.status(500).json({ message: "Error fetching credentials" });
     }
   });
 
@@ -791,7 +795,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       res.status(201).json(safeCredential);
     } catch (error: any) {
       console.error("Error creating institutional credential:", error);
-      res.status(500).json({ message: "Error creating credential: " + error.message });
+      res.status(500).json({ message: "Error creating credential" });
     }
   });
 
@@ -842,7 +846,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       res.json(safeCredential);
     } catch (error: any) {
       console.error("Error updating institutional credential:", error);
-      res.status(500).json({ message: "Error updating credential: " + error.message });
+      res.status(500).json({ message: "Error updating credential" });
     }
   });
 
@@ -870,7 +874,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       res.json({ message: "Credential deleted successfully" });
     } catch (error: any) {
       console.error("Error deleting institutional credential:", error);
-      res.status(500).json({ message: "Error deleting credential: " + error.message });
+      res.status(500).json({ message: "Error deleting credential" });
     }
   });
 
@@ -888,7 +892,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       res.json(institutionalInfoData);
     } catch (error: any) {
       console.error("Error fetching institutional info:", error);
-      res.status(500).json({ message: "Error fetching institutional info: " + error.message });
+      res.status(500).json({ message: "Error fetching institutional info" });
     }
   });
 
@@ -932,7 +936,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       }
     } catch (error: any) {
       console.error("Error saving institutional info:", error);
-      res.status(500).json({ message: "Error saving institutional info: " + error.message });
+      res.status(500).json({ message: "Error saving institutional info" });
     }
   });
 
@@ -963,7 +967,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       res.json(updated[0]);
     } catch (error: any) {
       console.error("Error updating institutional info:", error);
-      res.status(500).json({ message: "Error updating institutional info: " + error.message });
+      res.status(500).json({ message: "Error updating institutional info" });
     }
   });
 
@@ -991,7 +995,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       res.json({ message: "Información institucional eliminada correctamente" });
     } catch (error: any) {
       console.error("Error deleting institutional info:", error);
-      res.status(500).json({ message: "Error deleting institutional info: " + error.message });
+      res.status(500).json({ message: "Error deleting institutional info" });
     }
   });
 
@@ -1005,7 +1009,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       res.json(notifications);
     } catch (error: any) {
       console.error("Error fetching credential notifications:", error);
-      res.status(500).json({ message: "Error fetching notifications: " + error.message });
+      res.status(500).json({ message: "Error fetching notifications" });
     }
   });
 
@@ -1019,7 +1023,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       res.json(stats);
     } catch (error: any) {
       console.error("Error fetching notification stats:", error);
-      res.status(500).json({ message: "Error fetching stats: " + error.message });
+      res.status(500).json({ message: "Error fetching stats" });
     }
   });
 
@@ -1031,7 +1035,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       res.json({ message: "Notification marked as seen" });
     } catch (error: any) {
       console.error("Error marking notification as seen:", error);
-      res.status(500).json({ message: "Error marking notification: " + error.message });
+      res.status(500).json({ message: "Error marking notification" });
     }
   });
 
@@ -1082,7 +1086,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       res.json(conceptsList);
     } catch (error: any) {
       console.error("Error fetching concepts:", error);
-      res.status(500).json({ message: "Error fetching concepts: " + error.message });
+      res.status(500).json({ message: "Error fetching concepts" });
     }
   });
 
@@ -1110,7 +1114,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       res.status(201).json(newConcept);
     } catch (error: any) {
       console.error("Error creating concept:", error);
-      res.status(500).json({ message: "Error creating concept: " + error.message });
+      res.status(500).json({ message: "Error creating concept" });
     }
   });
 
@@ -1128,7 +1132,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       if (!updated) return res.status(404).json({ message: "Concepto no encontrado" });
       res.json(updated);
     } catch (error: any) {
-      res.status(500).json({ message: "Error updating concept: " + error.message });
+      res.status(500).json({ message: "Error updating concept" });
     }
   });
 
@@ -1142,7 +1146,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
         .where(and(eq(concepts.id, id), eq(concepts.campus_id, campusId)));
       res.json({ message: "Concepto eliminado" });
     } catch (error: any) {
-      res.status(500).json({ message: "Error deleting concept: " + error.message });
+      res.status(500).json({ message: "Error deleting concept" });
     }
   });
 
@@ -1176,7 +1180,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       res.json(processedData);
     } catch (error: any) {
       console.error("Error fetching complete due dates:", error);
-      res.status(500).json({ message: "Error fetching due dates: " + error.message });
+      res.status(500).json({ message: "Error fetching due dates" });
     }
   });
 
@@ -1211,63 +1215,75 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       res.status(201).json(newDueDate);
     } catch (error: any) {
       console.error("Error creating due date:", error);
-      res.status(500).json({ message: "Error creating due date: " + error.message });
+      res.status(500).json({ message: "Error creating due date" });
     }
   });
 
   // Update complete due date
-  app.put("/api/payment-config/due-dates-complete/:id", authenticateToken, async (req, res) => {
+  app.put("/api/payment-config/due-dates-complete/:id", authenticateToken, async (req: any, res) => {
     try {
       const dueDateId = parseInt(req.params.id);
+      if (!dueDateId || isNaN(dueDateId)) return res.status(400).json({ message: "ID inválido" });
+      const campusId = req.user?.campus_id;
+      const tenantId = req.user?.tenant_id;
+      if (!campusId) return res.status(400).json({ message: "Campus requerido" });
+
+      // Ownership check: el registro debe pertenecer al campus del usuario
+      const [existing] = await db.select({ id: payment_due_dates.id })
+        .from(payment_due_dates)
+        .where(and(eq(payment_due_dates.id, dueDateId), eq(payment_due_dates.campus_id, campusId)))
+        .limit(1);
+      if (!existing) return res.status(404).json({ message: "Fecha de vencimiento no encontrada" });
+
       const { concepto_id, dia_vencimiento, meses_aplicacion, activo } = req.body;
       
-      // Find the concept name by ID if provided
       let conceptName = null;
       if (concepto_id) {
         const [conceptData] = await db
           .select({ nombre: concepts.nombre })
           .from(concepts)
-          .where(eq(concepts.id, concepto_id))
+          .where(and(eq(concepts.id, concepto_id), eq(concepts.campus_id, campusId)))
           .limit(1);
-        
-        if (conceptData) {
-          conceptName = conceptData.nombre;
-        }
+        if (conceptData) conceptName = conceptData.nombre;
       }
       
-      const updateData: any = {};
+      const updateData: any = { updated_at: new Date() };
       if (conceptName) updateData.concepto = conceptName;
       if (dia_vencimiento) updateData.dia_vencimiento = dia_vencimiento;
       if (meses_aplicacion) updateData.mes_aplicacion = meses_aplicacion.length === 12 ? 'todos' : JSON.stringify(meses_aplicacion);
       if (activo !== undefined) updateData.activo = activo;
-      updateData.updated_at = new Date();
       
       const [updated] = await db
         .update(payment_due_dates)
         .set(updateData)
-        .where(eq(payment_due_dates.id, dueDateId))
+        .where(and(eq(payment_due_dates.id, dueDateId), eq(payment_due_dates.campus_id, campusId)))
         .returning();
       
       res.json(updated);
     } catch (error: any) {
       console.error("Error updating due date:", error);
-      res.status(500).json({ message: "Error updating due date: " + error.message });
+      res.status(500).json({ message: "Error actualizando fecha de vencimiento" });
     }
   });
 
   // Delete complete due date
-  app.delete("/api/payment-config/due-dates-complete/:id", authenticateToken, async (req, res) => {
+  app.delete("/api/payment-config/due-dates-complete/:id", authenticateToken, async (req: any, res) => {
     try {
       const dueDateId = parseInt(req.params.id);
-      
-      await db
+      if (!dueDateId || isNaN(dueDateId)) return res.status(400).json({ message: "ID inválido" });
+      const campusId = req.user?.campus_id;
+      if (!campusId) return res.status(400).json({ message: "Campus requerido" });
+
+      const [deleted] = await db
         .delete(payment_due_dates)
-        .where(eq(payment_due_dates.id, dueDateId));
+        .where(and(eq(payment_due_dates.id, dueDateId), eq(payment_due_dates.campus_id, campusId)))
+        .returning({ id: payment_due_dates.id });
       
+      if (!deleted) return res.status(404).json({ message: "Fecha de vencimiento no encontrada" });
       res.json({ success: true });
     } catch (error: any) {
       console.error("Error deleting due date:", error);
-      res.status(500).json({ message: "Error deleting due date: " + error.message });
+      res.status(500).json({ message: "Error eliminando fecha de vencimiento" });
     }
   });
 
@@ -1310,7 +1326,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       res.json(processedData);
     } catch (error: any) {
       console.error("Error fetching complete surcharge rules:", error);
-      res.status(500).json({ message: "Error fetching surcharge rules: " + error.message });
+      res.status(500).json({ message: "Error fetching surcharge rules" });
     }
   });
 
@@ -1372,7 +1388,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       });
     } catch (error: any) {
       console.error("Error creating surcharge rule:", error);
-      res.status(500).json({ message: "Error creating surcharge rule: " + error.message });
+      res.status(500).json({ message: "Error creating surcharge rule" });
     }
   });
 
@@ -1441,23 +1457,28 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       });
     } catch (error: any) {
       console.error("Error updating surcharge rule:", error);
-      res.status(500).json({ message: "Error updating surcharge rule: " + error.message });
+      res.status(500).json({ message: "Error updating surcharge rule" });
     }
   });
 
   // Delete complete surcharge rule
-  app.delete("/api/payment-config/surcharge-rules-complete/:id", authenticateToken, async (req, res) => {
+  app.delete("/api/payment-config/surcharge-rules-complete/:id", authenticateToken, async (req: any, res) => {
     try {
       const ruleId = parseInt(req.params.id);
-      
-      await db
+      if (!ruleId || isNaN(ruleId)) return res.status(400).json({ message: "ID inválido" });
+      const campusId = req.user?.campus_id;
+      if (!campusId) return res.status(400).json({ message: "Campus requerido" });
+
+      const [deleted] = await db
         .delete(payment_surcharge_rules)
-        .where(eq(payment_surcharge_rules.id, ruleId));
+        .where(and(eq(payment_surcharge_rules.id, ruleId), eq(payment_surcharge_rules.campus_id, campusId)))
+        .returning({ id: payment_surcharge_rules.id });
       
+      if (!deleted) return res.status(404).json({ message: "Regla de recargo no encontrada" });
       res.json({ success: true });
     } catch (error: any) {
       console.error("Error deleting surcharge rule:", error);
-      res.status(500).json({ message: "Error deleting surcharge rule: " + error.message });
+      res.status(500).json({ message: "Error eliminando regla de recargo" });
     }
   });
 
@@ -1516,24 +1537,26 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       res.status(201).json({ message: "Fecha de vencimiento creada correctamente", data: createdDueDate });
     } catch (error: any) {
       console.error("🚀 Error creating payment due date:", error);
-      res.status(500).json({ message: "Error creating payment due date: " + error.message });
+      res.status(500).json({ message: "Error creating payment due date" });
     }
   });
 
   // Update payment due date configuration
-  app.put("/api/payment-config/due-dates/:id", authenticateToken, async (req, res) => {
+  app.put("/api/payment-config/due-dates/:id", authenticateToken, async (req: any, res) => {
     try {
-      console.log("🚀 PUT /api/payment-config/due-dates/:id - Request received");
       const dueDateId = parseInt(req.params.id);
-      const campusId = (req as any).user.campus_id;
+      if (!dueDateId || isNaN(dueDateId)) return res.status(400).json({ message: "ID inválido" });
+      const campusId = req.user?.campus_id;
+      if (!campusId) return res.status(400).json({ message: "Campus requerido" });
+
+      // Ownership check: verificar que el registro pertenece al campus del usuario
+      const [existing] = await db.select({ id: payment_due_dates.id })
+        .from(payment_due_dates)
+        .where(and(eq(payment_due_dates.id, dueDateId), eq(payment_due_dates.campus_id, campusId)))
+        .limit(1);
+      if (!existing) return res.status(404).json({ message: "Fecha de vencimiento no encontrada" });
+
       const { concepto, dia_vencimiento, mes_aplicacion, activo } = req.body;
-      
-      console.log("🚀 Updating payment due date:", {
-        id: dueDateId,
-        campusId,
-        rawBody: req.body,
-        updates: { concepto, dia_vencimiento, mes_aplicacion, activo }
-      });
 
       // Fix HTML entity encoding issue
       const cleanedMesAplicacion = typeof mes_aplicacion === 'string' 
@@ -1547,40 +1570,41 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
         activo: activo !== undefined ? activo : true
       };
 
-      console.log("🚀 Processed updates:", JSON.stringify(updates, null, 2));
-      console.log("🚀 About to call storage.updatePaymentDueDate...");
-
       const updatedDueDate = await storage.updatePaymentDueDate(dueDateId, updates);
       
-      console.log("🚀 Storage returned:", updatedDueDate);
-      
       if (!updatedDueDate) {
-        console.log("🚀 No updated data returned from storage");
         return res.status(404).json({ message: "Fecha de vencimiento no encontrada" });
       }
       
-      console.log("🚀 Successfully updated payment due date:", updatedDueDate);
       res.json({ message: "Fecha de vencimiento actualizada correctamente", data: updatedDueDate });
     } catch (error: any) {
-      console.error("🚀 Error updating payment due date:", error);
-      res.status(500).json({ message: "Error updating payment due date: " + error.message });
+      console.error("Error updating payment due date:", error);
+      res.status(500).json({ message: "Error actualizando fecha de vencimiento" });
     }
   });
 
   // Delete payment due date configuration
-  app.delete("/api/payment-config/due-dates/:id", authenticateToken, async (req, res) => {
+  app.delete("/api/payment-config/due-dates/:id", authenticateToken, async (req: any, res) => {
     try {
       const dueDateId = parseInt(req.params.id);
+      if (!dueDateId || isNaN(dueDateId)) return res.status(400).json({ message: "ID inválido" });
+      const campusId = req.user?.campus_id;
+      if (!campusId) return res.status(400).json({ message: "Campus requerido" });
+
+      // Ownership check antes de delegar a storage
+      const [existing] = await db.select({ id: payment_due_dates.id })
+        .from(payment_due_dates)
+        .where(and(eq(payment_due_dates.id, dueDateId), eq(payment_due_dates.campus_id, campusId)))
+        .limit(1);
+      if (!existing) return res.status(404).json({ message: "Fecha de vencimiento no encontrada" });
+
       const deleted = await storage.deletePaymentDueDate(dueDateId);
-      
-      if (!deleted) {
-        return res.status(404).json({ message: "Fecha de vencimiento no encontrada" });
-      }
+      if (!deleted) return res.status(404).json({ message: "Fecha de vencimiento no encontrada" });
       
       res.json({ message: "Fecha de vencimiento eliminada correctamente" });
     } catch (error: any) {
       console.error("Error deleting payment due date:", error);
-      res.status(500).json({ message: "Error deleting payment due date: " + error.message });
+      res.status(500).json({ message: "Error eliminando fecha de vencimiento" });
     }
   });
 
@@ -1592,7 +1616,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       res.json(rules);
     } catch (error: any) {
       console.error("Error fetching surcharge rules:", error);
-      res.status(500).json({ message: "Error fetching surcharge rules: " + error.message });
+      res.status(500).json({ message: "Error fetching surcharge rules" });
     }
   });
 
@@ -1625,14 +1649,25 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       res.status(201).json(createdRule);
     } catch (error: any) {
       console.error("Error creating surcharge rule:", error);
-      res.status(500).json({ message: "Error creating surcharge rule: " + error.message });
+      res.status(500).json({ message: "Error creating surcharge rule" });
     }
   });
 
   // Update surcharge rule
-  app.put("/api/payment-config/surcharge-rules/:id", authenticateToken, async (req, res) => {
+  app.put("/api/payment-config/surcharge-rules/:id", authenticateToken, async (req: any, res) => {
     try {
       const ruleId = parseInt(req.params.id);
+      if (!ruleId || isNaN(ruleId)) return res.status(400).json({ message: "ID inválido" });
+      const campusId = req.user?.campus_id;
+      if (!campusId) return res.status(400).json({ message: "Campus requerido" });
+
+      // Ownership check
+      const [existing] = await db.select({ id: payment_surcharge_rules.id })
+        .from(payment_surcharge_rules)
+        .where(and(eq(payment_surcharge_rules.id, ruleId), eq(payment_surcharge_rules.campus_id, campusId)))
+        .limit(1);
+      if (!existing) return res.status(404).json({ message: "Regla de recargo no encontrada" });
+
       const { 
         nombre, tipo, dias_gracia, porcentaje, monto_fijo_centavos, 
         reglas_progresivas, aplica_fines_semana, aplica_festivos, 
@@ -1653,32 +1688,35 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       };
 
       const updatedRule = await storage.updateSurchargeRule(ruleId, updates);
-      
-      if (!updatedRule) {
-        return res.status(404).json({ message: "Regla de recargo no encontrada" });
-      }
-      
+      if (!updatedRule) return res.status(404).json({ message: "Regla de recargo no encontrada" });
       res.json(updatedRule);
     } catch (error: any) {
       console.error("Error updating surcharge rule:", error);
-      res.status(500).json({ message: "Error updating surcharge rule: " + error.message });
+      res.status(500).json({ message: "Error actualizando regla de recargo" });
     }
   });
 
   // Delete surcharge rule
-  app.delete("/api/payment-config/surcharge-rules/:id", authenticateToken, async (req, res) => {
+  app.delete("/api/payment-config/surcharge-rules/:id", authenticateToken, async (req: any, res) => {
     try {
       const ruleId = parseInt(req.params.id);
+      if (!ruleId || isNaN(ruleId)) return res.status(400).json({ message: "ID inválido" });
+      const campusId = req.user?.campus_id;
+      if (!campusId) return res.status(400).json({ message: "Campus requerido" });
+
+      // Ownership check
+      const [existing] = await db.select({ id: payment_surcharge_rules.id })
+        .from(payment_surcharge_rules)
+        .where(and(eq(payment_surcharge_rules.id, ruleId), eq(payment_surcharge_rules.campus_id, campusId)))
+        .limit(1);
+      if (!existing) return res.status(404).json({ message: "Regla de recargo no encontrada" });
+
       const deleted = await storage.deleteSurchargeRule(ruleId);
-      
-      if (!deleted) {
-        return res.status(404).json({ message: "Regla de recargo no encontrada" });
-      }
-      
+      if (!deleted) return res.status(404).json({ message: "Regla de recargo no encontrada" });
       res.json({ message: "Regla de recargo eliminada correctamente" });
     } catch (error: any) {
       console.error("Error deleting surcharge rule:", error);
-      res.status(500).json({ message: "Error deleting surcharge rule: " + error.message });
+      res.status(500).json({ message: "Error eliminando regla de recargo" });
     }
   });
 

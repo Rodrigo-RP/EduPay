@@ -1047,8 +1047,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Campus ID requerido" });
       }
       
-      // Return empty array until dedicated scholarships table is implemented
-      res.json([]);
+      // Becas reales del campus con tipo de beca incluido
+      const rows = await pool.query(`
+        SELECT s.id, s.student_id, s.porcentaje_aplicado, s.monto_fijo_aplicado_centavos,
+               s.estado, s.vigencia_inicio, s.vigencia_fin, s.observaciones,
+               st.nombre AS tipo_nombre, st.categoria AS tipo_categoria,
+               stu.nombre_completo AS alumno
+        FROM scholarships s
+        JOIN students stu ON stu.id = s.student_id
+        LEFT JOIN scholarship_types st ON st.id = s.scholarship_type_id
+        WHERE stu.campus_id = $1
+        ORDER BY s.estado, stu.nombre_completo
+      `, [campusId]).catch(() => ({ rows: [] }));
+      res.json(rows.rows);
     } catch (error: any) {
       res.status(500).json({ message: "Error fetching scholarships: " + error.message });
     }
@@ -5198,117 +5209,195 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fecha_emision,
         fecha_vencimiento,
         aplicar_becas,
-        incluir_recargos
+        incluir_recargos,
+        dry_run,         // si true: calcula y devuelve preview sin crear nada en BD
+        ciclo_escolar,   // ciclo opcional; por defecto el actual
+        descripcion,     // para cargos extraordinarios
+        monto_manual,    // monto en centavos para cargos extraordinarios manuales
       } = req.body;
-      
-      const userCampusId = req.user.campus_id;
-      
-      // Find the concept by name
-      const concepts = await storage.getConceptsByCampus(userCampusId);
-      const concept = concepts.find(c => c.nombre === concepto);
-      
-      if (!concept) {
-        return res.status(404).json({ message: "Concepto no encontrado" });
+
+      const userCampusId  = req.user.campus_id;
+      const userTenantId  = req.user.tenant_id;
+      const isDryRun      = !!dry_run;
+
+      // Validación básica de montos para cargos extraordinarios
+      if (monto_manual !== undefined) {
+        const montoNum = Number(monto_manual);
+        if (!Number.isFinite(montoNum) || montoNum <= 0) {
+          return res.status(400).json({ message: "El monto debe ser un número positivo mayor a cero" });
+        }
       }
-      
-      // Get students based on nivel_academico filter
+
+      // Validar fechas
+      if (fecha_emision && fecha_vencimiento && fecha_vencimiento < fecha_emision) {
+        return res.status(400).json({ message: "La fecha de vencimiento no puede ser anterior a la fecha de emisión" });
+      }
+
+      // Resolver concepto: por nombre para cargos normales, o crear ad-hoc para extraordinarios
+      let concept: any = null;
+      if (concepto) {
+        const allConcepts = await storage.getConceptsByCampus(userCampusId);
+        concept = allConcepts.find((c: any) => c.nombre === concepto);
+        if (!concept) return res.status(404).json({ message: "Concepto no encontrado" });
+      } else if (descripcion && monto_manual && !isDryRun) {
+        // Cargo extraordinario: crear un concepto ad-hoc para que los JOINs funcionen
+        const montoNum = Math.round(Number(monto_manual));
+        const existingConcept = await pool.query(
+          `SELECT id FROM concepts WHERE campus_id = $1 AND nombre = $2 AND tipo = 'extra' LIMIT 1`,
+          [userCampusId, descripcion]
+        ).catch(() => ({ rows: [] }));
+        if ((existingConcept.rows as any[]).length > 0) {
+          concept = { id: (existingConcept.rows as any[])[0].id, monto_centavos: montoNum };
+        } else {
+          const newConcept = await pool.query(
+            `INSERT INTO concepts (campus_id, tenant_id, nombre, tipo, periodicidad, monto_centavos, iva)
+             VALUES ($1, $2, $3, 'extra', 'eventual', $4, false) RETURNING id`,
+            [userCampusId, userTenantId, descripcion, montoNum]
+          );
+          concept = { id: (newConcept.rows as any[])[0].id, monto_centavos: montoNum };
+        }
+      }
+
+      // Filtrar alumnos
       const allStudents = await storage.getStudentsByCampus(userCampusId);
-      let targetStudents = allStudents.filter(s => s.status === 'activo');
-      
-      // Filter by academic level if specified
-      if (nivel_academico !== 'todos') {
-        targetStudents = targetStudents.filter(student => {
-          const academicLevel = getAcademicLevel(student.grado);
-          return academicLevel === nivel_academico;
-        });
-      }
-      
-      console.log(`Generating charges for ${targetStudents.length} students with concept: ${concepto}`);
-      
-      const charges = [];
-      const chargesSummary = [];
-      
-      for (const student of targetStudents) {
-        // Calculate base amount (could be dynamic based on academic level)
-        let baseAmount = concept.monto_centavos;
-        
-        // Apply academic level pricing if available
-        const academicLevel = getAcademicLevel(student.grado);
-        const levelPrice = (concept as any)[`monto_${academicLevel}`];
-        if (levelPrice && levelPrice > 0) {
-          baseAmount = levelPrice;
-        }
-        
-        // Calculate final amount with scholarships and late fees
-        let finalAmount = baseAmount;
-        let discountPercentage = "0.00";
-        let lateFee = 0;
-        
-        if (aplicar_becas) {
-          // In a real implementation, you'd fetch student scholarships
-          // For now, applying a random discount for demo
-          const randomDiscount = Math.random() > 0.7 ? (Math.random() * 20).toFixed(2) : "0.00";
-          discountPercentage = randomDiscount;
-          finalAmount = baseAmount * (1 - parseFloat(discountPercentage) / 100);
-        }
-        
-        if (incluir_recargos) {
-          // Apply late fees if enabled
-          lateFee = Math.floor(baseAmount * 0.05); // 5% late fee
-        }
-        
-        // Create the charge con tenant_id del usuario autenticado
-        const charge = await storage.createCharge({
-          student_id: student.id,
-          concept_id: concept.id,
-          tenant_id: (req as any).user?.tenant_id ?? (student as any).tenant_id,
-          ciclo_escolar: "2024-2025",
-          fecha_emision: fecha_emision,
-          fecha_vencimiento: fecha_vencimiento,
-          monto_base_centavos: baseAmount,
-          beca_aplicada: discountPercentage,
-          recargo_aplicado_centavos: lateFee,
-          estado: "pendiente"
-        });
-        
-        charges.push(charge);
-        chargesSummary.push({
-          student_name: student.nombre_completo,
-          grade: student.grado,
-          academic_level: academicLevel,
-          base_amount: baseAmount,
-          discount: discountPercentage,
-          late_fee: lateFee,
-          final_amount: Math.round(finalAmount + lateFee)
-        });
-      }
-      
-      // Notify real-time update for charge generation
-      if (charges.length > 0) {
-        wsManager.notifyPaymentUpdate({
-          charge_generation: true,
-          charges_created: charges.length,
-          concepto: concepto,
-          nivel_academico: nivel_academico
-        }, 'create', {
-          campus_id: userCampusId,
-          tenant_id: req.user.tenant_id,
-          created_by: req.user.id
+      let targetStudents = allStudents.filter((s: any) => s.status === 'activo');
+      if (nivel_academico && nivel_academico !== 'todos') {
+        targetStudents = targetStudents.filter((student: any) => {
+          return getAcademicLevel(student.grado) === nivel_academico;
         });
       }
 
-      res.status(201).json({
-        message: `Generated ${charges.length} charges successfully`,
-        charges_created: charges.length,
-        concepto: concepto,
-        tipo_generacion: tipo_generacion,
-        nivel_academico: nivel_academico,
-        summary: chargesSummary
-      });
-      
+      // Cargar becas activas del campus — vigencia_inicio <= hoy <= vigencia_fin
+      const becasRows = aplicar_becas
+        ? await pool.query(
+            `SELECT s.student_id, s.porcentaje_aplicado, s.monto_fijo_aplicado_centavos
+             FROM scholarships s
+             JOIN students stu ON stu.id = s.student_id
+             WHERE stu.campus_id = $1 AND s.estado = 'activa'
+               AND s.vigencia_inicio <= CURRENT_DATE
+               AND (s.vigencia_fin IS NULL OR s.vigencia_fin >= CURRENT_DATE)`,
+            [userCampusId]
+          ).catch(() => ({ rows: [] }))
+        : { rows: [] };
+
+      // Índice student_id → beca (la más beneficiosa si hay varias)
+      const becaMap: Record<number, { porcentaje_exacto: number; monto_fijo: number }> = {};
+      for (const b of (becasRows.rows as any[])) {
+        const pct  = Number(b.porcentaje_aplicado   || 0);
+        const fijo = Number(b.monto_fijo_aplicado_centavos || 0);
+        if (!becaMap[b.student_id] || pct > becaMap[b.student_id].porcentaje_exacto) {
+          becaMap[b.student_id] = { porcentaje_exacto: pct, monto_fijo: fijo };
+        }
+      }
+
+      const chargesCreated: any[] = [];
+      const chargesSummary: any[] = [];
+
+      for (const student of targetStudents) {
+        const academicLevel = getAcademicLevel((student as any).grado);
+
+        // Monto base
+        let baseAmount = monto_manual
+          ? Math.round(Number(monto_manual))
+          : concept?.monto_centavos ?? 0;
+
+        if (concept && !monto_manual) {
+          const levelPrice = (concept as any)[`monto_${academicLevel}`];
+          if (levelPrice && levelPrice > 0) baseAmount = levelPrice;
+        }
+
+        // Beca real — precisión a 2 decimales para no perder centavos
+        let discountPct     = 0;   // porcentaje exacto con 2 decimales
+        let discountCentavos = 0;  // fuente de verdad para el monto descontado
+        if (aplicar_becas && becaMap[student.id]) {
+          const beca = becaMap[student.id];
+          if (beca.porcentaje_exacto > 0) {
+            discountPct      = beca.porcentaje_exacto;
+            discountCentavos = Math.round(baseAmount * beca.porcentaje_exacto / 100);
+          } else if (beca.monto_fijo > 0) {
+            // Monto fijo: calcular porcentaje exacto con 2 decimales
+            discountCentavos = Math.min(beca.monto_fijo, baseAmount);
+            // Guardar hasta 2 decimales para poder recuperar el descuento
+            discountPct = parseFloat((discountCentavos / baseAmount * 100).toFixed(2));
+            // Verificar que el porcentaje reconstruya exactamente el descuento
+            // Si hay error de redondeo, ajustar el centavo
+            const reconstructed = Math.round(baseAmount * discountPct / 100);
+            if (reconstructed !== discountCentavos) {
+              // Usar 4 decimales para mayor precisión
+              discountPct = parseFloat((discountCentavos / baseAmount * 100).toFixed(4));
+            }
+          }
+        }
+
+        const lateFee     = incluir_recargos ? Math.floor(baseAmount * 0.05) : 0;
+        const finalAmount = baseAmount - discountCentavos + lateFee;
+
+        chargesSummary.push({
+          student_id:         student.id,
+          student_name:       (student as any).nombre_completo,
+          grade:              (student as any).grado,
+          academic_level:     academicLevel,
+          base_amount:        baseAmount,
+          beca_porcentaje:    discountPct,
+          descuento_centavos: discountCentavos,
+          recargo_centavos:   lateFee,
+          total_centavos:     finalAmount,
+          tiene_beca:         discountCentavos > 0,
+        });
+
+        if (!isDryRun) {
+          const charge = await storage.createCharge({
+            student_id:                student.id,
+            concept_id:                concept?.id ?? null,
+            tenant_id:                 userTenantId ?? (student as any).tenant_id,
+            ciclo_escolar:             ciclo_escolar || "2025-2026",
+            fecha_emision:             fecha_emision,
+            fecha_vencimiento:         fecha_vencimiento,
+            monto_base_centavos:       baseAmount,
+            beca_aplicada:             discountPct.toFixed(2),
+            recargo_aplicado_centavos: lateFee,
+            estado:                    "pendiente",
+          });
+          chargesCreated.push(charge);
+        }
+      }
+
+      if (!isDryRun && chargesCreated.length > 0) {
+        wsManager.notifyPaymentUpdate({
+          charge_generation: true,
+          charges_created: chargesCreated.length,
+          concepto: concepto || descripcion,
+          nivel_academico,
+        }, 'create', {
+          campus_id: userCampusId,
+          tenant_id: userTenantId,
+          created_by: req.user.id,
+        });
+      }
+
+      const totalCentavos = chargesSummary.reduce((s, c) => s + c.total_centavos, 0);
+      const conBeca       = chargesSummary.filter(c => c.tiene_beca).length;
+
+      const response: any = {
+        dry_run: isDryRun,
+        total_alumnos:  chargesSummary.length,
+        total_centavos: totalCentavos,
+        alumnos_con_beca: conBeca,
+        concepto:       concepto || descripcion || "Cargo manual",
+        tipo_generacion,
+        nivel_academico,
+        summary: chargesSummary,
+      };
+      if (!isDryRun) {
+        response.charges_created = chargesCreated.length;
+        response.message = `Se generaron ${chargesCreated.length} cargos exitosamente`;
+      }
+
+      res.status(isDryRun ? 200 : 201).json(response);
+
     } catch (error: any) {
       console.error("Error generating charges:", error);
-      res.status(500).json({ message: "Error generating charges: " + error.message });
+      res.status(500).json({ message: "Error al generar cargos: " + error.message });
     }
   });
 

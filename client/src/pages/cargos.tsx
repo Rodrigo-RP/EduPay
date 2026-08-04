@@ -31,14 +31,15 @@ export default function Cargos() {
     conceptos_seleccionados: [] as string[]
   });
 
-  // Datos demo de conceptos disponibles
-  const conceptos = [
-    { id: 1, nombre: "Colegiatura Mensual", tipo: "COLEGIATURA", monto: 500000, iva: false },
-    { id: 2, nombre: "Inscripción Anual", tipo: "INSCRIPCION", monto: 800000, iva: false },
-    { id: 3, nombre: "Materiales Didácticos", tipo: "MATERIAL", monto: 150000, iva: true },
-    { id: 4, nombre: "Seguro Escolar", tipo: "SEGURO", monto: 50000, iva: false },
-    { id: 5, nombre: "Actividades Extracurriculares", tipo: "ACTIVIDAD", monto: 200000, iva: true }
-  ];
+  // Conceptos reales desde la BD
+  const { data: conceptos = [] } = useQuery<any[]>({
+    queryKey: ['/api/concepts'],
+    queryFn: async () => {
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch('/api/concepts', { headers: { Authorization: `Bearer ${token}` } });
+      return res.ok ? res.json() : [];
+    }
+  });
 
   // Mutación para generar cargos
   const generateChargesMutation = useMutation({
@@ -134,65 +135,38 @@ export default function Cargos() {
     exportChargesMutation.mutate(format);
   };
 
-  // Datos demo de cargos
-  const cargos = [
-    {
-      id: 1,
-      estudiante: "Carlos Pérez Méndez",
-      concepto: "Colegiatura Enero",
-      monto_base: 500000,
-      beca_aplicada: 0,
-      recargo: 0,
-      total: 500000,
-      fecha_emision: "2025-01-01",
-      fecha_vencimiento: "2025-01-15",
-      estado: "pendiente",
-      tipo: "AUTOMATICA"
-    },
-    {
-      id: 2,
-      estudiante: "Andrea García Luna",
-      concepto: "Materiales Didácticos",
-      monto_base: 150000,
-      beca_aplicada: 10,
-      recargo: 0,
-      total: 135000,
-      fecha_emision: "2025-01-10",
-      fecha_vencimiento: "2025-01-20",
-      estado: "pendiente",
-      tipo: "MANUAL"
-    },
-    {
-      id: 3,
-      estudiante: "Luis Martínez Gil",
-      concepto: "Colegiatura Diciembre",
-      monto_base: 500000,
-      beca_aplicada: 0,
-      recargo: 25000,
-      total: 525000,
-      fecha_emision: "2024-12-01",
-      fecha_vencimiento: "2024-12-15",
-      estado: "vencido",
-      tipo: "AUTOMATICA"
-    },
-    {
-      id: 4,
-      estudiante: "María Rodríguez Soto",
-      concepto: "Inscripción Anual",
-      monto_base: 800000,
-      beca_aplicada: 20,
-      recargo: 0,
-      total: 640000,
-      fecha_emision: "2024-12-20",
-      fecha_vencimiento: "2025-01-31",
-      estado: "pagado",
-      tipo: "MANUAL"
+  // Cargos reales desde la BD
+  const { data: cargosRaw = [], isLoading: cargosLoading } = useQuery<any[]>({
+    queryKey: ['/api/admin/charges'],
+    queryFn: async () => {
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch('/api/admin/charges', { headers: { Authorization: `Bearer ${token}` } });
+      return res.ok ? res.json() : [];
     }
-  ];
+  });
+
+  // Mapa de conceptos por id para lookup rápido
+  const conceptoMap: Record<number, string> = {};
+  (conceptos as any[]).forEach((c: any) => { conceptoMap[c.id] = c.nombre; });
+
+  // Normalizar cargos al formato de la UI
+  const cargos = cargosRaw.map((c: any) => ({
+    id: c.id,
+    estudiante: c.estudiante || `Alumno ${c.student_id}`,
+    concepto: conceptoMap[c.concept_id] || `Concepto ${c.concept_id}`,
+    monto_base: Number(c.monto_base_centavos),
+    beca_aplicada: Number(c.beca_aplicada || 0),
+    recargo: Number(c.recargo_aplicado_centavos || 0),
+    total: Number(c.monto_base_centavos) + Number(c.recargo_aplicado_centavos || 0),
+    fecha_emision: (c.fecha_emision || '').split('T')[0],
+    fecha_vencimiento: (c.fecha_vencimiento || '').split('T')[0],
+    estado: c.estado,
+    tipo: c.ciclo_escolar ? 'AUTOMÁTICA' : 'MANUAL'
+  }));
 
   // Filtrar cargos según el estado seleccionado
-  const filteredCargos = selectedStatus === "all" 
-    ? cargos 
+  const filteredCargos = selectedStatus === "all"
+    ? cargos
     : cargos.filter(cargo => cargo.estado === selectedStatus);
 
   // Estadísticas
@@ -258,9 +232,9 @@ export default function Cargos() {
                         <SelectValue placeholder="Selecciona un concepto" />
                       </SelectTrigger>
                       <SelectContent>
-                        {conceptos.map((concepto) => (
+                        {(conceptos as any[]).map((concepto: any) => (
                           <SelectItem key={concepto.id} value={concepto.nombre}>
-                            {concepto.nombre} - ${(concepto.monto / 100).toLocaleString()}
+                            {concepto.nombre} - ${((concepto.monto_centavos || 0) / 100).toLocaleString()}
                           </SelectItem>
                         ))}
                       </SelectContent>

@@ -78,6 +78,19 @@ Metodología de Desarrollo Preferida (Agosto 2025):
 - **Advanced Systems**: Predictive Engine (for delinquency), Automatic Bank Reconciliation (with SPEI integration), Intelligent Fiscal Invoicing (SAT compliance, auto-selection of product/service keys).
 - **Security**: AES-256 encryption, 2FA/MFA, real-time fraud detection, WAF, anti-SQL injection, XSS, brute force, CSRF, command injection protection.
 
+## Demo Credentials (tenant: Instituto JFR, tenant_id=29)
+
+| Rol | Email | Contraseña |
+|-----|-------|------------|
+| Super Administrador | superadmin@edupay.mx | Demo2025! |
+| Administrador General | directora@jfr.edu.mx | Demo2025! |
+| Administrador Campus | admin.campus@jfr.edu.mx | Demo2025! |
+| Auxiliar Caja | caja@jfr.edu.mx | Demo2025! |
+| Contador General | contador@jfr.edu.mx | Demo2025! |
+| Admisiones | admisiones@jfr.edu.mx | Demo2025! |
+
+Campus: Norte (id=48), Sur (id=49). Tutores usan `/api/auth/guardian-login`.
+
 ## External Dependencies
 
 - **Payment Gateways**: Stripe, Openpay, Conekta, Evo Payment

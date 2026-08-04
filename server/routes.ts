@@ -7360,15 +7360,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Detalle de cargos y pagos aplicados
       const chargesDetail = await pool.query(
-        `SELECT c.id, c.concepto_nombre, c.monto_base_centavos, c.estado,
+        `SELECT c.id, COALESCE(con.nombre, 'Sin concepto') AS concepto_nombre,
+                c.monto_base_centavos, c.estado,
                 s.nombre_completo AS alumno,
                 COALESCE(SUM(pa.amount_centavos), 0) AS pagado_centavos
          FROM family_students fs
          JOIN students s ON s.id = fs.student_id
          JOIN charges c ON c.student_id = fs.student_id
+         LEFT JOIN concepts con ON con.id = c.concept_id
          LEFT JOIN payment_applications pa ON pa.charge_id = c.id
          WHERE fs.family_id = $1
-         GROUP BY c.id, c.concepto_nombre, c.monto_base_centavos, c.estado, s.nombre_completo
+         GROUP BY c.id, con.nombre, c.monto_base_centavos, c.estado, s.nombre_completo
          ORDER BY c.id`,
         [familyId]
       );

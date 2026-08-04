@@ -158,9 +158,6 @@ export default function AdminDashboard() {
           <h1 className="text-2xl font-bold text-slate-900">{institutionName}</h1>
           <p className="text-sm text-slate-500 mt-0.5">
             Panel de control · <span className="text-green-600 font-medium">Sistema activo</span>
-            <span className="text-slate-400 mx-2">·</span>
-            <kbd className="px-1.5 py-0.5 text-xs bg-slate-100 border border-slate-300 rounded text-slate-500">Ctrl+K</kbd>
-            <span className="text-slate-400 ml-1 text-xs">buscar</span>
           </p>
         </div>
       </div>

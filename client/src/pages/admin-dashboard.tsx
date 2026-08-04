@@ -1,22 +1,23 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import KPICard from "@/components/kpi-card";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useRoleBasedData } from "@/hooks/useRoleBasedData";
 import { useInstitution } from "@/hooks/use-institution";
-import { useEffect } from "react";
 import { useLocation } from "wouter";
-import { 
-  BarChart3, 
-  CreditCard, 
-  Users2, 
-  ShieldCheck,
-  DollarSign,
-  CheckCircle,
-  AlertTriangle
+import {
+  AlertTriangle, CheckCircle, DollarSign, TrendingUp,
+  Clock, XCircle, ArrowRight, RefreshCw
 } from "lucide-react";
 
+// ── Types ─────────────────────────────────────────────────────────────────────
 interface KPIData {
   totalBilled: number;
   paymentRate: number;
@@ -25,256 +26,320 @@ interface KPIData {
   excepciones_pendientes?: number;
 }
 
-interface Student {
+interface Excepcion {
   id: number;
-  nombre_completo: string;
-  grado: string;
-  grupo: string;
-  status: string;
+  fecha: string;
+  descripcion: string;
+  monto_centavos: number;
+  tipo: string;
+  referencia: string | null;
+  clabe_ordenante: string | null;
+  nombre_ordenante: string | null;
+  estado_conciliacion: string;
+  nota_conciliacion: string | null;
+  dias_sin_conciliar: number;
 }
 
+interface ExcepcionesResponse {
+  excepciones: Excepcion[];
+  total_pendiente: number;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const fmt = (cents: number) =>
+  `$${(cents / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
+
+const antiguedad = (dias: number) => {
+  const d = Number(dias);
+  if (d === 0) return "hoy";
+  if (d === 1) return "hace 1 día";
+  return `hace ${d} días`;
+};
+
+const severityClass = (dias: number) => {
+  const d = Number(dias);
+  if (d <= 3)  return { border: "border-yellow-200 bg-yellow-50/40", badge: "bg-yellow-100 text-yellow-800 border-0", dot: "bg-yellow-400" };
+  if (d <= 14) return { border: "border-orange-200 bg-orange-50/40", badge: "bg-orange-100 text-orange-800 border-0", dot: "bg-orange-400" };
+  return       { border: "border-red-200 bg-red-50/40",              badge: "bg-red-100 text-red-800 border-0",    dot: "bg-red-500"   };
+};
+
+const MOTIVOS_DESCARTE = [
+  "Pago identificado manualmente",
+  "Error del banco",
+  "Duplicado confirmado",
+  "Otro",
+];
+
+// ── Component ─────────────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const { user } = useAuth();
   const { userRole } = useRoleBasedData();
-  const { institutionName, logoUrl } = useInstitution();
+  const { institutionName } = useInstitution();
   const [, setLocation] = useLocation();
-  const campusId = user?.campus_id || 48;
-  const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const campusId = (user as any)?.campus_id || 48;
+  const token = () => localStorage.getItem("auth_token");
 
-  // Redirección automática según el rol
+  // Role-based redirects
   useEffect(() => {
     if (user && userRole) {
-      switch (userRole) {
-        case 'admisiones':
-          setLocation('/dashboard-admisiones');
-          return;
-        case 'caja':
-          setLocation('/dashboard-caja');
-          return;
-        // Los demás roles permanecen en el dashboard general
-        default:
-          break;
-      }
+      if (userRole === "admisiones") { setLocation("/dashboard-admisiones"); return; }
+      if (userRole === "caja")       { setLocation("/dashboard-caja");        return; }
     }
   }, [user, userRole, setLocation]);
 
-  const { data: kpiData, isLoading: kpiLoading } = useQuery<KPIData>({
+  // ── Queries ──────────────────────────────────────────────────────────────────
+  const { data: kpiData } = useQuery<KPIData>({
     queryKey: [`/api/admin/dashboard/${campusId}`],
     enabled: !!user,
   });
 
-  const { data: students, isLoading: studentsLoading } = useQuery<Student[]>({
-    queryKey: [`/api/admin/students/${campusId}`],
+  const { data: excData, isLoading: excLoading, refetch: refetchExc } = useQuery<ExcepcionesResponse>({
+    queryKey: ["/api/conciliacion/excepciones"],
     enabled: !!user,
+    queryFn: async () => {
+      const res = await fetch("/api/conciliacion/excepciones", {
+        headers: { Authorization: `Bearer ${token()}` },
+      });
+      if (!res.ok) throw new Error("Error al cargar excepciones");
+      return res.json();
+    },
   });
 
-  if (kpiLoading || studentsLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-spin w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
+  // ── Discard modal state ───────────────────────────────────────────────────────
+  const [discardModal, setDiscardModal] = useState<{ open: boolean; exc: Excepcion | null }>({ open: false, exc: null });
+  const [discardMotivo, setDiscardMotivo] = useState("");
+  const [discardNota,   setDiscardNota]   = useState("");
 
+  const closeDiscard = () => {
+    setDiscardModal({ open: false, exc: null });
+    setDiscardMotivo("");
+    setDiscardNota("");
+  };
+
+  const discardMutation = useMutation({
+    mutationFn: async ({ id, motivo, nota }: { id: number; motivo: string; nota: string }) => {
+      const res = await fetch(`/api/conciliacion/excepciones/${id}/resolver`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
+        body: JSON.stringify({ accion: "descartar", motivo, nota: nota || motivo }),
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.message || "Error"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Excepción descartada", description: "Registrado en el historial de auditoría." });
+      closeDiscard();
+      queryClient.invalidateQueries({ queryKey: ["/api/conciliacion/excepciones"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/dashboard/${campusId}`] });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  // ── Derived KPIs ──────────────────────────────────────────────────────────────
+  const totalBilled  = kpiData?.totalBilled  ?? 0;
+  const paymentRate  = kpiData?.paymentRate  ?? 0;
+  const overdueRate  = kpiData?.overdueRate  ?? 0;
+  const cobrado      = Math.round(totalBilled * paymentRate / 100);
+  const porCobrar    = Math.round(totalBilled * (100 - paymentRate) / 100);
+  const vencido      = Math.round(totalBilled * overdueRate / 100);
+
+  const excepciones  = excData?.excepciones ?? [];
+  const totalExc     = excData?.total_pendiente ?? 0;
+
+  // ── Render ─────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 relative overflow-hidden">
-      {/* Decorative background elements */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-        <div className="absolute top-10 left-20 w-72 h-72 bg-gradient-to-br from-blue-400/10 to-cyan-400/10 rounded-full blur-3xl"></div>
-        <div className="absolute top-60 right-10 w-56 h-56 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full blur-2xl"></div>
-        <div className="absolute bottom-40 left-1/4 w-64 h-64 bg-gradient-to-br from-cyan-400/10 to-blue-400/10 rounded-full blur-3xl"></div>
-      </div>
-      
-      <div className="relative z-10 p-6">
-        {/* Header Premium */}
-        <div className="mb-10 relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-cyan-600/10 rounded-2xl blur-xl"></div>
-          <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl border border-white/50">
-            <div className="flex items-center gap-6">
-              <div className="relative">
-                <div className="absolute -inset-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl blur opacity-50"></div>
-                <div className="relative w-16 h-16 bg-gradient-to-r from-blue-100 to-cyan-100 rounded-xl overflow-hidden flex items-center justify-center">
-                  {logoUrl && logoUrl.length > 50 && logoUrl.includes('data:image') ? (
-                    <img 
-                      src={logoUrl} 
-                      alt="Logo institucional" 
-                      className="w-full h-full object-cover rounded-xl"
-                      style={{ display: 'block', maxWidth: '100%', maxHeight: '100%' }}
-                    />
-                  ) : (
-                    <BarChart3 className="w-10 h-10 text-blue-600 edupay-icon-bounce" />
-                  )}
-                </div>
-              </div>
-              <div className="flex-1">
-                <h1 className="text-4xl font-bold edupay-text-gradient mb-2">Panel de Control</h1>
-                <p className="text-slate-600 text-lg">Resumen ejecutivo del {institutionName} - Campus Principal</p>
-                <div className="flex items-center gap-4 mt-3">
-                  <div className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
-                    ● Sistema Activo
-                  </div>
-                  <div className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
-                    Ciclo 2024-2025
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Decorative elements */}
-            <div className="absolute top-4 right-4 w-32 h-32 bg-gradient-to-br from-blue-200/20 to-cyan-200/20 rounded-full blur-2xl"></div>
-            <div className="absolute bottom-4 right-8 w-20 h-20 bg-gradient-to-br from-pink-200/20 to-purple-200/20 rounded-full blur-xl"></div>
-          </div>
+    <div className="space-y-6">
+
+      {/* Compact header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">{institutionName}</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Panel de control · <span className="text-green-600 font-medium">Sistema activo</span>
+            <span className="text-slate-400 mx-2">·</span>
+            <kbd className="px-1.5 py-0.5 text-xs bg-slate-100 border border-slate-300 rounded text-slate-500">Ctrl+K</kbd>
+            <span className="text-slate-400 ml-1 text-xs">buscar</span>
+          </p>
         </div>
+      </div>
 
-        {/* KPI Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <Card className="lg:col-span-2 edupay-card-shadow edupay-card-hover animate-fade-scale">
-          <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-t-lg">
-            <CardTitle className="flex items-center gap-3 text-xl">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <BarChart3 className="w-6 h-6 text-blue-600" />
-              </div>
-              <span className="edupay-text-gradient">KPIs Financieros</span>
+      {/* ── Hero: Bandeja de Excepciones ─────────────────────────────────────── */}
+      <Card className="border shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <AlertTriangle className="w-5 h-5 text-red-500" />
+              Bandeja de excepciones
+              {totalExc > 0 && (
+                <Badge className="ml-1 bg-red-500 text-white border-0 text-xs px-1.5">{totalExc}</Badge>
+              )}
             </CardTitle>
-            <div className="text-slate-600 ml-11">
-              Datos en tiempo real del ciclo escolar 2024-2025
-            </div>
-          </CardHeader>
-          <CardContent className="p-6">
-        <div className="grid grid-cols-2 gap-6">
-              <KPICard
-                icon={DollarSign}
-                label="Total Facturado"
-                value={`$${(kpiData?.totalBilled ? kpiData.totalBilled / 100 : 0).toLocaleString()}`}
-              />
-              <KPICard
-                icon={CheckCircle}
-                label="Tasa de Pago"
-                value={`${kpiData?.paymentRate?.toFixed(1) || '0.0'}%`}
-              />
-              <KPICard
-                icon={AlertTriangle}
-                label="Morosidad"
-                value={`${kpiData?.overdueRate?.toFixed(1) || '0.0'}%`}
-              />
-              <KPICard
-                icon={Users2}
-                label="Estudiantes Activos"
-                value={kpiData?.activeStudents?.toString() || '0'}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5" />
-              Status del Sistema
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">Plataforma SaaS</span>
-                <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Activo</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">Pagos en línea</span>
-                <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Activo</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">CFDI Automático</span>
-                <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Activo</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">Notificaciones</span>
-                <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Activo</span>
-              </div>
-              {/* Alerta de excepciones pendientes */}
-              {(kpiData?.excepciones_pendientes ?? 0) > 0 && (
-                <div
-                  className="flex items-center justify-between p-2 bg-red-50 rounded-lg border border-red-200 cursor-pointer hover:bg-red-100 transition-colors"
-                  onClick={() => navigate("/excepciones-conciliacion")}
-                >
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 text-red-500" />
-                    <span className="text-sm font-medium text-red-700">Excepciones bancarias</span>
-                  </div>
-                  <Badge className="bg-red-500 text-white text-xs">
-                    {kpiData!.excepciones_pendientes} pendiente{kpiData!.excepciones_pendientes !== 1 ? "s" : ""}
-                  </Badge>
-                </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => refetchExc()} disabled={excLoading} className="text-slate-500">
+                <RefreshCw className={`w-3.5 h-3.5 ${excLoading ? "animate-spin" : ""}`} />
+              </Button>
+              {totalExc > 0 && (
+                <Button variant="outline" size="sm" className="text-slate-600 text-xs" onClick={() => setLocation("/excepciones-conciliacion")}>
+                  Ver todas <ArrowRight className="w-3 h-3 ml-1" />
+                </Button>
               )}
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardHeader>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CreditCard className="w-5 h-5" />
-              Métodos de Pago Más Utilizados
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-        <div className="space-y-4">
-              {[
-                { method: "Tarjeta de crédito", percentage: 45, color: "bg-blue-500" },
-                { method: "Transferencia", percentage: 30, color: "bg-green-500" },
-                { method: "Domiciliado", percentage: 15, color: "bg-purple-500" },
-                { method: "OXXO Pay", percentage: 8, color: "bg-orange-500" },
-                { method: "Efectivo", percentage: 2, color: "bg-gray-500" },
-              ].map((item) => (
-            <div key={item.method} className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className={`w-3 h-3 rounded-full ${item.color}`}></div>
-                    <span className="text-slate-700">{item.method}</span>
-                  </div>
-              <div className="text-right">
-                    <span className="text-sm font-semibold text-slate-900">{item.percentage}%</span>
-                <div className="w-16 bg-gray-200 rounded-full h-2 mt-1">
-                  <div 
-                        className={`h-2 rounded-full ${item.color}`}
-                        style={{ width: `${item.percentage}%` }}
-                      ></div>
+        <CardContent>
+          {excLoading ? (
+            <div className="flex justify-center py-10">
+              <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-slate-400" />
+            </div>
+          ) : totalExc === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                <CheckCircle className="w-9 h-9 text-green-500" />
+              </div>
+              <p className="text-lg font-semibold text-slate-700">Sin excepciones pendientes</p>
+              <p className="text-sm text-slate-500 mt-1">
+                Todo al corriente — todos los pagos bancarios están conciliados.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {excepciones.slice(0, 8).map((exc) => {
+                const sev = severityClass(exc.dias_sin_conciliar);
+                return (
+                  <div key={exc.id} className={`border rounded-lg p-3.5 flex items-center gap-4 ${sev.border}`}>
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${sev.dot}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-slate-800 text-sm">{fmt(Number(exc.monto_centavos))}</span>
+                        <Badge className={`text-[10px] px-1.5 py-0 ${sev.badge}`}>{antiguedad(exc.dias_sin_conciliar)}</Badge>
+                      </div>
+                      <p className="text-sm text-slate-600 truncate mt-0.5">
+                        {exc.nombre_ordenante
+                          ? <><span className="font-medium">{exc.nombre_ordenante}</span> · {exc.descripcion || "Sin descripción"}</>
+                          : (exc.descripcion || "Sin descripción")}
+                      </p>
+                      {exc.referencia && <p className="text-xs text-slate-400 mt-0.5">Ref: {exc.referencia}</p>}
+                    </div>
+                    <div className="flex gap-1.5 flex-shrink-0">
+                      <Button size="sm" variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50 text-xs h-7 px-2"
+                        onClick={() => setLocation("/excepciones-conciliacion")}>
+                        <CheckCircle className="w-3.5 h-3.5 mr-1" />Aplicar
+                      </Button>
+                      <Button size="sm" variant="outline" className="text-slate-600 border-slate-200 hover:bg-slate-50 text-xs h-7 px-2"
+                        onClick={() => { setDiscardModal({ open: true, exc }); setDiscardMotivo(""); setDiscardNota(""); }}>
+                        <XCircle className="w-3.5 h-3.5 mr-1" />Descartar
+                      </Button>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
+              {totalExc > 8 && (
+                <button onClick={() => setLocation("/excepciones-conciliacion")}
+                  className="w-full text-center text-sm text-blue-600 hover:underline py-2">
+                  Ver {totalExc - 8} excepción{totalExc - 8 !== 1 ? "es" : ""} más →
+                </button>
+              )}
             </div>
-          </CardContent>
-        </Card>
+          )}
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users2 className="w-5 h-5" />
-              Estudiantes Recientes
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-        <div className="space-y-3">
-              {students?.slice(0, 5).map((student) => (
-            <div key={student.id} className="flex items-center justify-between">
+      {/* ── Secondary KPI strip ──────────────────────────────────────────────── */}
+      <div className="grid grid-cols-3 gap-4">
+        <Card className="shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 rounded-lg"><DollarSign className="w-4 h-4 text-green-600" /></div>
               <div>
-                <p className="font-medium text-slate-900">{student.nombre_completo}</p>
-                <p className="text-sm text-slate-500">{student.grado} • {student.grupo}</p>
-                  </div>
-                  <span className={`px-2 py-1 rounded text-xs ${
-                    student.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {student.status === 'active' ? 'Activo' : 'Inactivo'}
-                  </span>
-                </div>
-              ))}
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">Cobrado</p>
+                <p className="text-xl font-bold text-slate-900">{fmt(cobrado)}</p>
+              </div>
             </div>
           </CardContent>
         </Card>
-        </div>
+        <Card className="shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg"><TrendingUp className="w-4 h-4 text-blue-600" /></div>
+              <div>
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">Por cobrar</p>
+                <p className="text-xl font-bold text-slate-900">{fmt(porCobrar)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-100 rounded-lg"><Clock className="w-4 h-4 text-red-500" /></div>
+              <div>
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">Vencido</p>
+                <p className="text-xl font-bold text-red-600">{fmt(vencido)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* ── Discard modal ─────────────────────────────────────────────────────── */}
+      <Dialog open={discardModal.open} onOpenChange={(open) => { if (!open) closeDiscard(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="w-5 h-5 text-slate-500" />
+              Descartar excepción
+            </DialogTitle>
+            <DialogDescription>
+              {discardModal.exc && (
+                <>
+                  Transacción de <strong>{fmt(Number(discardModal.exc.monto_centavos))}</strong>
+                  {discardModal.exc.nombre_ordenante && <> · {discardModal.exc.nombre_ordenante}</>}
+                  {" · "}{antiguedad(discardModal.exc.dias_sin_conciliar)}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="space-y-2">
+              <Label>Motivo del descarte <span className="text-red-500">*</span></Label>
+              <Select value={discardMotivo} onValueChange={setDiscardMotivo}>
+                <SelectTrigger><SelectValue placeholder="Selecciona el motivo" /></SelectTrigger>
+                <SelectContent>
+                  {MOTIVOS_DESCARTE.map((m) => (
+                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {discardMotivo === "Otro" && (
+              <div className="space-y-2">
+                <Label>Descripción <span className="text-red-500">*</span></Label>
+                <Textarea rows={2} placeholder="Describe brevemente por qué se descarta…"
+                  value={discardNota} onChange={(e) => setDiscardNota(e.target.value)} />
+              </div>
+            )}
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="outline" onClick={closeDiscard}>Cancelar</Button>
+              <Button
+                className="bg-slate-700 hover:bg-slate-800"
+                disabled={!discardMotivo || (discardMotivo === "Otro" && !discardNota.trim()) || discardMutation.isPending}
+                onClick={() => {
+                  if (!discardModal.exc) return;
+                  discardMutation.mutate({ id: discardModal.exc.id, motivo: discardMotivo, nota: discardNota || discardMotivo });
+                }}
+              >
+                {discardMutation.isPending
+                  ? <><div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white mr-2" />Procesando…</>
+                  : <><XCircle className="w-3.5 h-3.5 mr-1.5" />Confirmar descarte</>}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }

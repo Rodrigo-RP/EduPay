@@ -385,7 +385,7 @@ export default function Estudiantes() {
   const [selectedNecesidades, setSelectedNecesidades] = useState("all");
   const [selectedRepetidor, setSelectedRepetidor] = useState("all");
   const [selectedDialecto, setSelectedDialecto] = useState("all");
-  const [showResumen, setShowResumen] = useState(false);
+  const [showResumen, setShowResumen] = useState(true);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [gruposPersonalizados, setGruposPersonalizados] = useState(["A", "B", "C", "D", "E", "F", "G", "H"]);
@@ -1208,6 +1208,14 @@ export default function Estudiantes() {
                   />
                 </div>
               </div>
+              <Button
+                variant="outline"
+                onClick={() => setShowResumen(v => !v)}
+                className="flex items-center gap-2 text-indigo-700 border-indigo-200"
+              >
+                <FileSpreadsheet className="h-4 w-4" />
+                {showResumen ? 'Ocultar resumen' : 'Ver resumen'}
+              </Button>
               <Button 
                 variant="outline" 
                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
@@ -1557,7 +1565,7 @@ export default function Estudiantes() {
       </Card>
 
       {/* ── Resumen estadístico ────────────────────────────────────────────── */}
-      {showResumen && hasActiveSearch && filteredEstudiantes.length > 0 && (() => {
+      {hasActiveSearch && filteredEstudiantes.length > 0 && showResumen && (() => {
         const d = buildResumenData();
         const StatTable = ({ title, rows }: { title: string; rows: [string, number][] }) => (
           <div>

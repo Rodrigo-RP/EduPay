@@ -10,6 +10,7 @@
  */
 
 import { pool } from "./db";
+import { runAllProbes } from "./assistant-validation";
 
 // ── Tipos públicos ────────────────────────────────────────────────────────────
 
@@ -171,7 +172,7 @@ async function queryContar(params: Record<string, any>, ctx: ActionContext): Pro
 
     if (entity.includes("pago")) {
       const { rows } = await pool.query(
-        `SELECT COUNT(*) AS total, COALESCE(SUM(p.monto),0) AS suma
+        `SELECT COUNT(*) AS total, COALESCE(SUM(p.monto_centavos),0) AS suma
          FROM payments p
          INNER JOIN charges c ON p.charge_id = c.id
          INNER JOIN students s ON c.student_id = s.id
@@ -243,11 +244,11 @@ async function queryResumenFinanciero(_p: Record<string, any>, ctx: ActionContex
   try {
     const { rows } = await pool.query(
       `SELECT
-         COALESCE(SUM(c.monto) FILTER(WHERE c.estado = 'pagado'),   0) AS cobrado,
-         COALESCE(SUM(c.monto) FILTER(WHERE c.estado = 'pendiente'),0) AS pendiente,
-         COALESCE(SUM(c.monto) FILTER(WHERE c.estado = 'vencido'),  0) AS vencido,
-         COUNT(*) FILTER(WHERE c.estado = 'pagado')                    AS pagos_count,
-         COUNT(*) FILTER(WHERE c.estado IN ('pendiente','vencido'))     AS adeudos_count
+         COALESCE(SUM(c.monto_base_centavos) FILTER(WHERE c.estado = 'pagado'),   0) AS cobrado,
+         COALESCE(SUM(c.monto_base_centavos) FILTER(WHERE c.estado = 'pendiente'),0) AS pendiente,
+         COALESCE(SUM(c.monto_base_centavos) FILTER(WHERE c.estado = 'vencido'),  0) AS vencido,
+         COUNT(*) FILTER(WHERE c.estado = 'pagado')                                  AS pagos_count,
+         COUNT(*) FILTER(WHERE c.estado IN ('pendiente','vencido'))                  AS adeudos_count
        FROM charges c
        INNER JOIN students s ON c.student_id = s.id
        WHERE s.campus_id = $1`,
@@ -292,7 +293,7 @@ async function queryBuscarAlumno(params: Record<string, any>, ctx: ActionContext
     const { rows } = await pool.query(
       `SELECT s.nombre_completo, s.grado, s.grupo, s.status,
               COALESCE(
-                (SELECT SUM(monto) FILTER(WHERE estado IN ('pendiente','vencido'))
+                (SELECT SUM(monto_base_centavos) FILTER(WHERE estado IN ('pendiente','vencido'))
                  FROM charges WHERE student_id = s.id), 0
               ) AS saldo_pendiente
        FROM students s
@@ -334,7 +335,7 @@ async function queryBuscarAlumno(params: Record<string, any>, ctx: ActionContext
     try {
       const { rows } = await pool.query(
         `SELECT s.nombre_completo, s.grado, s.grupo, s.status,
-                COALESCE((SELECT SUM(monto) FILTER(WHERE estado IN ('pendiente','vencido'))
+                COALESCE((SELECT SUM(monto_base_centavos) FILTER(WHERE estado IN ('pendiente','vencido'))
                           FROM charges WHERE student_id = s.id), 0) AS saldo_pendiente
          FROM students s
          WHERE s.campus_id = $1 AND LOWER(s.nombre_completo) LIKE LOWER($2)
@@ -488,9 +489,14 @@ async function queryCargosAlumno(params: Record<string, any>, ctx: ActionContext
 
   try {
     const { rows } = await pool.query(
-      `SELECT s.nombre_completo, c.concepto, c.monto, c.estado, c.fecha_vencimiento
+      `SELECT s.nombre_completo,
+              COALESCE(co.nombre, 'Sin concepto') AS concepto,
+              c.monto_base_centavos,
+              c.estado,
+              c.fecha_vencimiento
        FROM charges c
        INNER JOIN students s ON c.student_id = s.id
+       LEFT JOIN concepts co ON co.id = c.concept_id
        WHERE s.campus_id = $1
          AND LOWER(s.nombre_completo) LIKE LOWER($2)
          AND c.estado IN ('pendiente','vencido')
@@ -509,7 +515,7 @@ async function queryCargosAlumno(params: Record<string, any>, ctx: ActionContext
 
     const resultRows: ActionResultRow[] = rows.map((r: any) => ({
       label: `${r.nombre_completo} — ${r.concepto}`,
-      value: `${fmt(r.monto)} · ${r.estado}`,
+      value: `${fmt(r.monto_base_centavos)} · ${r.estado}`,
       highlight: r.estado === "vencido",
     }));
 
@@ -520,7 +526,7 @@ async function queryCargosAlumno(params: Record<string, any>, ctx: ActionContext
       rows: resultRows,
     };
   } catch (e: any) {
-    return { success: false, title: "Error", summary: `No pude consultar cargos: ${e.message}` };
+    return { success: false, title: "Error en cargos", summary: `No pude consultar cargos: ${e.message}` };
   }
 }
 
@@ -567,6 +573,48 @@ async function queryFamiliasHijos(p: Record<string, any>, ctx: ActionContext): P
   }
 }
 
+/** Verifica todas las queries del asistente contra la DB real */
+async function queryVerificarSistema(_p: Record<string, any>, _ctx: ActionContext): Promise<ActionResult> {
+  const report = await runAllProbes();
+
+  const failedRows: ActionResultRow[] = report.results
+    .filter((r) => !r.ok)
+    .map((r) => ({
+      label: `❌ ${r.name}`,
+      value: r.error?.slice(0, 80) ?? "error desconocido",
+      highlight: true,
+    }));
+
+  const passedRows: ActionResultRow[] = report.results
+    .filter((r) => r.ok)
+    .map((r) => ({
+      label: `✅ ${r.name}`,
+      value: `${r.durationMs}ms`,
+      highlight: false,
+    }));
+
+  if (report.failed === 0) {
+    return {
+      success: true,
+      title: `Sistema verificado — ${report.totalProbes} sondas ✅`,
+      summary:
+        `**Todas las ${report.totalProbes} consultas del asistente están sincronizadas con la base de datos.** ` +
+        `No se detectaron columnas ni tablas faltantes. (${report.durationMs}ms)`,
+      rows: passedRows,
+    };
+  }
+
+  return {
+    success: false,
+    title: `⚠️ ${report.failed} error(es) detectado(s) de ${report.totalProbes} sondas`,
+    summary:
+      `Encontré **${report.failed} problema(s)** en las consultas del asistente. ` +
+      `Estas queries fallarán cuando un usuario las ejecute. ` +
+      `${report.passed} de ${report.totalProbes} sondas pasaron correctamente.`,
+    rows: [...failedRows, ...passedRows],
+  };
+}
+
 // ── Dispatcher principal ───────────────────────────────────────────────────────
 
 export async function executeAction(
@@ -602,7 +650,8 @@ export async function executeAction(
     case "query:becas_alumno":     return queryBecasAlumno(params, ctx);
     case "query:cargos_alumno":    return queryCargosAlumno(params, ctx);
     case "query:familias_hijos":   return queryFamiliasHijos(params, ctx);
-    case "query:becas_nivel":      return queryBecasNivel(params, ctx);
+    case "query:becas_nivel":        return queryBecasNivel(params, ctx);
+    case "query:verificar_sistema":  return queryVerificarSistema(params, ctx);
     default:
       return { success: false, title: "Acción no reconocida", summary: "No entendí qué necesitas. Puedes preguntarme por alumnos, becas, pagos, cargos o el resumen financiero." };
   }

@@ -10,7 +10,8 @@
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "test": "cd server && npx vitest run --config vitest.config.ts",
-    "check:routes": "tsx scripts/check-route-registry.ts"
+    "check:routes": "tsx scripts/check-route-registry.ts",
+    "validate:assistant": "tsx scripts/validate-assistant-queries.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -513,6 +513,15 @@ export function detectActionIntent(message: string): ActionDescriptor | null {
   if (saldoMatch)
     return { actionId: "query:saldo_alumno", params: { nombre: saldoMatch[1].trim() } };
 
+  // ── Verificar sistema / detectar errores ──────────────────────────────────
+  // "qué no funciona", "verifica todo", "hay errores", "revisa el sistema",
+  // "qué queries están rotas", "el asistente tiene errores", "audita el sistema"
+  if (
+    n.match(/verif[ií]c[ao]|qu[eé] no funciona|hay errores?|revisa( el sistema| todo|las queries?)?|audita|todo funciona|qu[eé] est[aá] roto|queries? rota|sistema funciona|checa errores?/)
+  ) {
+    return { actionId: "query:verificar_sistema", params: {} };
+  }
+
   // ── Familias con N o más hijos ────────────────────────────────────────────
   // "qué familias tienen más de 1 hijo", "familias con 2 o más alumnos",
   // "familias con hermanos", "cuántas familias tienen varios hijos"

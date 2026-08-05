@@ -3,9 +3,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useAcademicFilter, generateCiclosList, getCurrentCiclo } from "@/hooks/use-academic-filter";
-import { Calendar, GraduationCap, User, Settings, CalendarDays } from "lucide-react";
+import { Calendar, GraduationCap, User, Settings, CalendarDays, BotMessageSquare } from "lucide-react";
 import { useLocation } from "wouter";
-import { RealTimeStatus } from "@/components/RealTimeStatus";
 import GlobalSearch from "@/components/GlobalSearch";
 
 const PERIODOS = [
@@ -97,8 +96,17 @@ export default function Header() {
             <GlobalSearch />
           </>}
 
-          <RealTimeStatus />
-          
+          {/* Botón del Asistente EduPay */}
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('assistant:toggle'))}
+            className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-medium transition-all shadow-sm"
+            title="Asistente EduPay"
+            aria-label="Abrir asistente EduPay"
+          >
+            <BotMessageSquare className="w-3.5 h-3.5" />
+            Asistente
+          </button>
+
           <Button
             variant="ghost"
             size="sm"

@@ -229,6 +229,13 @@ export default function AssistantWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Escuchar el botón del header
+  useEffect(() => {
+    const handler = () => setOpen((v) => !v);
+    window.addEventListener('assistant:toggle', handler);
+    return () => window.removeEventListener('assistant:toggle', handler);
+  }, []);
+
   // Scroll automático
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -446,7 +453,7 @@ export default function AssistantWidget() {
       {/* ── Panel de chat ─────────────────────────────────────────────────── */}
       {open && (
         <div
-          className="fixed bottom-20 right-6 z-50 flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200"
+          className="fixed top-16 right-4 z-50 flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200"
           style={{ width: 332, height: 460 }}
           role="dialog"
           aria-label="Asistente EduPay"
@@ -598,26 +605,7 @@ export default function AssistantWidget() {
         </div>
       )}
 
-      {/* ── Botón flotante ─────────────────────────────────────────────────── */}
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 active:scale-95 shadow-lg hover:shadow-xl transition-all flex items-center justify-center relative"
-        aria-label={open ? "Cerrar asistente" : "Abrir asistente EduPay"}
-        title="Asistente EduPay"
-      >
-        {open ? (
-          <X className="w-6 h-6 text-white" />
-        ) : (
-          <>
-            <BotMessageSquare className="w-6 h-6 text-white" />
-            {unread > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-white text-xs font-bold flex items-center justify-center">
-                {unread > 9 ? "9+" : unread}
-              </span>
-            )}
-          </>
-        )}
-      </button>
+      {/* FAB eliminado — el botón vive ahora en el header */}
     </>
   );
 }

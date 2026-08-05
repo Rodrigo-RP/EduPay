@@ -966,6 +966,9 @@ export default function Familias() {
     });
   };
 
+  // Ocultar lista hasta que haya búsqueda activa
+  const hasActiveSearch = !!searchTerm;
+
   // Filtrar familias según criterios de búsqueda
   const filteredFamilias = familias.filter(familia => {
     const searchLower = searchTerm.toLowerCase();
@@ -1143,12 +1146,36 @@ export default function Familias() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-blue-600">
               <Home className="w-5 h-5" />
-              Lista de familias ({filteredFamilias.length})
+              Familias
+              {hasActiveSearch && (
+                <span className="text-base font-normal text-slate-500 ml-1">
+                  — {filteredFamilias.length} resultado{filteredFamilias.length !== 1 ? 's' : ''}
+                </span>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {filteredFamilias.map((familia) => (
+              {!hasActiveSearch ? (
+                <div className="py-14 text-center">
+                  <div className="w-14 h-14 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Search className="h-7 w-7 text-slate-400" />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-700 mb-1">Busca una familia</p>
+                  <p className="text-sm text-slate-500 max-w-xs mx-auto">
+                    Ingresa el número de familia, apellidos, email o RFC para ver los resultados.
+                  </p>
+                </div>
+              ) : filteredFamilias.length === 0 ? (
+                <div className="py-14 text-center">
+                  <div className="w-14 h-14 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Home className="h-7 w-7 text-slate-400" />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-700 mb-1">Sin resultados</p>
+                  <p className="text-sm text-slate-500">Ninguna familia coincide con la búsqueda.</p>
+                </div>
+              ) : null}
+              {hasActiveSearch && filteredFamilias.map((familia) => (
                 <div key={familia.id} className="p-6 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors border-l-4 border-blue-500">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start space-x-4">

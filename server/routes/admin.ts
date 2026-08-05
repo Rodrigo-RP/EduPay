@@ -204,7 +204,10 @@ export function registerAdminRoutes(app: Express): void {
           alumnos_con_adeudo:   alumnos_deb,
         },
         mes_metrics: {
-          mes_nombre: now.toLocaleDateString("es-MX", { month: "long", year: "numeric" }),
+          mes_nombre: periodo === "hoy"    ? `hoy (${now.toLocaleDateString("es-MX", { day: "numeric", month: "short" })})` :
+                      periodo === "semana" ? `esta semana (${periodoInicio.slice(5)} – ${periodoFin.slice(5)})` :
+                      periodo === "ciclo"  ? `ciclo ${ciclo}` :
+                      now.toLocaleDateString("es-MX", { month: "long", year: "numeric" }),
           esperado:   esperado_mes,
           cobrado:    cobrado_mes,
           pendiente:  Math.max(0, esperado_mes - cobrado_mes),

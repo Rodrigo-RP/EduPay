@@ -384,6 +384,7 @@ export default function Estudiantes() {
   const [selectedIdioma, setSelectedIdioma] = useState("all");
   const [selectedNecesidades, setSelectedNecesidades] = useState("all");
   const [selectedRepetidor, setSelectedRepetidor] = useState("all");
+  const [selectedDialecto, setSelectedDialecto] = useState("all");
   const [showResumen, setShowResumen] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showAll, setShowAll] = useState(false);
@@ -961,13 +962,10 @@ export default function Estudiantes() {
   const ciclosEducativos = generateCiclosList();
 
   // Rangos de edad para filtros inteligentes
-  const rangoEdadOptions = [
-    { value: '3-5', label: '3-5 años (Kinder)' },
-    { value: '6-12', label: '6-12 años (Primaria)' },
-    { value: '13-15', label: '13-15 años (Secundaria)' },
-    { value: '16-18', label: '16-18 años (Preparatoria)' },
-    { value: '19+', label: '19+ años' }
-  ];
+  const rangoEdadOptions = Array.from({ length: 16 }, (_, i) => ({
+    value: String(i + 5),
+    label: `${i + 5} años`,
+  }));
 
   // Función para calcular edad desde fecha de nacimiento
   const calcularEdad = (fechaNacimiento: string) => {
@@ -982,17 +980,10 @@ export default function Estudiantes() {
     return edad;
   };
 
-  // Función para verificar si una edad está en el rango seleccionado
+  // Compara edad exacta con el valor de rango (ahora son años individuales 5-20)
   const estaEnRangoEdad = (edad: number | null, rango: string) => {
-    if (!edad) return false;
-    switch (rango) {
-      case '3-5': return edad >= 3 && edad <= 5;
-      case '6-12': return edad >= 6 && edad <= 12;
-      case '13-15': return edad >= 13 && edad <= 15;
-      case '16-18': return edad >= 16 && edad <= 18;
-      case '19+': return edad >= 19;
-      default: return true;
-    }
+    if (edad === null || edad === undefined) return false;
+    return edad === parseInt(rango, 10);
   };
 
   // Filtros predefinidos inteligentes
@@ -1065,7 +1056,8 @@ export default function Estudiantes() {
     selectedNacionalidad !== "all" ||
     selectedIdioma !== "all" ||
     selectedNecesidades !== "all" ||
-    selectedRepetidor !== "all";
+    selectedRepetidor !== "all" ||
+    selectedDialecto !== "all";
 
   const filteredEstudiantes = estudiantes.filter((estudiante: any) => {
     const matchSearch = !searchTerm || 
@@ -1113,9 +1105,11 @@ export default function Estudiantes() {
       (selectedNecesidades === "si" ? estudiante.necesidades_especiales === true || estudiante.necesidades_especiales === "si" : !estudiante.necesidades_especiales || estudiante.necesidades_especiales === false || estudiante.necesidades_especiales === "no");
     const matchRepetidor = selectedRepetidor === "all" ||
       (selectedRepetidor === "si" ? estudiante.repetidor === true || estudiante.repetidor === "si" : !estudiante.repetidor || estudiante.repetidor === false || estudiante.repetidor === "no");
+    const matchDialecto = selectedDialecto === "all" ||
+      (selectedDialecto === "si" ? estudiante.habla_dialecto === true || estudiante.habla_dialecto === "si" : !estudiante.habla_dialecto || estudiante.habla_dialecto === false || estudiante.habla_dialecto === "no");
     
     return matchSearch && matchGrado && matchGrupo && matchSeccion && matchCiclo && matchStatus && matchCodigoPostal && matchEdad && matchPeriodo &&
-           matchSexo && matchExtranjero && matchNacionalidad && matchIdioma && matchNecesidades && matchRepetidor;
+           matchSexo && matchExtranjero && matchNacionalidad && matchIdioma && matchNecesidades && matchRepetidor && matchDialecto;
   });
 
   if (error) {
@@ -1399,7 +1393,7 @@ export default function Estudiantes() {
             {showAdvancedFilters && (
               <div className="border-t pt-4 mt-4 space-y-4">
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {/* Edad */}
+                  {/* Edad — 5 a 20 años */}
                   <div className="space-y-1">
                     <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Edad</Label>
                     <Select value={selectedEdadRango} onValueChange={setSelectedEdadRango}>
@@ -1412,62 +1406,87 @@ export default function Estudiantes() {
                       </SelectContent>
                     </Select>
                   </div>
+
                   {/* Sexo */}
                   <div className="space-y-1">
                     <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Sexo</Label>
                     <Select value={selectedSexo} onValueChange={setSelectedSexo}>
-                      <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="—" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Todos</SelectItem>
-                        <SelectItem value="masculino">Masculino</SelectItem>
-                        <SelectItem value="femenino">Femenino</SelectItem>
+                        <SelectItem value="masculino">M — Masculino</SelectItem>
+                        <SelectItem value="femenino">F — Femenino</SelectItem>
                         <SelectItem value="otro">Otro</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  {/* Origen */}
+
+                  {/* Originario — estados de la república */}
                   <div className="space-y-1">
-                    <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Origen</Label>
+                    <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Originario</Label>
                     <Select value={selectedExtranjero} onValueChange={setSelectedExtranjero}>
-                      <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
-                      <SelectContent>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="Todos los estados" /></SelectTrigger>
+                      <SelectContent className="max-h-64">
                         <SelectItem value="all">Todos</SelectItem>
-                        <SelectItem value="mexicano">Mexicano</SelectItem>
-                        <SelectItem value="extranjero">Extranjero</SelectItem>
+                        {["Aguascalientes","Baja California","Baja California Sur","Campeche","Chiapas","Chihuahua","Ciudad de México","Coahuila","Colima","Durango","Guanajuato","Guerrero","Hidalgo","Jalisco","Estado de México","Michoacán","Morelos","Nayarit","Nuevo León","Oaxaca","Puebla","Querétaro","Quintana Roo","San Luis Potosí","Sinaloa","Sonora","Tabasco","Tamaulipas","Tlaxcala","Veracruz","Yucatán","Zacatecas","Otro"].map(e => (
+                          <SelectItem key={e} value={e}>{e}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
-                  {/* Nacionalidad */}
+
+                  {/* Nacionalidad — todos los países */}
                   <div className="space-y-1">
                     <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Nacionalidad</Label>
                     <Select value={selectedNacionalidad} onValueChange={setSelectedNacionalidad}>
                       <SelectTrigger className="h-9"><SelectValue placeholder="Todas" /></SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-h-64">
                         <SelectItem value="all">Todas</SelectItem>
-                        {Array.from(new Set(estudiantes.map((e: any) => e.nacionalidad).filter(Boolean))).map((n: any) => (
-                          <SelectItem key={n} value={n}>{n}</SelectItem>
+                        {["Afgana","Albanesa","Alemana","Andorrana","Angoleña","Antiguense","Árabe Saudí","Argelina","Argentina","Armenia","Australiana","Austriaca","Azerbaiyana","Bahameña","Bareiní","Bangladesí","Barbadense","Belga","Beliceña","Beninesa","Bielorrusa","Birmana","Boliviana","Bosnia","Botsuanesa","Brasileña","Bruneiense","Búlgara","Burkinesa","Burundesa","Butanesa","Caboverdiana","Camboyense","Camerunesa","Canadiense","Catarí","Chadiana","Chilena","China","Chipriota","Colombiana","Comorense","Congolesa","Costarricense","Croata","Cubana","Danesa","Dominicana","Ecuatoguineana","Ecuatoriana","Egipcia","Salvadoreña","Eritrea","Eslovaca","Eslovena","Española","Estadounidense","Estonia","Etíope","Fiyiana","Filipina","Finlandesa","Francesa","Gabonesa","Gambiana","Georgiana","Ghanesa","Granadina","Griega","Guatemalteca","Guineana","Guineana Bissau","Guyanesa","Haitiana","Hondureña","Húngara","India","Indonesia","Iraní","Iraquí","Irlandesa","Islandesa","Israelí","Italiana","Jamaicana","Japonesa","Jordana","Kazaja","Keniata","Kirguís","Kiribatiana","Kuwaití","Laosiana","Lesotense","Letona","Libanesa","Liberiana","Libia","Liechtensteiniana","Lituana","Luxemburguesa","Macedoniana","Malgache","Malasia","Malaui","Maldiva","Maliense","Maltesa","Marfileña","Marroquí","Mauriciana","Mauritana","Mexicana","Moldava","Monegasca","Mongola","Montenegrina","Mozambiqueña","Namibia","Nauruana","Nepalesa","Nicaragüense","Nigerina","Nigeriana","Noruega","Neozelandesa","Omaní","Pakistaní","Palauana","Palestina","Panameña","Papú","Paraguaya","Peruana","Polaca","Portuguesa","Ruandesa","Rumana","Rusa","Samoana","Santa Lucense","Santotomense","Senegalesa","Serbia","Seychellense","Sierraleonesa","Singapurense","Siria","Somalí","Sudafricana","Sudanesa","Sueca","Suiza","Surinamesa","Suazilandia","Tayika","Tailandesa","Tanzana","Timorense","Togolesa","Tongana","Trinitense","Tunecina","Turca","Turkmena","Tuvaluana","Ugandesa","Ucraniana","Uruguaya","Uzbeka","Vanuatense","Venezolana","Vietnamita","Yemení","Yibutiana","Zambiana","Zimbabuense"].map(p => (
+                          <SelectItem key={p} value={p}>{p}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-                  {/* Idioma natal */}
+
+                  {/* Idioma natal — top 10 mundial */}
                   <div className="space-y-1">
-                    <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Idioma natal / Dialecto</Label>
+                    <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Idioma natal</Label>
                     <Select value={selectedIdioma} onValueChange={setSelectedIdioma}>
                       <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todos</SelectItem>
-                        {Array.from(new Set(estudiantes.map((e: any) => e.idioma_natal || e.idioma).filter(Boolean))).map((i: any) => (
-                          <SelectItem key={i} value={i}>{i}</SelectItem>
-                        ))}
+                        <SelectItem value="Español">Español</SelectItem>
+                        <SelectItem value="Inglés">Inglés</SelectItem>
+                        <SelectItem value="Mandarín">Mandarín (Chino)</SelectItem>
+                        <SelectItem value="Hindi">Hindi</SelectItem>
+                        <SelectItem value="Árabe">Árabe</SelectItem>
+                        <SelectItem value="Bengalí">Bengalí</SelectItem>
+                        <SelectItem value="Portugués">Portugués</SelectItem>
+                        <SelectItem value="Ruso">Ruso</SelectItem>
+                        <SelectItem value="Japonés">Japonés</SelectItem>
+                        <SelectItem value="Punjabi">Punjabi</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Habla dialecto */}
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Habla dialecto</Label>
+                    <Select value={selectedDialecto} onValueChange={setSelectedDialecto}>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="si">Sí</SelectItem>
+                        <SelectItem value="no">No</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   {/* Necesidades específicas */}
                   <div className="space-y-1">
                     <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Necesidades específicas</Label>
                     <Select value={selectedNecesidades} onValueChange={setSelectedNecesidades}>
-                      <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="—" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todos</SelectItem>
                         <SelectItem value="si">Con necesidades</SelectItem>
@@ -1475,11 +1494,12 @@ export default function Estudiantes() {
                       </SelectContent>
                     </Select>
                   </div>
+
                   {/* Repetidor */}
                   <div className="space-y-1">
                     <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Repetidor de grado</Label>
                     <Select value={selectedRepetidor} onValueChange={setSelectedRepetidor}>
-                      <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="—" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todos</SelectItem>
                         <SelectItem value="si">Sí, repite grado</SelectItem>
@@ -1487,6 +1507,7 @@ export default function Estudiantes() {
                       </SelectContent>
                     </Select>
                   </div>
+
                   {/* Acciones */}
                   <div className="space-y-1">
                     <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Acciones rápidas</Label>
@@ -1499,7 +1520,7 @@ export default function Estudiantes() {
                           setSelectedEdadRango("all"); setSelectedSexo("all");
                           setSelectedExtranjero("all"); setSelectedNacionalidad("all");
                           setSelectedIdioma("all"); setSelectedNecesidades("all");
-                          setSelectedRepetidor("all");
+                          setSelectedRepetidor("all"); setSelectedDialecto("all");
                         }}>
                         Limpiar filtros
                       </Button>

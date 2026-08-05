@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Package, Plus, Edit, Trash2, DollarSign, ShoppingCart, AlertTriangle } from "lucide-react";
@@ -281,143 +281,6 @@ export default function CatalogoProductos() {
               <Plus className="w-4 h-4 mr-2" />
               Agregar Producto
             </Button>
-
-            <Dialog open={showAddModal} onOpenChange={(isOpen) => { if (!isOpen) handleCloseModal(); }}>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>{editingProduct ? 'Editar producto' : 'Crear nuevo producto'}</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleSaveProduct} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-                  <div>
-                    <Label>Código del producto</Label>
-                    <Input 
-                      name="codigo"
-                      placeholder="PROD-2025" 
-                      defaultValue={editingProduct?.codigo || ''}
-                    />
-                  </div>
-              <div>
-                    <Label>Nombre del producto</Label>
-                    <Input 
-                      name="nombre"
-                      placeholder="Nombre descriptivo" 
-                      defaultValue={editingProduct?.nombre || ''}
-                    />
-                  </div>
-              <div className="md:col-span-2">
-                    <Label>Descripción</Label>
-                    <Textarea 
-                      name="descripcion"
-                      placeholder="Descripción detallada del producto..." 
-                      defaultValue={editingProduct?.descripcion || ''}
-                    />
-                  </div>
-              <div className="md:col-span-2">
-                    <Label className="text-base font-semibold">Precios por Nivel Académico (MXN)</Label>
-                    <div className="grid grid-cols-2 gap-4 mt-2 p-4 bg-slate-50 rounded-lg">
-                      <div>
-                        <Label htmlFor="precio-kinder">Kinder</Label>
-                        <Input 
-                          id="precio-kinder"
-                          type="number" 
-                          placeholder="0.00" 
-                          step="0.01"
-                          defaultValue={editingProduct ? (editingProduct.precios_por_nivel?.KINDER / 100).toString() : ''}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="precio-primaria">Primaria</Label>
-                        <Input 
-                          id="precio-primaria"
-                          type="number" 
-                          placeholder="0.00" 
-                          step="0.01"
-                          defaultValue={editingProduct ? (editingProduct.precios_por_nivel?.PRIMARIA / 100).toString() : ''}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="precio-secundaria">Secundaria</Label>
-                        <Input 
-                          id="precio-secundaria"
-                          type="number" 
-                          placeholder="0.00" 
-                          step="0.01"
-                          defaultValue={editingProduct ? (editingProduct.precios_por_nivel?.SECUNDARIA / 100).toString() : ''}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="precio-bachillerato">Bachillerato</Label>
-                        <Input 
-                          id="precio-bachillerato"
-                          type="number" 
-                          placeholder="0.00" 
-                          step="0.01"
-                          defaultValue={editingProduct ? (editingProduct.precios_por_nivel?.BACHILLERATO / 100).toString() : ''}
-                        />
-                      </div>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">Configure el precio específico para cada nivel académico</p>
-                  </div>
-              <div>
-                    <Label>Categoría</Label>
-                    <Select name="categoria" defaultValue={editingProduct?.categoria || ""}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar categoría..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="COLEGIATURAS">Colegiaturas</SelectItem>
-                        <SelectItem value="INSCRIPCIONES">Inscripciones</SelectItem>
-                        <SelectItem value="REINSCRIPCIONES">Reinscripciones</SelectItem>
-                        <SelectItem value="SEGURO_ESCOLAR">Seguro Escolar</SelectItem>
-                        <SelectItem value="LIBROS">Libros</SelectItem>
-                        <SelectItem value="OTROS">Otros</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-              <div>
-                    <Label>Unidad de medida</Label>
-                    <Select name="unidad_medida" defaultValue={editingProduct?.unidad_medida || ""}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar unidad..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="SERVICIO">Servicio</SelectItem>
-                        <SelectItem value="PIEZA">Pieza</SelectItem>
-                        <SelectItem value="LOTE">Lote</SelectItem>
-                        <SelectItem value="KILOGRAMO">Kilogramo</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-              <div>
-                    <Label>Clave SAT</Label>
-                    <Input 
-                      name="clave_sat"
-                      placeholder="80101500" 
-                      defaultValue={editingProduct?.clave_sat || ''}
-                    />
-                  </div>
-
-              <div className="flex items-center space-x-2">
-                    <Switch 
-                      name="activo"
-                      id="active" 
-                      defaultChecked={editingProduct ? editingProduct.activo : true} 
-                    />
-                    <Label htmlFor="active">Producto activo</Label>
-                  </div>
-                </div>
-            <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={handleCloseModal}>
-                    Cancelar
-                  </Button>
-              <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-                    {editingProduct ? 'Actualizar Producto' : 'Crear Producto'}
-                  </Button>
-                </div>
-                </form>
-              </DialogContent>
-            </Dialog>
           </div>
 
           {/* Estadísticas */}
@@ -638,6 +501,149 @@ export default function CatalogoProductos() {
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* ── Modal crear / editar producto ───────────────── */}
+          <Dialog open={showAddModal} onOpenChange={(open) => { if (!open) handleCloseModal(); }}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{editingProduct ? 'Editar producto' : 'Crear nuevo producto'}</DialogTitle>
+                <DialogDescription>
+                  {editingProduct
+                    ? 'Modifica los datos del producto y los precios por nivel académico.'
+                    : 'Completa la información para agregar un nuevo producto al catálogo.'}
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSaveProduct} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                  <div>
+                    <Label>Código del producto</Label>
+                    <Input
+                      name="codigo"
+                      placeholder="PROD-2025"
+                      defaultValue={editingProduct?.codigo || ''}
+                    />
+                  </div>
+                  <div>
+                    <Label>Nombre del producto</Label>
+                    <Input
+                      name="nombre"
+                      placeholder="Nombre descriptivo"
+                      defaultValue={editingProduct?.nombre || ''}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label>Descripción</Label>
+                    <Textarea
+                      name="descripcion"
+                      placeholder="Descripción detallada del producto..."
+                      defaultValue={editingProduct?.descripcion || ''}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label className="text-base font-semibold">Precios por Nivel Académico (MXN)</Label>
+                    <div className="grid grid-cols-2 gap-4 mt-2 p-4 bg-slate-50 rounded-lg">
+                      <div>
+                        <Label htmlFor="precio-kinder">Kinder</Label>
+                        <Input
+                          id="precio-kinder"
+                          type="number"
+                          placeholder="0.00"
+                          step="0.01"
+                          defaultValue={editingProduct ? (editingProduct.precios_por_nivel?.KINDER / 100).toString() : ''}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="precio-primaria">Primaria</Label>
+                        <Input
+                          id="precio-primaria"
+                          type="number"
+                          placeholder="0.00"
+                          step="0.01"
+                          defaultValue={editingProduct ? (editingProduct.precios_por_nivel?.PRIMARIA / 100).toString() : ''}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="precio-secundaria">Secundaria</Label>
+                        <Input
+                          id="precio-secundaria"
+                          type="number"
+                          placeholder="0.00"
+                          step="0.01"
+                          defaultValue={editingProduct ? (editingProduct.precios_por_nivel?.SECUNDARIA / 100).toString() : ''}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="precio-bachillerato">Bachillerato</Label>
+                        <Input
+                          id="precio-bachillerato"
+                          type="number"
+                          placeholder="0.00"
+                          step="0.01"
+                          defaultValue={editingProduct ? (editingProduct.precios_por_nivel?.BACHILLERATO / 100).toString() : ''}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">Configure el precio específico para cada nivel académico</p>
+                  </div>
+                  <div>
+                    <Label>Categoría</Label>
+                    <Select name="categoria" defaultValue={editingProduct?.categoria || ""}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar categoría..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="COLEGIATURAS">Colegiaturas</SelectItem>
+                        <SelectItem value="INSCRIPCIONES">Inscripciones</SelectItem>
+                        <SelectItem value="REINSCRIPCIONES">Reinscripciones</SelectItem>
+                        <SelectItem value="SEGURO_ESCOLAR">Seguro Escolar</SelectItem>
+                        <SelectItem value="LIBROS">Libros</SelectItem>
+                        <SelectItem value="OTROS">Otros</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Unidad de medida</Label>
+                    <Select name="unidad_medida" defaultValue={editingProduct?.unidad_medida || ""}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar unidad..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="SERVICIO">Servicio</SelectItem>
+                        <SelectItem value="PIEZA">Pieza</SelectItem>
+                        <SelectItem value="LOTE">Lote</SelectItem>
+                        <SelectItem value="KILOGRAMO">Kilogramo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Clave SAT</Label>
+                    <Input
+                      name="clave_sat"
+                      placeholder="80101500"
+                      defaultValue={editingProduct?.clave_sat || ''}
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      name="activo"
+                      id="active"
+                      defaultChecked={editingProduct ? editingProduct.activo : true}
+                    />
+                    <Label htmlFor="active">Producto activo</Label>
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={handleCloseModal}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+                    {editingProduct ? 'Actualizar Producto' : 'Crear Producto'}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+
         </div>
       </div>
     </div>

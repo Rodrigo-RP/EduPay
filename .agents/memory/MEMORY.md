@@ -9,3 +9,4 @@
 - [Admin credentials](admin-creds.md) — admin.campus@jfr.edu.mx / Demo2025! (role: administrador_campus, campus_id:48); superadmin@edupay.mx / Demo2025!. rodrigorp@institutojfr.edu.mx NO existe en demo seed.
 - [Caja/historial API paths](caja-paths.md) — caja usa /api/caja/movimientos-banco (no /api/bank-transactions/:id); semáforo usa /api/riesgo/semaforo/:campusId (no /api/semaforo-riesgo/:id).
 - [Assistant scoring rules](assistant-scoring.md) — usar split(" ").includes(token) no kw.includes(token); guarda financiera dura en FINANCIAL_PROTECTED_ACTIONS; logging §4.3 en audit_log.
+- [Route Registry §9](route-registry.md) — shared/route-registry.ts es la fuente única de rutas; npm run check:routes falla si App.tsx tiene rutas sin registrar.

@@ -7,7 +7,14 @@
  * DISEÑO PARA FUTURA INTEGRACIÓN LLM:
  * Cuando el sistema esté estable, reemplaza el cuerpo de `matchIntent()`
  * por una llamada a OpenAI/Claude. La firma del endpoint NO cambia.
+ *
+ * §9.1 — FUENTE ÚNICA DE RUTAS:
+ * Todas las rutas del panel deben tener una entrada en `shared/route-registry.ts`.
+ * KNOWLEDGE_BASE extiende esas entradas con keywords adicionales, descripción y roles.
+ * El script `npm run check:routes` valida que ambos archivos estén en sincronía con App.tsx.
  */
+
+import { ASSISTANT_ROUTES } from "../shared/route-registry";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -308,7 +315,86 @@ export const KNOWLEDGE_BASE: KnowledgeModule[] = [
     ],
     roles: ["super_admin","administrador_general","contador_general"],
   },
+
+  // ── Rutas agregadas por §9.1 (antes sin cobertura del asistente) ──────────
+
+  {
+    route: "/emision-cargos",
+    label: "Emisión de Cargos",
+    description: "Generación masiva de cargos por ciclo, nivel o grupo.",
+    keywords: [
+      "emision de cargos", "emitir cargos", "cargos masivos", "generar cargos",
+      "cargos del ciclo", "emision masiva", "lanzar cargos", "aplicar cargos",
+      "cargos por nivel", "cargos por grupo"
+    ],
+    roles: ["super_admin","administrador_general","administrador_campus","contador_general"],
+  },
+  {
+    route: "/centro-comandos",
+    label: "Centro de Comandos",
+    description: "Panel de operaciones avanzadas, tareas programadas y control del sistema.",
+    keywords: [
+      "centro de comandos", "comandos", "operaciones", "control del sistema",
+      "centro operativo", "tareas programadas", "jobs", "procesos", "automatizacion",
+      "pipeline", "scheduler"
+    ],
+    roles: ["super_admin","administrador_general"],
+  },
+  {
+    route: "/reporte-consejo",
+    label: "Reporte para el Consejo",
+    description: "Informe ejecutivo de cobranza y finanzas para el consejo directivo.",
+    keywords: [
+      "reporte consejo", "reporte directivo", "consejo escolar", "directivos",
+      "informe consejo", "reporte ejecutivo", "presentacion directiva", "board report",
+      "informe directivo", "reporte de direccion"
+    ],
+    roles: ["super_admin","administrador_general"],
+  },
+  {
+    route: "/perfil",
+    label: "Mi Perfil",
+    description: "Datos personales, cambio de contraseña y foto del usuario actual.",
+    keywords: [
+      "perfil", "mi perfil", "mi cuenta", "cambiar contrasena", "cambiar password",
+      "datos personales", "foto de perfil", "nombre de usuario", "cuenta"
+    ],
+    roles: [],
+  },
+  {
+    route: "/dashboard-admisiones",
+    label: "Dashboard de Admisiones",
+    description: "Métricas de admisiones, prospectos e inscritos del ciclo actual.",
+    keywords: [
+      "admisiones", "dashboard admisiones", "prospectos", "inscritos",
+      "nuevos alumnos", "captacion", "proceso de admision", "pipeline admisiones"
+    ],
+    roles: ["super_admin","administrador_general","admisiones"],
+  },
+  {
+    route: "/dashboard-caja",
+    label: "Dashboard de Caja",
+    description: "Resumen del día de caja: ingresos, pagos recibidos y saldo.",
+    keywords: [
+      "dashboard caja", "resumen de caja", "ingresos del dia", "caja del dia",
+      "cuanto entrò hoy", "resumen diario", "cierre del dia"
+    ],
+    roles: ["super_admin","administrador_general","administrador_campus","contador_general","auxiliar_contable"],
+  },
 ];
+
+// ── §9.1 Validación en tiempo de inicio: KNOWLEDGE_BASE vs route-registry ────
+// Detecta rutas del registro que aún no tienen cobertura completa en KNOWLEDGE_BASE.
+// Esto es una advertencia de desarrollo, no un error fatal en producción.
+const _missingFromKB = ASSISTANT_ROUTES.filter(
+  (r) => !KNOWLEDGE_BASE.some((m) => m.route === r.path)
+);
+if (_missingFromKB.length > 0) {
+  console.warn(
+    `[assistant] §9.1 ADVERTENCIA — ${_missingFromKB.length} ruta(s) en route-registry sin cobertura en KNOWLEDGE_BASE:`,
+    _missingFromKB.map((r) => r.path).join(", ")
+  );
+}
 
 // ── Utilidades de normalización ───────────────────────────────────────────────
 

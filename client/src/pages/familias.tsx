@@ -1087,14 +1087,15 @@ export default function Familias() {
       return true;
     })();
 
-    // Número de hermanos (hijos vinculados a la familia)
+    // Hermanos — detectados automáticamente por estudiantes_vinculados de la familia
     const numHijos = familia.estudiantes_vinculados?.length ?? 0;
-    const numHermanos = Math.max(0, numHijos - 1);
-    const matchHermanos = selectedHermanos === "all" || (() => {
-      const n = parseInt(selectedHermanos, 10);
-      if (selectedHermanos === "5+") return numHermanos >= 5;
-      return numHermanos === n;
-    })();
+    const tieneHermanos = numHijos >= 2;
+    const matchHermanos = selectedHermanos === "all" ||
+      (selectedHermanos === "con_hermanos"  && tieneHermanos) ||
+      (selectedHermanos === "hijo_unico"    && !tieneHermanos) ||
+      (selectedHermanos === "2"             && numHijos === 2) ||
+      (selectedHermanos === "3"             && numHijos === 3) ||
+      (selectedHermanos === "4+"            && numHijos >= 4);
 
     return matchSearch && matchEstatus && matchSeccion && matchGrado && matchGrupo && matchCP && matchCiclo && matchPeriodo && matchEstadoCivil && matchHermanos;
   });
@@ -1112,10 +1113,14 @@ export default function Familias() {
       porEstatus:     byKey(filteredFamilias, f => f.estatus),
       porNivel:       byKey(filteredFamilias, f => f.estudiantes_vinculados?.[0]?.nivel_escolar || "Sin nivel"),
       porEstadoCivil: byKey(filteredFamilias, f => f.estado_civil || f.padre_estado_civil || f.madre_estado_civil || "No especificado"),
-      porHermanos: [0,1,2,3,4].map(n => ({
-        label: n === 0 ? "Hijo único" : `${n} hermano${n > 1 ? "s" : ""}`,
-        count: count(filteredFamilias, f => Math.max(0, (f.estudiantes_vinculados?.length ?? 1) - 1) === n),
-      })).concat([{ label: "5+ hermanos", count: count(filteredFamilias, f => Math.max(0, (f.estudiantes_vinculados?.length ?? 1) - 1) >= 5) }]),
+      conHermanos:  count(filteredFamilias, f => (f.estudiantes_vinculados?.length ?? 0) >= 2),
+      hijoUnico:    count(filteredFamilias, f => (f.estudiantes_vinculados?.length ?? 0) < 2),
+      porHermanos: [
+        { label: "Hijo único",   count: count(filteredFamilias, f => (f.estudiantes_vinculados?.length ?? 0) < 2) },
+        { label: "2 hijos",      count: count(filteredFamilias, f => (f.estudiantes_vinculados?.length ?? 0) === 2) },
+        { label: "3 hijos",      count: count(filteredFamilias, f => (f.estudiantes_vinculados?.length ?? 0) === 3) },
+        { label: "4 o más hijos",count: count(filteredFamilias, f => (f.estudiantes_vinculados?.length ?? 0) >= 4) },
+      ],
       padresSolteros:  count(filteredFamilias, f => {
         const ec = (f.estado_civil || "").toLowerCase();
         return ec === "soltero" || ec === "soltera";
@@ -1179,7 +1184,8 @@ export default function Familias() {
     total: familias.length,
     activas: familias.filter(f => f.estatus === "activo").length,
     saldoTotal: familias.reduce((sum, f) => sum + f.saldo_total, 0),
-    promedioHijos: familias.reduce((sum, f) => sum + f.estudiantes_vinculados.length, 0) / familias.length
+    promedioHijos: familias.length > 0 ? familias.reduce((sum, f) => sum + f.estudiantes_vinculados.length, 0) / familias.length : 0,
+    conHermanos: familias.filter(f => f.estudiantes_vinculados.length >= 2).length,
   };
 
   if (isLoading) {
@@ -1243,7 +1249,7 @@ export default function Familias() {
         </div>
 
         {/* KPI Cards como en el Dashboard */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 md:gap-6 mb-6 md:mb-8">
           <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-3 md:p-5">
             <CardContent className="p-0">
               <div className="flex items-center justify-between gap-2">
@@ -1299,6 +1305,27 @@ export default function Familias() {
                 </div>
                 <div className="text-purple-500 flex-shrink-0">
                   <UserCheck className="h-5 w-5 md:h-7 md:w-7" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 p-3 md:p-5 cursor-pointer hover:bg-teal-50 transition-colors border border-transparent hover:border-teal-200"
+            onClick={() => setSelectedHermanos(selectedHermanos === "con_hermanos" ? "all" : "con_hermanos")}
+            title="Clic para filtrar familias con hermanos"
+          >
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs md:text-sm text-slate-600 mb-1">Con hermanos</p>
+                  <p className="text-lg md:text-xl font-bold text-teal-600 whitespace-nowrap">{estadisticas.conHermanos}</p>
+                  <div className="text-xs text-teal-600 mt-1">
+                    {familias.length > 0 ? `${Math.round((estadisticas.conHermanos / estadisticas.total) * 100)}% del total` : "—"}
+                  </div>
+                </div>
+                <div className="text-teal-500 flex-shrink-0">
+                  <Users className="h-5 w-5 md:h-7 md:w-7" />
                 </div>
               </div>
             </CardContent>
@@ -1378,6 +1405,15 @@ export default function Familias() {
                   >
                     <AlertTriangle className="h-3 w-3 mr-1" />
                     Pendientes documentos
+                  </Button>
+                  <Button
+                    variant={selectedHermanos === "con_hermanos" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedHermanos(selectedHermanos === "con_hermanos" ? "all" : "con_hermanos")}
+                    className="text-xs bg-teal-50 hover:bg-teal-100 text-teal-700 border-teal-200"
+                  >
+                    <Users className="h-3 w-3 mr-1" />
+                    Con hermanos
                   </Button>
                   {/* Selector de estatus inline */}
                   <Select value={selectedEstatus} onValueChange={setSelectedEstatus}>
@@ -1515,19 +1551,18 @@ export default function Familias() {
                         </SelectContent>
                       </Select>
                     </div>
-                    {/* Hermanos */}
+                    {/* Hermanos — detectados automáticamente */}
                     <div className="space-y-1">
-                      <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Número de hermanos</Label>
+                      <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Hermanos en la familia</Label>
                       <Select value={selectedHermanos} onValueChange={setSelectedHermanos}>
                         <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">Todos</SelectItem>
-                          <SelectItem value="0">Hijo único (0 hermanos)</SelectItem>
-                          <SelectItem value="1">1 hermano</SelectItem>
-                          <SelectItem value="2">2 hermanos</SelectItem>
-                          <SelectItem value="3">3 hermanos</SelectItem>
-                          <SelectItem value="4">4 hermanos</SelectItem>
-                          <SelectItem value="5+">5 o más hermanos</SelectItem>
+                          <SelectItem value="all">Todas las familias</SelectItem>
+                          <SelectItem value="con_hermanos">Con hermanos (2+ hijos)</SelectItem>
+                          <SelectItem value="hijo_unico">Hijo único</SelectItem>
+                          <SelectItem value="2">Exactamente 2 hijos</SelectItem>
+                          <SelectItem value="3">Exactamente 3 hijos</SelectItem>
+                          <SelectItem value="4+">4 o más hijos</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1639,7 +1674,9 @@ export default function Familias() {
                     <div>
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Indicadores</p>
                       <div className="space-y-1 text-xs">
-                        <div className="flex justify-between"><span className="text-gray-600">Padres/Madres solteros</span><span className="font-semibold text-blue-700">{d.padresSolteros}</span></div>
+                        <div className="flex justify-between"><span className="text-gray-600 font-medium">Con hermanos (2+ hijos)</span><span className="font-bold text-teal-700">{d.conHermanos}</span></div>
+                        <div className="flex justify-between"><span className="text-gray-600">Hijo único</span><span className="font-semibold text-gray-700">{d.hijoUnico}</span></div>
+                        <div className="flex justify-between border-t border-gray-100 pt-1 mt-1"><span className="text-gray-600">Padres/Madres solteros</span><span className="font-semibold text-blue-700">{d.padresSolteros}</span></div>
                         <div className="flex justify-between"><span className="text-gray-600">Viudos</span><span className="font-semibold text-gray-700">{d.viudos}</span></div>
                         <div className="flex justify-between"><span className="text-gray-600">Divorciados</span><span className="font-semibold text-orange-700">{d.divorciados}</span></div>
                       </div>

@@ -369,7 +369,7 @@ export default function Becas() {
       monto_total_descuento: 3200000, // $32,000 MXN
       asignacion: "Manual por área académica",
       documentos_requeridos: ["Estudio socioeconómico", "Comprobante de ingresos", "Carta solicitud"],
-      vigencia: "2024-2025",
+      vigencia: "2026-2027",
       activa: true
     },
     {
@@ -383,7 +383,7 @@ export default function Becas() {
       monto_total_descuento: 1950000, // $19,500 MXN
       asignacion: "Automático al detectar hermanos en sistema",
       criterios: "2 hermanos: 20%, 3 hermanos: 30%, 4+ hermanos: 40%",
-      vigencia: "2024-2025",
+      vigencia: "2026-2027",
       activa: true
     },
     {
@@ -397,7 +397,7 @@ export default function Becas() {
       monto_total_descuento: 1800000, // $18,000 MXN
       asignacion: "Manual según convenio vigente",
       empresas_convenio: ["Grupo Industrial SA", "Tech Solutions", "Comercial del Norte"],
-      vigencia: "2024-2025",
+      vigencia: "2026-2027",
       activa: true
     },
     {
@@ -411,7 +411,7 @@ export default function Becas() {
       monto_total_descuento: 720000, // $7,200 MXN
       asignacion: "Manual por coordinación deportiva",
       documentos_requeridos: ["Constancia participación", "Resultados competencias"],
-      vigencia: "2024-2025",
+      vigencia: "2026-2027",
       activa: true
     },
     {
@@ -425,7 +425,7 @@ export default function Becas() {
       monto_total_descuento: 540000, // $5,400 MXN
       asignacion: "Manual por área cultural",
       documentos_requeridos: ["Portfolio artístico", "Carta recomendación"],
-      vigencia: "2024-2025",
+      vigencia: "2026-2027",
       activa: true
     },
     {
@@ -439,7 +439,7 @@ export default function Becas() {
       monto_total_descuento: 2400000, // $24,000 MXN
       asignacion: "Automático al verificar relación laboral",
       criterios: "Personal administrativo: 30%, Docentes: 50%, Directivos: 60%",
-      vigencia: "2024-2025",
+      vigencia: "2026-2027",
       activa: true
     },
     {
@@ -453,7 +453,7 @@ export default function Becas() {
       monto_total_descuento: 1200000, // $12,000 MXN total (8 × $1,500)
       asignacion: "Manual por área administrativa",
       beneficios: "$1,500 pesos fijos descontados mensualmente",
-      vigencia: "2024-2025",
+      vigencia: "2026-2027",
       activa: true
     },
     {
@@ -467,7 +467,7 @@ export default function Becas() {
       monto_total_descuento: 750000, // $7,500 MXN total (3 × $2,500)
       asignacion: "Manual por dirección académica",
       beneficios: "$2,500 pesos fijos descontados mensualmente",
-      vigencia: "2024-2025",
+      vigencia: "2026-2027",
       activa: true
     }
   ];
@@ -857,7 +857,7 @@ ${b.nombre}:
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="semestre">Un semestre</SelectItem>
-                        <SelectItem value="anual">Ciclo completo 2024-2025</SelectItem>
+                        <SelectItem value="anual">Ciclo completo 2026-2027</SelectItem>
                         <SelectItem value="permanente">Permanente (hasta graduación)</SelectItem>
                       </SelectContent>
                     </Select>

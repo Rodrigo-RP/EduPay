@@ -373,8 +373,8 @@ export default function Estudiantes() {
   const [selectedGrado, setSelectedGrado] = useState("all");
   const [selectedGrupo, setSelectedGrupo] = useState("all");
   const [selectedSeccion, setSelectedSeccion] = useState("all");
-  const [selectedCicloEscolar, setSelectedCicloEscolar] = useState("all");
-  const [selectedPeriodoEstudiantes, setSelectedPeriodoEstudiantes] = useState("all");
+  const [selectedCicloEscolar, setSelectedCicloEscolar] = useState(getCurrentCiclo());
+  const [selectedPeriodoEstudiantes, setSelectedPeriodoEstudiantes] = useState("hoy");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedCodigoPostal, setSelectedCodigoPostal] = useState("all");
   const [selectedEdadRango, setSelectedEdadRango] = useState("all");

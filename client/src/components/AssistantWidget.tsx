@@ -24,11 +24,19 @@ interface CheckResult {
   expectedBehavior: string;
 }
 
+interface AuditLayer {
+  layer: 1 | 2 | 3 | 4;
+  name: string;
+  ok: boolean;
+  detail: string;
+}
+
 export interface DiagnosticResult {
   status: "ok" | "config_error" | "technical_error";
   moduleId: string;
   label: string;
   checks: CheckResult[];
+  auditLayers?: AuditLayer[];
   fixAvailable?: boolean;
   fixDescription?: string;
 }
@@ -143,7 +151,34 @@ function DiagnosticCard({
         </div>
       </div>
 
-      {/* Checks list */}
+      {/* Protocolo de Auditoría E2E — 4 capas */}
+      {result.auditLayers && result.auditLayers.length > 0 && (
+        <div className="mb-2">
+          <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">
+            Auditoría E2E
+          </p>
+          <div className="space-y-1">
+            {result.auditLayers.map((l) => (
+              <div key={l.layer} className="flex items-start gap-1.5">
+                {l.ok
+                  ? <CheckCircle2 className="w-3 h-3 text-green-500 flex-shrink-0 mt-0.5" />
+                  : <XCircle className="w-3 h-3 text-red-500 flex-shrink-0 mt-0.5" />}
+                <div className="min-w-0">
+                  <span className={`leading-tight text-[10px] font-medium ${l.ok ? "text-slate-600" : "text-red-700"}`}>
+                    C{l.layer}: {l.name}
+                  </span>
+                  {!l.ok && (
+                    <p className="text-[10px] text-red-600 mt-0.5 leading-tight">{l.detail}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-slate-200 mt-2 mb-2" />
+        </div>
+      )}
+
+      {/* Checks de datos del módulo */}
       <div className="space-y-1 mb-2">
         {result.checks.map((c, i) => (
           <div key={i} className="flex items-start gap-1.5">

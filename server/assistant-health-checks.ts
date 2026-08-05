@@ -45,11 +45,19 @@ export interface CheckContext {
 
 export type DiagnosticStatus = "ok" | "config_error" | "technical_error";
 
+export interface AuditLayer {
+  layer: 1 | 2 | 3 | 4;
+  name: string;
+  ok: boolean;
+  detail: string;
+}
+
 export interface DiagnosticResult {
   status: DiagnosticStatus;
   moduleId: string;
   label: string;
   checks: CheckResult[];
+  auditLayers?: AuditLayer[];
   fixAvailable?: boolean;
   fixDescription?: string;
 }
@@ -605,6 +613,160 @@ export const MODULE_CHECKS: ModuleCheck[] = [
   },
 ];
 
+// ── Capas de Auditoría (Protocolo E2E) ───────────────────────────────────────
+
+/**
+ * CAPA 1 — Conectividad de endpoints / latencia de BD
+ * Mide el tiempo de respuesta del pool. >500ms = anomalía.
+ */
+async function auditLayer1_Endpoints(moduleId: string, ctx: CheckContext): Promise<AuditLayer> {
+  try {
+    const start = Date.now();
+    await pool.query("SELECT 1");
+    const ms = Date.now() - start;
+    const ok = ms < 500;
+    return {
+      layer: 1,
+      name: "Conectividad de endpoints",
+      ok,
+      detail: ok
+        ? `Base de datos responde en ${ms}ms`
+        : `Latencia anómala: ${ms}ms (umbral 500ms) — posible sobrecarga del servidor`,
+    };
+  } catch (e: any) {
+    return { layer: 1, name: "Conectividad de endpoints", ok: false, detail: `Sin conexión a BD: ${e.message}` };
+  }
+}
+
+/**
+ * CAPA 2 — Integridad de base de datos
+ * Detecta registros huérfanos o referencias rotas en el módulo.
+ */
+async function auditLayer2_DBIntegrity(moduleId: string, ctx: CheckContext): Promise<AuditLayer> {
+  try {
+    let issues: string[] = [];
+
+    if (moduleId === "cargos" || moduleId === "pagos" || moduleId === "cuentas-por-cobrar") {
+      // Charges sin alumno válido
+      const orphans = await pool.query(
+        `SELECT COUNT(*) AS cnt FROM charges c
+         LEFT JOIN students s ON c.student_id = s.id
+         WHERE s.id IS NULL`
+      );
+      const n = parseInt(orphans.rows[0].cnt, 10);
+      if (n > 0) issues.push(`${n} cargo(s) sin alumno asociado`);
+    }
+
+    if (moduleId === "pagos" || moduleId === "fiscal-contable") {
+      // Payments sin charge válido
+      const orphanPay = await pool.query(
+        `SELECT COUNT(*) AS cnt FROM payments p
+         LEFT JOIN charges c ON p.charge_id = c.id
+         WHERE c.id IS NULL`
+      );
+      const n = parseInt(orphanPay.rows[0].cnt, 10);
+      if (n > 0) issues.push(`${n} pago(s) sin cargo asociado`);
+    }
+
+    if (moduleId === "becas") {
+      // Becas sin alumno válido
+      const orphanSch = await pool.query(
+        `SELECT COUNT(*) AS cnt FROM scholarships s
+         LEFT JOIN students st ON s.student_id = st.id
+         WHERE st.id IS NULL`
+      );
+      const n = parseInt(orphanSch.rows[0].cnt, 10);
+      if (n > 0) issues.push(`${n} beca(s) sin alumno asociado`);
+    }
+
+    const ok = issues.length === 0;
+    return {
+      layer: 2,
+      name: "Integridad de base de datos",
+      ok,
+      detail: ok ? "Sin registros huérfanos ni referencias rotas" : issues.join("; "),
+    };
+  } catch (e: any) {
+    return { layer: 2, name: "Integridad de base de datos", ok: false, detail: `Error al verificar integridad: ${e.message}` };
+  }
+}
+
+/**
+ * CAPA 3 — Servicios externos y configuración fiscal
+ * Verifica que la configuración de terceros (RFC, CFDI, etc.) esté presente.
+ */
+async function auditLayer3_ExternalServices(moduleId: string, ctx: CheckContext): Promise<AuditLayer> {
+  try {
+    // Para módulos fiscales verificar configuración SAT
+    if (moduleId === "fiscal-contable") {
+      const cfg = await pool.query(
+        `SELECT rfc, regimen_fiscal, lugar_expedicion
+         FROM institutional_settings WHERE campus_id = $1 LIMIT 1`,
+        [ctx.campusId]
+      );
+      if (cfg.rows.length === 0) {
+        return { layer: 3, name: "Servicios externos / fiscal", ok: false, detail: "Falta configuración institucional (RFC, régimen fiscal) — ve a Configuración" };
+      }
+      const { rfc, regimen_fiscal, lugar_expedicion } = cfg.rows[0];
+      const missing = [!rfc && "RFC", !regimen_fiscal && "Régimen Fiscal", !lugar_expedicion && "Lugar de Expedición"].filter(Boolean);
+      if (missing.length > 0) {
+        return { layer: 3, name: "Servicios externos / fiscal", ok: false, detail: `Campos faltantes para CFDI: ${missing.join(", ")}` };
+      }
+      return { layer: 3, name: "Servicios externos / fiscal", ok: true, detail: `RFC ${rfc} configurado — listo para emitir CFDI` };
+    }
+
+    // Para pagos verificar que existan métodos de pago configurados
+    if (moduleId === "pagos" || moduleId === "cuentas-por-cobrar") {
+      const cfg = await pool.query(
+        "SELECT COUNT(*) AS cnt FROM institutional_settings WHERE campus_id = $1",
+        [ctx.campusId]
+      );
+      const ok = parseInt(cfg.rows[0].cnt, 10) > 0;
+      return {
+        layer: 3,
+        name: "Servicios externos / pagos",
+        ok,
+        detail: ok ? "Configuración institucional disponible para procesar pagos" : "Sin configuración institucional — los pagos pueden fallar",
+      };
+    }
+
+    // Módulos sin dependencia externa
+    return { layer: 3, name: "Servicios externos", ok: true, detail: "Este módulo no depende de servicios externos" };
+  } catch (e: any) {
+    return { layer: 3, name: "Servicios externos", ok: false, detail: `Error verificando servicios: ${e.message}` };
+  }
+}
+
+/**
+ * CAPA 4 — Resiliencia y manejo de errores
+ * Verifica que la BD rechaza datos inválidos y no los persiste silenciosamente.
+ */
+async function auditLayer4_Resilience(moduleId: string, ctx: CheckContext): Promise<AuditLayer> {
+  try {
+    // Intentar insertar un registro con FK inválida; si la BD lo rechaza correctamente = resiliente
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      // Intento de charge con student_id inexistente (FK debe fallar)
+      await client.query(
+        `INSERT INTO charges (student_id, concept_id, monto, estado, ciclo_escolar, fecha_vencimiento)
+         VALUES (-99999, -99999, 0, 'pendiente', '____TEST____', NOW())`
+      );
+      // Si llegó aquí, la restricción FK no está activa — problema de resiliencia
+      await client.query("ROLLBACK");
+      return { layer: 4, name: "Resiliencia y manejo de errores", ok: false, detail: "La BD aceptó datos inválidos sin restricción — riesgo de corrupción" };
+    } catch {
+      // Error esperado: FK violada → sistema rechaza correctamente
+      await client.query("ROLLBACK");
+      return { layer: 4, name: "Resiliencia y manejo de errores", ok: true, detail: "BD rechaza datos inválidos correctamente — restricciones activas" };
+    } finally {
+      client.release();
+    }
+  } catch (e: any) {
+    return { layer: 4, name: "Resiliencia y manejo de errores", ok: false, detail: `Error en prueba de resiliencia: ${e.message}` };
+  }
+}
+
 // ── Runner principal ──────────────────────────────────────────────────────────
 
 /**
@@ -632,11 +794,21 @@ export async function runDiagnostic(
     })
   );
 
-  const allOk = checksWithMeta.every((c) => c.result.ok);
+  // ── Protocolo de Auditoría E2E (4 capas) ────────────────────────────────
+  const [layer1, layer2, layer3, layer4] = await Promise.all([
+    auditLayer1_Endpoints(moduleId, ctx),
+    auditLayer2_DBIntegrity(moduleId, ctx),
+    auditLayer3_ExternalServices(moduleId, ctx),
+    auditLayer4_Resilience(moduleId, ctx),
+  ]);
+  const auditLayers: AuditLayer[] = [layer1, layer2, layer3, layer4];
+  const auditOk = auditLayers.every((l) => l.ok);
+
+  const allOk = checksWithMeta.every((c) => c.result.ok) && auditOk;
   const hasConfigError = checksWithMeta.some(
     (c) => !c.result.ok && c.result.detail && !c.result.detail.includes("Error inesperado")
-  );
-  
+  ) || auditLayers.some((l) => !l.ok && (l.layer === 3 || l.layer === 2));
+
   // Detectar si hay fix disponible
   const fixableCheck = checksWithMeta.find((c) => !c.result.ok && c.autoFix);
 
@@ -696,6 +868,7 @@ export async function runDiagnostic(
     moduleId,
     label: mod.label,
     checks: checksWithMeta.map((c) => c.result),
+    auditLayers,
     fixAvailable: !!fixableCheck,
     fixDescription: fixableCheck?.autoFixDescription,
   };

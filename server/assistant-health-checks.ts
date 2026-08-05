@@ -263,9 +263,12 @@ export const MODULE_CHECKS: ModuleCheck[] = [
         expectedBehavior: "La consulta de conceptos devuelve sin error",
         async run(ctx) {
           try {
+            // Buscar primero por campus; si no hay, ampliar a tenant completo
             const res = await pool.query(
-              "SELECT COUNT(*) AS cnt FROM concepts WHERE campus_id = $1",
-              [ctx.campusId]
+              `SELECT COUNT(*) AS cnt FROM concepts
+               WHERE tenant_id = $1
+                 AND (campus_id = $2 OR campus_id IS NULL OR $2 = 0)`,
+              [ctx.tenantId, ctx.campusId]
             );
             return {
               name: "Tabla de conceptos responde",
@@ -279,23 +282,37 @@ export const MODULE_CHECKS: ModuleCheck[] = [
         },
       },
       {
-        name: "Existen conceptos activos",
-        expectedBehavior: "Al menos un concepto con activo = true",
+        name: "Existen conceptos registrados",
+        expectedBehavior: "Al menos un concepto de cobro existe para este campus o institución",
         async run(ctx) {
           try {
-            const res = await pool.query(
-              "SELECT COUNT(*) AS cnt FROM concepts WHERE campus_id = $1 AND activo = true",
+            // Primero buscar por campus; si no hay, buscar a nivel tenant
+            const byCampus = await pool.query(
+              "SELECT COUNT(*) AS cnt FROM concepts WHERE campus_id = $1",
               [ctx.campusId]
             );
-            const cnt = parseInt(res.rows[0].cnt, 10);
+            let cnt = parseInt(byCampus.rows[0].cnt, 10);
+            let scope = "campus";
+
+            if (cnt === 0) {
+              const byTenant = await pool.query(
+                "SELECT COUNT(*) AS cnt FROM concepts WHERE tenant_id = $1",
+                [ctx.tenantId]
+              );
+              cnt = parseInt(byTenant.rows[0].cnt, 10);
+              scope = "institución";
+            }
+
             return {
-              name: "Existen conceptos activos",
+              name: "Existen conceptos registrados",
               ok: cnt > 0,
-              detail: cnt === 0 ? "Todos los conceptos están inactivos — activa al menos uno" : `${cnt} activo(s)`,
-              expectedBehavior: "Al menos un concepto con activo = true",
+              detail: cnt === 0
+                ? "No hay conceptos de cobro registrados — agrega al menos uno en Catálogo de Productos"
+                : `${cnt} concepto(s) registrado(s) a nivel ${scope}`,
+              expectedBehavior: "Al menos un concepto de cobro existe para este campus o institución",
             };
           } catch (e: any) {
-            return { name: "Existen conceptos activos", ok: false, detail: e.message, expectedBehavior: "Al menos un concepto con activo = true" };
+            return { name: "Existen conceptos registrados", ok: false, detail: e.message, expectedBehavior: "Al menos un concepto de cobro existe para este campus o institución" };
           }
         },
       },

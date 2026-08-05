@@ -41,6 +41,8 @@ interface ChatMessage {
   suggestions?: NavTarget[];
   /** Señal de diagnóstico pendiente (se auto-ejecuta al aparecer en el chat) */
   diagnosePending?: { moduleId: string; label: string };
+  /** Ruta al módulo diagnosticado (persiste para el botón de navegación) */
+  diagnoseNav?: NavTarget;
   /** Resultado real del diagnóstico */
   diagnosticResult?: DiagnosticResult;
   /** Loading del diagnóstico */
@@ -383,7 +385,15 @@ export default function AssistantWidget() {
         text: data.reply,
         navigate: data.navigate,
         suggestions: data.suggestions,
-        ...(data.diagnose ? { diagnosePending: data.diagnose } : {}),
+        ...(data.diagnose
+          ? {
+              diagnosePending: data.diagnose,
+              diagnoseNav: {
+                route: `/${data.diagnose.moduleId}`,
+                label: data.diagnose.label,
+              },
+            }
+          : {}),
         ts: Date.now(),
       };
       setMessages((prev) => [...prev, assistantMsg]);
@@ -496,11 +506,22 @@ export default function AssistantWidget() {
 
                   {/* Tarjeta de diagnóstico */}
                   {msg.diagnosticResult && (
-                    <DiagnosticCard
-                      result={msg.diagnosticResult}
-                      msgId={msg.id}
-                      onAutoFix={handleAutoFix}
-                    />
+                    <>
+                      <DiagnosticCard
+                        result={msg.diagnosticResult}
+                        msgId={msg.id}
+                        onAutoFix={handleAutoFix}
+                      />
+                      {msg.diagnoseNav && (
+                        <button
+                          onClick={() => navigateTo(msg.diagnoseNav!.route)}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-full transition-colors shadow-sm"
+                        >
+                          <ChevronRight className="w-3 h-3" />
+                          Ir a {msg.diagnoseNav.label}
+                        </button>
+                      )}
+                    </>
                   )}
 
                   {/* Botón de navegación */}

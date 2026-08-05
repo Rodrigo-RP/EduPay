@@ -424,7 +424,21 @@ export function matchIntent(
   const best = scored[0];
   const THRESHOLD = 2;
 
-  // ── Caso: reporte de fallo + módulo identificado ─────────────────────────────
+  // ── Caso: reporte de fallo — prioridad 1: módulo de la página actual ──────────
+  if (isFaultReport && currentPath) {
+    // Buscar el módulo que corresponde a la ruta actual (ignorar restricciones de rol,
+    // el usuario ya está en la página así que tiene acceso)
+    const currentModule = KNOWLEDGE_BASE.find((m) => m.route === currentPath);
+    if (currentModule) {
+      const moduleId = currentModule.route.replace(/^\//, "");
+      return {
+        reply: `Voy a hacer una prueba del módulo **${currentModule.label}** ahora mismo…`,
+        diagnose: { moduleId, label: currentModule.label },
+      };
+    }
+  }
+
+  // ── Caso: reporte de fallo + módulo identificado por keywords ─────────────────
   if (isFaultReport && best && best.score >= THRESHOLD) {
     const moduleId = best.module.route.replace(/^\//, "");
     return {

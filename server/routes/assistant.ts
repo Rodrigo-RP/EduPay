@@ -30,7 +30,11 @@ export function registerAssistantRoutes(app: Express): void {
       }
 
       const userRole: string = req.user?.role || "asistente";
-      const result = matchIntent(message.trim(), userRole, currentPath);
+      // Decodificar entidades HTML que puede introducir algún middleware de sanitización
+      const decodedPath = currentPath
+        ? currentPath.replace(/&#x2F;/g, "/").replace(/&#x27;/g, "'").replace(/&amp;/g, "&")
+        : undefined;
+      const result = matchIntent(message.trim(), userRole, decodedPath);
       return res.json(result);
     } catch (err: any) {
       console.error("[assistant] Error procesando mensaje:", err.message);

@@ -378,6 +378,7 @@ export default function Estudiantes() {
   const [selectedCodigoPostal, setSelectedCodigoPostal] = useState("all");
   const [selectedEdadRango, setSelectedEdadRango] = useState("all");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const [gruposPersonalizados, setGruposPersonalizados] = useState(["A", "B", "C", "D", "E", "F", "G", "H"]);
   const [editandoGrupos, setEditandoGrupos] = useState(false);
   const [nuevoGrupo, setNuevoGrupo] = useState("");
@@ -907,6 +908,7 @@ export default function Estudiantes() {
         break;
       case 'todos':
         setSelectedStatus("all");
+        setShowAll(true);
         break;
     }
   };
@@ -932,6 +934,17 @@ export default function Estudiantes() {
       (e.direccion && e.direccion.match && e.direccion.match(/\b\d{5}\b/))?.[0]
     ).filter(Boolean)
   )) as string[];
+
+  // true cuando el usuario ha escrito, seleccionado un filtro, o pedido ver todos
+  const hasActiveSearch = showAll ||
+    !!searchTerm ||
+    selectedGrado !== "all" ||
+    selectedGrupo !== "all" ||
+    selectedSeccion !== "all" ||
+    selectedCicloEscolar !== "all" ||
+    selectedStatus !== "all" ||
+    selectedCodigoPostal !== "all" ||
+    selectedEdadRango !== "all";
 
   const filteredEstudiantes = estudiantes.filter((estudiante: any) => {
     const matchSearch = !searchTerm || 
@@ -983,7 +996,12 @@ export default function Estudiantes() {
           <Users className="h-8 w-8 text-blue-600" />
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              Lista de estudiantes ({isLoading ? '...' : estudiantes.length})
+              Estudiantes
+              {!isLoading && hasActiveSearch && (
+                <span className="ml-2 text-lg font-normal text-gray-500">
+                  — {filteredEstudiantes.length} resultado{filteredEstudiantes.length !== 1 ? 's' : ''}
+                </span>
+              )}
             </h1>
             <p className="text-sm text-gray-600">
               Gestiona la información de todos los estudiantes
@@ -1294,17 +1312,32 @@ export default function Estudiantes() {
           <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
           <span className="ml-2 text-gray-600">Cargando estudiantes...</span>
         </div>
+      ) : !hasActiveSearch ? (
+        /* Estado vacío inicial — sin búsqueda ni filtro activo */
+        <Card className="border-dashed">
+          <CardContent className="p-14 text-center">
+            <div className="w-14 h-14 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Search className="h-7 w-7 text-slate-400" />
+            </div>
+            <h3 className="text-base font-semibold text-gray-700 mb-1">
+              Busca un estudiante
+            </h3>
+            <p className="text-sm text-gray-500 max-w-xs mx-auto">
+              Ingresa un nombre, apellido o CURP en el buscador, o usa los filtros rápidos para ver resultados.
+            </p>
+          </CardContent>
+        </Card>
       ) : filteredEstudiantes.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
             <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              {estudiantes.length === 0 ? 'No hay estudiantes registrados' : 'No se encontraron estudiantes'}
+              {estudiantes.length === 0 ? 'No hay estudiantes registrados' : 'Sin resultados'}
             </h3>
             <p className="text-gray-600 mb-4">
-              {estudiantes.length === 0 
-                ? 'Agrega el primer estudiante para comenzar.' 
-                : 'Intenta ajustar los filtros de búsqueda.'}
+              {estudiantes.length === 0
+                ? 'Agrega el primer estudiante para comenzar.'
+                : 'Ningún alumno coincide con los filtros aplicados.'}
             </p>
             {estudiantes.length === 0 && (
               <Button onClick={() => setShowAddModal(true)} className="bg-blue-600 hover:bg-blue-700">

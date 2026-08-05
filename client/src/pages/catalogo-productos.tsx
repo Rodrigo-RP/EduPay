@@ -274,13 +274,15 @@ export default function CatalogoProductos() {
           <h1 className="text-3xl font-bold text-slate-900">Catálogo de Productos</h1>
           <p className="text-slate-600">Gestiona colegiaturas, inscripciones, seguros, libros y otros productos</p>
             </div>
-            <Dialog open={showAddModal} onOpenChange={handleCloseModal}>
-              <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Agregar Producto
-                </Button>
-              </DialogTrigger>
+            <Button
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={() => { setEditingProduct(null); setShowAddModal(true); }}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Agregar Producto
+            </Button>
+
+            <Dialog open={showAddModal} onOpenChange={(isOpen) => { if (!isOpen) handleCloseModal(); }}>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>{editingProduct ? 'Editar producto' : 'Crear nuevo producto'}</DialogTitle>

@@ -373,8 +373,8 @@ export default function Estudiantes() {
   const [selectedGrado, setSelectedGrado] = useState("all");
   const [selectedGrupo, setSelectedGrupo] = useState("all");
   const [selectedSeccion, setSelectedSeccion] = useState("all");
-  const [selectedCicloEscolar, setSelectedCicloEscolar] = useState(getCurrentCiclo());
-  const [selectedPeriodoEstudiantes, setSelectedPeriodoEstudiantes] = useState("hoy");
+  const [selectedCicloEscolar, setSelectedCicloEscolar] = useState("all");
+  const [selectedPeriodoEstudiantes, setSelectedPeriodoEstudiantes] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedCodigoPostal, setSelectedCodigoPostal] = useState("all");
   const [selectedEdadRango, setSelectedEdadRango] = useState("all");
@@ -1069,7 +1069,7 @@ export default function Estudiantes() {
     const matchGrado = selectedGrado === "all" || estudiante.grado === selectedGrado;
     const matchGrupo = selectedGrupo === "all" || estudiante.grupo === selectedGrupo;
     const matchSeccion = selectedSeccion === "all" || estudiante.nivel_escolar === selectedSeccion;
-    const matchCiclo = selectedCicloEscolar === "all" || (estudiante.ciclo_escolar || '2024-2025') === selectedCicloEscolar;
+    const matchCiclo = selectedCicloEscolar === "all" || !estudiante.ciclo_escolar || estudiante.ciclo_escolar === selectedCicloEscolar;
     const matchStatus = selectedStatus === "all" || estudiante.status === selectedStatus;
     const matchCodigoPostal = selectedCodigoPostal === "all" || 
       estudiante.codigo_postal === selectedCodigoPostal ||

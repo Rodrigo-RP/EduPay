@@ -18,7 +18,10 @@ const PERIODOS = [
 export default function Header() {
   const { user, guardian } = useAuth();
   const { selectedCiclo, selectedNivel, selectedPeriodo, setSelectedCiclo, setSelectedNivel, setSelectedPeriodo } = useAcademicFilter();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
+
+  // En Alumnos y Familias el buscador vive dentro de la página; no duplicar en el header
+  const hideGlobalSearch = location === "/estudiantes" || location === "/familias";
 
   const ciclosEscolares = generateCiclosList();
 
@@ -88,8 +91,8 @@ export default function Header() {
             </Select>
           </div>
 
-          {/* Buscador universal */}
-          <GlobalSearch />
+          {/* Buscador universal — oculto en páginas que tienen su propio buscador */}
+          {!hideGlobalSearch && <GlobalSearch />}
 
           <RealTimeStatus />
           

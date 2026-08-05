@@ -133,7 +133,7 @@ export default function Familias() {
           madre_email: "",
           direccion: "",
           ciudad: "Querétaro",
-          codigo_postal: "",
+          codigo_postal: f.codigo_postal || f.cp || "",
           razon_social: f.nombre,
           rfc: "",
           estatus: "activo",
@@ -146,7 +146,6 @@ export default function Familias() {
             grado_raw: s.grado || "",
             grupo: s.grupo || "",
           })),
-          codigo_postal: f.codigo_postal || f.cp || "",
           saldo_total: f.saldo_pendiente_centavos ?? 0,
           fecha_registro: f.created_at ? f.created_at.split("T")[0] : "",
         }));

@@ -23,6 +23,8 @@ export interface IntentResult {
   reply: string;
   navigate?: { route: string; label: string };
   suggestions?: Array<{ route: string; label: string }>;
+  /** Presente cuando el usuario reporta un problema → el widget lanza diagnóstico */
+  diagnose?: { moduleId: string; label: string };
 }
 
 // ── Base de conocimiento ──────────────────────────────────────────────────────
@@ -355,18 +357,35 @@ interface ScoredModule {
   score: number;
 }
 
+/** Palabras clave que indican que el usuario reporta un fallo */
+const FAULT_KEYWORDS = [
+  "no funciona", "no carga", "no guarda", "no aparece", "no puedo",
+  "no abre", "no muestra", "no genera", "no se genera", "no se guarda",
+  "error", "falla", "fallo", "problema", "bug", "roto", "rota",
+  "tira error", "sale error", "marca error", "revisar", "diagnosticar",
+  "revisar si funciona", "checar", "verificar si",
+];
+
+function hasFaultIntent(normalizedMsg: string): boolean {
+  return FAULT_KEYWORDS.some((kw) => normalizedMsg.includes(normalize(kw)));
+}
+
 export function matchIntent(
   message: string,
   userRole: string,
   currentPath?: string
 ): IntentResult {
   const tokens = tokenize(message);
+  const normalizedMsg = normalize(message);
 
   if (tokens.length === 0) {
     return {
       reply: "No entendí tu mensaje. Puedes preguntarme dónde está una función, por ejemplo: _\"¿dónde registro un pago?\"_ o _\"quiero ver las becas\"_.",
     };
   }
+
+  // Detectar intención de fallo
+  const isFaultReport = hasFaultIntent(normalizedMsg);
 
   // Filtrar módulos accesibles según el rol
   const accessible = KNOWLEDGE_BASE.filter(
@@ -381,6 +400,9 @@ export function matchIntent(
     let score = 0;
 
     for (const token of tokens) {
+      // Ignorar tokens de palabras de fallo para el scoring de módulo
+      if (FAULT_KEYWORDS.some((kw) => normalize(kw).split(" ").includes(token))) continue;
+
       // Coincidencia exacta en keywords → más peso
       if (normalizedKeywords.some((kw) => kw === token)) score += 3;
       // Keyword contiene el token
@@ -402,7 +424,24 @@ export function matchIntent(
   const best = scored[0];
   const THRESHOLD = 2;
 
-  // Caso: ya está en esa página
+  // ── Caso: reporte de fallo + módulo identificado ─────────────────────────────
+  if (isFaultReport && best && best.score >= THRESHOLD) {
+    const moduleId = best.module.route.replace(/^\//, "");
+    return {
+      reply: `Voy a hacer una prueba del módulo **${best.module.label}** ahora mismo…`,
+      diagnose: { moduleId, label: best.module.label },
+    };
+  }
+
+  // ── Caso: reporte de fallo sin módulo claro ───────────────────────────────────
+  if (isFaultReport && (!best || best.score < THRESHOLD)) {
+    return {
+      reply: "Entiendo que algo no está funcionando. ¿A qué módulo se refiere el problema? Selecciona uno para que haga la prueba:",
+      suggestions: accessible.slice(0, 8).map((m) => ({ route: m.route, label: m.label })),
+    };
+  }
+
+  // ── Caso: ya está en esa página ──────────────────────────────────────────────
   if (
     best &&
     best.score >= THRESHOLD &&
@@ -414,7 +453,7 @@ export function matchIntent(
     };
   }
 
-  // Caso: coincidencia clara
+  // ── Caso: coincidencia clara ─────────────────────────────────────────────────
   if (best && best.score >= THRESHOLD) {
     const secondBest = scored[1];
     const suggestions =
@@ -434,7 +473,7 @@ export function matchIntent(
     };
   }
 
-  // Caso: sin coincidencia — mostrar secciones disponibles
+  // ── Caso: sin coincidencia — mostrar secciones disponibles ───────────────────
   const topModules = accessible.slice(0, 8).map((m) => ({
     route: m.route,
     label: m.label,

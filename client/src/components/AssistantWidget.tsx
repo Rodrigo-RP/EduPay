@@ -7,7 +7,7 @@
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { BotMessageSquare, X, Send, ChevronRight } from "lucide-react";
+import { BotMessageSquare, X, Send, ChevronRight, CheckCircle2, XCircle, AlertTriangle, Wrench, Loader2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -17,12 +17,34 @@ interface NavTarget {
   label: string;
 }
 
+interface CheckResult {
+  name: string;
+  ok: boolean;
+  detail?: string;
+  expectedBehavior: string;
+}
+
+export interface DiagnosticResult {
+  status: "ok" | "config_error" | "technical_error";
+  moduleId: string;
+  label: string;
+  checks: CheckResult[];
+  fixAvailable?: boolean;
+  fixDescription?: string;
+}
+
 interface ChatMessage {
   id: number;
   role: "assistant" | "user";
   text: string;
   navigate?: NavTarget;
   suggestions?: NavTarget[];
+  /** Señal de diagnóstico pendiente (se auto-ejecuta al aparecer en el chat) */
+  diagnosePending?: { moduleId: string; label: string };
+  /** Resultado real del diagnóstico */
+  diagnosticResult?: DiagnosticResult;
+  /** Loading del diagnóstico */
+  diagnosing?: boolean;
   ts: number;
 }
 
@@ -30,6 +52,7 @@ interface AssistantResponse {
   reply: string;
   navigate?: NavTarget;
   suggestions?: NavTarget[];
+  diagnose?: { moduleId: string; label: string };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -64,10 +87,128 @@ const PAGE_LABELS: Record<string, string> = {
 };
 
 function renderMarkdown(text: string) {
-  // Soporta **negrita** y _cursiva_ básicos
   return text
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/_(.+?)_/g, "<em>$1</em>");
+}
+
+// ── Subcomponente: DiagnosticCard ─────────────────────────────────────────────
+
+function DiagnosticCard({
+  result,
+  msgId: mId,
+  onAutoFix,
+}: {
+  result: DiagnosticResult;
+  msgId: number;
+  onAutoFix: (moduleId: string, msgId: number) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const statusConfig = {
+    ok: {
+      color: "bg-green-50 border-green-200",
+      icon: <CheckCircle2 className="w-4 h-4 text-green-600" />,
+      badge: "bg-green-100 text-green-700",
+      label: "✅ Todo funciona",
+    },
+    config_error: {
+      color: "bg-amber-50 border-amber-200",
+      icon: <AlertTriangle className="w-4 h-4 text-amber-600" />,
+      badge: "bg-amber-100 text-amber-700",
+      label: "⚠️ Configuración incompleta",
+    },
+    technical_error: {
+      color: "bg-red-50 border-red-200",
+      icon: <XCircle className="w-4 h-4 text-red-600" />,
+      badge: "bg-red-100 text-red-700",
+      label: "❌ Error técnico",
+    },
+  }[result.status];
+
+  const failedChecks = result.checks.filter((c) => !c.ok);
+
+  return (
+    <div className={`rounded-xl border p-3 text-xs ${statusConfig.color} max-w-[240px]`}>
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-2">
+        {statusConfig.icon}
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-slate-800 truncate">{result.label}</p>
+          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium mt-0.5 ${statusConfig.badge}`}>
+            {statusConfig.label}
+          </span>
+        </div>
+      </div>
+
+      {/* Checks list */}
+      <div className="space-y-1 mb-2">
+        {result.checks.map((c, i) => (
+          <div key={i} className="flex items-start gap-1.5">
+            {c.ok
+              ? <CheckCircle2 className="w-3 h-3 text-green-500 flex-shrink-0 mt-0.5" />
+              : <XCircle className="w-3 h-3 text-red-500 flex-shrink-0 mt-0.5" />}
+            <span className={`leading-tight ${c.ok ? "text-slate-600" : "text-red-700 font-medium"}`}>
+              {c.name}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Detalle de checks fallidos */}
+      {failedChecks.length > 0 && (
+        <div className="mt-1">
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="text-[10px] text-slate-500 underline"
+          >
+            {expanded ? "Ocultar detalle" : "Ver detalle"}
+          </button>
+          {expanded && (
+            <div className="mt-1.5 space-y-1.5">
+              {failedChecks.map((c, i) => (
+                <div key={i} className="bg-white rounded p-1.5 border border-red-100">
+                  <p className="font-medium text-red-700">{c.name}</p>
+                  <p className="text-slate-500 mt-0.5">{c.detail}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Sugerencia según status */}
+      {result.status === "ok" && (
+        <p className="text-slate-500 text-[10px] mt-1">
+          Si el problema persiste, revisa los filtros activos o recarga la página.
+        </p>
+      )}
+
+      {result.status === "config_error" && (
+        <div className="mt-2">
+          {result.fixAvailable ? (
+            <button
+              onClick={() => onAutoFix(result.moduleId, mId)}
+              className="w-full flex items-center justify-center gap-1 px-2 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-medium rounded-lg transition-colors"
+            >
+              <Wrench className="w-3 h-3" />
+              Corregir automáticamente
+            </button>
+          ) : (
+            <p className="text-amber-700 text-[10px]">
+              Revisa los pasos indicados en el detalle para corregir la configuración.
+            </p>
+          )}
+        </div>
+      )}
+
+      {result.status === "technical_error" && (
+        <p className="text-red-600 text-[10px] mt-1 font-medium">
+          Este fallo fue registrado para el administrador.
+        </p>
+      )}
+    </div>
+  );
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
@@ -86,12 +227,12 @@ export default function AssistantWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Scroll automático al último mensaje
+  // Scroll automático
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Focus al input cuando se abre
+  // Focus al abrir
   useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 50);
@@ -99,23 +240,118 @@ export default function AssistantWidget() {
     }
   }, [open]);
 
-  // Mensaje de bienvenida la primera vez que se abre
+  // Bienvenida la primera vez
   useEffect(() => {
     if (open && !welcomed) {
       setWelcomed(true);
       const pageName = PAGE_LABELS[location];
       const locationHint = pageName ? ` Estás en **${pageName}**.` : "";
+      const firstName = user?.name?.trim() ? user.name.trim().split(/\s+/)[0] : "";
       const welcome: ChatMessage = {
         id: newId(),
         role: "assistant",
-        text: `¡Hola${user?.name?.trim() ? `, ${user.name.trim().split(/\s+/)[0]}` : ""}! Soy el asistente de EduPay. Puedo ayudarte a encontrar cualquier función del sistema.${locationHint} ¿En qué te ayudo?`,
+        text: `¡Hola${firstName ? `, ${firstName}` : ""}! Soy el asistente de EduPay. Puedo ayudarte a navegar y también a revisar si algo no funciona.${locationHint} ¿En qué te ayudo?`,
         ts: Date.now(),
       };
       setMessages([welcome]);
     }
   }, [open, welcomed, location, user]);
 
-  // ── Enviar mensaje ──────────────────────────────────────────────────────────
+  // ── Auto-diagnóstico ─────────────────────────────────────────────────────────
+
+  const executeDiagnosis = async (moduleId: string, targetMsgId: number) => {
+    // Marcar como "diagnosticando"
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === targetMsgId ? { ...m, diagnosing: true, diagnosePending: undefined } : m
+      )
+    );
+
+    try {
+      const res = await apiRequest("/api/assistant/diagnose", {
+        method: "POST",
+        body: JSON.stringify({ module: moduleId }),
+      });
+      const data: DiagnosticResult = await res.json();
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === targetMsgId ? { ...m, diagnosing: false, diagnosticResult: data } : m
+        )
+      );
+    } catch {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === targetMsgId
+            ? {
+                ...m,
+                diagnosing: false,
+                text: "No pude conectarme al servidor para hacer la prueba. ¿Inténtalo nuevamente?",
+              }
+            : m
+        )
+      );
+    }
+  };
+
+  // Observar mensajes con diagnosePending y ejecutar automáticamente
+  useEffect(() => {
+    const pending = messages.find((m) => m.diagnosePending && !m.diagnosing && !m.diagnosticResult);
+    if (pending?.diagnosePending) {
+      executeDiagnosis(pending.diagnosePending.moduleId, pending.id);
+    }
+  }, [messages]);
+
+  // ── Auto-fix ─────────────────────────────────────────────────────────────────
+
+  const handleAutoFix = async (moduleId: string, sourceMsgId: number) => {
+    const confirmMsg: ChatMessage = {
+      id: newId(),
+      role: "user",
+      text: "Sí, corrige automáticamente",
+      ts: Date.now(),
+    };
+    const waitMsg: ChatMessage = {
+      id: newId(),
+      role: "assistant",
+      text: "Aplicando corrección…",
+      ts: Date.now(),
+    };
+    setMessages((prev) => [...prev, confirmMsg, waitMsg]);
+    const waitMsgId = waitMsg.id;
+
+    try {
+      const res = await apiRequest("/api/assistant/diagnose", {
+        method: "POST",
+        body: JSON.stringify({ module: moduleId, autoFixConfirmed: true }),
+      });
+      const data: DiagnosticResult = await res.json();
+
+      const resultMsg: ChatMessage = {
+        id: newId(),
+        role: "assistant",
+        text: data.status === "ok"
+          ? "✅ Corrección aplicada con éxito. El módulo ahora debería funcionar correctamente."
+          : "La corrección se aplicó pero algunos problemas requieren atención manual:",
+        diagnosticResult: data,
+        ts: Date.now(),
+      };
+      setMessages((prev) => [
+        ...prev.filter((m) => m.id !== waitMsgId),
+        resultMsg,
+      ]);
+    } catch {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === waitMsgId
+            ? { ...m, text: "Error al aplicar la corrección. Inténtalo de nuevo." }
+            : m
+        )
+      );
+    }
+  };
+
+  // ── Enviar mensaje ───────────────────────────────────────────────────────────
 
   const sendMessage = async () => {
     const text = input.trim();
@@ -140,12 +376,14 @@ export default function AssistantWidget() {
 
       const data: AssistantResponse = await res.json();
 
+      // Si hay señal de diagnóstico, crear mensaje con diagnosePending
       const assistantMsg: ChatMessage = {
         id: newId(),
         role: "assistant",
         text: data.reply,
         navigate: data.navigate,
         suggestions: data.suggestions,
+        ...(data.diagnose ? { diagnosePending: data.diagnose } : {}),
         ts: Date.now(),
       };
       setMessages((prev) => [...prev, assistantMsg]);
@@ -180,13 +418,7 @@ export default function AssistantWidget() {
 
   const handleSuggestionClick = (s: NavTarget) => {
     const text = `Llevarme a ${s.label}`;
-    setInput("");
-    const userMsg: ChatMessage = {
-      id: newId(),
-      role: "user",
-      text,
-      ts: Date.now(),
-    };
+    const userMsg: ChatMessage = { id: newId(), role: "user", text, ts: Date.now() };
     const botMsg: ChatMessage = {
       id: newId(),
       role: "assistant",
@@ -197,7 +429,7 @@ export default function AssistantWidget() {
     setMessages((prev) => [...prev, userMsg, botMsg]);
   };
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <>
@@ -205,19 +437,19 @@ export default function AssistantWidget() {
       {open && (
         <div
           className="fixed bottom-20 right-6 z-50 flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200"
-          style={{ width: 320, height: 420 }}
+          style={{ width: 332, height: 460 }}
           role="dialog"
           aria-label="Asistente EduPay"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-2xl">
+          <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-2xl flex-shrink-0">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
                 <BotMessageSquare className="w-4 h-4 text-white" />
               </div>
               <div>
                 <p className="text-white text-sm font-semibold leading-none">Asistente EduPay</p>
-                <p className="text-blue-200 text-xs mt-0.5">Navegación inteligente</p>
+                <p className="text-blue-200 text-xs mt-0.5">Navegación y diagnóstico</p>
               </div>
             </div>
             <button
@@ -230,7 +462,7 @@ export default function AssistantWidget() {
           </div>
 
           {/* Mensajes */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50">
+          <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50 min-h-0">
             {messages.map((msg) => (
               <div
                 key={msg.id}
@@ -243,7 +475,7 @@ export default function AssistantWidget() {
                   </div>
                 )}
 
-                <div className={`max-w-[220px] space-y-1.5 ${msg.role === "user" ? "items-end" : "items-start"} flex flex-col`}>
+                <div className={`max-w-[240px] space-y-1.5 ${msg.role === "user" ? "items-end" : "items-start"} flex flex-col`}>
                   {/* Burbuja de texto */}
                   <div
                     className={`px-3 py-2 rounded-2xl text-xs leading-relaxed ${
@@ -253,6 +485,23 @@ export default function AssistantWidget() {
                     }`}
                     dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.text) }}
                   />
+
+                  {/* Indicador de diagnóstico en curso */}
+                  {msg.diagnosing && (
+                    <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-700">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Ejecutando pruebas…
+                    </div>
+                  )}
+
+                  {/* Tarjeta de diagnóstico */}
+                  {msg.diagnosticResult && (
+                    <DiagnosticCard
+                      result={msg.diagnosticResult}
+                      msgId={msg.id}
+                      onAutoFix={handleAutoFix}
+                    />
+                  )}
 
                   {/* Botón de navegación */}
                   {msg.navigate && (
@@ -283,7 +532,7 @@ export default function AssistantWidget() {
               </div>
             ))}
 
-            {/* Indicador de carga */}
+            {/* Indicador de carga del chat */}
             {loading && (
               <div className="flex gap-2">
                 <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
@@ -303,14 +552,14 @@ export default function AssistantWidget() {
           </div>
 
           {/* Input */}
-          <div className="p-3 border-t border-slate-200 bg-white rounded-b-2xl">
+          <div className="p-3 border-t border-slate-200 bg-white rounded-b-2xl flex-shrink-0">
             <div className="flex gap-2 items-center">
               <input
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="¿Dónde está...?"
+                placeholder="¿Dónde está...? / No funciona..."
                 maxLength={500}
                 disabled={loading}
                 className="flex-1 text-xs px-3 py-2 rounded-full border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent placeholder-slate-400 disabled:opacity-50"
@@ -321,7 +570,7 @@ export default function AssistantWidget() {
                 className="w-8 h-8 rounded-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 flex items-center justify-center transition-colors flex-shrink-0"
                 aria-label="Enviar mensaje"
               >
-                <Send className="w-3.5 h-3.5 text-white disabled:text-slate-400" />
+                <Send className="w-3.5 h-3.5 text-white" />
               </button>
             </div>
           </div>
@@ -331,7 +580,7 @@ export default function AssistantWidget() {
       {/* ── Botón flotante ─────────────────────────────────────────────────── */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 active:scale-95 shadow-lg hover:shadow-xl transition-all flex items-center justify-center"
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 active:scale-95 shadow-lg hover:shadow-xl transition-all flex items-center justify-center relative"
         aria-label={open ? "Cerrar asistente" : "Abrir asistente EduPay"}
         title="Asistente EduPay"
       >

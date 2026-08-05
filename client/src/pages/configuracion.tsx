@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { useInstitution } from "@/hooks/use-institution";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
-import { Calendar, Bell, Key, Mail, Settings, Shield, School, CreditCard, Database, Palette, Globe, Users, FileText, Upload, Plus, Edit, Trash2, ToggleLeft, ToggleRight, DollarSign } from "lucide-react";
+import { Calendar, Bell, Key, Mail, Settings, Shield, School, CreditCard, Database, Palette, Globe, Users, FileText, Upload, Plus, Edit, Trash2, ToggleLeft, ToggleRight, DollarSign, Activity, CheckCircle2, XCircle, AlertTriangle, ChevronDown, ChevronUp, Play, Loader2 } from "lucide-react";
 import { generateCiclosList, getCurrentCiclo, useAcademicFilter } from "@/hooks/use-academic-filter";
 
 export default function Configuracion() {
@@ -186,12 +186,13 @@ export default function Configuracion() {
       </div>
 
           <Tabs defaultValue="general" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="general">General</TabsTrigger>
               <TabsTrigger value="institucional">Institución</TabsTrigger>
               <TabsTrigger value="pagos">Pagos</TabsTrigger>
               <TabsTrigger value="fiscal">Fiscal</TabsTrigger>
               <TabsTrigger value="seguridad">Seguridad</TabsTrigger>
+              <TabsTrigger value="diagnostico">🔍 Diagnóstico</TabsTrigger>
             </TabsList>
 
             <TabsContent value="general">
@@ -676,7 +677,251 @@ export default function Configuracion() {
             </TabsContent>
 
 
+            {/* ── TAB: Diagnóstico del Asistente ─────────────────────────── */}
+            <TabsContent value="diagnostico">
+              <AssistantDiagnosticPanel />
+            </TabsContent>
+
           </Tabs>
+    </div>
+  );
+}
+
+// ── Panel de Diagnóstico del Asistente ────────────────────────────────────────
+
+interface IssueReport {
+  id: number;
+  createdAt: string;
+  action: string;
+  moduleId: string;
+  status: string;
+  failedChecks: Array<{ name: string; detail: string }>;
+  userName: string;
+  fix?: string | null;
+}
+
+interface HealthModule {
+  status: "ok" | "config_error" | "technical_error";
+  moduleId: string;
+  label: string;
+  checks: Array<{ name: string; ok: boolean; detail?: string }>;
+}
+
+interface HealthCheckResult {
+  summary: { ok: number; config_error: number; technical_error: number; total: number };
+  modules: HealthModule[];
+}
+
+function AssistantDiagnosticPanel() {
+  const [reports, setReports] = useState<IssueReport[]>([]);
+  const [loadingReports, setLoadingReports] = useState(false);
+  const [healthResult, setHealthResult] = useState<HealthCheckResult | null>(null);
+  const [runningHealth, setRunningHealth] = useState(false);
+  const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
+  const { toast } = useToast();
+
+  // Cargar reportes al montar
+  useEffect(() => {
+    loadReports();
+  }, []);
+
+  const loadReports = async () => {
+    setLoadingReports(true);
+    try {
+      const res = await apiRequest("/api/assistant/issue-reports");
+      const data = await res.json();
+      setReports(data.reports || []);
+    } catch {
+      toast({ title: "Error", description: "No se pudieron cargar los reportes.", variant: "destructive" });
+    } finally {
+      setLoadingReports(false);
+    }
+  };
+
+  const runFullHealthCheck = async () => {
+    setRunningHealth(true);
+    setHealthResult(null);
+    try {
+      const res = await apiRequest("/api/assistant/health-check", { method: "POST" });
+      const data: HealthCheckResult = await res.json();
+      setHealthResult(data);
+      toast({ title: "Health-check completado", description: `${data.summary.ok}/${data.summary.total} módulos operativos.` });
+    } catch {
+      toast({ title: "Error", description: "No se pudo ejecutar el health-check.", variant: "destructive" });
+    } finally {
+      setRunningHealth(false);
+    }
+  };
+
+  const toggleModule = (moduleId: string) => {
+    setExpandedModules(prev => {
+      const next = new Set(prev);
+      if (next.has(moduleId)) next.delete(moduleId); else next.add(moduleId);
+      return next;
+    });
+  };
+
+  const statusIcon = (status: string) => {
+    if (status === "ok") return <CheckCircle2 className="w-4 h-4 text-green-500" />;
+    if (status === "config_error") return <AlertTriangle className="w-4 h-4 text-amber-500" />;
+    return <XCircle className="w-4 h-4 text-red-500" />;
+  };
+
+  const statusBadge = (status: string) => {
+    if (status === "ok") return <Badge className="bg-green-100 text-green-700 border-0">Operativo</Badge>;
+    if (status === "config_error") return <Badge className="bg-amber-100 text-amber-700 border-0">Configuración incompleta</Badge>;
+    if (status === "fixed") return <Badge className="bg-blue-100 text-blue-700 border-0">Auto-corregido</Badge>;
+    return <Badge className="bg-red-100 text-red-700 border-0">Error técnico</Badge>;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* ── Health-check completo ─────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="w-5 h-5 text-blue-600" />
+            Health-check del sistema
+          </CardTitle>
+          <CardDescription>
+            Ejecuta pruebas automáticas en todos los módulos del sistema para verificar su funcionamiento.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            onClick={runFullHealthCheck}
+            disabled={runningHealth}
+            className="bg-blue-600 hover:bg-blue-700 gap-2"
+          >
+            {runningHealth
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Ejecutando pruebas…</>
+              : <><Play className="w-4 h-4" /> Ejecutar health-check completo</>
+            }
+          </Button>
+
+          {healthResult && (
+            <div className="mt-4 space-y-3">
+              {/* Resumen */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-green-50 border border-green-100 rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-green-700">{healthResult.summary.ok}</p>
+                  <p className="text-xs text-green-600 mt-1">Operativos</p>
+                </div>
+                <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-amber-700">{healthResult.summary.config_error}</p>
+                  <p className="text-xs text-amber-600 mt-1">Config incompleta</p>
+                </div>
+                <div className="bg-red-50 border border-red-100 rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-red-700">{healthResult.summary.technical_error}</p>
+                  <p className="text-xs text-red-600 mt-1">Errores técnicos</p>
+                </div>
+              </div>
+
+              {/* Módulos */}
+              <div className="space-y-2 mt-3">
+                {healthResult.modules.map((mod) => (
+                  <div key={mod.moduleId} className="border rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => toggleModule(mod.moduleId)}
+                      className="w-full flex items-center justify-between px-4 py-3 bg-white hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        {statusIcon(mod.status)}
+                        <span className="text-sm font-medium text-slate-700">{mod.label}</span>
+                        {statusBadge(mod.status)}
+                      </div>
+                      {expandedModules.has(mod.moduleId)
+                        ? <ChevronUp className="w-4 h-4 text-slate-400" />
+                        : <ChevronDown className="w-4 h-4 text-slate-400" />
+                      }
+                    </button>
+
+                    {expandedModules.has(mod.moduleId) && (
+                      <div className="px-4 py-3 bg-slate-50 border-t space-y-2">
+                        {mod.checks.map((c, i) => (
+                          <div key={i} className="flex items-start gap-2 text-sm">
+                            {c.ok
+                              ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0 mt-0.5" />
+                              : <XCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" />
+                            }
+                            <div>
+                              <p className={c.ok ? "text-slate-600" : "text-red-700 font-medium"}>{c.name}</p>
+                              {c.detail && <p className="text-xs text-slate-500 mt-0.5">{c.detail}</p>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Reportes del asistente ────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="w-5 h-5 text-slate-600" />
+                Reportes del asistente
+              </CardTitle>
+              <CardDescription>
+                Historial de fallos detectados y correcciones aplicadas por el asistente virtual.
+              </CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={loadReports} disabled={loadingReports}>
+              {loadingReports ? <Loader2 className="w-4 h-4 animate-spin" /> : "Actualizar"}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loadingReports ? (
+            <div className="flex items-center justify-center py-8 text-slate-400">
+              <Loader2 className="w-5 h-5 animate-spin mr-2" /> Cargando reportes…
+            </div>
+          ) : reports.length === 0 ? (
+            <div className="text-center py-8">
+              <CheckCircle2 className="w-10 h-10 text-green-300 mx-auto mb-3" />
+              <p className="text-slate-500 text-sm">Sin reportes de fallos — el sistema está limpio.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th className="pb-2 pr-4 text-xs text-slate-500 font-medium">Fecha</th>
+                    <th className="pb-2 pr-4 text-xs text-slate-500 font-medium">Módulo</th>
+                    <th className="pb-2 pr-4 text-xs text-slate-500 font-medium">Estado</th>
+                    <th className="pb-2 pr-4 text-xs text-slate-500 font-medium">Usuario</th>
+                    <th className="pb-2 text-xs text-slate-500 font-medium">Detalle</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {reports.map((r) => (
+                    <tr key={r.id} className="py-2">
+                      <td className="py-2 pr-4 text-xs text-slate-500 whitespace-nowrap">
+                        {new Date(r.createdAt).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" })}
+                      </td>
+                      <td className="py-2 pr-4 text-xs font-medium text-slate-700">{r.moduleId}</td>
+                      <td className="py-2 pr-4">{statusBadge(r.status)}</td>
+                      <td className="py-2 pr-4 text-xs text-slate-500">{r.userName}</td>
+                      <td className="py-2 text-xs text-slate-500 max-w-[200px]">
+                        {r.failedChecks?.length > 0
+                          ? r.failedChecks.map(c => c.name).join(", ")
+                          : r.fix || "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

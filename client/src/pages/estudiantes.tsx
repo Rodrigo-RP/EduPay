@@ -1146,7 +1146,21 @@ export default function Estudiantes() {
             </div>
 
             {/* Filtros rápidos (siempre visibles) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Ciclo Escolar</Label>
+                <Select value={selectedCicloEscolar} onValueChange={setSelectedCicloEscolar}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Todos los ciclos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los ciclos</SelectItem>
+                    {ciclosEscolares.sort().reverse().map((ciclo) => (
+                      <SelectItem key={ciclo} value={ciclo}>{ciclo}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-1">
                 <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Sección Educativa</Label>
                 <Select value={selectedSeccion} onValueChange={setSelectedSeccion}>
@@ -1253,21 +1267,6 @@ export default function Estudiantes() {
             {showAdvancedFilters && (
               <div className="border-t pt-4 mt-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Ciclo Escolar</Label>
-                    <Select value={selectedCicloEscolar} onValueChange={setSelectedCicloEscolar}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Todos los ciclos" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos los ciclos</SelectItem>
-                        {ciclosEscolares.sort().reverse().map((ciclo) => (
-                          <SelectItem key={ciclo} value={ciclo}>{ciclo}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
                   <div className="space-y-1">
                     <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Rango de Edad</Label>
                     <Select value={selectedEdadRango} onValueChange={setSelectedEdadRango}>

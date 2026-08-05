@@ -20,8 +20,8 @@ export default function Header() {
   const { selectedCiclo, selectedNivel, selectedPeriodo, setSelectedCiclo, setSelectedNivel, setSelectedPeriodo } = useAcademicFilter();
   const [location, setLocation] = useLocation();
 
-  // En Alumnos y Familias el buscador vive dentro de la página; no duplicar en el header
-  const hideGlobalSearch = location === "/estudiantes" || location === "/familias";
+  // En Alumnos y Familias los filtros viven dentro de la página; no duplicar en el header
+  const hidePageFilters = location === "/estudiantes" || location === "/familias";
 
   const ciclosEscolares = generateCiclosList();
 
@@ -37,62 +37,65 @@ export default function Header() {
     <header className="bg-white border-b border-slate-200 h-16 flex-shrink-0">
       <div className="px-6 py-3 flex items-center justify-end h-full">
         <div className="flex items-center gap-4">
-          {/* Selector de Ciclo Escolar */}
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-slate-500" />
-            <span className="text-xs text-slate-600">Ciclo:</span>
-            <Select value={selectedCiclo} onValueChange={setSelectedCiclo}>
-              <SelectTrigger className="w-32 h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ciclosEscolares.map(ciclo => (
-                  <SelectItem key={ciclo} value={ciclo} className="text-xs">
-                    {ciclo}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Ciclo, Nivel, Período y buscador se ocultan en páginas que tienen su propio panel de filtros */}
+          {!hidePageFilters && <>
+            {/* Selector de Ciclo Escolar */}
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-slate-500" />
+              <span className="text-xs text-slate-600">Ciclo:</span>
+              <Select value={selectedCiclo} onValueChange={setSelectedCiclo}>
+                <SelectTrigger className="w-32 h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ciclosEscolares.map(ciclo => (
+                    <SelectItem key={ciclo} value={ciclo} className="text-xs">
+                      {ciclo}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          {/* Selector de Nivel Escolar */}
-          <div className="flex items-center gap-2">
-            <GraduationCap className="w-4 h-4 text-slate-500" />
-            <span className="text-xs text-slate-600">Nivel:</span>
-            <Select value={selectedNivel} onValueChange={setSelectedNivel}>
-              <SelectTrigger className="w-36 h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {nivelesEscolares.map(nivel => (
-                  <SelectItem key={nivel.value} value={nivel.value} className="text-xs">
-                    {nivel.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+            {/* Selector de Nivel Escolar */}
+            <div className="flex items-center gap-2">
+              <GraduationCap className="w-4 h-4 text-slate-500" />
+              <span className="text-xs text-slate-600">Nivel:</span>
+              <Select value={selectedNivel} onValueChange={setSelectedNivel}>
+                <SelectTrigger className="w-36 h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {nivelesEscolares.map(nivel => (
+                    <SelectItem key={nivel.value} value={nivel.value} className="text-xs">
+                      {nivel.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          {/* Selector de Período */}
-          <div className="flex items-center gap-2">
-            <CalendarDays className="w-4 h-4 text-slate-500" />
-            <span className="text-xs text-slate-600">Período:</span>
-            <Select value={selectedPeriodo} onValueChange={setSelectedPeriodo}>
-              <SelectTrigger className="w-32 h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PERIODOS.map(p => (
-                  <SelectItem key={p.value} value={p.value} className="text-xs">
-                    {p.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+            {/* Selector de Período */}
+            <div className="flex items-center gap-2">
+              <CalendarDays className="w-4 h-4 text-slate-500" />
+              <span className="text-xs text-slate-600">Período:</span>
+              <Select value={selectedPeriodo} onValueChange={setSelectedPeriodo}>
+                <SelectTrigger className="w-32 h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PERIODOS.map(p => (
+                    <SelectItem key={p.value} value={p.value} className="text-xs">
+                      {p.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          {/* Buscador universal — oculto en páginas que tienen su propio buscador */}
-          {!hideGlobalSearch && <GlobalSearch />}
+            {/* Buscador universal */}
+            <GlobalSearch />
+          </>}
 
           <RealTimeStatus />
           

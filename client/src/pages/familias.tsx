@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { generateCiclosList } from "@/hooks/use-academic-filter";
 import { Home, Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, CreditCard, FileText, Link2, Download, Upload, AlertCircle, AlertTriangle, Eye, UserCheck, UserX, Settings } from "lucide-react";
 
 export default function Familias() {
@@ -20,6 +21,7 @@ export default function Familias() {
   const [selectedGrupo, setSelectedGrupo]           = useState("all");
   const [selectedEstatus, setSelectedEstatus]       = useState("all");
   const [selectedCodigoPostal, setSelectedCodigoPostal] = useState("all");
+  const [selectedCicloFamilias, setSelectedCicloFamilias]     = useState("all");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedFamily, setSelectedFamily] = useState<any>(null);
@@ -993,12 +995,15 @@ export default function Familias() {
   )) as string[];
 
   // Filtros predefinidos
+  const ciclosFamilias = generateCiclosList();
+
   const aplicarFiltroPredefinidoFamilias = (tipo: string) => {
     setSearchTerm("");
     setSelectedSeccion("all");
     setSelectedGrado("all");
     setSelectedGrupo("all");
     setSelectedCodigoPostal("all");
+    setSelectedCicloFamilias("all");
     switch (tipo) {
       case 'activos':    setSelectedEstatus("activo");   break;
       case 'pendientes': setSelectedEstatus("pendiente"); break;
@@ -1013,7 +1018,8 @@ export default function Familias() {
     selectedGrado !== "all" ||
     selectedGrupo !== "all" ||
     selectedEstatus !== "all" ||
-    selectedCodigoPostal !== "all"
+    selectedCodigoPostal !== "all" ||
+    selectedCicloFamilias !== "all"
   );
 
   // Filtrar familias según criterios de búsqueda
@@ -1045,7 +1051,12 @@ export default function Familias() {
     // Código postal
     const matchCP = selectedCodigoPostal === "all" || familia.codigo_postal === selectedCodigoPostal;
 
-    return matchSearch && matchEstatus && matchSeccion && matchGrado && matchGrupo && matchCP;
+    // Ciclo escolar — filtra por el ciclo_escolar del alumno si viene del API, si no pasa
+    const matchCiclo = selectedCicloFamilias === "all" ||
+      familia.estudiantes_vinculados.some((s: any) => s.ciclo_escolar === selectedCicloFamilias) ||
+      (familia.ciclo_escolar || "") === selectedCicloFamilias;
+
+    return matchSearch && matchEstatus && matchSeccion && matchGrado && matchGrupo && matchCP && matchCiclo;
   });
 
   const estadisticas = {
@@ -1248,7 +1259,20 @@ export default function Familias() {
               </div>
 
               {/* Filtros de columna (siempre visibles) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Ciclo Escolar</Label>
+                  <Select value={selectedCicloFamilias} onValueChange={setSelectedCicloFamilias}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Todos los ciclos" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los ciclos</SelectItem>
+                      {ciclosFamilias.slice().reverse().map(c => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="space-y-1">
                   <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Sección Educativa</Label>
                   <Select value={selectedSeccion} onValueChange={setSelectedSeccion}>
@@ -1352,6 +1376,7 @@ export default function Familias() {
                   {selectedGrupo !== "all" && <span className="bg-white border rounded px-2 py-0.5 text-xs">Grupo: {selectedGrupo}</span>}
                   {selectedEstatus !== "all" && <span className="bg-white border rounded px-2 py-0.5 text-xs">Estatus: {selectedEstatus}</span>}
                   {selectedCodigoPostal !== "all" && <span className="bg-white border rounded px-2 py-0.5 text-xs">CP: {selectedCodigoPostal}</span>}
+                  {selectedCicloFamilias !== "all" && <span className="bg-white border rounded px-2 py-0.5 text-xs">Ciclo: {selectedCicloFamilias}</span>}
                 </div>
               )}
 

@@ -389,7 +389,8 @@ export function detectActionIntent(message: string): ActionDescriptor | null {
     return { actionId: "query:resumen_financiero", params: {} };
 
   // ── Contar entidades ──────────────────────────────────────────────────────
-  const countMatch = n.match(/cu[aá]ntos?\s+(alumnos?|estudiantes?|pagos?|cargos?|becas?|familias?|descuentos?)/);
+  // Acepta masculino (cuántos) y femenino (cuántas)
+  const countMatch = n.match(/cu[aá]nt[ao]s?\s+(alumnos?|estudiantes?|pagos?|cargos?|becas?|familias?|descuentos?)/);
   if (countMatch)
     return { actionId: "query:contar", params: { entity: countMatch[1] } };
 
@@ -400,8 +401,8 @@ export function detectActionIntent(message: string): ActionDescriptor | null {
     return { actionId: "query:becas_alumno", params: { nombre: becasMatch[1].trim() } };
 
   // ── Cargos / adeudos de un alumno ─────────────────────────────────────────
-  // "qué cargos tiene García", "adeudos de Juan", "cuánto debe García"
-  const cargosMatch = n.match(/(?:qu[eé] (?:cargos?|adeudos?) (?:tiene|hay para)|adeudos? de|cuanto (debe|adeuda)|cargos? de)\s+(.{2,40})/);
+  // "qué cargos tiene García", "qué cargos debe García", "adeudos de Juan", "cuánto debe García"
+  const cargosMatch = n.match(/(?:qu[eé] (?:cargos?|adeudos?) (?:tiene|hay para|debe|adeuda)|adeudos? de|cu[aá]nto (?:debe|adeuda)|cargos? de)\s+(?:el alumno\s+|la alumna\s+)?(.{2,40})/);
   if (cargosMatch)
     return { actionId: "query:cargos_alumno", params: { nombre: (cargosMatch[2] || cargosMatch[0].split(" de ")[1] || "").trim() } };
 
@@ -421,11 +422,17 @@ export function detectActionIntent(message: string): ActionDescriptor | null {
 
 /** Palabras clave que indican que el usuario reporta un fallo */
 const FAULT_KEYWORDS = [
+  // Negaciones directas
   "no funciona", "no carga", "no guarda", "no aparece", "no puedo",
   "no abre", "no muestra", "no genera", "no se genera", "no se guarda",
+  "no me deja", "no me permite", "no descarga", "no se descargo",
+  "no se genero", "no importa", "no se importo", "no procesa",
+  "no jala", "no sirve", "no responde",
+  // Palabras de fallo genérico
   "error", "falla", "fallo", "problema", "bug", "roto", "rota",
-  "tira error", "sale error", "marca error", "revisar", "diagnosticar",
-  "revisar si funciona", "checar", "verificar si",
+  "tira error", "sale error", "marca error",
+  // Frases de solicitud de diagnóstico
+  "revisar", "diagnosticar", "revisar si funciona", "checar", "verificar si",
 ];
 
 function hasFaultIntent(normalizedMsg: string): boolean {
@@ -471,16 +478,18 @@ export function matchIntent(
       // Ignorar tokens de palabras de fallo para el scoring de módulo
       if (FAULT_KEYWORDS.some((kw) => normalize(kw).split(" ").includes(token))) continue;
 
-      // Coincidencia exacta en keywords → más peso
+      // Coincidencia exacta: el keyword completo es igual al token
       if (normalizedKeywords.some((kw) => kw === token)) score += 3;
-      // Keyword contiene el token
-      else if (normalizedKeywords.some((kw) => kw.includes(token))) score += 2;
-      // Token contiene keyword
+      // El token aparece como PALABRA COMPLETA dentro de un keyword multi-palabra
+      // (evita que "hace" matchee "hacer un cargo")
+      else if (token.length >= 4 && normalizedKeywords.some((kw) =>
+        kw.split(" ").includes(token))) score += 2;
+      // El token contiene un keyword corto dentro de sí (ej. "pagado" contiene "pago")
       else if (normalizedKeywords.some((kw) => token.includes(kw) && kw.length > 3)) score += 1;
-      // Match en label
-      if (normalizedLabel.includes(token)) score += 2;
-      // Match en descripción
-      if (normalizedDesc.includes(token)) score += 1;
+      // Label: coincidencia de palabra completa
+      if (token.length >= 4 && normalizedLabel.split(" ").includes(token)) score += 2;
+      // Descripción: coincidencia de palabra completa
+      if (token.length >= 4 && normalizedDesc.split(" ").includes(token)) score += 1;
     }
 
     return { module: m, score };
@@ -563,7 +572,7 @@ export function matchIntent(
 
   return {
     reply:
-      "No encontré una sección que coincida con tu búsqueda. Aquí están las secciones disponibles:",
+      "No entendí qué estás buscando. Aquí están las secciones disponibles — selecciona una o escribe tu duda con más detalle:",
     suggestions: topModules,
   };
 }

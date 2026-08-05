@@ -34,6 +34,29 @@ export interface ActionContext {
   userId: number;
 }
 
+// ── §5.6 Guarda dura: acciones que NUNCA pueden ejecutarse sin confirmación ───
+//
+// El asistente JAMÁS crea, edita, revierte ni reprocesa por su cuenta un
+// Charge, Payment, PaymentApplication, Invoice ni ningún campo relacionado
+// con el saldo de una familia. Esta lista es la fuente de verdad; agregar
+// cualquier acción financiera aquí la bloquea automáticamente si no llega
+// con confirmación explícita del administrador.
+const FINANCIAL_PROTECTED_ACTIONS = new Set([
+  "action:crear_cargo",
+  "action:editar_cargo",
+  "action:eliminar_cargo",
+  "action:revertir_pago",
+  "action:reprocesar_pago",
+  "action:crear_pago",
+  "action:editar_pago",
+  "action:crear_factura",
+  "action:editar_factura",
+  "action:cancelar_factura",
+  "action:aplicar_pago",
+  "action:revertir_aplicacion",
+  "action:ajustar_saldo",
+]);
+
 // ── Utilidades ────────────────────────────────────────────────────────────────
 
 function fmt(centavos: number | string | null): string {
@@ -442,6 +465,25 @@ export async function executeAction(
   params: Record<string, any>,
   ctx: ActionContext
 ): Promise<ActionResult> {
+  // ── §5.6 Guarda dura financiera ───────────────────────────────────────────
+  // Si la acción está en la lista protegida y no viene con confirmación
+  // explícita del administrador, bloqueamos completamente. Las acciones
+  // query:* son de solo lectura y pasan siempre.
+  if (FINANCIAL_PROTECTED_ACTIONS.has(actionId)) {
+    // Las action:* con requiresConfirmation se manejan en el flujo de
+    // confirmación del widget — nunca deben llegar aquí sin ese flag.
+    // Si alguien las llama directamente, devolvemos error de seguridad.
+    return {
+      success: false,
+      title: "Acción bloqueada",
+      summary:
+        "Esta acción modifica registros financieros y no puede ejecutarse automáticamente. " +
+        "El asistente requiere confirmación explícita del administrador desde el panel antes de continuar.",
+      requiresConfirmation: true,
+      confirmPayload: { actionId, params, label: "Confirmar acción financiera" },
+    };
+  }
+
   switch (actionId) {
     case "query:discrepancia":     return queryDiscrepancia(params, ctx);
     case "query:contar":           return queryContar(params, ctx);

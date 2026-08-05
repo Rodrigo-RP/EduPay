@@ -9,7 +9,11 @@ export default defineConfig({
     testTimeout: 30000,
     // Paths are relative to this config file's location (server/).
     // Running: cd server && npx vitest run  OR  npm test from root via package.json
-    include: ["tests/family-ledger.test.ts", "tests/state-machines.test.ts"],
+    include: [
+      "tests/family-ledger.test.ts",
+      "tests/state-machines.test.ts",
+      "tests/assistant-knowledge.test.ts",
+    ],
   },
   resolve: {
     alias: {

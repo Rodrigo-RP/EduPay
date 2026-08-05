@@ -55,6 +55,34 @@ export function registerAssistantRoutes(app: Express): void {
         delete result.action;
       }
 
+      // ── §4.3 Registro estructurado de interacción (sin PII de familias) ─────
+      // Determinar qué tipo de intención se resolvió
+      const intentType = (result as any).actionResult
+        ? "query_action"
+        : result.navigate
+          ? "navigation"
+          : (result as any).diagnose
+            ? "diagnose"
+            : "no_match";
+
+      pool.query(
+        `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
+         VALUES ($1, $2, 'assistant_chat_interaction', 'system', $3, $4, NOW())`,
+        [
+          tenantId || null,
+          userId || null,
+          campusId || null,
+          JSON.stringify({
+            intentType,
+            route: result.navigate?.route || null,
+            actionId: (result as any).actionResult
+              ? ((result as any).actionResult as any).title || intentType
+              : null,
+            messageLength: message.trim().length,
+          }),
+        ]
+      ).catch(() => {}); // no bloquear si audit falla
+
       return res.json(result);
     } catch (err: any) {
       console.error("[assistant] Error procesando mensaje:", err.message);

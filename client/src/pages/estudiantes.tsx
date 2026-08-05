@@ -374,6 +374,7 @@ export default function Estudiantes() {
   const [selectedGrupo, setSelectedGrupo] = useState("all");
   const [selectedSeccion, setSelectedSeccion] = useState("all");
   const [selectedCicloEscolar, setSelectedCicloEscolar] = useState("all");
+  const [selectedPeriodoEstudiantes, setSelectedPeriodoEstudiantes] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedCodigoPostal, setSelectedCodigoPostal] = useState("all");
   const [selectedEdadRango, setSelectedEdadRango] = useState("all");
@@ -914,6 +915,7 @@ export default function Estudiantes() {
     setSelectedGrupo("all");
     setSelectedSeccion("all");
     setSelectedCicloEscolar("all");
+    setSelectedPeriodoEstudiantes("all");
     setSelectedCodigoPostal("all");
     setSelectedEdadRango("all");
     
@@ -966,6 +968,7 @@ export default function Estudiantes() {
     selectedGrupo !== "all" ||
     selectedSeccion !== "all" ||
     selectedCicloEscolar !== "all" ||
+    selectedPeriodoEstudiantes !== "all" ||
     selectedStatus !== "all" ||
     selectedCodigoPostal !== "all" ||
     selectedEdadRango !== "all";
@@ -992,8 +995,21 @@ export default function Estudiantes() {
     // Filtro por rango de edad
     const edad = calcularEdad(estudiante.fecha_nacimiento || estudiante.estudiante_fecha_nacimiento);
     const matchEdad = selectedEdadRango === "all" || estaEnRangoEdad(edad, selectedEdadRango);
+
+    // Filtro por período de registro
+    const matchPeriodo = (() => {
+      if (selectedPeriodoEstudiantes === "all") return true;
+      const raw = estudiante.created_at || estudiante.fecha_registro;
+      if (!raw) return true;
+      const fecha = new Date(raw);
+      const now = new Date();
+      if (selectedPeriodoEstudiantes === "hoy")   return fecha.toDateString() === now.toDateString();
+      if (selectedPeriodoEstudiantes === "semana") return (now.getTime() - fecha.getTime()) <= 7 * 24 * 60 * 60 * 1000;
+      if (selectedPeriodoEstudiantes === "mes")   return fecha.getMonth() === now.getMonth() && fecha.getFullYear() === now.getFullYear();
+      return true;
+    })();
     
-    return matchSearch && matchGrado && matchGrupo && matchSeccion && matchCiclo && matchStatus && matchCodigoPostal && matchEdad;
+    return matchSearch && matchGrado && matchGrupo && matchSeccion && matchCiclo && matchStatus && matchCodigoPostal && matchEdad && matchPeriodo;
   });
 
   if (error) {
@@ -1145,14 +1161,12 @@ export default function Estudiantes() {
               </div>
             </div>
 
-            {/* Filtros rápidos (siempre visibles) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+            {/* Fila 1 — Filtros temporales: Ciclo + Período */}
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Ciclo Escolar</Label>
                 <Select value={selectedCicloEscolar} onValueChange={setSelectedCicloEscolar}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Todos los ciclos" />
-                  </SelectTrigger>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Todos los ciclos" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos los ciclos</SelectItem>
                     {ciclosEscolares.sort().reverse().map((ciclo) => (
@@ -1162,11 +1176,25 @@ export default function Estudiantes() {
                 </Select>
               </div>
               <div className="space-y-1">
+                <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Período</Label>
+                <Select value={selectedPeriodoEstudiantes} onValueChange={setSelectedPeriodoEstudiantes}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Todo el tiempo" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todo el tiempo</SelectItem>
+                    <SelectItem value="hoy">Hoy</SelectItem>
+                    <SelectItem value="semana">Esta semana</SelectItem>
+                    <SelectItem value="mes">Este mes</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Fila 2 — Filtros académicos: Nivel · Grado · Grupo · Estatus · CP */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              <div className="space-y-1">
                 <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Nivel</Label>
                 <Select value={selectedSeccion} onValueChange={setSelectedSeccion}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Todos los niveles" />
-                  </SelectTrigger>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Todos los niveles" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas las secciones</SelectItem>
                     {secciones.map((seccion) => (
@@ -1179,33 +1207,22 @@ export default function Estudiantes() {
               <div className="space-y-1">
                 <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Grado</Label>
                 <Select value={selectedGrado} onValueChange={setSelectedGrado}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Todos los grados" />
-                  </SelectTrigger>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Todos los grados" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos los grados</SelectItem>
                     {Object.entries(gradosPorSeccion).map(([seccion, gradosSeccion]) => (
                       <div key={seccion}>
-                        <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase bg-gray-100 sticky top-0">
-                          {seccion}
-                        </div>
+                        <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase bg-gray-100 sticky top-0">{seccion}</div>
                         {gradosSeccion.map((grado) => (
-                          <SelectItem key={grado} value={grado} className="pl-4">
-                            {grado}
-                          </SelectItem>
+                          <SelectItem key={grado} value={grado} className="pl-4">{grado}</SelectItem>
                         ))}
                       </div>
                     ))}
-                    {/* Mostrar grados adicionales de la base de datos si los hay */}
-                    {gradosBD.filter(grado => !gradosEducativos.includes(grado)).length > 0 && (
+                    {gradosBD.filter(g => !gradosEducativos.includes(g)).length > 0 && (
                       <div>
-                        <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase bg-gray-100 sticky top-0">
-                          Otros
-                        </div>
-                        {gradosBD.filter(grado => !gradosEducativos.includes(grado)).map((grado) => (
-                          <SelectItem key={grado} value={grado} className="pl-4">
-                            {grado}
-                          </SelectItem>
+                        <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase bg-gray-100 sticky top-0">Otros</div>
+                        {gradosBD.filter(g => !gradosEducativos.includes(g)).map((g) => (
+                          <SelectItem key={g} value={g} className="pl-4">{g}</SelectItem>
                         ))}
                       </div>
                     )}
@@ -1216,9 +1233,7 @@ export default function Estudiantes() {
               <div className="space-y-1">
                 <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Grupo</Label>
                 <Select value={selectedGrupo} onValueChange={setSelectedGrupo}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Todos los grupos" />
-                  </SelectTrigger>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Todos los grupos" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos los grupos</SelectItem>
                     {grupos.sort().map((grupo) => (
@@ -1231,17 +1246,15 @@ export default function Estudiantes() {
               <div className="space-y-1">
                 <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Estatus</Label>
                 <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Todos los estatus" />
-                  </SelectTrigger>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Todos los estatus" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos los estatus</SelectItem>
                     <SelectItem value="activo">Activo</SelectItem>
                     <SelectItem value="inactivo">Inactivo</SelectItem>
                     <SelectItem value="suspendido">Suspendido</SelectItem>
                     <SelectItem value="egresado">Egresado</SelectItem>
-                    {statusOptions.filter(status => !['activo', 'inactivo', 'suspendido', 'egresado'].includes(status)).map((status) => (
-                      <SelectItem key={status} value={status}>{status}</SelectItem>
+                    {statusOptions.filter(s => !['activo','inactivo','suspendido','egresado'].includes(s)).map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1250,9 +1263,7 @@ export default function Estudiantes() {
               <div className="space-y-1">
                 <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Código Postal</Label>
                 <Select value={selectedCodigoPostal} onValueChange={setSelectedCodigoPostal}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Todas las zonas" />
-                  </SelectTrigger>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Todas las zonas" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas las zonas</SelectItem>
                     {codigosPostales.sort().map((cp) => (

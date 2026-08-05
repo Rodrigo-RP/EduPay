@@ -21,7 +21,8 @@ export default function Familias() {
   const [selectedGrupo, setSelectedGrupo]           = useState("all");
   const [selectedEstatus, setSelectedEstatus]       = useState("all");
   const [selectedCodigoPostal, setSelectedCodigoPostal] = useState("all");
-  const [selectedCicloFamilias, setSelectedCicloFamilias]     = useState("all");
+  const [selectedCicloFamilias, setSelectedCicloFamilias]       = useState("all");
+  const [selectedPeriodoFamilias, setSelectedPeriodoFamilias]   = useState("all");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedFamily, setSelectedFamily] = useState<any>(null);
@@ -1004,6 +1005,7 @@ export default function Familias() {
     setSelectedGrupo("all");
     setSelectedCodigoPostal("all");
     setSelectedCicloFamilias("all");
+    setSelectedPeriodoFamilias("all");
     switch (tipo) {
       case 'activos':    setSelectedEstatus("activo");   break;
       case 'pendientes': setSelectedEstatus("pendiente"); break;
@@ -1019,7 +1021,8 @@ export default function Familias() {
     selectedGrupo !== "all" ||
     selectedEstatus !== "all" ||
     selectedCodigoPostal !== "all" ||
-    selectedCicloFamilias !== "all"
+    selectedCicloFamilias !== "all" ||
+    selectedPeriodoFamilias !== "all"
   );
 
   // Filtrar familias según criterios de búsqueda
@@ -1056,7 +1059,20 @@ export default function Familias() {
       familia.estudiantes_vinculados.some((s: any) => s.ciclo_escolar === selectedCicloFamilias) ||
       (familia.ciclo_escolar || "") === selectedCicloFamilias;
 
-    return matchSearch && matchEstatus && matchSeccion && matchGrado && matchGrupo && matchCP && matchCiclo;
+    // Período de registro
+    const matchPeriodo = (() => {
+      if (selectedPeriodoFamilias === "all") return true;
+      const raw = familia.created_at || familia.fecha_registro;
+      if (!raw) return true;
+      const fecha = new Date(raw);
+      const now = new Date();
+      if (selectedPeriodoFamilias === "hoy")   return fecha.toDateString() === now.toDateString();
+      if (selectedPeriodoFamilias === "semana") return (now.getTime() - fecha.getTime()) <= 7 * 24 * 60 * 60 * 1000;
+      if (selectedPeriodoFamilias === "mes")   return fecha.getMonth() === now.getMonth() && fecha.getFullYear() === now.getFullYear();
+      return true;
+    })();
+
+    return matchSearch && matchEstatus && matchSeccion && matchGrado && matchGrupo && matchCP && matchCiclo && matchPeriodo;
   });
 
   const estadisticas = {
@@ -1258,8 +1274,8 @@ export default function Familias() {
                 </div>
               </div>
 
-              {/* Filtros de columna (siempre visibles) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+              {/* Fila 1 — Filtros temporales: Ciclo + Período */}
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Ciclo Escolar</Label>
                   <Select value={selectedCicloFamilias} onValueChange={setSelectedCicloFamilias}>
@@ -1272,7 +1288,22 @@ export default function Familias() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Período</Label>
+                  <Select value={selectedPeriodoFamilias} onValueChange={setSelectedPeriodoFamilias}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Todo el tiempo" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todo el tiempo</SelectItem>
+                      <SelectItem value="hoy">Hoy</SelectItem>
+                      <SelectItem value="semana">Esta semana</SelectItem>
+                      <SelectItem value="mes">Este mes</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
+              {/* Fila 2 — Filtros de registro: Nivel · Grado · Grupo · Estatus · CP */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Nivel</Label>
                   <Select value={selectedSeccion} onValueChange={setSelectedSeccion}>

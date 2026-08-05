@@ -497,6 +497,27 @@ export function detectActionIntent(message: string): ActionDescriptor | null {
   if (saldoMatch)
     return { actionId: "query:saldo_alumno", params: { nombre: saldoMatch[1].trim() } };
 
+  // ── Familias con N o más hijos ────────────────────────────────────────────
+  // "qué familias tienen más de 1 hijo", "familias con 2 o más alumnos",
+  // "familias con hermanos", "cuántas familias tienen varios hijos"
+  const famHijosMatch = n.match(
+    /(?:que|cual(?:es)?|cuantas?)\s+familias?\s+(?:tienen?|tienen?[^?]{0,20})\s*(?:mas de\s*(\d+)|(\d+)\s*o\s*(?:mas|m[aá]s)|varios|m[uú]ltiples|hermanos?|dos|tres|cuatro)/
+  );
+  if (famHijosMatch) {
+    const num = famHijosMatch[1] ? parseInt(famHijosMatch[1], 10)
+              : famHijosMatch[2] ? parseInt(famHijosMatch[2], 10) - 1
+              : 1; // "hermanos" / "varios" → mínimo 2 hijos (>1)
+    return { actionId: "query:familias_hijos", params: { minHijos: num } };
+  }
+  // "familias con mas de N hijos/alumnos"
+  const famHijosMatch2 = n.match(/famili[ao]s?\s+con\s+(?:mas de\s*(\d+)|(\d+)\s*o\s*(?:mas|m[aá]s)|varios|hermanos?)\s*(?:hijos?|alumnos?|estudiantes?|inscritos?)?/);
+  if (famHijosMatch2) {
+    const num = famHijosMatch2[1] ? parseInt(famHijosMatch2[1], 10)
+              : famHijosMatch2[2] ? parseInt(famHijosMatch2[2], 10) - 1
+              : 1;
+    return { actionId: "query:familias_hijos", params: { minHijos: num } };
+  }
+
   // ── Búsqueda de alumno ────────────────────────────────────────────────────
   // "busca al alumno García", "encuentra a Juan", "buscar estudiante López"
   const searchMatch = n.match(/(?:bus[cq][au][ea]?[r]?|encuentra[r]?|localiza[r]?)\s+(?:al?\s+)?(?:alumno\s+|estudiante\s+)?(.{2,40})/);

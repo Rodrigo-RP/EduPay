@@ -167,6 +167,33 @@ describe("matchIntent — mensajes ambiguos", () => {
   });
 });
 
+// ── matchIntent: familias con hijos ──────────────────────────────────────────
+
+describe("matchIntent — familias con múltiples hijos", () => {
+  it("detecta 'que familias tienen mas de 1 hijo'", () => {
+    const r = matchIntent("que familias tienen mas de 1 hijo", "administrador_campus");
+    expect((r as any).action?.actionId).toBe("query:familias_hijos");
+    expect((r as any).action?.params?.minHijos).toBe(1);
+  });
+
+  it("detecta 'familias con 2 o mas alumnos'", () => {
+    const r = matchIntent("familias con 2 o mas alumnos", "administrador_campus");
+    expect((r as any).action?.actionId).toBe("query:familias_hijos");
+  });
+
+  it("detecta 'que familias tienen hermanos'", () => {
+    const r = matchIntent("que familias tienen hermanos", "administrador_campus");
+    expect((r as any).action?.actionId).toBe("query:familias_hijos");
+    expect((r as any).action?.params?.minHijos).toBe(1);
+  });
+
+  it("detecta 'familias con mas de 2 hijos'", () => {
+    const r = matchIntent("familias con mas de 2 hijos", "administrador_campus");
+    expect((r as any).action?.actionId).toBe("query:familias_hijos");
+    expect((r as any).action?.params?.minHijos).toBe(2);
+  });
+});
+
 // ── detectActionIntent directo ────────────────────────────────────────────────
 
 describe("detectActionIntent — casos directos", () => {

@@ -458,6 +458,49 @@ async function queryCargosAlumno(params: Record<string, any>, ctx: ActionContext
   }
 }
 
+/** Familias con N o más alumnos inscritos */
+async function queryFamiliasHijos(p: Record<string, any>, ctx: ActionContext): Promise<ActionResult> {
+  const minHijos: number = typeof p.minHijos === "number" ? p.minHijos : 1;
+  try {
+    const { rows } = await pool.query(
+      `SELECT f.nombre AS familia,
+              COUNT(fs.student_id) AS num_hijos
+         FROM families f
+         INNER JOIN family_students fs ON fs.family_id = f.id
+         WHERE f.campus_id = $1 AND f.tenant_id = $2
+         GROUP BY f.id, f.nombre
+         HAVING COUNT(fs.student_id) > $3
+         ORDER BY num_hijos DESC, f.nombre
+         LIMIT 20`,
+      [ctx.campusId, ctx.tenantId, minHijos]
+    );
+
+    if (rows.length === 0) {
+      return {
+        success: true,
+        title: `Familias con más de ${minHijos} hijo(s)`,
+        summary: `No hay familias con más de ${minHijos} alumno(s) inscrito(s) en este campus.`,
+        rows: [],
+      };
+    }
+
+    const resultRows: ActionResultRow[] = rows.map((r: any) => ({
+      label: r.familia,
+      value: `${r.num_hijos} ${Number(r.num_hijos) === 1 ? "alumno" : "alumnos"}`,
+      highlight: Number(r.num_hijos) >= 3,
+    }));
+
+    return {
+      success: true,
+      title: `Familias con más de ${minHijos} hijo(s) — ${rows.length} encontradas`,
+      summary: `Encontré **${rows.length} familia(s)** con más de ${minHijos} alumno(s) inscrito(s).`,
+      rows: resultRows,
+    };
+  } catch (e: any) {
+    return { success: false, title: "Error en consulta", summary: `No pude consultar las familias: ${e.message}` };
+  }
+}
+
 // ── Dispatcher principal ───────────────────────────────────────────────────────
 
 export async function executeAction(
@@ -492,6 +535,7 @@ export async function executeAction(
     case "query:saldo_alumno":     return querySaldoAlumno(params, ctx);
     case "query:becas_alumno":     return queryBecasAlumno(params, ctx);
     case "query:cargos_alumno":    return queryCargosAlumno(params, ctx);
+    case "query:familias_hijos":   return queryFamiliasHijos(params, ctx);
     default:
       return { success: false, title: "Acción no reconocida", summary: "No entendí qué necesitas. Puedes preguntarme por alumnos, becas, pagos, cargos o el resumen financiero." };
   }

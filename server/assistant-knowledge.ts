@@ -480,7 +480,23 @@ export function detectActionIntent(message: string): ActionDescriptor | null {
   if (countMatch)
     return { actionId: "query:contar", params: { entity: countMatch[1] } };
 
-  // ── Becas de un alumno ────────────────────────────────────────────────────
+  // ── Becas por nivel / sección ─────────────────────────────────────────────
+  // "alumnos con beca de primaria", "qué alumnos tienen beca de secundaria",
+  // "becas de la sección preparatoria", "alumnos becados en kinder"
+  const NIVELES = ["primaria", "secundaria", "preparatoria", "preescolar", "kinder", "bachillerato", "prescolar", "inicial"];
+  const nivelEnMensaje = NIVELES.find((nv) => n.includes(nv));
+  if (nivelEnMensaje && (n.includes("beca") || n.includes("becado") || n.includes("descuento"))) {
+    return { actionId: "query:becas_nivel", params: { nivel: nivelEnMensaje } };
+  }
+  // Sin nivel específico: "qué alumnos tienen beca", "lista de becados"
+  if (
+    (n.includes("beca") || n.includes("becados") || n.includes("alumnos con descuento")) &&
+    (n.startsWith("que ") || n.startsWith("cuales ") || n.startsWith("lista") || n.includes("tienen beca") || n.includes("estan becados"))
+  ) {
+    return { actionId: "query:becas_nivel", params: { nivel: "" } };
+  }
+
+  // ── Becas de un alumno específico ─────────────────────────────────────────
   // "qué becas tiene García", "becas de Juan"
   const becasMatch = n.match(/(?:qu[eé] becas? (?:tiene|hay para|tiene asignada?s?)|becas? de|descuentos? de)\s+(.{2,40})/);
   if (becasMatch)

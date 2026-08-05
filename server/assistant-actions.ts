@@ -373,12 +373,15 @@ async function queryBecasAlumno(params: Record<string, any>, ctx: ActionContext)
 
   try {
     const { rows } = await pool.query(
-      `SELECT s.nombre_completo, sh.tipo_beca, sh.tipo_descuento,
-              sh.porcentaje_descuento, sh.monto_fijo, sh.vigencia, sh.observaciones
+      `SELECT s.nombre_completo,
+              sh.porcentaje,
+              sh.vigencia_inicio,
+              sh.vigencia_fin,
+              sh.motivo
        FROM scholarships sh
        INNER JOIN students s ON sh.student_id = s.id
        WHERE s.campus_id = $1 AND LOWER(s.nombre_completo) LIKE LOWER($2)
-       ORDER BY s.nombre_completo, sh.tipo_beca
+       ORDER BY s.nombre_completo
        LIMIT 10`,
       [ctx.campusId, `%${nombre}%`]
     );
@@ -391,12 +394,17 @@ async function queryBecasAlumno(params: Record<string, any>, ctx: ActionContext)
       };
     }
 
-    const resultRows: ActionResultRow[] = rows.map((r: any) => ({
-      label: `${r.nombre_completo} — ${r.tipo_beca}`,
-      value: r.tipo_descuento === "porcentaje"
-        ? `${r.porcentaje_descuento}% (${r.vigencia})`
-        : `${fmt(r.monto_fijo)} fijo (${r.vigencia})`,
-    }));
+    const resultRows: ActionResultRow[] = rows.map((r: any) => {
+      const descuento = r.porcentaje != null ? `${r.porcentaje}%` : "—";
+      const vigencia = r.vigencia_fin
+        ? `hasta ${new Date(r.vigencia_fin).toLocaleDateString("es-MX", { day:"2-digit", month:"short", year:"numeric" })}`
+        : "sin vencimiento";
+      return {
+        label: r.nombre_completo,
+        value: `${descuento} · ${vigencia}${r.motivo ? ` · ${r.motivo}` : ""}`,
+        highlight: true,
+      };
+    });
 
     return {
       success: true,
@@ -405,7 +413,65 @@ async function queryBecasAlumno(params: Record<string, any>, ctx: ActionContext)
       rows: resultRows,
     };
   } catch (e: any) {
-    return { success: false, title: "Error", summary: `No pude consultar becas: ${e.message}` };
+    return { success: false, title: "Error en becas", summary: `No pude consultar becas: ${e.message}` };
+  }
+}
+
+/** Lista alumnos con beca activa filtrados por nivel escolar */
+async function queryBecasNivel(params: Record<string, any>, ctx: ActionContext): Promise<ActionResult> {
+  const nivel = (params.nivel || "").trim();
+  try {
+    const { rows } = await pool.query(
+      `SELECT s.nombre_completo,
+              s.nivel_escolar,
+              s.grado,
+              sh.porcentaje,
+              sh.vigencia_inicio,
+              sh.vigencia_fin,
+              sh.motivo
+       FROM scholarships sh
+       INNER JOIN students s ON sh.student_id = s.id
+       WHERE s.campus_id = $1
+         AND sh.vigencia_inicio <= CURRENT_DATE
+         AND (sh.vigencia_fin IS NULL OR sh.vigencia_fin >= CURRENT_DATE)
+         AND ($2 = '' OR LOWER(s.nivel_escolar) LIKE LOWER($2))
+       ORDER BY s.nivel_escolar, s.nombre_completo
+       LIMIT 25`,
+      [ctx.campusId, nivel ? `%${nivel}%` : ""]
+    );
+
+    const titulo = nivel
+      ? `Alumnos con beca activa en ${nivel}`
+      : "Alumnos con beca activa";
+
+    if (rows.length === 0) {
+      return {
+        success: true,
+        title: titulo,
+        summary: nivel
+          ? `No hay alumnos con beca activa en la sección "${nivel}".`
+          : "No hay alumnos con beca activa en este campus.",
+        rows: [],
+      };
+    }
+
+    const resultRows: ActionResultRow[] = rows.map((r: any) => {
+      const descuento = r.porcentaje != null ? `${r.porcentaje}%` : "—";
+      return {
+        label: `${r.nombre_completo}${r.grado ? ` · ${r.grado}` : ""}`,
+        value: `${descuento} beca${r.motivo ? ` · ${r.motivo}` : ""}`,
+        highlight: false,
+      };
+    });
+
+    return {
+      success: true,
+      title: `${titulo} — ${rows.length} alumno(s)`,
+      summary: `Hay **${rows.length} alumno(s)** con beca activa${nivel ? ` en ${nivel}` : ""}.`,
+      rows: resultRows,
+    };
+  } catch (e: any) {
+    return { success: false, title: "Error en becas", summary: `No pude consultar las becas: ${e.message}` };
   }
 }
 
@@ -536,6 +602,7 @@ export async function executeAction(
     case "query:becas_alumno":     return queryBecasAlumno(params, ctx);
     case "query:cargos_alumno":    return queryCargosAlumno(params, ctx);
     case "query:familias_hijos":   return queryFamiliasHijos(params, ctx);
+    case "query:becas_nivel":      return queryBecasNivel(params, ctx);
     default:
       return { success: false, title: "Acción no reconocida", summary: "No entendí qué necesitas. Puedes preguntarme por alumnos, becas, pagos, cargos o el resumen financiero." };
   }

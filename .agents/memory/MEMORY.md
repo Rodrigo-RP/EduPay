@@ -3,6 +3,7 @@
 - [Guardian login route](guardian-auth.md) — login tutores es /api/auth/guardian-login (no /api/guardian/login); getGuardianByEmail debe buscar también por correo_institucional_familiar.
 - [Payment endpoint alias](payment-flow.md) — /api/guardian/pagar procesa array de charge_ids, crea payment + CFDI simulado; portal-padres-3clics.tsx lo consume con JWT en header.
 - [SQL column name rules](sql-column-rules.md) — charges/payments/invoices usan nombres en español; campus_id NO existe en charges ni payments ni invoices — siempre hacer JOIN vía students.
+- [Scholarships real columns](scholarships-schema.md) — tabla scholarships tiene columnas distintas al schema TypeScript: porcentaje (no porcentaje_aplicado), motivo (no observaciones), sin estado, sin monto_fijo. scholarship_types no existe en la DB.
 - [ESM require fix](esm-require.md) — "type":"module" en package.json rompe require(); usar createRequire(import.meta.url) alias esmRequire para speakeasy, qrcode, exceljs.
 - [Students table columns](students-columns.md) — students usa id_referencia (no matricula); guardians usa tipo_guardian (no parentesco); siempre verificar schema antes de escribir SQL crudo.
 - [Semaforo SQL FILTER](semaforo-sql.md) — FILTER(WHERE…) en PostgreSQL debe ir DESPUÉS del paréntesis de cierre del agregado: MAX(expr) FILTER(…), no MAX(expr FILTER(…)).

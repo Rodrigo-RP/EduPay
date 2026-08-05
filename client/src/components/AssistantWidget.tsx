@@ -41,6 +41,19 @@ export interface DiagnosticResult {
   fixDescription?: string;
 }
 
+interface ActionResultRow {
+  label: string;
+  value: string | number;
+  highlight?: boolean;
+}
+
+interface ActionResult {
+  success: boolean;
+  title: string;
+  summary: string;
+  rows?: ActionResultRow[];
+}
+
 interface ChatMessage {
   id: number;
   role: "assistant" | "user";
@@ -55,6 +68,8 @@ interface ChatMessage {
   diagnosticResult?: DiagnosticResult;
   /** Loading del diagnóstico */
   diagnosing?: boolean;
+  /** Resultado de una consulta/acción de datos */
+  actionResult?: ActionResult;
   ts: number;
 }
 
@@ -63,6 +78,7 @@ interface AssistantResponse {
   navigate?: NavTarget;
   suggestions?: NavTarget[];
   diagnose?: { moduleId: string; label: string };
+  actionResult?: ActionResult;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -100,6 +116,34 @@ function renderMarkdown(text: string) {
   return text
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/_(.+?)_/g, "<em>$1</em>");
+}
+
+// ── Subcomponente: ActionResultCard ──────────────────────────────────────────
+
+function ActionResultCard({ result }: { result: ActionResult }) {
+  return (
+    <div className={`rounded-xl border p-3 text-xs max-w-[240px] ${result.success ? "bg-blue-50 border-blue-200" : "bg-red-50 border-red-200"}`}>
+      <div className="flex items-center gap-1.5 mb-2">
+        {result.success
+          ? <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+          : <XCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />}
+        <p className="font-semibold text-slate-800 truncate">{result.title}</p>
+      </div>
+
+      {result.rows && result.rows.length > 0 && (
+        <div className="space-y-1 mb-2">
+          {result.rows.map((row, i) => (
+            <div key={i} className={`flex items-center justify-between gap-2 px-2 py-1 rounded-lg ${row.highlight ? "bg-blue-100" : "bg-white/70"}`}>
+              <span className="text-slate-600 text-[10px] leading-tight flex-1 min-w-0">{row.label}</span>
+              <span className={`font-semibold text-[11px] flex-shrink-0 ${row.highlight ? "text-blue-700" : "text-slate-700"}`}>
+                {row.value}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ── Subcomponente: DiagnosticCard ─────────────────────────────────────────────
@@ -436,6 +480,7 @@ export default function AssistantWidget() {
               },
             }
           : {}),
+        ...(data.actionResult ? { actionResult: data.actionResult } : {}),
         ts: Date.now(),
       };
       setMessages((prev) => [...prev, assistantMsg]);
@@ -501,7 +546,7 @@ export default function AssistantWidget() {
               </div>
               <div>
                 <p className="text-white text-sm font-semibold leading-none">Asistente EduPay</p>
-                <p className="text-blue-200 text-xs mt-0.5">Navegación y diagnóstico</p>
+                <p className="text-blue-200 text-xs mt-0.5">Navegación · diagnóstico · consultas</p>
               </div>
             </div>
             <button
@@ -544,6 +589,11 @@ export default function AssistantWidget() {
                       <Loader2 className="w-3 h-3 animate-spin" />
                       Ejecutando pruebas…
                     </div>
+                  )}
+
+                  {/* Tarjeta de resultado de acción/consulta */}
+                  {msg.actionResult && (
+                    <ActionResultCard result={msg.actionResult} />
                   )}
 
                   {/* Tarjeta de diagnóstico */}

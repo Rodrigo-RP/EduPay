@@ -19,12 +19,19 @@ export interface KnowledgeModule {
   roles: string[]; // qué roles tienen acceso (vacío = todos)
 }
 
+export interface ActionDescriptor {
+  actionId: string;
+  params: Record<string, any>;
+}
+
 export interface IntentResult {
   reply: string;
   navigate?: { route: string; label: string };
   suggestions?: Array<{ route: string; label: string }>;
   /** Presente cuando el usuario reporta un problema → el widget lanza diagnóstico */
   diagnose?: { moduleId: string; label: string };
+  /** Presente cuando el usuario hace una consulta de datos → el route la ejecuta */
+  action?: ActionDescriptor;
 }
 
 // ── Base de conocimiento ──────────────────────────────────────────────────────
@@ -357,6 +364,61 @@ interface ScoredModule {
   score: number;
 }
 
+// ── Detección de acciones ─────────────────────────────────────────────────────
+
+/**
+ * Detecta si el mensaje es una consulta de datos o solicitud de acción.
+ * Se verifica ANTES del motor de navegación.
+ */
+export function detectActionIntent(message: string): ActionDescriptor | null {
+  const n = normalize(message);
+
+  // ── Discrepancia / inconsistencia de números ──────────────────────────────
+  // "solo tengo 8 alumnos pero 78 becas", "no coincide", "por qué hay más becas"
+  if (
+    (n.includes("pero") || n.includes("y solo") || n.includes("sin embargo")) &&
+    /\d/.test(n) &&
+    (n.includes("becas") || n.includes("alumnos") || n.includes("pagos") || n.includes("cargos"))
+  ) return { actionId: "query:discrepancia", params: {} };
+
+  if (/(discrepancia|no coincide|diferencia entre|inconsistencia|por que (hay|tengo|aparecen?) (mas|menos|mas|solo))/.test(n))
+    return { actionId: "query:discrepancia", params: {} };
+
+  // ── Resumen financiero ────────────────────────────────────────────────────
+  if (/(cuanto (se ha|hemos|lleva[ms]?) cobrado|resumen financiero|resumen del mes|total cobrado|cuanto llevamos|cuanto hay cobrado|cuanto tenemos cobrado)/.test(n))
+    return { actionId: "query:resumen_financiero", params: {} };
+
+  // ── Contar entidades ──────────────────────────────────────────────────────
+  const countMatch = n.match(/cu[aá]ntos?\s+(alumnos?|estudiantes?|pagos?|cargos?|becas?|familias?|descuentos?)/);
+  if (countMatch)
+    return { actionId: "query:contar", params: { entity: countMatch[1] } };
+
+  // ── Becas de un alumno ────────────────────────────────────────────────────
+  // "qué becas tiene García", "becas de Juan"
+  const becasMatch = n.match(/(?:qu[eé] becas? (?:tiene|hay para|tiene asignada?s?)|becas? de|descuentos? de)\s+(.{2,40})/);
+  if (becasMatch)
+    return { actionId: "query:becas_alumno", params: { nombre: becasMatch[1].trim() } };
+
+  // ── Cargos / adeudos de un alumno ─────────────────────────────────────────
+  // "qué cargos tiene García", "adeudos de Juan", "cuánto debe García"
+  const cargosMatch = n.match(/(?:qu[eé] (?:cargos?|adeudos?) (?:tiene|hay para)|adeudos? de|cuanto (debe|adeuda)|cargos? de)\s+(.{2,40})/);
+  if (cargosMatch)
+    return { actionId: "query:cargos_alumno", params: { nombre: (cargosMatch[2] || cargosMatch[0].split(" de ")[1] || "").trim() } };
+
+  // ── Saldo de un alumno ────────────────────────────────────────────────────
+  const saldoMatch = n.match(/saldo (?:del?|de) (?:alumno\s+|estudiante\s+)?(.{2,40})/);
+  if (saldoMatch)
+    return { actionId: "query:saldo_alumno", params: { nombre: saldoMatch[1].trim() } };
+
+  // ── Búsqueda de alumno ────────────────────────────────────────────────────
+  // "busca al alumno García", "encuentra a Juan", "buscar estudiante López"
+  const searchMatch = n.match(/(?:bus[cq][au][ea]?[r]?|encuentra[r]?|localiza[r]?)\s+(?:al?\s+)?(?:alumno\s+|estudiante\s+)?(.{2,40})/);
+  if (searchMatch && (n.includes("alumno") || n.includes("estudiante") || n.includes("buscar") || n.includes("busca") || n.includes("encuentra")))
+    return { actionId: "query:buscar_alumno", params: { nombre: searchMatch[1].trim() } };
+
+  return null;
+}
+
 /** Palabras clave que indican que el usuario reporta un fallo */
 const FAULT_KEYWORDS = [
   "no funciona", "no carga", "no guarda", "no aparece", "no puedo",
@@ -382,6 +444,12 @@ export function matchIntent(
     return {
       reply: "No entendí tu mensaje. Puedes preguntarme dónde está una función, por ejemplo: _\"¿dónde registro un pago?\"_ o _\"quiero ver las becas\"_.",
     };
+  }
+
+  // ── Detectar acción / consulta de datos PRIMERO ───────────────────────────
+  const action = detectActionIntent(message);
+  if (action) {
+    return { reply: "Consultando los datos…", action };
   }
 
   // Detectar intención de fallo

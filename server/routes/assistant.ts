@@ -11,6 +11,7 @@ import type { Express } from "express";
 import { authenticateToken } from "./shared";
 import { matchIntent } from "../assistant-knowledge";
 import { runDiagnostic, runFullDiagnostic, MODULE_CHECKS } from "../assistant-health-checks";
+import { executeAction } from "../assistant-actions";
 import { pool } from "../db";
 
 export function registerAssistantRoutes(app: Express): void {
@@ -30,11 +31,30 @@ export function registerAssistantRoutes(app: Express): void {
       }
 
       const userRole: string = req.user?.role || "asistente";
+      const campusId: number = req.user?.campus_id;
+      const tenantId: number = req.user?.tenant_id;
+      const userId: number   = req.user?.id;
+
       // Decodificar entidades HTML que puede introducir algún middleware de sanitización
       const decodedPath = currentPath
         ? currentPath.replace(/&#x2F;/g, "/").replace(/&#x27;/g, "'").replace(/&amp;/g, "&")
         : undefined;
+
       const result = matchIntent(message.trim(), userRole, decodedPath);
+
+      // Si el intent es una acción/consulta de datos, ejecutarla en el servidor
+      if (result.action && campusId && tenantId) {
+        const actionResult = await executeAction(
+          result.action.actionId,
+          result.action.params,
+          { campusId, tenantId, userId }
+        );
+        // Reemplazar la respuesta genérica con el resumen real
+        result.reply = actionResult.summary;
+        (result as any).actionResult = actionResult;
+        delete result.action;
+      }
+
       return res.json(result);
     } catch (err: any) {
       console.error("[assistant] Error procesando mensaje:", err.message);

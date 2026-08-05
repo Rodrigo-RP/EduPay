@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { getCurrentCiclo, generateCiclosList } from "@/hooks/use-academic-filter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -843,15 +844,7 @@ export default function Estudiantes() {
     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'
   ];
   
-  const ciclosEducativos = [
-    '2024-2025',
-    '2025-2026', 
-    '2026-2027',
-    '2027-2028',
-    '2028-2029',
-    '2023-2024',
-    '2022-2023'
-  ];
+  const ciclosEducativos = generateCiclosList();
 
   // Rangos de edad para filtros inteligentes
   const rangoEdadOptions = [
@@ -906,7 +899,7 @@ export default function Estudiantes() {
       case 'nuevos':
         // Filtrar por ciclo escolar actual y activos
         setSelectedStatus('activo');
-        setSelectedCicloEscolar('2024-2025');
+        setSelectedCicloEscolar(getCurrentCiclo());
         break;
       case 'pendientes':
         // Filtrar por status que indique documentos pendientes - usar términos más comunes

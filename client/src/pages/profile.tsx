@@ -85,7 +85,9 @@ export default function Profile() {
   const passwordEndpoint = isGuardian ? "/api/guardian/profile/password" : "/api/profile/password";
   
   // Only show institutional tab for admin users (not guardians)
-  const canViewInstitutional = !isGuardian && (user?.role === 'admin' || user?.role === 'super_admin');
+  const canViewInstitutional = !isGuardian && (
+    ['admin', 'super_admin', 'administrador_general', 'administrador_campus'].includes(user?.role ?? '')
+  );
 
   // Fetch current profile data
   const { data: profileData, isLoading } = useQuery({

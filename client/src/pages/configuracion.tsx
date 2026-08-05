@@ -12,6 +12,7 @@ import { useInstitution } from "@/hooks/use-institution";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import { Calendar, Bell, Key, Mail, Settings, Shield, School, CreditCard, Database, Palette, Globe, Users, FileText, Upload, Plus, Edit, Trash2, ToggleLeft, ToggleRight, DollarSign } from "lucide-react";
+import { generateCiclosList, getCurrentCiclo, useAcademicFilter } from "@/hooks/use-academic-filter";
 
 export default function Configuracion() {
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
@@ -253,14 +254,14 @@ export default function Configuracion() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                           <Label>Ciclo escolar actual</Label>
-                          <Select defaultValue="2024-2025">
+                          <Select defaultValue={getCurrentCiclo()}>
                             <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="2024-2025">2024-2025</SelectItem>
-                              <SelectItem value="2025-2026">2025-2026</SelectItem>
-                              <SelectItem value="2023-2024">2023-2024</SelectItem>
+                              {generateCiclosList().map(c => (
+                                <SelectItem key={c} value={c}>{c}</SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </div>

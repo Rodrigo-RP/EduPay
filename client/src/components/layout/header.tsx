@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
-import { useAcademicFilter } from "@/hooks/use-academic-filter";
+import { useAcademicFilter, generateCiclosList, getCurrentCiclo } from "@/hooks/use-academic-filter";
 import { Calendar, GraduationCap, User, Settings } from "lucide-react";
 import { useLocation } from "wouter";
 import { RealTimeStatus } from "@/components/RealTimeStatus";
@@ -13,12 +13,7 @@ export default function Header() {
   const { selectedCiclo, selectedNivel, setSelectedCiclo, setSelectedNivel } = useAcademicFilter();
   const [, setLocation] = useLocation();
 
-  const ciclosEscolares = [
-    "2024-2025",
-    "2023-2024", 
-    "2022-2023",
-    "2025-2026"
-  ];
+  const ciclosEscolares = generateCiclosList();
 
   const nivelesEscolares = [
     { value: "all", label: "Todos los niveles" },

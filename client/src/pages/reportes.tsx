@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useInstitution } from "@/hooks/use-institution";
 import { useQuery } from "@tanstack/react-query";
 import jsPDF from 'jspdf';
+import { generateCiclosList, getCurrentCiclo } from "@/hooks/use-academic-filter";
 
 export default function Reportes() {
   const { toast } = useToast();
@@ -22,7 +23,7 @@ export default function Reportes() {
   const [busquedaFamiliaEstudiante, setBusquedaFamiliaEstudiante] = useState("");
   const [seccionEducativa, setSeccionEducativa] = useState("todas");
   const [nivelAcademico, setNivelAcademico] = useState("todos");
-  const [cicloEscolar, setCicloEscolar] = useState("2024-2025");
+  const [cicloEscolar, setCicloEscolar] = useState(getCurrentCiclo);
   const [concepto, setConcepto] = useState("todos");
   const [tipoReporte, setTipoReporte] = useState("");
   const [formatoExportacion, setFormatoExportacion] = useState("excel");
@@ -198,7 +199,7 @@ export default function Reportes() {
     setBusquedaFamiliaEstudiante("");
     setSeccionEducativa("todas");
     setNivelAcademico("todos");
-    setCicloEscolar("2024-2025");
+    setCicloEscolar(getCurrentCiclo());
     setConcepto("todos");
   };
 
@@ -742,9 +743,9 @@ Instituto JFR - ${fechaGeneracion}`;
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="2024-2025">2024-2025</SelectItem>
-                    <SelectItem value="2023-2024">2023-2024</SelectItem>
-                    <SelectItem value="2022-2023">2022-2023</SelectItem>
+                    {generateCiclosList().map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

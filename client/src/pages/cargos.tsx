@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getCurrentCiclo } from "@/hooks/use-academic-filter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -59,7 +60,7 @@ export default function Cargos() {
     fecha_vencimiento: "",
     aplicar_becas: true,
     incluir_recargos: false,
-    ciclo_escolar: "2025-2026",
+    ciclo_escolar: getCurrentCiclo(),
   });
 
   // Modal de cargos extraordinarios
@@ -172,7 +173,7 @@ export default function Cargos() {
       fecha_vencimiento: "",
       aplicar_becas: true,
       incluir_recargos: false,
-      ciclo_escolar: "2025-2026",
+      ciclo_escolar: getCurrentCiclo(),
     });
   };
 
@@ -202,7 +203,7 @@ export default function Cargos() {
       aplicar_becas: false,
       incluir_recargos: false,
       tipo_generacion: "extraordinaria",
-      ciclo_escolar: "2025-2026",
+      ciclo_escolar: getCurrentCiclo(),
       dry_run: false,
     });
     setExtModalOpen(false);

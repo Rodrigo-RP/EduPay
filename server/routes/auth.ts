@@ -59,7 +59,7 @@ export function registerAuthRoutes(app: Express): void {
         { expiresIn: '24h' }
       );
 
-      res.json({ token, user: { id: user.id, email: user.email, role: user.role, campus_id: user.campus_id, tenant_id: user.tenant_id } });
+      res.json({ token, user: { id: user.id, email: user.email, name: user.name ?? "", role: user.role, campus_id: user.campus_id, tenant_id: user.tenant_id } });
     } catch (error: any) {
       res.status(500).json({ message: "Login failed" });
     }

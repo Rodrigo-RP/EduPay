@@ -55,6 +55,7 @@ import CalendarioFinanciero from "@/pages/calendario-financiero";
 import ReporteConsejo from "@/pages/reporte-consejo";
 import ExcepcionesConciliacion from "@/pages/excepciones-conciliacion";
 import MagicLinkRedirect from "@/pages/magic-link-redirect";
+import AssistantWidget from "@/components/AssistantWidget";
 
 function AuthenticatedRoutes() {
   const { user, guardian, isLoading } = useAuth();
@@ -90,7 +91,16 @@ function AuthenticatedRoutes() {
               <Route path="/usuarios" component={UsuariosUnificado} />
               <Route path="/estudiantes" component={Estudiantes} />
               <Route path="/familias" component={Familias} />
+              <Route path="/cargos" component={Cargos} />
+              <Route path="/pagos" component={Pagos} />
+              <Route path="/cuentas-por-cobrar" component={CuentasPorCobrar} />
+              <Route path="/catalogo-productos" component={CatalogoProductos} />
+              <Route path="/becas" component={Becas} />
+              <Route path="/asignacion-precios" component={AsignacionPrecios} />
+              <Route path="/notificaciones" component={Notificaciones} />
               <Route path="/reportes" component={Reportes} />
+              <Route path="/reportes-financieros" component={ReportesFinancieros} />
+              <Route path="/aprobaciones" component={Aprobaciones} />
               <Route path="/configuracion" component={Configuracion} />
               <Route path="/emision-cargos" component={EmisionCargos} />
               <Route path="/caja-conciliacion" component={CajaConciliacion} />
@@ -109,6 +119,7 @@ function AuthenticatedRoutes() {
             </Switch>
           </main>
         </div>
+        <AssistantWidget />
       </div>
     );
   }
@@ -169,6 +180,7 @@ function AuthenticatedRoutes() {
           </Switch>
         </main>
       </div>
+      <AssistantWidget />
     </div>
   );
 }

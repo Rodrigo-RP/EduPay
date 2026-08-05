@@ -1565,7 +1565,7 @@ export default function Estudiantes() {
       </Card>
 
       {/* ── Resumen estadístico ────────────────────────────────────────────── */}
-      {hasActiveSearch && filteredEstudiantes.length > 0 && showResumen && (() => {
+      {hasActiveSearch && showResumen && (() => {
         const d = buildResumenData();
         const StatTable = ({ title, rows }: { title: string; rows: [string, number][] }) => (
           <div>
@@ -1593,35 +1593,49 @@ export default function Estudiantes() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-base text-indigo-900">Resumen estadístico</CardTitle>
-                  <p className="text-xs text-indigo-600 mt-0.5">{d.total} alumno(s) con los filtros actuales</p>
+                  <p className="text-xs text-indigo-600 mt-0.5">
+                    {d.total > 0 ? `${d.total} alumno(s) con los filtros actuales` : 'Sin coincidencias para los filtros seleccionados'}
+                  </p>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="text-xs border-green-300 text-green-700 bg-white hover:bg-green-50" onClick={exportResumenExcel}>
+                  <Button size="sm" variant="outline" className="text-xs border-green-300 text-green-700 bg-white hover:bg-green-50" onClick={exportResumenExcel} disabled={d.total === 0}>
                     <FileSpreadsheet className="h-3 w-3 mr-1" /> Exportar Excel
                   </Button>
-                  <Button size="sm" variant="outline" className="text-xs border-red-300 text-red-700 bg-white hover:bg-red-50" onClick={exportResumenPDF}>
+                  <Button size="sm" variant="outline" className="text-xs border-red-300 text-red-700 bg-white hover:bg-red-50" onClick={exportResumenPDF} disabled={d.total === 0}>
                     <Download className="h-3 w-3 mr-1" /> Exportar PDF
                   </Button>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-                <StatTable title="Nivel escolar" rows={d.porNivel} />
-                <StatTable title="Estatus" rows={d.porEstatus} />
-                <StatTable title="Sexo" rows={d.porSexo} />
-                <StatTable title="Origen" rows={d.porOrigen.map(r => [r.label, r.count] as [string, number])} />
-                <StatTable title="Rango de edad" rows={d.porEdad.map(r => [r.label, r.count] as [string, number])} />
-                {d.porNacionalidad.length > 0 && <StatTable title="Nacionalidad" rows={d.porNacionalidad} />}
-                {d.porIdioma.length > 0 && <StatTable title="Idioma natal" rows={d.porIdioma} />}
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Indicadores</p>
-                  <div className="space-y-1 text-xs">
-                    <div className="flex justify-between"><span className="text-gray-600">Con necesidades esp.</span><span className="font-semibold text-orange-700">{d.conNecesidades}</span></div>
-                    <div className="flex justify-between"><span className="text-gray-600">Repetidores de grado</span><span className="font-semibold text-red-700">{d.repetidores}</span></div>
+              {d.total === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center mb-3">
+                    <Search className="h-6 w-6 text-indigo-400" />
+                  </div>
+                  <p className="text-sm font-medium text-gray-600">No hay alumnos que coincidan</p>
+                  <p className="text-xs text-gray-400 mt-1 max-w-xs">
+                    Prueba cambiando o quitando algún filtro para ver resultados y su desglose estadístico.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+                  <StatTable title="Nivel escolar" rows={d.porNivel} />
+                  <StatTable title="Estatus" rows={d.porEstatus} />
+                  <StatTable title="Sexo" rows={d.porSexo} />
+                  <StatTable title="Origen" rows={d.porOrigen.map(r => [r.label, r.count] as [string, number])} />
+                  <StatTable title="Rango de edad" rows={d.porEdad.filter(r => r.count > 0).map(r => [r.label, r.count] as [string, number])} />
+                  {d.porNacionalidad.length > 0 && <StatTable title="Nacionalidad" rows={d.porNacionalidad} />}
+                  {d.porIdioma.length > 0 && <StatTable title="Idioma natal" rows={d.porIdioma} />}
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Indicadores</p>
+                    <div className="space-y-1 text-xs">
+                      <div className="flex justify-between"><span className="text-gray-600">Con necesidades esp.</span><span className="font-semibold text-orange-700">{d.conNecesidades}</span></div>
+                      <div className="flex justify-between"><span className="text-gray-600">Repetidores de grado</span><span className="font-semibold text-red-700">{d.repetidores}</span></div>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         );

@@ -10,11 +10,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { Home, Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, CreditCard, FileText, Link2, Download, Upload, AlertCircle, Eye, UserCheck, UserX } from "lucide-react";
+import { Home, Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, CreditCard, FileText, Link2, Download, Upload, AlertCircle, AlertTriangle, Eye, UserCheck, UserX, Settings } from "lucide-react";
 
 export default function Familias() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedSeccion, setSelectedSeccion]       = useState("all");
+  const [selectedGrado, setSelectedGrado]           = useState("all");
+  const [selectedGrupo, setSelectedGrupo]           = useState("all");
+  const [selectedEstatus, setSelectedEstatus]       = useState("all");
+  const [selectedCodigoPostal, setSelectedCodigoPostal] = useState("all");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedFamily, setSelectedFamily] = useState<any>(null);
   const [showLinkModal, setShowLinkModal] = useState(false);
@@ -136,7 +142,11 @@ export default function Familias() {
             id: s.id,
             nombre: s.nombre_completo,
             grado: `${s.grado || ""} ${s.grupo || ""}`.trim(),
+            nivel_escolar: s.nivel_escolar || "",
+            grado_raw: s.grado || "",
+            grupo: s.grupo || "",
           })),
+          codigo_postal: f.codigo_postal || f.cp || "",
           saldo_total: f.saldo_pendiente_centavos ?? 0,
           fecha_registro: f.created_at ? f.created_at.split("T")[0] : "",
         }));
@@ -966,17 +976,77 @@ export default function Familias() {
     });
   };
 
-  // Ocultar lista hasta que haya búsqueda activa
-  const hasActiveSearch = !!searchTerm;
+  // ── Opciones derivadas de los datos reales ─────────────────────────────────
+  const seccionesBD = Array.from(new Set(
+    familias.flatMap(f => f.estudiantes_vinculados.map((s: any) => s.nivel_escolar).filter(Boolean))
+  )) as string[];
+
+  const gradosBD = Array.from(new Set(
+    familias.flatMap(f => f.estudiantes_vinculados.map((s: any) => s.grado_raw).filter(Boolean))
+  )) as string[];
+
+  const gruposBD = Array.from(new Set(
+    familias.flatMap(f => f.estudiantes_vinculados.map((s: any) => s.grupo).filter(Boolean))
+  )) as string[];
+
+  const codigosPostalesBD = Array.from(new Set(
+    familias.map(f => f.codigo_postal).filter(Boolean)
+  )) as string[];
+
+  // Filtros predefinidos
+  const aplicarFiltroPredefinidoFamilias = (tipo: string) => {
+    setSearchTerm("");
+    setSelectedSeccion("all");
+    setSelectedGrado("all");
+    setSelectedGrupo("all");
+    setSelectedCodigoPostal("all");
+    switch (tipo) {
+      case 'activos':    setSelectedEstatus("activo");   break;
+      case 'pendientes': setSelectedEstatus("pendiente"); break;
+      default:           setSelectedEstatus("all");       break;
+    }
+  };
+
+  // Ocultar lista hasta que haya búsqueda o filtro activo
+  const hasActiveSearch = !!(
+    searchTerm ||
+    selectedSeccion !== "all" ||
+    selectedGrado !== "all" ||
+    selectedGrupo !== "all" ||
+    selectedEstatus !== "all" ||
+    selectedCodigoPostal !== "all"
+  );
 
   // Filtrar familias según criterios de búsqueda
   const filteredFamilias = familias.filter(familia => {
+    // Texto libre
     const searchLower = searchTerm.toLowerCase();
-    return familia.numero_familia.toLowerCase().includes(searchLower) ||
-           familia.padre_nombre.toLowerCase().includes(searchLower) ||
-           familia.madre_nombre.toLowerCase().includes(searchLower) ||
-           familia.padre_email.toLowerCase().includes(searchLower) ||
-           familia.rfc.toLowerCase().includes(searchLower);
+    const matchSearch = !searchTerm ||
+      familia.numero_familia.toLowerCase().includes(searchLower) ||
+      familia.padre_nombre.toLowerCase().includes(searchLower) ||
+      familia.madre_nombre.toLowerCase().includes(searchLower) ||
+      familia.padre_email.toLowerCase().includes(searchLower) ||
+      familia.rfc.toLowerCase().includes(searchLower);
+
+    // Estatus
+    const matchEstatus = selectedEstatus === "all" || familia.estatus === selectedEstatus;
+
+    // Sección: al menos un alumno vinculado coincide
+    const matchSeccion = selectedSeccion === "all" ||
+      familia.estudiantes_vinculados.some((s: any) => s.nivel_escolar === selectedSeccion);
+
+    // Grado
+    const matchGrado = selectedGrado === "all" ||
+      familia.estudiantes_vinculados.some((s: any) => s.grado_raw === selectedGrado);
+
+    // Grupo
+    const matchGrupo = selectedGrupo === "all" ||
+      familia.estudiantes_vinculados.some((s: any) => s.grupo === selectedGrupo);
+
+    // Código postal
+    const matchCP = selectedCodigoPostal === "all" || familia.codigo_postal === selectedCodigoPostal;
+
+    return matchSearch && matchEstatus && matchSeccion && matchGrado && matchGrupo && matchCP;
   });
 
   const estadisticas = {
@@ -1111,35 +1181,184 @@ export default function Familias() {
 
         {/* Filtros */}
         <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0 mb-4 md:mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-blue-600">
-              <Search className="w-5 h-5" />
-              Búsqueda de familias
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
-            <div className="md:col-span-2">
-              <Label htmlFor="search">Buscar familia</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                <Input
-                  id="search"
-                  placeholder="Número, apellidos, nombre, email o RFC..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+          <CardContent className="p-6">
+            <div className="space-y-4">
+
+              {/* Barra de búsqueda principal */}
+              <div className="flex items-center gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    placeholder="Número, apellidos, nombre, email o RFC..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 text-base"
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  className="flex items-center gap-2"
+                >
+                  <Settings className="h-4 w-4" />
+                  {showAdvancedFilters ? 'Ocultar filtros' : 'Más filtros'}
+                </Button>
               </div>
+
+              {/* Filtros rápidos */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium text-gray-700">Filtros rápidos</Label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant={selectedEstatus === "all" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => aplicarFiltroPredefinidoFamilias('todos')}
+                    className="text-xs"
+                  >
+                    <Users className="h-3 w-3 mr-1" />
+                    Todas las familias
+                  </Button>
+                  <Button
+                    variant={selectedEstatus === "activo" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => aplicarFiltroPredefinidoFamilias('activos')}
+                    className="text-xs bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                  >
+                    <UserCheck className="h-3 w-3 mr-1" />
+                    Solo activos
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { aplicarFiltroPredefinidoFamilias('todos'); setSelectedSeccion("all"); }}
+                    className="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Nuevos ingresos
+                  </Button>
+                  <Button
+                    variant={selectedEstatus === "pendiente" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => aplicarFiltroPredefinidoFamilias('pendientes')}
+                    className="text-xs bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200"
+                  >
+                    <AlertTriangle className="h-3 w-3 mr-1" />
+                    Pendientes documentos
+                  </Button>
+                </div>
+              </div>
+
+              {/* Filtros de columna (siempre visibles) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Sección Educativa</Label>
+                  <Select value={selectedSeccion} onValueChange={setSelectedSeccion}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Todas las..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas las secciones</SelectItem>
+                      {['Kinder','Primaria','Secundaria','Preparatoria'].map(s => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                      {seccionesBD.filter(s => !['Kinder','Primaria','Secundaria','Preparatoria'].includes(s)).map(s => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Grado</Label>
+                  <Select value={selectedGrado} onValueChange={setSelectedGrado}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Todos los grados" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los grados</SelectItem>
+                      {gradosBD.sort().map(g => (
+                        <SelectItem key={g} value={g}>{g}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Grupo</Label>
+                  <Select value={selectedGrupo} onValueChange={setSelectedGrupo}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Todos los grupos" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los grupos</SelectItem>
+                      {gruposBD.sort().map(g => (
+                        <SelectItem key={g} value={g}>Grupo {g}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Estatus</Label>
+                  <Select value={selectedEstatus} onValueChange={setSelectedEstatus}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Todos los estatus" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los estatus</SelectItem>
+                      <SelectItem value="activo">Activo</SelectItem>
+                      <SelectItem value="inactivo">Inactivo</SelectItem>
+                      <SelectItem value="pendiente">Pendiente</SelectItem>
+                      <SelectItem value="suspendido">Suspendido</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Código Postal</Label>
+                  <Select value={selectedCodigoPostal} onValueChange={setSelectedCodigoPostal}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Todas las zonas" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas las zonas</SelectItem>
+                      {codigosPostalesBD.sort().map(cp => (
+                        <SelectItem key={cp} value={cp}>CP {cp}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Filtros avanzados expandibles */}
+              {showAdvancedFilters && (
+                <div className="border-t pt-4 mt-2">
+                  <div className="flex justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSearchTerm("");
+                        setSelectedSeccion("all");
+                        setSelectedGrado("all");
+                        setSelectedGrupo("all");
+                        setSelectedEstatus("all");
+                        setSelectedCodigoPostal("all");
+                      }}
+                      className="text-xs"
+                    >
+                      Limpiar todos los filtros
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Resumen de filtros activos */}
+              {hasActiveSearch && (
+                <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600 bg-blue-50 p-2 rounded-md">
+                  <span className="font-medium">Filtros activos:</span>
+                  {searchTerm && <span className="bg-white border rounded px-2 py-0.5 text-xs">Búsqueda: {searchTerm}</span>}
+                  {selectedSeccion !== "all" && <span className="bg-white border rounded px-2 py-0.5 text-xs">Sección: {selectedSeccion}</span>}
+                  {selectedGrado !== "all" && <span className="bg-white border rounded px-2 py-0.5 text-xs">Grado: {selectedGrado}</span>}
+                  {selectedGrupo !== "all" && <span className="bg-white border rounded px-2 py-0.5 text-xs">Grupo: {selectedGrupo}</span>}
+                  {selectedEstatus !== "all" && <span className="bg-white border rounded px-2 py-0.5 text-xs">Estatus: {selectedEstatus}</span>}
+                  {selectedCodigoPostal !== "all" && <span className="bg-white border rounded px-2 py-0.5 text-xs">CP: {selectedCodigoPostal}</span>}
+                </div>
+              )}
+
             </div>
-            <div className="flex items-end">
-              <Button variant="outline" onClick={() => setSearchTerm("")}>
-                Limpiar búsqueda
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
         {/* Lista de familias */}
         <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0">

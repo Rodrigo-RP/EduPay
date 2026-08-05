@@ -18,17 +18,18 @@ export function getCurrentCiclo(): string {
   return m >= 8 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
 }
 
-/** Genera la lista de ciclos escolares: 3 anteriores, el actual y el siguiente */
+/** Genera la lista de ciclos escolares relevantes para producción:
+ *  el siguiente (planeación), el actual y el anterior (migración de datos). */
 export function generateCiclosList(): string[] {
   const now = new Date();
   const y = now.getFullYear();
   const m = now.getMonth() + 1;
   const startYear = m >= 8 ? y : y - 1; // año inicio del ciclo actual
-  const ciclos: string[] = [];
-  for (let yr = startYear + 1; yr >= startYear - 3; yr--) {
-    ciclos.push(`${yr}-${yr + 1}`);
-  }
-  return ciclos;
+  return [
+    `${startYear + 1}-${startYear + 2}`, // siguiente
+    `${startYear}-${startYear + 1}`,     // actual
+    `${startYear - 1}-${startYear}`,     // anterior (migración)
+  ];
 }
 
 export function AcademicFilterProvider({ children }: { children: ReactNode }) {

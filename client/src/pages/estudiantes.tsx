@@ -378,6 +378,13 @@ export default function Estudiantes() {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedCodigoPostal, setSelectedCodigoPostal] = useState("all");
   const [selectedEdadRango, setSelectedEdadRango] = useState("all");
+  const [selectedSexo, setSelectedSexo] = useState("all");
+  const [selectedExtranjero, setSelectedExtranjero] = useState("all");
+  const [selectedNacionalidad, setSelectedNacionalidad] = useState("all");
+  const [selectedIdioma, setSelectedIdioma] = useState("all");
+  const [selectedNecesidades, setSelectedNecesidades] = useState("all");
+  const [selectedRepetidor, setSelectedRepetidor] = useState("all");
+  const [showResumen, setShowResumen] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [gruposPersonalizados, setGruposPersonalizados] = useState(["A", "B", "C", "D", "E", "F", "G", "H"]);
@@ -688,6 +695,87 @@ export default function Estudiantes() {
   };
 
   // Funciones para exportar
+  // ── Exportación del resumen estadístico ──────────────────────────────────
+  const buildResumenData = () => {
+    const count = (arr: any[], pred: (e: any) => boolean) => arr.filter(pred).length;
+    const byKey = (arr: any[], getter: (e: any) => string) => {
+      const map: Record<string, number> = {};
+      arr.forEach(e => { const k = getter(e) || "Sin dato"; map[k] = (map[k] || 0) + 1; });
+      return Object.entries(map).sort((a, b) => b[1] - a[1]);
+    };
+    return {
+      total: filteredEstudiantes.length,
+      porNivel:    byKey(filteredEstudiantes, e => e.nivel_escolar),
+      porEstatus:  byKey(filteredEstudiantes, e => e.status),
+      porSexo:     byKey(filteredEstudiantes, e => (e.sexo || "Sin dato")),
+      porEdad:     rangoEdadOptions.map(r => ({ label: r.label, count: count(filteredEstudiantes, e => estaEnRangoEdad(calcularEdad(e.fecha_nacimiento || e.estudiante_fecha_nacimiento), r.value)) })),
+      porOrigen:   [
+        { label: "Mexicano",   count: count(filteredEstudiantes, e => !e.extranjero && !e.es_extranjero) },
+        { label: "Extranjero", count: count(filteredEstudiantes, e => e.extranjero === true || e.es_extranjero === true) },
+      ],
+      porNacionalidad: byKey(filteredEstudiantes, e => e.nacionalidad),
+      porIdioma:       byKey(filteredEstudiantes, e => e.idioma_natal || e.idioma),
+      conNecesidades:  count(filteredEstudiantes, e => e.necesidades_especiales === true || e.necesidades_especiales === "si"),
+      repetidores:     count(filteredEstudiantes, e => e.repetidor === true || e.repetidor === "si"),
+    };
+  };
+
+  const exportResumenExcel = () => {
+    const d = buildResumenData();
+    const rows: string[][] = [
+      ["RESUMEN DE ALUMNOS", "", ""],
+      [`Generado: ${new Date().toLocaleDateString('es-MX')}`, "", ""],
+      ["Total filtrado", String(d.total), ""],
+      ["", "", ""],
+      ["RUBRO", "CATEGORÍA", "CANTIDAD"],
+      ...d.porNivel.map(([k, v]) => ["Nivel escolar", k, String(v)]),
+      ...d.porEstatus.map(([k, v]) => ["Estatus", k, String(v)]),
+      ...d.porSexo.map(([k, v]) => ["Sexo", k, String(v)]),
+      ...d.porEdad.map(r => ["Edad", r.label, String(r.count)]),
+      ...d.porOrigen.map(r => ["Origen", r.label, String(r.count)]),
+      ...d.porNacionalidad.map(([k, v]) => ["Nacionalidad", k, String(v)]),
+      ...d.porIdioma.map(([k, v]) => ["Idioma natal", k, String(v)]),
+      ["Necesidades específicas", "Con necesidades", String(d.conNecesidades)],
+      ["Repetidor de grado", "Sí repite", String(d.repetidores)],
+    ];
+    const csv = rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `resumen_alumnos_${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(a); a.click();
+    URL.revokeObjectURL(url); document.body.removeChild(a);
+    toast({ title: "Excel exportado", description: "Resumen descargado como CSV (compatible con Excel)" });
+  };
+
+  const exportResumenPDF = () => {
+    const d = buildResumenData();
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+    <title>Resumen de Alumnos</title>
+    <style>body{font-family:Arial,sans-serif;padding:20px;color:#1a1a1a}h1{color:#1e40af;font-size:20px}h2{color:#374151;font-size:14px;margin-top:16px;border-bottom:1px solid #e5e7eb;padding-bottom:4px}
+    table{border-collapse:collapse;width:100%;margin-bottom:8px;font-size:12px}th{background:#1e40af;color:#fff;padding:6px 10px;text-align:left}td{padding:5px 10px;border-bottom:1px solid #f3f4f6}
+    tr:nth-child(even) td{background:#f9fafb}.meta{color:#6b7280;font-size:12px;margin-bottom:16px}
+    @media print{body{padding:10px}}</style></head><body>
+    <h1>Resumen de Alumnos</h1>
+    <p class="meta">Generado: ${new Date().toLocaleDateString('es-MX')} · Total: ${d.total} alumno(s)</p>
+    ${[
+      { title: "Por Nivel Escolar", rows: d.porNivel },
+      { title: "Por Estatus", rows: d.porEstatus },
+      { title: "Por Sexo", rows: d.porSexo },
+      { title: "Por Origen", rows: d.porOrigen.map(r => [r.label, r.count] as [string, number]) },
+      { title: "Por Nacionalidad", rows: d.porNacionalidad },
+      { title: "Por Idioma Natal", rows: d.porIdioma },
+    ].map(s => `<h2>${s.title}</h2><table><tr><th>Categoría</th><th>Cantidad</th></tr>${s.rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("")}</table>`).join("")}
+    <h2>Por Rango de Edad</h2><table><tr><th>Rango</th><th>Cantidad</th></tr>${d.porEdad.map(r => `<tr><td>${r.label}</td><td>${r.count}</td></tr>`).join("")}</table>
+    <h2>Indicadores especiales</h2><table><tr><th>Indicador</th><th>Cantidad</th></tr>
+    <tr><td>Con necesidades específicas</td><td>${d.conNecesidades}</td></tr>
+    <tr><td>Repetidores de grado</td><td>${d.repetidores}</td></tr></table>
+    </body></html>`;
+    const win = window.open("", "_blank");
+    if (win) { win.document.write(html); win.document.close(); win.focus(); win.print(); }
+  };
+  // ─────────────────────────────────────────────────────────────────────────
+
   const handleExport = async (format: 'xlsx' | 'csv') => {
     try {
       const response = await apiRequest(`/api/admin/students/1/export?format=${format}`);
@@ -971,7 +1059,13 @@ export default function Estudiantes() {
     selectedPeriodoEstudiantes !== "all" ||
     selectedStatus !== "all" ||
     selectedCodigoPostal !== "all" ||
-    selectedEdadRango !== "all";
+    selectedEdadRango !== "all" ||
+    selectedSexo !== "all" ||
+    selectedExtranjero !== "all" ||
+    selectedNacionalidad !== "all" ||
+    selectedIdioma !== "all" ||
+    selectedNecesidades !== "all" ||
+    selectedRepetidor !== "all";
 
   const filteredEstudiantes = estudiantes.filter((estudiante: any) => {
     const matchSearch = !searchTerm || 
@@ -1008,8 +1102,20 @@ export default function Estudiantes() {
       if (selectedPeriodoEstudiantes === "mes")   return fecha.getMonth() === now.getMonth() && fecha.getFullYear() === now.getFullYear();
       return true;
     })();
+
+    // Filtros extendidos
+    const matchSexo = selectedSexo === "all" || (estudiante.sexo || "").toLowerCase() === selectedSexo.toLowerCase();
+    const matchExtranjero = selectedExtranjero === "all" ||
+      (selectedExtranjero === "extranjero" ? estudiante.extranjero === true || estudiante.es_extranjero === true : estudiante.extranjero !== true && estudiante.es_extranjero !== true);
+    const matchNacionalidad = selectedNacionalidad === "all" || (estudiante.nacionalidad || "") === selectedNacionalidad;
+    const matchIdioma = selectedIdioma === "all" || (estudiante.idioma_natal || estudiante.idioma || "") === selectedIdioma;
+    const matchNecesidades = selectedNecesidades === "all" ||
+      (selectedNecesidades === "si" ? estudiante.necesidades_especiales === true || estudiante.necesidades_especiales === "si" : !estudiante.necesidades_especiales || estudiante.necesidades_especiales === false || estudiante.necesidades_especiales === "no");
+    const matchRepetidor = selectedRepetidor === "all" ||
+      (selectedRepetidor === "si" ? estudiante.repetidor === true || estudiante.repetidor === "si" : !estudiante.repetidor || estudiante.repetidor === false || estudiante.repetidor === "no");
     
-    return matchSearch && matchGrado && matchGrupo && matchSeccion && matchCiclo && matchStatus && matchCodigoPostal && matchEdad && matchPeriodo;
+    return matchSearch && matchGrado && matchGrupo && matchSeccion && matchCiclo && matchStatus && matchCodigoPostal && matchEdad && matchPeriodo &&
+           matchSexo && matchExtranjero && matchNacionalidad && matchIdioma && matchNecesidades && matchRepetidor;
   });
 
   if (error) {
@@ -1291,42 +1397,116 @@ export default function Estudiantes() {
 
             {/* Filtros avanzados (expandibles) */}
             {showAdvancedFilters && (
-              <div className="border-t pt-4 mt-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="border-t pt-4 mt-4 space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {/* Edad */}
                   <div className="space-y-1">
-                    <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Rango de Edad</Label>
+                    <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Edad</Label>
                     <Select value={selectedEdadRango} onValueChange={setSelectedEdadRango}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Todas las edades" />
-                      </SelectTrigger>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="Todas las edades" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todas las edades</SelectItem>
-                        {rangoEdadOptions.map((rango) => (
-                          <SelectItem key={rango.value} value={rango.value}>{rango.label}</SelectItem>
+                        {rangoEdadOptions.map((r) => (
+                          <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-
+                  {/* Sexo */}
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Sexo</Label>
+                    <Select value={selectedSexo} onValueChange={setSelectedSexo}>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="masculino">Masculino</SelectItem>
+                        <SelectItem value="femenino">Femenino</SelectItem>
+                        <SelectItem value="otro">Otro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {/* Origen */}
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Origen</Label>
+                    <Select value={selectedExtranjero} onValueChange={setSelectedExtranjero}>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="mexicano">Mexicano</SelectItem>
+                        <SelectItem value="extranjero">Extranjero</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {/* Nacionalidad */}
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Nacionalidad</Label>
+                    <Select value={selectedNacionalidad} onValueChange={setSelectedNacionalidad}>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="Todas" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        {Array.from(new Set(estudiantes.map((e: any) => e.nacionalidad).filter(Boolean))).map((n: any) => (
+                          <SelectItem key={n} value={n}>{n}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {/* Idioma natal */}
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Idioma natal / Dialecto</Label>
+                    <Select value={selectedIdioma} onValueChange={setSelectedIdioma}>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        {Array.from(new Set(estudiantes.map((e: any) => e.idioma_natal || e.idioma).filter(Boolean))).map((i: any) => (
+                          <SelectItem key={i} value={i}>{i}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {/* Necesidades específicas */}
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Necesidades específicas</Label>
+                    <Select value={selectedNecesidades} onValueChange={setSelectedNecesidades}>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="si">Con necesidades</SelectItem>
+                        <SelectItem value="no">Sin necesidades</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {/* Repetidor */}
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Repetidor de grado</Label>
+                    <Select value={selectedRepetidor} onValueChange={setSelectedRepetidor}>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="si">Sí, repite grado</SelectItem>
+                        <SelectItem value="no">No repite</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {/* Acciones */}
                   <div className="space-y-1">
                     <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Acciones rápidas</Label>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" size="sm" className="text-xs"
                         onClick={() => {
-                          setSearchTerm("");
-                          setSelectedGrado("all");
-                          setSelectedGrupo("all");
-                          setSelectedSeccion("all");
-                          setSelectedCicloEscolar("all");
-                          setSelectedStatus("all");
-                          setSelectedCodigoPostal("all");
-                          setSelectedEdadRango("all");
-                        }}
-                        className="text-xs"
-                      >
+                          setSearchTerm(""); setSelectedGrado("all"); setSelectedGrupo("all");
+                          setSelectedSeccion("all"); setSelectedCicloEscolar("all");
+                          setSelectedStatus("all"); setSelectedCodigoPostal("all");
+                          setSelectedEdadRango("all"); setSelectedSexo("all");
+                          setSelectedExtranjero("all"); setSelectedNacionalidad("all");
+                          setSelectedIdioma("all"); setSelectedNecesidades("all");
+                          setSelectedRepetidor("all");
+                        }}>
                         Limpiar filtros
+                      </Button>
+                      <Button variant="outline" size="sm"
+                        className="text-xs text-indigo-700 border-indigo-200 bg-indigo-50 hover:bg-indigo-100"
+                        onClick={() => setShowResumen(v => !v)}>
+                        {showResumen ? "Ocultar resumen" : "Ver resumen"}
                       </Button>
                     </div>
                   </div>
@@ -1354,6 +1534,69 @@ export default function Estudiantes() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Resumen estadístico ────────────────────────────────────────────── */}
+      {showResumen && hasActiveSearch && filteredEstudiantes.length > 0 && (() => {
+        const d = buildResumenData();
+        const StatTable = ({ title, rows }: { title: string; rows: [string, number][] }) => (
+          <div>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{title}</p>
+            <table className="w-full text-xs">
+              <tbody>
+                {rows.map(([k, v]) => (
+                  <tr key={k} className="border-b border-gray-100 last:border-0">
+                    <td className="py-1 text-gray-600">{k}</td>
+                    <td className="py-1 text-right font-semibold text-gray-800">{v}</td>
+                    <td className="py-1 pl-2 w-24">
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.round((v / d.total) * 100)}%` }} />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+        return (
+          <Card className="border-indigo-100 bg-indigo-50/40">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base text-indigo-900">Resumen estadístico</CardTitle>
+                  <p className="text-xs text-indigo-600 mt-0.5">{d.total} alumno(s) con los filtros actuales</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" className="text-xs border-green-300 text-green-700 bg-white hover:bg-green-50" onClick={exportResumenExcel}>
+                    <FileSpreadsheet className="h-3 w-3 mr-1" /> Exportar Excel
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-xs border-red-300 text-red-700 bg-white hover:bg-red-50" onClick={exportResumenPDF}>
+                    <Download className="h-3 w-3 mr-1" /> Exportar PDF
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+                <StatTable title="Nivel escolar" rows={d.porNivel} />
+                <StatTable title="Estatus" rows={d.porEstatus} />
+                <StatTable title="Sexo" rows={d.porSexo} />
+                <StatTable title="Origen" rows={d.porOrigen.map(r => [r.label, r.count] as [string, number])} />
+                <StatTable title="Rango de edad" rows={d.porEdad.map(r => [r.label, r.count] as [string, number])} />
+                {d.porNacionalidad.length > 0 && <StatTable title="Nacionalidad" rows={d.porNacionalidad} />}
+                {d.porIdioma.length > 0 && <StatTable title="Idioma natal" rows={d.porIdioma} />}
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Indicadores</p>
+                  <div className="space-y-1 text-xs">
+                    <div className="flex justify-between"><span className="text-gray-600">Con necesidades esp.</span><span className="font-semibold text-orange-700">{d.conNecesidades}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-600">Repetidores de grado</span><span className="font-semibold text-red-700">{d.repetidores}</span></div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Lista de estudiantes */}
       {isLoading ? (

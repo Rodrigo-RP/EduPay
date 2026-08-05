@@ -1271,6 +1271,21 @@ export default function Familias() {
                     <AlertTriangle className="h-3 w-3 mr-1" />
                     Pendientes documentos
                   </Button>
+                  {/* Selector de estatus inline */}
+                  <Select value={selectedEstatus} onValueChange={setSelectedEstatus}>
+                    <SelectTrigger className="h-8 w-40 text-xs border rounded-full px-3">
+                      <SelectValue placeholder="Estatus..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los estatus</SelectItem>
+                      <SelectItem value="activo">Activo</SelectItem>
+                      <SelectItem value="baja">Baja</SelectItem>
+                      <SelectItem value="suspendido">Suspendido</SelectItem>
+                      <SelectItem value="egresado">Egresado</SelectItem>
+                      <SelectItem value="becado">Becado</SelectItem>
+                      <SelectItem value="pendiente">Pendiente</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

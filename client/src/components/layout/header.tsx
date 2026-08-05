@@ -3,14 +3,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useAcademicFilter, generateCiclosList, getCurrentCiclo } from "@/hooks/use-academic-filter";
-import { Calendar, GraduationCap, User, Settings } from "lucide-react";
+import { Calendar, GraduationCap, User, Settings, CalendarDays } from "lucide-react";
 import { useLocation } from "wouter";
 import { RealTimeStatus } from "@/components/RealTimeStatus";
 import GlobalSearch from "@/components/GlobalSearch";
 
+const PERIODOS = [
+  { value: "hoy",    label: "Hoy"         },
+  { value: "semana", label: "Esta semana"  },
+  { value: "mes",    label: "Este mes"     },
+  { value: "ciclo",  label: "Este ciclo"   },
+];
+
 export default function Header() {
   const { user, guardian } = useAuth();
-  const { selectedCiclo, selectedNivel, setSelectedCiclo, setSelectedNivel } = useAcademicFilter();
+  const { selectedCiclo, selectedNivel, selectedPeriodo, setSelectedCiclo, setSelectedNivel, setSelectedPeriodo } = useAcademicFilter();
   const [, setLocation] = useLocation();
 
   const ciclosEscolares = generateCiclosList();
@@ -57,6 +64,24 @@ export default function Header() {
                 {nivelesEscolares.map(nivel => (
                   <SelectItem key={nivel.value} value={nivel.value} className="text-xs">
                     {nivel.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Selector de Período */}
+          <div className="flex items-center gap-2">
+            <CalendarDays className="w-4 h-4 text-slate-500" />
+            <span className="text-xs text-slate-600">Período:</span>
+            <Select value={selectedPeriodo} onValueChange={setSelectedPeriodo}>
+              <SelectTrigger className="w-32 h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PERIODOS.map(p => (
+                  <SelectItem key={p.value} value={p.value} className="text-xs">
+                    {p.label}
                   </SelectItem>
                 ))}
               </SelectContent>

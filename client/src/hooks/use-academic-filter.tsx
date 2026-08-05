@@ -3,8 +3,10 @@ import { createContext, useContext, useState, ReactNode } from "react";
 interface AcademicFilterContextType {
   selectedCiclo: string;
   selectedNivel: string;
+  selectedPeriodo: string;
   setSelectedCiclo: (ciclo: string) => void;
   setSelectedNivel: (nivel: string) => void;
+  setSelectedPeriodo: (periodo: string) => void;
 }
 
 const AcademicFilterContext = createContext<AcademicFilterContextType | undefined>(undefined);
@@ -33,16 +35,19 @@ export function generateCiclosList(): string[] {
 }
 
 export function AcademicFilterProvider({ children }: { children: ReactNode }) {
-  const [selectedCiclo, setSelectedCiclo] = useState(getCurrentCiclo);
-  const [selectedNivel, setSelectedNivel] = useState("all");
+  const [selectedCiclo, setSelectedCiclo]   = useState(getCurrentCiclo);
+  const [selectedNivel, setSelectedNivel]   = useState("all");
+  const [selectedPeriodo, setSelectedPeriodo] = useState("mes"); // hoy | semana | mes | ciclo
 
   return (
     <AcademicFilterContext.Provider 
       value={{
         selectedCiclo,
         selectedNivel,
+        selectedPeriodo,
         setSelectedCiclo,
-        setSelectedNivel
+        setSelectedNivel,
+        setSelectedPeriodo,
       }}
     >
       {children}

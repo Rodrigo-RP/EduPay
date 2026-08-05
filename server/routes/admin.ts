@@ -66,23 +66,47 @@ export function registerAdminRoutes(app: Express): void {
       const campusId = parseInt(req.params.campusId);
       if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
 
-      const rawNivel   = req.query.nivel as string | undefined;
-      const nivelFilter = rawNivel && rawNivel !== "General" ? rawNivel : null;
+      // Parámetros del header global: ciclo, nivel, periodo
+      const now = new Date();
+      const autoY  = now.getFullYear();
+      const autoMo = now.getMonth() + 1;
+      const ciclo  = (req.query.ciclo as string) ||
+                     (autoMo >= 8 ? `${autoY}-${autoY + 1}` : `${autoY - 1}-${autoY}`);
+      const rawNivel  = (req.query.nivel as string) ?? "all";
+      const periodo   = (req.query.periodo as string) ?? "mes"; // hoy | semana | mes | ciclo
 
-      // ── Ciclo actual ────────────────────────────────────────────────────────
-      const now  = new Date();
-      const y    = now.getFullYear();
-      const mo   = now.getMonth() + 1;
-      const ciclo = mo >= 8 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+      // ── Filtro de nivel (ILIKE para ignorar mayúsculas) ─────────────────────
+      let nivelClause = '';
+      let baseParams: any[] = [campusId];
+      if (rawNivel && rawNivel !== "all") {
+        nivelClause = "AND UPPER(s.nivel_escolar) = UPPER($2)";
+        baseParams  = [campusId, rawNivel];
+      }
 
-      // ── Rango del mes en curso y próximos 7 días ────────────────────────────
-      const mesInicio = new Date(y, now.getMonth(), 1).toISOString().split("T")[0];
-      const mesFin    = new Date(y, now.getMonth() + 1, 0).toISOString().split("T")[0];
-      const hoy       = now.toISOString().split("T")[0];
-      const en7dias   = new Date(now.getTime() + 7 * 86_400_000).toISOString().split("T")[0];
-
-      const nivelClause = nivelFilter ? "AND s.nivel_escolar = $2" : "";
-      const baseParams  = nivelFilter ? [campusId, nivelFilter] : [campusId];
+      // ── Rango de fechas según periodo ───────────────────────────────────────
+      const hoy      = now.toISOString().split("T")[0];
+      const en7dias  = new Date(now.getTime() + 7 * 86_400_000).toISOString().split("T")[0];
+      let periodoInicio: string;
+      let periodoFin: string;
+      if (periodo === "hoy") {
+        periodoInicio = hoy;
+        periodoFin    = hoy;
+      } else if (periodo === "semana") {
+        const lunes = new Date(now);
+        lunes.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+        const domingo = new Date(lunes);
+        domingo.setDate(lunes.getDate() + 6);
+        periodoInicio = lunes.toISOString().split("T")[0];
+        periodoFin    = domingo.toISOString().split("T")[0];
+      } else if (periodo === "ciclo") {
+        const [startY] = ciclo.split("-").map(Number);
+        periodoInicio = `${startY}-08-01`;
+        periodoFin    = `${startY + 1}-07-31`;
+      } else {
+        // mes (default)
+        periodoInicio = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+        periodoFin    = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
+      }
 
       // ── 1. Semáforo del ciclo ───────────────────────────────────────────────
       const cicloRes = await pool.query(`
@@ -114,7 +138,7 @@ export function registerAdminRoutes(app: Express): void {
         WHERE s.campus_id = $1
           AND c.fecha_vencimiento BETWEEN $${baseParams.length + 1} AND $${baseParams.length + 2}
           ${nivelClause}
-      `, [...baseParams, mesInicio, mesFin]);
+      `, [...baseParams, periodoInicio, periodoFin]);
 
       const mr           = mesRes.rows[0] as any;
       const esperado_mes = Number(mr.esperado);

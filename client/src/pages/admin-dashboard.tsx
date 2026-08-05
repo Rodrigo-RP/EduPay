@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,8 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useRoleBasedData } from "@/hooks/useRoleBasedData";
 import { useInstitution } from "@/hooks/use-institution";
+import { useAcademicFilter } from "@/hooks/use-academic-filter";
 import { useLocation } from "wouter";
-import { useEffect } from "react";
 import {
   AlertTriangle, CheckCircle, DollarSign, TrendingUp, TrendingDown,
   Clock, XCircle, ArrowRight, RefreshCw, Users, Calendar,
@@ -130,8 +130,8 @@ export default function AdminDashboard() {
   const campusId = (user as any)?.campus_id || 48;
   const token    = () => localStorage.getItem("auth_token");
 
-  // ── Selector de nivel ─────────────────────────────────────────────────────
-  const [nivelSel, setNivelSel] = useState<string>("General");
+  // ── Filtros globales del header ───────────────────────────────────────────
+  const { selectedCiclo, selectedNivel, selectedPeriodo } = useAcademicFilter();
 
   // Role-based redirects
   useEffect(() => {
@@ -141,12 +141,12 @@ export default function AdminDashboard() {
     }
   }, [user, userRole, setLocation]);
 
-  // ── Dashboard query (incluye nivel como filtro) ───────────────────────────
+  // ── Dashboard query — usa filtros del header ──────────────────────────────
   const { data, isLoading: dashLoading } = useQuery<DashboardData>({
-    queryKey: [`/api/admin/dashboard/${campusId}`, nivelSel],
+    queryKey: [`/api/admin/dashboard/${campusId}`, selectedCiclo, selectedNivel, selectedPeriodo],
     queryFn: async () => {
-      const params = nivelSel !== "General" ? `?nivel=${encodeURIComponent(nivelSel)}` : "";
-      const res = await fetch(`/api/admin/dashboard/${campusId}${params}`, {
+      const qs = new URLSearchParams({ ciclo: selectedCiclo, nivel: selectedNivel, periodo: selectedPeriodo });
+      const res = await fetch(`/api/admin/dashboard/${campusId}?${qs}`, {
         headers: { Authorization: `Bearer ${token()}` },
       });
       if (!res.ok) throw new Error("Error al cargar dashboard");
@@ -200,14 +200,12 @@ export default function AdminDashboard() {
   });
 
   // ── Derived values ────────────────────────────────────────────────────────
-  const cm      = data?.ciclo_metrics;
-  const mm      = data?.mes_metrics;
-  const al      = data?.alertas;
+  const cm       = data?.ciclo_metrics;
+  const mm       = data?.mes_metrics;
+  const al       = data?.alertas;
   const desglose = data?.desglose_nivel ?? [];
   const excCount = excData?.excepciones?.length ?? 0;
-
-  // Niveles disponibles: siempre vienen del campus, no dependen del ciclo
-  const nivelesDisponibles = ["General", ...(data?.niveles_disponibles ?? [])];
+  const filtraNivel = selectedNivel !== "all";
 
   // ── Skeleton helper ───────────────────────────────────────────────────────
   const Sk = ({ w = "w-20" }: { w?: string }) => (
@@ -219,33 +217,19 @@ export default function AdminDashboard() {
     <div className="space-y-5">
 
       {/* ── Header ────────────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">{institutionName}</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Panel de control · Ciclo{" "}
-            <span className="font-semibold text-slate-700">{data?.ciclo ?? "…"}</span>
-            {" · "}
-            <span className="text-green-600 font-medium">Sistema activo</span>
-          </p>
-        </div>
-
-        {/* Selector de nivel / sección */}
-        <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
-          {(dashLoading ? ["General"] : nivelesDisponibles).map(nivel => (
-            <button
-              key={nivel}
-              onClick={() => setNivelSel(nivel)}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                nivelSel === nivel
-                  ? "bg-white shadow-sm text-slate-900"
-                  : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              {nivel}
-            </button>
-          ))}
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">{institutionName}</h1>
+        <p className="text-sm text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
+          <span>Panel de control · Ciclo{" "}
+            <span className="font-semibold text-slate-700">{data?.ciclo ?? selectedCiclo}</span>
+          </span>
+          {filtraNivel && (
+            <Badge variant="outline" className="text-xs text-slate-600 capitalize">
+              {selectedNivel.charAt(0) + selectedNivel.slice(1).toLowerCase()}
+            </Badge>
+          )}
+          <span className="text-green-600 font-medium">· Sistema activo</span>
+        </p>
       </div>
 
       {/* ══ CAPA 1: SEMÁFORO DEL CICLO ══════════════════════════════════════ */}
@@ -257,9 +241,6 @@ export default function AdminDashboard() {
               Semáforo del ciclo
               {cm && <CumplimientoGauge pct={cm.pct_cumplimiento} />}
             </CardTitle>
-            {nivelSel !== "General" && (
-              <Badge variant="outline" className="text-slate-600">{nivelSel}</Badge>
-            )}
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -475,8 +456,8 @@ export default function AdminDashboard() {
         </CardContent>
       </Card>
 
-      {/* ══ DESGLOSE POR NIVEL (solo en vista General) ═══════════════════════ */}
-      {nivelSel === "General" && desglose.length > 0 && (
+      {/* ══ DESGLOSE POR NIVEL ═══════════════════════════════════════════════ */}
+      {!filtraNivel && desglose.length > 0 && (
         <Card className="border shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -506,8 +487,7 @@ export default function AdminDashboard() {
                     return (
                       <tr
                         key={row.nivel}
-                        className="hover:bg-slate-50/60 cursor-pointer"
-                        onClick={() => setNivelSel(row.nivel)}
+                        className="hover:bg-slate-50/60"
                       >
                         <td className="px-4 py-3">
                           <span className="font-medium text-slate-800">{row.nivel}</span>
@@ -552,7 +532,7 @@ export default function AdminDashboard() {
               </table>
             </div>
             <p className="text-xs text-slate-400 px-4 py-2 border-t">
-              Haz clic en un nivel para filtrar todas las métricas de arriba.
+              Usa el selector de Nivel en la barra superior para filtrar por sección.
             </p>
           </CardContent>
         </Card>

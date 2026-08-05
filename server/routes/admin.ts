@@ -60,49 +60,141 @@ export function registerAdminRoutes(app: Express): void {
 
   // ADMIN PORTAL ROUTES
 
-  // Get dashboard KPIs - PROTEGIDO
+  // Get dashboard KPIs — 3 capas: ciclo / mes / alertas + desglose por nivel
   app.get("/api/admin/dashboard/:campusId", requireAuth, async (req: any, res) => {
     try {
       const campusId = parseInt(req.params.campusId);
       if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
 
-      // Estudiantes activos
-      const studentsResult = await db
-        .select({ id: students.id })
-        .from(students)
-        .where(eq(students.campus_id, campusId));
-      const activeStudents = studentsResult.length;
+      const rawNivel   = req.query.nivel as string | undefined;
+      const nivelFilter = rawNivel && rawNivel !== "General" ? rawNivel : null;
 
-      // Todos los cargos del campus
-      const allCharges = await db
-        .select({ estado: charges.estado, monto_base_centavos: charges.monto_base_centavos })
-        .from(charges)
-        .innerJoin(students, eq(charges.student_id, students.id))
-        .where(eq(students.campus_id, campusId));
+      // ── Ciclo actual ────────────────────────────────────────────────────────
+      const now  = new Date();
+      const y    = now.getFullYear();
+      const mo   = now.getMonth() + 1;
+      const ciclo = mo >= 8 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
 
-      const totalCharges = allCharges.length || 1;
-      const paidCharges = allCharges.filter(c => c.estado === "pagado");
-      const overdueCharges = allCharges.filter(c => c.estado === "vencido");
-      const totalBilled = allCharges.reduce((s, c) => s + (c.monto_base_centavos || 0), 0);
+      // ── Rango del mes en curso y próximos 7 días ────────────────────────────
+      const mesInicio = new Date(y, now.getMonth(), 1).toISOString().split("T")[0];
+      const mesFin    = new Date(y, now.getMonth() + 1, 0).toISOString().split("T")[0];
+      const hoy       = now.toISOString().split("T")[0];
+      const en7dias   = new Date(now.getTime() + 7 * 86_400_000).toISOString().split("T")[0];
 
-      // Excepciones bancarias pendientes (para badge)
-      const excepcionesResult = await pool.query(
-        `SELECT COUNT(*) AS cnt FROM bank_transactions WHERE campus_id = $1 AND estado_conciliacion = 'pendiente'`,
-        [campusId]
-      ).catch(() => ({ rows: [{ cnt: 0 }] }));
-      const excepcionesPendientes = Number((excepcionesResult.rows[0] as any)?.cnt ?? 0);
+      const nivelClause = nivelFilter ? "AND s.nivel_escolar = $2" : "";
+      const baseParams  = nivelFilter ? [campusId, nivelFilter] : [campusId];
 
-      const kpis = {
-        totalBilled,
-        paymentRate: Math.round((paidCharges.length / totalCharges) * 100),
-        overdueRate: Math.round((overdueCharges.length / totalCharges) * 100),
-        activeStudents,
-        excepciones_pendientes: excepcionesPendientes,
-      };
+      // ── 1. Semáforo del ciclo ───────────────────────────────────────────────
+      const cicloRes = await pool.query(`
+        SELECT
+          COALESCE(SUM(c.monto_base_centavos), 0)                                                          AS facturado,
+          COALESCE(SUM(CASE WHEN c.estado = 'pagado'                 THEN c.monto_base_centavos END), 0)   AS cobrado,
+          COALESCE(SUM(CASE WHEN c.estado IN ('pendiente','parcial') THEN c.monto_base_centavos END), 0)   AS por_cobrar,
+          COALESCE(SUM(CASE WHEN c.estado = 'vencido'                THEN c.monto_base_centavos END), 0)   AS vencido,
+          COUNT(DISTINCT s.id)                                                                              AS alumnos_activos,
+          COUNT(DISTINCT CASE WHEN c.estado = 'vencido' THEN s.id END)                                     AS alumnos_con_adeudo
+        FROM charges c
+        JOIN students s ON c.student_id = s.id
+        WHERE s.campus_id = $1 AND c.ciclo_escolar = $${baseParams.length + 1} ${nivelClause}
+      `, [...baseParams, ciclo]);
 
-      res.json(kpis);
+      const cr            = cicloRes.rows[0] as any;
+      const facturado     = Number(cr.facturado);
+      const cobrado_ciclo = Number(cr.cobrado);
+      const alumnos_act   = Number(cr.alumnos_activos);
+      const alumnos_deb   = Number(cr.alumnos_con_adeudo);
+
+      // ── 2. Pulso del mes ────────────────────────────────────────────────────
+      const mesRes = await pool.query(`
+        SELECT
+          COALESCE(SUM(c.monto_base_centavos), 0)                                                        AS esperado,
+          COALESCE(SUM(CASE WHEN c.estado = 'pagado' THEN c.monto_base_centavos END), 0)                 AS cobrado
+        FROM charges c
+        JOIN students s ON c.student_id = s.id
+        WHERE s.campus_id = $1
+          AND c.fecha_vencimiento BETWEEN $${baseParams.length + 1} AND $${baseParams.length + 2}
+          ${nivelClause}
+      `, [...baseParams, mesInicio, mesFin]);
+
+      const mr           = mesRes.rows[0] as any;
+      const esperado_mes = Number(mr.esperado);
+      const cobrado_mes  = Number(mr.cobrado);
+
+      // ── 3. Alertas operativas (siempre campus-wide) ─────────────────────────
+      const [excRes, semRes, riesgoRes] = await Promise.all([
+        pool.query(
+          `SELECT COUNT(*) AS cnt FROM bank_transactions
+           WHERE campus_id = $1 AND estado_conciliacion = 'pendiente'`,
+          [campusId]
+        ).catch(() => ({ rows: [{ cnt: 0 }] })),
+        pool.query(`
+          SELECT COUNT(*) AS cnt
+          FROM charges c JOIN students s ON c.student_id = s.id
+          WHERE s.campus_id = $1
+            AND c.estado IN ('pendiente','parcial')
+            AND c.fecha_vencimiento BETWEEN $2 AND $3
+        `, [campusId, hoy, en7dias]),
+        pool.query(`
+          SELECT COUNT(DISTINCT s.id) AS cnt
+          FROM charges c JOIN students s ON c.student_id = s.id
+          WHERE s.campus_id = $1
+            AND c.estado = 'vencido'
+            AND c.fecha_vencimiento <= CURRENT_DATE - INTERVAL '60 days'
+        `, [campusId]),
+      ]);
+
+      // ── 4. Desglose por nivel (siempre todos los niveles del ciclo) ─────────
+      const desgloseRes = await pool.query(`
+        SELECT
+          COALESCE(s.nivel_escolar, 'Sin nivel')                                                         AS nivel,
+          COALESCE(SUM(c.monto_base_centavos), 0)                                                        AS facturado,
+          COALESCE(SUM(CASE WHEN c.estado = 'pagado'  THEN c.monto_base_centavos END), 0)                AS cobrado,
+          COALESCE(SUM(CASE WHEN c.estado = 'vencido' THEN c.monto_base_centavos END), 0)                AS vencido,
+          COUNT(DISTINCT s.id)                                                                            AS alumnos,
+          COUNT(DISTINCT CASE WHEN c.estado = 'vencido' THEN s.id END)                                   AS alumnos_adeudo
+        FROM charges c
+        JOIN students s ON c.student_id = s.id
+        WHERE s.campus_id = $1 AND c.ciclo_escolar = $2
+        GROUP BY s.nivel_escolar
+        ORDER BY s.nivel_escolar NULLS LAST
+      `, [campusId, ciclo]);
+
+      res.json({
+        ciclo,
+        ciclo_metrics: {
+          facturado,
+          cobrado:              cobrado_ciclo,
+          por_cobrar:           Number(cr.por_cobrar),
+          vencido:              Number(cr.vencido),
+          pct_cumplimiento:     facturado > 0 ? Math.round(cobrado_ciclo / facturado * 100) : 0,
+          alumnos_activos:      alumnos_act,
+          alumnos_al_corriente: alumnos_act - alumnos_deb,
+          alumnos_con_adeudo:   alumnos_deb,
+        },
+        mes_metrics: {
+          mes_nombre: now.toLocaleDateString("es-MX", { month: "long", year: "numeric" }),
+          esperado:   esperado_mes,
+          cobrado:    cobrado_mes,
+          pendiente:  Math.max(0, esperado_mes - cobrado_mes),
+          eficiencia: esperado_mes > 0 ? Math.round(cobrado_mes / esperado_mes * 100) : 0,
+        },
+        alertas: {
+          excepciones_pendientes: Number((excRes.rows[0] as any)?.cnt ?? 0),
+          vencen_semana:          Number((semRes.rows[0] as any)?.cnt  ?? 0),
+          alumnos_riesgo:         Number((riesgoRes.rows[0] as any)?.cnt ?? 0),
+        },
+        desglose_nivel: (desgloseRes.rows as any[]).map(r => ({
+          nivel:          r.nivel as string,
+          facturado:      Number(r.facturado),
+          cobrado:        Number(r.cobrado),
+          vencido:        Number(r.vencido),
+          alumnos:        Number(r.alumnos),
+          alumnos_adeudo: Number(r.alumnos_adeudo),
+        })),
+      });
     } catch (error: any) {
-      res.status(500).json({ message: "Error fetching KPIs" });
+      console.error("[dashboard] Error:", error);
+      res.status(500).json({ message: "Error al cargar el dashboard" });
     }
   });
 

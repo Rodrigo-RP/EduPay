@@ -1160,11 +1160,11 @@ export default function Estudiantes() {
                 </Button>
                 {/* Selector de estatus inline */}
                 <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                  <SelectTrigger className="h-8 w-40 text-xs border rounded-full px-3">
-                    <SelectValue placeholder="Estatus..." />
+                  <SelectTrigger className="h-8 w-36 text-xs border rounded-full px-3 bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100">
+                    <SelectValue placeholder="Estatus" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todos los estatus</SelectItem>
+                    <SelectItem value="all">Estatus</SelectItem>
                     <SelectItem value="activo">Activo</SelectItem>
                     <SelectItem value="baja">Baja</SelectItem>
                     <SelectItem value="suspendido">Suspendido</SelectItem>

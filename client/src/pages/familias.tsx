@@ -1009,6 +1009,8 @@ export default function Familias() {
     setSelectedCodigoPostal("all");
     setSelectedCicloFamilias("all");
     setSelectedPeriodoFamilias("all");
+    setSelectedEstadoCivil("all");
+    setSelectedHermanos("all");
     switch (tipo) {
       case 'activos':    setSelectedEstatus("activo");   break;
       case 'pendientes': setSelectedEstatus("pendiente"); break;
@@ -1121,12 +1123,12 @@ export default function Familias() {
         { label: "3 hijos",      count: count(filteredFamilias, f => (f.estudiantes_vinculados?.length ?? 0) === 3) },
         { label: "4 o más hijos",count: count(filteredFamilias, f => (f.estudiantes_vinculados?.length ?? 0) >= 4) },
       ],
-      padresSolteros:  count(filteredFamilias, f => {
-        const ec = (f.estado_civil || "").toLowerCase();
+      padresSolteros: count(filteredFamilias, f => {
+        const ec = (f.estado_civil || f.padre_estado_civil || f.madre_estado_civil || "").toLowerCase();
         return ec === "soltero" || ec === "soltera";
       }),
-      viudos:      count(filteredFamilias, f => (f.estado_civil || "").toLowerCase().includes("viud")),
-      divorciados: count(filteredFamilias, f => (f.estado_civil || "").toLowerCase().includes("divorci")),
+      viudos:      count(filteredFamilias, f => (f.estado_civil || f.padre_estado_civil || f.madre_estado_civil || "").toLowerCase().includes("viud")),
+      divorciados: count(filteredFamilias, f => (f.estado_civil || f.padre_estado_civil || f.madre_estado_civil || "").toLowerCase().includes("divorci")),
     };
   };
 
@@ -1142,6 +1144,8 @@ export default function Familias() {
       ...d.porNivel.map(([k, v]) => ["Nivel de hijos", k, String(v)]),
       ...d.porEstadoCivil.map(([k, v]) => ["Estado civil", k, String(v)]),
       ...d.porHermanos.map(r => ["Hermanos", r.label, String(r.count)]),
+      ["Indicadores", "Con hermanos (2+ hijos)", String(d.conHermanos)],
+      ["Indicadores", "Hijo único", String(d.hijoUnico)],
       ["Indicadores", "Padres/Madres solteros", String(d.padresSolteros)],
       ["Indicadores", "Viudos", String(d.viudos)],
       ["Indicadores", "Divorciados", String(d.divorciados)],
@@ -1171,6 +1175,8 @@ export default function Familias() {
     ${tableHtml("Por Estado Civil", d.porEstadoCivil)}
     <h2>Por Número de Hermanos</h2><table><tr><th>Categoría</th><th>Cantidad</th></tr>${d.porHermanos.map(r => `<tr><td>${r.label}</td><td>${r.count}</td></tr>`).join("")}</table>
     <h2>Indicadores especiales</h2><table><tr><th>Indicador</th><th>Cantidad</th></tr>
+    <tr><td>Con hermanos (2+ hijos)</td><td>${d.conHermanos}</td></tr>
+    <tr><td>Hijo único</td><td>${d.hijoUnico}</td></tr>
     <tr><td>Padres/Madres solteros</td><td>${d.padresSolteros}</td></tr>
     <tr><td>Viudos</td><td>${d.viudos}</td></tr>
     <tr><td>Divorciados</td><td>${d.divorciados}</td></tr></table>

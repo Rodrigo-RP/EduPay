@@ -997,7 +997,14 @@ export default function Estudiantes() {
     setSelectedPeriodoEstudiantes("all");
     setSelectedCodigoPostal("all");
     setSelectedEdadRango("all");
-    
+    setSelectedSexo("all");
+    setSelectedExtranjero("all");
+    setSelectedNacionalidad("all");
+    setSelectedIdioma("all");
+    setSelectedNecesidades("all");
+    setSelectedRepetidor("all");
+    setSelectedDialecto("all");
+
     switch (tipo) {
       case 'activos':
         setSelectedStatus('activo');
@@ -1097,8 +1104,12 @@ export default function Estudiantes() {
 
     // Filtros extendidos
     const matchSexo = selectedSexo === "all" || (estudiante.sexo || "").toLowerCase() === selectedSexo.toLowerCase();
-    const matchExtranjero = selectedExtranjero === "all" ||
-      (selectedExtranjero === "extranjero" ? estudiante.extranjero === true || estudiante.es_extranjero === true : estudiante.extranjero !== true && estudiante.es_extranjero !== true);
+    // "Originario" filtra por estado_origen; "Otro" = sin estado conocido y no extranjero
+    const matchExtranjero = selectedExtranjero === "all" || (() => {
+      const origen = (estudiante.estado_origen || "").toLowerCase().trim();
+      if (selectedExtranjero === "Otro") return !origen && !estudiante.extranjero && !estudiante.es_extranjero;
+      return origen === selectedExtranjero.toLowerCase().trim();
+    })();
     const matchNacionalidad = selectedNacionalidad === "all" || (estudiante.nacionalidad || "") === selectedNacionalidad;
     const matchIdioma = selectedIdioma === "all" || (estudiante.idioma_natal || estudiante.idioma || "") === selectedIdioma;
     const matchNecesidades = selectedNecesidades === "all" ||
@@ -1529,6 +1540,7 @@ export default function Estudiantes() {
                           setSelectedExtranjero("all"); setSelectedNacionalidad("all");
                           setSelectedIdioma("all"); setSelectedNecesidades("all");
                           setSelectedRepetidor("all"); setSelectedDialecto("all");
+                          setSelectedPeriodoEstudiantes("all");
                         }}>
                         Limpiar filtros
                       </Button>

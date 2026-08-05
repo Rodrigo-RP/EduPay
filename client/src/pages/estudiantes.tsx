@@ -489,6 +489,30 @@ export default function Estudiantes() {
     }
   });
 
+  // Mutación para actualizar alumno
+  const updateStudentMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch(`/api/admin/students/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Error'); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/students'] });
+      toast({ title: 'Alumno actualizado', description: 'Los cambios se guardaron correctamente.' });
+      setShowEditModal(false);
+      setEditingStudent(null);
+    },
+    onError: (e: any) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
+  });
+
   // Mutación para importar estudiantes
   const importStudentsMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -1459,6 +1483,137 @@ export default function Estudiantes() {
               />
             </TabsContent>
           </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal de edición del alumno ─────────────────────────────────────── */}
+      <Dialog open={showEditModal} onOpenChange={(open) => { if (!open) { setShowEditModal(false); setEditingStudent(null); } }}>
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="w-5 h-5 text-blue-600" />
+              Editar alumno
+            </DialogTitle>
+            <DialogDescription>
+              {editingStudent?.nombre_completo}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Nombre */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label>Nombre(s) *</Label>
+                <Input value={formData.estudiante_nombres} onChange={e => handleInputChange('estudiante_nombres', e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label>Apellido paterno</Label>
+                <Input value={formData.estudiante_apellido_paterno} onChange={e => handleInputChange('estudiante_apellido_paterno', e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label>Apellido materno</Label>
+                <Input value={formData.estudiante_apellido_materno} onChange={e => handleInputChange('estudiante_apellido_materno', e.target.value)} />
+              </div>
+            </div>
+
+            {/* CURP y fecha */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>CURP</Label>
+                <Input value={formData.estudiante_curp} onChange={e => handleInputChange('estudiante_curp', e.target.value)} maxLength={18} placeholder="18 caracteres" />
+              </div>
+              <div className="space-y-1">
+                <Label>Fecha de nacimiento</Label>
+                <Input type="date" value={formData.estudiante_fecha_nacimiento} onChange={e => handleInputChange('estudiante_fecha_nacimiento', e.target.value)} />
+              </div>
+            </div>
+
+            {/* Nivel, grado, grupo, turno */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="space-y-1">
+                <Label>Nivel</Label>
+                <Select value={formData.estudiante_nivel_escolar} onValueChange={v => handleInputChange('estudiante_nivel_escolar', v)}>
+                  <SelectTrigger><SelectValue placeholder="Nivel" /></SelectTrigger>
+                  <SelectContent>
+                    {['Kinder','Primaria','Secundaria','Preparatoria'].map(n => (
+                      <SelectItem key={n} value={n}>{n}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Grado</Label>
+                <Input value={formData.estudiante_grado} onChange={e => handleInputChange('estudiante_grado', e.target.value)} placeholder="Ej: 3° Primaria" />
+              </div>
+              <div className="space-y-1">
+                <Label>Grupo</Label>
+                <Input value={formData.estudiante_grupo} onChange={e => handleInputChange('estudiante_grupo', e.target.value)} placeholder="Ej: A" />
+              </div>
+              <div className="space-y-1">
+                <Label>Turno</Label>
+                <Select value={formData.estudiante_turno} onValueChange={v => handleInputChange('estudiante_turno', v)}>
+                  <SelectTrigger><SelectValue placeholder="Turno" /></SelectTrigger>
+                  <SelectContent>
+                    {['Matutino','Vespertino','Mixto'].map(t => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Correo y estatus */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Correo institucional</Label>
+                <Input type="email" value={formData.estudiante_correo_institucional} onChange={e => handleInputChange('estudiante_correo_institucional', e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label>Estatus</Label>
+                <Select value={formData.status} onValueChange={v => handleInputChange('status', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {['activo','baja','suspendido','egresado','becado','pendiente'].map(s => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t mt-4">
+            <Button variant="outline" onClick={() => { setShowEditModal(false); setEditingStudent(null); }}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                if (!editingStudent) return;
+                updateStudentMutation.mutate({
+                  id: editingStudent.id,
+                  data: {
+                    nombres:               formData.estudiante_nombres,
+                    apellido_paterno:      formData.estudiante_apellido_paterno,
+                    apellido_materno:      formData.estudiante_apellido_materno,
+                    curp:                  formData.estudiante_curp,
+                    fecha_nacimiento:      formData.estudiante_fecha_nacimiento || null,
+                    correo_institucional:  formData.estudiante_correo_institucional,
+                    nivel_escolar:         formData.estudiante_nivel_escolar,
+                    grado:                 formData.estudiante_grado,
+                    grupo:                 formData.estudiante_grupo,
+                    turno:                 formData.estudiante_turno,
+                    status:                formData.status,
+                  },
+                });
+              }}
+              disabled={updateStudentMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {updateStudentMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Guardando...</>
+              ) : 'Guardar cambios'}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

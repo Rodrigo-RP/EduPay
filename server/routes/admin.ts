@@ -538,6 +538,66 @@ export function registerAdminRoutes(app: Express): void {
   });
 
   /**
+   * PATCH /api/admin/students/:studentId
+   * Actualiza los datos propios del alumno (no tutores).
+   */
+  app.patch("/api/admin/students/:studentId", authenticateToken, async (req: any, res) => {
+    try {
+      const studentId = parseInt(req.params.studentId);
+      const campusId  = req.user?.campus_id;
+      const tenantId  = req.user?.tenant_id;
+
+      // Verificar que el alumno pertenece al campus del token
+      const check = await pool.query(
+        `SELECT id FROM students WHERE id = $1 AND campus_id = $2`,
+        [studentId, campusId]
+      );
+      if (check.rows.length === 0) {
+        return res.status(403).json({ message: "Alumno no encontrado en tu campus" });
+      }
+
+      const {
+        nombres, apellido_paterno, apellido_materno, curp,
+        fecha_nacimiento, correo_institucional,
+        nivel_escolar, grado, grupo, turno, status,
+      } = req.body;
+
+      await pool.query(
+        `UPDATE students SET
+           nombres = COALESCE($1, nombres),
+           apellido_paterno = COALESCE($2, apellido_paterno),
+           apellido_materno = COALESCE($3, apellido_materno),
+           curp = COALESCE($4, curp),
+           fecha_nacimiento = COALESCE($5, fecha_nacimiento),
+           correo_institucional = COALESCE($6, correo_institucional),
+           nivel_escolar = COALESCE($7, nivel_escolar),
+           grado = COALESCE($8, grado),
+           grupo = COALESCE($9, grupo),
+           turno = COALESCE($10, turno),
+           status = COALESCE($11, status),
+           updated_at = NOW()
+         WHERE id = $12 AND campus_id = $13`,
+        [
+          nombres || null, apellido_paterno || null, apellido_materno || null,
+          curp || null, fecha_nacimiento || null, correo_institucional || null,
+          nivel_escolar || null, grado || null, grupo || null, turno || null,
+          status || null,
+          studentId, campusId,
+        ]
+      );
+
+      const updated = await pool.query(
+        `SELECT * FROM students WHERE id = $1`,
+        [studentId]
+      );
+      res.json(updated.rows[0]);
+    } catch (error: any) {
+      console.error("Error updating student:", error);
+      res.status(500).json({ message: "Error al actualizar alumno" });
+    }
+  });
+
+  /**
    * GET /api/admin/students/:studentId/guardians
    * Devuelve los tutores vinculados a un alumno con su estado de responsabilidad de pago.
    * Solo accesible para administradores del mismo tenant.

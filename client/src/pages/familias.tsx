@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { generateCiclosList, getCurrentCiclo } from "@/hooks/use-academic-filter";
-import { Home, Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, CreditCard, FileText, Link2, Download, Upload, AlertCircle, AlertTriangle, Eye, UserCheck, UserX, Settings } from "lucide-react";
+import { Home, Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, CreditCard, FileText, Link2, Download, Upload, AlertCircle, AlertTriangle, Eye, UserCheck, UserX, Settings, FileSpreadsheet } from "lucide-react";
 
 export default function Familias() {
   const { toast } = useToast();
@@ -21,9 +21,12 @@ export default function Familias() {
   const [selectedGrupo, setSelectedGrupo]           = useState("all");
   const [selectedEstatus, setSelectedEstatus]       = useState("all");
   const [selectedCodigoPostal, setSelectedCodigoPostal] = useState("all");
-  const [selectedCicloFamilias, setSelectedCicloFamilias]       = useState(getCurrentCiclo());
-  const [selectedPeriodoFamilias, setSelectedPeriodoFamilias]   = useState("hoy");
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [selectedCicloFamilias, setSelectedCicloFamilias]       = useState("all");
+  const [selectedPeriodoFamilias, setSelectedPeriodoFamilias]   = useState("all");
+  const [selectedEstadoCivil, setSelectedEstadoCivil]           = useState("all");
+  const [selectedHermanos, setSelectedHermanos]                 = useState("all");
+  const [showAdvancedFilters, setShowAdvancedFilters]           = useState(false);
+  const [showResumenFamilias, setShowResumenFamilias]           = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedFamily, setSelectedFamily] = useState<any>(null);
   const [showLinkModal, setShowLinkModal] = useState(false);
@@ -1022,7 +1025,9 @@ export default function Familias() {
     selectedEstatus !== "all" ||
     selectedCodigoPostal !== "all" ||
     selectedCicloFamilias !== "all" ||
-    selectedPeriodoFamilias !== "all"
+    selectedPeriodoFamilias !== "all" ||
+    selectedEstadoCivil !== "all" ||
+    selectedHermanos !== "all"
   );
 
   // Filtrar familias según criterios de búsqueda
@@ -1072,8 +1077,103 @@ export default function Familias() {
       return true;
     })();
 
-    return matchSearch && matchEstatus && matchSeccion && matchGrado && matchGrupo && matchCP && matchCiclo && matchPeriodo;
+    // Estado civil del tutor principal
+    const estadoCivil = (familia.estado_civil || familia.padre_estado_civil || familia.madre_estado_civil || "").toLowerCase();
+    const matchEstadoCivil = selectedEstadoCivil === "all" || (() => {
+      if (selectedEstadoCivil === "padre_soltero")  return estadoCivil === "soltero" && (familia.padre_nombre || "").trim() !== "" && (familia.madre_nombre || "").trim() === "";
+      if (selectedEstadoCivil === "madre_soltera")  return estadoCivil === "soltera" || (estadoCivil === "soltero" && (familia.madre_nombre || "").trim() !== "" && (familia.padre_nombre || "").trim() === "");
+      if (selectedEstadoCivil === "viudo")          return estadoCivil.includes("viud");
+      if (selectedEstadoCivil === "divorciado")     return estadoCivil.includes("divorci");
+      return true;
+    })();
+
+    // Número de hermanos (hijos vinculados a la familia)
+    const numHijos = familia.estudiantes_vinculados?.length ?? 0;
+    const numHermanos = Math.max(0, numHijos - 1);
+    const matchHermanos = selectedHermanos === "all" || (() => {
+      const n = parseInt(selectedHermanos, 10);
+      if (selectedHermanos === "5+") return numHermanos >= 5;
+      return numHermanos === n;
+    })();
+
+    return matchSearch && matchEstatus && matchSeccion && matchGrado && matchGrupo && matchCP && matchCiclo && matchPeriodo && matchEstadoCivil && matchHermanos;
   });
+
+  // ── Resumen estadístico familias ────────────────────────────────────────
+  const buildResumenFamilias = () => {
+    const count = (arr: any[], pred: (f: any) => boolean) => arr.filter(pred).length;
+    const byKey = (arr: any[], getter: (f: any) => string) => {
+      const map: Record<string, number> = {};
+      arr.forEach(f => { const k = getter(f) || "Sin dato"; map[k] = (map[k] || 0) + 1; });
+      return Object.entries(map).sort((a, b) => b[1] - a[1]);
+    };
+    return {
+      total: filteredFamilias.length,
+      porEstatus:     byKey(filteredFamilias, f => f.estatus),
+      porNivel:       byKey(filteredFamilias, f => f.estudiantes_vinculados?.[0]?.nivel_escolar || "Sin nivel"),
+      porEstadoCivil: byKey(filteredFamilias, f => f.estado_civil || f.padre_estado_civil || f.madre_estado_civil || "No especificado"),
+      porHermanos: [0,1,2,3,4].map(n => ({
+        label: n === 0 ? "Hijo único" : `${n} hermano${n > 1 ? "s" : ""}`,
+        count: count(filteredFamilias, f => Math.max(0, (f.estudiantes_vinculados?.length ?? 1) - 1) === n),
+      })).concat([{ label: "5+ hermanos", count: count(filteredFamilias, f => Math.max(0, (f.estudiantes_vinculados?.length ?? 1) - 1) >= 5) }]),
+      padresSolteros:  count(filteredFamilias, f => {
+        const ec = (f.estado_civil || "").toLowerCase();
+        return ec === "soltero" || ec === "soltera";
+      }),
+      viudos:      count(filteredFamilias, f => (f.estado_civil || "").toLowerCase().includes("viud")),
+      divorciados: count(filteredFamilias, f => (f.estado_civil || "").toLowerCase().includes("divorci")),
+    };
+  };
+
+  const exportResumenFamiliasExcel = () => {
+    const d = buildResumenFamilias();
+    const rows: string[][] = [
+      ["RESUMEN DE FAMILIAS", "", ""],
+      [`Generado: ${new Date().toLocaleDateString('es-MX')}`, "", ""],
+      ["Total filtrado", String(d.total), ""],
+      ["", "", ""],
+      ["RUBRO", "CATEGORÍA", "CANTIDAD"],
+      ...d.porEstatus.map(([k, v]) => ["Estatus", k, String(v)]),
+      ...d.porNivel.map(([k, v]) => ["Nivel de hijos", k, String(v)]),
+      ...d.porEstadoCivil.map(([k, v]) => ["Estado civil", k, String(v)]),
+      ...d.porHermanos.map(r => ["Hermanos", r.label, String(r.count)]),
+      ["Indicadores", "Padres/Madres solteros", String(d.padresSolteros)],
+      ["Indicadores", "Viudos", String(d.viudos)],
+      ["Indicadores", "Divorciados", String(d.divorciados)],
+    ];
+    const csv = rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `resumen_familias_${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(a); a.click();
+    URL.revokeObjectURL(url); document.body.removeChild(a);
+    toast({ title: "Excel exportado", description: "Resumen de familias descargado como CSV" });
+  };
+
+  const exportResumenFamiliasPDF = () => {
+    const d = buildResumenFamilias();
+    const tableHtml = (title: string, rows: [string, number][]) =>
+      `<h2>${title}</h2><table><tr><th>Categoría</th><th>Cantidad</th></tr>${rows.map(([k,v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("")}</table>`;
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Resumen de Familias</title>
+    <style>body{font-family:Arial,sans-serif;padding:20px;color:#1a1a1a}h1{color:#1e40af;font-size:20px}h2{color:#374151;font-size:14px;margin-top:16px;border-bottom:1px solid #e5e7eb;padding-bottom:4px}
+    table{border-collapse:collapse;width:100%;margin-bottom:8px;font-size:12px}th{background:#1e40af;color:#fff;padding:6px 10px;text-align:left}td{padding:5px 10px;border-bottom:1px solid #f3f4f6}
+    tr:nth-child(even) td{background:#f9fafb}.meta{color:#6b7280;font-size:12px;margin-bottom:16px}@media print{body{padding:10px}}</style></head><body>
+    <h1>Resumen de Familias</h1>
+    <p class="meta">Generado: ${new Date().toLocaleDateString('es-MX')} · Total: ${d.total} familia(s)</p>
+    ${tableHtml("Por Estatus", d.porEstatus)}
+    ${tableHtml("Por Nivel de hijos", d.porNivel)}
+    ${tableHtml("Por Estado Civil", d.porEstadoCivil)}
+    <h2>Por Número de Hermanos</h2><table><tr><th>Categoría</th><th>Cantidad</th></tr>${d.porHermanos.map(r => `<tr><td>${r.label}</td><td>${r.count}</td></tr>`).join("")}</table>
+    <h2>Indicadores especiales</h2><table><tr><th>Indicador</th><th>Cantidad</th></tr>
+    <tr><td>Padres/Madres solteros</td><td>${d.padresSolteros}</td></tr>
+    <tr><td>Viudos</td><td>${d.viudos}</td></tr>
+    <tr><td>Divorciados</td><td>${d.divorciados}</td></tr></table>
+    </body></html>`;
+    const win = window.open("", "_blank");
+    if (win) { win.document.write(html); win.document.close(); win.focus(); win.print(); }
+  };
+  // ─────────────────────────────────────────────────────────────────────────
 
   const estadisticas = {
     total: familias.length,
@@ -1221,6 +1321,14 @@ export default function Familias() {
                     className="pl-10 text-base"
                   />
                 </div>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowResumenFamilias(v => !v)}
+                  className="flex items-center gap-2 text-indigo-700 border-indigo-200"
+                >
+                  <FileSpreadsheet className="h-4 w-4" />
+                  {showResumenFamilias ? 'Ocultar resumen' : 'Ver resumen'}
+                </Button>
                 <Button
                   variant="outline"
                   onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
@@ -1391,23 +1499,54 @@ export default function Familias() {
 
               {/* Filtros avanzados expandibles */}
               {showAdvancedFilters && (
-                <div className="border-t pt-4 mt-2">
-                  <div className="flex justify-end">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSearchTerm("");
-                        setSelectedSeccion("all");
-                        setSelectedGrado("all");
-                        setSelectedGrupo("all");
-                        setSelectedEstatus("all");
-                        setSelectedCodigoPostal("all");
-                      }}
-                      className="text-xs"
-                    >
-                      Limpiar todos los filtros
-                    </Button>
+                <div className="border-t pt-4 mt-2 space-y-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {/* Estado civil */}
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Estado civil del tutor</Label>
+                      <Select value={selectedEstadoCivil} onValueChange={setSelectedEstadoCivil}>
+                        <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          <SelectItem value="padre_soltero">Padre soltero</SelectItem>
+                          <SelectItem value="madre_soltera">Madre soltera</SelectItem>
+                          <SelectItem value="viudo">Viudo / Viuda</SelectItem>
+                          <SelectItem value="divorciado">Divorciado / Divorciada</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {/* Hermanos */}
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Número de hermanos</Label>
+                      <Select value={selectedHermanos} onValueChange={setSelectedHermanos}>
+                        <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          <SelectItem value="0">Hijo único (0 hermanos)</SelectItem>
+                          <SelectItem value="1">1 hermano</SelectItem>
+                          <SelectItem value="2">2 hermanos</SelectItem>
+                          <SelectItem value="3">3 hermanos</SelectItem>
+                          <SelectItem value="4">4 hermanos</SelectItem>
+                          <SelectItem value="5+">5 o más hermanos</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {/* Acciones */}
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Acciones</Label>
+                      <Button
+                        variant="outline" size="sm" className="text-xs w-full"
+                        onClick={() => {
+                          setSearchTerm(""); setSelectedSeccion("all"); setSelectedGrado("all");
+                          setSelectedGrupo("all"); setSelectedEstatus("all");
+                          setSelectedCodigoPostal("all"); setSelectedCicloFamilias("all");
+                          setSelectedPeriodoFamilias("all"); setSelectedEstadoCivil("all");
+                          setSelectedHermanos("all");
+                        }}
+                      >
+                        Limpiar todos los filtros
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1429,6 +1568,88 @@ export default function Familias() {
             </div>
           </CardContent>
         </Card>
+
+        {/* ── Resumen estadístico familias ──────────────────────────────── */}
+        {hasActiveSearch && showResumenFamilias && (() => {
+          const d = buildResumenFamilias();
+          const StatTable = ({ title, rows }: { title: string; rows: [string, number][] }) => (
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{title}</p>
+              <table className="w-full text-xs">
+                <tbody>
+                  {rows.map(([k, v]) => (
+                    <tr key={k} className="border-b border-gray-100 last:border-0">
+                      <td className="py-1 text-gray-600">{k}</td>
+                      <td className="py-1 text-right font-semibold text-gray-800">{v}</td>
+                      <td className="py-1 pl-2 w-24">
+                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-indigo-500 rounded-full"
+                            style={{ width: d.total > 0 ? `${Math.round((v / d.total) * 100)}%` : "0%" }} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+          return (
+            <Card className="border-indigo-100 bg-indigo-50/40">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base text-indigo-900">Resumen estadístico</CardTitle>
+                    <p className="text-xs text-indigo-600 mt-0.5">
+                      {d.total > 0
+                        ? `${d.total} familia(s) con los filtros actuales`
+                        : "Sin coincidencias para los filtros seleccionados"}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" disabled={d.total === 0}
+                      className="text-xs border-green-300 text-green-700 bg-white hover:bg-green-50"
+                      onClick={exportResumenFamiliasExcel}>
+                      <FileSpreadsheet className="h-3 w-3 mr-1" /> Exportar Excel
+                    </Button>
+                    <Button size="sm" variant="outline" disabled={d.total === 0}
+                      className="text-xs border-red-300 text-red-700 bg-white hover:bg-red-50"
+                      onClick={exportResumenFamiliasPDF}>
+                      <Download className="h-3 w-3 mr-1" /> Exportar PDF
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {d.total === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center mb-3">
+                      <Search className="h-6 w-6 text-indigo-400" />
+                    </div>
+                    <p className="text-sm font-medium text-gray-600">No hay familias que coincidan</p>
+                    <p className="text-xs text-gray-400 mt-1 max-w-xs">
+                      Prueba cambiando o quitando algún filtro para ver resultados y su desglose estadístico.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+                    <StatTable title="Estatus" rows={d.porEstatus} />
+                    <StatTable title="Nivel de hijos" rows={d.porNivel} />
+                    <StatTable title="Estado civil" rows={d.porEstadoCivil} />
+                    <StatTable title="Hermanos" rows={d.porHermanos.filter(r => r.count > 0).map(r => [r.label, r.count] as [string, number])} />
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Indicadores</p>
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between"><span className="text-gray-600">Padres/Madres solteros</span><span className="font-semibold text-blue-700">{d.padresSolteros}</span></div>
+                        <div className="flex justify-between"><span className="text-gray-600">Viudos</span><span className="font-semibold text-gray-700">{d.viudos}</span></div>
+                        <div className="flex justify-between"><span className="text-gray-600">Divorciados</span><span className="font-semibold text-orange-700">{d.divorciados}</span></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* Lista de familias */}
         <Card className="bg-white rounded-xl md:rounded-2xl shadow-lg border-0">

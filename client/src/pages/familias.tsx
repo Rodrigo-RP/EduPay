@@ -1274,9 +1274,9 @@ export default function Familias() {
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Sección Educativa</Label>
+                  <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Nivel</Label>
                   <Select value={selectedSeccion} onValueChange={setSelectedSeccion}>
-                    <SelectTrigger className="h-9"><SelectValue placeholder="Todas las..." /></SelectTrigger>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Todos los niveles" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todas las secciones</SelectItem>
                       {['Kinder','Primaria','Secundaria','Preparatoria'].map(s => (

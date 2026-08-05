@@ -31,6 +31,7 @@ interface NivelRow {
 
 interface DashboardData {
   ciclo: string;
+  niveles_disponibles: string[];
   ciclo_metrics: {
     facturado: number;
     cobrado: number;
@@ -205,8 +206,8 @@ export default function AdminDashboard() {
   const desglose = data?.desglose_nivel ?? [];
   const excCount = excData?.excepciones?.length ?? 0;
 
-  // Niveles disponibles para el selector (vienen siempre del desglose General)
-  const nivelesDisponibles = ["General", ...desglose.map(r => r.nivel)];
+  // Niveles disponibles: siempre vienen del campus, no dependen del ciclo
+  const nivelesDisponibles = ["General", ...(data?.niveles_disponibles ?? [])];
 
   // ── Skeleton helper ───────────────────────────────────────────────────────
   const Sk = ({ w = "w-20" }: { w?: string }) => (

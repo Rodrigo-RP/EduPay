@@ -143,7 +143,15 @@ export function registerAdminRoutes(app: Express): void {
         `, [campusId]),
       ]);
 
-      // ── 4. Desglose por nivel (siempre todos los niveles del ciclo) ─────────
+      // ── 4. Niveles disponibles en el campus (sin filtro de ciclo) ──────────
+      const nivelesRes = await pool.query(`
+        SELECT DISTINCT COALESCE(nivel_escolar, 'Sin nivel') AS nivel
+        FROM students
+        WHERE campus_id = $1
+        ORDER BY nivel
+      `, [campusId]);
+
+      // ── 5. Desglose por nivel (métricas del ciclo, todos los niveles) ───────
       const desgloseRes = await pool.query(`
         SELECT
           COALESCE(s.nivel_escolar, 'Sin nivel')                                                         AS nivel,
@@ -183,6 +191,7 @@ export function registerAdminRoutes(app: Express): void {
           vencen_semana:          Number((semRes.rows[0] as any)?.cnt  ?? 0),
           alumnos_riesgo:         Number((riesgoRes.rows[0] as any)?.cnt ?? 0),
         },
+        niveles_disponibles: (nivelesRes.rows as any[]).map(r => r.nivel as string),
         desglose_nivel: (desgloseRes.rows as any[]).map(r => ({
           nivel:          r.nivel as string,
           facturado:      Number(r.facturado),

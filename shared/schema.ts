@@ -139,6 +139,15 @@ export const students = pgTable("students", {
   // Campo calculado para compatibilidad con código existente
   nombre_completo: varchar("nombre_completo", { length: 300 }),
   
+  // Datos demográficos (Task #60)
+  sexo:                  varchar("sexo", { length: 10 }),
+  estado_origen:         varchar("estado_origen", { length: 60 }),
+  nacionalidad:          varchar("nacionalidad", { length: 60 }),
+  idioma_natal:          varchar("idioma_natal", { length: 40 }),
+  habla_dialecto:        boolean("habla_dialecto").default(false),
+  necesidades_especiales: boolean("necesidades_especiales").default(false),
+  repetidor:             boolean("repetidor").default(false),
+
   status: varchar("status", { length: 50 }).default("activo"), // 'activo', 'baja', 'suspendido', 'egresado'
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),

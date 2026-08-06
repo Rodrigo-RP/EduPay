@@ -6,7 +6,7 @@ import { db, pool } from "../db";
 import { eq, and } from "drizzle-orm";
 import { users, institutional_info, institutional_credentials, guardians } from "@shared/schema";
 import { insertUserSchema, insertGuardianSchema, insertInstitutionalInfoSchema } from "@shared/schema";
-import { canEditUser, UserRole } from "@shared/permissions";
+import { canEditUser, hasPermission, MODULES, ACTIONS, UserRole } from "@shared/permissions";
 import { storage } from "../storage";
 import { wsManager } from "../websocket-manager";
 import { authenticateToken, authenticateGuardian, requireSuperAdmin, serializeUser, esmRequire, JWT_SECRET } from "./shared";
@@ -186,6 +186,11 @@ export function registerUserRoutes(app: Express): void {
   app.get("/api/users", authenticateToken, async (req, res) => {
     try {
       const user = (req as any).user;
+
+      if (!hasPermission(user.role, MODULES.USERS, ACTIONS.READ)) {
+        return res.status(403).json({ message: "No tienes permiso para ver usuarios" });
+      }
+
       const campusId = user.campus_id;
       
       if (!campusId) {

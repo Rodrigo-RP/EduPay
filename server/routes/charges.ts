@@ -4,6 +4,7 @@ import { enqueueAuditLog } from "../audit-retry";
 import { eq, and, gte, lt } from "drizzle-orm";
 import { storage } from "../storage";
 import { authenticateToken, requireAuth, checkCampusTenant, upload } from "./shared";
+import { hasPermission, MODULES, ACTIONS } from "@shared/permissions";
 import { students, guardians, student_guardian, charges, payments, concepts, scholarships, payment_due_dates, payment_surcharge_rules, invoices } from "@shared/schema";
 import { insertChargeSchema } from "@shared/schema";
 import { getAcademicLevel } from "@shared/academic-levels";
@@ -263,6 +264,10 @@ export function registerChargesRoutes(app: Express): void {
   // Apply late fee surcharges to overdue charges
   app.post("/api/admin/cargos/aplicar-recargos", authenticateToken, async (req: any, res: any) => {
     try {
+      const role = req.user?.role;
+      if (!hasPermission(role, MODULES.PAYMENTS, ACTIONS.PROCESS)) {
+        return res.status(403).json({ message: "Sin permisos para procesar pagos" });
+      }
       const campusId = req.user.campus_id;
       const rules = await storage.getSurchargeRulesByCampus(campusId);
       if (rules.length === 0) return res.json({ message: "No hay reglas de recargo configuradas", actualizados: 0 });

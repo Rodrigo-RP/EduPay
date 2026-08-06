@@ -4,6 +4,7 @@ import { enqueueAuditLog } from "../audit-retry";
 import { eq, and } from "drizzle-orm";
 import { storage } from "../storage";
 import { authenticateToken, requireAuth, checkCampusTenant } from "./shared";
+import { hasPermission, MODULES, ACTIONS } from "@shared/permissions";
 import { payments, charges, students, invoices, guardians } from "@shared/schema";
 
 export function registerConciliacionRoutes(app: Express): void {
@@ -121,6 +122,10 @@ export function registerConciliacionRoutes(app: Express): void {
    */
   app.post("/api/caja/pago-efectivo", authenticateToken, async (req, res) => {
     try {
+      const role = (req as any).user?.role;
+      if (!hasPermission(role, MODULES.PAYMENTS, ACTIONS.PROCESS)) {
+        return res.status(403).json({ message: "Sin permisos para procesar pagos" });
+      }
       const campusId     = (req as any).user?.campus_id;
       const tenantIdCaja = (req as any).user?.tenant_id;
       const userIdCaja   = (req as any).user?.id;
@@ -316,6 +321,10 @@ export function registerConciliacionRoutes(app: Express): void {
   // Register manual transfer
   app.post("/api/caja/transferencia-manual", authenticateToken, async (req, res) => {
     try {
+      const role = (req as any).user?.role;
+      if (!hasPermission(role, MODULES.PAYMENTS, ACTIONS.PROCESS)) {
+        return res.status(403).json({ message: "Sin permisos para procesar pagos" });
+      }
       const campusId = (req as any).user?.campus_id;
       const { fecha, descripcion, monto, tipo, referencia, clabe, nombre } = req.body;
       const montoCentavos = Math.round(parseFloat(monto || '0') * 100);

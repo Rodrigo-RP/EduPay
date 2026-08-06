@@ -4,6 +4,7 @@ import { enqueueAuditLog } from "../audit-retry";
 import { eq, and, gte, lt } from "drizzle-orm";
 import { storage } from "../storage";
 import { authenticateToken, requireAuth, requireSuperAdmin, checkCampusTenant, serializeUser, upload, esmRequire, authenticateGuardian } from "./shared";
+import { hasPermission, MODULES, ACTIONS } from "@shared/permissions";
 import { students, guardians, student_guardian, charges, payments, concepts, scholarships, invoices, institutional_info, institutional_credentials, payment_due_dates, payment_surcharge_rules } from "@shared/schema";
 import { insertInstitutionalInfoSchema } from "@shared/schema";
 import { getAcademicLevel } from "@shared/academic-levels";
@@ -936,6 +937,10 @@ export function registerAdminRoutes(app: Express): void {
    */
   app.post("/api/admin/family-credits/:creditId/aplicar", authenticateToken, async (req: any, res) => {
     try {
+      const role = req.user?.role;
+      if (!hasPermission(role, MODULES.PAYMENTS, ACTIONS.PROCESS)) {
+        return res.status(403).json({ message: "Sin permisos para procesar pagos" });
+      }
       const tenantId  = req.user?.tenant_id;
       const campusId  = req.user?.campus_id;
       const userId    = req.user?.id;

@@ -30,6 +30,7 @@ let conceptAId: number;
 let chargeAId: number;
 let chargeA2Id: number;
 let userAId: number, userBId: number;
+let familyCreditAId: number;  // crédito del tenant A (para T13)
 
 /** Genera JWT de admin sin tocar la base de datos */
 function makeAdminToken(userId: number, tenantId: number, campusId: number): string {
@@ -114,6 +115,22 @@ describe("Aislamiento multi-tenant — capa HTTP (IDOR)", () => {
 
     userAId = 10000 + tenantAId;
     userBId = 10000 + tenantBId;
+
+    // ── Setup para T13: crear un pago + crédito en tenant A ──────────────────
+    // Admin de tenant B intentará aplicarlo — debe recibir 403.
+    const payRow = await pool.query(
+      `INSERT INTO payments (tenant_id, charge_id, metodo, monto_centavos, estado)
+       VALUES ($1,$2,'efectivo',200000,'exitoso') RETURNING id`,
+      [tenantAId, chargeAId]
+    );
+    const creditPaymentId: number = payRow.rows[0].id;
+    const fcRow = await pool.query(
+      `INSERT INTO family_credits
+         (tenant_id, campus_id, student_id, payment_id, amount_centavos, origen, status)
+       VALUES ($1,$2,$3,$4,50000,'excedente_caja','activo') RETURNING id`,
+      [tenantAId, campusAId, studentAId, creditPaymentId]
+    );
+    familyCreditAId = fcRow.rows[0].id;
   });
 
   afterAll(async () => {
@@ -121,8 +138,10 @@ describe("Aislamiento multi-tenant — capa HTTP (IDOR)", () => {
     if (!tIds.length) return;
     const tList = tIds.join(",");
 
-    await db.execute(`DELETE FROM invoices     WHERE tenant_id IN (${tList})` as any).catch(() => {});
-    await db.execute(`DELETE FROM payments     WHERE tenant_id IN (${tList})` as any).catch(() => {});
+    await db.execute(`DELETE FROM invoices        WHERE tenant_id IN (${tList})` as any).catch(() => {});
+    await db.execute(`DELETE FROM family_credits  WHERE tenant_id IN (${tList})` as any).catch(() => {});
+    await db.execute(`DELETE FROM payment_applications WHERE payment_id IN (SELECT id FROM payments WHERE tenant_id IN (${tList}))` as any).catch(() => {});
+    await db.execute(`DELETE FROM payments        WHERE tenant_id IN (${tList})` as any).catch(() => {});
     await db.execute(`DELETE FROM student_guardian WHERE student_id IN (SELECT id FROM students WHERE tenant_id IN (${tList}))` as any).catch(() => {});
     await db.execute(`DELETE FROM charges      WHERE tenant_id IN (${tList})` as any).catch(() => {});
     await db.execute(`DELETE FROM guardians    WHERE tenant_id IN (${tList})` as any).catch(() => {});
@@ -304,6 +323,25 @@ describe("Aislamiento multi-tenant — capa HTTP (IDOR)", () => {
       fecha_inicio: "2025-02-01",
     }, tokenB);                  // token de tenant B → debe ser 403
     expect(r.status).toBe(403);
+  });
+
+  it("T13: admin de Tenant B no puede aplicar crédito de Tenant A → 403", async () => {
+    // El endpoint verifica credit.tenant_id === req.user.tenant_id antes de proceder.
+    // Admin B intenta consumir un family_credit que pertenece a tenant A.
+    const tokenB = makeAdminToken(userBId, tenantBId, campusBId);
+    const r = await httpPost(
+      `/api/admin/family-credits/${familyCreditAId}/aplicar`,
+      { charge_id: chargeA2Id },   // cargo de tenant A
+      tokenB
+    );
+    expect(r.status).toBe(403);
+
+    // El crédito de tenant A sigue activo — no fue tocado
+    const creditAfter = await pool.query(
+      `SELECT status FROM family_credits WHERE id = $1`,
+      [familyCreditAId]
+    );
+    expect(creditAfter.rows[0].status).toBe("activo");
   });
 
   it("T12: POST /api/planes-pago/cuotas/:id/pagar devuelve 410 (endpoint deprecado ADR-002)", async () => {

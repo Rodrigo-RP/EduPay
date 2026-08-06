@@ -109,6 +109,31 @@ async function chargeEstado(chargeId: number): Promise<string> {
   return r.rows[0]?.estado;
 }
 
+/**
+ * Crea un saldo a favor vía caja: charge pequeño ($1) + pago con excedente.
+ * Devuelve el id del family_credit activo generado.
+ */
+async function mkCreditViaCaja(excedenteCentavos: number): Promise<number> {
+  const baseCharge = 100; // $1.00
+  const chargeId = await mkCharge(baseCharge);
+  const montoPesos = ((baseCharge + excedenteCentavos) / 100).toFixed(2);
+  await httpPost(
+    "/api/caja/pago-efectivo",
+    { estudiante_id: studentId, charge_id: chargeId, monto: montoPesos },
+    adminToken
+  );
+  const paymentIdRow = await pool.query(
+    `SELECT id FROM payments WHERE charge_id=$1 ORDER BY id DESC LIMIT 1`,
+    [chargeId]
+  );
+  const paymentId = paymentIdRow.rows[0].id;
+  const creditRow = await pool.query(
+    `SELECT id FROM family_credits WHERE payment_id=$1 AND status='activo' ORDER BY id DESC LIMIT 1`,
+    [paymentId]
+  );
+  return creditRow.rows[0].id as number;
+}
+
 // ── Setup / Teardown ──────────────────────────────────────────────────────────
 beforeAll(async () => {
   const ts = Date.now().toString().slice(-7);
@@ -592,5 +617,194 @@ describe("caja/pago-efectivo — pago parcial y completion", () => {
     expect(await chargeEstado(chargeId)).toBe("pagado");
     // Ambos devuelven 200 (el segundo indica "ya fue pagado") — no doble payment
     expect(await countExitosPayments(chargeId)).toBe(1);
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// BLOQUE 4 — family-credits/aplicar: validaciones de negocio y concurrencia
+// ═════════════════════════════════════════════════════════════════════════════
+describe("family-credits/aplicar — validaciones y concurrencia", () => {
+
+  // ── PC-12: cargo terminal (pagado / cancelado) ────────────────────────────
+  it("PC-12: aplicar crédito a cargo 'pagado' o 'cancelado' → 409 sin crear PaymentApplication", async () => {
+    const creditId = await mkCreditViaCaja(50_000); // $500 de saldo a favor
+
+    // Caso A — cargo 'pagado'
+    const chargeIdPagado = await mkCharge(30_000, "pagado");
+    const rPagado = await httpPost(
+      `/api/admin/family-credits/${creditId}/aplicar`,
+      { charge_id: chargeIdPagado },
+      adminToken
+    );
+    expect(rPagado.status).toBe(409);
+    expect(await countApplications(chargeIdPagado)).toBe(0);
+
+    // Caso B — cargo 'cancelado'
+    const chargeIdCancelado = await mkCharge(30_000, "cancelado");
+    const rCancelado = await httpPost(
+      `/api/admin/family-credits/${creditId}/aplicar`,
+      { charge_id: chargeIdCancelado },
+      adminToken
+    );
+    expect(rCancelado.status).toBe(409);
+    expect(await countApplications(chargeIdCancelado)).toBe(0);
+
+    // El crédito sigue activo tras ambos rechazos
+    const creditAfter = await pool.query(
+      `SELECT status FROM family_credits WHERE id=$1`, [creditId]
+    );
+    expect(creditAfter.rows[0].status).toBe("activo");
+  });
+
+  // ── PC-13: cargo de alumno sin familia compartida ─────────────────────────
+  it("PC-13: aplicar crédito de un alumno a cargo de otro alumno sin familia compartida → 403", async () => {
+    const creditId = await mkCreditViaCaja(50_000);
+
+    // Segundo alumno, mismo campus/tenant, sin ninguna fila en family_students compartida
+    const student2Row = await pool.query(
+      `INSERT INTO students
+         (campus_id, tenant_id, nombres, apellido_paterno, nombre_completo, status)
+       VALUES ($1,$2,'Alumno2','CrossFam','Alumno2 CrossFam','activo') RETURNING id`,
+      [campusId, tenantId]
+    );
+    const student2Id: number = student2Row.rows[0].id;
+
+    try {
+      const charge2Id: number = await pool.query(
+        `INSERT INTO charges
+           (tenant_id, student_id, concept_id, fecha_emision, fecha_vencimiento,
+            monto_base_centavos, estado)
+         VALUES ($1,$2,$3,CURRENT_DATE,CURRENT_DATE+30,80000,'pendiente') RETURNING id`,
+        [tenantId, student2Id, conceptId]
+      ).then((r: any) => r.rows[0].id);
+      createdChargeIds.push(charge2Id);
+
+      const r = await httpPost(
+        `/api/admin/family-credits/${creditId}/aplicar`,
+        { charge_id: charge2Id },
+        adminToken
+      );
+      // Crédito del alumno principal; cargo del alumno2 sin familia compartida → 403
+      expect(r.status).toBe(403);
+      expect(await countApplications(charge2Id)).toBe(0);
+
+      // El crédito sigue activo
+      const creditAfter = await pool.query(
+        `SELECT status FROM family_credits WHERE id=$1`, [creditId]
+      );
+      expect(creditAfter.rows[0].status).toBe("activo");
+    } finally {
+      await pool.query(`DELETE FROM students WHERE id=$1`, [student2Id]);
+    }
+  });
+
+  // ── PC-14: admin de otro tenant ───────────────────────────────────────────
+  it("PC-14: admin de otro tenant intentando aplicar crédito ajeno → 403", async () => {
+    const creditId = await mkCreditViaCaja(50_000);
+    const chargeId = await mkCharge(50_000);
+
+    // JWT válido pero con tenant_id distinto al del crédito
+    const alienToken = jwt.sign(
+      {
+        role:      "administrador_campus",
+        campus_id: campusId,
+        tenant_id: tenantId + 9999,
+        type:      "user",
+      },
+      JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    const r = await httpPost(
+      `/api/admin/family-credits/${creditId}/aplicar`,
+      { charge_id: chargeId },
+      alienToken
+    );
+    expect(r.status).toBe(403);
+    // Sin payment_application; crédito intacto
+    expect(await countApplications(chargeId)).toBe(0);
+    const creditAfter = await pool.query(
+      `SELECT status FROM family_credits WHERE id=$1`, [creditId]
+    );
+    expect(creditAfter.rows[0].status).toBe("activo");
+  });
+
+  // ── PC-15: doble clic simultáneo sobre el mismo crédito ───────────────────
+  it("PC-15: dos requests simultáneos aplican el mismo crédito a cargos distintos → solo uno completa", async () => {
+    const creditId = await mkCreditViaCaja(50_000);
+    const chargeId1 = await mkCharge(50_000);
+    const chargeId2 = await mkCharge(50_000);
+
+    const [r1, r2] = await Promise.all([
+      httpPost(
+        `/api/admin/family-credits/${creditId}/aplicar`,
+        { charge_id: chargeId1 }, adminToken
+      ),
+      httpPost(
+        `/api/admin/family-credits/${creditId}/aplicar`,
+        { charge_id: chargeId2 }, adminToken
+      ),
+    ]);
+
+    // Exactamente uno completa (200), el otro falla porque el crédito ya quedó consumido (409)
+    const statuses = [r1.status, r2.status].sort((a, b) => a - b);
+    expect(statuses).toEqual([200, 409]);
+
+    // El crédito está consumido exactamente una vez
+    const creditAfter = await pool.query(
+      `SELECT status, consumed_application_id FROM family_credits WHERE id=$1`,
+      [creditId]
+    );
+    expect(creditAfter.rows[0].status).toBe("consumido");
+    expect(creditAfter.rows[0].consumed_application_id).not.toBeNull();
+
+    // Solo UNA payment_application fue creada contra estos dos cargos
+    const totalPAs = await pool.query(
+      `SELECT COUNT(*) AS n FROM payment_applications WHERE charge_id = ANY($1)`,
+      [[chargeId1, chargeId2]]
+    );
+    expect(Number(totalPAs.rows[0].n)).toBe(1);
+  });
+
+  // ── PC-16: crédito menor al saldo del cargo (resultado: parcial) ──────────
+  it("PC-16: crédito $500 sobre cargo $1,200 → cargo queda 'parcial', crédito 'consumido' sin remanente", async () => {
+    const CREDITO = 50_000;  // $500
+    const CARGO   = 120_000; // $1,200
+
+    const creditId = await mkCreditViaCaja(CREDITO);
+    const chargeId = await mkCharge(CARGO);
+
+    const r = await httpPost(
+      `/api/admin/family-credits/${creditId}/aplicar`,
+      { charge_id: chargeId },
+      adminToken
+    );
+
+    expect(r.status).toBe(200);
+    expect((r.body as any).charge_nuevo_estado).toBe("parcial");
+    expect((r.body as any).monto_aplicado_centavos).toBe(CREDITO);
+    // No hay remanente: el crédito era MENOR que el saldo del cargo
+    expect((r.body as any).remanente_centavos).toBe(0);
+    expect((r.body as any).nuevo_credit_id).toBeNull();
+
+    // El crédito queda completamente consumido (amount_centavos inmutable)
+    const creditAfter = await pool.query(
+      `SELECT status, amount_centavos FROM family_credits WHERE id=$1`,
+      [creditId]
+    );
+    expect(creditAfter.rows[0].status).toBe("consumido");
+    expect(Number(creditAfter.rows[0].amount_centavos)).toBe(CREDITO); // nunca se editó
+
+    // Saldo restante del cargo = $1,200 − $500 = $700 (vía ledger puro)
+    const ledger = await pool.query(
+      `SELECT c.monto_base_centavos - COALESCE(SUM(pa.amount_centavos),0) AS saldo_restante
+       FROM charges c
+       LEFT JOIN payment_applications pa ON pa.charge_id = c.id
+       WHERE c.id = $1
+       GROUP BY c.monto_base_centavos`,
+      [chargeId]
+    );
+    expect(Number(ledger.rows[0].saldo_restante)).toBe(CARGO - CREDITO); // $700
+    expect(await chargeEstado(chargeId)).toBe("parcial");
   });
 });

@@ -977,7 +977,7 @@ export function registerAdminRoutes(app: Express): void {
 
         // ── Bloquear el cargo y verificar que está pendiente ─────────────────
         const chargeLock = await client.query(
-          `SELECT c.id, c.monto_base_centavos, c.estado, s.campus_id
+          `SELECT c.id, c.monto_base_centavos, c.estado, c.student_id, s.campus_id
            FROM charges c JOIN students s ON s.id = c.student_id
            WHERE c.id = $1 AND c.tenant_id = $2 FOR UPDATE`,
           [chargeId, tenantId]
@@ -994,6 +994,31 @@ export function registerAdminRoutes(app: Express): void {
         if (["pagado", "cancelado"].includes(charge.estado)) {
           await client.query("ROLLBACK");
           return res.status(409).json({ message: "El cargo ya está pagado o cancelado" });
+        }
+
+        // ── Validar que el crédito pertenece al mismo alumno o familia que el cargo ─
+        // Evita que el crédito de la familia A se aplique a un cargo de la familia B.
+        const chargeStudentId = Number(charge.student_id);
+        const creditStudentId = Number(credit.student_id);
+        if (chargeStudentId !== creditStudentId) {
+          const familyCheck = await client.query(
+            `SELECT 1 FROM (
+               -- Ambos alumnos comparten una familia
+               SELECT fs1.family_id
+               FROM family_students fs1
+               JOIN family_students fs2 ON fs1.family_id = fs2.family_id
+               WHERE fs1.student_id = $1 AND fs2.student_id = $2
+               UNION ALL
+               -- El crédito tiene family_id explícito que incluye al alumno del cargo
+               SELECT family_id FROM family_students
+               WHERE family_id = $3 AND student_id = $2
+             ) t LIMIT 1`,
+            [creditStudentId, chargeStudentId, credit.family_id]
+          );
+          if (!familyCheck.rows.length) {
+            await client.query("ROLLBACK");
+            return res.status(403).json({ message: "El crédito no corresponde al alumno o familia del cargo" });
+          }
         }
 
         // ── Saldo pendiente real del cargo (vía payment_applications) ─────────

@@ -219,6 +219,11 @@ export function registerUserRoutes(app: Express): void {
       // a través del flujo seguro de /api/auth/2fa/setup + /confirm
       const { name, email, password_hash, role, telefono, foto_url, is_active, is_super_admin, platform_permissions, custom_permissions } = req.body;
       
+      // SEGURIDAD: Verificar permiso de módulo ANTES de evaluar jerarquía
+      if (!hasPermission(user.role, MODULES.USERS, ACTIONS.CREATE)) {
+        return res.status(403).json({ message: "No tienes permiso para crear usuarios" });
+      }
+
       // SEGURIDAD: Verificar que el usuario actual puede crear usuarios con el rol especificado
       if (user.role !== 'super_admin' && !canEditUser(user.role as UserRole, role as UserRole)) {
         return res.status(403).json({ 
@@ -279,6 +284,11 @@ export function registerUserRoutes(app: Express): void {
         return res.status(404).json({ message: "Usuario no encontrado" });
       }
       
+      // SEGURIDAD: Verificar permiso de módulo ANTES de evaluar jerarquía
+      if (!hasPermission(user.role, MODULES.USERS, ACTIONS.UPDATE)) {
+        return res.status(403).json({ message: "No tienes permiso para editar usuarios" });
+      }
+
       // SEGURIDAD: Verificar que el usuario actual puede editar al usuario objetivo
       if (user.role !== 'super_admin' && !canEditUser(user.role as UserRole, existingUser.role as UserRole)) {
         return res.status(403).json({ 
@@ -389,6 +399,10 @@ export function registerUserRoutes(app: Express): void {
       const existingUser = await storage.getUser(userId);
       if (!existingUser || existingUser.campus_id !== user.campus_id) return res.status(404).json({ message: "Usuario no encontrado" });
       if (userId === user.id) return res.status(400).json({ message: "No puedes eliminar tu propia cuenta" });
+      // SEGURIDAD: Verificar permiso de módulo ANTES de evaluar jerarquía
+      if (!hasPermission(user.role, MODULES.USERS, ACTIONS.DELETE)) {
+        return res.status(403).json({ message: "No tienes permiso para eliminar usuarios" });
+      }
       // SEGURIDAD: misma guardia de jerarquía que /api/users/:id (línea 329).
       // Sin este check cualquier usuario autenticado podía borrar a uno de mayor rango.
       if (user.role !== 'super_admin' && !canEditUser(user.role as UserRole, existingUser.role as UserRole)) {

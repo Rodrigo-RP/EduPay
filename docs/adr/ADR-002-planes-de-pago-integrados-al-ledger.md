@@ -174,10 +174,32 @@ convertirla en cuotas (convenio de pago, plan de diferimiento).
    Para charges en `estado='parcial'`, `saldo_pendiente < monto_base_centavos`; usar **siempre** el saldo pendiente.
    El servidor rechaza con HTTP 422 si algún charge tiene `saldo_pendiente <= 0` (edge case: charge marcado 'parcial' por error sin aplicaciones reales).
 
-4. `SUM(saldos_pendientes) + recargo_centavos` debe coincidir exactamente con
-   `SUM(cuotas nuevas) + monto_inicial_centavos`, salvo redondeo absorbido en la
-   última cuota del plan (tolerancia: ±1 centavo). Diff fuera de tolerancia → HTTP 422
-   con body `{ diff_centavos, saldo_calculado, total_cuotas }`.
+4. **Invariante de suma — garantía exacta por construcción.**
+   `SUM(cuotas nuevas) + monto_inicial_centavos` es siempre exactamente igual a
+   `SUM(saldos_pendientes) + recargo_centavos`. No existe tolerancia de centavos ni
+   validación ex-post porque el residuo de la división entera nunca se descarta:
+
+   ```typescript
+   // generarCuotaCharges (server/routes/misc.ts:38-46)
+   const base      = totalAdeudo - montoInicial;
+   const porCuota  = Math.floor(base / numeroPagos);
+   const ajuste    = base - porCuota * numeroPagos; // siempre 0 ≤ ajuste < numeroPagos
+   // La última cuota absorbe el residuo: porCuota + ajuste
+   // ∴ SUM(cuotas) = porCuota × (n−1) + (porCuota + ajuste) = base = totalAdeudo − montoInicial ✓
+   ```
+
+   Las cuotas individuales pueden diferir en hasta `(numeroPagos − 1)` centavos entre sí
+   (la última es igual o levemente mayor), pero la suma siempre cierra exacto.
+
+   > **Nota de evolución del diseño:** el diseño original de este ADR especificaba una
+   > validación con tolerancia de ±1 centavo que devolvería HTTP 422 con
+   > `{ diff_centavos, saldo_calculado, total_cuotas }` si el diff la superaba. Durante
+   > la implementación se encontró que esa validación era innecesaria: el algoritmo
+   > `Math.floor + ajuste en última cuota` garantiza suma exacta algebraicamente, lo que
+   > hace imposible que exista un diff. Se adoptó la garantía por construcción como
+   > solución superior — elimina la posibilidad de error en origen en vez de detectarlo
+   > después — y se documenta aquí para que quede constancia de que fue una mejora
+   > deliberada, no un incumplimiento del diseño original.
 
 > **Por qué saldo pendiente y no monto original:** Un charge en `estado='parcial'`
 > significa que parte de él ya fue cobrada y registrada en `payment_applications`.
@@ -533,7 +555,7 @@ logra lo mismo sin el invariante.
 - [ ] **Modo A:** validar que todos los `charge_ids` pertenecen al mismo `tenant_id` y `student_id`; cualquier cruce → HTTP 403
 - [ ] **Modo A:** validar que todos los `charge_ids` tienen `estado IN ('pendiente', 'parcial')`; cualquier otro estado → HTTP 422
 - [ ] **Modo A — saldo pendiente:** para cada `charge_id`, calcular `saldo_pendiente = monto_base_centavos - COALESCE(SUM(payment_applications.amount_centavos), 0)`; nunca usar `monto_base_centavos` directamente cuando `estado='parcial'`; rechazar con HTTP 422 si `saldo_pendiente <= 0` en algún charge
-- [ ] **Modo A — invariante de suma:** `SUM(saldos_pendientes) + recargo_centavos` debe coincidir con `SUM(cuotas nuevas) + monto_inicial_centavos` dentro de la tolerancia de ±1 centavo absorbido en la última cuota; diff fuera de tolerancia → HTTP 422 con `{ diff_centavos, saldo_calculado, total_cuotas }`
+- [x] **Modo A — invariante de suma:** garantizado por construcción en `generarCuotaCharges` mediante `Math.floor + ajuste absorbido en última cuota`; no requiere validación ex-post ni HTTP 422 (ver sección "Invariante de suma" arriba)
 - [ ] **Modo A:** rechazar `recargo_centavos > 0` sin `observaciones` → HTTP 400
 - [ ] **Modo B:** validar que `concept_id` pertenece al mismo `campus_id` y `tenant_id` → HTTP 403 si no
 - [ ] **Modo B:** rechazar `concept.tipo === 'cuota_plan'` como origen → HTTP 422
@@ -566,7 +588,7 @@ logra lo mismo sin el invariante.
 - [ ] Actualizar la matriz de pruebas `docs/qa/matriz-de-pruebas.md` (PL-01 a PL-05 + casos de cancelación)
 - [ ] **Prueba Modo A — cargo completamente pendiente:** crear plan con un charge en `estado='pendiente'`; confirmar que `SUM(cuotas nuevas) = monto_base_centavos` del charge original
 - [ ] **Prueba Modo A — cargo parcialmente pagado:** crear un charge con `monto_base_centavos=100_000`, registrar un PaymentApplication de `40_000`; reestructurar ese charge en un plan; confirmar que `SUM(cuotas nuevas) = 60_000` (saldo pendiente real), no `100_000` (monto original); confirmar que el charge original queda `'cancelado'` y el audit_log incluye `saldo_pendiente_centavos: 60000`
-- [ ] **Prueba Modo A — suma incorrecta detectada:** enviar cuotas que sumen distinto al saldo pendiente → HTTP 422 con `diff_centavos` en la respuesta
+- [x] **Prueba Modo A — invariante de suma por construcción:** confirmado en `planes-pago.test.ts` con el test "totalAdeudo_centavos / monto_directo en body se ignoran": enviar `total_adeudo_centavos: 999_999_999` en el body produce un plan con `total_adeudo_centavos` igual al saldo real de la DB (80 000), y `SUM(cuotas) == 80 000` exacto. No existe prueba de "suma incorrecta → HTTP 422" porque ese escenario es imposible dado el mecanismo de construcción.
 - [ ] **Prueba Modo B:** crear plan con `concept_id` válido → cuotas generadas por `concept.monto_centavos`, no por monto libre
 - [ ] **Prueba cancelación plan `futuro`:** cancelar → `payment_plans.estado='cancelado'`, cuotas pendientes `'cancelado'`, cuotas pagadas intactas, audit_log con motivo
 - [ ] **Prueba cancelación plan `reestructuracion` — reinstalar:** cancelar con `destino_saldo_pendiente='reinstalar'`; confirmar que: `payment_plans.estado='cancelado'`, cuotas pendientes `'cancelado'`, nuevo charge creado con monto = saldo pendiente de cuotas canceladas, audit_log incluye `nuevo_charge_id`

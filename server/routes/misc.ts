@@ -3,6 +3,7 @@ import { pool, db } from "../db";
 import { eq, and } from "drizzle-orm";
 import { storage } from "../storage";
 import { authenticateToken, requireAuth, checkCampusTenant } from "./shared";
+import { hasPermission, MODULES, ACTIONS } from "@shared/permissions";
 import { students, guardians, charges, payments, concepts, invoices, families, family_students, payment_applications, payment_events, audit_log } from "@shared/schema";
 import { enqueueAuditLog } from "../audit-retry";
 import { z } from "zod";
@@ -89,6 +90,10 @@ export function registerMiscRoutes(app: Express): void {
   // ── PLANES DE PAGO — Crear (Modo A: reestructuración | Modo B: futuro) ───
   app.post("/api/planes-pago", authenticateToken, async (req: any, res) => {
     try {
+      const role = req.user?.role;
+      if (!hasPermission(role, MODULES.CHARGES, ACTIONS.CREATE)) {
+        return res.status(403).json({ message: "Sin permisos para crear cargos" });
+      }
       const campusId  = req.user?.campus_id;
       const tenantId  = req.user?.tenant_id;
       const userId    = req.user?.id;
@@ -321,6 +326,10 @@ export function registerMiscRoutes(app: Express): void {
   // ── PLANES DE PAGO — Cancelar plan ───────────────────────────────────────
   app.patch("/api/planes-pago/:id/cancelar", authenticateToken, async (req: any, res) => {
     try {
+      const role = req.user?.role;
+      if (!hasPermission(role, MODULES.CHARGES, ACTIONS.UPDATE)) {
+        return res.status(403).json({ message: "Sin permisos para modificar cargos" });
+      }
       const tenantId = req.user?.tenant_id;
       const userId   = req.user?.id;
       const planId   = parseInt(req.params.id);

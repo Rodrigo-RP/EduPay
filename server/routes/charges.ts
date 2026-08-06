@@ -181,6 +181,10 @@ export function registerChargesRoutes(app: Express): void {
   // Create extraordinary charge for a specific student
   app.post("/api/admin/cargos/extraordinario", authenticateToken, async (req: any, res: any) => {
     try {
+      const role = req.user?.role;
+      if (!hasPermission(role, MODULES.CHARGES, ACTIONS.CREATE)) {
+        return res.status(403).json({ message: "Sin permisos para crear cargos" });
+      }
       const campusId = req.user.campus_id;
       const tenantId = req.user.tenant_id;
       const { student_id, concept_id, monto, descripcion, fecha_vencimiento } = req.body;
@@ -423,6 +427,10 @@ export function registerChargesRoutes(app: Express): void {
   // ── ADR-002: Pago manual admin de un cargo / cuota de plan ───────────────
   app.post("/api/admin/charges/:chargeId/pagar-manual", authenticateToken, async (req: any, res) => {
     try {
+      const role = req.user?.role;
+      if (!hasPermission(role, MODULES.CHARGES, ACTIONS.UPDATE)) {
+        return res.status(403).json({ message: "Sin permisos para modificar cargos" });
+      }
       const tenantId = req.user?.tenant_id;
       const userId   = req.user?.id;
       const chargeId = parseInt(req.params.chargeId);

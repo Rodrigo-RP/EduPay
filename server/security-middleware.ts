@@ -73,13 +73,6 @@ const createRateLimit = (windowMs: number, max: number, message: string) => {
   return rateLimit({
     windowMs,
     max,
-    // Omitir solo cuando el request incluye el header de bypass de tests
-    // Y el servidor no está en producción. El browser real en dev nunca
-    // envía este header → rate-limit activo para tráfico real.
-    // En producción NODE_ENV==='production' anula la condición en cualquier caso.
-    skip: (req) =>
-      process.env.NODE_ENV !== 'production' &&
-      req.headers['x-test-bypass'] === 'vitest-internal',
     message: { error: message },
     standardHeaders: true,
     legacyHeaders: false,

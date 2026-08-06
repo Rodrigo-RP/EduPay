@@ -15,6 +15,7 @@ export default defineConfig({
       "tests/assistant-knowledge.test.ts",
       "tests/tenant-isolation.test.ts",
       "tests/tenant-http.test.ts",
+      "tests/excepciones-conciliacion.test.ts",
     ],
   },
   resolve: {

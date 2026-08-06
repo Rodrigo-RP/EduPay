@@ -10,24 +10,9 @@ export default defineConfig({
     // Los archivos comparten una base de datos real → serializar para evitar
     // contaminación de audit_retry_queue y otras tablas de estado global.
     fileParallelism: false,
-    // Paths are relative to this config file's location (server/).
-    // Running: cd server && npx vitest run  OR  npm test from root via package.json
-    include: [
-      "tests/family-ledger.test.ts",
-      "tests/state-machines.test.ts",
-      "tests/assistant-knowledge.test.ts",
-      "tests/tenant-isolation.test.ts",
-      "tests/tenant-http.test.ts",
-      "tests/excepciones-conciliacion.test.ts",
-      "tests/bug-audit-log-rollback.test.ts",
-      "tests/audit-retry.test.ts",
-      "tests/audit-catch-sites.test.ts",
-      "tests/pagar-manual.test.ts",
-      "tests/caja-onerror.test.ts",
-      "tests/extraordinario.test.ts",
-      "tests/planes-pago.test.ts",
-      "tests/payment-concurrency.test.ts",
-    ],
+    // Glob: recoge automáticamente cualquier *.test.ts bajo tests/,
+    // igual que Playwright recoge e2e/**/*.spec.ts con testDir.
+    include: ["tests/**/*.test.ts"],
   },
   resolve: {
     alias: {

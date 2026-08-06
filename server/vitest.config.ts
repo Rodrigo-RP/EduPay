@@ -13,6 +13,8 @@ export default defineConfig({
       "tests/family-ledger.test.ts",
       "tests/state-machines.test.ts",
       "tests/assistant-knowledge.test.ts",
+      "tests/tenant-isolation.test.ts",
+      "tests/tenant-http.test.ts",
     ],
   },
   resolve: {

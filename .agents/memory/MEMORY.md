@@ -21,4 +21,5 @@
 - [audit_log FK silent rollback](audit-log-fk-rollback.md) — user_id ficticio en JWT de tests causa rollback silencioso: omitir 'id' del JWT para que if(tenantId && user?.id) sea false y se salte el INSERT.
 - [enqueueAuditLog cross-process race](enqueue-audit-cross-process-race.md) — afterAll no puede observar cuándo termina el INSERT de enqueueAuditLog; el sondeo debe ir dentro del `it` que lo provocó, no en afterAll.
 - [Playwright page.route onError toast](playwright-page-route-onError.md) — patrón E2E para interceptar endpoint con page.route() y verificar que el toast de error aparece y el de éxito no; archivo e2e/10-caja-onerror.spec.ts.
+- [Teardown ledger transaccional](test-ledger-teardown.md) — afterAll del ledger en una sola txn; fixtures usan markChargeAsPaidForTest; /api/admin rate limit 50/5min causa 429 en corridas repetidas.
 - [audit_retry_queue contaminación](audit-retry-queue-contamination.md) — fuente: bug-audit-log-rollback.test.ts PASO 2; identificar con tenant_id NOT IN tenants; limpiar con DELETE directo (no hay FK en JSONB).

@@ -15,6 +15,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { db, pool } from "../db";
+import { markChargeAsPaidForTest } from "./test-helpers";
 import {
   tenants, campuses, students, guardians, student_guardian,
   charges, concepts,
@@ -193,21 +194,32 @@ describe("Excepciones de Conciliación — motor financiero", () => {
 
   afterAll(async () => {
     if (!tenantId) return;
-    // Limpieza en orden FK-safe
-    await pool.query(
-      `DELETE FROM payment_applications
-       WHERE charge_id IN (SELECT id FROM charges WHERE tenant_id=$1)`,
-      [tenantId]
-    ).catch(() => {});
-    await pool.query(`DELETE FROM payments          WHERE tenant_id=$1`, [tenantId]).catch(() => {});
-    await pool.query(`DELETE FROM bank_transactions WHERE tenant_id=$1`, [tenantId]).catch(() => {});
-    await pool.query(`DELETE FROM invoices          WHERE tenant_id=$1`, [tenantId]).catch(() => {});
+    // Limpieza del ledger en UNA transacción: si el proceso muere a mitad,
+    // el rollback automático evita charges 'pagado' huérfanos sin payment_application.
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `DELETE FROM payment_applications
+         WHERE charge_id IN (SELECT id FROM charges WHERE tenant_id=$1)`,
+        [tenantId]
+      );
+      await client.query(`DELETE FROM invoices          WHERE tenant_id=$1`, [tenantId]);
+      await client.query(`DELETE FROM payments          WHERE tenant_id=$1`, [tenantId]);
+      await client.query(`DELETE FROM bank_transactions WHERE tenant_id=$1`, [tenantId]);
+      await client.query(`DELETE FROM charges           WHERE tenant_id=$1`, [tenantId]);
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
     await pool.query(
       `DELETE FROM student_guardian
        WHERE student_id IN (SELECT id FROM students WHERE tenant_id=$1)`,
       [tenantId]
     ).catch(() => {});
-    await pool.query(`DELETE FROM charges   WHERE tenant_id=$1`, [tenantId]).catch(() => {});
     await pool.query(`DELETE FROM students  WHERE tenant_id=$1`, [tenantId]).catch(() => {});
     await pool.query(`DELETE FROM guardians WHERE tenant_id=$1`, [tenantId]).catch(() => {});
     await pool.query(`DELETE FROM concepts  WHERE tenant_id=$1`, [tenantId]).catch(() => {});
@@ -474,8 +486,9 @@ describe("Excepciones de Conciliación — motor financiero", () => {
   //   La bank_tx debe quedar en 'pendiente' (la transacción se revirtió).
 
   it("CASO 5 — fuera de orden: cargo ya pagado antes de la conciliación → 404 + bank_tx sigue pendiente", async () => {
-    // Marcamos el cargo como 'pagado' directamente en la DB para simular el estado de llegada tardía
-    await pool.query("UPDATE charges SET estado='pagado' WHERE id=$1", [chargeOoOId]);
+    // Marcamos el cargo como 'pagado' respetando el invariante del ledger
+    // (monto 100_000 = valor fijo de mkChargePool)
+    await markChargeAsPaidForTest(pool, chargeOoOId, 100_000, tenantId);
 
     const txId = await insertTx(100000, `ref-ooo-${Date.now()}`);
     try {

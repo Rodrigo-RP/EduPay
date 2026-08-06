@@ -11,6 +11,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { db, pool } from "../db";
+import { markChargeAsPaidForTest } from "./test-helpers";
 import {
   tenants, campuses, students, guardians, student_guardian,
   charges, concepts, payment_applications, payments,
@@ -74,7 +75,8 @@ async function patch(path: string, body: object, tok: string) {
   return { status: r.status, body: await r.json().catch(() => ({})) };
 }
 
-/** Crea un charge pendiente para el alumno de prueba. */
+/** Crea un charge pendiente para el alumno de prueba.
+ *  NO pasar "pagado" — usar markChargeAsPaidForTest para respetar el ledger. */
 async function mkCharge(monto = 100_000, estado = "pendiente"): Promise<number> {
   const r = await pool.query(
     `INSERT INTO charges (tenant_id, student_id, concept_id, fecha_emision, fecha_vencimiento,
@@ -159,25 +161,31 @@ describe("Planes de Pago — ADR-002", () => {
   });
 
   afterAll(async () => {
-    // Limpiar en orden FK-safe: primero charges (tienen FKs a payment_plans y payments)
-    // Eliminar payment_applications antes de payments y charges
-    await pool.query(
-      `DELETE FROM payment_applications WHERE charge_id IN (
-         SELECT id FROM charges WHERE tenant_id IN ($1,$2))`,
-      [tenantId, tenantBId]
-    ).catch(() => {});
-    // Desvincular charges de planes antes de borrar planes
-    await pool.query(
-      `UPDATE charges SET plan_id = NULL WHERE tenant_id IN ($1,$2)`,
-      [tenantId, tenantBId]
-    ).catch(() => {});
-    await pool.query(`DELETE FROM payment_plans WHERE tenant_id IN ($1,$2)`, [tenantId, tenantBId]).catch(() => {});
-    // Eliminar payments vinculados antes de charges
-    await pool.query(
-      `DELETE FROM payments WHERE tenant_id IN ($1,$2)`,
-      [tenantId, tenantBId]
-    ).catch(() => {});
-    await pool.query(`DELETE FROM charges WHERE tenant_id IN ($1,$2)`, [tenantId, tenantBId]);
+    // Limpieza del ledger en UNA transacción: si el proceso muere a mitad,
+    // el rollback automático evita charges 'pagado' huérfanos sin payment_application.
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `DELETE FROM payment_applications WHERE charge_id IN (
+           SELECT id FROM charges WHERE tenant_id IN ($1,$2))`,
+        [tenantId, tenantBId]
+      );
+      // Desvincular charges de planes antes de borrar planes
+      await client.query(
+        `UPDATE charges SET plan_id = NULL WHERE tenant_id IN ($1,$2)`,
+        [tenantId, tenantBId]
+      );
+      await client.query(`DELETE FROM payment_plans WHERE tenant_id IN ($1,$2)`, [tenantId, tenantBId]);
+      await client.query(`DELETE FROM payments WHERE tenant_id IN ($1,$2)`, [tenantId, tenantBId]);
+      await client.query(`DELETE FROM charges WHERE tenant_id IN ($1,$2)`, [tenantId, tenantBId]);
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
     await pool.query(`DELETE FROM student_guardian WHERE student_id IN ($1,$2)`, [studentId, studentBId]);
     await pool.query(`DELETE FROM students WHERE tenant_id IN ($1,$2)`, [tenantId, tenantBId]);
     await pool.query(`DELETE FROM guardians WHERE tenant_id IN ($1,$2)`, [tenantId, tenantBId]);
@@ -282,7 +290,8 @@ describe("Planes de Pago — ADR-002", () => {
 
   // ── Modo A — charge ya pagado → 422 ─────────────────────────────────────
   it("Modo A — charge ya pagado → 422", async () => {
-    const chargeId = await mkCharge(50_000, "pagado");
+    const chargeId = await mkCharge(50_000);
+    await markChargeAsPaidForTest(pool, chargeId, 50_000, tenantId);
     const r = await post("/api/planes-pago", {
       charge_ids: [chargeId],
       numero_pagos: 2,
@@ -417,8 +426,8 @@ describe("Planes de Pago — ADR-002", () => {
     const planId = rCreate.body.id;
     const cuotas = rCreate.body.cuotas as any[];
 
-    // Marcar la primera cuota como pagada directamente en DB
-    await pool.query(`UPDATE charges SET estado = 'pagado' WHERE id = $1`, [cuotas[0].id]);
+    // Marcar la primera cuota como pagada respetando el invariante del ledger
+    await markChargeAsPaidForTest(pool, cuotas[0].id, Number(cuotas[0].monto_base_centavos), tenantId);
 
     const rCancel = await patch(`/api/planes-pago/${planId}/cancelar`, {
       motivo: "Familia canceló el acuerdo de pago por cambio de situación económica",
@@ -462,8 +471,8 @@ describe("Planes de Pago — ADR-002", () => {
     const planId = rCreate.body.id;
     const cuotas = rCreate.body.cuotas as any[];
 
-    // Pagar la primera cuota
-    await pool.query(`UPDATE charges SET estado = 'pagado' WHERE id = $1`, [cuotas[0].id]);
+    // Pagar la primera cuota respetando el invariante del ledger
+    await markChargeAsPaidForTest(pool, cuotas[0].id, Number(cuotas[0].monto_base_centavos), tenantId);
 
     const saldoPendiente = cuotas.slice(1).reduce(
       (acc: number, c: any) => acc + Number(c.monto_base_centavos), 0

@@ -12,6 +12,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { pool } from "../db";
+import { markChargeAsPaidForTest } from "./test-helpers";
 import { storage } from "../storage";
 import { transition, allowedTransitions, InvalidStateTransitionError } from "../state-machines";
 
@@ -68,14 +69,27 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  // Audit_log primero — tiene FKs a charges, payments, invoices, users
-  await pool.query(`DELETE FROM audit_log WHERE tenant_id = $1`, [tenantId]);
-  if (invoiceIds.length > 0)
-    await pool.query(`DELETE FROM invoices WHERE id = ANY($1)`, [invoiceIds]);
-  if (paymentIds.length > 0)
-    await pool.query(`DELETE FROM payments WHERE id = ANY($1)`, [paymentIds]);
-  if (chargeIds.length > 0)
-    await pool.query(`DELETE FROM charges WHERE id = ANY($1)`, [chargeIds]);
+  // Limpieza del ledger en UNA transacción: si el proceso muere a mitad,
+  // el rollback automático evita charges 'pagado' huérfanos sin payment_application.
+  // (payment_applications se borra por cascade al borrar payments/charges)
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Audit_log primero — tiene FKs a charges, payments, invoices, users
+    await client.query(`DELETE FROM audit_log WHERE tenant_id = $1`, [tenantId]);
+    if (invoiceIds.length > 0)
+      await client.query(`DELETE FROM invoices WHERE id = ANY($1)`, [invoiceIds]);
+    if (paymentIds.length > 0)
+      await client.query(`DELETE FROM payments WHERE id = ANY($1)`, [paymentIds]);
+    if (chargeIds.length > 0)
+      await client.query(`DELETE FROM charges WHERE id = ANY($1)`, [chargeIds]);
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
   await pool.query(`DELETE FROM users    WHERE id = $1`, [userId]);
   await pool.query(`DELETE FROM students WHERE id = $1`, [studentId]);
   await pool.query(`DELETE FROM campuses WHERE id = $1`, [campusId]);
@@ -239,8 +253,9 @@ describe("updateChargeStatus() + audit_log", () => {
   });
 
   it("transición inválida lanza error y NO modifica BD ni crea audit_log", async () => {
-    const chargeId = await createTestCharge(studentId, tenantId, "pagado");
+    const chargeId = await createTestCharge(studentId, tenantId);
     chargeIds.push(chargeId);
+    await markChargeAsPaidForTest(pool, chargeId, 100_000, tenantId);
 
     await expect(
       storage.updateChargeStatus(chargeId, "pendiente", { tenantId })

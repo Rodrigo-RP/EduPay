@@ -17,6 +17,7 @@ import { pool, db } from "../db";
 import { charges, concepts, tenants, campuses, students, guardians, student_guardian, payment_applications, payments } from "../../shared/schema";
 import { eq, inArray } from "drizzle-orm";
 import jwt from "jsonwebtoken";
+import { markChargeAsPaidForTest } from "./test-helpers";
 
 const BASE       = "http://localhost:5000";
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
@@ -72,7 +73,8 @@ async function httpPost(path: string, body: object, token: string, authHeader = 
   return { status: r.status, body: await r.json().catch(() => ({})) };
 }
 
-/** Crea un charge pendiente en la DB y lo registra para limpieza al final. */
+/** Crea un charge pendiente en la DB y lo registra para limpieza al final.
+ *  NO pasar "pagado" — usar markChargeAsPaidForTest para respetar el ledger. */
 async function mkCharge(monto = 100_000, estado = "pendiente"): Promise<number> {
   const r = await pool.query(
     `INSERT INTO charges (tenant_id, student_id, concept_id, fecha_emision, fecha_vencimiento,
@@ -189,38 +191,52 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (createdChargeIds.length) {
-    // 1. family_credits ligados a payments de nuestros charges
-    await pool.query(
-      `DELETE FROM family_credits WHERE payment_id IN
-         (SELECT id FROM payments WHERE charge_id = ANY($1))`,
-      [createdChargeIds]
-    );
-    // 2. Invoices tienen FK a payments; limpiar antes de payments
-    await pool.query(
-      `DELETE FROM invoices WHERE payment_id IN
-         (SELECT id FROM payments WHERE charge_id = ANY($1))`,
-      [createdChargeIds]
-    );
-    // 2. Ledger
-    await pool.query(
-      `DELETE FROM payment_applications WHERE charge_id = ANY($1)`,
-      [createdChargeIds]
-    );
-    // 3. Payments
-    await pool.query(
-      `DELETE FROM payments WHERE charge_id = ANY($1)`,
-      [createdChargeIds]
-    );
-    // 4. Audit log
-    await pool.query(
-      `DELETE FROM audit_log WHERE entity_type='charge' AND entity_id = ANY($1)`,
-      [createdChargeIds]
-    );
-    // 5. Charges
-    await pool.query(
-      `DELETE FROM charges WHERE id = ANY($1)`,
-      [createdChargeIds]
-    );
+    // TODOS los DELETE relacionados al ledger van en UNA transacción:
+    // si el proceso muere a mitad, PostgreSQL hace rollback automático
+    // y no quedan charges 'pagado' huérfanos sin payment_application
+    // (causa de los 14 falsos positivos en la consulta de salud).
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      // 1. family_credits ligados a payments de nuestros charges
+      await client.query(
+        `DELETE FROM family_credits WHERE payment_id IN
+           (SELECT id FROM payments WHERE charge_id = ANY($1))`,
+        [createdChargeIds]
+      );
+      // 2. Invoices tienen FK a payments; limpiar antes de payments
+      await client.query(
+        `DELETE FROM invoices WHERE payment_id IN
+           (SELECT id FROM payments WHERE charge_id = ANY($1))`,
+        [createdChargeIds]
+      );
+      // 3. Ledger
+      await client.query(
+        `DELETE FROM payment_applications WHERE charge_id = ANY($1)`,
+        [createdChargeIds]
+      );
+      // 4. Payments
+      await client.query(
+        `DELETE FROM payments WHERE charge_id = ANY($1)`,
+        [createdChargeIds]
+      );
+      // 5. Audit log
+      await client.query(
+        `DELETE FROM audit_log WHERE entity_type='charge' AND entity_id = ANY($1)`,
+        [createdChargeIds]
+      );
+      // 6. Charges
+      await client.query(
+        `DELETE FROM charges WHERE id = ANY($1)`,
+        [createdChargeIds]
+      );
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
   }
   // Limpiar audit_retry_queue del tenant de prueba para no contaminar audit-retry tests
   await pool.query(
@@ -679,14 +695,19 @@ describe("family-credits/aplicar — validaciones y concurrencia", () => {
     const creditId = await mkCreditViaCaja(50_000); // $500 de saldo a favor
 
     // Caso A — cargo 'pagado'
-    const chargeIdPagado = await mkCharge(30_000, "pagado");
+    // markChargeAsPaidForTest crea 1 payment_application legítima (invariante
+    // del ledger). La aserción verifica que aplicar el crédito NO añade otra.
+    const chargeIdPagado = await mkCharge(30_000);
+    await markChargeAsPaidForTest(pool, chargeIdPagado, 30_000, tenantId);
+    const appsBefore = await countApplications(chargeIdPagado);
+    expect(appsBefore).toBe(1); // la del helper
     const rPagado = await httpPost(
       `/api/admin/family-credits/${creditId}/aplicar`,
       { charge_id: chargeIdPagado },
       adminToken
     );
     expect(rPagado.status).toBe(409);
-    expect(await countApplications(chargeIdPagado)).toBe(0);
+    expect(await countApplications(chargeIdPagado)).toBe(appsBefore); // sin PA nueva
 
     // Caso B — cargo 'cancelado'
     const chargeIdCancelado = await mkCharge(30_000, "cancelado");

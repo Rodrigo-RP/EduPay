@@ -206,19 +206,11 @@ describe("Bug: audit_log FK violation dentro de transacción — evidencia empí
     console.log(`${"═".repeat(60)}\n`);
 
     // ── ASERCIÓN: el único resultado inaceptable es 200 + rollback silencioso
-    if (r.status === 200 && dbState === "pendiente") {
-      throw new Error(
-        "BUG DE PRODUCCIÓN CONFIRMADO:\n" +
-        `  HTTP ${r.status} + DB='${dbState}'\n` +
-        "  El servidor dijo éxito pero el UPDATE fue revertido silenciosamente.\n" +
-        "  Causa: audit_log INSERT falla dentro de la misma transacción,\n" +
-        "  pone la conexión pg en estado abortado, el COMMIT hace rollback.\n" +
-        "  Fix: mover el INSERT de audit_log FUERA de la transacción principal."
-      );
-    }
-
-    // Cualquier otro resultado (200+'ignorado' o 500+'pendiente') es aceptable
-    // desde el punto de vista de integridad de datos
-    expect(r.status === 200 ? dbState : "pendiente").not.toBe("pendiente_imposible");
+    // ── POST-FIX: el UPDATE se commita antes de intentar el audit_log.
+    // Aunque el INSERT en audit_log falle (FK violation por user eliminado),
+    // la bank_tx ya fue actualizada y el servidor responde 200 verdadero.
+    // El fallo del audit se encola en audit_retry_queue para reintento.
+    expect(r.status).toBe(200);
+    expect(dbState).toBe("ignorado"); // el UPDATE sí persistió
   }, 20_000);
 });

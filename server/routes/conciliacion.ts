@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { pool, db } from "../db";
+import { enqueueAuditLog } from "../audit-retry";
 import { eq, and } from "drizzle-orm";
 import { storage } from "../storage";
 import { authenticateToken, requireAuth, checkCampusTenant } from "./shared";
@@ -676,21 +677,36 @@ export function registerConciliacionRoutes(app: Express): void {
         // y el COMMIT posterior ejecutaba un ROLLBACK silencioso, respondiendo
         // HTTP 200 mientras la bank_tx seguía en 'pendiente'.
         if (tenantId && user?.id) {
+          const auditPayload = {
+            tenant_id:   tenantId,
+            user_id:     user.id,
+            action:      'descartar_excepcion' as const,
+            entity_type: 'bank_transaction' as const,
+            entity_id:   txId,
+            metadata: {
+              motivo:         motivo?.trim() || null,
+              nota:           nota?.trim() || null,
+              monto_centavos: Number(tx.monto_centavos),
+              referencia:     tx.referencia || null,
+            },
+          };
           pool.query(
             `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
-             VALUES ($1, $2, 'descartar_excepcion', 'bank_transaction', $3, $4::jsonb, NOW())`,
+             VALUES ($1, $2, $3, $4, $5, $6::jsonb, NOW())`,
             [
-              tenantId,
-              user.id,
-              txId,
-              JSON.stringify({
-                motivo:          motivo?.trim() || null,
-                nota:            nota?.trim() || null,
-                monto_centavos:  Number(tx.monto_centavos),
-                referencia:      tx.referencia || null,
-              }),
+              auditPayload.tenant_id,
+              auditPayload.user_id,
+              auditPayload.action,
+              auditPayload.entity_type,
+              auditPayload.entity_id,
+              JSON.stringify(auditPayload.metadata),
             ]
-          ).catch(() => {}); // audit nunca bloquea la operación principal
+          ).catch((err) => {
+            // Primer intento fallido → encolar para reintento con backoff.
+            // Si los reintentos también fallan, audit-retry.ts emite log nivel ERROR
+            // visible en logs/audit-error.log y en consola (Winston).
+            enqueueAuditLog(auditPayload, err);
+          });
         }
       }
     } catch (error: any) {

@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { wsManager } from "./websocket-manager";
+import { initAuditRetryQueue, startAuditRetryWorker } from "./audit-retry";
 
 // Global error handling
 process.on('unhandledRejection', (reason, promise) => {
@@ -50,6 +51,11 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // ── Cola de reintentos de audit_log (tabla + worker) ─────────────────────
+  // Debe inicializarse antes de que lleguen requests para que la tabla exista.
+  await initAuditRetryQueue();
+  startAuditRetryWorker();
+
   const server = await registerRoutes(app);
 
   // Initialize WebSocket manager

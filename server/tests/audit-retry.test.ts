@@ -25,6 +25,7 @@ import { pool } from "../db";
 import {
   initAuditRetryQueue,
   processAuditRetries,
+  stopAuditRetryWorker,
   enqueueAuditLog,
   auditLogger,
   type AuditLogPayload,
@@ -48,8 +49,9 @@ describe("audit-retry — cola de reintentos", () => {
   let realTenantId: number;
 
   beforeAll(async () => {
-    // Asegurar que la tabla existe
+    // Asegurar que la tabla existe; detener el worker para evitar race conditions
     await initAuditRetryQueue();
+    stopAuditRetryWorker(); // el worker del proceso de tests interferiría con los spies
     // Obtener un tenant_id real para que el FK de audit_log.tenant_id no falle
     const { rows } = await pool.query<{ id: number }>(
       "SELECT id FROM tenants ORDER BY id LIMIT 1"

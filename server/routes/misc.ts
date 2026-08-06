@@ -4,9 +4,62 @@ import { eq, and } from "drizzle-orm";
 import { storage } from "../storage";
 import { authenticateToken, requireAuth, checkCampusTenant } from "./shared";
 import { students, guardians, charges, payments, concepts, invoices, families, family_students, payment_applications, payment_events, audit_log } from "@shared/schema";
+import { enqueueAuditLog } from "../audit-retry";
 import { z } from "zod";
 
+// ── ADR-002: Helpers para planes de pago integrados al ledger ─────────────────
+
+/** Devuelve el id del concepto sentinel 'cuota_plan' del campus, creándolo si no existe. */
+async function getOrCreateCuotaPlanConcept(
+  campusId: number, tenantId: number
+): Promise<number> {
+  const existing = await pool.query(
+    `SELECT id FROM concepts WHERE campus_id = $1 AND tipo = 'cuota_plan' LIMIT 1`,
+    [campusId]
+  );
+  if ((existing.rows as any[]).length > 0) return (existing.rows as any[])[0].id;
+  const ins = await pool.query(
+    `INSERT INTO concepts (campus_id, tenant_id, nombre, tipo, periodicidad, monto_centavos)
+     VALUES ($1, $2, 'Cuota Plan de Pago', 'cuota_plan', 'eventual', 1) RETURNING id`,
+    [campusId, tenantId]
+  );
+  return (ins.rows as any[])[0].id;
+}
+
+/** Genera N charges de cuota dentro de una transacción ya abierta. */
+async function generarCuotaCharges(
+  client: any,
+  opts: {
+    plan: any; studentId: number; conceptId: number;
+    totalAdeudo: number; montoInicial: number;
+    numeroPagos: number; frecuencia: string; fechaInicio: string; tenantId: number;
+  }
+): Promise<any[]> {
+  const base      = opts.totalAdeudo - opts.montoInicial;
+  const porCuota  = Math.floor(base / opts.numeroPagos);
+  const ajuste    = base - porCuota * opts.numeroPagos; // absorbido en última cuota
+  const diasFrec  = opts.frecuencia === 'semanal' ? 7 : opts.frecuencia === 'quincenal' ? 15 : 30;
+  const fechaBase = new Date(opts.fechaInicio + "T12:00:00");
+  const cuotas: any[] = [];
+  for (let i = 0; i < opts.numeroPagos; i++) {
+    const fv    = new Date(fechaBase.getTime() + (i + 1) * diasFrec * 86400000);
+    const monto = i === opts.numeroPagos - 1 ? porCuota + ajuste : porCuota;
+    const r = await client.query(
+      `INSERT INTO charges
+         (tenant_id, student_id, concept_id, plan_id,
+          fecha_emision, fecha_vencimiento, monto_base_centavos, estado)
+       VALUES ($1,$2,$3,$4, CURRENT_DATE,$5,$6,'pendiente') RETURNING *`,
+      [opts.tenantId, opts.studentId, opts.conceptId, opts.plan.id,
+       fv.toISOString().split("T")[0], monto]
+    );
+    cuotas.push((r.rows as any[])[0]);
+  }
+  return cuotas;
+}
+
 export function registerMiscRoutes(app: Express): void {
+
+  // ── PLANES DE PAGO — GET con campusId ────────────────────────────────────
   app.get("/api/planes-pago/:campusId", authenticateToken, async (req: any, res) => {
     try {
       const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
@@ -18,10 +71,14 @@ export function registerMiscRoutes(app: Express): void {
         WHERE pp.campus_id = $1 ORDER BY pp.created_at DESC
       `, [campusId]);
       const planes = await Promise.all((planesRows.rows as any[]).map(async p => {
-        const cuotas = await pool.query(`SELECT * FROM payment_plan_installments WHERE plan_id = $1 ORDER BY numero`, [p.id]).catch(() => ({ rows: [] }));
-        const pagadas = (cuotas.rows as any[]).filter(c => c.estado === 'pagado').length;
-        const cuotaCentavos = p.numero_pagos > 0 ? Math.round((p.total_adeudo_centavos - p.monto_inicial_centavos) / p.numero_pagos) : 0;
-        return { ...p, installments: cuotas.rows, cuotas_pagadas: pagadas, cuota_centavos: cuotaCentavos };
+        const cuotasR = await pool.query(
+          `SELECT * FROM charges WHERE plan_id = $1 ORDER BY fecha_vencimiento ASC`, [p.id]
+        ).catch(() => ({ rows: [] }));
+        const cuotas = cuotasR.rows as any[];
+        const cuotasPagadas = cuotas.filter(c => c.estado === 'pagado').length;
+        const base = Number(p.total_adeudo_centavos) - Number(p.monto_inicial_centavos || 0);
+        const cuotaCentavos = p.numero_pagos > 0 ? Math.round(base / p.numero_pagos) : 0;
+        return { ...p, installments: cuotas, cuotas_pagadas: cuotasPagadas, cuota_centavos: cuotaCentavos };
       }));
       res.json(planes);
     } catch (error: any) {
@@ -29,57 +86,377 @@ export function registerMiscRoutes(app: Express): void {
     }
   });
 
+  // ── PLANES DE PAGO — Crear (Modo A: reestructuración | Modo B: futuro) ───
   app.post("/api/planes-pago", authenticateToken, async (req: any, res) => {
     try {
-      const campusId = req.user?.campus_id;
-      const tenantId = req.user?.tenant_id;
-      const userId = req.user?.id;
-      const { student_id, guardian_id, total_adeudo_centavos, monto_inicial_centavos, numero_pagos, frecuencia, fecha_inicio, observaciones } = req.body;
+      const campusId  = req.user?.campus_id;
+      const tenantId  = req.user?.tenant_id;
+      const userId    = req.user?.id;
+      const {
+        charge_ids, concept_id,
+        monto_inicial_centavos = 0, numero_pagos,
+        frecuencia = 'mensual', fecha_inicio,
+        recargo_centavos = 0, observaciones,
+        student_id, guardian_id,
+      } = req.body;
 
-      // IDOR: validar que student_id y guardian_id pertenecen a este tenant
-      if (student_id && tenantId) {
-        const owned = await storage.getStudentScoped(parseInt(student_id), tenantId);
-        if (!owned) return res.status(403).json({ message: "Acceso denegado: alumno no pertenece a este tenant" });
+      // Detectar modo: uno y solo uno debe estar presente
+      const esModoA = Array.isArray(charge_ids) && charge_ids.length > 0;
+      const esModoB = !!concept_id;
+      if (esModoA && esModoB) {
+        return res.status(400).json({
+          message: "El plan debe especificar charge_ids (reestructuración) o concept_id (futuro), no ambos",
+        });
       }
-      if (guardian_id && tenantId) {
-        const owned = await storage.getGuardianScoped(parseInt(guardian_id), tenantId);
-        if (!owned) return res.status(403).json({ message: "Acceso denegado: guardián no pertenece a este tenant" });
+      if (!esModoA && !esModoB) {
+        return res.status(400).json({
+          message: "El plan debe especificar charge_ids (reestructuración) o concept_id (futuro), no ambos ni ninguno",
+        });
       }
 
-      const planRow = await pool.query(`
-        INSERT INTO payment_plans (campus_id, tenant_id, student_id, guardian_id, total_adeudo_centavos, monto_inicial_centavos, numero_pagos, frecuencia, fecha_inicio, observaciones, created_by)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *
-      `, [campusId, tenantId, student_id || null, guardian_id || null, total_adeudo_centavos, monto_inicial_centavos || 0, numero_pagos, frecuencia || 'mensual', fecha_inicio, observaciones || null, userId]);
-      const plan = (planRow.rows as any[])[0];
-      const montoPorCuota = Math.round((total_adeudo_centavos - (monto_inicial_centavos || 0)) / numero_pagos);
-      const fechaBase = new Date(fecha_inicio + "T12:00:00");
-      const diasFrec = frecuencia === 'semanal' ? 7 : frecuencia === 'quincenal' ? 15 : 30;
-      for (let i = 0; i < numero_pagos; i++) {
-        const fv = new Date(fechaBase.getTime() + (i + 1) * diasFrec * 86400000);
-        await pool.query(`INSERT INTO payment_plan_installments (plan_id, numero, monto_centavos, fecha_vencimiento) VALUES ($1,$2,$3,$4)`,
-          [plan.id, i + 1, montoPorCuota, fv.toISOString().split("T")[0]]);
+      // Validaciones comunes
+      if (!numero_pagos || Number(numero_pagos) < 1) {
+        return res.status(400).json({ message: "numero_pagos debe ser ≥ 1" });
       }
-      res.json({ ...plan, mensaje: `Plan creado con ${numero_pagos} cuotas` });
+      if (!fecha_inicio) {
+        return res.status(400).json({ message: "fecha_inicio es obligatorio" });
+      }
+      if (!['mensual', 'quincenal', 'semanal'].includes(frecuencia)) {
+        return res.status(400).json({ message: "frecuencia debe ser 'mensual', 'quincenal' o 'semanal'" });
+      }
+
+      if (esModoA) {
+        // ── MODO A: Reestructuración de Charges existentes ───────────────────
+        if (Number(recargo_centavos) > 0 && !observaciones?.trim()) {
+          return res.status(400).json({
+            message: "observaciones es obligatorio cuando recargo_centavos > 0",
+          });
+        }
+
+        // Calcular saldo pendiente real (monto_base − SUM(payment_applications))
+        const saldoRes = await pool.query(`
+          SELECT c.id, c.student_id, c.estado,
+                 c.monto_base_centavos
+                   - COALESCE(SUM(pa.amount_centavos), 0) AS saldo_pendiente_centavos
+          FROM charges c
+          LEFT JOIN payment_applications pa ON pa.charge_id = c.id
+          WHERE c.id = ANY($1) AND c.tenant_id = $2
+          GROUP BY c.id, c.monto_base_centavos, c.student_id, c.estado
+        `, [charge_ids, tenantId]);
+
+        if ((saldoRes.rows as any[]).length !== charge_ids.length) {
+          return res.status(403).json({
+            message: "Acceso denegado: uno o más cargos no pertenecen a este tenant",
+          });
+        }
+        const saldoRows = saldoRes.rows as any[];
+
+        // Todos deben tener estado pendiente o parcial
+        const estadoInvalido = saldoRows.find(r => !['pendiente', 'parcial'].includes(r.estado));
+        if (estadoInvalido) {
+          return res.status(422).json({
+            message: `El cargo ${estadoInvalido.id} tiene estado '${estadoInvalido.estado}' y no puede reestructurarse`,
+          });
+        }
+
+        // Todos deben pertenecer al mismo alumno
+        const uniqueStudents = [...new Set(saldoRows.map(r => r.student_id))];
+        if (uniqueStudents.length > 1) {
+          return res.status(422).json({ message: "Todos los cargos deben pertenecer al mismo alumno" });
+        }
+        const resolvedStudentId = Number(uniqueStudents[0]);
+
+        // Ningún saldo debe ser ≤ 0
+        const saldoCero = saldoRows.find(r => Number(r.saldo_pendiente_centavos) <= 0);
+        if (saldoCero) {
+          return res.status(422).json({
+            message: `El cargo ${saldoCero.id} tiene saldo pendiente ≤ 0`,
+          });
+        }
+
+        const sumSaldos = saldoRows.reduce((acc, r) => acc + Number(r.saldo_pendiente_centavos), 0);
+        const totalAdeudo = sumSaldos + Number(recargo_centavos || 0);
+        const montoInicial = Number(monto_inicial_centavos || 0);
+
+        if (montoInicial >= totalAdeudo && totalAdeudo > 0) {
+          return res.status(422).json({ message: "monto_inicial_centavos no puede superar el total adeudado" });
+        }
+
+        const conceptoId = await getOrCreateCuotaPlanConcept(campusId, tenantId);
+
+        // Transacción: cancelar charges originales + crear cuotas en ledger
+        const client = await pool.connect();
+        let plan: any;
+        let cuotas: any[];
+        try {
+          await client.query('BEGIN');
+
+          const planRow = await client.query(`
+            INSERT INTO payment_plans
+              (campus_id, tenant_id, student_id, total_adeudo_centavos, monto_inicial_centavos,
+               numero_pagos, frecuencia, fecha_inicio, observaciones, created_by,
+               tipo_origen, charge_ids_origen)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'reestructuracion',$11) RETURNING *
+          `, [campusId, tenantId, resolvedStudentId, totalAdeudo, montoInicial,
+              Number(numero_pagos), frecuencia, fecha_inicio, observaciones || null,
+              userId || null, JSON.stringify(charge_ids)]);
+          plan = (planRow.rows as any[])[0];
+
+          await client.query(
+            `UPDATE charges SET estado = 'cancelado', updated_at = NOW()
+             WHERE id = ANY($1) AND tenant_id = $2`,
+            [charge_ids, tenantId]
+          );
+
+          cuotas = await generarCuotaCharges(client, {
+            plan, studentId: resolvedStudentId, conceptId: conceptoId,
+            totalAdeudo, montoInicial, numeroPagos: Number(numero_pagos),
+            frecuencia, fechaInicio: fecha_inicio, tenantId,
+          });
+
+          await client.query('COMMIT');
+        } catch (err) {
+          await client.query('ROLLBACK');
+          throw err;
+        } finally {
+          client.release();
+        }
+
+        // Audit FUERA de la transacción (ADR-001)
+        if (tenantId && userId) {
+          for (const chargeInfo of saldoRows) {
+            pool.query(
+              `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
+               VALUES ($1,$2,'charge_cancelado_por_plan','charge',$3,$4)`,
+              [tenantId, userId, chargeInfo.id, JSON.stringify({
+                plan_id: plan.id,
+                motivo: 'reestructurado en plan de pago',
+                saldo_pendiente_centavos: Number(chargeInfo.saldo_pendiente_centavos),
+                recargo_centavos: Number(recargo_centavos || 0),
+              })]
+            ).catch((err: any) =>
+              enqueueAuditLog({ tenant_id: tenantId, user_id: userId, action: 'charge_cancelado_por_plan',
+                entity_type: 'charge', entity_id: chargeInfo.id }, err)
+            );
+          }
+        }
+
+        return res.json({ ...plan, cuotas, mensaje: `Plan de reestructuración creado con ${numero_pagos} cuotas` });
+      }
+
+      // ── MODO B: Acuerdo a futuro ──────────────────────────────────────────
+      const concept = await storage.getConceptScoped(parseInt(concept_id), tenantId);
+      if (!concept) {
+        return res.status(403).json({ message: "Acceso denegado: concepto no pertenece a este tenant" });
+      }
+      if (concept.tipo === 'cuota_plan') {
+        return res.status(422).json({
+          message: "Un plan no puede originarse en otro plan (concept.tipo='cuota_plan' prohibido)",
+        });
+      }
+      if (!student_id) {
+        return res.status(400).json({ message: "student_id es obligatorio en planes de acuerdo futuro" });
+      }
+      const student = await storage.getStudentScoped(parseInt(student_id), tenantId);
+      if (!student) {
+        return res.status(403).json({ message: "Acceso denegado: alumno no pertenece a este tenant" });
+      }
+      if (guardian_id) {
+        const g = await storage.getGuardianScoped(parseInt(guardian_id), tenantId);
+        if (!g) return res.status(403).json({ message: "Acceso denegado: guardián no pertenece a este tenant" });
+      }
+
+      const totalAdeudoB = Number(concept.monto_centavos);
+      const montoInicialB = Number(monto_inicial_centavos || 0);
+      if (montoInicialB >= totalAdeudoB) {
+        return res.status(422).json({
+          message: "monto_inicial_centavos debe ser menor al monto total del concepto",
+        });
+      }
+
+      const clientB = await pool.connect();
+      let planB: any; let cuotasB: any[];
+      try {
+        await clientB.query('BEGIN');
+        const planRow = await clientB.query(`
+          INSERT INTO payment_plans
+            (campus_id, tenant_id, student_id, guardian_id, total_adeudo_centavos,
+             monto_inicial_centavos, numero_pagos, frecuencia, fecha_inicio,
+             observaciones, created_by, tipo_origen)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'futuro') RETURNING *
+        `, [campusId, tenantId, student.id, guardian_id || null, totalAdeudoB,
+            montoInicialB, Number(numero_pagos), frecuencia, fecha_inicio,
+            observaciones || null, userId || null]);
+        planB = (planRow.rows as any[])[0];
+
+        cuotasB = await generarCuotaCharges(clientB, {
+          plan: planB, studentId: student.id, conceptId: concept.id,
+          totalAdeudo: totalAdeudoB, montoInicial: montoInicialB,
+          numeroPagos: Number(numero_pagos), frecuencia, fechaInicio: fecha_inicio, tenantId,
+        });
+
+        await clientB.query('COMMIT');
+      } catch (err) {
+        await clientB.query('ROLLBACK');
+        throw err;
+      } finally {
+        clientB.release();
+      }
+
+      return res.json({ ...planB, cuotas: cuotasB, mensaje: `Plan de acuerdo futuro creado con ${numero_pagos} cuotas` });
+
     } catch (error: any) {
       res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
-  app.post("/api/planes-pago/cuotas/:cuotaId/pagar", authenticateToken, async (req: any, res) => {
+  // ── PLANES DE PAGO — Endpoint deprecado (ADR-002) ────────────────────────
+  app.post("/api/planes-pago/cuotas/:cuotaId/pagar", authenticateToken, async (_req, res) => {
+    res.status(410).json({
+      message: "Endpoint deprecado (ADR-002). Use POST /api/guardian/pagar con el charge_id de la cuota.",
+    });
+  });
+
+  // ── PLANES DE PAGO — Cancelar plan ───────────────────────────────────────
+  app.patch("/api/planes-pago/:id/cancelar", authenticateToken, async (req: any, res) => {
     try {
       const tenantId = req.user?.tenant_id;
-      const cuotaId = parseInt(req.params.cuotaId);
-      // Verificar que la cuota pertenece a un plan del tenant autenticado
-      const check = await pool.query(`
-        SELECT ppi.id FROM payment_plan_installments ppi
-        JOIN payment_plans pp ON pp.id = ppi.plan_id
-        WHERE ppi.id = $1 AND pp.tenant_id = $2
-      `, [cuotaId, tenantId]);
-      if ((check.rows as any[]).length === 0) {
-        return res.status(403).json({ message: "Acceso denegado: cuota no pertenece a este tenant" });
+      const userId   = req.user?.id;
+      const planId   = parseInt(req.params.id);
+      const { motivo, destino_saldo_pendiente, motivo_condonacion } = req.body;
+
+      if (!motivo || String(motivo).trim().length < 10) {
+        return res.status(400).json({
+          message: "El campo 'motivo' es obligatorio y debe tener mínimo 10 caracteres",
+        });
       }
-      await pool.query(`UPDATE payment_plan_installments SET estado = 'pagado', fecha_pago = CURRENT_DATE WHERE id = $1`, [cuotaId]);
-      res.json({ message: "Cuota marcada como pagada" });
+
+      const planRes = await pool.query(
+        `SELECT * FROM payment_plans WHERE id = $1`, [planId]
+      );
+      if ((planRes.rows as any[]).length === 0) {
+        return res.status(404).json({ message: "Plan no encontrado" });
+      }
+      const plan = (planRes.rows as any[])[0];
+
+      if (Number(plan.tenant_id) !== Number(tenantId)) {
+        return res.status(403).json({ message: "Acceso denegado: plan no pertenece a este tenant" });
+      }
+      if (plan.estado !== 'activo') {
+        return res.status(409).json({ message: "El plan ya está cancelado" });
+      }
+
+      // Para planes de reestructuración, destino_saldo_pendiente es obligatorio
+      if (plan.tipo_origen === 'reestructuracion') {
+        if (!destino_saldo_pendiente || !['reinstalar', 'condonar'].includes(destino_saldo_pendiente)) {
+          return res.status(400).json({
+            message: "Los planes de reestructuración requieren destino_saldo_pendiente: 'reinstalar' | 'condonar'",
+          });
+        }
+        if (destino_saldo_pendiente === 'condonar') {
+          if (!motivo_condonacion || String(motivo_condonacion).trim().length < 10) {
+            return res.status(400).json({
+              message: "El campo 'motivo_condonacion' es obligatorio y debe tener mínimo 10 caracteres al condonar",
+            });
+          }
+        }
+      }
+
+      // Calcular cuotas pendientes antes del BEGIN
+      const pendientesRes = await pool.query(
+        `SELECT id, monto_base_centavos FROM charges WHERE plan_id = $1 AND estado = 'pendiente'`, [planId]
+      );
+      const pendientes = pendientesRes.rows as any[];
+      const saldoPendiente = pendientes.reduce((acc: number, r: any) => acc + Number(r.monto_base_centavos), 0);
+
+      const pagadasRes = await pool.query(
+        `SELECT COUNT(*) AS cnt FROM charges WHERE plan_id = $1 AND estado = 'pagado'`, [planId]
+      );
+      const cuotasPagadas = Number((pagadasRes.rows as any[])[0]?.cnt || 0);
+
+      const client = await pool.connect();
+      let newChargeId: number | null = null;
+      try {
+        await client.query('BEGIN');
+
+        const upd = await client.query(
+          `UPDATE payment_plans SET estado = 'cancelado'
+           WHERE id = $1 AND tenant_id = $2 AND estado = 'activo' RETURNING id`,
+          [planId, tenantId]
+        );
+        if ((upd.rows as any[]).length === 0) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({ message: "El plan ya está cancelado" });
+        }
+
+        await client.query(
+          `UPDATE charges SET estado = 'cancelado', updated_at = NOW()
+           WHERE plan_id = $1 AND estado = 'pendiente'`,
+          [planId]
+        );
+
+        // Reinstalar: crear nuevo charge con el saldo pendiente
+        if (plan.tipo_origen === 'reestructuracion' &&
+            destino_saldo_pendiente === 'reinstalar' &&
+            saldoPendiente > 0) {
+          const conceptRes = await client.query(
+            `SELECT concept_id FROM charges WHERE plan_id = $1 LIMIT 1`, [planId]
+          );
+          const conceptIdReins = conceptRes.rows.length > 0
+            ? (conceptRes.rows as any[])[0].concept_id
+            : await getOrCreateCuotaPlanConcept(plan.campus_id, tenantId);
+
+          const newCh = await client.query(
+            `INSERT INTO charges (tenant_id, student_id, concept_id, plan_id,
+               fecha_emision, fecha_vencimiento, monto_base_centavos, estado)
+             VALUES ($1,$2,$3,NULL, CURRENT_DATE, CURRENT_DATE,$4,'pendiente') RETURNING id`,
+            [tenantId, plan.student_id, conceptIdReins, saldoPendiente]
+          );
+          newChargeId = (newCh.rows as any[])[0].id;
+        }
+
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+
+      // Audit FUERA de la transacción (ADR-001)
+      const auditMeta: Record<string, any> = {
+        motivo: String(motivo).trim(),
+        destino_saldo_pendiente: destino_saldo_pendiente || 'N/A (futuro)',
+        cuotas_canceladas: pendientes.length,
+        cuotas_pagadas_preservadas: cuotasPagadas,
+      };
+      if (destino_saldo_pendiente === 'reinstalar') {
+        auditMeta.saldo_reinstalado_centavos = saldoPendiente;
+        auditMeta.nuevo_charge_id = newChargeId;
+      }
+      if (destino_saldo_pendiente === 'condonar') {
+        auditMeta.motivo_condonacion = String(motivo_condonacion).trim();
+        auditMeta.monto_condonado_centavos = saldoPendiente;
+      }
+      if (tenantId && userId) {
+        pool.query(
+          `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
+           VALUES ($1,$2,'plan_cancelado','payment_plan',$3,$4)`,
+          [tenantId, userId, planId, JSON.stringify(auditMeta)]
+        ).catch((err: any) =>
+          enqueueAuditLog({ tenant_id: tenantId, user_id: userId, action: 'plan_cancelado',
+            entity_type: 'payment_plan', entity_id: planId, metadata: auditMeta }, err)
+        );
+      }
+
+      res.json({
+        message: "Plan cancelado correctamente",
+        plan_id: planId,
+        cuotas_canceladas: pendientes.length,
+        cuotas_pagadas_preservadas: cuotasPagadas,
+        nuevo_charge_id: newChargeId,
+        destino_saldo_pendiente: destino_saldo_pendiente || null,
+      });
     } catch (error: any) {
       res.status(500).json({ message: "Error interno del servidor" });
     }
@@ -254,7 +631,7 @@ export function registerMiscRoutes(app: Express): void {
     }
   });
 
-  // Alias /api/planes-pago sin campusId
+  // Alias /api/planes-pago sin campusId (ADR-002: lee cuotas de charges)
   app.get("/api/planes-pago", authenticateToken, async (req, res) => {
     try {
       const campusId = (req as any).user?.campus_id;
@@ -265,9 +642,14 @@ export function registerMiscRoutes(app: Express): void {
         WHERE pp.campus_id = $1 ORDER BY pp.created_at DESC
       `, [campusId]);
       const planes = await Promise.all((planesRows.rows as any[]).map(async p => {
-        const cuotas = await pool.query(`SELECT * FROM payment_plan_installments WHERE plan_id = $1 ORDER BY numero`, [p.id]).catch(() => ({ rows: [] }));
-        const cuotaCentavos = p.numero_pagos > 0 ? Math.round((p.total_adeudo_centavos - p.monto_inicial_centavos) / p.numero_pagos) : 0;
-        return { ...p, installments: cuotas.rows, cuota_centavos: cuotaCentavos };
+        const cuotasR = await pool.query(
+          `SELECT * FROM charges WHERE plan_id = $1 ORDER BY fecha_vencimiento ASC`, [p.id]
+        ).catch(() => ({ rows: [] }));
+        const cuotas = cuotasR.rows as any[];
+        const cuotasPagadas = cuotas.filter((c: any) => c.estado === 'pagado').length;
+        const base = Number(p.total_adeudo_centavos) - Number(p.monto_inicial_centavos || 0);
+        const cuotaCentavos = p.numero_pagos > 0 ? Math.round(base / p.numero_pagos) : 0;
+        return { ...p, installments: cuotas, cuotas_pagadas: cuotasPagadas, cuota_centavos: cuotaCentavos };
       }));
       res.json(planes);
     } catch (error: any) {

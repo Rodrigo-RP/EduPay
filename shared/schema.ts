@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, varchar, bigint, numeric, date, timestamp, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, varchar, bigint, numeric, date, timestamp, primaryKey, jsonb } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -293,6 +293,8 @@ export const charges = pgTable("charges", {
   beca_aplicada: numeric("beca_aplicada", { precision: 5, scale: 2 }).default("0.00"),
   recargo_aplicado_centavos: bigint("recargo_aplicado_centavos", { mode: "number" }).default(0),
   estado: varchar("estado", { length: 50 }).default("pendiente"), // 'pendiente', 'pagado', 'parcial', 'cancelado'
+  // ADR-002: FK nullable al plan de pago que generó este cargo (cuotas de plan)
+  plan_id: integer("plan_id"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
@@ -1017,6 +1019,10 @@ export const payment_plans = pgTable("payment_plans", {
   frecuencia: varchar("frecuencia", { length: 20 }).default("mensual"),
   fecha_inicio: date("fecha_inicio").notNull(),
   estado: varchar("estado", { length: 20 }).default("activo"),
+  // ADR-002: tipo_origen distingue reestructuración de acuerdo a futuro
+  tipo_origen: varchar("tipo_origen", { length: 20 }).default("futuro"),
+  // ADR-002: referencia histórica inmutable de los charges cancelados en Modo A
+  charge_ids_origen: jsonb("charge_ids_origen"),
   observaciones: text("observaciones"),
   created_by: integer("created_by").references(() => users.id),
   created_at: timestamp("created_at").defaultNow(),

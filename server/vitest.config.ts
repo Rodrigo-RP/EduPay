@@ -18,6 +18,7 @@ export default defineConfig({
       "tests/excepciones-conciliacion.test.ts",
       "tests/bug-audit-log-rollback.test.ts",
       "tests/audit-retry.test.ts",
+      "tests/planes-pago.test.ts",
     ],
   },
   resolve: {

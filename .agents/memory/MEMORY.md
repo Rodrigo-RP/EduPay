@@ -1,4 +1,6 @@
 - [Audit Protocol](audit-protocol.md) — checklist E2E + Modo Auditoría requerido antes de marcar cualquier tarea crítica como finalizada.
+- [ADR-002 planes de pago](adr-002-planes-pago.md) — charges con plan_id FK; helpers getOrCreateCuotaPlanConcept + generarCuotaCharges; cancelar requiere destino_saldo_pendiente para reestructuracion.
+- [Audit retry race condition](audit-retry-race.md) — stopAuditRetryWorker() debe llamarse en beforeAll de tests que usen processAuditRetries() directamente.
 - [Demo seed & email normalization](demo-seed.md) — emails con acentos en apellidos mexicanos requieren mapa Unicode explícito (\u00e1 etc.), no normalize("NFD").
 - [Guardian login route](guardian-auth.md) — login tutores es /api/auth/guardian-login (no /api/guardian/login); getGuardianByEmail debe buscar también por correo_institucional_familiar.
 - [Payment endpoint alias](payment-flow.md) — /api/guardian/pagar procesa array de charge_ids, crea payment + CFDI simulado; portal-padres-3clics.tsx lo consume con JWT en header.

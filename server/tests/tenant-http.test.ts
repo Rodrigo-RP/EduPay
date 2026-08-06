@@ -294,39 +294,24 @@ describe("Aislamiento multi-tenant — capa HTTP (IDOR)", () => {
     expect(r.status).toBe(403);
   });
 
-  it("T11: student_id cross-tenant bloqueado en POST /api/planes-pago → 403", async () => {
+  it("T11: charge_ids cross-tenant bloqueado en POST /api/planes-pago Modo A → 403", async () => {
+    // ADR-002 Modo A: intento de reestructurar un charge de tenant A con token de tenant B
     const tokenB = makeAdminToken(userBId, tenantBId, campusBId);
     const r = await httpPost("/api/planes-pago", {
-      student_id: studentAId,
-      total_adeudo_centavos: 100000,
+      charge_ids: [chargeAId],   // charge pertenece a tenant A
       numero_pagos: 3,
+      frecuencia: "mensual",
       fecha_inicio: "2025-02-01",
-    }, tokenB);
+    }, tokenB);                  // token de tenant B → debe ser 403
     expect(r.status).toBe(403);
   });
 
-  it("T12: cuota cross-tenant bloqueada en POST /api/planes-pago/cuotas/:id/pagar → 403", async () => {
+  it("T12: POST /api/planes-pago/cuotas/:id/pagar devuelve 410 (endpoint deprecado ADR-002)", async () => {
+    // El endpoint fue deprecado en ADR-002; devuelve 410 para cualquier llamada autenticada.
+    // El aislamiento IDOR se verifica en T11 (Modo A) y en los tests de planes-pago.test.ts.
     const tokenB = makeAdminToken(userBId, tenantBId, campusBId);
-
-    // Crear plan y cuota del tenant A para intentar pagarla con token de tenant B
-    const planRowA = await pool.query(`
-      INSERT INTO payment_plans (campus_id, tenant_id, student_id, total_adeudo_centavos, monto_inicial_centavos, numero_pagos, frecuencia, fecha_inicio)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id
-    `, [campusAId, tenantAId, studentAId, 90000, 0, 1, "mensual", "2025-02-01"]);
-    const planAId = (planRowA.rows as any[])[0].id;
-
-    const cuotaRowA = await pool.query(`
-      INSERT INTO payment_plan_installments (plan_id, numero, monto_centavos, fecha_vencimiento)
-      VALUES ($1,$2,$3,$4) RETURNING id
-    `, [planAId, 1, 90000, "2025-03-01"]);
-    const cuotaAId = (cuotaRowA.rows as any[])[0].id;
-
-    try {
-      const r = await httpPost(`/api/planes-pago/cuotas/${cuotaAId}/pagar`, {}, tokenB);
-      expect(r.status).toBe(403);
-    } finally {
-      await pool.query(`DELETE FROM payment_plan_installments WHERE id = $1`, [cuotaAId]).catch(() => {});
-      await pool.query(`DELETE FROM payment_plans WHERE id = $1`, [planAId]).catch(() => {});
-    }
+    const r = await httpPost(`/api/planes-pago/cuotas/99999/pagar`, {}, tokenB);
+    expect(r.status).toBe(410);
+    expect(r.body.message).toContain("Endpoint deprecado");
   });
 });

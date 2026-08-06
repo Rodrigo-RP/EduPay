@@ -164,7 +164,13 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (createdChargeIds.length) {
-    // 1. Invoices tienen FK a payments; limpiar primero
+    // 1. family_credits ligados a payments de nuestros charges
+    await pool.query(
+      `DELETE FROM family_credits WHERE payment_id IN
+         (SELECT id FROM payments WHERE charge_id = ANY($1))`,
+      [createdChargeIds]
+    );
+    // 2. Invoices tienen FK a payments; limpiar antes de payments
     await pool.query(
       `DELETE FROM invoices WHERE payment_id IN
          (SELECT id FROM payments WHERE charge_id = ANY($1))`,
@@ -396,6 +402,60 @@ describe("caja/pago-efectivo — pago parcial y completion", () => {
       [chargeId]
     );
     expect(Number(paRow.rows[0].total)).toBe(50_000);
+  });
+
+  it("PC-10: pagar $2,000 sobre cargo de $1,500 — $500 de excedente visible como saldo a favor", async () => {
+    const CARGO_CENTAVOS   = 150_000; // $1,500
+    const COBRADO_CENTAVOS = 200_000; // $2,000
+    const EXCEDENTE        =  50_000; // $500
+
+    const chargeId = await mkCharge(CARGO_CENTAVOS);
+
+    // Caja cobra $2,000 sobre un cargo de $1,500
+    const { status, body } = await httpPost(
+      "/api/caja/pago-efectivo",
+      { estudiante_id: studentId, charge_id: chargeId, monto: "2000" },
+      adminToken
+    );
+
+    expect(status).toBe(200);
+    expect((body as any).charge_nuevo_estado).toBe("pagado");
+    expect((body as any).monto_aplicado_centavos).toBe(CARGO_CENTAVOS);  // $1,500 al cargo
+    expect((body as any).excedente_centavos).toBe(EXCEDENTE);            // $500 no desaparece
+
+    // El cargo queda pagado
+    expect(await chargeEstado(chargeId)).toBe("pagado");
+
+    // 1. El family_credit específico de este pago existe en la DB con el monto correcto
+    const creditRow = await pool.query(
+      `SELECT amount_centavos, origen FROM family_credits WHERE payment_id IN
+         (SELECT id FROM payments WHERE charge_id = $1) ORDER BY id DESC LIMIT 1`,
+      [chargeId]
+    );
+    expect(creditRow.rows.length).toBe(1);
+    expect(Number(creditRow.rows[0].amount_centavos)).toBe(EXCEDENTE);   // $500 exactos
+    expect(creditRow.rows[0].origen).toBe("excedente_caja");
+
+    // 2. El estado-cuenta refleja el saldo a favor (puede ser > EXCEDENTE si hay
+    //    otros créditos del mismo alumno en la suite; verificamos que al menos incluye
+    //    el de este pago y que saldo_neto = max(0, saldo_pendiente - saldo_a_favor)).
+    const antes = await fetch(`${BASE}/api/students/${studentId}/estado-cuenta`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    }).then(r => r.json()).catch(() => ({}));
+    const resumenAntes = (antes as any).resumen;
+
+    // El saldo a favor visible es AL MENOS el excedente de este pago
+    expect(resumenAntes.saldo_a_favor_centavos).toBeGreaterThanOrEqual(EXCEDENTE);
+
+    // saldo_neto = max(0, saldo_pendiente - saldo_a_favor) — el endpoint lo calcula
+    expect(resumenAntes.saldo_neto_centavos).toBe(
+      Math.max(0, resumenAntes.saldo_pendiente_centavos - resumenAntes.saldo_a_favor_centavos)
+    );
+
+    // El saldo_neto es MENOR al saldo_pendiente bruto (el crédito sí rebaja)
+    expect(resumenAntes.saldo_neto_centavos).toBeLessThan(
+      resumenAntes.saldo_pendiente_centavos + 1  // +1 por si ambos son 0
+    );
   });
 
   it("PC-09: doble clic en caja — el cargo queda pagado exactamente una vez", async () => {

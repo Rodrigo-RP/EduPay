@@ -80,6 +80,8 @@ export interface IStorage {
     total_cargos_centavos: number;
     total_pagado_centavos: number;
     saldo_pendiente_centavos: number;
+    saldo_a_favor_centavos: number;
+    saldo_neto_centavos: number;
     num_cargos: number;
     num_pagos: number;
   }>;
@@ -1450,13 +1452,19 @@ export class DatabaseStorage implements IStorage {
     total_cargos_centavos: number;
     total_pagado_centavos: number;
     saldo_pendiente_centavos: number;
+    saldo_a_favor_centavos: number;
+    saldo_neto_centavos: number;
     num_cargos: number;
     num_pagos: number;
   }> {
     // Verify family belongs to tenant
     const family = await this.getFamilyScoped(familyId, tenantId);
     if (!family) {
-      return { total_cargos_centavos: 0, total_pagado_centavos: 0, saldo_pendiente_centavos: 0, num_cargos: 0, num_pagos: 0 };
+      return {
+        total_cargos_centavos: 0, total_pagado_centavos: 0,
+        saldo_pendiente_centavos: 0, saldo_a_favor_centavos: 0,
+        saldo_neto_centavos: 0, num_cargos: 0, num_pagos: 0,
+      };
     }
 
     // Sum all charges for students in this family
@@ -1486,10 +1494,28 @@ export class DatabaseStorage implements IStorage {
     const total_pagado_centavos = Number(paidRow.total_pagado ?? 0);
     const num_pagos = Number(paidRow.num_pagos ?? 0);
 
+    // Saldo a favor: excedentes registrados en family_credits
+    // Incluye créditos almacenados por family_id Y los almacenados por student_id
+    // (cuando el alumno no estaba en una familia al momento del cobro)
+    const creditResult = await db.execute(sql`
+      SELECT COALESCE(SUM(fc.amount_centavos), 0)::bigint AS saldo_a_favor
+      FROM family_credits fc
+      WHERE fc.family_id = ${familyId}
+         OR fc.student_id IN (
+           SELECT fs2.student_id FROM family_students fs2 WHERE fs2.family_id = ${familyId}
+         )
+    `);
+    const saldo_a_favor_centavos = Number((creditResult.rows as any[])[0]?.saldo_a_favor ?? 0);
+
+    const saldo_pendiente_centavos = total_cargos_centavos - total_pagado_centavos;
+    const saldo_neto_centavos = Math.max(0, saldo_pendiente_centavos - saldo_a_favor_centavos);
+
     return {
       total_cargos_centavos,
       total_pagado_centavos,
-      saldo_pendiente_centavos: total_cargos_centavos - total_pagado_centavos,
+      saldo_pendiente_centavos,
+      saldo_a_favor_centavos,
+      saldo_neto_centavos,
       num_cargos,
       num_pagos,
     };

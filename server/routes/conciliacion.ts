@@ -199,20 +199,25 @@ export function registerConciliacionRoutes(app: Express): void {
           return res.json({ message: "El cargo ya tiene saldo cero", payment_id: null, monto_centavos: montoOperador });
         }
 
-        // Pago parcial o total — aplicar lo que alcanza
+        // Calcular cuánto se aplica al cargo y cuánto sobra
         montoAplicado = Math.min(montoOperador, saldoPendiente);
-        newEstado     = montoAplicado >= saldoPendiente ? "pagado" : "parcial";
+        const excedente = montoOperador - montoAplicado; // 0 si no sobra nada
+        newEstado = montoAplicado >= saldoPendiente ? "pagado" : "parcial";
 
         const referencia = `CAJA-${Date.now()}`;
+        // El payment registra el MONTO TOTAL COBRADO (efectivo recibido en caja)
+        // — importante para cuadre de caja. La payment_application aplica solo
+        // lo que cubre el cargo.
         const payRow = await client.query(
           `INSERT INTO payments
              (tenant_id, charge_id, guardian_id, metodo, referencia_pasarela,
               monto_centavos, fecha_pago, estado)
            VALUES ($1,$2,NULL,'efectivo',$3,$4,CURRENT_DATE,'exitoso') RETURNING id`,
-          [tenantIdCaja, chargeId, referencia, montoAplicado]
+          [tenantIdCaja, chargeId, referencia, montoOperador]
         );
         paymentId = (payRow.rows as any[])[0].id;
 
+        // Ledger entry: solo la parte que cubre el cargo
         await client.query(
           `INSERT INTO payment_applications (payment_id, charge_id, amount_centavos, applied_at)
            VALUES ($1,$2,$3,NOW())`,
@@ -223,6 +228,28 @@ export function registerConciliacionRoutes(app: Express): void {
           `UPDATE charges SET estado = $1, updated_at = NOW() WHERE id = $2`,
           [newEstado, chargeId]
         );
+
+        // Si hubo excedente → registrar como saldo a favor de la familia
+        if (excedente > 0) {
+          // Buscar la familia del alumno (puede no tener ninguna)
+          const familyRow = await client.query(
+            `SELECT family_id FROM family_students WHERE student_id = $1 LIMIT 1`,
+            [estudiante_id]
+          );
+          const creditFamilyId = (familyRow.rows as any[])[0]?.family_id ?? null;
+
+          await client.query(
+            `INSERT INTO family_credits
+               (tenant_id, campus_id, family_id, student_id, payment_id,
+                amount_centavos, origen, descripcion)
+             VALUES ($1,$2,$3,$4,$5,$6,'excedente_caja',$7)`,
+            [
+              tenantIdCaja, campusId, creditFamilyId, estudiante_id, paymentId,
+              excedente,
+              `Cambio en cobro de caja — pago $${(montoOperador / 100).toFixed(2)}, cargo $${(saldoPendiente / 100).toFixed(2)}`,
+            ]
+          );
+        }
 
         await client.query("COMMIT");
       } catch (err) {
@@ -248,12 +275,14 @@ export function registerConciliacionRoutes(app: Express): void {
         ]
       ).catch(() => {});
 
+      const excedente = montoOperador - montoAplicado;
       res.json({
-        message: `Pago en efectivo registrado (${newEstado})`,
-        payment_id: paymentId,
+        message: `Pago en efectivo registrado (${newEstado})${excedente > 0 ? ` — $${(excedente / 100).toFixed(2)} de cambio registrado como saldo a favor` : ""}`,
+        payment_id:              paymentId,
         monto_aplicado_centavos: montoAplicado,
-        monto_centavos: montoOperador,
-        charge_nuevo_estado: newEstado,
+        monto_centavos:          montoOperador,
+        excedente_centavos:      excedente,
+        charge_nuevo_estado:     newEstado,
       });
     } catch (error: any) {
       res.status(500).json({ message: "Error interno del servidor" });

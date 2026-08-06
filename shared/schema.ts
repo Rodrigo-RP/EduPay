@@ -947,6 +947,30 @@ export const families = pgTable("families", {
 export type Family = typeof families.$inferSelect;
 export type InsertFamily = typeof families.$inferInsert;
 
+/**
+ * Saldo a favor de una familia.
+ * Se genera cuando caja cobra más de lo adeudado (excedente de pago en efectivo)
+ * o por ajustes administrativos.  La suma de registros activos de esta tabla
+ * reduce el saldo pendiente neto de la familia.
+ */
+export const family_credits = pgTable("family_credits", {
+  id:              serial("id").primaryKey(),
+  tenant_id:       integer("tenant_id").references(() => tenants.id).notNull(),
+  campus_id:       integer("campus_id").notNull(),
+  /** Si el alumno pertenece a una familia registrada se guarda aquí. */
+  family_id:       integer("family_id").references(() => families.id),
+  /** Siempre se guarda el student_id del alumno que originó el crédito. */
+  student_id:      integer("student_id").references(() => students.id),
+  /** Pago de caja que generó el excedente. */
+  payment_id:      integer("payment_id").references(() => payments.id),
+  amount_centavos: bigint("amount_centavos", { mode: "number" }).notNull(),
+  origen:          varchar("origen", { length: 50 }).default("excedente_caja").notNull(),
+  descripcion:     text("descripcion"),
+  created_at:      timestamp("created_at").defaultNow(),
+});
+export type FamilyCredit = typeof family_credits.$inferSelect;
+export type InsertFamilyCredit = typeof family_credits.$inferInsert;
+
 /** Relación familia ↔ alumnos */
 export const family_students = pgTable("family_students", {
   family_id: integer("family_id").references(() => families.id, { onDelete: "cascade" }).notNull(),

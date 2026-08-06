@@ -406,6 +406,19 @@ export function registerAdminRoutes(app: Express): void {
         ORDER BY c.fecha_vencimiento DESC
       `, [studentId]).catch((e: any) => { throw new Error("Error al buscar cargos: " + e.message); });
 
+      // Saldo a favor: excedentes de pago registrados en family_credits para este alumno
+      // o para la familia a la que pertenece el alumno
+      const creditRes = await pool.query(
+        `SELECT COALESCE(SUM(fc.amount_centavos), 0)::bigint AS saldo_a_favor
+         FROM family_credits fc
+         WHERE fc.student_id = $1
+            OR fc.family_id IN (
+              SELECT fs.family_id FROM family_students fs WHERE fs.student_id = $1
+            )`,
+        [studentId]
+      ).catch(() => ({ rows: [{ saldo_a_favor: 0 }] }));
+      const saldoAFavor = Number((creditRes.rows as any[])[0]?.saldo_a_favor ?? 0);
+
       // Resumen financiero
       const cargos = cargosResult.rows as any[];
       const totalCargos = cargos.reduce((s, c) => s + Number(c.monto_base_centavos), 0);
@@ -422,11 +435,13 @@ export function registerAdminRoutes(app: Express): void {
         })),
         cargos,
         resumen: {
-          total_cargos_centavos:    totalCargos,
+          total_cargos_centavos:     totalCargos,
           total_descuentos_centavos: totalDescuentos,
-          total_recargos_centavos:  totalRecargos,
-          total_pagado_centavos:    totalPagado,
-          saldo_pendiente_centavos: Math.max(0, saldoPendiente),
+          total_recargos_centavos:   totalRecargos,
+          total_pagado_centavos:     totalPagado,
+          saldo_a_favor_centavos:    saldoAFavor,
+          saldo_pendiente_centavos:  Math.max(0, saldoPendiente),
+          saldo_neto_centavos:       Math.max(0, saldoPendiente - saldoAFavor),
         },
       });
     } catch (error: any) {

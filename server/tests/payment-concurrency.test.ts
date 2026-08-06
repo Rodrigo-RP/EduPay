@@ -766,6 +766,91 @@ describe("family-credits/aplicar — validaciones y concurrencia", () => {
     expect(Number(totalPAs.rows[0].n)).toBe(1);
   });
 
+  // ── PC-17: crédito mayor al saldo del cargo (split → remanente activo) ──────
+  it("PC-17: crédito $800 sobre cargo $500 → cargo 'pagado', crédito 'consumido', remanente $300 activo con payment_id original", async () => {
+    const CREDITO   =  80_000; // $800
+    const CARGO     =  50_000; // $500
+    const REMANENTE =  30_000; // $300
+
+    // mkCreditViaCaja crea un charge de $1 (100¢) y paga $801 → PA $1, family_credit $800
+    const creditId = await mkCreditViaCaja(CREDITO);
+
+    // payment_id original del pago de caja que originó el crédito de $800
+    const originalPaymentId: number = await pool.query(
+      `SELECT payment_id FROM family_credits WHERE id=$1`, [creditId]
+    ).then((r: any) => r.rows[0].payment_id);
+
+    const chargeId = await mkCharge(CARGO);
+
+    // ── Aplicar el crédito al cargo ───────────────────────────────────────────
+    const r = await httpPost(
+      `/api/admin/family-credits/${creditId}/aplicar`,
+      { charge_id: chargeId },
+      adminToken
+    );
+
+    // 1. El cargo queda 'pagado'
+    expect(r.status).toBe(200);
+    expect((r.body as any).charge_nuevo_estado).toBe("pagado");
+    expect((r.body as any).monto_aplicado_centavos).toBe(CARGO);
+    expect((r.body as any).remanente_centavos).toBe(REMANENTE);
+    expect((r.body as any).nuevo_credit_id).not.toBeNull();
+    expect(await chargeEstado(chargeId)).toBe("pagado");
+
+    // 2. El crédito original queda 'consumido' y amount_centavos no se modificó
+    const orig = await pool.query(
+      `SELECT status, amount_centavos, consumed_application_id FROM family_credits WHERE id=$1`,
+      [creditId]
+    );
+    expect(orig.rows[0].status).toBe("consumido");
+    expect(Number(orig.rows[0].amount_centavos)).toBe(CREDITO);  // $800 inmutable
+    expect(orig.rows[0].consumed_application_id).not.toBeNull();
+
+    // 3. El nuevo crédito (remanente) existe, está activo, monto correcto
+    const newCreditId: number = (r.body as any).nuevo_credit_id;
+    const newCredit = await pool.query(
+      `SELECT status, amount_centavos, payment_id FROM family_credits WHERE id=$1`,
+      [newCreditId]
+    );
+    expect(newCredit.rows[0].status).toBe("activo");
+    expect(Number(newCredit.rows[0].amount_centavos)).toBe(REMANENTE); // $300
+
+    // 4. El nuevo crédito conserva el payment_id ORIGINAL (cadena de custodia intacta)
+    expect(Number(newCredit.rows[0].payment_id)).toBe(originalPaymentId);
+
+    // 5. La PaymentApplication creada también apunta al payment original
+    const newPaId: number = orig.rows[0].consumed_application_id;
+    const pa = await pool.query(
+      `SELECT payment_id, charge_id, amount_centavos FROM payment_applications WHERE id=$1`,
+      [newPaId]
+    );
+    expect(Number(pa.rows[0].payment_id)).toBe(originalPaymentId);
+    expect(Number(pa.rows[0].charge_id)).toBe(chargeId);
+    expect(Number(pa.rows[0].amount_centavos)).toBe(CARGO);            // $500
+
+    // 6. Ledger puro — SUM(charges) - SUM(payment_applications) = 0
+    //    Base charge ($1) + cargo target ($500) = $501 en cargos
+    //    PA base ($1)     + PA nueva   ($500)   = $501 en aplicaciones
+    const baseChargeId: number = await pool.query(
+      `SELECT charge_id FROM payments WHERE id=$1`, [originalPaymentId]
+    ).then((row: any) => row.rows[0].charge_id);
+
+    const ledger = await pool.query(
+      `SELECT
+         COALESCE(SUM(c.monto_base_centavos), 0)::bigint AS total_cargos,
+         COALESCE(SUM(pa.amount_centavos),     0)::bigint AS total_aplicado
+       FROM charges c
+       LEFT JOIN payment_applications pa ON pa.charge_id = c.id
+       WHERE c.id = ANY($1)`,
+      [[baseChargeId, chargeId]]
+    );
+    const totalCargos   = Number(ledger.rows[0].total_cargos);
+    const totalAplicado = Number(ledger.rows[0].total_aplicado);
+    expect(totalCargos).toBe(100 + CARGO);      // $501
+    expect(totalAplicado).toBe(100 + CARGO);    // $501
+    expect(totalCargos - totalAplicado).toBe(0); // ledger neto = 0
+  });
+
   // ── PC-16: crédito menor al saldo del cargo (resultado: parcial) ──────────
   it("PC-16: crédito $500 sobre cargo $1,200 → cargo queda 'parcial', crédito 'consumido' sin remanente", async () => {
     const CREDITO = 50_000;  // $500

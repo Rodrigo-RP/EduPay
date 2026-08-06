@@ -260,20 +260,29 @@ export function registerConciliacionRoutes(app: Express): void {
       }
 
       // ── Audit fuera de la transacción (ADR-001) ──────────────────────────
+      const auditPayloadCaja: import("../audit-retry").AuditLogPayload = {
+        tenant_id:  tenantIdCaja,
+        user_id:    userIdCaja,
+        action:     "charge.status_changed",
+        entity_type: "charge",
+        entity_id:  chargeId,
+        new_value:  { estado: newEstado },
+        metadata:   {
+          flujo: "caja_efectivo", payment_id: paymentId,
+          monto_operador: montoOperador, monto_aplicado: montoAplicado,
+          recibido_por, observaciones,
+        },
+      };
       pool.query(
         `INSERT INTO audit_log
            (tenant_id, user_id, action, entity_type, entity_id, new_value, metadata)
          VALUES ($1,$2,'charge.status_changed','charge',$3,$4,$5)`,
         [
           tenantIdCaja, userIdCaja, chargeId,
-          JSON.stringify({ estado: newEstado }),
-          JSON.stringify({
-            flujo: "caja_efectivo", payment_id: paymentId,
-            monto_operador: montoOperador, monto_aplicado: montoAplicado,
-            recibido_por, observaciones,
-          }),
+          JSON.stringify(auditPayloadCaja.new_value),
+          JSON.stringify(auditPayloadCaja.metadata),
         ]
-      ).catch(() => {});
+      ).catch((err) => enqueueAuditLog(auditPayloadCaja, err));
 
       const excedente = montoOperador - montoAplicado;
       res.json({

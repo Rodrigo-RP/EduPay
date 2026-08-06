@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { pool, db } from "../db";
+import { enqueueAuditLog } from "../audit-retry";
 import { eq, and, gte, lt } from "drizzle-orm";
 import { storage } from "../storage";
 import { authenticateToken, requireAuth, requireSuperAdmin, checkCampusTenant, serializeUser, upload, esmRequire, authenticateGuardian } from "./shared";
@@ -1093,21 +1094,30 @@ export function registerAdminRoutes(app: Express): void {
       }
 
       // ── Audit fuera de la transacción (ADR-001) ────────────────────────────
+      const auditPayloadCredit: import("../audit-retry").AuditLogPayload = {
+        tenant_id:   tenantId,
+        user_id:     userId,
+        action:      "credit.applied",
+        entity_type: "family_credit",
+        entity_id:   creditId,
+        new_value:   { status: "consumido", monto_aplicado: montoAplicado },
+        metadata:    {
+          charge_id: chargeId, payment_application_id: newPaId,
+          charge_nuevo_estado: newChargeEstado,
+          remanente_centavos: remanente,
+          nuevo_credit_id: newCreditId,
+        },
+      };
       pool.query(
         `INSERT INTO audit_log
            (tenant_id, user_id, action, entity_type, entity_id, new_value, metadata)
          VALUES ($1,$2,'credit.applied','family_credit',$3,$4,$5)`,
         [
           tenantId, userId, creditId,
-          JSON.stringify({ status: "consumido", monto_aplicado: montoAplicado }),
-          JSON.stringify({
-            charge_id: chargeId, payment_application_id: newPaId,
-            charge_nuevo_estado: newChargeEstado,
-            remanente_centavos: remanente,
-            nuevo_credit_id: newCreditId,
-          }),
+          JSON.stringify(auditPayloadCredit.new_value),
+          JSON.stringify(auditPayloadCredit.metadata),
         ]
-      ).catch(() => {});
+      ).catch((err) => enqueueAuditLog(auditPayloadCredit, err));
 
       res.json({
         message: `Crédito aplicado al cargo (${newChargeEstado})${remanente > 0 ? ` — remanente de $${(remanente / 100).toFixed(2)} registrado como nuevo crédito activo` : ""}`,

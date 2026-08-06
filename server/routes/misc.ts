@@ -236,7 +236,8 @@ export function registerMiscRoutes(app: Express): void {
               })]
             ).catch((err: any) =>
               enqueueAuditLog({ tenant_id: tenantId, user_id: userId, action: 'charge_cancelado_por_plan',
-                entity_type: 'charge', entity_id: chargeInfo.id }, err)
+                entity_type: 'charge', entity_id: chargeInfo.id,
+                metadata: { motivo: 'reestructurado en plan de pago' } }, err)
             );
           }
         }

@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { pool, db } from "../db";
+import { enqueueAuditLog } from "../audit-retry";
 import { eq, and, gte, lt } from "drizzle-orm";
 import { storage } from "../storage";
 import { authenticateToken, requireAuth, authenticateGuardian, checkCampusTenant, upload, esmRequire, JWT_SECRET } from "./shared";
@@ -126,17 +127,28 @@ export function registerPaymentRoutes(app: Express): void {
       }
 
       // ── Audit fuera de la transacción (ADR-001) ──────────────────────────
+      const auditPayloadPago: import("../audit-retry").AuditLogPayload = {
+        tenant_id:      tenantIdPago,
+        user_id:        null,
+        guardian_id:    guardianId,
+        action:         "charge.status_changed",
+        entity_type:    "charge",
+        entity_id:      charge_id,
+        previous_value: { estado: "pendiente" },
+        new_value:      { estado: "pagado" },
+        metadata:       { flujo: "guardian_pago", payment_id: paymentId },
+      };
       pool.query(
         `INSERT INTO audit_log
            (tenant_id, guardian_id, action, entity_type, entity_id, previous_value, new_value, metadata)
          VALUES ($1,$2,'charge.status_changed','charge',$3,$4,$5,$6)`,
         [
           tenantIdPago, guardianId, charge_id,
-          JSON.stringify({ estado: "pendiente" }),
-          JSON.stringify({ estado: "pagado" }),
-          JSON.stringify({ flujo: "guardian_pago", payment_id: paymentId }),
+          JSON.stringify(auditPayloadPago.previous_value),
+          JSON.stringify(auditPayloadPago.new_value),
+          JSON.stringify(auditPayloadPago.metadata),
         ]
-      ).catch(() => {});
+      ).catch((err) => enqueueAuditLog(auditPayloadPago, err));
 
       // Notificación en tiempo real
       wsManager.notifyPaymentUpdate({ id: paymentId, charge_id }, "create", {

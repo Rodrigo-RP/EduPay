@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { pool, db } from "../db";
+import { enqueueAuditLog } from "../audit-retry";
 import { eq, and, gte, lt } from "drizzle-orm";
 import { storage } from "../storage";
 import { authenticateToken, requireAuth, requireSuperAdmin, authenticateGuardian, checkCampusTenant, upload, esmRequire, JWT_SECRET } from "./shared";
@@ -447,17 +448,28 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
         }
 
         // ── Audit fuera de la transacción financiera (ADR-001) ──────────────
+        const auditPayloadLote: import("../audit-retry").AuditLogPayload = {
+          tenant_id:      tenantIdLote,
+          user_id:        null,
+          guardian_id:    guardianId,
+          action:         "charge.status_changed",
+          entity_type:    "charge",
+          entity_id:      chargeId,
+          previous_value: { estado: "pendiente" },
+          new_value:      { estado: "pagado" },
+          metadata:       { flujo: "guardian_pagar_lote", payment_id: paymentId, monto_centavos: null },
+        };
         pool.query(
           `INSERT INTO audit_log
              (tenant_id, guardian_id, action, entity_type, entity_id, previous_value, new_value, metadata)
            VALUES ($1,$2,'charge.status_changed','charge',$3,$4,$5,$6)`,
           [
             tenantIdLote, guardianId, chargeId,
-            JSON.stringify({ estado: "pendiente" }),
-            JSON.stringify({ estado: "pagado" }),
-            JSON.stringify({ flujo: "guardian_pagar_lote", payment_id: paymentId, monto_centavos: null }),
+            JSON.stringify(auditPayloadLote.previous_value),
+            JSON.stringify(auditPayloadLote.new_value),
+            JSON.stringify(auditPayloadLote.metadata),
           ]
-        ).catch(() => {});
+        ).catch((err) => enqueueAuditLog(auditPayloadLote, err));
 
         // ── CFDI simulada (documento, no crítico para la integridad financiera) ──
         const cfdiUUID = `${Date.now()}-${Math.random().toString(36).substr(2, 8).toUpperCase()}`;

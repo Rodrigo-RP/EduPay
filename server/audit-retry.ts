@@ -55,10 +55,13 @@ export const auditLogger = winston.createLogger({
 export interface AuditLogPayload {
   tenant_id: number;
   user_id: number | null;
+  guardian_id?: number | null;
   action: string;
   entity_type: string;
   entity_id: number;
   metadata: Record<string, unknown>;
+  new_value?: Record<string, unknown>;
+  previous_value?: Record<string, unknown>;
 }
 
 // ── Init tabla ─────────────────────────────────────────────────────────────
@@ -159,15 +162,19 @@ export async function processAuditRetries(): Promise<void> {
     try {
       await pool.query(
         `INSERT INTO audit_log
-           (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6::jsonb, NOW())`,
+           (tenant_id, user_id, guardian_id, action, entity_type, entity_id, metadata,
+            new_value, previous_value, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9::jsonb, NOW())`,
         [
           p.tenant_id,
-          p.user_id,
+          p.user_id      ?? null,
+          p.guardian_id  ?? null,
           p.action,
           p.entity_type,
           p.entity_id,
           JSON.stringify(p.metadata),
+          p.new_value      ? JSON.stringify(p.new_value)      : null,
+          p.previous_value ? JSON.stringify(p.previous_value) : null,
         ]
       );
 

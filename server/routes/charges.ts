@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { pool, db } from "../db";
+import { enqueueAuditLog } from "../audit-retry";
 import { eq, and, gte, lt } from "drizzle-orm";
 import { storage } from "../storage";
 import { authenticateToken, requireAuth, checkCampusTenant, upload } from "./shared";
@@ -486,11 +487,19 @@ export function registerChargesRoutes(app: Express): void {
 
       // Audit FUERA de la transacción (ADR-001)
       if (tenantId && userId) {
+        const auditPayloadManual: import("../audit-retry").AuditLogPayload = {
+          tenant_id:   tenantId,
+          user_id:     userId,
+          action:      "pago_manual_admin",
+          entity_type: "charge",
+          entity_id:   chargeId,
+          metadata:    { payment_id: paymentId!, metodo, saldo_centavos: saldo, observaciones },
+        };
         pool.query(
           `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
            VALUES ($1,$2,'pago_manual_admin','charge',$3,$4)`,
-          [tenantId, userId, chargeId, JSON.stringify({ payment_id: paymentId!, metodo, saldo_centavos: saldo, observaciones })]
-        ).catch(() => {});
+          [tenantId, userId, chargeId, JSON.stringify(auditPayloadManual.metadata)]
+        ).catch((err) => enqueueAuditLog(auditPayloadManual, err));
       }
 
       // Notificar en tiempo real

@@ -73,6 +73,9 @@ const createRateLimit = (windowMs: number, max: number, message: string) => {
   return rateLimit({
     windowMs,
     max,
+    // En desarrollo y tests el rate-limit no aplica; las suites de integración
+    // comparten IP y acumulan requests rápidamente, causando 429 espurios.
+    skip: () => process.env.NODE_ENV !== 'production',
     message: { error: message },
     standardHeaders: true,
     legacyHeaders: false,

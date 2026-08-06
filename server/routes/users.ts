@@ -10,6 +10,7 @@ import { canEditUser, UserRole } from "@shared/permissions";
 import { storage } from "../storage";
 import { wsManager } from "../websocket-manager";
 import { authenticateToken, authenticateGuardian, requireSuperAdmin, serializeUser, esmRequire, JWT_SECRET } from "./shared";
+import { enqueueAuditLog, type AuditLogPayload } from "../audit-retry";
 
 export function registerUserRoutes(app: Express): void {
   app.get("/api/profile", authenticateToken, async (req, res) => {
@@ -338,6 +339,28 @@ export function registerUserRoutes(app: Express): void {
         return res.status(404).json({ message: "Usuario no encontrado" });
       }
 
+      // Auditoría: fire-and-forget fuera de transacción (ADR-001)
+      const auditPayload1: AuditLogPayload = {
+        tenant_id:   user.tenant_id,
+        user_id:     user.id ?? null,
+        action:      "user_deleted",
+        entity_type: "user",
+        entity_id:   userId,
+        metadata: {
+          deleted_user_id:    userId,
+          deleted_user_role:  existingUser.role,
+          deleted_user_email: existingUser.email,
+          actor_role:         user.role,
+          endpoint:           "DELETE /api/users/:id",
+        },
+      };
+      pool.query(
+        `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [auditPayload1.tenant_id, auditPayload1.user_id, auditPayload1.action,
+         auditPayload1.entity_type, auditPayload1.entity_id, JSON.stringify(auditPayload1.metadata)]
+      ).catch((err) => enqueueAuditLog(auditPayload1, err));
+
       // Notify real-time update
       wsManager.notifyUserUpdate({ id: userId }, 'delete', {
         campus_id: user.campus_id,
@@ -371,6 +394,29 @@ export function registerUserRoutes(app: Express): void {
       }
       const deleted = await storage.deleteUser(userId);
       if (!deleted) return res.status(404).json({ message: "Usuario no encontrado" });
+
+      // Auditoría: fire-and-forget fuera de transacción (ADR-001)
+      const auditPayload2: AuditLogPayload = {
+        tenant_id:   user.tenant_id,
+        user_id:     user.id ?? null,
+        action:      "user_deleted",
+        entity_type: "user",
+        entity_id:   userId,
+        metadata: {
+          deleted_user_id:    userId,
+          deleted_user_role:  existingUser.role,
+          deleted_user_email: existingUser.email,
+          actor_role:         user.role,
+          endpoint:           "DELETE /api/admin/users/:id",
+        },
+      };
+      pool.query(
+        `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [auditPayload2.tenant_id, auditPayload2.user_id, auditPayload2.action,
+         auditPayload2.entity_type, auditPayload2.entity_id, JSON.stringify(auditPayload2.metadata)]
+      ).catch((err) => enqueueAuditLog(auditPayload2, err));
+
       res.json({ message: "Usuario eliminado exitosamente" });
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });

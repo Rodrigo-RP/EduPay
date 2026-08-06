@@ -735,7 +735,16 @@ export default function CajaConciliacion() {
           description: "El pago bancario se registró correctamente"
         });
         queryClient.invalidateQueries({ queryKey: ["/api/caja/movimientos-banco"] });
-      }
+      },
+      onError: (error: any) => {
+        const msg = error?.message ?? "";
+        const body = msg.includes(": ") ? msg.slice(msg.indexOf(": ") + 2) : msg;
+        toast({
+          title: "Error al registrar transferencia",
+          description: body || "No se pudo registrar la transferencia bancaria",
+          variant: "destructive",
+        });
+      },
     });
 
     return (
@@ -1033,7 +1042,16 @@ export default function CajaConciliacion() {
           description: "La conciliación bancaria se completó correctamente"
         });
         queryClient.invalidateQueries({ queryKey: ["/api/caja"] });
-      }
+      },
+      onError: (error: any) => {
+        const msg = error?.message ?? "";
+        const body = msg.includes(": ") ? msg.slice(msg.indexOf(": ") + 2) : msg;
+        toast({
+          title: "Error al ejecutar conciliación",
+          description: body || "No se pudo ejecutar la conciliación automática",
+          variant: "destructive",
+        });
+      },
     });
 
     const cerrarCaja = useMutation({
@@ -1043,7 +1061,16 @@ export default function CajaConciliacion() {
           title: "Caja cerrada",
           description: "El corte de caja se realizó correctamente"
         });
-      }
+      },
+      onError: (error: any) => {
+        const msg = error?.message ?? "";
+        const body = msg.includes(": ") ? msg.slice(msg.indexOf(": ") + 2) : msg;
+        toast({
+          title: "Error al cerrar caja",
+          description: body || "No se pudo realizar el corte de caja",
+          variant: "destructive",
+        });
+      },
     });
 
     return (

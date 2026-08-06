@@ -361,6 +361,14 @@ export function registerUserRoutes(app: Express): void {
       const existingUser = await storage.getUser(userId);
       if (!existingUser || existingUser.campus_id !== user.campus_id) return res.status(404).json({ message: "Usuario no encontrado" });
       if (userId === user.id) return res.status(400).json({ message: "No puedes eliminar tu propia cuenta" });
+      // SEGURIDAD: misma guardia de jerarquía que /api/users/:id (línea 329).
+      // Sin este check cualquier usuario autenticado podía borrar a uno de mayor rango.
+      if (user.role !== 'super_admin' && !canEditUser(user.role as UserRole, existingUser.role as UserRole)) {
+        return res.status(403).json({
+          message: "No tienes permisos para eliminar este usuario",
+          detail: `Un ${user.role} no puede eliminar usuarios con rol ${existingUser.role}`
+        });
+      }
       const deleted = await storage.deleteUser(userId);
       if (!deleted) return res.status(404).json({ message: "Usuario no encontrado" });
       res.json({ message: "Usuario eliminado exitosamente" });

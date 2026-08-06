@@ -27,13 +27,13 @@ beforeAll(async () => {
   const ts = Date.now();
 
   const t = await pool.query(
-    `INSERT INTO tenants (nombre, dominio) VALUES ($1, $2) RETURNING id`,
-    [`OnError Test Tenant ${ts}`, `onerror-${ts}.test`]
+    `INSERT INTO tenants (nombre_legal, rfc) VALUES ($1, $2) RETURNING id`,
+    [`OnError Test Tenant ${ts}`, `OET${String(ts).slice(-9)}`]
   );
   tenantId = (t.rows as any[])[0].id;
 
   const c = await pool.query(
-    `INSERT INTO campuses (tenant_id, nombre, ciudad) VALUES ($1, 'Campus OnError', 'TestCity') RETURNING id`,
+    `INSERT INTO campuses (tenant_id, nombre) VALUES ($1, 'Campus OnError') RETURNING id`,
     [tenantId]
   );
   campusId = (c.rows as any[])[0].id;

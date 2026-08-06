@@ -317,6 +317,43 @@ describe("Planes de Pago — ADR-002", () => {
     expect(r.body.message).toContain("observaciones");
   });
 
+  // ── Modo A — totalAdeudo siempre del saldo real, nunca del body ────────────
+  it("Modo A — totalAdeudo_centavos / monto_directo en body se ignoran; plan usa saldo real de DB", async () => {
+    // Charge con monto conocido: 80 000 centavos, sin pagos previos.
+    // El body incluye campos trampa que intentan fijar el total en 999 999 999.
+    // El endpoint debe ignorarlos y calcular totalAdeudo desde la DB.
+    const chargeId = await mkCharge(80_000);
+
+    const r = await post("/api/planes-pago", {
+      charge_ids: [chargeId],
+      numero_pagos: 4,
+      frecuencia: "mensual",
+      fecha_inicio: "2026-09-01",
+      // Campos trampa — no reconocidos por el handler Modo A
+      total_adeudo_centavos: 999_999_999,
+      monto: 999_999_999,
+      monto_total: 999_999_999,
+    }, token);
+
+    expect(r.status).toBe(200);
+
+    // El total debe ser el saldo real del charge (80 000), nunca el valor inyectado
+    expect(Number(r.body.total_adeudo_centavos)).toBe(80_000);
+
+    // Las cuotas deben sumar exactamente el saldo real
+    const sumaCuotas: number = r.body.cuotas.reduce(
+      (acc: number, c: any) => acc + Number(c.monto_base_centavos), 0
+    );
+    expect(sumaCuotas).toBe(80_000);
+
+    // Doble-check en DB: el plan almacenado también tiene 80 000
+    const planRow = await pool.query(
+      `SELECT total_adeudo_centavos FROM payment_plans WHERE id = $1`,
+      [r.body.id]
+    );
+    expect(Number((planRow.rows[0] as any).total_adeudo_centavos)).toBe(80_000);
+  });
+
   // ── Modo B — concepto válido ──────────────────────────────────────────────
   it("Modo B — concept_id válido: total_adeudo = concept.monto_centavos (50 000); cuotas generadas", async () => {
     const r = await post("/api/planes-pago", {

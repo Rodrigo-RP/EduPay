@@ -158,11 +158,31 @@ convertirla en cuotas (convenio de pago, plan de diferimiento).
    Cualquier `charge_id` de otro tenant o alumno → HTTP 403.
 2. Todos los `charge_ids` tienen `estado IN ('pendiente', 'parcial')`.
    Un charge ya `'pagado'` o `'cancelado'` no puede reestructurarse → HTTP 422.
-3. `total_adeudo_centavos` del plan = `SUM(charges.monto_base_centavos) + recargo_centavos`.
-   Si el servidor calcula un total distinto al que produciría las cuotas → HTTP 422 con diff.
-4. `SUM(cuotas nuevas) = total_adeudo_centavos - monto_inicial_centavos` exactamente,
-   salvo redondeo de centavo en la última cuota (ajuste permitido: ±1 centavo por cuota,
-   absorbido en la última cuota del plan).
+3. El monto base del plan se calcula usando el **saldo pendiente real** de cada charge,
+   no el monto original:
+   ```sql
+   -- Saldo pendiente por charge_id
+   SELECT c.id,
+          c.monto_base_centavos
+          - COALESCE(SUM(pa.amount_centavos), 0) AS saldo_pendiente_centavos
+   FROM charges c
+   LEFT JOIN payment_applications pa ON pa.charge_id = c.id
+   WHERE c.id = ANY($charge_ids)
+   GROUP BY c.id, c.monto_base_centavos
+   ```
+   Para charges en `estado='pendiente'` sin PaymentApplications, `saldo_pendiente = monto_base_centavos` (igual que antes).
+   Para charges en `estado='parcial'`, `saldo_pendiente < monto_base_centavos`; usar **siempre** el saldo pendiente.
+   El servidor rechaza con HTTP 422 si algún charge tiene `saldo_pendiente <= 0` (edge case: charge marcado 'parcial' por error sin aplicaciones reales).
+
+4. `SUM(saldos_pendientes) + recargo_centavos` debe coincidir exactamente con
+   `SUM(cuotas nuevas) + monto_inicial_centavos`, salvo redondeo absorbido en la
+   última cuota del plan (tolerancia: ±1 centavo). Diff fuera de tolerancia → HTTP 422
+   con body `{ diff_centavos, saldo_calculado, total_cuotas }`.
+
+> **Por qué saldo pendiente y no monto original:** Un charge en `estado='parcial'`
+> significa que parte de él ya fue cobrada y registrada en `payment_applications`.
+> Reestructurar por el monto original duplicaría la deuda ya pagada. El ledger debe
+> reflejar únicamente lo que queda por cobrar.
 
 **Escrituras dentro de una sola transacción:**
 
@@ -260,17 +280,9 @@ Enviar ambos o ninguno → HTTP 400 `"El plan debe especificar charge_ids (reest
 ## Reglas de cancelación de un plan
 
 La cancelación opera a nivel de la cabecera del plan y de sus charges pendientes.
-Ambas escrituras ocurren en una sola transacción.
+Todas las escrituras ocurren en una sola transacción.
 
 **Endpoint:** `PATCH /api/planes-pago/:id/cancelar`
-
-**Body requerido:**
-
-```typescript
-{
-  motivo: string   // obligatorio; mínimo 10 caracteres; igual que condonaciones
-}
-```
 
 **Invariante de autorización:** Solo puede cancelar un plan el mismo `tenant_id` que lo
 creó. Cancelar un plan ajeno → HTTP 403.
@@ -278,7 +290,55 @@ creó. Cancelar un plan ajeno → HTTP 403.
 **Invariante de estado:** Solo se puede cancelar un plan en `estado = 'activo'`. Un plan
 ya `'cancelado'` → HTTP 409 `"El plan ya está cancelado"`.
 
-**Escrituras dentro de una sola transacción:**
+### Decisión: ¿qué pasa con la deuda pendiente al cancelar un plan de reestructuración?
+
+Cuando un plan de `tipo_origen='reestructuracion'` se cancela a medio camino, las cuotas
+pendientes representan deuda real que la escuela negoció y que los charges originales ya
+no reflejan (fueron cancelados al crear el plan). Dejar esa deuda en el aire sería un
+efecto secundario silencioso: el ledger quedaría limpio para ese alumno sin que nadie haya
+decidido perdonarlo.
+
+**Decisión adoptada: el campo `destino_saldo_pendiente` en el body es obligatorio para
+planes de `tipo_origen='reestructuracion'`. El servidor exige que el administrador
+elija explícitamente entre dos rutas.**
+
+Para planes de `tipo_origen='futuro'`, este campo no aplica: cancelar solo anula cuotas
+futuras que nunca representaron deuda preexistente, sin reinstatement ni condonación.
+
+#### Opción `'reinstalar'` — la deuda vuelve al ledger como un nuevo charge
+
+La escuela quiere seguir cobrando la deuda por otra vía (un nuevo plan, cobro directo,
+proceso legal). El servidor crea un único charge nuevo que consolida el saldo pendiente
+de todas las cuotas del plan que quedaban sin pagar.
+
+```typescript
+// Body para planes tipo_origen='reestructuracion'
+{
+  motivo: string,                        // obligatorio; ≥ 10 chars
+  destino_saldo_pendiente: 'reinstalar', // obligatorio
+  // No se requiere campo adicional; la fecha de vencimiento del nuevo charge = hoy
+}
+```
+
+#### Opción `'condonar'` — la deuda se perdona de forma explícita y auditada
+
+La escuela decide absorber la deuda restante (acuerdo especial, insolvencia verificada,
+error del plan original). Requiere `motivo_condonacion` adicional igual que cualquier
+condonación del sistema.
+
+```typescript
+// Body para planes tipo_origen='reestructuracion' con condonación
+{
+  motivo: string,                       // obligatorio; ≥ 10 chars
+  destino_saldo_pendiente: 'condonar',  // obligatorio
+  motivo_condonacion: string,           // obligatorio adicional; ≥ 10 chars
+}
+```
+
+Omitir `destino_saldo_pendiente` en un plan de reestructuración → HTTP 400
+`"Los planes de reestructuración requieren destino_saldo_pendiente: 'reinstalar' | 'condonar'"`.
+
+**Escrituras dentro de una sola transacción (plan de reestructuración — opción reinstalar):**
 
 ```sql
 BEGIN;
@@ -287,40 +347,89 @@ BEGIN;
 UPDATE payment_plans
 SET estado = 'cancelado', updated_at = NOW()
 WHERE id = $plan_id AND tenant_id = $tenant_id AND estado = 'activo';
--- Si 0 filas afectadas → ROLLBACK + HTTP 409
+-- 0 filas → ROLLBACK + HTTP 409
 
--- 2. Cancelar únicamente las cuotas pendientes; las pagadas permanecen intactas
+-- 2. Calcular saldo pendiente de las cuotas no pagadas
+-- (este valor se calcula en la capa de aplicación antes del BEGIN)
+-- saldo_reinstalar = SUM(monto_base_centavos) WHERE plan_id=$plan_id AND estado='pendiente'
+
+-- 3. Cancelar las cuotas pendientes del plan
 UPDATE charges
 SET estado = 'cancelado', updated_at = NOW()
 WHERE plan_id = $plan_id AND estado = 'pendiente';
 
--- 3. Registrar en audit_log
+-- 4. Crear nuevo charge que reinstala la deuda
+INSERT INTO charges (
+  tenant_id, student_id, concept_id, plan_id,
+  fecha_emision, fecha_vencimiento,
+  monto_base_centavos, estado
+)
+SELECT
+  $tenant_id, pp.student_id,
+  -- concept_id: usar el mismo concepto del primer charge original, o un concepto
+  -- de tipo 'extra' genérico del campus si el original ya no existe
+  (SELECT concept_id FROM charges
+   WHERE id = (pp.charge_ids_origen->>0)::int),
+  NULL,                         -- plan_id NULL: este charge ya no pertenece al plan
+  NOW()::date, NOW()::date,     -- vencido desde hoy para que aparezca en el semáforo
+  $saldo_reinstalar, 'pendiente'
+FROM payment_plans pp WHERE pp.id = $plan_id;
+
+-- 5. Registrar en audit_log (una entrada para el plan, con toda la trazabilidad)
 INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
-VALUES ($tenant_id, $user_id, 'plan_cancelado', 'payment_plan', $plan_id,
+VALUES ($tenant_id, $user_id, 'plan_cancelado_reinstalado', 'payment_plan', $plan_id,
         jsonb_build_object(
           'motivo', $motivo,
-          'cuotas_canceladas', (SELECT COUNT(*) FROM charges
-                                 WHERE plan_id = $plan_id AND estado = 'cancelado'
-                                   AND updated_at >= NOW() - INTERVAL '5 seconds'),
-          'cuotas_pagadas_preservadas', (SELECT COUNT(*) FROM charges
-                                          WHERE plan_id = $plan_id AND estado = 'pagado')
+          'destino_saldo_pendiente', 'reinstalar',
+          'saldo_reinstalado_centavos', $saldo_reinstalar,
+          'nuevo_charge_id', <id del charge creado en paso 4>,
+          'cuotas_canceladas', <count>,
+          'cuotas_pagadas_preservadas', <count>
         ));
 
 COMMIT;
 ```
 
-**Estado final después de cancelación:**
+**Escrituras dentro de una sola transacción (plan de reestructuración — opción condonar):**
 
-| Objeto | Estado antes | Estado después |
-|---|---|---|
-| `payment_plans` cabecera | `'activo'` | `'cancelado'` |
-| `charges` cuotas pendientes | `'pendiente'` | `'cancelado'` |
-| `charges` cuotas ya pagadas | `'pagado'` | `'pagado'` (sin cambio) |
-| `audit_log` | — | 1 entrada con motivo y conteos |
+Igual que el bloque anterior pero sin el paso 4 (no se crea charge nuevo) y con:
+```sql
+-- Paso 5 (audit_log)
+jsonb_build_object(
+  'motivo', $motivo,
+  'destino_saldo_pendiente', 'condonar',
+  'motivo_condonacion', $motivo_condonacion,
+  'monto_condonado_centavos', $saldo_que_se_perdona,
+  'cuotas_canceladas', <count>,
+  'cuotas_pagadas_preservadas', <count>
+)
+```
 
-> **Nota de consistencia con condonaciones:** El campo `motivo` sigue exactamente el mismo
-> contrato que ya exige el endpoint de condonaciones en este proyecto: string obligatorio,
-> mínimo 10 caracteres, registrado en `audit_log.metadata.motivo`. No se introduce un
+**Escrituras dentro de una sola transacción (plan de tipo `futuro`):**
+
+No requiere `destino_saldo_pendiente`. El flujo es idéntico al bloque original sin paso 4.
+
+**Estado final garantizado por la transacción:**
+
+| Objeto | Plan `'futuro'` | Plan `'reestructuracion'` — reinstalar | Plan `'reestructuracion'` — condonar |
+|---|---|---|---|
+| `payment_plans` cabecera | `'cancelado'` | `'cancelado'` | `'cancelado'` |
+| Cuotas pendientes | `'cancelado'` | `'cancelado'` | `'cancelado'` |
+| Cuotas ya pagadas | `'pagado'` sin cambio | `'pagado'` sin cambio | `'pagado'` sin cambio |
+| Nuevo charge reinstatement | No aplica | Creado, `estado='pendiente'` | No se crea |
+| `audit_log` | 1 entrada | 1 entrada con `nuevo_charge_id` | 1 entrada con `monto_condonado` |
+
+> **Por qué esta decisión y no la alternativa de reinstatement automático siempre:**
+> El reinstatement automático sin decisión explícita del admin produce el mismo problema
+> que queríamos evitar en el Defecto 4: deuda que aparece en el ledger sin que un humano
+> haya revisado si el monto y el concepto son correctos. Un plan puede haberse cancelado
+> porque el monto fue negociado diferente; el reinstatement automático instalaría el monto
+> incorrecto. Forzar la elección en el mismo request garantiza que el administrador sabe
+> exactamente qué está autorizando.
+
+> **Nota de consistencia con condonaciones:** Tanto `motivo` como `motivo_condonacion`
+> siguen el mismo contrato que ya exige el endpoint de condonaciones: string obligatorio,
+> mínimo 10 caracteres, registrado íntegro en `audit_log.metadata`. No se introduce
 > contrato nuevo.
 
 ---
@@ -423,11 +532,12 @@ logra lo mismo sin el invariante.
 - [ ] Detectar modo por presencia de `charge_ids` vs. `concept_id`; rechazar si llegan ambos o ninguno → HTTP 400
 - [ ] **Modo A:** validar que todos los `charge_ids` pertenecen al mismo `tenant_id` y `student_id`; cualquier cruce → HTTP 403
 - [ ] **Modo A:** validar que todos los `charge_ids` tienen `estado IN ('pendiente', 'parcial')`; cualquier otro estado → HTTP 422
-- [ ] **Modo A:** validar que `SUM(cuotas nuevas) = SUM(charges originales) + recargo_centavos`; diff → HTTP 422
+- [ ] **Modo A — saldo pendiente:** para cada `charge_id`, calcular `saldo_pendiente = monto_base_centavos - COALESCE(SUM(payment_applications.amount_centavos), 0)`; nunca usar `monto_base_centavos` directamente cuando `estado='parcial'`; rechazar con HTTP 422 si `saldo_pendiente <= 0` en algún charge
+- [ ] **Modo A — invariante de suma:** `SUM(saldos_pendientes) + recargo_centavos` debe coincidir con `SUM(cuotas nuevas) + monto_inicial_centavos` dentro de la tolerancia de ±1 centavo absorbido en la última cuota; diff fuera de tolerancia → HTTP 422 con `{ diff_centavos, saldo_calculado, total_cuotas }`
 - [ ] **Modo A:** rechazar `recargo_centavos > 0` sin `observaciones` → HTTP 400
 - [ ] **Modo B:** validar que `concept_id` pertenece al mismo `campus_id` y `tenant_id` → HTTP 403 si no
 - [ ] **Modo B:** rechazar `concept.tipo === 'cuota_plan'` como origen → HTTP 422
-- [ ] Dentro de una sola transacción: (A) UPDATE charges originales a `'cancelado'`, (B) INSERT audit_log por cada charge cancelado, (C) INSERT charges de `cuota_plan` con `plan_id`; COMMIT al final (ver ADR-001)
+- [ ] Dentro de una sola transacción: (A) UPDATE charges originales a `'cancelado'`, (B) INSERT audit_log por cada charge cancelado (incluye `saldo_pendiente_centavos` en metadata cuando el charge era `'parcial'`), (C) INSERT charges de `cuota_plan` con `plan_id`; COMMIT al final (ver ADR-001)
 - [ ] Reemplazar loop de INSERT en `payment_plan_installments` por loop de INSERT en `charges`
 
 ### Endpoint: listar planes (`GET /api/planes-pago/:campusId`)
@@ -437,7 +547,12 @@ logra lo mismo sin el invariante.
 - [ ] Validar `motivo` obligatorio, mínimo 10 caracteres → HTTP 400 si falta o es corto
 - [ ] Validar que el plan pertenece al `tenant_id` del JWT → HTTP 403 si no
 - [ ] Validar que `payment_plans.estado = 'activo'` → HTTP 409 si ya está cancelado
-- [ ] Dentro de una sola transacción: (A) `UPDATE payment_plans SET estado='cancelado'`, (B) `UPDATE charges SET estado='cancelado' WHERE plan_id=X AND estado='pendiente'` — las cuotas `'pagado'` no se tocan, (C) INSERT en `audit_log` con `motivo`, `cuotas_canceladas` y `cuotas_pagadas_preservadas` en metadata
+- [ ] **Planes `tipo_origen='reestructuracion'`:** exigir `destino_saldo_pendiente: 'reinstalar' | 'condonar'` → HTTP 400 si ausente o valor inválido
+- [ ] **`destino_saldo_pendiente='condonar'`:** exigir `motivo_condonacion` (string, ≥ 10 chars) → HTTP 400 si ausente
+- [ ] **`destino_saldo_pendiente='reinstalar'`:** dentro de la transacción, crear un nuevo charge con `monto_base_centavos = SUM(cuotas pendientes)`, `estado='pendiente'`, `fecha_vencimiento=NOW()::date`, `plan_id=NULL`; incluir `nuevo_charge_id` en el audit_log
+- [ ] **`destino_saldo_pendiente='condonar'`:** no crear charge nuevo; registrar `monto_condonado_centavos` en audit_log
+- [ ] **Planes `tipo_origen='futuro'`:** no requiere `destino_saldo_pendiente`; el flujo es: UPDATE plan a `'cancelado'`, UPDATE cuotas pendientes a `'cancelado'`, INSERT audit_log
+- [ ] En todos los casos: cuotas `'pagado'` permanecen intactas sin cambio de estado
 - [ ] `payment_plans.estado` pasa a `'cancelado'`; nunca queda en `'activo'` después de cancelado
 
 ### Endpoint deprecado
@@ -449,10 +564,15 @@ logra lo mismo sin el invariante.
 ### Datos y pruebas
 - [ ] Script de migración de datos de demo existentes en `payment_plan_installments` (o truncar y re-seedear como charges)
 - [ ] Actualizar la matriz de pruebas `docs/qa/matriz-de-pruebas.md` (PL-01 a PL-05 + casos de cancelación)
-- [ ] Pruebas: Modo A crear plan → charges originales cancelados + audit_log + cuotas nuevas en ledger
-- [ ] Pruebas: Modo B crear plan → cuotas generadas a partir del concepto, no monto libre
-- [ ] Pruebas: cancelar plan → `payment_plans.estado='cancelado'` + cuotas pendientes canceladas + cuotas pagadas intactas + audit_log con motivo
-- [ ] Pruebas: cancelar sin motivo → HTTP 400; cancelar plan ajeno → HTTP 403; cancelar plan ya cancelado → HTTP 409
+- [ ] **Prueba Modo A — cargo completamente pendiente:** crear plan con un charge en `estado='pendiente'`; confirmar que `SUM(cuotas nuevas) = monto_base_centavos` del charge original
+- [ ] **Prueba Modo A — cargo parcialmente pagado:** crear un charge con `monto_base_centavos=100_000`, registrar un PaymentApplication de `40_000`; reestructurar ese charge en un plan; confirmar que `SUM(cuotas nuevas) = 60_000` (saldo pendiente real), no `100_000` (monto original); confirmar que el charge original queda `'cancelado'` y el audit_log incluye `saldo_pendiente_centavos: 60000`
+- [ ] **Prueba Modo A — suma incorrecta detectada:** enviar cuotas que sumen distinto al saldo pendiente → HTTP 422 con `diff_centavos` en la respuesta
+- [ ] **Prueba Modo B:** crear plan con `concept_id` válido → cuotas generadas por `concept.monto_centavos`, no por monto libre
+- [ ] **Prueba cancelación plan `futuro`:** cancelar → `payment_plans.estado='cancelado'`, cuotas pendientes `'cancelado'`, cuotas pagadas intactas, audit_log con motivo
+- [ ] **Prueba cancelación plan `reestructuracion` — reinstalar:** cancelar con `destino_saldo_pendiente='reinstalar'`; confirmar que: `payment_plans.estado='cancelado'`, cuotas pendientes `'cancelado'`, nuevo charge creado con monto = saldo pendiente de cuotas canceladas, audit_log incluye `nuevo_charge_id`
+- [ ] **Prueba cancelación plan `reestructuracion` — condonar:** cancelar con `destino='condonar'`; confirmar que: no se crea charge nuevo, audit_log incluye `monto_condonado_centavos` y `motivo_condonacion`
+- [ ] **Prueba cancelación — errores de validación:** sin motivo → HTTP 400; plan ajeno → HTTP 403; plan ya cancelado → HTTP 409; plan `reestructuracion` sin `destino_saldo_pendiente` → HTTP 400
+- [ ] **Prueba SPEI fuera de orden sobre charge cancelado por reestructuración:** dado un charge original en `estado='cancelado'` (cancelado al crear el plan), simular que llega un webhook SPEI con referencia que matchea ese charge; confirmar que el motor de conciliación (`POST /api/conciliacion/excepciones/resolver` o el proceso de auto-match) **no aplica** el pago al charge cancelado; confirmar que la `bank_transaction` queda en `estado_conciliacion='pendiente'` y aparece en el GET de excepciones para que el administrador decida manualmente
 - [ ] Verificar que `shared/fiscal-engine.ts` distingue `'cuota_plan'` si emite CFDI
 
 ---

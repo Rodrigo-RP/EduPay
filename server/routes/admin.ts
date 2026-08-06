@@ -406,15 +406,18 @@ export function registerAdminRoutes(app: Express): void {
         ORDER BY c.fecha_vencimiento DESC
       `, [studentId]).catch((e: any) => { throw new Error("Error al buscar cargos: " + e.message); });
 
-      // Saldo a favor: excedentes de pago registrados en family_credits para este alumno
-      // o para la familia a la que pertenece el alumno
+      // Saldo a favor: solo créditos ACTIVOS (status='activo').
+      // Los consumidos ya generaron una payment_application y no se cuentan dos veces.
       const creditRes = await pool.query(
         `SELECT COALESCE(SUM(fc.amount_centavos), 0)::bigint AS saldo_a_favor
          FROM family_credits fc
-         WHERE fc.student_id = $1
-            OR fc.family_id IN (
-              SELECT fs.family_id FROM family_students fs WHERE fs.student_id = $1
-            )`,
+         WHERE fc.status = 'activo'
+           AND (
+             fc.student_id = $1
+             OR fc.family_id IN (
+               SELECT fs.family_id FROM family_students fs WHERE fs.student_id = $1
+             )
+           )`,
         [studentId]
       ).catch(() => ({ rows: [{ saldo_a_favor: 0 }] }));
       const saldoAFavor = Number((creditRes.rows as any[])[0]?.saldo_a_favor ?? 0);
@@ -910,6 +913,188 @@ export function registerAdminRoutes(app: Express): void {
 
     } catch (error: any) {
       res.status(500).json({ message: "Error importing students" });
+    }
+  });
+
+  // ── POST /api/admin/family-credits/:creditId/aplicar ─────────────────────────
+  /**
+   * Aplica un saldo a favor (family_credits) a un cargo pendiente.
+   *
+   * PRINCIPIO DEL LEDGER: el crédito se consume creando una PaymentApplication
+   * nueva contra el payment_id original que generó el excedente, y apuntando al
+   * charge nuevo.  De esta forma el balance de la familia es 100% calculable
+   * como SUM(charges) − SUM(payment_applications), sin ninguna query auxiliar.
+   *
+   * El registro de family_credits queda marcado como 'consumido' con referencia
+   * a la PaymentApplication creada.  amount_centavos NUNCA se edita ni se borra.
+   *
+   * Si el crédito es mayor que el saldo pendiente del cargo (pago en exceso del
+   * exceso), se crea un nuevo crédito activo por el remanente.
+   *
+   * Body: { charge_id: number }
+   */
+  app.post("/api/admin/family-credits/:creditId/aplicar", authenticateToken, async (req: any, res) => {
+    try {
+      const tenantId  = req.user?.tenant_id;
+      const campusId  = req.user?.campus_id;
+      const userId    = req.user?.id;
+      const creditId  = parseInt(req.params.creditId);
+      const chargeId  = parseInt(req.body?.charge_id);
+
+      if (isNaN(creditId) || isNaN(chargeId)) {
+        return res.status(400).json({ message: "creditId y charge_id deben ser enteros válidos" });
+      }
+
+      const client = await pool.connect();
+      let newPaId!: number;
+      let montoAplicado!: number;
+      let newChargeEstado!: string;
+      let remanente = 0;
+      let newCreditId: number | null = null;
+
+      try {
+        await client.query("BEGIN");
+
+        // ── Bloquear el crédito y verificar que sigue activo ─────────────────
+        const creditLock = await client.query(
+          `SELECT id, payment_id, amount_centavos, status, student_id, family_id, tenant_id
+           FROM family_credits WHERE id = $1 FOR UPDATE`,
+          [creditId]
+        );
+        if (!creditLock.rows.length) {
+          await client.query("ROLLBACK");
+          return res.status(404).json({ message: "Crédito no encontrado" });
+        }
+        const credit = creditLock.rows[0] as any;
+        if (Number(credit.tenant_id) !== tenantId) {
+          await client.query("ROLLBACK");
+          return res.status(403).json({ message: "El crédito no pertenece a tu institución" });
+        }
+        if (credit.status !== "activo") {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ message: "El crédito ya fue consumido o no está activo" });
+        }
+
+        // ── Bloquear el cargo y verificar que está pendiente ─────────────────
+        const chargeLock = await client.query(
+          `SELECT c.id, c.monto_base_centavos, c.estado, s.campus_id
+           FROM charges c JOIN students s ON s.id = c.student_id
+           WHERE c.id = $1 AND c.tenant_id = $2 FOR UPDATE`,
+          [chargeId, tenantId]
+        );
+        if (!chargeLock.rows.length) {
+          await client.query("ROLLBACK");
+          return res.status(404).json({ message: "Cargo no encontrado" });
+        }
+        const charge = chargeLock.rows[0] as any;
+        if (Number(charge.campus_id) !== campusId) {
+          await client.query("ROLLBACK");
+          return res.status(403).json({ message: "El cargo no pertenece a tu campus" });
+        }
+        if (["pagado", "cancelado"].includes(charge.estado)) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ message: "El cargo ya está pagado o cancelado" });
+        }
+
+        // ── Saldo pendiente real del cargo (vía payment_applications) ─────────
+        const saldoRes = await client.query(
+          `SELECT COALESCE(SUM(pa.amount_centavos), 0)::bigint AS ya_pagado
+           FROM payment_applications pa WHERE pa.charge_id = $1`,
+          [chargeId]
+        );
+        const yaPagado = Number(saldoRes.rows[0].ya_pagado);
+        const saldoPendiente = Number(charge.monto_base_centavos) - yaPagado;
+
+        if (saldoPendiente <= 0) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ message: "El cargo ya tiene saldo cero" });
+        }
+
+        const creditAmount = Number(credit.amount_centavos);
+        montoAplicado  = Math.min(creditAmount, saldoPendiente);
+        remanente      = creditAmount - montoAplicado;  // > 0 si el crédito excede el cargo
+        newChargeEstado = montoAplicado >= saldoPendiente ? "pagado" : "parcial";
+
+        // ── Crear PaymentApplication contra el payment original ───────────────
+        // Principio del ledger: el balance SUM(charges)-SUM(payment_applications) es
+        // la única fuente de verdad.  Esta PA cubre el nuevo cargo usando el payment
+        // del excedente original, sin tocar ni crear otro Payment.
+        const paRes = await client.query(
+          `INSERT INTO payment_applications (payment_id, charge_id, amount_centavos, applied_at)
+           VALUES ($1, $2, $3, NOW()) RETURNING id`,
+          [credit.payment_id, chargeId, montoAplicado]
+        );
+        newPaId = (paRes.rows as any[])[0].id;
+
+        // ── Actualizar estado del cargo ────────────────────────────────────────
+        await client.query(
+          `UPDATE charges SET estado = $1, updated_at = NOW() WHERE id = $2`,
+          [newChargeEstado, chargeId]
+        );
+
+        // ── Marcar el crédito como consumido (sin editar amount_centavos) ─────
+        await client.query(
+          `UPDATE family_credits
+           SET status = 'consumido',
+               consumed_application_id = $1,
+               consumed_at = NOW()
+           WHERE id = $2`,
+          [newPaId, creditId]
+        );
+
+        // ── Si el crédito excedía el saldo del cargo, crear nuevo crédito activo
+        if (remanente > 0) {
+          const remRes = await client.query(
+            `INSERT INTO family_credits
+               (tenant_id, campus_id, family_id, student_id, payment_id,
+                amount_centavos, origen, descripcion)
+             VALUES ($1, $2, $3, $4, $5, $6, 'excedente_caja',
+                     'Remanente de crédito #' || $7 || ' tras aplicación parcial')
+             RETURNING id`,
+            [
+              tenantId, campusId, credit.family_id, credit.student_id,
+              credit.payment_id, remanente, creditId,
+            ]
+          );
+          newCreditId = (remRes.rows as any[])[0].id;
+        }
+
+        await client.query("COMMIT");
+      } catch (err) {
+        await client.query("ROLLBACK");
+        throw err;
+      } finally {
+        client.release();
+      }
+
+      // ── Audit fuera de la transacción (ADR-001) ────────────────────────────
+      pool.query(
+        `INSERT INTO audit_log
+           (tenant_id, user_id, action, entity_type, entity_id, new_value, metadata)
+         VALUES ($1,$2,'credit.applied','family_credit',$3,$4,$5)`,
+        [
+          tenantId, userId, creditId,
+          JSON.stringify({ status: "consumido", monto_aplicado: montoAplicado }),
+          JSON.stringify({
+            charge_id: chargeId, payment_application_id: newPaId,
+            charge_nuevo_estado: newChargeEstado,
+            remanente_centavos: remanente,
+            nuevo_credit_id: newCreditId,
+          }),
+        ]
+      ).catch(() => {});
+
+      res.json({
+        message: `Crédito aplicado al cargo (${newChargeEstado})${remanente > 0 ? ` — remanente de $${(remanente / 100).toFixed(2)} registrado como nuevo crédito activo` : ""}`,
+        payment_application_id: newPaId,
+        monto_aplicado_centavos: montoAplicado,
+        charge_nuevo_estado:     newChargeEstado,
+        remanente_centavos:      remanente,
+        nuevo_credit_id:         newCreditId,
+      });
+    } catch (error: any) {
+      console.error("[family-credits/aplicar]", error.message);
+      if (!res.headersSent) res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 }

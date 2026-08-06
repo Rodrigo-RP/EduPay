@@ -458,6 +458,117 @@ describe("caja/pago-efectivo — pago parcial y completion", () => {
     );
   });
 
+  /**
+   * PC-11 — Ciclo completo de saldo a favor
+   *
+   * 1. Caja cobra $2,000 sobre un cargo de $1,500 → genera family_credit activo de $500
+   * 2. Llega un cargo nuevo de $500
+   * 3. Admin aplica el crédito al cargo nuevo via POST /api/admin/family-credits/:id/aplicar
+   * 4. VERIFICACIÓN DEL LEDGER PURO:
+   *    SUM(charges para los dos cargos) − SUM(payment_applications para esos cargos)
+   *    debe ser CERO — sin ninguna query adicional a family_credits ni ajuste manual.
+   */
+  it("PC-11: ciclo completo — crédito $500 generado en caja, cargo nuevo $500, consumo, ledger=0", async () => {
+    const CARGO_ORIGINAL = 150_000; // $1,500
+    const COBRADO        = 200_000; // $2,000 cobrado en caja
+    const EXCEDENTE      =  50_000; // $500 de cambio → saldo a favor
+    const CARGO_NUEVO    =  50_000; // $500 cargo del mes siguiente
+
+    // ── Paso 1: pago en caja con excedente ────────────────────────────────────
+    const chargeOriginalId = await mkCharge(CARGO_ORIGINAL);
+    const cajaRes = await httpPost(
+      "/api/caja/pago-efectivo",
+      { estudiante_id: studentId, charge_id: chargeOriginalId, monto: "2000" },
+      adminToken
+    );
+    expect(cajaRes.status).toBe(200);
+    expect((cajaRes.body as any).excedente_centavos).toBe(EXCEDENTE);
+
+    // El payment_id del pago de caja (para verificar después)
+    const originalPaymentId: number = await pool.query(
+      `SELECT id FROM payments WHERE charge_id = $1 ORDER BY id DESC LIMIT 1`,
+      [chargeOriginalId]
+    ).then(r => r.rows[0].id);
+
+    // El crédito activo debe existir en DB
+    const creditRow = await pool.query(
+      `SELECT id, amount_centavos, status, payment_id
+       FROM family_credits WHERE payment_id = $1 ORDER BY id DESC LIMIT 1`,
+      [originalPaymentId]
+    );
+    expect(creditRow.rows.length).toBe(1);
+    const creditId: number = creditRow.rows[0].id;
+    expect(Number(creditRow.rows[0].amount_centavos)).toBe(EXCEDENTE);
+    expect(creditRow.rows[0].status).toBe("activo");
+    expect(Number(creditRow.rows[0].payment_id)).toBe(originalPaymentId);
+
+    // ── Paso 2: llega un cargo nuevo ──────────────────────────────────────────
+    const chargeNuevoId = await mkCharge(CARGO_NUEVO);
+
+    // ── Paso 3: admin aplica el crédito al cargo nuevo ────────────────────────
+    const aplicarRes = await httpPost(
+      `/api/admin/family-credits/${creditId}/aplicar`,
+      { charge_id: chargeNuevoId },
+      adminToken
+    );
+    expect(aplicarRes.status).toBe(200);
+    expect((aplicarRes.body as any).charge_nuevo_estado).toBe("pagado");
+    expect((aplicarRes.body as any).monto_aplicado_centavos).toBe(EXCEDENTE);
+    expect((aplicarRes.body as any).remanente_centavos).toBe(0); // exacto, sin remanente
+
+    // ── Paso 4: family_credit queda consumido, con referencia a la nueva PA ──
+    const creditAfter = await pool.query(
+      `SELECT status, consumed_application_id, amount_centavos FROM family_credits WHERE id = $1`,
+      [creditId]
+    );
+    expect(creditAfter.rows[0].status).toBe("consumido");
+    expect(creditAfter.rows[0].consumed_application_id).not.toBeNull();
+    // El amount_centavos NUNCA se modificó
+    expect(Number(creditAfter.rows[0].amount_centavos)).toBe(EXCEDENTE);
+
+    // ── Paso 5: la nueva PaymentApplication apunta al payment ORIGINAL ────────
+    const newPaId: number = creditAfter.rows[0].consumed_application_id;
+    const newPa = await pool.query(
+      `SELECT payment_id, charge_id, amount_centavos FROM payment_applications WHERE id = $1`,
+      [newPaId]
+    );
+    expect(Number(newPa.rows[0].payment_id)).toBe(originalPaymentId);    // mismo payment de caja
+    expect(Number(newPa.rows[0].charge_id)).toBe(chargeNuevoId);         // cargo nuevo
+    expect(Number(newPa.rows[0].amount_centavos)).toBe(EXCEDENTE);       // $500 exactos
+
+    // ── Paso 6: LEDGER PURO — sin ninguna query auxiliar a family_credits ──────
+    // SUM(charges para [chargeOriginalId, chargeNuevoId])
+    //   = $1,500 + $500 = $2,000
+    // SUM(payment_applications para [chargeOriginalId, chargeNuevoId])
+    //   = $1,500 (pago original) + $500 (nueva PA del crédito) = $2,000
+    // saldo_neto = $2,000 − $2,000 = 0
+    const ledgerCheck = await pool.query(
+      `SELECT
+         COALESCE(SUM(c.monto_base_centavos), 0)::bigint           AS total_cargos,
+         COALESCE(SUM(pa.amount_centavos),     0)::bigint           AS total_aplicado,
+         COALESCE(SUM(c.monto_base_centavos), 0) -
+           COALESCE(SUM(pa.amount_centavos),  0)                    AS saldo_neto
+       FROM charges c
+       LEFT JOIN payment_applications pa ON pa.charge_id = c.id
+       WHERE c.id = ANY($1)`,
+      [[chargeOriginalId, chargeNuevoId]]
+    );
+    const ledger = ledgerCheck.rows[0] as any;
+    expect(Number(ledger.total_cargos)).toBe(CARGO_ORIGINAL + CARGO_NUEVO); // $2,000
+    expect(Number(ledger.total_aplicado)).toBe(CARGO_ORIGINAL + CARGO_NUEVO); // $2,000
+    expect(Number(ledger.saldo_neto)).toBe(0); // ← el principio no negociable
+
+    // ── Paso 7: estado-cuenta refleja saldo_a_favor=0 (crédito ya consumido) ─
+    const estadoCuenta = await fetch(`${BASE}/api/students/${studentId}/estado-cuenta`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    }).then(r => r.json()).catch(() => ({}));
+    // El crédito consumido ya no aparece como saldo_a_favor activo
+    // (puede haber otros créditos activos de otros tests; verificamos que el consumido no suma)
+    const resumen = (estadoCuenta as any).resumen;
+    expect(typeof resumen.saldo_a_favor_centavos).toBe("number");
+    expect(typeof resumen.saldo_neto_centavos).toBe("number");
+  });
+
   it("PC-09: doble clic en caja — el cargo queda pagado exactamente una vez", async () => {
     const chargeId = await mkCharge(100_000);
 

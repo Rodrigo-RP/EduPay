@@ -961,11 +961,24 @@ export const family_credits = pgTable("family_credits", {
   family_id:       integer("family_id").references(() => families.id),
   /** Siempre se guarda el student_id del alumno que originó el crédito. */
   student_id:      integer("student_id").references(() => students.id),
-  /** Pago de caja que generó el excedente. */
+  /** Pago de caja que generó el excedente. NUNCA se modifica. */
   payment_id:      integer("payment_id").references(() => payments.id),
+  /** Monto del crédito. INMUTABLE — nunca se decrementa ni borra. */
   amount_centavos: bigint("amount_centavos", { mode: "number" }).notNull(),
   origen:          varchar("origen", { length: 50 }).default("excedente_caja").notNull(),
   descripcion:     text("descripcion"),
+  /**
+   * 'activo'   — crédito disponible, aún no aplicado a ningún cargo.
+   * 'consumido' — crédito ya aplicado; ver consumed_application_id para el registro del ledger.
+   */
+  status:          varchar("status", { length: 20 }).default("activo").notNull(),
+  /**
+   * Cuando status='consumido', apunta a la PaymentApplication que se creó
+   * contra el cargo nuevo usando el payment_id original.
+   * Así el ledger es 100% trazable desde charges → payment_applications.
+   */
+  consumed_application_id: integer("consumed_application_id").references(() => payment_applications.id),
+  consumed_at:     timestamp("consumed_at"),
   created_at:      timestamp("created_at").defaultNow(),
 });
 export type FamilyCredit = typeof family_credits.$inferSelect;

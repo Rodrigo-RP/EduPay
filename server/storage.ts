@@ -1494,16 +1494,18 @@ export class DatabaseStorage implements IStorage {
     const total_pagado_centavos = Number(paidRow.total_pagado ?? 0);
     const num_pagos = Number(paidRow.num_pagos ?? 0);
 
-    // Saldo a favor: excedentes registrados en family_credits
-    // Incluye créditos almacenados por family_id Y los almacenados por student_id
-    // (cuando el alumno no estaba en una familia al momento del cobro)
+    // Saldo a favor: solo créditos ACTIVOS (status='activo').
+    // Los consumidos ya están reflejados en payment_applications y no se cuentan dos veces.
     const creditResult = await db.execute(sql`
       SELECT COALESCE(SUM(fc.amount_centavos), 0)::bigint AS saldo_a_favor
       FROM family_credits fc
-      WHERE fc.family_id = ${familyId}
-         OR fc.student_id IN (
-           SELECT fs2.student_id FROM family_students fs2 WHERE fs2.family_id = ${familyId}
-         )
+      WHERE fc.status = 'activo'
+        AND (
+          fc.family_id = ${familyId}
+          OR fc.student_id IN (
+            SELECT fs2.student_id FROM family_students fs2 WHERE fs2.family_id = ${familyId}
+          )
+        )
     `);
     const saldo_a_favor_centavos = Number((creditResult.rows as any[])[0]?.saldo_a_favor ?? 0);
 

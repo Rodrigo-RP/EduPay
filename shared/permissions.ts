@@ -208,6 +208,7 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.USERS, action: ACTIONS.DELETE, scope: 'campus', description: 'Eliminar usuarios del campus' },
       { module: MODULES.REPORTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver reportes del campus' },
       { module: MODULES.SETTINGS, action: ACTIONS.READ, scope: 'campus', description: 'Ver configuración del campus' },
+      { module: MODULES.SETTINGS, action: ACTIONS.CONFIGURE, scope: 'campus', description: 'Configurar reglas de pago y recargo del campus' },
       { module: MODULES.SYSTEM, action: ACTIONS.READ, scope: 'campus', description: 'Ver sistemas del campus' }
     ],
     restrictions: [

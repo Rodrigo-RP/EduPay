@@ -14,14 +14,15 @@
  * DESPUÉS del fix:
  *   hasPermission(role, MODULES.SETTINGS, ACTIONS.CONFIGURE) es la PRIMERA
  *   verificación en los 6 endpoints de escritura sobre payment_surcharge_rules.
- *   Solo super_admin y administrador_general tienen SETTINGS.CONFIGURE.
+ *   Roles autorizados: super_admin, administrador_general, administrador_campus.
  *
  * Tests:
  *   SRG-01  asistente → 403 en PUT /api/payment-config/surcharge-rules/:id
  *   SRG-02  asistente → 403 en PUT /api/payment-config/surcharge-rules-complete/:id
  *   SRG-03  asistente → 403 en POST /api/payment-config/late-fee-rules
- *   SRG-04  administrador_general → 200 en PUT /api/payment-config/surcharge-rules/:id (positivo)
+ *   SRG-04  administrador_general → 200 en PUT /api/payment-config/surcharge-rules/:id (control positivo)
  *   SRG-05  SRG-01 no persistió: la regla conserva sus valores originales en DB
+ *   SRG-06  administrador_campus → 200 en PUT /api/payment-config/surcharge-rules/:id (control positivo)
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -36,6 +37,7 @@ let campusId: number;
 let ruleId: number;
 let tokenAsistente: string;
 let tokenAdminGeneral: string;
+let tokenAdminCampus: string;
 
 async function apiFetch(
   method: string,
@@ -88,6 +90,11 @@ beforeAll(async () => {
   );
   tokenAdminGeneral = jwt.sign(
     { role: "administrador_general", campus_id: campusId, tenant_id: tenantId },
+    JWT_SECRET,
+    { expiresIn: "1h" }
+  );
+  tokenAdminCampus = jwt.sign(
+    { role: "administrador_campus", campus_id: campusId, tenant_id: tenantId },
     JWT_SECRET,
     { expiresIn: "1h" }
   );
@@ -163,7 +170,7 @@ describe("Reglas de recargo — guard SETTINGS.CONFIGURE", () => {
       `/api/payment-config/surcharge-rules/${ruleId}`,
       tokenAdminGeneral,
       {
-        nombre: "Recargo SRG actualizado por admin",
+        nombre: "Recargo SRG actualizado por admin_general",
         tipo: "porcentaje",
         dias_gracia: 5,
         porcentaje: "7",
@@ -172,7 +179,6 @@ describe("Reglas de recargo — guard SETTINGS.CONFIGURE", () => {
     );
 
     expect(status).toBe(200);
-    // El body puede venir en distintas formas según el endpoint
     const rule = body.updatedRule || body;
     expect(rule.activo).toBe(true);
   });
@@ -187,5 +193,24 @@ describe("Reglas de recargo — guard SETTINGS.CONFIGURE", () => {
     expect(res.rows[0].activo).toBe(true);
     // El porcentaje no debió quedar en 0 (puede ser '5.00' o '7.00' tras SRG-04, ambos > 0)
     expect(parseFloat(res.rows[0].porcentaje)).toBeGreaterThan(0);
+  });
+
+  it("SRG-06: administrador_campus recibe 200 en PUT /api/payment-config/surcharge-rules/:id (control positivo)", async () => {
+    const { status, body } = await apiFetch(
+      "PUT",
+      `/api/payment-config/surcharge-rules/${ruleId}`,
+      tokenAdminCampus,
+      {
+        nombre: "Recargo SRG actualizado por admin_campus",
+        tipo: "porcentaje",
+        dias_gracia: 3,
+        porcentaje: "6",
+        activo: true,
+      }
+    );
+
+    expect(status).toBe(200);
+    const rule = body.updatedRule || body;
+    expect(rule.activo).toBe(true);
   });
 });

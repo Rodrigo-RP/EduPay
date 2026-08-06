@@ -577,6 +577,38 @@ logra lo mismo sin el invariante.
 
 ---
 
+## Nota de requisito para el incremento de frontend
+
+La rama `destino_saldo_pendiente: 'condonar'` del `PATCH /api/planes-pago/:id/cancelar`
+es una condonación de deuda en los mismos términos que ya exige el proyecto para cualquier
+otra condonación: decisión financiera irreversible, con impacto en el ledger y registro
+obligatorio en AuditLog.
+
+**El endpoint no necesita cambios para este requisito.** Es un contrato de UX que debe
+implementar el incremento de frontend que construya esta pantalla, para que no se pierda
+entre la aprobación de este ADR y ese momento.
+
+**Contrato de UX obligatorio para la pantalla de cancelación de plan con condonación:**
+
+1. **Paso 1 — Declaración de intención.** El administrador selecciona
+   `destino_saldo_pendiente = 'condonar'`, escribe el `motivo` (cancelación del plan) y
+   el `motivo_condonacion` (justificación de la condonación). La pantalla muestra el monto
+   que se va a condonar (`SUM(cuotas pendientes)`) expresado en pesos, con dos decimales,
+   antes de pasar al siguiente paso.
+
+2. **Paso 2 — Confirmación explícita.** Una pantalla o modal separado muestra un resumen
+   no editable: alumno, monto condonado, motivo de cancelación, motivo de condonación.
+   El administrador debe hacer clic en un botón de confirmación claramente distinguible
+   (por ejemplo, "Confirmar condonación de $X,XXX.XX") antes de que el cliente envíe el
+   request al servidor. No es suficiente un checkbox; debe ser una acción afirmativa de
+   segundo factor en la misma sesión.
+
+Esta doble confirmación es consistente con la UX de condonaciones ya implementada en el
+sistema. El desarrollador que construya esta pantalla debe verificar que el flujo existente
+de condonaciones sigue el mismo patrón y replicarlo, no inventar uno nuevo.
+
+---
+
 ## Patrón de referencia
 
 Este ADR sigue el principio documentado en ADR-001: **las escrituras financieras secundarias

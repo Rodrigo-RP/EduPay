@@ -32,58 +32,123 @@ export function registerPaymentRoutes(app: Express): void {
     }
   });
 
-  // Process payment
+  /**
+   * POST /api/payments/process
+   *
+   * Procesa el pago de un cargo individual desde el portal del guardián.
+   * Usa el mismo patrón atómico que guardian/pagar:
+   *   BEGIN → SELECT FOR UPDATE → saldo real → INSERT payment →
+   *   INSERT payment_application → UPDATE charges → COMMIT
+   * No soporta pagos parciales (paga el saldo pendiente completo).
+   */
   app.post("/api/payments/process", authenticateGuardian, async (req: any, res) => {
     try {
       const { charge_id, payment_method } = req.body;
-      const guardianId = req.guardian?.id;
+      const guardianId  = req.guardian?.id;
+      const tenantIdJwt = req.guardian?.tenant_id;
 
-      // IDOR PROTECTION: verificar que el cargo pertenece a un alumno del guardián
+      // IDOR check (lectura, fuera de la txn)
       const ownedCharge = await storage.getChargeByGuardian(charge_id, guardianId);
       if (!ownedCharge) {
         return res.status(403).json({ message: "Acceso denegado: el cargo no pertenece a los alumnos de este tutor" });
       }
+      const tenantIdPago = (ownedCharge as any).tenant_id ?? tenantIdJwt;
 
-      // Derivar monto del cargo validado, no del body del request
-      const tenantIdPago = (ownedCharge as any).tenant_id ?? req.guardian?.tenant_id;
-      const payment = await storage.createPayment({
-        charge_id,
-        guardian_id: guardianId,
-        tenant_id: tenantIdPago,
-        metodo: payment_method,
-        referencia_pasarela: `ref_${Date.now()}`,
-        monto_centavos: ownedCharge.monto_base_centavos + (ownedCharge.recargo_aplicado_centavos || 0),
-        estado: "pendiente", // Siempre crear en pendiente y transicionar via state machine
+      // ── Transacción atómica ──────────────────────────────────────────────
+      const client = await pool.connect();
+      let paymentId!: number;
+      try {
+        await client.query("BEGIN");
+
+        // 1. Lock — serializa concurrencia
+        const lockRes = await client.query(
+          `SELECT id, monto_base_centavos, recargo_aplicado_centavos, estado
+           FROM charges WHERE id = $1 AND tenant_id = $2 FOR UPDATE`,
+          [charge_id, tenantIdPago]
+        );
+        if (!(lockRes.rows as any[]).length) {
+          await client.query("ROLLBACK");
+          return res.status(403).json({ message: "Cargo no encontrado" });
+        }
+        const locked = (lockRes.rows as any[])[0];
+
+        if (["pagado", "cancelado"].includes(locked.estado)) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ message: "El cargo ya fue pagado o está cancelado" });
+        }
+
+        // 2. Saldo pendiente real
+        const saldoRes = await client.query(
+          `SELECT COALESCE(SUM(pa.amount_centavos), 0)::bigint AS ya_pagado
+           FROM payment_applications pa WHERE pa.charge_id = $1`,
+          [charge_id]
+        );
+        const yaPagado = Number((saldoRes.rows as any[])[0].ya_pagado);
+        const saldo =
+          Number(locked.monto_base_centavos) +
+          Number(locked.recargo_aplicado_centavos || 0) -
+          yaPagado;
+
+        if (saldo <= 0) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ message: "El cargo ya tiene saldo cero" });
+        }
+
+        // 3. Crear pago en 'exitoso'
+        const payRow = await client.query(
+          `INSERT INTO payments
+             (tenant_id, charge_id, guardian_id, metodo, referencia_pasarela,
+              monto_centavos, fecha_pago, estado)
+           VALUES ($1,$2,$3,$4,$5,$6,CURRENT_DATE,'exitoso') RETURNING id`,
+          [tenantIdPago, charge_id, guardianId, payment_method, `ref_${Date.now()}`, saldo]
+        );
+        paymentId = (payRow.rows as any[])[0].id;
+
+        // 4. Ledger entry
+        await client.query(
+          `INSERT INTO payment_applications (payment_id, charge_id, amount_centavos, applied_at)
+           VALUES ($1,$2,$3,NOW())`,
+          [paymentId, charge_id, saldo]
+        );
+
+        // 5. Marcar cargo pagado
+        await client.query(
+          `UPDATE charges SET estado = 'pagado', updated_at = NOW() WHERE id = $1`,
+          [charge_id]
+        );
+
+        await client.query("COMMIT");
+      } catch (err) {
+        await client.query("ROLLBACK");
+        throw err;
+      } finally {
+        client.release();
+      }
+
+      // ── Audit fuera de la transacción (ADR-001) ──────────────────────────
+      pool.query(
+        `INSERT INTO audit_log
+           (tenant_id, guardian_id, action, entity_type, entity_id, previous_value, new_value, metadata)
+         VALUES ($1,$2,'charge.status_changed','charge',$3,$4,$5,$6)`,
+        [
+          tenantIdPago, guardianId, charge_id,
+          JSON.stringify({ estado: "pendiente" }),
+          JSON.stringify({ estado: "pagado" }),
+          JSON.stringify({ flujo: "guardian_pago", payment_id: paymentId }),
+        ]
+      ).catch(() => {});
+
+      // Notificación en tiempo real
+      wsManager.notifyPaymentUpdate({ id: paymentId, charge_id }, "create", {
+        campus_id:  req.guardian?.campus_id || 1,
+        tenant_id:  tenantIdPago,
+        created_by: guardianId,
       });
 
-      // Confirmar pago: pendiente → exitoso (auditado)
-      await storage.updatePaymentStatus(payment.id, "exitoso", {
-        tenantId:   tenantIdPago,
-        guardianId: guardianId,
-        ip:         req.ip,
-        metadata:   { flujo: 'guardian_pago', referencia: payment.referencia_pasarela },
-      });
-
-      // Update charge status con contexto de actor (guardian + IP)
-      await storage.updateChargeStatus(charge_id, "pagado", {
-        tenantId:   tenantIdPago,
-        guardianId: guardianId,
-        ip:         req.ip,
-        metadata:   { flujo: 'guardian_pago', monto_centavos: payment.monto_centavos },
-      });
-
-      // Notify real-time update for payment
-      const guardianUser = (req as any).guardian;
-      wsManager.notifyPaymentUpdate(payment, 'create', {
-        campus_id: guardianUser?.campus_id || 1,
-        tenant_id: guardianUser?.tenant_id || 1,
-        created_by: guardianUser?.id || 0
-      });
-
-      res.json({ 
+      res.json({
         success: true,
-        payment,
-        message: "Payment processed successfully"
+        payment: { id: paymentId, charge_id, monto_centavos: null },
+        message: "Payment processed successfully",
       });
     } catch (error: any) {
       res.status(500).json({ message: "Error processing payment" });

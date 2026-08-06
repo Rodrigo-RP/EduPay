@@ -108,46 +108,153 @@ export function registerConciliacionRoutes(app: Express): void {
 
   // ── MÓDULO DE CAJA ────────────────────────────────────────────────────────
 
-  // Register cash payment
+  /**
+   * POST /api/caja/pago-efectivo
+   *
+   * Registra un cobro en efectivo en caja.
+   * Selecciona automáticamente el cargo más antiguo pendiente del alumno.
+   * SOPORTA PAGOS PARCIALES: el operador introduce el monto recibido;
+   *   si cubre el saldo completo → charge queda 'pagado'
+   *   si es menor → charge queda 'parcial' y un pago posterior puede completarlo
+   *
+   * Usa transacción atómica con FOR UPDATE para prevenir doble cobro concurrente.
+   */
   app.post("/api/caja/pago-efectivo", authenticateToken, async (req, res) => {
     try {
-      const campusId = (req as any).user?.campus_id;
-      const { estudiante_id, concepto_id, monto, recibido_por, observaciones } = req.body;
-      const montoCentavos = Math.round(parseFloat(monto || '0') * 100);
-      const chargeRow = await pool.query(`
-        SELECT c.id FROM charges c
-        JOIN students s ON s.id = c.student_id
-        WHERE s.id = $1 AND s.campus_id = $2 AND c.estado = 'pendiente'
-        ORDER BY c.fecha_vencimiento ASC LIMIT 1
-      `, [estudiante_id, campusId]).catch(() => ({ rows: [] }));
-      const chargeId = (chargeRow.rows as any[])[0]?.id;
-      let paymentId;
-      if (chargeId) {
-        const referencia = `CAJA-${Date.now()}`;
-        const tenantIdCaja = (req as any).user?.tenant_id;
-        const userIdCaja   = (req as any).user?.id;
-        // Crear pago como pendiente y confirmar via state machine (queda auditado)
-        const paymentRow = await pool.query(`
-          INSERT INTO payments (charge_id, guardian_id, metodo, monto_centavos, estado, referencia_pasarela, tenant_id)
-          VALUES ($1, NULL, 'efectivo', $2, 'pendiente', $3, $4) RETURNING id
-        `, [chargeId, montoCentavos, referencia, tenantIdCaja]);
-        paymentId = (paymentRow.rows as any[])[0]?.id;
-        // pendiente → exitoso
-        await storage.updatePaymentStatus(paymentId, 'exitoso', {
-          tenantId: tenantIdCaja,
-          userId:   userIdCaja,
-          ip:       req.ip,
-          metadata: { flujo: 'caja_efectivo', referencia },
-        });
-        // pendiente → pagado (cargo)
-        await storage.updateChargeStatus(chargeId, 'pagado', {
-          tenantId: tenantIdCaja,
-          userId:   userIdCaja,
-          ip:       req.ip,
-          metadata: { flujo: 'caja_efectivo', monto_centavos: montoCentavos },
-        });
+      const campusId     = (req as any).user?.campus_id;
+      const tenantIdCaja = (req as any).user?.tenant_id;
+      const userIdCaja   = (req as any).user?.id;
+      // charge_id es opcional: si el operador lo provee, paga ese cargo directamente;
+      // si no, auto-selecciona el más antiguo no-terminal del alumno.
+      const { estudiante_id, charge_id: chargeIdOverride, monto, recibido_por, observaciones } = req.body;
+
+      if (!monto || parseFloat(monto) <= 0) {
+        return res.status(400).json({ message: "El monto debe ser mayor que cero" });
       }
-      res.json({ message: "Pago en efectivo registrado", payment_id: paymentId, monto_centavos: montoCentavos });
+      const montoOperador = Math.round(parseFloat(monto) * 100); // centavos
+
+      let chargeId: number | undefined;
+      if (chargeIdOverride) {
+        // Cargo explícito: verificar que pertenezca al alumno y campus correctos
+        const explicitRow = await pool.query(
+          `SELECT c.id FROM charges c
+           JOIN students s ON s.id = c.student_id
+           WHERE c.id = $1 AND s.id = $2 AND s.campus_id = $3
+             AND c.estado NOT IN ('pagado','cancelado')`,
+          [chargeIdOverride, estudiante_id, campusId]
+        ).catch(() => ({ rows: [] as any[] }));
+        chargeId = (explicitRow.rows as any[])[0]?.id;
+      } else {
+        // Auto-selección: cargo más antiguo no-terminal del alumno (fuera de la txn — lectura)
+        const candidateRow = await pool.query(
+          `SELECT c.id FROM charges c
+           JOIN students s ON s.id = c.student_id
+           WHERE s.id = $1 AND s.campus_id = $2
+             AND c.estado NOT IN ('pagado','cancelado')
+           ORDER BY c.fecha_vencimiento ASC LIMIT 1`,
+          [estudiante_id, campusId]
+        ).catch(() => ({ rows: [] as any[] }));
+        chargeId = (candidateRow.rows as any[])[0]?.id;
+      }
+      if (!chargeId) {
+        return res.json({ message: "No hay cargos pendientes para este alumno", payment_id: null, monto_centavos: montoOperador });
+      }
+
+      // ── Transacción atómica ──────────────────────────────────────────────
+      const client = await pool.connect();
+      let paymentId!: number;
+      let montoAplicado!: number;
+      let newEstado!: string;
+      try {
+        await client.query("BEGIN");
+
+        // Lock del cargo — serializa doble cobro concurrente
+        const lockRes = await client.query(
+          `SELECT id, monto_base_centavos, estado
+           FROM charges WHERE id = $1 AND tenant_id = $2 FOR UPDATE`,
+          [chargeId, tenantIdCaja]
+        );
+        if (!(lockRes.rows as any[]).length) {
+          await client.query("ROLLBACK");
+          return res.json({ message: "Cargo no encontrado", payment_id: null, monto_centavos: montoOperador });
+        }
+        const locked = (lockRes.rows as any[])[0];
+
+        if (["pagado", "cancelado"].includes(locked.estado)) {
+          await client.query("ROLLBACK");
+          return res.json({ message: "El cargo ya fue pagado o cancelado", payment_id: null, monto_centavos: montoOperador });
+        }
+
+        // Saldo pendiente real (dentro del mismo client)
+        const saldoRes = await client.query(
+          `SELECT COALESCE(SUM(pa.amount_centavos), 0)::bigint AS ya_pagado
+           FROM payment_applications pa WHERE pa.charge_id = $1`,
+          [chargeId]
+        );
+        const yaPagado = Number((saldoRes.rows as any[])[0].ya_pagado);
+        const saldoPendiente = Number(locked.monto_base_centavos) - yaPagado;
+
+        if (saldoPendiente <= 0) {
+          await client.query("ROLLBACK");
+          return res.json({ message: "El cargo ya tiene saldo cero", payment_id: null, monto_centavos: montoOperador });
+        }
+
+        // Pago parcial o total — aplicar lo que alcanza
+        montoAplicado = Math.min(montoOperador, saldoPendiente);
+        newEstado     = montoAplicado >= saldoPendiente ? "pagado" : "parcial";
+
+        const referencia = `CAJA-${Date.now()}`;
+        const payRow = await client.query(
+          `INSERT INTO payments
+             (tenant_id, charge_id, guardian_id, metodo, referencia_pasarela,
+              monto_centavos, fecha_pago, estado)
+           VALUES ($1,$2,NULL,'efectivo',$3,$4,CURRENT_DATE,'exitoso') RETURNING id`,
+          [tenantIdCaja, chargeId, referencia, montoAplicado]
+        );
+        paymentId = (payRow.rows as any[])[0].id;
+
+        await client.query(
+          `INSERT INTO payment_applications (payment_id, charge_id, amount_centavos, applied_at)
+           VALUES ($1,$2,$3,NOW())`,
+          [paymentId, chargeId, montoAplicado]
+        );
+
+        await client.query(
+          `UPDATE charges SET estado = $1, updated_at = NOW() WHERE id = $2`,
+          [newEstado, chargeId]
+        );
+
+        await client.query("COMMIT");
+      } catch (err) {
+        await client.query("ROLLBACK");
+        throw err;
+      } finally {
+        client.release();
+      }
+
+      // ── Audit fuera de la transacción (ADR-001) ──────────────────────────
+      pool.query(
+        `INSERT INTO audit_log
+           (tenant_id, user_id, action, entity_type, entity_id, new_value, metadata)
+         VALUES ($1,$2,'charge.status_changed','charge',$3,$4,$5)`,
+        [
+          tenantIdCaja, userIdCaja, chargeId,
+          JSON.stringify({ estado: newEstado }),
+          JSON.stringify({
+            flujo: "caja_efectivo", payment_id: paymentId,
+            monto_operador: montoOperador, monto_aplicado: montoAplicado,
+            recibido_por, observaciones,
+          }),
+        ]
+      ).catch(() => {});
+
+      res.json({
+        message: `Pago en efectivo registrado (${newEstado})`,
+        payment_id: paymentId,
+        monto_aplicado_centavos: montoAplicado,
+        monto_centavos: montoOperador,
+        charge_nuevo_estado: newEstado,
+      });
     } catch (error: any) {
       res.status(500).json({ message: "Error interno del servidor" });
     }

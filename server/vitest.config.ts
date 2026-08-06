@@ -7,6 +7,9 @@ export default defineConfig({
     environment: "node",
     hookTimeout: 30000,
     testTimeout: 30000,
+    // Los archivos comparten una base de datos real → serializar para evitar
+    // contaminación de audit_retry_queue y otras tablas de estado global.
+    fileParallelism: false,
     // Paths are relative to this config file's location (server/).
     // Running: cd server && npx vitest run  OR  npm test from root via package.json
     include: [
@@ -19,6 +22,7 @@ export default defineConfig({
       "tests/bug-audit-log-rollback.test.ts",
       "tests/audit-retry.test.ts",
       "tests/planes-pago.test.ts",
+      "tests/payment-concurrency.test.ts",
     ],
   },
   resolve: {

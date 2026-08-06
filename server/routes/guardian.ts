@@ -336,78 +336,157 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   });
 
   // Guardian pagar alias — acepta array de charge_ids y procesa cada uno
+  /**
+   * POST /api/guardian/pagar
+   *
+   * Paga uno o varios cargos en un array de charge_ids.
+   * Cada cargo se procesa en su propia transacción atómica:
+   *   BEGIN → SELECT FOR UPDATE (lock) → saldo real → INSERT payment →
+   *   INSERT payment_application → UPDATE charges → COMMIT
+   * El lock con FOR UPDATE serializa requests concurrentes: si dos peticiones
+   * llegan simultáneamente para el mismo cargo, la segunda leerá estado='pagado'
+   * después de que la primera haga commit y recibirá 409.
+   * No soporta pagos parciales: paga siempre el saldo pendiente completo.
+   */
   app.post("/api/guardian/pagar", authenticateGuardian, async (req: any, res: any) => {
     try {
-      // guardianId y tenantId SIEMPRE del token de tipo 'guardian' (verificado por authenticateGuardian)
       const guardianId = req.guardian.id;
+      const tenantId   = req.guardian.tenant_id;
 
       const { charge_ids, metodo_pago = "tarjeta" } = req.body;
       if (!charge_ids || !Array.isArray(charge_ids) || charge_ids.length === 0) {
         return res.status(400).json({ message: "Se requiere al menos un cargo" });
       }
 
-      const results = [];
+      const results: { charge_id: number; payment_id: number; cfdi: string }[] = [];
+
       for (const chargeId of charge_ids) {
-        // IDOR PROTECTION: verificar que el cargo pertenece a un alumno del guardián autenticado
-        const charge = await storage.getChargeByGuardian(chargeId, guardianId);
-        if (!charge) {
-          return res.status(403).json({ 
-            message: `Acceso denegado: el cargo ${chargeId} no pertenece a los alumnos de este tutor` 
+        // ── IDOR: el cargo debe pertenecer a un alumno del guardián (lectura, fuera de txn) ──
+        const chargeOwned = await storage.getChargeByGuardian(chargeId, guardianId);
+        if (!chargeOwned) {
+          return res.status(403).json({
+            message: `Acceso denegado: el cargo ${chargeId} no pertenece a los alumnos de este tutor`,
           });
         }
+        const tenantIdLote = (chargeOwned as any).tenant_id ?? tenantId;
 
-        const tenantIdLote = (charge as any).tenant_id ?? req.guardian.tenant_id;
-        const payment = await storage.createPayment({
-          charge_id: chargeId,
-          guardian_id: guardianId,
-          tenant_id: tenantIdLote,
-          metodo: metodo_pago,
-          referencia_pasarela: `sim_${Date.now()}_${chargeId}`,
-          monto_centavos: charge.monto_base_centavos + (charge.recargo_aplicado_centavos || 0),
-          estado: "pendiente", // crear como pendiente y transicionar via state machine
-        });
+        // ── Transacción atómica ──────────────────────────────────────────────
+        const client = await pool.connect();
+        let paymentId!: number;
+        let referencia!: string;
+        try {
+          await client.query("BEGIN");
 
-        // Confirmar pago: pendiente → exitoso (auditado)
-        await storage.updatePaymentStatus(payment.id, "exitoso", {
-          tenantId:   tenantIdLote,
-          guardianId: guardianId,
-          ip:         req.ip,
-          metadata:   { flujo: 'guardian_pagar_lote', referencia: payment.referencia_pasarela },
-        });
+          // 1. Lock del cargo — serializa peticiones concurrentes
+          const lockRes = await client.query(
+            `SELECT id, monto_base_centavos, recargo_aplicado_centavos, estado
+             FROM charges WHERE id = $1 AND tenant_id = $2 FOR UPDATE`,
+            [chargeId, tenantIdLote]
+          );
+          if (!(lockRes.rows as any[]).length) {
+            await client.query("ROLLBACK");
+            return res.status(403).json({ message: `Cargo ${chargeId} no encontrado` });
+          }
+          const locked = (lockRes.rows as any[])[0];
 
-        await storage.updateChargeStatus(chargeId, "pagado", {
-          tenantId:   tenantIdLote,
-          guardianId: guardianId,
-          ip:         req.ip,
-          metadata:   { flujo: 'guardian_pagar_lote', monto_centavos: payment.monto_centavos },
-        });
+          // 2. Guard: estado terminal
+          if (["pagado", "cancelado"].includes(locked.estado)) {
+            await client.query("ROLLBACK");
+            return res.status(409).json({
+              message: `El cargo ${chargeId} ya fue pagado o está cancelado`,
+            });
+          }
 
-        // Factura CFDI simulada: crear en pendiente y transicionar a emitido (auditado)
+          // 3. Saldo pendiente real (lectura dentro del mismo client para consistencia)
+          const saldoRes = await client.query(
+            `SELECT COALESCE(SUM(pa.amount_centavos), 0)::bigint AS ya_pagado
+             FROM payment_applications pa WHERE pa.charge_id = $1`,
+            [chargeId]
+          );
+          const yaPagado = Number((saldoRes.rows as any[])[0].ya_pagado);
+          const saldo =
+            Number(locked.monto_base_centavos) +
+            Number(locked.recargo_aplicado_centavos || 0) -
+            yaPagado;
+
+          if (saldo <= 0) {
+            await client.query("ROLLBACK");
+            return res.status(409).json({ message: `El cargo ${chargeId} ya tiene saldo cero` });
+          }
+
+          // 4. Crear pago directamente en 'exitoso' (atomicidad garantizada por la txn)
+          referencia = `sim_${Date.now()}_${chargeId}`;
+          const payRow = await client.query(
+            `INSERT INTO payments
+               (tenant_id, charge_id, guardian_id, metodo, referencia_pasarela,
+                monto_centavos, fecha_pago, estado)
+             VALUES ($1,$2,$3,$4,$5,$6,CURRENT_DATE,'exitoso') RETURNING id`,
+            [tenantIdLote, chargeId, guardianId, metodo_pago, referencia, saldo]
+          );
+          paymentId = (payRow.rows as any[])[0].id;
+
+          // 5. Ledger entry (payment_application)
+          await client.query(
+            `INSERT INTO payment_applications (payment_id, charge_id, amount_centavos, applied_at)
+             VALUES ($1,$2,$3,NOW())`,
+            [paymentId, chargeId, saldo]
+          );
+
+          // 6. Marcar cargo como pagado
+          await client.query(
+            `UPDATE charges SET estado = 'pagado', updated_at = NOW() WHERE id = $1`,
+            [chargeId]
+          );
+
+          await client.query("COMMIT");
+        } catch (err) {
+          await client.query("ROLLBACK");
+          throw err;
+        } finally {
+          client.release();
+        }
+
+        // ── Audit fuera de la transacción financiera (ADR-001) ──────────────
+        pool.query(
+          `INSERT INTO audit_log
+             (tenant_id, guardian_id, action, entity_type, entity_id, previous_value, new_value, metadata)
+           VALUES ($1,$2,'charge.status_changed','charge',$3,$4,$5,$6)`,
+          [
+            tenantIdLote, guardianId, chargeId,
+            JSON.stringify({ estado: "pendiente" }),
+            JSON.stringify({ estado: "pagado" }),
+            JSON.stringify({ flujo: "guardian_pagar_lote", payment_id: paymentId, monto_centavos: null }),
+          ]
+        ).catch(() => {});
+
+        // ── CFDI simulada (documento, no crítico para la integridad financiera) ──
         const cfdiUUID = `${Date.now()}-${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
-        const [newInvoice] = await db.insert(invoices).values({
-          payment_id: payment.id,
-          tenant_id: tenantIdLote,
-          uuid_cfdi: cfdiUUID,
-          xml_url: `/api/demo/cfdi/${cfdiUUID}.xml`,
-          pdf_url: `/api/demo/cfdi/${cfdiUUID}.pdf`,
-          estado: "pendiente", // pendiente → emitido via state machine
-        }).returning();
+        try {
+          const [newInvoice] = await db.insert(invoices).values({
+            payment_id: paymentId,
+            tenant_id:  tenantIdLote,
+            uuid_cfdi:  cfdiUUID,
+            xml_url:    `/api/demo/cfdi/${cfdiUUID}.xml`,
+            pdf_url:    `/api/demo/cfdi/${cfdiUUID}.pdf`,
+            estado:     "pendiente",
+          }).returning();
 
-        // Timbrar: pendiente → emitido (auditado)
-        await storage.updateInvoiceStatus(newInvoice.id, "emitido", {
-          tenantId:   tenantIdLote,
-          guardianId: guardianId,
-          ip:         req.ip,
-          metadata:   { flujo: 'guardian_pagar_lote_cfdi', uuid: cfdiUUID },
-        });
+          await storage.updateInvoiceStatus(newInvoice.id, "emitido", {
+            tenantId:   tenantIdLote,
+            guardianId: guardianId,
+            ip:         req.ip,
+            metadata:   { flujo: "guardian_pagar_lote_cfdi", uuid: cfdiUUID },
+          });
+        } catch {
+          // Si el CFDI falla el pago ya está registrado — no revertir
+        }
 
-        results.push({ charge_id: chargeId, payment_id: payment.id, cfdi: cfdiUUID });
+        results.push({ charge_id: chargeId, payment_id: paymentId, cfdi: cfdiUUID });
       }
 
-      const firstCharge = results[0];
-      wsManager.notifyPaymentUpdate(firstCharge, "create", {
-        campus_id: (firstCharge as any).campus_id ?? req.guardian.campus_id,
-        tenant_id: req.guardian.tenant_id,
+      wsManager.notifyPaymentUpdate(results[0], "create", {
+        campus_id:  req.guardian.campus_id,
+        tenant_id:  req.guardian.tenant_id,
         created_by: guardianId,
       });
 

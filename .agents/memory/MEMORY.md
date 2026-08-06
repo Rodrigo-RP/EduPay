@@ -1,6 +1,8 @@
 - [Audit Protocol](audit-protocol.md) — checklist E2E + Modo Auditoría requerido antes de marcar cualquier tarea crítica como finalizada.
 - [ADR-002 planes de pago](adr-002-planes-pago.md) — charges con plan_id FK; helpers getOrCreateCuotaPlanConcept + generarCuotaCharges; cancelar requiere destino_saldo_pendiente para reestructuracion.
-- [Pago manual admin](pago-manual-admin.md) — /api/admin/charges/:id/pagar-manual es genérico para cualquier charge; caja/pago-efectivo NO escribe payment_applications (deuda técnica documentada).
+- [Pago manual admin](pago-manual-admin.md) — /api/admin/charges/:id/pagar-manual es genérico para cualquier charge; guardian/pagar + payments/process + caja/pago-efectivo ahora también escriben payment_applications (fix completo).
+- [Payment atomicity pattern](payment-atomicity.md) — patrón canónico para endpoints de pago: BEGIN → SELECT FOR UPDATE → saldo real → INSERT payment → INSERT payment_application → UPDATE charges → COMMIT; audit fuera de txn (ADR-001).
+- [Vitest fileParallelism](vitest-parallelism.md) — tests comparten DB real; fileParallelism:false en vitest.config.ts previene contaminación de audit_retry_queue y otras tablas de estado global entre archivos de test.
 - [Audit retry race condition](audit-retry-race.md) — stopAuditRetryWorker() debe llamarse en beforeAll de tests que usen processAuditRetries() directamente.
 - [Demo seed & email normalization](demo-seed.md) — emails con acentos en apellidos mexicanos requieren mapa Unicode explícito (\u00e1 etc.), no normalize("NFD").
 - [Guardian login route](guardian-auth.md) — login tutores es /api/auth/guardian-login (no /api/guardian/login); getGuardianByEmail debe buscar también por correo_institucional_familiar.

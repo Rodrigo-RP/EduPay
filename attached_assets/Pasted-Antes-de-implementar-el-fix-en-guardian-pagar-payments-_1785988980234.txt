@@ -1,0 +1,37 @@
+Antes de implementar el fix en guardian/pagar, payments/process y
+caja/pago-efectivo, resuelve dos cosas:
+
+1. Confirma, para cada uno de los tres endpoints, si hoy soportan pago parcial
+   (un pago que no cubre el saldo completo del cargo, dejándolo en estado
+   'parcial' para un pago posterior). Si alguno lo soporta, el guard de la
+   transacción no puede ser simplemente WHERE estado='pendiente'; debe calcular
+   el saldo pendiente real (monto_base_centavos - SUM(payment_applications)) y
+   solo rechazar si ese saldo ya es 0 o el estado es 'pagado'/'cancelado'.
+   Escribe el guard correcto según lo que confirmes, no el guard genérico si
+   alguno de los tres necesita soportar parcialidad.
+
+2. Busca en todo el codebase otros lugares que llamen a una función de
+   transición de state-machines.ts hacia el mismo estado en que ya se
+   encuentra el registro (transición identidad), y confirma si esos lugares
+   ya tienen su propio guard de concurrencia (como SELECT FOR UPDATE con
+   condición de estado) o si son vulnerables al mismo patrón de doble
+   ejecución que acabas de encontrar aquí. Dame la lista completa.
+
+Con eso resuelto, implementa el fix en los tres endpoints con el patrón
+correcto (transacción, guard con saldo real, payment + payment_application +
+UPDATE dentro de la misma transacción, commit), corrigiendo también el gap del
+ledger al mismo tiempo, como ya identificaste que es el mismo cambio.
+
+Escribe una prueba de regresión que reproduzca EXACTAMENTE el escenario que
+acabas de confirmar (dos requests simultáneos sobre el mismo charge 'pendiente'
+vía guardian/pagar) y confirma que ahora solo uno completa con 200, el otro
+recibe 409, y existe exactamente un payment_application, no dos. Si alguno de
+los tres endpoints soporta pago parcial, agrega también una prueba de que un
+segundo pago legítimo sobre un cargo 'parcial' sí se acepta y completa el saldo
+correctamente.
+
+Haz también el backfill pendiente de los charges 308 y 309, y limpia los
+registros de prueba que quedaron de este diagnóstico (charge 1146, payments 526
+y 527) si son datos de prueba y no necesitas conservarlos como evidencia.
+
+Corre toda la suite general al final y pégame el resultado completo.

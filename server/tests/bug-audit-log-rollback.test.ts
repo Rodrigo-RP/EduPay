@@ -54,10 +54,43 @@ beforeAll(async () => {
 }, 30_000);
 
 afterAll(async () => {
+  // ── CARRERA: enqueueAuditLog es fire-and-forget (void) ─────────────────────
+  // PASO 2 llama al endpoint, el servidor responde 200, y el test termina —
+  // pero el pool.query interno de enqueueAuditLog puede aún estar en vuelo
+  // cuando afterAll empieza. Si el DELETE de audit_retry_queue corre antes
+  // de que ese INSERT se complete, la fila aparece DESPUÉS de la limpieza
+  // con un tenant_id ya inexistente → el retry worker muere con FK violation.
+  //
+  // Solución: esperar 300 ms para que el event loop procese el INSERT
+  // pendiente, luego hacer DOS pasadas de DELETE (la segunda captura cualquier
+  // INSERT que se colara después de la primera).
+  await new Promise<void>((resolve) => setTimeout(resolve, 300));
+
+  // Primera pasada — filas ya presentes en la cola
+  await pool.query(
+    `DELETE FROM audit_retry_queue WHERE (payload->>'tenant_id')::int = $1`,
+    [tenantId]
+  ).catch(() => {});
+
+  // Limpiar audit_log del tenant efímero (evita FK violation al borrar tenant
+  // si la tabla no tiene CASCADE en tenant_id).
+  await pool.query(
+    `DELETE FROM audit_log WHERE tenant_id = $1`,
+    [tenantId]
+  ).catch(() => {});
+
   await pool.query(`DELETE FROM bank_transactions WHERE campus_id=$1`, [campusId]).catch(() => {});
   await pool.query(`DELETE FROM users WHERE campus_id=$1 AND tenant_id=$2`, [campusId, tenantId]).catch(() => {});
   await pool.query(`DELETE FROM campuses WHERE id=$1`, [campusId]).catch(() => {});
   await pool.query(`DELETE FROM tenants WHERE id=$1`, [tenantId]).catch(() => {});
+
+  // Segunda pasada — captura filas que se insertaron después de la primera limpieza.
+  // audit_retry_queue no tiene FK en tenant_id (guarda el id dentro del JSONB),
+  // así que este DELETE funciona incluso después de borrar el tenant.
+  await pool.query(
+    `DELETE FROM audit_retry_queue WHERE (payload->>'tenant_id')::int = $1`,
+    [tenantId]
+  ).catch(() => {});
 }, 30_000);
 
 // ── helpers locales ────────────────────────────────────────────────────────

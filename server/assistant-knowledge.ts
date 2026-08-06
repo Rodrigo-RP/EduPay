@@ -480,6 +480,13 @@ export function detectActionIntent(message: string): ActionDescriptor | null {
   if (countMatch)
     return { actionId: "query:contar", params: { entity: countMatch[1] } };
 
+  // ── Becas de un alumno específico ─────────────────────────────────────────
+  // DEBE ir ANTES que becas_nivel: "qué becas tiene García", "becas de Juan"
+  // El patrón captura un apellido/nombre después de "tiene", "de", etc.
+  const becasMatch = n.match(/(?:qu[eé] becas? (?:tiene|hay para|tiene asignada?s?)|becas? de|descuentos? de)\s+(.{2,40})/);
+  if (becasMatch)
+    return { actionId: "query:becas_alumno", params: { nombre: becasMatch[1].trim() } };
+
   // ── Becas por nivel / sección ─────────────────────────────────────────────
   // "alumnos con beca de primaria", "qué alumnos tienen beca de secundaria",
   // "becas de la sección preparatoria", "alumnos becados en kinder"
@@ -495,12 +502,6 @@ export function detectActionIntent(message: string): ActionDescriptor | null {
   ) {
     return { actionId: "query:becas_nivel", params: { nivel: "" } };
   }
-
-  // ── Becas de un alumno específico ─────────────────────────────────────────
-  // "qué becas tiene García", "becas de Juan"
-  const becasMatch = n.match(/(?:qu[eé] becas? (?:tiene|hay para|tiene asignada?s?)|becas? de|descuentos? de)\s+(.{2,40})/);
-  if (becasMatch)
-    return { actionId: "query:becas_alumno", params: { nombre: becasMatch[1].trim() } };
 
   // ── Cargos / adeudos de un alumno ─────────────────────────────────────────
   // "qué cargos tiene García", "qué cargos debe García", "adeudos de Juan", "cuánto debe García"

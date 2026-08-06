@@ -11,3 +11,5 @@
 - [Caja/historial API paths](caja-paths.md) — caja usa /api/caja/movimientos-banco (no /api/bank-transactions/:id); semáforo usa /api/riesgo/semaforo/:campusId (no /api/semaforo-riesgo/:id).
 - [Assistant scoring rules](assistant-scoring.md) — usar split(" ").includes(token) no kw.includes(token); guarda financiera dura en FINANCIAL_PROTECTED_ACTIONS; logging §4.3 en audit_log.
 - [Route Registry §9](route-registry.md) — shared/route-registry.ts es la fuente única de rutas; npm run check:routes falla si App.tsx tiene rutas sin registrar.
+- [E2E SPA routing](e2e-spa-routing.md) — La app es SPA wouter: login NO cambia la URL, re-renderiza condicionalmente. Tests de browser deben esperar sidebar visible, no waitForURL. Usar window.history.pushState para navegar entre rutas en tests.
+- [Playwright NixOS setup](playwright-nixos.md) — Playwright chromium descargado no funciona en NixOS (falta libglib-2.0); instalar chromium via installSystemDependencies({packages:["chromium"]}) y apuntar executablePath al binario nix.

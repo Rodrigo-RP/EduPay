@@ -11,7 +11,12 @@
     "db:push": "drizzle-kit push",
     "test": "cd server && npx vitest run --config vitest.config.ts",
     "check:routes": "tsx scripts/check-route-registry.ts",
-    "validate:assistant": "tsx scripts/validate-assistant-queries.ts"
+    "validate:assistant": "tsx scripts/validate-assistant-queries.ts",
+    "test:unit": "cd server && npx vitest run --config vitest.config.ts",
+    "test:e2e": "npx playwright test",
+    "test:e2e:ui": "npx playwright test --ui",
+    "test:all": "npm run test:unit && npm run validate:assistant && npm run check:routes && npm run test:e2e",
+    "audit:report": "tsx scripts/audit-report.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -113,6 +118,7 @@
     "zod-validation-error": "^3.4.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@replit/vite-plugin-cartographer": "^0.2.7",
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
     "@tailwindcss/typography": "^0.5.15",

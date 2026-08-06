@@ -99,10 +99,16 @@ const createRateLimit = (windowMs: number, max: number, message: string) => {
 
 // Diferentes límites según el endpoint
 export const rateLimits = {
-  general: createRateLimit(15 * 60 * 1000, 100, 'Demasiadas solicitudes generales'),
-  auth: createRateLimit(15 * 60 * 1000, 10, 'Demasiados intentos de autenticación'),
-  payment: createRateLimit(60 * 60 * 1000, 20, 'Demasiadas solicitudes de pago'),
-  api: createRateLimit(5 * 60 * 1000, 50, 'Demasiadas solicitudes a la API')
+  general:   createRateLimit(15 * 60 * 1000, 100, 'Demasiadas solicitudes generales'),
+  auth:      createRateLimit(15 * 60 * 1000,  10, 'Demasiados intentos de autenticación'),
+  payment:   createRateLimit(60 * 60 * 1000,  20, 'Demasiadas solicitudes de pago'),
+  api:       createRateLimit(5  * 60 * 1000,  50, 'Demasiadas solicitudes a la API'),
+  // Rutas autenticadas (/api/admin, /api/super-admin): ya exigen JWT válido,
+  // por lo que el rate-limit cumple un rol de protección ante token comprometido,
+  // no de barrera de autenticación. 300 req/5min ≈ 1 req/s sostenido — muy por
+  // encima del uso legítimo y de la suite (~32 req/corrida × 2 corridas = 64),
+  // pero frenará cualquier script automatizado que abuse del mismo token.
+  apiAuth:   createRateLimit(5  * 60 * 1000, 300, 'Demasiadas solicitudes a la API autenticada'),
 };
 
 // ========================================

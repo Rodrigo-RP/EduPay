@@ -54,10 +54,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   //     espurios en suites de integración (~32 req/corrida).
   //
   // • /api/security → conserva rateLimits.api (50 req / 5 min).
-  app.use("/api/auth/login",          rateLimits.auth);
-  app.use("/api/auth/guardian-login", rateLimits.auth);
-  app.use("/api/auth/magic",          rateLimits.auth);
-  app.use("/api/security",            rateLimits.api);
+  app.use("/api/auth/login",          rateLimits.auth);    // 10/15min — endpoint público
+  app.use("/api/auth/guardian-login", rateLimits.auth);    // 10/15min — endpoint público
+  app.use("/api/auth/magic",          rateLimits.auth);    // 10/15min — endpoint público
+  app.use("/api/admin",               rateLimits.apiAuth); // 300/5min — ya requiere JWT
+  app.use("/api/super-admin",         rateLimits.apiAuth); // 300/5min — ya requiere JWT
+  app.use("/api/security",            rateLimits.api);     // 50/5min
 
   // ── Montar módulos de dominio (en orden lógico de dependencia) ────────────────
   registerAuthRoutes(app);

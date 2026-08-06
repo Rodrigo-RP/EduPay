@@ -4,6 +4,7 @@ import { enqueueAuditLog } from "../audit-retry";
 import { eq, and, gte, lt } from "drizzle-orm";
 import { storage } from "../storage";
 import { authenticateToken, requireAuth, requireSuperAdmin, authenticateGuardian, checkCampusTenant, upload, esmRequire, JWT_SECRET } from "./shared";
+import { hasPermission, MODULES, ACTIONS } from "@shared/permissions";
 import { students, guardians, student_guardian, charges, payments, concepts, scholarships, invoices, payment_due_dates, payment_surcharge_rules, families, family_students, payment_applications, payment_events, institutional_credentials, institutional_info } from "@shared/schema";
 import { insertPaymentSchema, insertChargeSchema } from "@shared/schema";
 import { getAcademicLevel } from "@shared/academic-levels";
@@ -1487,6 +1488,12 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   app.put("/api/payment-config/surcharge-rules-complete/:id", authenticateToken, async (req, res) => {
     try {
       const ruleId = parseInt(req.params.id);
+
+      // ── Guard de rol ──────────────────────────────────────────────────────
+      if (!hasPermission((req as any).user?.role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para configurar reglas de recargo" });
+      }
+
       const { concepto_id, dias_gracia, porcentaje_recargo, monto_fijo, tipo_calculo, activo } = req.body;
       
       // Get concept name if provided
@@ -1558,6 +1565,11 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       const ruleId = parseInt(req.params.id);
       if (!ruleId || isNaN(ruleId)) return res.status(400).json({ message: "ID inválido" });
       const campusId = req.user?.campus_id;
+
+      // ── Guard de rol ──────────────────────────────────────────────────────
+      if (!hasPermission(req.user?.role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para configurar reglas de recargo" });
+      }
       if (!campusId) return res.status(400).json({ message: "Campus requerido" });
 
       const [deleted] = await db
@@ -1752,6 +1764,11 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       const campusId = req.user?.campus_id;
       if (!campusId) return res.status(400).json({ message: "Campus requerido" });
 
+      // ── Guard de rol ──────────────────────────────────────────────────────
+      if (!hasPermission(req.user?.role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para configurar reglas de recargo" });
+      }
+
       // Ownership check
       const [existing] = await db.select({ id: payment_surcharge_rules.id })
         .from(payment_surcharge_rules)
@@ -1794,6 +1811,11 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       if (!ruleId || isNaN(ruleId)) return res.status(400).json({ message: "ID inválido" });
       const campusId = req.user?.campus_id;
       if (!campusId) return res.status(400).json({ message: "Campus requerido" });
+
+      // ── Guard de rol ──────────────────────────────────────────────────────
+      if (!hasPermission(req.user?.role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para configurar reglas de recargo" });
+      }
 
       // Ownership check
       const [existing] = await db.select({ id: payment_surcharge_rules.id })

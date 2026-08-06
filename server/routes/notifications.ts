@@ -3,6 +3,7 @@ import { pool, db } from "../db";
 import { eq, and } from "drizzle-orm";
 import { storage } from "../storage";
 import { authenticateToken, requireAuth, requireSuperAdmin, serializeUser } from "./shared";
+import { hasPermission, MODULES, ACTIONS } from "@shared/permissions";
 import { NotificationSystem as ServerNotificationSystem } from "../notification-system";
 import { wsManager } from "../websocket-manager";
 import { users, students, guardians, charges, payments, concepts, scholarships, payment_surcharge_rules } from "@shared/schema";
@@ -312,6 +313,11 @@ export function registerNotificationRoutes(app: Express): void {
       const tenantId = req.user?.tenant_id;
       if (!campusId || !tenantId) return res.status(400).json({ error: "Campus y tenant requeridos" });
 
+      // ── Guard de rol ──────────────────────────────────────────────────────
+      if (!hasPermission(req.user?.role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para configurar reglas de recargo" });
+      }
+
       const { nombre, tipo, dias_gracia, porcentaje, monto_fijo, reglas_progresivas,
               aplica_fines_semana, aplica_festivos, monto_maximo } = req.body;
 
@@ -363,6 +369,11 @@ export function registerNotificationRoutes(app: Express): void {
       const campusId = req.user?.campus_id;
       if (!campusId) return res.status(400).json({ error: "Campus requerido" });
 
+      // ── Guard de rol ──────────────────────────────────────────────────────
+      if (!hasPermission(req.user?.role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para configurar reglas de recargo" });
+      }
+
       // Ownership check
       const [existing] = await db.select({ id: payment_surcharge_rules.id })
         .from(payment_surcharge_rules)
@@ -410,6 +421,11 @@ export function registerNotificationRoutes(app: Express): void {
       if (!ruleId || isNaN(ruleId)) return res.status(400).json({ error: "ID inválido" });
       const campusId = req.user?.campus_id;
       if (!campusId) return res.status(400).json({ error: "Campus requerido" });
+
+      // ── Guard de rol ──────────────────────────────────────────────────────
+      if (!hasPermission(req.user?.role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para configurar reglas de recargo" });
+      }
 
       const [deleted] = await db.delete(payment_surcharge_rules)
         .where(and(eq(payment_surcharge_rules.id, ruleId), eq(payment_surcharge_rules.campus_id, campusId)))

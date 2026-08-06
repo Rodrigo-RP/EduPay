@@ -3,6 +3,7 @@ import { pool, db } from "../db";
 import { eq, and } from "drizzle-orm";
 import { storage } from "../storage";
 import { authenticateToken, esmRequire, checkCampusTenant } from "./shared";
+import { hasPermission, MODULES, ACTIONS } from "@shared/permissions";
 import { invoices, payments, charges, students } from "@shared/schema";
 import { z } from "zod";
 
@@ -238,6 +239,10 @@ export function registerFiscalRoutes(app: Express): void {
 
   app.post("/api/becas-auto/reglas", authenticateToken, async (req: any, res) => {
     try {
+      const role = req.user?.role;
+      if (!hasPermission(role, MODULES.SCHOLARSHIPS, ACTIONS.ASSIGN)) {
+        return res.status(403).json({ message: "Sin permisos para gestionar becas" });
+      }
       const campusId = req.user?.campus_id;
       const tenantId = req.user?.tenant_id;
       const { nombre, tipo, descuento_porcentaje, condicion_json, aplica_a } = req.body;
@@ -253,6 +258,10 @@ export function registerFiscalRoutes(app: Express): void {
 
   app.delete("/api/becas-auto/reglas/:id", authenticateToken, async (req, res) => {
     try {
+      const role = (req as any).user?.role;
+      if (!hasPermission(role, MODULES.SCHOLARSHIPS, ACTIONS.ASSIGN)) {
+        return res.status(403).json({ message: "Sin permisos para gestionar becas" });
+      }
       const campusId = (req as any).user?.campus_id;
       await pool.query(`DELETE FROM scholarship_auto_rules WHERE id = $1 AND campus_id = $2`, [parseInt(req.params.id), campusId]);
       res.json({ message: "Regla eliminada" });
@@ -263,6 +272,10 @@ export function registerFiscalRoutes(app: Express): void {
 
   app.post("/api/becas-auto/ejecutar/:campusId", authenticateToken, async (req: any, res) => {
     try {
+      const role = req.user?.role;
+      if (!hasPermission(role, MODULES.SCHOLARSHIPS, ACTIONS.ASSIGN)) {
+        return res.status(403).json({ message: "Sin permisos para gestionar becas" });
+      }
       const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
       if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
       const reglas = await pool.query(`SELECT * FROM scholarship_auto_rules WHERE campus_id = $1 AND activo = true`, [campusId]);

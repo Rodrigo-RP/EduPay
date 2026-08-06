@@ -203,6 +203,7 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.PAYMENTS, action: ACTIONS.PROCESS, scope: 'campus', description: 'Procesar pagos del campus' },
       { module: MODULES.CONCEPTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver conceptos del campus' },
       { module: MODULES.SCHOLARSHIPS, action: ACTIONS.READ, scope: 'campus', description: 'Ver becas del campus' },
+      { module: MODULES.SCHOLARSHIPS, action: ACTIONS.ASSIGN, scope: 'campus', description: 'Asignar becas del campus' },
       { module: MODULES.USERS, action: ACTIONS.CREATE, scope: 'campus', description: 'Crear usuarios del campus' },
       { module: MODULES.USERS, action: ACTIONS.READ, scope: 'campus', description: 'Ver usuarios del campus' },
       { module: MODULES.USERS, action: ACTIONS.UPDATE, scope: 'campus', description: 'Editar usuarios del campus' },
@@ -236,6 +237,7 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.REPORTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver todos los reportes financieros' },
       { module: MODULES.REPORTS, action: ACTIONS.EXPORT, scope: 'campus', description: 'Exportar todos los reportes' },
       { module: MODULES.FINANCIAL, action: ACTIONS.READ, scope: 'campus', description: 'Ver análisis financiero completo' },
+      { module: MODULES.SCHOLARSHIPS, action: ACTIONS.ASSIGN, scope: 'campus', description: 'Asignar becas del campus' },
       { module: MODULES.FISCAL, action: ACTIONS.READ, scope: 'campus', description: 'Ver información fiscal completa' },
       { module: MODULES.FISCAL, action: ACTIONS.CONFIGURE, scope: 'campus', description: 'Configurar aspectos fiscales' }
     ],
@@ -287,7 +289,6 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.CHARGES, action: ACTIONS.READ, scope: 'campus', description: 'Ver cargos del campus' },
       { module: MODULES.PAYMENTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver pagos del campus' },
       { module: MODULES.SCHOLARSHIPS, action: ACTIONS.READ, scope: 'campus', description: 'Ver becas del campus' },
-      { module: MODULES.SCHOLARSHIPS, action: ACTIONS.ASSIGN, scope: 'campus', description: 'Asignar becas del campus' },
       { module: MODULES.REPORTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver reportes de estudiantes' },
       { module: MODULES.REPORTS, action: ACTIONS.EXPORT, scope: 'campus', description: 'Exportar reportes de estudiantes' },
       { module: MODULES.CRM, action: ACTIONS.READ, scope: 'campus', description: 'Ver CRM del campus' },

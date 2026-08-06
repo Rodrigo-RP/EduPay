@@ -73,9 +73,13 @@ const createRateLimit = (windowMs: number, max: number, message: string) => {
   return rateLimit({
     windowMs,
     max,
-    // En desarrollo y tests el rate-limit no aplica; las suites de integración
-    // comparten IP y acumulan requests rápidamente, causando 429 espurios.
-    skip: () => process.env.NODE_ENV !== 'production',
+    // Omitir solo cuando el request incluye el header de bypass de tests
+    // Y el servidor no está en producción. El browser real en dev nunca
+    // envía este header → rate-limit activo para tráfico real.
+    // En producción NODE_ENV==='production' anula la condición en cualquier caso.
+    skip: (req) =>
+      process.env.NODE_ENV !== 'production' &&
+      req.headers['x-test-bypass'] === 'vitest-internal',
     message: { error: message },
     standardHeaders: true,
     legacyHeaders: false,

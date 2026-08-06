@@ -13,6 +13,9 @@ export default defineConfig({
     // Glob: recoge automáticamente cualquier *.test.ts bajo tests/,
     // igual que Playwright recoge e2e/**/*.spec.ts con testDir.
     include: ["tests/**/*.test.ts"],
+    // Inyecta el header X-Test-Bypass en todos los fetch de la suite para que
+    // el rate-limit del servidor pueda distinguir tráfico de test de tráfico real.
+    setupFiles: ["./tests/setup-http.ts"],
   },
   resolve: {
     alias: {

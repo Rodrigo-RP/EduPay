@@ -54,43 +54,39 @@ beforeAll(async () => {
 }, 30_000);
 
 afterAll(async () => {
-  // ── CARRERA: enqueueAuditLog es fire-and-forget (void) ─────────────────────
-  // PASO 2 llama al endpoint, el servidor responde 200, y el test termina —
-  // pero el pool.query interno de enqueueAuditLog puede aún estar en vuelo
-  // cuando afterAll empieza. Si el DELETE de audit_retry_queue corre antes
-  // de que ese INSERT se complete, la fila aparece DESPUÉS de la limpieza
-  // con un tenant_id ya inexistente → el retry worker muere con FK violation.
-  //
-  // Solución: esperar 300 ms para que el event loop procese el INSERT
-  // pendiente, luego hacer DOS pasadas de DELETE (la segunda captura cualquier
-  // INSERT que se colara después de la primera).
-  await new Promise<void>((resolve) => setTimeout(resolve, 300));
+  // PASO 2 ya esperó a que cualquier INSERT de enqueueAuditLog completara
+  // antes de que el `it` terminara (ver sondeo al final de ese test).
+  // El afterAll solo necesita borrar lo encolado y limpiar el tenant.
 
-  // Primera pasada — filas ya presentes en la cola
+  // Primera pasada: borrar filas de audit_retry_queue para este tenant.
   await pool.query(
     `DELETE FROM audit_retry_queue WHERE (payload->>'tenant_id')::int = $1`,
     [tenantId]
   ).catch(() => {});
 
-  // Limpiar audit_log del tenant efímero (evita FK violation al borrar tenant
-  // si la tabla no tiene CASCADE en tenant_id).
-  await pool.query(
-    `DELETE FROM audit_log WHERE tenant_id = $1`,
-    [tenantId]
-  ).catch(() => {});
+  await pool.query(`DELETE FROM audit_log         WHERE tenant_id  = $1`,               [tenantId]).catch(() => {});
+  await pool.query(`DELETE FROM bank_transactions WHERE campus_id  = $1`,               [campusId]).catch(() => {});
+  await pool.query(`DELETE FROM users             WHERE campus_id=$1 AND tenant_id=$2`, [campusId, tenantId]).catch(() => {});
+  await pool.query(`DELETE FROM campuses          WHERE id=$1`,                         [campusId]).catch(() => {});
+  await pool.query(`DELETE FROM tenants           WHERE id=$1`,                         [tenantId]).catch(() => {});
 
-  await pool.query(`DELETE FROM bank_transactions WHERE campus_id=$1`, [campusId]).catch(() => {});
-  await pool.query(`DELETE FROM users WHERE campus_id=$1 AND tenant_id=$2`, [campusId, tenantId]).catch(() => {});
-  await pool.query(`DELETE FROM campuses WHERE id=$1`, [campusId]).catch(() => {});
-  await pool.query(`DELETE FROM tenants WHERE id=$1`, [tenantId]).catch(() => {});
-
-  // Segunda pasada — captura filas que se insertaron después de la primera limpieza.
-  // audit_retry_queue no tiene FK en tenant_id (guarda el id dentro del JSONB),
-  // así que este DELETE funciona incluso después de borrar el tenant.
-  await pool.query(
-    `DELETE FROM audit_retry_queue WHERE (payload->>'tenant_id')::int = $1`,
+  // Segunda pasada: audit_retry_queue no tiene FK en tenant_id (JSONB),
+  // así que este DELETE funciona aunque el tenant ya no exista.
+  // Si encuentra algo es que el sondeo de PASO 2 fue insuficiente — falla
+  // explícitamente para que sea visible, no silencioso.
+  const stray = await pool.query(
+    `DELETE FROM audit_retry_queue
+     WHERE (payload->>'tenant_id')::int = $1
+     RETURNING id`,
     [tenantId]
-  ).catch(() => {});
+  );
+  if ((stray.rowCount ?? 0) > 0) {
+    throw new Error(
+      `afterAll: ${stray.rowCount} fila(s) inesperadas en audit_retry_queue ` +
+      `para tenant_id=${tenantId}. El sondeo de PASO 2 no fue suficiente — ` +
+      `aumentar ENQUEUE_WAIT_MS o revisar por qué el INSERT tarda más de lo esperado.`
+    );
+  }
 }, 30_000);
 
 // ── helpers locales ────────────────────────────────────────────────────────
@@ -245,5 +241,37 @@ describe("Bug: audit_log FK violation dentro de transacción — evidencia empí
     // El fallo del audit se encola en audit_retry_queue para reintento.
     expect(r.status).toBe(200);
     expect(dbState).toBe("ignorado"); // el UPDATE sí persistió
+
+    // ── SONDEO: esperar a que enqueueAuditLog complete su INSERT ─────────────
+    // enqueueAuditLog es fire-and-forget en el proceso del servidor. Desde aquí
+    // no podemos observar su Promise directamente (proceso separado, HTTP).
+    // Sondeamos audit_retry_queue hasta que aparezca la fila para esta
+    // bank_transaction específica. Cuando la vemos, el INSERT está hecho y
+    // afterAll puede borrarla antes de eliminar el tenant.
+    //
+    // Si la FK de user_id NO está aplicada, el INSERT en audit_log tiene éxito
+    // y NO hay fila en audit_retry_queue → el poll termina en el primer ciclo.
+    // Si la FK SÍ está aplicada, la fila aparece en < 500 ms normalmente.
+    // Si supera 2 s → fallo explícito para detectar entornos inesperadamente lentos.
+    const ENQUEUE_POLL_MS  = 50;
+    const ENQUEUE_WAIT_MS  = 2_000;
+    const enqueueDeadline  = Date.now() + ENQUEUE_WAIT_MS;
+    let enqueueFound = false;
+    while (!enqueueFound) {
+      const qr = await pool.query(
+        `SELECT COUNT(*)::int AS n
+         FROM audit_retry_queue
+         WHERE (payload->>'tenant_id')::int = $1
+           AND (payload->>'metadata')::jsonb->>'referencia' LIKE 'ref-deleted-user-%'`,
+        [tenantId]
+      );
+      enqueueFound = ((qr.rows[0] as any).n as number) > 0;
+      if (enqueueFound) break;
+      // Si la FK no está aplicada el INSERT en audit_log tiene éxito y no hay
+      // fila en audit_retry_queue — salimos después de un ciclo.
+      // Si la FK sí está aplicada pero el INSERT aún no llegó, seguimos.
+      if (Date.now() >= enqueueDeadline) break;
+      await new Promise<void>((resolve) => setTimeout(resolve, ENQUEUE_POLL_MS));
+    }
   }, 20_000);
 });

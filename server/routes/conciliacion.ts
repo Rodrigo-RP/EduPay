@@ -663,9 +663,20 @@ export function registerConciliacionRoutes(app: Express): void {
           [notaFinal, txId]
         );
 
-        // ── Registrar en audit_log con motivo estructurado
+        // ── COMMIT primero — el UPDATE debe persistir incluso si el audit falla
+        await client.query('COMMIT');
+        res.json({ message: "Excepción descartada y registrada en auditoría" });
+
+        // ── Audit log FUERA de la transacción ya commitada (fire-and-forget).
+        // Usa pool.query() (conexión separada) para que un fallo de FK u otro
+        // error de escritura secundaria NO revierta el UPDATE ya persistido.
+        // Esto corrige el bug de rollback silencioso: antes el INSERT usaba
+        // client.query() dentro de la tx abierta; si fallaba (p.ej. user_id
+        // eliminado → FK violation), la pg connection quedaba en estado abortado
+        // y el COMMIT posterior ejecutaba un ROLLBACK silencioso, respondiendo
+        // HTTP 200 mientras la bank_tx seguía en 'pendiente'.
         if (tenantId && user?.id) {
-          await client.query(
+          pool.query(
             `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
              VALUES ($1, $2, 'descartar_excepcion', 'bank_transaction', $3, $4::jsonb, NOW())`,
             [
@@ -679,11 +690,8 @@ export function registerConciliacionRoutes(app: Express): void {
                 referencia:      tx.referencia || null,
               }),
             ]
-          ).catch(() => {}); // audit never blocks the main operation
+          ).catch(() => {}); // audit nunca bloquea la operación principal
         }
-
-        await client.query('COMMIT');
-        res.json({ message: "Excepción descartada y registrada en auditoría" });
       }
     } catch (error: any) {
       await client.query('ROLLBACK').catch(() => {});

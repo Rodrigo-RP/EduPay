@@ -459,6 +459,53 @@ export function registerMiscRoutes(app: Express): void {
         );
       }
 
+      // ── Alerta de condonación repetida — Protocolo §8 ────────────────────
+      // Regla: si el mismo alumno es condonado más de una vez en 90 días,
+      // generar entrada ALERTA_CONDONACION_REPETIDA de alta prioridad para
+      // administrador_general. El check ocurre ANTES de escribir 'saldo_condonado'
+      // para que el evento actual no se cuente a sí mismo.
+      if (destino_saldo_pendiente === 'condonar' && tenantId) {
+        let alertaCondonacionRepetida = false;
+        try {
+          const prevCond = await pool.query(
+            `SELECT id FROM audit_log
+             WHERE tenant_id = $1
+               AND action = 'saldo_condonado'
+               AND metadata::text LIKE $2
+               AND created_at > NOW() - INTERVAL '90 days'
+             LIMIT 1`,
+            [tenantId, `%"student_id":${plan.student_id}%`]
+          );
+          alertaCondonacionRepetida = (prevCond.rows as any[]).length > 0;
+        } catch (_) { /* no bloquear la respuesta */ }
+
+        // Entrada específica y buscable por student_id — base de checks futuros
+        pool.query(
+          `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
+           VALUES ($1,$2,'saldo_condonado','payment_plan',$3,$4)`,
+          [tenantId, userId ?? null, planId, JSON.stringify({
+            student_id:               plan.student_id,
+            monto_condonado_centavos: saldoPendiente,
+            motivo_condonacion:       String(motivo_condonacion).trim(),
+            campus_id:                plan.campus_id,
+          })]
+        ).catch(() => {});
+
+        if (alertaCondonacionRepetida) {
+          pool.query(
+            `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
+             VALUES ($1,$2,'ALERTA_CONDONACION_REPETIDA','payment_plan',$3,$4)`,
+            [tenantId, userId ?? null, planId, JSON.stringify({
+              student_id:               plan.student_id,
+              plan_id:                  planId,
+              monto_condonado_centavos: saldoPendiente,
+              prioridad:                'alta',
+              mensaje:                  'Condonación repetida en menos de 90 días para el mismo alumno. Requiere revisión inmediata.',
+            })]
+          ).catch(() => {});
+        }
+      }
+
       res.json({
         message: "Plan cancelado correctamente",
         plan_id: planId,

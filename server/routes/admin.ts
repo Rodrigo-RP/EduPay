@@ -1137,4 +1137,31 @@ export function registerAdminRoutes(app: Express): void {
       if (!res.headersSent) res.status(500).json({ message: "Error interno del servidor" });
     }
   });
+
+  // ── GET /api/admin/alertas/condonaciones — Protocolo §8 ──────────────────
+  // Devuelve alertas ALERTA_CONDONACION_REPETIDA del tenant, ordenadas por
+  // fecha descendente. Solo accesible a administrador_general y super_admin.
+  // (administrador_campus también tiene FINANCIAL.READ, por eso el guard es
+  //  por rol explícito y no por permiso de módulo.)
+  app.get("/api/admin/alertas/condonaciones", authenticateToken, async (req: any, res) => {
+    try {
+      const role     = req.user?.role;
+      const tenantId = req.user?.tenant_id;
+      if (!['administrador_general', 'super_admin'].includes(role)) {
+        return res.status(403).json({ message: "Sin permisos para ver alertas de condonaciones" });
+      }
+      const rows = await pool.query(
+        `SELECT id, user_id, entity_id AS plan_id, metadata, created_at
+         FROM audit_log
+         WHERE tenant_id = $1
+           AND action = 'ALERTA_CONDONACION_REPETIDA'
+         ORDER BY created_at DESC
+         LIMIT 50`,
+        [tenantId]
+      );
+      res.json(rows.rows);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error al obtener alertas de condonaciones" });
+    }
+  });
 }

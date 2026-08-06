@@ -21,6 +21,7 @@ export default defineConfig({
       "tests/excepciones-conciliacion.test.ts",
       "tests/bug-audit-log-rollback.test.ts",
       "tests/audit-retry.test.ts",
+      "tests/audit-catch-sites.test.ts",
       "tests/planes-pago.test.ts",
       "tests/payment-concurrency.test.ts",
     ],

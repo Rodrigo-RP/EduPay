@@ -205,8 +205,9 @@ describe("Excepciones de Conciliación — motor financiero", () => {
         [tenantId]
       );
       await client.query(`DELETE FROM invoices          WHERE tenant_id=$1`, [tenantId]);
-      await client.query(`DELETE FROM payments          WHERE tenant_id=$1`, [tenantId]);
+      // bank_transactions tiene FK → payments; debe borrarse ANTES que payments
       await client.query(`DELETE FROM bank_transactions WHERE tenant_id=$1`, [tenantId]);
+      await client.query(`DELETE FROM payments          WHERE tenant_id=$1`, [tenantId]);
       await client.query(`DELETE FROM charges           WHERE tenant_id=$1`, [tenantId]);
       await client.query("COMMIT");
     } catch (err) {

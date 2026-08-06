@@ -233,6 +233,92 @@ describe("audit-retry — cola de reintentos", () => {
   );
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // TEST 4 — new_value y previous_value se preservan a través del ciclo completo
+  // ═══════════════════════════════════════════════════════════════════════════
+  it(
+    "TEST 4 — ciclo completo con new_value: falla, encola, reintenta, audit_log recuperado tiene new_value idéntico (no NULL)",
+    async () => {
+      const payload: AuditLogPayload = {
+        tenant_id:      realTenantId,
+        user_id:        null,
+        action:         MARKER_ACTION,
+        entity_type:    "charge",
+        entity_id:      9_999_999,
+        previous_value: { estado: "pendiente" },
+        new_value:      { estado: "pagado" },
+        metadata:       { flujo: "test_new_value_cycle", payment_id: 42 },
+      };
+
+      // ── Insertar directamente en la cola (simula enqueueAuditLog tras fallo)
+      const { rows: [qRow] } = await pool.query<{ id: string }>(
+        `INSERT INTO audit_retry_queue (payload, attempts, next_retry_at)
+         VALUES ($1::jsonb, 0, NOW()) RETURNING id`,
+        [JSON.stringify(payload)]
+      );
+      const queueId = qRow.id;
+
+      // ── Spy: primer INSERT INTO audit_log → falla; segundo → pasa al pool real
+      let auditInsertCalls = 0;
+      const orig = pool.query.bind(pool);
+      vi.spyOn(pool, "query").mockImplementation(async (...args: any[]) => {
+        const sql = typeof args[0] === "string" ? args[0] : ((args[0]?.text ?? "") as string);
+        if (sql.trimStart().startsWith("INSERT INTO audit_log")) {
+          auditInsertCalls++;
+          if (auditInsertCalls === 1) throw new Error("Simulated failure — new_value cycle test");
+          return (orig as any)(...args);
+        }
+        return (orig as any)(...args);
+      });
+
+      // ── CICLO 1: debe fallar
+      await processAuditRetries();
+      const { rows: [after1] } = await pool.query(
+        "SELECT status, attempts FROM audit_retry_queue WHERE id = $1", [queueId]
+      );
+      expect(after1.status).toBe("pending");
+      expect(Number(after1.attempts)).toBe(1);
+
+      // Adelantar next_retry_at para que el worker reclame la fila
+      await pool.query(
+        "UPDATE audit_retry_queue SET next_retry_at = NOW() WHERE id = $1", [queueId]
+      );
+
+      // ── CICLO 2: debe tener éxito
+      await processAuditRetries();
+      const { rows: [after2] } = await pool.query(
+        "SELECT status FROM audit_retry_queue WHERE id = $1", [queueId]
+      );
+      expect(after2.status).toBe("done");
+
+      // ── El registro en audit_log debe tener new_value y previous_value íntegros
+      const { rows: auditRows } = await pool.query(
+        `SELECT new_value, previous_value, metadata
+         FROM audit_log
+         WHERE action = $1 AND entity_id = 9999999 AND tenant_id = $2
+         ORDER BY created_at DESC LIMIT 1`,
+        [MARKER_ACTION, realTenantId]
+      );
+      expect(auditRows.length).toBeGreaterThanOrEqual(1);
+
+      const row = auditRows[0];
+      // new_value no es NULL y contiene el valor original
+      expect(row.new_value).not.toBeNull();
+      const nv = typeof row.new_value === "string" ? JSON.parse(row.new_value) : row.new_value;
+      expect(nv.estado).toBe("pagado");
+
+      // previous_value no es NULL y contiene el valor original
+      expect(row.previous_value).not.toBeNull();
+      const pv = typeof row.previous_value === "string" ? JSON.parse(row.previous_value) : row.previous_value;
+      expect(pv.estado).toBe("pendiente");
+
+      // metadata también íntegra
+      const meta = typeof row.metadata === "string" ? JSON.parse(row.metadata) : row.metadata;
+      expect(meta.flujo).toBe("test_new_value_cycle");
+      expect(meta.payment_id).toBe(42);
+    }
+  );
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // TEST 3 — Doble falla: audit_log Y audit_retry_queue fallan
   // ═══════════════════════════════════════════════════════════════════════════
   it(

@@ -584,7 +584,16 @@ export default function CajaConciliacion() {
       mutationFn: (data: any) => apiRequest("/api/caja/pago-efectivo", { method: "POST", body: JSON.stringify(data) }),
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["/api/caja"] });
-      }
+      },
+      onError: (error: any) => {
+        const msg = error?.message ?? "";
+        const body = msg.includes(": ") ? msg.slice(msg.indexOf(": ") + 2) : msg;
+        toast({
+          title: "Error al registrar pago",
+          description: body || "No se pudo procesar el pago en efectivo",
+          variant: "destructive",
+        });
+      },
     });
 
     return (

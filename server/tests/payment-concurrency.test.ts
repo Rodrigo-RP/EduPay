@@ -598,7 +598,7 @@ describe("caja/pago-efectivo — pago parcial y completion", () => {
     const chargeId = await mkCharge(100_000);
 
     // Dos requests simultáneos apuntando al mismo charge_id.
-    // El FOR UPDATE serializa: uno paga, el otro recibe "ya fue pagado o cancelado".
+    // El FOR UPDATE serializa: uno paga, el otro recibe 409.
     const [r1, r2] = await Promise.all([
       httpPost(
         "/api/caja/pago-efectivo",
@@ -612,11 +612,60 @@ describe("caja/pago-efectivo — pago parcial y completion", () => {
       ),
     ]);
 
+    // El que gana devuelve 200, el que pierde devuelve 409
+    const statuses = [r1.status, r2.status].sort();
+    expect(statuses).toEqual([200, 409]);
+
     // Exactamente 1 payment_application — no doble cobro
     expect(await countApplications(chargeId)).toBe(1);
     expect(await chargeEstado(chargeId)).toBe("pagado");
-    // Ambos devuelven 200 (el segundo indica "ya fue pagado") — no doble payment
     expect(await countExitosPayments(chargeId)).toBe(1);
+  });
+
+  it("PC-09b: cargo inexistente en caja → 404", async () => {
+    const fakeChargeId = 999_999_999;
+
+    const r = await httpPost(
+      "/api/caja/pago-efectivo",
+      { estudiante_id: studentId, charge_id: fakeChargeId, monto: "1000" },
+      adminToken
+    );
+
+    expect(r.status).toBe(404);
+    expect((r.body as any).message).toMatch(/no encontrado/i);
+  });
+
+  it("PC-09c: cargo con saldo en cero en caja → 422", async () => {
+    // Crear un charge 'pendiente' y cubrirlo con una payment_application
+    // directa (sin pasar por el endpoint, para que el estado quede 'pendiente'
+    // pero saldo_pendiente = 0 — dispara la guarda de saldo cero).
+    const MONTO = 10_000; // $100
+    const chargeId = await mkCharge(MONTO, "pendiente");
+
+    // Insertar un payment ficticio y una PA que cubre el monto completo
+    const payRow = await pool.query(
+      `INSERT INTO payments (tenant_id, charge_id, metodo, referencia_pasarela,
+                             monto_centavos, fecha_pago, estado)
+       VALUES ($1,$2,'efectivo','TEST-SALDO-CERO',$3,CURRENT_DATE,'exitoso') RETURNING id`,
+      [tenantId, chargeId, MONTO]
+    );
+    const fakePayId = (payRow.rows as any[])[0].id as number;
+
+    await pool.query(
+      `INSERT INTO payment_applications (payment_id, charge_id, amount_centavos)
+       VALUES ($1,$2,$3)`,
+      [fakePayId, chargeId, MONTO]
+    );
+    // El charge sigue en 'pendiente' — saldoPendiente = MONTO - MONTO = 0
+
+    const r = await httpPost(
+      "/api/caja/pago-efectivo",
+      { estudiante_id: studentId, charge_id: chargeId, monto: "100" },
+      adminToken
+    );
+
+    expect(r.status).toBe(422);
+    expect((r.body as any).message).toMatch(/saldo cero/i);
   });
 });
 

@@ -157,6 +157,10 @@ export function registerConciliacionRoutes(app: Express): void {
         chargeId = (candidateRow.rows as any[])[0]?.id;
       }
       if (!chargeId) {
+        if (chargeIdOverride) {
+          // El operador especificó un cargo que no existe o no pertenece al alumno/campus
+          return res.status(404).json({ message: "Cargo no encontrado", payment_id: null, monto_centavos: montoOperador });
+        }
         return res.json({ message: "No hay cargos pendientes para este alumno", payment_id: null, monto_centavos: montoOperador });
       }
 
@@ -176,13 +180,13 @@ export function registerConciliacionRoutes(app: Express): void {
         );
         if (!(lockRes.rows as any[]).length) {
           await client.query("ROLLBACK");
-          return res.json({ message: "Cargo no encontrado", payment_id: null, monto_centavos: montoOperador });
+          return res.status(404).json({ message: "Cargo no encontrado", payment_id: null, monto_centavos: montoOperador });
         }
         const locked = (lockRes.rows as any[])[0];
 
         if (["pagado", "cancelado"].includes(locked.estado)) {
           await client.query("ROLLBACK");
-          return res.json({ message: "El cargo ya fue pagado o cancelado", payment_id: null, monto_centavos: montoOperador });
+          return res.status(409).json({ message: "El cargo ya fue pagado o cancelado", payment_id: null, monto_centavos: montoOperador });
         }
 
         // Saldo pendiente real (dentro del mismo client)
@@ -196,7 +200,7 @@ export function registerConciliacionRoutes(app: Express): void {
 
         if (saldoPendiente <= 0) {
           await client.query("ROLLBACK");
-          return res.json({ message: "El cargo ya tiene saldo cero", payment_id: null, monto_centavos: montoOperador });
+          return res.status(422).json({ message: "El cargo ya tiene saldo cero", payment_id: null, monto_centavos: montoOperador });
         }
 
         // Calcular cuánto se aplica al cargo y cuánto sobra

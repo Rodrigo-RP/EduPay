@@ -24,6 +24,7 @@ export default defineConfig({
       "tests/audit-catch-sites.test.ts",
       "tests/pagar-manual.test.ts",
       "tests/caja-onerror.test.ts",
+      "tests/extraordinario.test.ts",
       "tests/planes-pago.test.ts",
       "tests/payment-concurrency.test.ts",
     ],

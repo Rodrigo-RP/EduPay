@@ -466,43 +466,80 @@ export function registerMiscRoutes(app: Express): void {
       // para que el evento actual no se cuente a sí mismo.
       if (destino_saldo_pendiente === 'condonar' && tenantId) {
         let alertaCondonacionRepetida = false;
+        let incluye_hermanos          = false;
         try {
-          const prevCond = await pool.query(
+          // Paso 1: todos los alumnos de la misma familia (incluye al alumno actual).
+          // Si el alumno no está en family_students, familyIds queda con solo él mismo.
+          const familyRes = await pool.query(
+            `SELECT DISTINCT fs2.student_id
+             FROM family_students fs1
+             JOIN family_students fs2 ON fs2.family_id = fs1.family_id
+             WHERE fs1.student_id = $1`,
+            [plan.student_id]
+          );
+          const familyIds: number[] = (familyRes.rows as any[]).map((r: any) => r.student_id as number);
+          if (!familyIds.includes(plan.student_id)) familyIds.push(plan.student_id);
+          incluye_hermanos = familyIds.length > 1;
+
+          // Paso 2: ¿algún miembro de la familia fue condonado en los últimos 90 días?
+          // El check ocurre ANTES de escribir 'saldo_condonado' — el evento actual
+          // no se cuenta a sí mismo.
+          const likeParams = familyIds.map((id: number) => `%"student_id":${id}%`);
+          const clauses    = likeParams.map((_: string, i: number) => `metadata::text LIKE $${i + 2}`).join(' OR ');
+          const prevCond   = await pool.query(
             `SELECT id FROM audit_log
              WHERE tenant_id = $1
                AND action = 'saldo_condonado'
-               AND metadata::text LIKE $2
                AND created_at > NOW() - INTERVAL '90 days'
+               AND (${clauses})
              LIMIT 1`,
-            [tenantId, `%"student_id":${plan.student_id}%`]
+            [tenantId, ...likeParams]
           );
           alertaCondonacionRepetida = (prevCond.rows as any[]).length > 0;
         } catch (_) { /* no bloquear la respuesta */ }
 
-        // Entrada específica y buscable por student_id — base de checks futuros
+        // Entrada específica y buscable por student_id — base de checks futuros.
+        // Usa enqueueAuditLog como fallback (igual que el resto de auditoría financiera).
+        const saldoCondonadoMeta = {
+          student_id:               plan.student_id,
+          monto_condonado_centavos: saldoPendiente,
+          motivo_condonacion:       String(motivo_condonacion).trim(),
+          campus_id:                plan.campus_id,
+        };
         pool.query(
           `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
            VALUES ($1,$2,'saldo_condonado','payment_plan',$3,$4)`,
-          [tenantId, userId ?? null, planId, JSON.stringify({
-            student_id:               plan.student_id,
-            monto_condonado_centavos: saldoPendiente,
-            motivo_condonacion:       String(motivo_condonacion).trim(),
-            campus_id:                plan.campus_id,
-          })]
-        ).catch(() => {});
+          [tenantId, userId ?? null, planId, JSON.stringify(saldoCondonadoMeta)]
+        ).catch((err: any) =>
+          enqueueAuditLog({
+            tenant_id: tenantId, user_id: userId ?? null,
+            action: 'saldo_condonado', entity_type: 'payment_plan',
+            entity_id: planId, metadata: saldoCondonadoMeta,
+          }, err)
+        );
 
         if (alertaCondonacionRepetida) {
+          const alertaMeta = {
+            student_id:               plan.student_id,
+            plan_id:                  planId,
+            monto_condonado_centavos: saldoPendiente,
+            incluye_hermanos,
+            prioridad:                'alta',
+            mensaje: incluye_hermanos
+              ? 'Condonación repetida en menos de 90 días para el mismo alumno o un hermano de la misma familia. Requiere revisión inmediata.'
+              : 'Condonación repetida en menos de 90 días para el mismo alumno. Requiere revisión inmediata.',
+          };
           pool.query(
             `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
              VALUES ($1,$2,'ALERTA_CONDONACION_REPETIDA','payment_plan',$3,$4)`,
-            [tenantId, userId ?? null, planId, JSON.stringify({
-              student_id:               plan.student_id,
-              plan_id:                  planId,
-              monto_condonado_centavos: saldoPendiente,
-              prioridad:                'alta',
-              mensaje:                  'Condonación repetida en menos de 90 días para el mismo alumno. Requiere revisión inmediata.',
-            })]
-          ).catch(() => {});
+            [tenantId, userId ?? null, planId, JSON.stringify(alertaMeta)]
+          ).catch((err: any) =>
+            enqueueAuditLog({
+              tenant_id: tenantId, user_id: userId ?? null,
+              action: 'ALERTA_CONDONACION_REPETIDA', entity_type: 'payment_plan',
+              entity_id: planId, metadata: alertaMeta,
+            }, err)
+          );
         }
       }
 

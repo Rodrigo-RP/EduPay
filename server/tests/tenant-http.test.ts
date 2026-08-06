@@ -344,6 +344,22 @@ describe("Aislamiento multi-tenant — capa HTTP (IDOR)", () => {
     expect(creditAfter.rows[0].status).toBe("activo");
   });
 
+  it("T14: admin de Tenant B no puede pagar-manual un charge de Tenant A → 403", async () => {
+    // chargeA2Id pertenece a tenantA; tokenB está autenticado como admin de tenantB.
+    // El endpoint verifica que charge.tenant_id === req.user.tenant_id → 403 si no coincide.
+    const tokenB = makeAdminToken(userBId, tenantBId, campusBId);
+    const r = await httpPost(
+      `/api/admin/charges/${chargeA2Id}/pagar-manual`,
+      { metodo: "efectivo" },
+      tokenB
+    );
+    expect(r.status).toBe(403);
+
+    // El charge de tenant A no debe haber sido modificado
+    const ch = await pool.query(`SELECT estado FROM charges WHERE id = $1`, [chargeA2Id]);
+    expect((ch.rows[0] as any).estado).toBe("pendiente");
+  });
+
   it("T12: POST /api/planes-pago/cuotas/:id/pagar devuelve 410 (endpoint deprecado ADR-002)", async () => {
     // El endpoint fue deprecado en ADR-002; devuelve 410 para cualquier llamada autenticada.
     // El aislamiento IDOR se verifica en T11 (Modo A) y en los tests de planes-pago.test.ts.

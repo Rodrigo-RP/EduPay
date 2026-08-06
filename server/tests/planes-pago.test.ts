@@ -442,6 +442,69 @@ describe("Planes de Pago — ADR-002", () => {
     }
   });
 
+  // ── GET /api/planes-pago/:campusId — happy path ──────────────────────────
+  it("GET /api/planes-pago/:campusId — devuelve plan con cuotas de charges; cuota pagada refleja estado correcto", async () => {
+    // Crear plan de 3 cuotas para este test
+    const chargeId = await mkCharge(90_000);
+    const rCreate = await post("/api/planes-pago", {
+      charge_ids: [chargeId],
+      numero_pagos: 3,
+      frecuencia: "mensual",
+      fecha_inicio: "2026-11-01",
+    }, token);
+    expect(rCreate.status).toBe(200);
+    const planId: number = rCreate.body.id;
+    const cuotas: any[] = rCreate.body.cuotas;
+    expect(cuotas).toHaveLength(3);
+
+    // Pagar la primera cuota respetando el invariante del ledger
+    await markChargeAsPaidForTest(pool, cuotas[0].id, Number(cuotas[0].monto_base_centavos), tenantId);
+
+    // GET con campusId explícito
+    const rGet = await get(`/api/planes-pago/${campusId}`, token);
+    expect(rGet.status).toBe(200);
+    expect(Array.isArray(rGet.body)).toBe(true);
+
+    // Localizar el plan recién creado
+    const plan = (rGet.body as any[]).find((p: any) => p.id === planId);
+    expect(plan).toBeDefined();
+
+    // installments son charges reales (tienen monto_base_centavos y plan_id)
+    expect(Array.isArray(plan.installments)).toBe(true);
+    expect(plan.installments).toHaveLength(3);
+    for (const inst of plan.installments) {
+      expect(inst.plan_id).toBe(planId);
+      expect(inst).toHaveProperty("monto_base_centavos");
+      expect(inst).toHaveProperty("estado");
+    }
+
+    // Montos: cada cuota = 30 000 (90 000 / 3 exacto)
+    for (const inst of plan.installments) {
+      expect(Number(inst.monto_base_centavos)).toBe(30_000);
+    }
+
+    // La primera cuota está pagada; las otras pendientes
+    const sorted = [...plan.installments].sort(
+      (a: any, b: any) => a.id - b.id
+    );
+    expect(sorted[0].estado).toBe("pagado");
+    expect(sorted[1].estado).toBe("pendiente");
+    expect(sorted[2].estado).toBe("pendiente");
+
+    // cuotas_pagadas calculado por el handler
+    expect(plan.cuotas_pagadas).toBe(1);
+
+    // total_adeudo coincide con lo registrado al crear el plan
+    expect(Number(plan.total_adeudo_centavos)).toBe(90_000);
+  });
+
+  // ── GET /api/planes-pago/:campusId — cross-tenant → 403 ──────────────────
+  it("GET /api/planes-pago/:campusId — campus de otro tenant → 403", async () => {
+    // tokenA pide planes del campus B (distinto tenant) → checkCampusTenant rechaza
+    const r = await get(`/api/planes-pago/${campusBId}`, token);
+    expect(r.status).toBe(403);
+  });
+
   // ── Endpoint deprecado → 410 ─────────────────────────────────────────────
   it("POST /api/planes-pago/cuotas/:id/pagar → 410 (deprecado, ADR-002)", async () => {
     const r = await post("/api/planes-pago/cuotas/999/pagar", {}, token);

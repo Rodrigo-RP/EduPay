@@ -498,8 +498,7 @@ export function registerChargesRoutes(app: Express): void {
 
       res.json({ message: "Cargo marcado como pagado correctamente", payment_id: paymentId!, saldo_pagado_centavos: saldo });
     } catch (error: any) {
-      console.error("[pagar-manual] error:", error?.message, error?.detail);
-      res.status(500).json({ message: "Error interno del servidor", detail: error?.message });
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 }

@@ -17,6 +17,7 @@ export default defineConfig({
       "tests/tenant-http.test.ts",
       "tests/excepciones-conciliacion.test.ts",
       "tests/bug-audit-log-rollback.test.ts",
+      "tests/audit-retry.test.ts",
     ],
   },
   resolve: {

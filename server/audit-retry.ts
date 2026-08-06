@@ -128,7 +128,7 @@ const RETRY_INTERVAL_MS = 30_000; // cada 30 segundos
 const MAX_ATTEMPTS = 3;
 const BACKOFF_MINUTES = 5; // next_retry_at += 5 min * intento actual
 
-async function processAuditRetries(): Promise<void> {
+export async function processAuditRetries(): Promise<void> {
   let rows: any[];
   try {
     // Reclamar registros pendientes cuyo tiempo de reintento ya llegó
@@ -144,7 +144,7 @@ async function processAuditRetries(): Promise<void> {
       WHERE status = 'pending'
         AND next_retry_at <= NOW()
         AND attempts < $2
-      RETURNING id, payload, attempts + 1 AS attempts
+      RETURNING id, payload, attempts AS attempts
     `, [BACKOFF_MINUTES, MAX_ATTEMPTS]);
     rows = result.rows;
   } catch (err) {

@@ -413,4 +413,93 @@ export function registerChargesRoutes(app: Express): void {
       res.status(500).json({ message: "Error applying charges" });
     }
   });
+
+  // ── ADR-002: Pago manual admin de un cargo / cuota de plan ───────────────
+  app.post("/api/admin/charges/:chargeId/pagar-manual", authenticateToken, async (req: any, res) => {
+    try {
+      const tenantId = req.user?.tenant_id;
+      const userId   = req.user?.id;
+      const chargeId = parseInt(req.params.chargeId);
+      const { metodo = "efectivo", observaciones } = req.body;
+
+      // Validar que el cargo pertenece al tenant
+      const chargeRes = await pool.query(
+        `SELECT id, monto_base_centavos, estado, student_id, plan_id
+         FROM charges WHERE id = $1 AND tenant_id = $2`,
+        [chargeId, tenantId]
+      );
+      if ((chargeRes.rows as any[]).length === 0) {
+        return res.status(403).json({ message: "Acceso denegado: cargo no encontrado o no pertenece a este tenant" });
+      }
+      const charge = (chargeRes.rows as any[])[0];
+
+      if (charge.estado === "pagado") {
+        return res.status(409).json({ message: "El cargo ya está pagado" });
+      }
+      if (charge.estado === "cancelado") {
+        return res.status(422).json({ message: "No se puede pagar un cargo cancelado" });
+      }
+
+      // Calcular saldo pendiente real
+      const saldoRes = await pool.query(
+        `SELECT COALESCE(SUM(pa.amount_centavos), 0) AS aplicado
+         FROM payment_applications pa WHERE pa.charge_id = $1`,
+        [chargeId]
+      );
+      const aplicado = Number((saldoRes.rows as any[])[0].aplicado);
+      const saldo = Number(charge.monto_base_centavos) - aplicado;
+
+      if (saldo <= 0) {
+        return res.status(409).json({ message: "El cargo ya tiene saldo cero" });
+      }
+
+      const client = await pool.connect();
+      let paymentId: number;
+      try {
+        await client.query("BEGIN");
+
+        const payRow = await client.query(
+          `INSERT INTO payments (tenant_id, charge_id, metodo, monto_centavos, fecha_pago, estado)
+           VALUES ($1, $2, $3, $4, CURRENT_DATE, 'exitoso') RETURNING id`,
+          [tenantId, chargeId, metodo, saldo]
+        );
+        paymentId = (payRow.rows as any[])[0].id;
+
+        await client.query(
+          `INSERT INTO payment_applications (payment_id, charge_id, amount_centavos, applied_at)
+           VALUES ($1, $2, $3, NOW())`,
+          [paymentId, chargeId, saldo]
+        );
+
+        await client.query(
+          `UPDATE charges SET estado = 'pagado', updated_at = NOW() WHERE id = $1`,
+          [chargeId]
+        );
+
+        await client.query("COMMIT");
+      } catch (err) {
+        await client.query("ROLLBACK");
+        throw err;
+      } finally {
+        client.release();
+      }
+
+      // Audit FUERA de la transacción (ADR-001)
+      if (tenantId && userId) {
+        pool.query(
+          `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
+           VALUES ($1,$2,'pago_manual_admin','charge',$3,$4)`,
+          [tenantId, userId, chargeId, JSON.stringify({ payment_id: paymentId!, metodo, saldo_centavos: saldo, observaciones })]
+        ).catch(() => {});
+      }
+
+      // Notificar en tiempo real
+      wsManager.broadcastToCampus({ type: "payment_update", data: "create" }, req.user?.campus_id);
+
+      res.json({ message: "Cargo marcado como pagado correctamente", payment_id: paymentId!, saldo_pagado_centavos: saldo });
+    } catch (error: any) {
+      console.error("[pagar-manual] error:", error?.message, error?.detail);
+      res.status(500).json({ message: "Error interno del servidor", detail: error?.message });
+    }
+  });
 }

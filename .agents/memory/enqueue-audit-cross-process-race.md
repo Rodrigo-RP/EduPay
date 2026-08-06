@@ -46,5 +46,35 @@ El `afterAll` solo necesita:
 ## Archivo corregido
 `server/tests/bug-audit-log-rollback.test.ts` — PASO 2 tiene el sondeo al final del `it`; afterAll tiene dos pasadas de DELETE + throw si la segunda encuentra algo.
 
+## Detalles del sondeo en el `it` (versión final)
+
+```typescript
+const fkCheck = await pool.query(
+  `SELECT COUNT(*)::int AS n FROM audit_log
+   WHERE action = 'test_fk_probe' AND tenant_id = $1`, [tenantId]
+);
+const fkWasEnforced = (fkCheck.rows[0].n as number) === 0; // sin fila → FK rechazó el INSERT
+
+while (true) {
+  const qr = await pool.query(
+    `SELECT COUNT(*)::int AS n FROM audit_retry_queue
+     WHERE (payload->>'tenant_id')::int = $1
+       AND (payload->>'metadata')::jsonb->>'referencia' LIKE 'ref-deleted-user-%'`,
+    [tenantId]
+  );
+  if ((qr.rows[0].n as number) > 0) break; // fila aparecida → INSERT completó
+  if (Date.now() >= enqueueDeadline) {
+    if (fkWasEnforced) throw new Error(`sondeo timeout: fila no apareció en 2 s`);
+    break; // FK no aplicada → sin fila es correcto
+  }
+  await sleep(50);
+}
+```
+
+- `fkWasEnforced` se deriva de si PASO 0 pudo insertar con user_id ficticio.
+- Timeout con `throw` solo si FK estaba aplicada (se esperaba fila).
+- El `afterAll` hace DELETE simple + segunda pasada + `throw` si encuentra algo.
+
 ## Validado con
-10 corridas consecutivas del archivo — `Tests 3 passed (3)` en todas; `audit_retry_queue` vacía al final.
+10 corridas consecutivas con logs completos (leídos de archivo, sin abreviación):
+todas `Tests 3 passed` · `enqueueFound=true` en las 10 · `audit_retry_queue global → vacía` en las 10.

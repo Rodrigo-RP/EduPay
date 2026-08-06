@@ -3,16 +3,18 @@
  *
  * Cubre:
  *   - API: autenticación, estructura de respuesta, flujo descartar y aplicar
- *   - UI:  carga de página, botón Resolver, modal con opciones reales de la UI
+ *   - UI (sin datos): carga de página, botón Actualizar
+ *   - UI (con datos): botón Resolver, modal con opciones, flujo completo descartar
  *
- * NOTA SOBRE LOS BOTONES DE LA UI:
- *   La pantalla actual (/excepciones-conciliacion) tiene UN solo botón por excepción:
- *   "Resolver". Al pulsarlo se abre un modal con DOS opciones:
- *     • "Aplicar a un cargo existente"   (accion = 'aplicar')
- *     • "Descartar (no escolar)"         (accion = 'descartar')
- *   Los botones "Aplicar como sugiere", "Asignar manualmente", "Contactar familia"
- *   e "Ignorar" NO existen en el código actual (excepciones-conciliacion.tsx).
- *   Se prueban las dos acciones reales.
+ * ARQUITECTURA DE LOS TESTS CON DATOS:
+ *   Los tests que necesitan ver el botón "Resolver" en la UI crean la bank_tx
+ *   vía API ANTES de navegar a /excepciones-conciliacion. Así el fetch inicial
+ *   de la página ya incluye la excepción y no hay dependencia de timing del
+ *   botón "Actualizar". El patrón de skip gracioso fue eliminado.
+ *
+ * BOTONES REALES DE LA UI (excepciones-conciliacion.tsx):
+ *   Cada excepción tiene un único botón "Resolver". Al pulsarlo se abre un modal
+ *   con un Select de acción: "Aplicar a un cargo existente" | "Descartar (no escolar)".
  */
 
 import { test, expect } from "@playwright/test";
@@ -29,13 +31,13 @@ async function getAdminToken(request: any): Promise<string> {
   return body.token as string;
 }
 
-/** Crea una bank_transaction vía POST /api/conciliacion/importar (endpoint oficial). */
+/** Crea una bank_transaction vía POST /api/conciliacion/importar y devuelve su ID. */
 async function importTx(
   request: any,
   token: string,
   monto: number,
   ref: string
-): Promise<void> {
+): Promise<number | null> {
   await request.post(`${BASE}/api/conciliacion/importar`, {
     headers: { Authorization: `Bearer ${token}` },
     data: {
@@ -50,6 +52,35 @@ async function importTx(
       ],
     },
   });
+
+  // Recuperar el ID de la tx recién creada
+  const listRes = await request.get(`${BASE}/api/conciliacion/excepciones`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const body = await listRes.json();
+  const tx = (body.excepciones as any[]).find((e: any) => e.referencia === ref);
+  return tx?.id ?? null;
+}
+
+/** Descarta una tx por ID (cleanup). */
+async function descartarTx(request: any, token: string, txId: number): Promise<void> {
+  await request.post(`${BASE}/api/conciliacion/excepciones/${txId}/resolver`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { accion: "descartar", motivo: "Cleanup E2E" },
+  });
+}
+
+/** Navega a /excepciones-conciliacion en una SPA wouter y espera el título. */
+async function irAExcepciones(page: any): Promise<void> {
+  await page.evaluate(() => {
+    window.history.pushState({}, "", "/excepciones-conciliacion");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  });
+  // Esperar el encabezado principal de la página
+  await page.waitForSelector(
+    "h1, h2, [class*='excep'], [class*='concili']",
+    { timeout: 12_000 }
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -86,28 +117,12 @@ test.describe("API — /api/conciliacion/excepciones", () => {
   });
 
   test("API descartar: POST → 200 + bank_tx ya no aparece en lista de excepciones", async ({ request }) => {
-    // 1. Crear bank_tx de prueba vía el endpoint oficial de importación
     const ref = `E2E-DESC-${Date.now()}`;
-    await importTx(request, token, 12345, ref);
+    const txId = await importTx(request, token, 12345, ref);
+    expect(txId).not.toBeNull();
 
-    // 2. Obtener el ID de la tx recién creada
-    const listRes = await request.get(`${BASE}/api/conciliacion/excepciones`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const listBody = await listRes.json();
-    const tx = (listBody.excepciones as any[]).find(
-      (e: any) => e.referencia === ref
-    );
-
-    // Si la TX no llegó (timeout de red, DB lenta) marcamos el test como skipped
-    if (!tx) {
-      console.warn("bank_tx de prueba no encontrada en la lista; posible latencia de DB");
-      return;
-    }
-
-    // 3. Descartar
     const postRes = await request.post(
-      `${BASE}/api/conciliacion/excepciones/${tx.id}/resolver`,
+      `${BASE}/api/conciliacion/excepciones/${txId}/resolver`,
       {
         headers: { Authorization: `Bearer ${token}` },
         data: { accion: "descartar", motivo: "E2E test — depósito no identificado" },
@@ -117,7 +132,7 @@ test.describe("API — /api/conciliacion/excepciones", () => {
     const postBody = await postRes.json();
     expect(postBody.message).toBeTruthy();
 
-    // 4. Verificar que ya no aparece como pendiente
+    // Verificar que ya no aparece como pendiente
     const listRes2 = await request.get(`${BASE}/api/conciliacion/excepciones`, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -129,21 +144,13 @@ test.describe("API — /api/conciliacion/excepciones", () => {
   });
 
   test("API aplicar: monto que no coincide con ningún cargo → 422 o 404", async ({ request }) => {
-    // Monto de 0.01 (1 centavo) — imposible que coincida con algún cargo real
     const ref = `E2E-APLIC-${Date.now()}`;
-    await importTx(request, token, 1, ref);
-
-    const listRes = await request.get(`${BASE}/api/conciliacion/excepciones`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const tx = ((await listRes.json()).excepciones as any[]).find(
-      (e: any) => e.referencia === ref
-    );
-    if (!tx) return; // latencia de DB
+    const txId = await importTx(request, token, 1, ref);
+    expect(txId).not.toBeNull();
 
     // Cargo real del campus 48, monto_neto = 280 000, bank_tx = 1 → diff enorme → 422
     const postRes = await request.post(
-      `${BASE}/api/conciliacion/excepciones/${tx.id}/resolver`,
+      `${BASE}/api/conciliacion/excepciones/${txId!}/resolver`,
       {
         headers: { Authorization: `Bearer ${token}` },
         data: { accion: "aplicar", charge_id: 304 },
@@ -151,30 +158,18 @@ test.describe("API — /api/conciliacion/excepciones", () => {
     );
     expect([404, 422]).toContain(postRes.status());
 
-    // Limpiar: descartar la tx para no dejarla pendiente
-    await request.post(`${BASE}/api/conciliacion/excepciones/${tx.id}/resolver`, {
-      headers: { Authorization: `Bearer ${token}` },
-      data: { accion: "descartar", motivo: "Cleanup E2E" },
-    });
+    // Cleanup
+    await descartarTx(request, token, txId!);
   });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// BLOQUE 2 — Tests de UI (browser)
+// BLOQUE 2 — Tests de UI sin datos propios (browser)
 // ═══════════════════════════════════════════════════════════════════════════════
-test.describe("UI — /excepciones-conciliacion", () => {
+test.describe("UI — /excepciones-conciliacion (sin datos propios)", () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
-    // SPA wouter: navegar programáticamente
-    await page.evaluate(() => {
-      window.history.pushState({}, "", "/excepciones-conciliacion");
-      window.dispatchEvent(new PopStateEvent("popstate"));
-    });
-    // Esperar que la página cargue su contenido principal
-    await page.waitForSelector(
-      "text=Transacciones sin identificar, h1, h2, [class*='excep'], button:has-text('Refrescar')",
-      { timeout: 10_000 }
-    ).catch(() => {});
+    await irAExcepciones(page);
   });
 
   test("página carga sin errores de servidor (sin 500 en consola)", async ({ page }) => {
@@ -188,11 +183,10 @@ test.describe("UI — /excepciones-conciliacion", () => {
     expect(errors).toHaveLength(0);
   });
 
-  test("botón Refrescar es visible y clickeable", async ({ page }) => {
+  test("botón Actualizar es visible y clickeable", async ({ page }) => {
     const btn = page.getByRole("button", { name: /actualizar/i });
     await expect(btn).toBeVisible({ timeout: 8_000 });
     await btn.click();
-    // No debe lanzar excepción ni 500
     await page.waitForTimeout(600);
     const errors: string[] = [];
     page.on("console", (m) => {
@@ -200,192 +194,137 @@ test.describe("UI — /excepciones-conciliacion", () => {
     });
     expect(errors.filter((e) => e.includes("500"))).toHaveLength(0);
   });
+});
 
-  test("cuando existen excepciones, el botón Resolver abre el modal", async ({ page, request }) => {
-    // Crear una bank_tx de prueba para que haya al menos una excepción
-    const res = await request.post(`${BASE}/api/auth/login`, {
-      data: { email: "admin.campus@jfr.edu.mx", password: "Demo2025!" },
-    });
-    const { token } = await res.json();
+// ═══════════════════════════════════════════════════════════════════════════════
+// BLOQUE 3 — Tests de UI con datos propios (browser + datos reales)
+//
+// PATRÓN: cada test crea su bank_tx ANTES de navegar a la página.
+// La página carga con el dato ya en la DB → el botón Resolver aparece de inmediato.
+// No hay skip gracioso: si el botón no aparece, el test falla.
+// ═══════════════════════════════════════════════════════════════════════════════
+test.describe("UI — /excepciones-conciliacion (con datos reales)", () => {
+  let token: string;
+
+  test.beforeEach(async ({ page, request }) => {
+    // Sólo login — la navegación la hace cada test después de crear sus datos
+    token = await getAdminToken(request);
+    await loginAsAdmin(page);
+  });
+
+  test("botón Resolver abre el modal de resolución", async ({ page, request }) => {
+    // 1. Crear la bank_tx ANTES de navegar
     const ref = `E2E-UI-MODAL-${Date.now()}`;
-    await importTx(request, token, 33300, ref);
+    const txId = await importTx(request, token, 33300, ref);
+    expect(txId).not.toBeNull();
 
-    // Refrescar la lista en la UI
-    const refBtn = page.getByRole("button", { name: /actualizar/i });
-    if (await refBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await refBtn.click();
-    }
-    await page.waitForTimeout(800);
+    // 2. Navegar a la página — la tx ya está en la DB
+    await irAExcepciones(page);
 
-    // Buscar cualquier botón "Resolver"
+    // 3. El botón Resolver debe aparecer sin necesidad de refrescar
     const resolverBtn = page.getByRole("button", { name: /resolver/i }).first();
-    const isVisible = await resolverBtn.isVisible({ timeout: 5_000 }).catch(() => false);
+    await expect(resolverBtn).toBeVisible({ timeout: 12_000 });
 
-    if (!isVisible) {
-      console.warn(
-        "No se encontró botón Resolver — puede que la bank_tx no aparezca por latencia de DB. " +
-          "El test de API cubre este flujo."
-      );
-      // Limpiar aunque no encontremos el botón
-      const listRes = await request.get(`${BASE}/api/conciliacion/excepciones`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const tx = ((await listRes.json()).excepciones as any[]).find(
-        (e: any) => e.referencia === ref
-      );
-      if (tx) {
-        await request.post(`${BASE}/api/conciliacion/excepciones/${tx.id}/resolver`, {
-          headers: { Authorization: `Bearer ${token}` },
-          data: { accion: "descartar", motivo: "Cleanup E2E UI test" },
-        });
-      }
-      return;
-    }
-
+    // 4. Abrirlo y verificar el modal
     await resolverBtn.click();
-
-    // El modal debe aparecer con el título "Resolver excepción"
-    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 4_000 });
+    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText(/resolver excepción/i)).toBeVisible();
 
-    // Limpiar: cerrar modal y descartar la tx vía API
+    // Cleanup
     await page.keyboard.press("Escape");
-    const listRes = await request.get(`${BASE}/api/conciliacion/excepciones`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const tx = ((await listRes.json()).excepciones as any[]).find(
-      (e: any) => e.referencia === ref
-    );
-    if (tx) {
-      await request.post(`${BASE}/api/conciliacion/excepciones/${tx.id}/resolver`, {
-        headers: { Authorization: `Bearer ${token}` },
-        data: { accion: "descartar", motivo: "Cleanup E2E UI test" },
-      });
-    }
+    await descartarTx(request, token, txId!);
   });
 
-  test("modal muestra EXACTAMENTE las dos opciones reales de la UI: Aplicar y Descartar", async ({
+  test("modal muestra las dos opciones reales: Aplicar a un cargo existente y Descartar", async ({
     page,
     request,
   }) => {
-    const res = await request.post(`${BASE}/api/auth/login`, {
-      data: { email: "admin.campus@jfr.edu.mx", password: "Demo2025!" },
-    });
-    const { token } = await res.json();
+    // 1. Crear tx antes de navegar
     const ref = `E2E-UI-OPT-${Date.now()}`;
-    await importTx(request, token, 44400, ref);
+    const txId = await importTx(request, token, 44400, ref);
+    expect(txId).not.toBeNull();
 
-    const refBtn = page.getByRole("button", { name: /actualizar/i });
-    if (await refBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await refBtn.click();
-    }
-    await page.waitForTimeout(800);
+    // 2. Navegar con datos ya presentes
+    await irAExcepciones(page);
 
+    // 3. Abrir modal del primer botón Resolver visible
     const resolverBtn = page.getByRole("button", { name: /resolver/i }).first();
-    if (!(await resolverBtn.isVisible({ timeout: 5_000 }).catch(() => false))) {
-      console.warn("botón Resolver no visible — cubierto por test de API");
-      return;
-    }
-
+    await expect(resolverBtn).toBeVisible({ timeout: 12_000 });
     await resolverBtn.click();
-    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 4_000 });
+    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5_000 });
 
-    // Abrir el Select de acción — escopar al dialog para evitar el Select del header
+    // 4. Abrir el Select de acción dentro del dialog y verificar las dos opciones
     const dialog = page.getByRole("dialog");
-    const selectTrigger = dialog.locator("[role='combobox'], button[aria-haspopup='listbox']").first();
-    if (await selectTrigger.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await selectTrigger.click();
-      await page.waitForTimeout(400);
-      // Opciones que SÍ existen en el código (excepciones-conciliacion.tsx)
-      await expect(page.getByText(/aplicar a un cargo existente/i)).toBeVisible({ timeout: 3_000 });
-      await expect(page.getByText(/descartar/i).first()).toBeVisible({ timeout: 3_000 });
-      // Cerrar dropdown
-      await page.keyboard.press("Escape");
-    }
+    const selectTrigger = dialog
+      .locator("[role='combobox'], button[aria-haspopup='listbox']")
+      .first();
+    await expect(selectTrigger).toBeVisible({ timeout: 4_000 });
+    await selectTrigger.click();
+    await page.waitForTimeout(400);
 
-    await page.keyboard.press("Escape");
+    await expect(page.getByText(/aplicar a un cargo existente/i)).toBeVisible({ timeout: 4_000 });
+    await expect(page.getByText(/descartar/i).first()).toBeVisible({ timeout: 4_000 });
 
     // Cleanup
-    const listRes = await request.get(`${BASE}/api/conciliacion/excepciones`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const tx = ((await listRes.json()).excepciones as any[]).find(
-      (e: any) => e.referencia === ref
-    );
-    if (tx) {
-      await request.post(`${BASE}/api/conciliacion/excepciones/${tx.id}/resolver`, {
-        headers: { Authorization: `Bearer ${token}` },
-        data: { accion: "descartar", motivo: "Cleanup E2E opciones test" },
-      });
-    }
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Escape");
+    await descartarTx(request, token, txId!);
   });
 
-  test("flujo completo UI — seleccionar Descartar, llenar motivo, confirmar → excepción desaparece de la lista", async ({
+  test("flujo completo UI — Descartar → confirmar → excepción desaparece de la lista", async ({
     page,
     request,
   }) => {
-    const res = await request.post(`${BASE}/api/auth/login`, {
-      data: { email: "admin.campus@jfr.edu.mx", password: "Demo2025!" },
-    });
-    const { token } = await res.json();
-
-    // Limpiar excepciones E2E previas del campus para que no interfieran
-    const prevRes = await request.get(`${BASE}/api/conciliacion/excepciones`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const prevBody = await prevRes.json();
-    for (const exc of (prevBody.excepciones ?? []) as any[]) {
-      if (String(exc.referencia ?? "").startsWith("E2E-UI-DESCFLOW")) {
-        await request.post(`${BASE}/api/conciliacion/excepciones/${exc.id}/resolver`, {
-          headers: { Authorization: `Bearer ${token}` },
-          data: { accion: "descartar", motivo: "Cleanup pre-test" },
-        });
-      }
-    }
-
+    // 1. Crear tx antes de navegar
     const ref = `E2E-UI-DESCFLOW-${Date.now()}`;
-    await importTx(request, token, 55500, ref);
+    const txId = await importTx(request, token, 55500, ref);
+    expect(txId).not.toBeNull();
 
-    // Refrescar la UI
-    const refBtn = page.getByRole("button", { name: /actualizar/i });
-    if (await refBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await refBtn.click();
-    }
-    await page.waitForTimeout(1200);
+    // 2. Navegar con page.goto (carga completa), no con pushState.
+    //    Si el test anterior terminó en /excepciones-conciliacion, el pushState al
+    //    mismo URL no dispara un re-mount del componente → la lista no re-fetcha
+    //    y nuestra tx recién creada no aparece. page.goto fuerza recarga completa.
+    await page.goto("/excepciones-conciliacion", { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("h1, h2, [class*='excep'], [class*='concili']", {
+      timeout: 12_000,
+    });
 
-    // Localizar el botón Resolver del row exacto que contiene nuestro ref
-    // Cada excepción es un div/card con el texto de la referencia
-    const txCard = page.locator(`div`).filter({ hasText: ref }).last();
-    const resolverBtn = txCard.getByRole("button", { name: /resolver/i });
+    // 3. Esperar que el span de referencia aparezca (confirma que los datos cargaron).
+    //    El ref aparece en 2 nodos: <p> descripción y <span>Ref: {ref}</span>.
+    //    Usamos .first() para evitar strict-mode violation de Playwright.
+    await expect(page.getByText(ref).first()).toBeVisible({ timeout: 12_000 });
 
-    if (!(await resolverBtn.isVisible({ timeout: 6_000 }).catch(() => false))) {
-      console.warn("Resolver no visible en el card de nuestro ref — cubierto por test de API");
-      return;
-    }
+    // Filtrar el bloque de excepción por su clase CSS (div.border-red-*) y
+    // dentro de él buscar el span con nuestro ref para identificar la fila correcta.
+    const resolverBtn = page
+      .locator("[class*='border-red']")
+      .filter({ has: page.locator("span", { hasText: ref }) })
+      .getByRole("button", { name: /resolver/i })
+      .first();
+    await expect(resolverBtn).toBeVisible({ timeout: 4_000 });
 
-    // 1. Abrir modal
+    // 4. Abrir modal
     await resolverBtn.click();
-    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 4_000 });
+    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5_000 });
 
-    // 2. Seleccionar "Descartar" — escopar al dialog para no tocar el Select del header
-    const dialog2 = page.getByRole("dialog");
-    const selectTrigger = dialog2.locator("[role='combobox'], button[aria-haspopup='listbox']").first();
-    if (await selectTrigger.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await selectTrigger.click();
-      await page.waitForTimeout(300);
-      const descartarOpt = page.getByRole("option", { name: /descartar/i });
-      if (await descartarOpt.isVisible({ timeout: 2_000 }).catch(() => false)) {
-        await descartarOpt.click();
-      } else {
-        await page.keyboard.press("Escape");
-        console.warn("Opción Descartar no visible en el dropdown");
-        return;
-      }
-      await page.waitForTimeout(300);
-    }
+    // 5. Seleccionar "Descartar" en el primer Select del dialog
+    const dialog = page.getByRole("dialog");
+    const accionSelect = dialog
+      .locator("[role='combobox'], button[aria-haspopup='listbox']")
+      .first();
+    await expect(accionSelect).toBeVisible({ timeout: 4_000 });
+    await accionSelect.click();
+    await page.waitForTimeout(300);
 
-    // 3. Seleccionar motivo (segundo Select dentro del dialog)
-    const motivoSelect = dialog2.locator("[role='combobox'], button[aria-haspopup='listbox']").nth(1);
+    const descartarOpt = page.getByRole("option", { name: /descartar/i });
+    await expect(descartarOpt).toBeVisible({ timeout: 4_000 });
+    await descartarOpt.click();
+    await page.waitForTimeout(300);
+
+    // 6. Seleccionar motivo (segundo Select)
+    const motivoSelect = dialog
+      .locator("[role='combobox'], button[aria-haspopup='listbox']")
+      .nth(1);
     if (await motivoSelect.isVisible({ timeout: 2_000 }).catch(() => false)) {
       await motivoSelect.click();
       await page.waitForTimeout(300);
@@ -396,17 +335,15 @@ test.describe("UI — /excepciones-conciliacion", () => {
       await page.waitForTimeout(200);
     }
 
-    // 4. Clic en "Confirmar descarte"
+    // 7. Confirmar descarte
     const confirmBtn = page.getByRole("button", { name: /confirmar descarte/i });
-    if (await confirmBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await confirmBtn.click();
-      await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 5_000 });
-    } else {
-      await page.keyboard.press("Escape");
-      console.warn("Botón Confirmar descarte no visible");
-    }
+    await expect(confirmBtn).toBeVisible({ timeout: 4_000 });
+    await confirmBtn.click();
 
-    // 5. Verificar vía API que la excepción ya no aparece como pendiente
+    // 8. El modal debe cerrarse
+    await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 6_000 });
+
+    // 9. Verificar vía API que la excepción ya no está pendiente
     await page.waitForTimeout(800);
     const listRes = await request.get(`${BASE}/api/conciliacion/excepciones`, {
       headers: { Authorization: `Bearer ${token}` },

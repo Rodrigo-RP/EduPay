@@ -7,6 +7,7 @@ Edupay is a SaaS platform designed to automate tuition payments for private scho
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
+Pruebas de integración: Antes de correr cualquier suite que dependa del servidor HTTP después de modificar código fuente, reiniciar el servidor explícitamente y confirmar en el reporte con hora ("servidor reiniciado a las HH:MM:SS, código nuevo cargado"). Nunca asumir que el proceso ya tiene el código más reciente.
 Architecture preference: SaaS multi-tenant web platform según especificaciones exactas del documento.
 Platform type: Plataforma SaaS 100% enfocada en pagos escolares, no ERP ni LMS.
 Tecnología requerida: React + Tailwind CSS (PWA ready), Node.js, PostgreSQL, Redis, Stripe/Openpay/Conekta, PAC Facturama.

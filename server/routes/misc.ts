@@ -930,13 +930,56 @@ export function registerMiscRoutes(app: Express): void {
   });
 
   // /api/admin/configuracion/escuela — setup inicial de escuela
+  // CF-20: guard SETTINGS.CONFIGURE; persiste nombre en campuses y el resto en institutional_settings
+  // nivel_educativo no tiene columna en ninguna tabla — se recibe pero se ignora sin error
   app.post("/api/admin/configuracion/escuela", authenticateToken, async (req, res) => {
     try {
+      const role = (req as any).user?.role;
+      if (!hasPermission(role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permiso para configurar ajustes institucionales" });
+      }
       const campusId = (req as any).user?.campus_id;
-      const { nombre, rfc, direccion, telefono, email, logo_url, nivel_educativo } = req.body;
-      await pool.query(`
-        UPDATE campuses SET nombre=COALESCE($2,nombre) WHERE id=$1
-      `, [campusId, nombre]).catch(() => {});
+      const tenantId = (req as any).user?.tenant_id;
+      const { nombre, rfc, direccion, telefono, email } = req.body;
+      // nivel_educativo omitido intencionalmente: no existe en campuses ni en institutional_settings
+      // logo_url pasa por sanitizeInput que convierte / en &#x2F; — revertir antes de guardar en DB
+      const logo_url = typeof req.body.logo_url === "string"
+        ? req.body.logo_url
+            .replace(/&#x2F;/g, "/")
+            .replace(/&lt;/g, "<")
+            .replace(/&gt;/g, ">")
+            .replace(/&quot;/g, '"')
+            .replace(/&#x27;/g, "'")
+        : (req.body.logo_url ?? null);
+
+      // 1. nombre vive en campuses
+      await pool.query(
+        `UPDATE campuses SET nombre = COALESCE($2, nombre), updated_at = NOW() WHERE id = $1`,
+        [campusId, nombre ?? null]
+      );
+
+      // 2. rfc, direccion, telefono, email, logo_url viven en institutional_settings
+      // institutional_settings.campus_id solo tiene FK (no UNIQUE) → no se puede usar ON CONFLICT.
+      // Patrón: UPDATE primero; si rowCount=0 la fila no existe, INSERT.
+      const upd = await pool.query(`
+        UPDATE institutional_settings SET
+          rfc                 = COALESCE($2, rfc),
+          direccion_fiscal    = COALESCE($3, direccion_fiscal),
+          telefono_principal  = COALESCE($4, telefono_principal),
+          email_institucional = COALESCE($5, email_institucional),
+          logo_url            = COALESCE($6, logo_url),
+          updated_at          = NOW()
+        WHERE campus_id = $1
+      `, [campusId, rfc ?? null, direccion ?? null, telefono ?? null, email ?? null, logo_url ?? null]);
+
+      if ((upd.rowCount ?? 0) === 0) {
+        await pool.query(`
+          INSERT INTO institutional_settings
+            (campus_id, tenant_id, rfc, direccion_fiscal, telefono_principal, email_institucional, logo_url, updated_at)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+        `, [campusId, tenantId, rfc ?? null, direccion ?? null, telefono ?? null, email ?? null, logo_url ?? null]);
+      }
+
       res.json({ mensaje: "Configuración de escuela guardada", campus_id: campusId });
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });

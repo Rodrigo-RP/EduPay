@@ -533,12 +533,15 @@ export class AttackProtection {
    * Sanitiza input para prevenir XSS
    */
   static sanitizeInput(input: string): string {
+    // Nota: '/' NO se codifica. Es innecesario cuando '<' ya se codifica a
+    // '&lt;' — la secuencia '</script>' se vuelve '&lt;/script>' que es
+    // inofensiva. Codificar '/' rompe URLs guardadas en la DB (foto_url,
+    // logo_url, sitio_web, etc.) y no añade protección real.
     return input
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#x27;')
-      .replace(/\//g, '&#x2F;');
+      .replace(/'/g, '&#x27;');
   }
 
   /**

@@ -940,17 +940,9 @@ export function registerMiscRoutes(app: Express): void {
       }
       const campusId = (req as any).user?.campus_id;
       const tenantId = (req as any).user?.tenant_id;
-      const { nombre, rfc, direccion, telefono, email } = req.body;
+      const { nombre, rfc, direccion, telefono, email, logo_url } = req.body;
       // nivel_educativo omitido intencionalmente: no existe en campuses ni en institutional_settings
-      // logo_url pasa por sanitizeInput que convierte / en &#x2F; — revertir antes de guardar en DB
-      const logo_url = typeof req.body.logo_url === "string"
-        ? req.body.logo_url
-            .replace(/&#x2F;/g, "/")
-            .replace(/&lt;/g, "<")
-            .replace(/&gt;/g, ">")
-            .replace(/&quot;/g, '"')
-            .replace(/&#x27;/g, "'")
-        : (req.body.logo_url ?? null);
+      // logo_url: sanitizeInput ya no codifica '/' (fix en security-engine.ts) → se guarda directo
 
       // 1. nombre vive en campuses
       await pool.query(

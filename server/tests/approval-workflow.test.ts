@@ -852,6 +852,83 @@ describe("Approval Workflow — entity_id y tenant_id reales", () => {
     expect(row.rows[0].nombre).toBe("Nombre Actualizado AWF-19");
   });
 
+  // ── AWF-20 ───────────────────────────────────────────────────────────────
+  // GET /api/approvals/notifications usa req.user.id — cada usuario ve las suyas.
+  // Antes del fix: ignoraba al autenticado y devolvía las del primer
+  // administrador_general en la DB, o del ID 25 hardcodeado si no había ninguno.
+  it("AWF-20: GET /api/approvals/notifications devuelve exactamente las notificaciones del usuario autenticado, no las de otro", async () => {
+    // Necesitamos un pending_approval real como FK anchor
+    // (approval_notifications.approval_id NOT NULL → references pending_approvals.id)
+    const anchorRow = await pool.query(
+      `INSERT INTO pending_approvals
+         (tenant_id, campus_id, requested_by, action_type, action_description,
+          entity_type, entity_id, original_data, requested_data, reason, status)
+       VALUES ($1, $2, $3, 'modify_price', 'Anchor para AWF-20',
+               'concept', $4, '{}', '{}', 'Fixture AWF-20', 'pending')
+       RETURNING id`,
+      [tenantId, campusId, requesterId, conceptId]
+    );
+    const anchorApprovalId: number = anchorRow.rows[0].id;
+    createdApprovalIds.push(anchorApprovalId);
+
+    // Crear 2 notificaciones para el approver (administrador_general, tenantA)
+    await pool.query(
+      `INSERT INTO approval_notifications
+         (approval_id, recipient_id, notification_type, title, message)
+       VALUES ($1, $2, 'approval_request', 'Notif A1 para approver', 'Mensaje exclusivo del approver'),
+              ($1, $2, 'approval_granted',  'Notif A2 para approver', 'Segunda notif del approver')`,
+      [anchorApprovalId, approverId]
+    );
+
+    // Crear 1 notificación para el requester (auxiliar_contable, tenantA)
+    await pool.query(
+      `INSERT INTO approval_notifications
+         (approval_id, recipient_id, notification_type, title, message)
+       VALUES ($1, $2, 'approval_request', 'Notif para requester', 'Mensaje exclusivo del requester')`,
+      [anchorApprovalId, requesterId]
+    );
+
+    // ── Caso 1: approver ve exactamente sus 2 notificaciones ─────────────────
+    const resApprover = await apiFetch("GET", "/api/approvals/notifications", approverToken);
+    expect(resApprover.status).toBe(200);
+    const notifsApprover = resApprover.body as any[];
+
+    // Filtramos solo las de este anchor para no interferir con otros tests
+    const approverOwn = notifsApprover.filter(
+      (n: any) => n.approval_id === anchorApprovalId
+    );
+    expect(approverOwn).toHaveLength(2);
+    // Ninguna puede pertenecer al requester
+    for (const n of approverOwn) {
+      expect(n.recipient_id).toBe(approverId);
+    }
+
+    // ── Caso 2: requester ve exactamente su 1 notificación ───────────────────
+    const resRequester = await apiFetch("GET", "/api/approvals/notifications", requesterToken);
+    expect(resRequester.status).toBe(200);
+    const notifsRequester = resRequester.body as any[];
+
+    const requesterOwn = notifsRequester.filter(
+      (n: any) => n.approval_id === anchorApprovalId
+    );
+    expect(requesterOwn).toHaveLength(1);
+    for (const n of requesterOwn) {
+      expect(n.recipient_id).toBe(requesterId);
+    }
+
+    // ── Caso 3: aislamiento cruzado — las notifs del approver no aparecen en
+    //           la respuesta del requester y viceversa ─────────────────────────
+    const approverIdsInRequesterView = notifsRequester
+      .filter((n: any) => n.approval_id === anchorApprovalId)
+      .map((n: any) => n.recipient_id);
+    expect(approverIdsInRequesterView.every((id: number) => id === requesterId)).toBe(true);
+
+    const requesterIdsInApproverView = notifsApprover
+      .filter((n: any) => n.approval_id === anchorApprovalId)
+      .map((n: any) => n.recipient_id);
+    expect(requesterIdsInApproverView.every((id: number) => id === approverId)).toBe(true);
+  });
+
   // ── AWF-08 ───────────────────────────────────────────────────────────────
   // GET /api/approvals/history filtra por tenant: tenantA no ve registros de tenantB.
   it("AWF-08: GET /api/approvals/history devuelve solo registros del propio tenant", async () => {

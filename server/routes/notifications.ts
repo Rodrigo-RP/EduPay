@@ -851,11 +851,11 @@ export function registerNotificationRoutes(app: Express): void {
   // Get user notifications
   app.get("/api/approvals/notifications", authenticateToken, async (req, res) => {
     try {
-      // Buscar usuario administrador general para notificaciones
-      const adminUsers = await db.select().from(users).where(eq(users.role, 'administrador_general')).limit(1);
-      const adminUserId = adminUsers.length > 0 ? adminUsers[0].id : 25; // Fallback a super admin
-      
-      const notifications = await storage.getNotificationsByUser(adminUserId);
+      const user = (req as any).user;
+      // Antes: buscaba el primer administrador_general en la DB e ignoraba al usuario
+      // autenticado; si no había ninguno usaba el ID 25 hardcodeado.
+      // Ahora: cada usuario recibe sus propias notificaciones según recipient_id.
+      const notifications = await storage.getNotificationsByUser(user.id);
       res.json(notifications);
     } catch (error: any) {
       res.status(500).json({ message: "Error obteniendo notificaciones" });

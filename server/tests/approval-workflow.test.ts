@@ -487,6 +487,46 @@ describe("Approval Workflow — entity_id y tenant_id reales", () => {
     expect(pmtRow.rows[0].estado).toBe("reversado");
   });
 
+  // ── AWF-09 ───────────────────────────────────────────────────────────────
+  // tenant_id NULL en pending_approvals no es excepción silenciosa: debe bloquearse.
+  // Cubre registros legacy (creados antes del fix de tenant_id en POST /request).
+  it("AWF-09: solicitud con tenant_id NULL — administrador_general no puede aprobarla → 403", async () => {
+    // Insertar directamente un pending_approval con tenant_id NULL
+    // (simula un registro legacy creado antes del fix de esta sesión)
+    const legacyRow = await pool.query(
+      `INSERT INTO pending_approvals
+         (tenant_id, campus_id, requested_by, action_type, action_description,
+          entity_type, entity_id, original_data, requested_data, reason, status)
+       VALUES (NULL, $1, $2, 'modify_price', 'Solicitud legacy sin tenant asignado',
+               'concept', 1, '{}', '{}', 'Registro legacy para auditoría', 'pending')
+       RETURNING id`,
+      [campusId, requesterId]
+    );
+    const legacyApprovalId: number = legacyRow.rows[0].id;
+    createdApprovalIds.push(legacyApprovalId);
+
+    // administrador_general del tenantA intenta aprobarla — debe recibir 403
+    const decRes = await apiFetch(
+      "POST", "/api/approvals/decision",
+      approverToken,
+      {
+        approval_id: legacyApprovalId,
+        decision:    "approved",
+        notes:       "Intento de aprobación de solicitud legacy sin tenant",
+      }
+    );
+    expect(decRes.status).toBe(403);
+    expect(decRes.body.message).toMatch(/tenant|plantel|administrador/i);
+
+    // Verificar que el estado NO cambió
+    const afterRow = await pool.query(
+      `SELECT status, approved_by FROM pending_approvals WHERE id = $1`,
+      [legacyApprovalId]
+    );
+    expect(afterRow.rows[0].status).toBe("pending");
+    expect(afterRow.rows[0].approved_by).toBeNull();
+  });
+
   // ── AWF-08 ───────────────────────────────────────────────────────────────
   // GET /api/approvals/history filtra por tenant: tenantA no ve registros de tenantB.
   it("AWF-08: GET /api/approvals/history devuelve solo registros del propio tenant", async () => {

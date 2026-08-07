@@ -763,9 +763,15 @@ export function registerNotificationRoutes(app: Express): void {
 
       // Aislamiento de tenant: el aprobador debe pertenecer al mismo tenant que la solicitud.
       // super_admin es la única excepción — puede actuar en cualquier tenant.
+      // tenant_id NULL es un registro legacy/corrupto: ningún rol (excepto super_admin)
+      // puede aprobarlo; tratarlo como excepción silenciosa sería una brecha de control.
       if (user.role !== 'super_admin') {
-        if (approval.tenant_id !== null &&
-            Number(approval.tenant_id) !== Number(user.tenant_id)) {
+        if (approval.tenant_id === null) {
+          return res.status(403).json({
+            message: "Esta solicitud no tiene tenant asignado y no puede ser aprobada — contacta al administrador del sistema"
+          });
+        }
+        if (Number(approval.tenant_id) !== Number(user.tenant_id)) {
           return res.status(403).json({
             message: "No puedes aprobar solicitudes de otro plantel"
           });

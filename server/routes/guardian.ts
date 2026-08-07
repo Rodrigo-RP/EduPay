@@ -1208,6 +1208,10 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   // Create new concept
   app.post("/api/concepts", authenticateToken, async (req: any, res) => {
     try {
+      const role = req.user?.role;
+      if (!hasPermission(role, MODULES.CONCEPTS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para gestionar conceptos" });
+      }
       // campus_id y tenant_id SIEMPRE del JWT — nunca del body
       const campusId = req.user.campus_id;
       const tenantId = req.user.tenant_id;
@@ -1236,6 +1240,10 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   // Update concept by id
   app.put("/api/concepts/:id", authenticateToken, async (req, res) => {
     try {
+      const role = (req as any).user?.role;
+      if (!hasPermission(role, MODULES.CONCEPTS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para gestionar conceptos" });
+      }
       const campusId = (req as any).user.campus_id;
       const id = parseInt(req.params.id);
       const { nombre, tipo, periodicidad, monto_centavos, iva } = req.body;
@@ -1254,6 +1262,10 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   // Delete concept by id
   app.delete("/api/concepts/:id", authenticateToken, async (req, res) => {
     try {
+      const role = (req as any).user?.role;
+      if (!hasPermission(role, MODULES.CONCEPTS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para gestionar conceptos" });
+      }
       const campusId = (req as any).user.campus_id;
       const id = parseInt(req.params.id);
       await db
@@ -1268,6 +1280,10 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   // Get complete due dates configuration
   app.get("/api/payment-config/due-dates-complete", authenticateToken, async (req, res) => {
     try {
+      const role = (req as any).user?.role;
+      if (!hasPermission(role, MODULES.SETTINGS, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver configuración de fechas de vencimiento" });
+      }
       const campusId = (req as any).user.campus_id;
       
       // Using left join to get concept names
@@ -1302,6 +1318,10 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   // Create complete due date
   app.post("/api/payment-config/due-dates-complete", authenticateToken, async (req, res) => {
     try {
+      const role = (req as any).user?.role;
+      if (!hasPermission(role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para gestionar fechas de vencimiento" });
+      }
       const campusId = (req as any).user.campus_id;
       const { concepto_id, dia_vencimiento, meses_aplicacion, activo } = req.body;
       
@@ -1337,6 +1357,10 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   // Update complete due date
   app.put("/api/payment-config/due-dates-complete/:id", authenticateToken, async (req: any, res) => {
     try {
+      const role = req.user?.role;
+      if (!hasPermission(role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para gestionar fechas de vencimiento" });
+      }
       const dueDateId = parseInt(req.params.id);
       if (!dueDateId || isNaN(dueDateId)) return res.status(400).json({ message: "ID inválido" });
       const campusId = req.user?.campus_id;
@@ -1384,6 +1408,10 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   // Delete complete due date
   app.delete("/api/payment-config/due-dates-complete/:id", authenticateToken, async (req: any, res) => {
     try {
+      const role = req.user?.role;
+      if (!hasPermission(role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para gestionar fechas de vencimiento" });
+      }
       const dueDateId = parseInt(req.params.id);
       if (!dueDateId || isNaN(dueDateId)) return res.status(400).json({ message: "ID inválido" });
       const campusId = req.user?.campus_id;
@@ -1448,6 +1476,10 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   // Create complete surcharge rule
   app.post("/api/payment-config/surcharge-rules-complete", authenticateToken, async (req, res) => {
     try {
+      const role = (req as any).user?.role;
+      if (!hasPermission(role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para gestionar reglas de recargo" });
+      }
       const campusId = (req as any).user.campus_id;
       const { concepto_id, dias_gracia, porcentaje_recargo, monto_fijo, tipo_calculo, activo } = req.body;
       

@@ -27,6 +27,10 @@ export function registerChargesRoutes(app: Express): void {
   // Create new concept
   app.post("/api/admin/concepts", authenticateToken, async (req: any, res) => {
     try {
+      const role = req.user?.role;
+      if (!hasPermission(role, MODULES.CONCEPTS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para gestionar conceptos" });
+      }
       // campus_id y tenant_id SIEMPRE del JWT — nunca del body (previene cross-tenant)
       const conceptData = { ...req.body };
       conceptData.campus_id = req.user?.campus_id;

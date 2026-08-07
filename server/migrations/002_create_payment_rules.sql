@@ -1,7 +1,18 @@
 -- Migration 002: Create payment_rules and late_fee_calculations tables
--- These tables are defined in the Drizzle schema but were never applied to the DB.
--- payment_rules is required by GET/POST /api/payment-rules (system.ts).
--- late_fee_calculations is referenced by payment_rule_id FK.
+-- Source: shared/schema.ts:552-600 (Drizzle definitions ya existían; solo faltaba
+--         aplicar la migración a la DB real).
+-- Applied: 2026-08-07 via vitest probe script.
+--
+-- UP   → ejecutar todo el bloque de CREATE TABLE de abajo.
+-- DOWN → ejecutar el siguiente bloque DROP (orden inverso por FK):
+--
+--   DROP TABLE IF EXISTS late_fee_calculations;
+--   DROP TABLE IF EXISTS payment_rules;
+--
+-- Reversibilidad: ambas tablas eran nuevas y vacías al aplicarse;
+-- no hay datos de producción en riesgo. El DROP es seguro mientras
+-- late_fee_calculations no tenga filas que referencien payment_rules.
+-- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS payment_rules (
   id                            SERIAL PRIMARY KEY,

@@ -1488,11 +1488,28 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   app.put("/api/payment-config/surcharge-rules-complete/:id", authenticateToken, async (req, res) => {
     try {
       const ruleId = parseInt(req.params.id);
+      if (!ruleId || isNaN(ruleId)) return res.status(400).json({ message: "ID inválido" });
 
       // ── Guard de rol ──────────────────────────────────────────────────────
       if (!hasPermission((req as any).user?.role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para configurar reglas de recargo" });
       }
+
+      const campusId = (req as any).user?.campus_id;
+      if (!campusId) return res.status(400).json({ message: "Campus requerido" });
+
+      // ── Ownership check: la regla debe pertenecer al campus del solicitante ─
+      // Sin esta verificación el UPDATE filtraría solo por id, permitiendo que
+      // un admin de cualquier campus sobreescriba reglas de otro campus (IDOR).
+      const [existing] = await db
+        .select({ id: payment_surcharge_rules.id })
+        .from(payment_surcharge_rules)
+        .where(and(
+          eq(payment_surcharge_rules.id, ruleId),
+          eq(payment_surcharge_rules.campus_id, campusId)
+        ))
+        .limit(1);
+      if (!existing) return res.status(404).json({ message: "Regla no encontrada" });
 
       const { concepto_id, dias_gracia, porcentaje_recargo, monto_fijo, tipo_calculo, activo } = req.body;
       
@@ -1534,7 +1551,10 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       const [updated] = await db
         .update(payment_surcharge_rules)
         .set(updateData)
-        .where(eq(payment_surcharge_rules.id, ruleId))
+        .where(and(
+          eq(payment_surcharge_rules.id, ruleId),
+          eq(payment_surcharge_rules.campus_id, campusId)
+        ))
         .returning();
       
       // Map database type back to frontend type

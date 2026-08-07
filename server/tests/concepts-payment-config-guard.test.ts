@@ -2,42 +2,35 @@
  * CF-02, CF-03, CF-04, CF-11, CF-12, CF-17
  * Guards de acceso al catálogo de conceptos y configuración de pagos
  *
- * MÓDULOS ELEGIDOS (con justificación del mapa real en permissions.ts):
+ * MÓDULOS (mapa real de permissions.ts):
  *
  *   CF-02/03/04/17  → MODULES.CONCEPTS, ACTIONS.CONFIGURE
- *     Gestión del catálogo de conceptos de cobro (CREATE/UPDATE/DELETE).
- *     "Configurar conceptos en cualquier campus" / "Configurar conceptos del campus".
- *     Roles que lo tienen: super_admin, administrador_general.
- *     administrador_campus tiene solo CONCEPTS.READ; CONCEPTS.CONFIGURE es
- *     una operación de nivel superior (define qué cargos existen, no solo
- *     los administra). Rol positivo en tests: administrador_general.
+ *     Gestión del catálogo de cobro. Roles: super_admin, administrador_general,
+ *     administrador_campus (decisión: el catálogo opera a nivel de plantel sin
+ *     escalar, misma filosofía que las reglas de recargo con SETTINGS.CONFIGURE).
  *
  *   CF-11 GET       → MODULES.SETTINGS, ACTIONS.READ
- *     Lectura de configuración de fechas de vencimiento. Roles con SETTINGS.READ:
- *     administrador_campus, administrador_general. contador_general no tiene
- *     SETTINGS en su mapa, así que tampoco puede leer esta configuración.
- *     Rol positivo en tests: administrador_campus.
+ *     Lectura de configuración de fechas de vencimiento.
+ *     Roles: administrador_campus, administrador_general.
  *
  *   CF-11 POST/PUT/DELETE + CF-12 POST → MODULES.SETTINGS, ACTIONS.CONFIGURE
  *     Mutaciones de fechas de vencimiento y reglas de recargo.
- *     administrador_campus tiene SETTINGS.CONFIGURE con descripción exacta
- *     "Configurar reglas de pago y recargo del campus" (permissions.ts línea 217).
- *     Consistente con los guards ya existentes en el resto de payment-config
- *     (líneas 995, 1044, 1084 de guardian.ts).
- *     Rol positivo en tests: administrador_campus.
+ *     administrador_campus tiene SETTINGS.CONFIGURE: "Configurar reglas de
+ *     pago y recargo del campus". Consistente con guards existentes en guardian.ts.
  *
- * Estructura de cada CF: bloqueo (rol sin permiso → 403, DB sin efecto) +
- * control positivo (rol con permiso → 2xx, DB con efecto).
+ * Estructura por CF: bloqueado (asistente → 403, DB sin efecto) +
+ * control positivo (administrador_general → 2xx) +
+ * control positivo (administrador_campus → 2xx) para CF-02/03/04/17.
  *
- * CFC-01/02   CF-02: POST /api/concepts
- * CFC-03/04   CF-03: PUT  /api/concepts/:id
- * CFC-05/06   CF-04: DELETE /api/concepts/:id
- * CFC-07/08   CF-11 GET:    GET  /api/payment-config/due-dates-complete
- * CFC-09/10   CF-11 POST:   POST /api/payment-config/due-dates-complete
- * CFC-11/12   CF-11 PUT:    PUT  /api/payment-config/due-dates-complete/:id
- * CFC-13/14   CF-11 DELETE: DELETE /api/payment-config/due-dates-complete/:id
- * CFC-15/16   CF-12: POST /api/payment-config/surcharge-rules-complete
- * CFC-17/18   CF-17: POST /api/admin/concepts
+ * CFC-01/02/02b   CF-02: POST /api/concepts
+ * CFC-03/04/04b   CF-03: PUT  /api/concepts/:id
+ * CFC-05/06/06b   CF-04: DELETE /api/concepts/:id
+ * CFC-07/08       CF-11 GET:    GET  /api/payment-config/due-dates-complete
+ * CFC-09/10       CF-11 POST:   POST /api/payment-config/due-dates-complete
+ * CFC-11/12       CF-11 PUT:    PUT  /api/payment-config/due-dates-complete/:id
+ * CFC-13/14       CF-11 DELETE: DELETE /api/payment-config/due-dates-complete/:id
+ * CFC-15/16       CF-12: POST /api/payment-config/surcharge-rules-complete
+ * CFC-17/18/18b   CF-17: POST /api/admin/concepts
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -71,20 +64,19 @@ async function apiFetch(
 let tenantId: number;
 let campusId: number;
 
-// Roles:
-//   tokenAsistente        → bloqueado en todo (no tiene CONCEPTS ni SETTINGS)
-//   tokenAdminCampus      → bloqueado en CF-02/03/04/17 (solo CONCEPTS.READ),
-//                           permitido en CF-11/CF-12 (SETTINGS.READ + CONFIGURE)
-//   tokenAdminGeneral     → permitido en CF-02/03/04/17 (CONCEPTS.CONFIGURE)
+// tokenAsistente:    bloqueado en todo
+// tokenAdminCampus:  CONCEPTS.CONFIGURE + SETTINGS.* (permitido en todo)
+// tokenAdminGeneral: CONCEPTS.CONFIGURE + SETTINGS.* (permitido en todo)
 let tokenAsistente: string;
 let tokenAdminCampus: string;
 let tokenAdminGeneral: string;
 
 // IDs inter-test
-let conceptoBaseId: number;   // para PUT/DELETE concepts y referencia en due-dates
-let conceptoDeleteId: number; // temporal para CFC-05/06
-let dueDateBaseId: number;    // para PUT/DELETE due-dates
-let dueDateDeleteId: number;  // temporal para CFC-13/14
+let conceptoBaseId: number;    // para PUT/DELETE y referencia en due-dates/surcharge
+let conceptoDeleteId: number;  // temporal para CFC-05/06  (elimina admin_general)
+let conceptoDeleteId2: number; // temporal para CFC-06b    (elimina admin_campus)
+let dueDateBaseId: number;     // para PUT/DELETE due-dates
+let dueDateDeleteId: number;   // temporal para CFC-13/14
 let surchargeCreatedId: number;
 
 beforeAll(async () => {
@@ -126,30 +118,23 @@ beforeAll(async () => {
   tokenAdminCampus  = makeToken(idAdminCampus,  "administrador_campus");
   tokenAdminGeneral = makeToken(idAdminGeneral, "administrador_general");
 
-  // Concepto base (para PUT/DELETE y como referencia en due-dates/surcharge)
+  // Concepto base
   const [c] = await db
     .insert(concepts)
     .values({
-      campus_id:     campusId,
-      tenant_id:     tenantId,
-      nombre:        `Concepto Base CFC ${ts}`,
-      tipo:          "mensualidad",
-      periodicidad:  "mensual",
-      monto_centavos: 50000,
-      iva:           false,
+      campus_id: campusId, tenant_id: tenantId,
+      nombre: `Concepto Base CFC ${ts}`, tipo: "mensualidad",
+      periodicidad: "mensual", monto_centavos: 50000, iva: false,
     })
     .returning();
   conceptoBaseId = c.id;
 
-  // Due date base (para PUT/DELETE)
+  // Due date base para PUT/DELETE
   const [dd] = await db
     .insert(payment_due_dates)
     .values({
-      campus_id:       campusId,
-      concepto:        c.nombre,
-      dia_vencimiento: 10,
-      mes_aplicacion:  "todos",
-      activo:          true,
+      campus_id: campusId, concepto: c.nombre,
+      dia_vencimiento: 10, mes_aplicacion: "todos", activo: true,
     })
     .returning();
   dueDateBaseId = dd.id;
@@ -158,12 +143,12 @@ beforeAll(async () => {
 afterAll(async () => {
   if (surchargeCreatedId)
     await pool.query(`DELETE FROM payment_surcharge_rules WHERE id=$1`, [surchargeCreatedId]);
-  await pool.query(`DELETE FROM payment_due_dates      WHERE campus_id=$1`, [campusId]);
+  await pool.query(`DELETE FROM payment_due_dates       WHERE campus_id=$1`, [campusId]);
   await pool.query(`DELETE FROM payment_surcharge_rules WHERE campus_id=$1`, [campusId]);
-  await pool.query(`DELETE FROM concepts               WHERE campus_id=$1`, [campusId]);
-  await pool.query(`DELETE FROM users                  WHERE campus_id=$1`, [campusId]);
-  await pool.query(`DELETE FROM campuses               WHERE id=$1`,        [campusId]);
-  await pool.query(`DELETE FROM tenants                WHERE id=$1`,        [tenantId]);
+  await pool.query(`DELETE FROM concepts                WHERE campus_id=$1`, [campusId]);
+  await pool.query(`DELETE FROM users                   WHERE campus_id=$1`, [campusId]);
+  await pool.query(`DELETE FROM campuses                WHERE id=$1`,        [campusId]);
+  await pool.query(`DELETE FROM tenants                 WHERE id=$1`,        [tenantId]);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -188,8 +173,21 @@ describe("CF-02/03/04 — /api/concepts (POST / PUT / DELETE) [CONCEPTS.CONFIGUR
   it("CFC-02: administrador_general → 201 en POST /api/concepts, concepto en DB", async () => {
     const ts2 = Date.now().toString().slice(-4);
     const { status, body } = await apiFetch("POST", "/api/concepts", tokenAdminGeneral, {
-      nombre: `Concepto CF02 ${ts2}`, tipo: "mensualidad",
+      nombre: `Concepto CF02-AG ${ts2}`, tipo: "mensualidad",
       periodicidad: "mensual", monto_centavos: 20000,
+    });
+    expect(status).toBe(201);
+    const id = (body as any).id;
+    expect(id).toBeGreaterThan(0);
+    const row = await pool.query(`SELECT id FROM concepts WHERE id=$1`, [id]);
+    expect(row.rows.length).toBe(1);
+  });
+
+  it("CFC-02b: administrador_campus → 201 en POST /api/concepts, concepto en DB", async () => {
+    const ts2 = Date.now().toString().slice(-4);
+    const { status, body } = await apiFetch("POST", "/api/concepts", tokenAdminCampus, {
+      nombre: `Concepto CF02-AC ${ts2}`, tipo: "mensualidad",
+      periodicidad: "mensual", monto_centavos: 25000,
     });
     expect(status).toBe(201);
     const id = (body as any).id;
@@ -212,19 +210,30 @@ describe("CF-02/03/04 — /api/concepts (POST / PUT / DELETE) [CONCEPTS.CONFIGUR
   it("CFC-04: administrador_general → 200 en PUT /api/concepts/:id, nombre actualizado", async () => {
     const { status } = await apiFetch(
       "PUT", `/api/concepts/${conceptoBaseId}`, tokenAdminGeneral,
-      { nombre: "Concepto Actualizado CFC-04", monto_centavos: 55000,
+      { nombre: "Concepto Actualizado AG", monto_centavos: 55000,
         tipo: "mensualidad", periodicidad: "mensual", iva: false },
     );
     expect(status).toBe(200);
     const row = await pool.query(`SELECT nombre FROM concepts WHERE id=$1`, [conceptoBaseId]);
-    expect((row.rows[0] as any).nombre).toBe("Concepto Actualizado CFC-04");
+    expect((row.rows[0] as any).nombre).toBe("Concepto Actualizado AG");
+  });
+
+  it("CFC-04b: administrador_campus → 200 en PUT /api/concepts/:id, nombre actualizado", async () => {
+    const { status } = await apiFetch(
+      "PUT", `/api/concepts/${conceptoBaseId}`, tokenAdminCampus,
+      { nombre: "Concepto Actualizado AC", monto_centavos: 60000,
+        tipo: "mensualidad", periodicidad: "mensual", iva: false },
+    );
+    expect(status).toBe(200);
+    const row = await pool.query(`SELECT nombre FROM concepts WHERE id=$1`, [conceptoBaseId]);
+    expect((row.rows[0] as any).nombre).toBe("Concepto Actualizado AC");
   });
 
   // ── CF-04 ──────────────────────────────────────────────────────────────────
   it("CFC-05: asistente → 403 en DELETE /api/concepts/:id, fila aún en DB", async () => {
     const [tmp] = await db.insert(concepts).values({
       campus_id: campusId, tenant_id: tenantId,
-      nombre: `Temporal CFC05 ${Date.now()}`, tipo: "otro",
+      nombre: `Temp CFC05 ${Date.now()}`, tipo: "otro",
       periodicidad: "anual", monto_centavos: 1, iva: false,
     }).returning();
     conceptoDeleteId = tmp.id;
@@ -243,6 +252,22 @@ describe("CF-02/03/04 — /api/concepts (POST / PUT / DELETE) [CONCEPTS.CONFIGUR
     );
     expect(status).toBe(200);
     const row = await pool.query(`SELECT id FROM concepts WHERE id=$1`, [conceptoDeleteId]);
+    expect(row.rows.length).toBe(0);
+  });
+
+  it("CFC-06b: administrador_campus → 200 en DELETE /api/concepts/:id, fila eliminada", async () => {
+    const [tmp2] = await db.insert(concepts).values({
+      campus_id: campusId, tenant_id: tenantId,
+      nombre: `Temp CFC06b ${Date.now()}`, tipo: "otro",
+      periodicidad: "anual", monto_centavos: 1, iva: false,
+    }).returning();
+    conceptoDeleteId2 = tmp2.id;
+
+    const { status } = await apiFetch(
+      "DELETE", `/api/concepts/${conceptoDeleteId2}`, tokenAdminCampus,
+    );
+    expect(status).toBe(200);
+    const row = await pool.query(`SELECT id FROM concepts WHERE id=$1`, [conceptoDeleteId2]);
     expect(row.rows.length).toBe(0);
   });
 });
@@ -322,11 +347,8 @@ describe("CF-11 — /api/payment-config/due-dates-complete (GET/POST/PUT/DELETE)
   // ── CF-11 DELETE  (SETTINGS.CONFIGURE) ────────────────────────────────────
   it("CFC-13: asistente → 403 en DELETE /api/payment-config/due-dates-complete/:id, fila intacta", async () => {
     const [tmp] = await db.insert(payment_due_dates).values({
-      campus_id:       campusId,
-      concepto:        "Concepto Actualizado CFC-04",
-      dia_vencimiento: 5,
-      mes_aplicacion:  "todos",
-      activo:          true,
+      campus_id: campusId, concepto: "Concepto Actualizado AC",
+      dia_vencimiento: 5, mes_aplicacion: "todos", activo: true,
     }).returning();
     dueDateDeleteId = tmp.id;
 
@@ -402,8 +424,21 @@ describe("CF-17 — POST /api/admin/concepts [CONCEPTS.CONFIGURE]", () => {
   it("CFC-18: administrador_general → 201 en POST /api/admin/concepts, concepto en DB", async () => {
     const ts3 = Date.now().toString().slice(-4);
     const { status, body } = await apiFetch("POST", "/api/admin/concepts", tokenAdminGeneral, {
-      nombre: `Concepto Admin CF17 ${ts3}`, tipo: "mensualidad",
+      nombre: `Concepto Admin AG ${ts3}`, tipo: "mensualidad",
       periodicidad: "mensual", monto_centavos: 30000, iva: false,
+    });
+    expect(status).toBe(201);
+    const id = (body as any).id;
+    expect(id).toBeGreaterThan(0);
+    const row = await pool.query(`SELECT id FROM concepts WHERE id=$1`, [id]);
+    expect(row.rows.length).toBe(1);
+  });
+
+  it("CFC-18b: administrador_campus → 201 en POST /api/admin/concepts, concepto en DB", async () => {
+    const ts3 = Date.now().toString().slice(-4);
+    const { status, body } = await apiFetch("POST", "/api/admin/concepts", tokenAdminCampus, {
+      nombre: `Concepto Admin AC ${ts3}`, tipo: "mensualidad",
+      periodicidad: "mensual", monto_centavos: 35000, iva: false,
     });
     expect(status).toBe(201);
     const id = (body as any).id;

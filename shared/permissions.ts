@@ -206,6 +206,7 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.PAYMENTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver pagos del campus' },
       { module: MODULES.PAYMENTS, action: ACTIONS.PROCESS, scope: 'campus', description: 'Procesar pagos del campus' },
       { module: MODULES.CONCEPTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver conceptos del campus' },
+      { module: MODULES.CONCEPTS, action: ACTIONS.CONFIGURE, scope: 'campus', description: 'Gestionar catálogo de conceptos del campus' },
       { module: MODULES.SCHOLARSHIPS, action: ACTIONS.READ, scope: 'campus', description: 'Ver becas del campus' },
       { module: MODULES.SCHOLARSHIPS, action: ACTIONS.ASSIGN, scope: 'campus', description: 'Asignar becas del campus' },
       { module: MODULES.USERS, action: ACTIONS.CREATE, scope: 'campus', description: 'Crear usuarios del campus' },

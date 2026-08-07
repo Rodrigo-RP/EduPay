@@ -991,6 +991,11 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   // Create or update institutional info for a section
   app.post("/api/profile/institutional-info", authenticateToken, async (req, res) => {
     try {
+      // ── Guard de rol ──────────────────────────────────────────────────────
+      if (!hasPermission((req as any).user?.role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para modificar la información institucional" });
+      }
+
       const campusId = (req as any).user.campus_id;
       const { seccion_educativa, rfc, cct } = req.body;
       
@@ -1035,6 +1040,11 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   // Update institutional info for a section
   app.put("/api/profile/institutional-info/:id", authenticateToken, async (req, res) => {
     try {
+      // ── Guard de rol ──────────────────────────────────────────────────────
+      if (!hasPermission((req as any).user?.role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para modificar la información institucional" });
+      }
+
       const campusId = (req as any).user.campus_id;
       const infoId = parseInt(req.params.id);
       const { seccion_educativa, rfc, cct } = req.body;
@@ -1051,9 +1061,13 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
         return res.status(404).json({ message: "Información institucional no encontrada" });
       }
       
+      // campus_id incluido en WHERE para defensa en profundidad (pre-check + WHERE)
       const updated = await db.update(institutional_info)
         .set({ seccion_educativa, rfc, cct, updated_at: new Date() })
-        .where(eq(institutional_info.id, infoId))
+        .where(and(
+          eq(institutional_info.id, infoId),
+          eq(institutional_info.campus_id, campusId)
+        ))
         .returning();
       
       res.json(updated[0]);
@@ -1066,6 +1080,11 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   // Delete institutional info
   app.delete("/api/profile/institutional-info/:id", authenticateToken, async (req, res) => {
     try {
+      // ── Guard de rol ──────────────────────────────────────────────────────
+      if (!hasPermission((req as any).user?.role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para modificar la información institucional" });
+      }
+
       const campusId = (req as any).user.campus_id;
       const infoId = parseInt(req.params.id);
       
@@ -1081,8 +1100,12 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
         return res.status(404).json({ message: "Información institucional no encontrada" });
       }
       
+      // campus_id incluido en WHERE para defensa en profundidad
       await db.delete(institutional_info)
-        .where(eq(institutional_info.id, infoId));
+        .where(and(
+          eq(institutional_info.id, infoId),
+          eq(institutional_info.campus_id, campusId)
+        ));
       
       res.json({ message: "Información institucional eliminada correctamente" });
     } catch (error: any) {

@@ -552,6 +552,15 @@ export function registerUserRoutes(app: Express): void {
   app.post("/api/institutional-info", authenticateToken, async (req, res) => {
     try {
       const user = (req as any).user;
+
+      // ── Guard de rol ──────────────────────────────────────────────────────
+      // Solo administrador_campus y superior pueden modificar RFC, nombre legal
+      // y datos fiscales del plantel. SETTINGS.CONFIGURE ya está asignado a
+      // administrador_campus (scope campus), administrador_general y super_admin.
+      if (!hasPermission(user?.role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para modificar la información institucional" });
+      }
+
       const {
         rfc,
         direccion_fiscal,

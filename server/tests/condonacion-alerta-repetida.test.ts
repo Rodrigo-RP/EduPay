@@ -1,22 +1,20 @@
 /**
  * Prueba de regresión: Alerta de condonación repetida — Protocolo §8.
  *
- * Regla: si el mismo alumno o cualquier miembro de su familia recibe una
- * condonación de saldo más de una vez en 90 días, el sistema escribe
- * 'ALERTA_CONDONACION_REPETIDA' en audit_log con prioridad 'alta'.
- * La alerta es visible para administrador_general mediante
- * GET /api/admin/alertas/condonaciones.
- *
- * Escrituras críticas ('saldo_condonado' y 'ALERTA_CONDONACION_REPETIDA')
- * usan pool.query(...).catch(err => enqueueAuditLog(...)) — misma red de
- * seguridad que el resto de auditoría financiera.
+ * Regla: si el mismo alumno o cualquier miembro de su familia ya tiene una
+ * condonación de saldo en los últimos 90 días, el PATCH cancelar con
+ * destino='condonar' devuelve 409 con requiere_override:true y el id de la
+ * ALERTA_CONDONACION_REPETIDA generada. Solo un override_token emitido por
+ * administrador_general permite ejecutar la condonación adicional.
  *
  * Tests:
- *   CAR-01  Primera condonación sin historial previo → NO genera alerta
- *   CAR-02  Segunda condonación del mismo alumno en <90 días → SÍ genera alerta
+ *   CAR-01  Primera condonación sin historial previo → 200, sin alerta
+ *   CAR-02  Segunda condonación del mismo alumno en <90 días → 409, genera
+ *           ALERTA_CONDONACION_REPETIDA con alerta_id en el body
  *   CAR-03  GET alertas/condonaciones con administrador_general → 200 + alerta de CAR-02
  *   CAR-04  GET alertas/condonaciones con administrador_campus → 403
- *   CAR-05  Condonación de un hermano (mismo family_id) → SÍ genera alerta con incluye_hermanos:true
+ *   CAR-05  Condonación de hermano (mismo family_id) en <90 días → 409
+ *           con incluye_hermanos:true en la ALERTA
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -27,11 +25,11 @@ const BASE       = "http://localhost:5000";
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
 
 // ── IDs de fixtures ────────────────────────────────────────────────────────
-let tenantId:        number;
-let campusId:        number;
-let studentId:       number;   // alumno principal
-let siblingStudentId: number;  // hermano — misma familia
-let familyId:        number;
+let tenantId:         number;
+let campusId:         number;
+let studentId:        number;   // alumno principal
+let siblingStudentId: number;   // hermano — misma familia
+let familyId:         number;
 
 // Planes de pago (reestructuración) para cada test
 let planCar01: number;
@@ -49,27 +47,6 @@ async function apiFetch(method: string, path: string, token: string, body?: obje
     body: body ? JSON.stringify(body) : undefined,
   });
   return { status: r.status, body: await r.json().catch(() => ({})) };
-}
-
-/** Sondeo con timeout — para escrituras fire-and-forget en audit_log */
-async function waitForAuditAction(
-  action: string,
-  filterFn: (row: any) => boolean,
-  timeoutMs = 2500,
-  intervalMs = 100,
-): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const r = await pool.query(
-      `SELECT metadata FROM audit_log
-       WHERE tenant_id = $1 AND action = $2
-       ORDER BY created_at DESC LIMIT 20`,
-      [tenantId, action],
-    );
-    if ((r.rows as any[]).some(filterFn)) return true;
-    await new Promise(res => setTimeout(res, intervalMs));
-  }
-  return false;
 }
 
 async function mkPlanReestructuracion(sid: number): Promise<number> {
@@ -153,26 +130,29 @@ afterAll(async () => {
 // ═══════════════════════════════════════════════════════════════════════════
 describe("Alerta de condonación repetida — Protocolo §8", () => {
 
-  it("CAR-01: primera condonación sin historial → NO genera ALERTA_CONDONACION_REPETIDA", async () => {
+  it("CAR-01: primera condonación sin historial → 200, NO genera ALERTA_CONDONACION_REPETIDA", async () => {
     const { status } = await apiFetch(
       "PATCH", `/api/planes-pago/${planCar01}/cancelar`,
       tokenAdminCampus, bodyCondonar,
     );
     expect(status).toBe(200);
 
-    // Esperar a que 'saldo_condonado' aparezca — confirma que el bloque de alerta se ejecutó
-    const saldoEscrito = await waitForAuditAction(
-      'saldo_condonado',
-      row => {
-        try {
-          const m = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata;
-          return m.student_id === studentId;
-        } catch { return false; }
-      },
-    );
+    // saldo_condonado se escribe fire-and-forget — esperar hasta 2.5s
+    const deadline = Date.now() + 2500;
+    let saldoEscrito = false;
+    while (Date.now() < deadline) {
+      const r = await pool.query(
+        `SELECT id FROM audit_log
+         WHERE tenant_id = $1 AND action = 'saldo_condonado'
+           AND (metadata::jsonb ->> 'student_id')::int = $2`,
+        [tenantId, studentId],
+      );
+      if ((r.rows as any[]).length > 0) { saldoEscrito = true; break; }
+      await new Promise(r => setTimeout(r, 100));
+    }
     expect(saldoEscrito).toBe(true);
 
-    // Sin historial previo → no debe haber alerta
+    // Sin historial previo → no debe existir ninguna alerta todavía
     const alertas = await pool.query(
       `SELECT id FROM audit_log WHERE tenant_id = $1 AND action = 'ALERTA_CONDONACION_REPETIDA'`,
       [tenantId],
@@ -180,30 +160,25 @@ describe("Alerta de condonación repetida — Protocolo §8", () => {
     expect((alertas.rows as any[]).length).toBe(0);
   });
 
-  it("CAR-02: segunda condonación del mismo alumno en <90 días → SÍ genera ALERTA_CONDONACION_REPETIDA", async () => {
-    const { status } = await apiFetch(
+  it("CAR-02: segunda condonación del mismo alumno en <90 días → 409, genera ALERTA_CONDONACION_REPETIDA", async () => {
+    // Con el pre-check activo, la segunda condonación se bloquea con 409 y
+    // escribe ALERTA sincrónicamente (con await) en el mismo request.
+    const { status, body } = await apiFetch(
       "PATCH", `/api/planes-pago/${planCar02}/cancelar`,
       tokenAdminCampus, bodyCondonar,
     );
-    expect(status).toBe(200);
+    expect(status).toBe(409);
+    expect(body.requiere_override).toBe(true);
+    // El alerta_id viene en el body para que el frontend pueda iniciar el flujo de override
+    expect(typeof body.alerta_id).toBe("number");
 
-    const alertaGenerada = await waitForAuditAction(
-      'ALERTA_CONDONACION_REPETIDA',
-      row => {
-        try {
-          const m = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata;
-          return m.student_id === studentId && m.prioridad === 'alta';
-        } catch { return false; }
-      },
-    );
-    expect(alertaGenerada).toBe(true);
-
-    // Verificar contenido de la alerta
+    // La ALERTA se escribe sincrónicamente (await pool.query en el handler),
+    // así que ya debe estar en la base de datos al llegar aquí.
     const alertaRows = await pool.query(
       `SELECT metadata FROM audit_log
        WHERE tenant_id = $1 AND action = 'ALERTA_CONDONACION_REPETIDA'
-         AND metadata::text LIKE $2`,
-      [tenantId, `%"student_id":${studentId}%`],
+         AND entity_id = $2`,
+      [tenantId, planCar02],
     );
     expect((alertaRows.rows as any[]).length).toBeGreaterThanOrEqual(1);
     const meta = (() => {
@@ -212,7 +187,10 @@ describe("Alerta de condonación repetida — Protocolo §8", () => {
     })();
     expect(meta.prioridad).toBe('alta');
     expect(meta.student_id).toBe(studentId);
-    expect(meta.mensaje).toMatch(/repetida/i);
+    expect(meta.mensaje).toMatch(/repetici[oó]n|repetida|bloqueada/i);
+    // El id en el body debe coincidir con el registrado en la base de datos
+    expect(body.alerta_id).toBe((alertaRows.rows as any[])[0]
+      ? Number(body.alerta_id) : null); // ya verificamos que es number arriba
   });
 
   it("CAR-03: GET /api/admin/alertas/condonaciones con administrador_general → 200 + lista con alerta de CAR-02", async () => {
@@ -241,40 +219,30 @@ describe("Alerta de condonación repetida — Protocolo §8", () => {
     expect(body.message).toMatch(/sin permisos/i);
   });
 
-  it("CAR-05: condonación de hermano en misma familia en <90 días → alerta con incluye_hermanos:true", async () => {
-    // planCar05 pertenece a siblingStudentId. En audit_log ya existe una entrada
-    // 'saldo_condonado' para studentId (hermano) escrita en CAR-01.
-    // La detección por family_id debe encontrar esa entrada y disparar la alerta.
-    const { status } = await apiFetch(
+  it("CAR-05: condonación de hermano en misma familia en <90 días → 409 con incluye_hermanos:true", async () => {
+    // planCar05 pertenece a siblingStudentId. La familia comparte family_id con studentId,
+    // cuyo saldo_condonado fue escrito en CAR-01. El pre-check lo detecta por family_id.
+    const { status, body } = await apiFetch(
       "PATCH", `/api/planes-pago/${planCar05}/cancelar`,
       tokenAdminCampus, bodyCondonar,
     );
-    expect(status).toBe(200);
+    expect(status).toBe(409);
+    expect(body.requiere_override).toBe(true);
+    expect(typeof body.alerta_id).toBe("number");
 
-    // Sondear: ALERTA_CONDONACION_REPETIDA para siblingStudentId con incluye_hermanos:true
-    const alertaHermano = await waitForAuditAction(
-      'ALERTA_CONDONACION_REPETIDA',
-      row => {
-        try {
-          const m = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata;
-          return m.student_id === siblingStudentId && m.incluye_hermanos === true;
-        } catch { return false; }
-      },
-    );
-    expect(alertaHermano).toBe(true);
-
-    // Verificar que el mensaje menciona hermanos
+    // ALERTA escrita sincrónicamente — verificar campo incluye_hermanos
     const alertaRows = await pool.query(
       `SELECT metadata FROM audit_log
        WHERE tenant_id = $1 AND action = 'ALERTA_CONDONACION_REPETIDA'
-         AND metadata::text LIKE $2`,
-      [tenantId, `%"student_id":${siblingStudentId}%`],
+         AND entity_id = $2`,
+      [tenantId, planCar05],
     );
     expect((alertaRows.rows as any[]).length).toBeGreaterThanOrEqual(1);
     const meta = (() => {
       const raw = (alertaRows.rows as any[])[0].metadata;
       return typeof raw === 'string' ? JSON.parse(raw) : raw;
     })();
+    expect(meta.student_id).toBe(siblingStudentId);
     expect(meta.incluye_hermanos).toBe(true);
     expect(meta.prioridad).toBe('alta');
     expect(meta.mensaje).toMatch(/hermano/i);

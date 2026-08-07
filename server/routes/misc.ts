@@ -7,6 +7,7 @@ import { hasPermission, MODULES, ACTIONS } from "@shared/permissions";
 import { students, guardians, charges, payments, concepts, invoices, families, family_students, payment_applications, payment_events, audit_log } from "@shared/schema";
 import { enqueueAuditLog } from "../audit-retry";
 import { z } from "zod";
+import jwt from "jsonwebtoken";
 
 // ── ADR-002: Helpers para planes de pago integrados al ledger ─────────────────
 
@@ -372,6 +373,111 @@ export function registerMiscRoutes(app: Express): void {
         }
       }
 
+      // ── §8 Pre-check: detectar condonación repetida ANTES del BEGIN ───────
+      // Las variables se declaran aquí para que el bloque post-commit pueda
+      // leerlas sin repetir las queries.
+      let alertaPreCheck           = false;
+      let familyIdsPreCheck:       number[] = [];
+      let incluyeHermanosPreCheck  = false;
+      let overridePayload: any     = null;
+
+      if (destino_saldo_pendiente === 'condonar' && tenantId) {
+        try {
+          // Paso 1: todos los alumnos de la misma familia (incluye al alumno actual)
+          const familyRes = await pool.query(
+            `SELECT DISTINCT fs2.student_id
+             FROM family_students fs1
+             JOIN family_students fs2 ON fs2.family_id = fs1.family_id
+             WHERE fs1.student_id = $1`,
+            [plan.student_id]
+          );
+          familyIdsPreCheck = (familyRes.rows as any[]).map((r: any) => r.student_id as number);
+          if (!familyIdsPreCheck.includes(plan.student_id)) familyIdsPreCheck.push(plan.student_id);
+          incluyeHermanosPreCheck = familyIdsPreCheck.length > 1;
+
+          // Paso 2: ¿algún miembro de la familia fue condonado en los últimos 90 días?
+          const prevCond = await pool.query(
+            `SELECT id FROM audit_log
+             WHERE tenant_id = $1
+               AND action = 'saldo_condonado'
+               AND created_at > NOW() - INTERVAL '90 days'
+               AND (metadata::jsonb ->> 'student_id')::int = ANY($2::int[])
+             LIMIT 1`,
+            [tenantId, familyIdsPreCheck]
+          );
+          alertaPreCheck = (prevCond.rows as any[]).length > 0;
+        } catch (_) { /* no bloquear el flujo */ }
+
+        if (alertaPreCheck) {
+          const rawToken = (req.body.override_token as string | undefined);
+
+          if (!rawToken) {
+            // Escribir ALERTA_CONDONACION_REPETIDA (o reutilizar la de las últimas 24 h)
+            // para que admin_general pueda consultar el alerta_id y emitir el override_token.
+            let alertaId: number | null = null;
+            try {
+              const existingAlert = await pool.query(
+                `SELECT id FROM audit_log
+                 WHERE tenant_id = $1
+                   AND action = 'ALERTA_CONDONACION_REPETIDA'
+                   AND entity_id = $2
+                   AND created_at > NOW() - INTERVAL '24 hours'
+                 ORDER BY created_at DESC LIMIT 1`,
+                [tenantId, planId]
+              );
+              if ((existingAlert.rows as any[]).length > 0) {
+                alertaId = (existingAlert.rows as any[])[0].id;
+              } else {
+                const alertaMeta = {
+                  student_id:       plan.student_id,
+                  plan_id:          planId,
+                  incluye_hermanos: incluyeHermanosPreCheck,
+                  prioridad:        'alta',
+                  mensaje: incluyeHermanosPreCheck
+                    ? 'Condonación bloqueada: repetición en 90 días detectada para alumno o hermano de la misma familia.'
+                    : 'Condonación bloqueada: repetición en 90 días detectada para el mismo alumno.',
+                };
+                const alertaInsert = await pool.query(
+                  `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
+                   VALUES ($1,$2,'ALERTA_CONDONACION_REPETIDA','payment_plan',$3,$4) RETURNING id`,
+                  [tenantId, userId ?? null, planId, JSON.stringify(alertaMeta)]
+                );
+                alertaId = (alertaInsert.rows as any[])[0].id;
+              }
+            } catch (_) { /* non-blocking */ }
+
+            return res.status(409).json({
+              message: "Se requiere autorización de administrador_general: este alumno o un familiar ya tiene una condonación registrada en los últimos 90 días",
+              requiere_override: true,
+              alerta_id: alertaId,
+            });
+          }
+
+          // Validar el override_token
+          const JWT_SECRET_KEY = process.env.JWT_SECRET || "fallback-secret-key";
+          try {
+            overridePayload = jwt.verify(rawToken, JWT_SECRET_KEY) as any;
+          } catch (err: any) {
+            if (err.name === 'TokenExpiredError') {
+              return res.status(409).json({ message: "El token de autorización ha expirado" });
+            }
+            return res.status(403).json({ message: "Token de autorización inválido o corrupto" });
+          }
+
+          // Verificar que el token pertenece exactamente a este plan y plantel
+          if (
+            overridePayload.action    !== 'override_condonacion'  ||
+            Number(overridePayload.plan_id)   !== planId            ||
+            Number(overridePayload.tenant_id) !== Number(tenantId)  ||
+            Number(overridePayload.campus_id) !== Number(plan.campus_id)
+          ) {
+            return res.status(403).json({
+              message: "El token de autorización no es válido para este plan o plantel",
+            });
+          }
+        }
+      }
+
       // Calcular cuotas pendientes antes del BEGIN
       const pendientesRes = await pool.query(
         `SELECT id, monto_base_centavos FROM charges WHERE plan_id = $1 AND estado = 'pendiente'`, [planId]
@@ -459,57 +565,21 @@ export function registerMiscRoutes(app: Express): void {
         );
       }
 
-      // ── Alerta de condonación repetida — Protocolo §8 ────────────────────
-      // Regla: si el mismo alumno es condonado más de una vez en 90 días,
-      // generar entrada ALERTA_CONDONACION_REPETIDA de alta prioridad para
-      // administrador_general. El check ocurre ANTES de escribir 'saldo_condonado'
-      // para que el evento actual no se cuente a sí mismo.
+      // ── §8 Post-commit: escrituras de auditoría ───────────────────────────
+      // La detección de condonación repetida ya se hizo en el pre-check (antes
+      // del BEGIN). Aquí solo se escriben las entradas correspondientes.
       if (destino_saldo_pendiente === 'condonar' && tenantId) {
-        let alertaCondonacionRepetida = false;
-        let incluye_hermanos          = false;
-        try {
-          // Paso 1: todos los alumnos de la misma familia (incluye al alumno actual).
-          // Si el alumno no está en family_students, familyIds queda con solo él mismo.
-          const familyRes = await pool.query(
-            `SELECT DISTINCT fs2.student_id
-             FROM family_students fs1
-             JOIN family_students fs2 ON fs2.family_id = fs1.family_id
-             WHERE fs1.student_id = $1`,
-            [plan.student_id]
-          );
-          const familyIds: number[] = (familyRes.rows as any[]).map((r: any) => r.student_id as number);
-          if (!familyIds.includes(plan.student_id)) familyIds.push(plan.student_id);
-          incluye_hermanos = familyIds.length > 1;
-
-          // Paso 2: ¿algún miembro de la familia fue condonado en los últimos 90 días?
-          // El check ocurre ANTES de escribir 'saldo_condonado' — el evento actual
-          // no se cuenta a sí mismo.
-          //
-          // IMPORTANTE — comparación exacta de entero, no LIKE:
-          //   El patrón  metadata::text LIKE '%"student_id":12%'  produce un falso positivo
-          //   cuando existe una fila con student_id = 123, porque "12" es subcadena de "123".
-          //   Al castear a JSONB y comparar el valor entero real con ANY(), la coincidencia
-          //   es exacta e inmune a ese problema.
-          const prevCond = await pool.query(
-            `SELECT id FROM audit_log
-             WHERE tenant_id = $1
-               AND action = 'saldo_condonado'
-               AND created_at > NOW() - INTERVAL '90 days'
-               AND (metadata::jsonb ->> 'student_id')::int = ANY($2::int[])
-             LIMIT 1`,
-            [tenantId, familyIds]
-          );
-          alertaCondonacionRepetida = (prevCond.rows as any[]).length > 0;
-        } catch (_) { /* no bloquear la respuesta */ }
-
-        // Entrada específica y buscable por student_id — base de checks futuros.
-        // Usa enqueueAuditLog como fallback (igual que el resto de auditoría financiera).
-        const saldoCondonadoMeta = {
+        // saldo_condonado se escribe siempre (con o sin override).
+        // Si hubo override, el alerta_id queda en metadata para trazabilidad completa.
+        const saldoCondonadoMeta: Record<string, any> = {
           student_id:               plan.student_id,
           monto_condonado_centavos: saldoPendiente,
           motivo_condonacion:       String(motivo_condonacion).trim(),
           campus_id:                plan.campus_id,
         };
+        if (overridePayload) {
+          saldoCondonadoMeta.override_alerta_id = overridePayload.alerta_id;
+        }
         pool.query(
           `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
            VALUES ($1,$2,'saldo_condonado','payment_plan',$3,$4)`,
@@ -522,26 +592,27 @@ export function registerMiscRoutes(app: Express): void {
           }, err)
         );
 
-        if (alertaCondonacionRepetida) {
-          const alertaMeta = {
+        if (alertaPreCheck && overridePayload) {
+          // Override ejecutado correctamente: registrar con trazabilidad completa.
+          // Cadena auditable: ALERTA_CONDONACION_REPETIDA → generacion_override_condonacion
+          //                   → CONDONACION_OVERRIDE_EJECUTADA → saldo_condonado
+          const overrideMeta = {
             student_id:               plan.student_id,
             plan_id:                  planId,
+            alerta_id:                overridePayload.alerta_id,
             monto_condonado_centavos: saldoPendiente,
-            incluye_hermanos,
-            prioridad:                'alta',
-            mensaje: incluye_hermanos
-              ? 'Condonación repetida en menos de 90 días para el mismo alumno o un hermano de la misma familia. Requiere revisión inmediata.'
-              : 'Condonación repetida en menos de 90 días para el mismo alumno. Requiere revisión inmediata.',
+            incluye_hermanos:         incluyeHermanosPreCheck,
+            nota: 'Condonación repetida ejecutada con autorización explícita de administrador_general',
           };
           pool.query(
             `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
-             VALUES ($1,$2,'ALERTA_CONDONACION_REPETIDA','payment_plan',$3,$4)`,
-            [tenantId, userId ?? null, planId, JSON.stringify(alertaMeta)]
+             VALUES ($1,$2,'CONDONACION_OVERRIDE_EJECUTADA','payment_plan',$3,$4)`,
+            [tenantId, userId ?? null, planId, JSON.stringify(overrideMeta)]
           ).catch((err: any) =>
             enqueueAuditLog({
               tenant_id: tenantId, user_id: userId ?? null,
-              action: 'ALERTA_CONDONACION_REPETIDA', entity_type: 'payment_plan',
-              entity_id: planId, metadata: alertaMeta,
+              action: 'CONDONACION_OVERRIDE_EJECUTADA', entity_type: 'payment_plan',
+              entity_id: planId, metadata: overrideMeta,
             }, err)
           );
         }

@@ -11,6 +11,7 @@ import { getAcademicLevel } from "@shared/academic-levels";
 import { seedAdmissionsData } from "../seed-admissions-data";
 import * as XLSX from "xlsx";
 import { z } from "zod";
+import jwt from "jsonwebtoken";
 import { wsManager } from "../websocket-manager";
 
 export function registerAdminRoutes(app: Express): void {
@@ -1162,6 +1163,109 @@ export function registerAdminRoutes(app: Express): void {
       res.json(rows.rows);
     } catch (error: any) {
       res.status(500).json({ message: "Error al obtener alertas de condonaciones" });
+    }
+  });
+
+  // ── POST /api/admin/alertas/condonaciones/:planId/override-token ──────────
+  // Genera un JWT de 30 minutos que autoriza a ejecutar una condonación adicional
+  // cuando ya existe una activa en los últimos 90 días para el mismo alumno o familia.
+  //
+  // El token incluye tenant_id y campus_id para que NO pueda usarse en otro plantel.
+  // El campo 'motivo' (≥10 chars) queda grabado en audit_log: el administrador_general
+  // debe dejar constancia de por qué autorizó la repetición, no solo que lo hizo.
+  // El campo 'alerta_id' vincula el token a la ALERTA_CONDONACION_REPETIDA original,
+  // creando la cadena: alerta → token generado → condonación ejecutada.
+  //
+  // Solo administrador_general y super_admin pueden emitirlo.
+  app.post("/api/admin/alertas/condonaciones/:planId/override-token", authenticateToken, async (req: any, res) => {
+    try {
+      const role     = req.user?.role;
+      const tenantId = req.user?.tenant_id;
+      const userId   = req.user?.id;
+
+      if (!['administrador_general', 'super_admin'].includes(role)) {
+        return res.status(403).json({ message: "Sin permisos para emitir tokens de autorización de condonación" });
+      }
+
+      const planId              = parseInt(req.params.planId);
+      const { motivo, alerta_id } = req.body;
+
+      if (!motivo || String(motivo).trim().length < 10) {
+        return res.status(400).json({
+          message: "El campo 'motivo' es obligatorio y debe tener mínimo 10 caracteres para registrar la razón de la autorización",
+        });
+      }
+      if (alerta_id === undefined || alerta_id === null || isNaN(Number(alerta_id))) {
+        return res.status(400).json({
+          message: "El campo 'alerta_id' es obligatorio: debe corresponder al id de la ALERTA_CONDONACION_REPETIDA que activa esta autorización",
+        });
+      }
+
+      // Validar que el plan existe y pertenece al tenant
+      const planRes = await pool.query(
+        `SELECT id, student_id, campus_id, tenant_id FROM payment_plans WHERE id = $1`,
+        [planId]
+      );
+      if ((planRes.rows as any[]).length === 0) {
+        return res.status(404).json({ message: "Plan no encontrado" });
+      }
+      const plan = (planRes.rows as any[])[0];
+      if (Number(plan.tenant_id) !== Number(tenantId)) {
+        return res.status(403).json({ message: "El plan no pertenece a este tenant" });
+      }
+
+      // Validar que la alerta existe y pertenece al mismo tenant
+      const alertaRes = await pool.query(
+        `SELECT id FROM audit_log
+         WHERE id = $1
+           AND tenant_id = $2
+           AND action = 'ALERTA_CONDONACION_REPETIDA'`,
+        [Number(alerta_id), tenantId]
+      );
+      if ((alertaRes.rows as any[]).length === 0) {
+        return res.status(404).json({ message: "Alerta no encontrada o no corresponde a este tenant" });
+      }
+
+      // Generar token con todo lo necesario para la validación exacta en el PATCH cancelar.
+      // campus_id y tenant_id incluidos: un token de un plantel no puede usarse en otro.
+      const JWT_SECRET_KEY = process.env.JWT_SECRET || "fallback-secret-key";
+      const token = jwt.sign(
+        {
+          action:     'override_condonacion',
+          plan_id:    planId,
+          student_id: Number(plan.student_id),
+          tenant_id:  Number(tenantId),
+          campus_id:  Number(plan.campus_id),
+          alerta_id:  Number(alerta_id),
+        },
+        JWT_SECRET_KEY,
+        { expiresIn: '30m' }
+      );
+
+      // Registrar la autorización en audit_log con el motivo — trazabilidad completa.
+      // El admin_general no puede generar un token sin dejar constancia de por qué.
+      const overrideMeta = {
+        plan_id:    planId,
+        student_id: Number(plan.student_id),
+        alerta_id:  Number(alerta_id),
+        motivo:     String(motivo).trim(),
+        campus_id:  Number(plan.campus_id),
+      };
+      pool.query(
+        `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
+         VALUES ($1,$2,'generacion_override_condonacion','payment_plan',$3,$4)`,
+        [tenantId, userId ?? null, planId, JSON.stringify(overrideMeta)]
+      ).catch((err: any) =>
+        enqueueAuditLog({
+          tenant_id: tenantId, user_id: userId ?? null,
+          action: 'generacion_override_condonacion', entity_type: 'payment_plan',
+          entity_id: planId, metadata: overrideMeta,
+        }, err)
+      );
+
+      res.json({ token, expires_in: '30m', plan_id: planId, alerta_id: Number(alerta_id) });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 }

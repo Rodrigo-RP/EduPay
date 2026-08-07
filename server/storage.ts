@@ -23,7 +23,7 @@ import {
   type AuditLogEntry, type InsertAuditLogEntry
 } from "@shared/schema";
 import { transition, InvalidStateTransitionError, type StateMachineEntity } from "./state-machines";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
@@ -1575,37 +1575,74 @@ export class DatabaseStorage implements IStorage {
     hasta?: string;
     search?: string;
   }): Promise<{ entries: AuditLogEntry[]; total: number }> {
-    const limit  = Math.min(opts?.limit  ?? 50, 200);
-    const offset = opts?.offset ?? 0;
+    const limitVal  = Math.min(opts?.limit  ?? 50, 200);
+    const offsetVal = opts?.offset ?? 0;
 
-    // Build WHERE clauses dynamically via raw SQL
-    const conditions: string[] = [`al.tenant_id = ${tenantId}`];
-    if (opts?.entityType) conditions.push(`al.entity_type = '${opts.entityType.replace(/'/g, "''")}'`);
-    if (opts?.action)     conditions.push(`al.action = '${opts.action.replace(/'/g, "''")}'`);
-    if (opts?.userId)     conditions.push(`al.user_id = ${Number(opts.userId)}`);
-    if (opts?.desde)      conditions.push(`al.created_at >= '${opts.desde.replace(/'/g, "''")}'`);
-    if (opts?.hasta)      conditions.push(`al.created_at <= '${opts.hasta.replace(/'/g, "''")} 23:59:59'`);
+    // Todos los valores controlados por el usuario se pasan como parámetros
+    // vinculados ($n) — nunca como interpolación de string.
+    // Para `search`, los metacaracteres LIKE (% y _) se escapan con backslash
+    // antes de construir el patrón, y el ILIKE usa ESCAPE E'\\'.
+    // Esto elimina tanto el riesgo de inyección SQL como el abuso de wildcards
+    // que permitía extraer todas las filas del tenant con search=%.
+    const params: any[]        = [tenantId];
+    const conditions: string[] = [`al.tenant_id = $1`];
+
+    if (opts?.entityType) {
+      params.push(opts.entityType);
+      conditions.push(`al.entity_type = $${params.length}`);
+    }
+    if (opts?.action) {
+      params.push(opts.action);
+      conditions.push(`al.action = $${params.length}`);
+    }
+    if (opts?.userId) {
+      params.push(Number(opts.userId));
+      conditions.push(`al.user_id = $${params.length}`);
+    }
+    if (opts?.desde) {
+      params.push(opts.desde);
+      conditions.push(`al.created_at >= $${params.length}::timestamptz`);
+    }
+    if (opts?.hasta) {
+      params.push(opts.hasta + ' 23:59:59');
+      conditions.push(`al.created_at <= $${params.length}::timestamptz`);
+    }
     if (opts?.search) {
-      const s = opts.search.replace(/'/g, "''");
-      conditions.push(`(al.action ILIKE '%${s}%' OR al.metadata ILIKE '%${s}%' OR al.new_value ILIKE '%${s}%')`);
+      // Escapar % y _ para que se traten como caracteres literales en ILIKE,
+      // no como wildcards.  Se usa E'\\' como carácter de escape ANSI.
+      const escaped = opts.search
+        .replace(/\\/g, '\\\\')
+        .replace(/%/g,  '\\%')
+        .replace(/_/g,  '\\_');
+      params.push(`%${escaped}%`);
+      const idx = params.length;
+      conditions.push(
+        `(al.action    ILIKE $${idx} ESCAPE E'\\\\' ` +
+        ` OR al.metadata  ILIKE $${idx} ESCAPE E'\\\\' ` +
+        ` OR al.new_value ILIKE $${idx} ESCAPE E'\\\\')`
+      );
     }
 
-    const where = conditions.join(" AND ");
+    const where = conditions.join(' AND ');
 
     const [countResult, rowsResult] = await Promise.all([
-      db.execute(sql.raw(`SELECT COUNT(*) AS total FROM audit_log al WHERE ${where}`)),
-      db.execute(sql.raw(`
-        SELECT al.*,
-               u.name     AS user_name,
-               u.email    AS user_email,
-               g.nombre_completo AS guardian_name
-        FROM audit_log al
-        LEFT JOIN users     u ON u.id = al.user_id
-        LEFT JOIN guardians g ON g.id = al.guardian_id
-        WHERE ${where}
-        ORDER BY al.created_at DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `))
+      pool.query(
+        `SELECT COUNT(*) AS total FROM audit_log al WHERE ${where}`,
+        params,
+      ),
+      pool.query(
+        `SELECT al.*,
+                u.name              AS user_name,
+                u.email             AS user_email,
+                g.nombre_completo   AS guardian_name
+         FROM audit_log al
+         LEFT JOIN users     u ON u.id = al.user_id
+         LEFT JOIN guardians g ON g.id = al.guardian_id
+         WHERE ${where}
+         ORDER BY al.created_at DESC
+         LIMIT ${limitVal} OFFSET ${offsetVal}`,
+        params,
+      ),
     ]);
 
     const total   = Number((countResult.rows as any[])[0]?.total ?? 0);

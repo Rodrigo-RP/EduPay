@@ -369,6 +369,11 @@ export function hasPermission(
   action: string,
   scope: 'all' | 'campus' | 'own' | 'read_only' = 'campus'
 ): boolean {
+  // super_admin tiene acceso incondicional a cualquier módulo y acción.
+  // Este chequeo va antes del lookup en ROLE_PERMISSIONS para que nunca
+  // dependa de que la entrada esté explícitamente listada en el array.
+  if (userRole === 'super_admin') return true;
+
   const rolePermissions = ROLE_PERMISSIONS.find(r => r.role === userRole);
   if (!rolePermissions) return false;
 
@@ -377,9 +382,6 @@ export function hasPermission(
   );
 
   if (!permission) return false;
-
-  // Super admin tiene acceso completo
-  if (userRole === 'super_admin') return true;
 
   // Verificar scope
   switch (scope) {

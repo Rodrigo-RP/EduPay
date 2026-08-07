@@ -342,24 +342,46 @@ export function registerAdminRoutes(app: Express): void {
   // Get scholarships (real data from database)
   app.get("/api/scholarships", authenticateToken, async (req, res) => {
     try {
+      // ── Guard de rol ──────────────────────────────────────────────────────
+      // Este endpoint nunca llegó a auditarse porque estaba roto por tabla
+      // inexistente (scholarship_types). Ahora que la tabla existe, se aplica
+      // el guard que corresponde: SCHOLARSHIPS.READ (ver permissions.ts).
+      if (!hasPermission((req as any).user?.role, MODULES.SCHOLARSHIPS, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para consultar becas" });
+      }
+
       const campusId = (req as any).user?.campus_id;
       
       if (!campusId) {
         return res.status(400).json({ message: "Campus ID requerido" });
       }
       
-      // Becas reales del campus con tipo de beca incluido
+      // Becas reales del campus con tipo de beca incluido.
+      // Columnas reales de la tabla scholarships (DB real difiere del schema Drizzle):
+      //   porcentaje (no porcentaje_aplicado), motivo (no observaciones),
+      //   sin estado, sin monto_fijo_aplicado_centavos.
+      // Alias en el SELECT mantienen los nombres que espera el frontend.
       const rows = await pool.query(`
-        SELECT s.id, s.student_id, s.porcentaje_aplicado, s.monto_fijo_aplicado_centavos,
-               s.estado, s.vigencia_inicio, s.vigencia_fin, s.observaciones,
-               st.nombre AS tipo_nombre, st.categoria AS tipo_categoria,
-               stu.nombre_completo AS alumno
+        SELECT s.id, s.student_id,
+               s.porcentaje               AS porcentaje_aplicado,
+               s.motivo                   AS observaciones,
+               s.vigencia_inicio, s.vigencia_fin,
+               st.nombre                  AS tipo_nombre,
+               st.categoria               AS tipo_categoria,
+               stu.nombre_completo        AS alumno
         FROM scholarships s
         JOIN students stu ON stu.id = s.student_id
         LEFT JOIN scholarship_types st ON st.id = s.scholarship_type_id
         WHERE stu.campus_id = $1
-        ORDER BY s.estado, stu.nombre_completo
-      `, [campusId]).catch(() => ({ rows: [] }));
+        ORDER BY stu.nombre_completo
+      `, [campusId]).catch((err: any) => {
+        // Catch visible: un error real de DB se registra en logs. El catch
+        // silencioso anterior ocultó la ausencia de scholarship_types durante
+        // tiempo indeterminado. Mantenemos degradación elegante (array vacío)
+        // pero ahora el error es visible en los logs del servidor.
+        console.error("[GET /api/scholarships] DB error:", err.message);
+        return { rows: [] };
+      });
       res.json(rows.rows);
     } catch (error: any) {
       res.status(500).json({ message: "Error fetching scholarships" });
@@ -462,17 +484,28 @@ export function registerAdminRoutes(app: Express): void {
   // distribución por tipo de beca.
   app.get("/api/admin/admissions-report", authenticateToken, async (req: any, res) => {
     try {
+      // ── Guard de rol ──────────────────────────────────────────────────────
+      // Mismo caso que /api/scholarships: nunca auditado por tabla inexistente.
+      if (!hasPermission(req.user?.role, MODULES.SCHOLARSHIPS, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para consultar reportes de becas" });
+      }
+
       const campusId = req.user?.campus_id;
       if (!campusId) return res.status(400).json({ message: "Campus ID requerido" });
 
       // ── Becas activas ──────────────────────────────────────────────────
+      // La tabla scholarships real no tiene columna 'estado' — se cuenta
+      // el total de becas sin filtrar por estado (schema drift documentado).
       const becasActivasResult = await pool.query(`
-        SELECT COUNT(*)::int            AS total_activas,
+        SELECT COUNT(*)::int                     AS total_activas,
                COUNT(DISTINCT s.student_id)::int AS alumnos_con_beca
         FROM scholarships s
         JOIN students stu ON stu.id = s.student_id
-        WHERE stu.campus_id = $1 AND s.estado = 'activa'
-      `, [campusId]).catch(() => ({ rows: [{ total_activas: 0, alumnos_con_beca: 0 }] }));
+        WHERE stu.campus_id = $1
+      `, [campusId]).catch((err: any) => {
+        console.error("[GET /api/admin/admissions-report] becasActivas DB error:", err.message);
+        return { rows: [{ total_activas: 0, alumnos_con_beca: 0 }] };
+      });
 
       // ── Monto total descontado (beca_aplicada > 0) ────────────────────
       const montoResult = await pool.query(`
@@ -485,18 +518,22 @@ export function registerAdminRoutes(app: Express): void {
       `, [campusId]).catch(() => ({ rows: [{ monto_total_descuento_centavos: 0 }] }));
 
       // ── Distribución por tipo de beca ─────────────────────────────────
+      // Columnas reales: porcentaje (no porcentaje_aplicado), sin estado.
       const distribucionResult = await pool.query(`
-        SELECT st.nombre     AS tipo,
-               st.categoria  AS categoria,
-               COUNT(*)::int AS cantidad,
-               COALESCE(SUM(s.porcentaje_aplicado), 0)::int AS porcentaje_total
+        SELECT st.nombre                            AS tipo,
+               st.categoria                         AS categoria,
+               COUNT(*)::int                        AS cantidad,
+               COALESCE(SUM(s.porcentaje), 0)::int  AS porcentaje_total
         FROM scholarships s
         JOIN students stu ON stu.id = s.student_id
         LEFT JOIN scholarship_types st ON st.id = s.scholarship_type_id
-        WHERE stu.campus_id = $1 AND s.estado = 'activa'
+        WHERE stu.campus_id = $1
         GROUP BY st.id, st.nombre, st.categoria
         ORDER BY cantidad DESC
-      `, [campusId]).catch(() => ({ rows: [] }));
+      `, [campusId]).catch((err: any) => {
+        console.error("[GET /api/admin/admissions-report] distribucion DB error:", err.message);
+        return { rows: [] };
+      });
 
       // ── Inscripciones del ciclo actual ────────────────────────────────
       const cicloActual = `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;

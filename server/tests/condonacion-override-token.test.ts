@@ -41,6 +41,9 @@ let planCot2:  number;
 
 // alerta_id capturada en COT-01 y usada en COT-02
 let alertaIdCot01: number;
+// token válido usado en COT-02, reutilizado en COT-07 para confirmar que el plan
+// ya cancelado es lo que bloquea el segundo intento (no un mecanismo de single-use en el token)
+let cotValidToken: string;
 
 let tokenAdminCampus:  string;
 let tokenAdminGeneral: string;
@@ -214,11 +217,14 @@ describe("Override token de condonación repetida", () => {
     expect(genMeta.alerta_id).toBe(alertaIdCot01);
     expect(genMeta.motivo).toMatch(/excepcional|direcci[oó]n|acad[eé]mica/i);
 
+    // Guardar el token para reutilizarlo en COT-07
+    cotValidToken = tokenRes.body.token;
+
     // Ejecutar la condonación con el override_token → debe ser 200
     const cancelRes = await apiFetch(
       "PATCH", `/api/planes-pago/${planCot}/cancelar`,
       tokenAdminCampus,
-      { ...bodyCondonar, override_token: tokenRes.body.token },
+      { ...bodyCondonar, override_token: cotValidToken },
     );
     expect(cancelRes.status).toBe(200);
 
@@ -322,6 +328,27 @@ describe("Override token de condonación repetida", () => {
       `SELECT estado FROM payment_plans WHERE id = $1`, [planCot2]
     );
     expect((planRow.rows as any[])[0].estado).toBe('activo');
+  });
+
+  // ── COT-07 ────────────────────────────────────────────────────────────────
+  it("COT-07: doble envío del mismo token → 409 por plan ya cancelado (el token no tiene single-use)", async () => {
+    // El token de COT-02 sigue siendo criptográficamente válido (dentro de los 30 min).
+    // El diseño es stateless: el token no se invalida tras el primer uso.
+    // Lo que impide el segundo intento es que planCot ya está en estado 'cancelado',
+    // y el handler rechaza cualquier intento de cancelar un plan no-activo con 409
+    // ANTES de llegar siquiera al pre-check o a la validación del token.
+    const { status, body } = await apiFetch(
+      "PATCH", `/api/planes-pago/${planCot}/cancelar`,
+      tokenAdminCampus,
+      { ...bodyCondonar, override_token: cotValidToken },
+    );
+    expect(status).toBe(409);
+    expect(body.message).toMatch(/ya está cancelado/i);
+    // Confirmar que sigue cancelado (no se reactivó por error)
+    const planRow = await pool.query(
+      `SELECT estado FROM payment_plans WHERE id = $1`, [planCot]
+    );
+    expect((planRow.rows as any[])[0].estado).toBe('cancelado');
   });
 
   // ── COT-06 ────────────────────────────────────────────────────────────────

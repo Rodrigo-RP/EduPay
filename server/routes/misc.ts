@@ -484,16 +484,20 @@ export function registerMiscRoutes(app: Express): void {
           // Paso 2: ¿algún miembro de la familia fue condonado en los últimos 90 días?
           // El check ocurre ANTES de escribir 'saldo_condonado' — el evento actual
           // no se cuenta a sí mismo.
-          const likeParams = familyIds.map((id: number) => `%"student_id":${id}%`);
-          const clauses    = likeParams.map((_: string, i: number) => `metadata::text LIKE $${i + 2}`).join(' OR ');
-          const prevCond   = await pool.query(
+          //
+          // IMPORTANTE — comparación exacta de entero, no LIKE:
+          //   El patrón  metadata::text LIKE '%"student_id":12%'  produce un falso positivo
+          //   cuando existe una fila con student_id = 123, porque "12" es subcadena de "123".
+          //   Al castear a JSONB y comparar el valor entero real con ANY(), la coincidencia
+          //   es exacta e inmune a ese problema.
+          const prevCond = await pool.query(
             `SELECT id FROM audit_log
              WHERE tenant_id = $1
                AND action = 'saldo_condonado'
                AND created_at > NOW() - INTERVAL '90 days'
-               AND (${clauses})
+               AND (metadata::jsonb ->> 'student_id')::int = ANY($2::int[])
              LIMIT 1`,
-            [tenantId, ...likeParams]
+            [tenantId, familyIds]
           );
           alertaCondonacionRepetida = (prevCond.rows as any[]).length > 0;
         } catch (_) { /* no bloquear la respuesta */ }

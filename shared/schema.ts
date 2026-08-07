@@ -810,6 +810,7 @@ export const pending_approvals = pgTable("pending_approvals", {
   requested_by: integer("requested_by").references(() => users.id, { onDelete: "cascade" }).notNull(),
   approved_by: integer("approved_by").references(() => users.id, { onDelete: "set null" }),
   action_type: varchar("action_type", { length: 100 }).notNull(), // 'modify_scholarship', 'modify_late_fee', 'modify_price', 'modify_payment_due_date', 'delete_concept', 'modify_concept'
+  action_description: text("action_description").notNull(), // Descripción legible de la acción a aprobar
   entity_type: varchar("entity_type", { length: 50 }).notNull(), // 'scholarship', 'late_fee', 'concept', 'payment_rule', 'product'
   entity_id: integer("entity_id").notNull(), // ID del elemento a modificar
   original_data: text("original_data").notNull(), // JSON con datos originales

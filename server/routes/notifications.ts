@@ -587,10 +587,84 @@ export function registerNotificationRoutes(app: Express): void {
     }
   });
 
+  // ── resolveAndValidateEntity ─────────────────────────────────────────────────
+  // Extrae el entity_id real de proposed_value según el action_type, lo valida
+  // contra la BD (existe Y pertenece al tenant/campus del solicitante) y devuelve
+  // { entity_id, entity_type }.  Lanza un Error con mensaje 422 si falla.
+  //
+  // Todos los action_type del catálogo crítico tenían entity_id=1 hardcodeado y
+  // entity_type='approval' hardcodeado.  Esta función corrige los 10 tipos.
+  async function resolveAndValidateEntity(
+    actionType: string,
+    proposedValue: Record<string, any>,
+    tenantId: number,
+    campusId: number,
+  ): Promise<{ entity_id: number; entity_type: string }> {
+    // Especificación por acción: tipo de entidad, campo del body, tabla SQL y
+    // columna de ownership para aislar por tenant/campus.
+    // checkUsing='tenant_id' → compara con tenantId del JWT
+    // checkUsing='campus_id' → compara con campusId del JWT
+    //   (payment_surcharge_rules tiene campus_id NOT NULL pero tenant_id nullable)
+    type Spec = {
+      entityType: string;
+      idField: string;          // clave preferida en proposed_value
+      sqlTable: string;
+      checkCol: string;
+      checkUsing: 'tenant_id' | 'campus_id';
+    };
+    const SPEC: Record<string, Spec> = {
+      cancel_payment:          { entityType: 'payment',       idField: 'payment_id',       sqlTable: 'payments',                checkCol: 'tenant_id', checkUsing: 'tenant_id' },
+      refund_payment:          { entityType: 'payment',       idField: 'payment_id',       sqlTable: 'payments',                checkCol: 'tenant_id', checkUsing: 'tenant_id' },
+      modify_charge_amount:    { entityType: 'charge',        idField: 'charge_id',        sqlTable: 'charges',                 checkCol: 'tenant_id', checkUsing: 'tenant_id' },
+      delete_charge:           { entityType: 'charge',        idField: 'charge_id',        sqlTable: 'charges',                 checkCol: 'tenant_id', checkUsing: 'tenant_id' },
+      modify_payment_due_date: { entityType: 'charge',        idField: 'charge_id',        sqlTable: 'charges',                 checkCol: 'tenant_id', checkUsing: 'tenant_id' },
+      modify_scholarship:      { entityType: 'scholarship',   idField: 'scholarship_id',   sqlTable: 'scholarships',            checkCol: 'tenant_id', checkUsing: 'tenant_id' },
+      modify_price:            { entityType: 'concept',       idField: 'concept_id',       sqlTable: 'concepts',                checkCol: 'tenant_id', checkUsing: 'tenant_id' },
+      delete_concept:          { entityType: 'concept',       idField: 'concept_id',       sqlTable: 'concepts',                checkCol: 'tenant_id', checkUsing: 'tenant_id' },
+      modify_concept:          { entityType: 'concept',       idField: 'concept_id',       sqlTable: 'concepts',                checkCol: 'tenant_id', checkUsing: 'tenant_id' },
+      modify_late_fee:         { entityType: 'surcharge_rule',idField: 'surcharge_rule_id',sqlTable: 'payment_surcharge_rules', checkCol: 'campus_id', checkUsing: 'campus_id' },
+    };
+
+    const spec = SPEC[actionType];
+    if (!spec) {
+      throw new Error(`Tipo de acción desconocido: ${actionType}`);
+    }
+
+    // Acepta el campo específico del tipo (payment_id, charge_id, …) o 'entity_id' genérico
+    const rawId = proposedValue[spec.idField] ?? proposedValue['entity_id'];
+    const entityId = rawId != null ? Number(rawId) : NaN;
+    if (!Number.isFinite(entityId) || entityId <= 0) {
+      throw new Error(
+        `proposed_value.${spec.idField} es requerido y debe ser un entero positivo (recibido: ${rawId})`
+      );
+    }
+
+    // Validar que la entidad exista y pertenezca al tenant/campus del solicitante
+    const checkVal = spec.checkUsing === 'tenant_id' ? tenantId : campusId;
+    const result = await pool.query(
+      `SELECT id FROM ${spec.sqlTable} WHERE id = $1 AND ${spec.checkCol} = $2 LIMIT 1`,
+      [entityId, checkVal],
+    );
+    if ((result.rows as any[]).length === 0) {
+      throw new Error(
+        `${spec.entityType} ${entityId} no existe o no pertenece a este ${spec.checkUsing === 'tenant_id' ? 'tenant' : 'campus'}`
+      );
+    }
+
+    return { entity_id: entityId, entity_type: spec.entityType };
+  }
+
   // Create new approval request
   app.post("/api/approvals/request", authenticateToken, async (req, res) => {
     try {
       const user = (req as any).user;
+      const tenantId  = user?.tenant_id  as number | undefined;
+      const campusId  = user?.campus_id  as number | undefined;
+
+      if (!tenantId) {
+        return res.status(403).json({ message: "Sin contexto de tenant" });
+      }
+
       const { 
         action_type, 
         action_description, 
@@ -611,23 +685,44 @@ export function registerNotificationRoutes(app: Express): void {
         return res.status(400).json({ message: "Esta acción no requiere aprobación para tu rol" });
       }
 
+      // Resolver y validar el entity_id real contra la base de datos.
+      // Antes: siempre entity_id=1, entity_type='approval' (hardcodeados).
+      // Ahora: extraído de proposed_value, validado que exista y pertenezca al tenant.
+      let resolvedEntityId: number;
+      let resolvedEntityType: string;
+      try {
+        const parsed: Record<string, any> =
+          typeof proposed_value === 'string'
+            ? JSON.parse(proposed_value)
+            : (proposed_value && typeof proposed_value === 'object' ? proposed_value : {});
+        const resolved = await resolveAndValidateEntity(action_type, parsed, tenantId, campusId!);
+        resolvedEntityId   = resolved.entity_id;
+        resolvedEntityType = resolved.entity_type;
+      } catch (err: any) {
+        return res.status(422).json({ message: err.message });
+      }
+
+      // Serializar current_value y proposed_value como JSON si vienen como objetos
+      const originalDataStr  =
+        typeof current_value === 'string'  ? current_value  : JSON.stringify(current_value  ?? {});
+      const requestedDataStr =
+        typeof proposed_value === 'string' ? proposed_value : JSON.stringify(proposed_value ?? {});
+
       // Create the approval request
       const approval = await storage.createPendingApproval({
-        campus_id: user.campus_id!,
-        requested_by: user.id,
+        campus_id:          campusId!,
+        tenant_id:          tenantId,           // ← antes: ausente → null en la DB
+        requested_by:       user.id,
         action_type,
-        entity_type: 'approval',
-        entity_id: 1,
-        original_data: current_value || '',
-        requested_data: proposed_value || '',
+        action_description: String(action_description), // columna NOT NULL en la DB real
+        entity_type:        resolvedEntityType, // ← antes: 'approval' hardcodeado
+        entity_id:          resolvedEntityId,   // ← antes: 1 hardcodeado
+        original_data:      originalDataStr,
+        requested_data:     requestedDataStr,
         reason,
         status: 'pending'
       });
 
-      // Create notifications for approvers
-      const approvers = await storage.getPendingApprovalsForApprover(user.id);
-      // In a real system, you would notify all potential approvers
-      
       // Log the request
       await storage.createApprovalWorkflowLog({
         approval_id: approval.id,

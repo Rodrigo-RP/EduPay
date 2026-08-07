@@ -1085,6 +1085,14 @@ export function registerMiscRoutes(app: Express): void {
       const tenantId = user?.tenant_id;
       if (!tenantId) return res.status(403).json({ message: "Sin contexto de tenant" });
 
+      // El historial de auditoría expone eventos de seguridad, cambios de configuración
+      // y operaciones financieras de todos los módulos. Solo roles con SECURITY.READ
+      // pueden consultarlo. Roles excluidos: auxiliar_contable, asistente, admisiones.
+      const role = user?.role;
+      if (!hasPermission(role, MODULES.SECURITY, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver el historial de auditoría" });
+      }
+
       const { limit, offset, desde, hasta, action, entityType, userId, search } = req.query as Record<string, string | undefined>;
 
       const result = await storage.getAuditLog(tenantId, {

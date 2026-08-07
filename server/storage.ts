@@ -189,7 +189,7 @@ export interface IStorage {
   getWorkflowLogsByApproval(approvalId: number): Promise<ApprovalWorkflowLog[]>;
   checkUserCanApprove(userId: number, actionType: string): Promise<boolean>;
   requiresApproval(actionType: string, userId: number): Promise<boolean>;
-  getAllApprovalsHistory(): Promise<any[]>;
+  getAllApprovalsHistory(tenantId?: number): Promise<any[]>;
 
   // Institutional settings operations
   getInstitutionalSettings(campusId: number): Promise<InstitutionalSettings | undefined>;
@@ -1134,8 +1134,14 @@ export class DatabaseStorage implements IStorage {
     return logs;
   }
 
-  async getAllApprovalsHistory(): Promise<any[]> {
-    // Get all approvals with requester information and student data when applicable
+  async getAllApprovalsHistory(tenantId?: number): Promise<any[]> {
+    // Get all approvals with requester information and student data when applicable.
+    // tenantId filtra por tenant; si no se pasa (super_admin) se devuelve todo.
+    const statusFilter = inArray(pending_approvals.status, ['approved', 'rejected']);
+    const whereClause = tenantId !== undefined
+      ? and(statusFilter, eq(pending_approvals.tenant_id, tenantId))
+      : statusFilter;
+
     const allApprovals = await db
       .select({
         id: pending_approvals.id,
@@ -1162,10 +1168,7 @@ export class DatabaseStorage implements IStorage {
       })
       .from(pending_approvals)
       .leftJoin(users, eq(pending_approvals.requested_by, users.id))
-      .where(
-        // Include approved and rejected approvals only
-        inArray(pending_approvals.status, ['approved', 'rejected'])
-      )
+      .where(whereClause)
       .orderBy(desc(pending_approvals.updated_at))
       .limit(50); // Limit to recent 50 records
 

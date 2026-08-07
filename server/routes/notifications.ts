@@ -580,7 +580,11 @@ export function registerNotificationRoutes(app: Express): void {
   // Get all approvals history (for both admin and requesters)
   app.get("/api/approvals/history", authenticateToken, async (req, res) => {
     try {
-      const allApprovals = await storage.getAllApprovalsHistory();
+      const user = (req as any).user;
+      // super_admin ve historial global; todos los demás roles solo ven su propio tenant
+      const tenantFilter: number | undefined =
+        user.role === 'super_admin' ? undefined : (user.tenant_id as number | undefined);
+      const allApprovals = await storage.getAllApprovalsHistory(tenantFilter);
       res.json(allApprovals);
     } catch (error: any) {
       res.status(500).json({ message: "Error obteniendo historial de aprobaciones" });
@@ -755,6 +759,17 @@ export function registerNotificationRoutes(app: Express): void {
       const approval = await storage.getPendingApprovalById(approval_id);
       if (!approval) {
         return res.status(404).json({ message: "Solicitud de aprobación no encontrada" });
+      }
+
+      // Aislamiento de tenant: el aprobador debe pertenecer al mismo tenant que la solicitud.
+      // super_admin es la única excepción — puede actuar en cualquier tenant.
+      if (user.role !== 'super_admin') {
+        if (approval.tenant_id !== null &&
+            Number(approval.tenant_id) !== Number(user.tenant_id)) {
+          return res.status(403).json({
+            message: "No puedes aprobar solicitudes de otro plantel"
+          });
+        }
       }
 
       // Check if user can approve this type of action

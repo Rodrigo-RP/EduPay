@@ -35,6 +35,12 @@ let approverId:  number;  // administrador_general — puede aprobar
 let requesterToken: string;
 let approverToken:  string;
 
+// Tenant B — para tests de aislamiento cross-tenant
+let tenantBId:          number;
+let tenantBCampusId:    number;
+let tenantBApproverId:  number;
+let tenantBApproverToken: string;
+
 // IDs de registros creados durante los tests (para cleanup)
 const createdApprovalIds: number[] = [];
 
@@ -138,6 +144,36 @@ beforeAll(async () => {
     [tenantId, chargeId]
   );
   paymentId = payRow.rows[0].id;
+
+  // ── Tenant B ─── para tests de aislamiento cross-tenant ──────────────────────
+  const tenantBRow = await pool.query(
+    `INSERT INTO tenants (nombre_legal, rfc) VALUES ($1, $2) RETURNING id`,
+    [`AWF TenantB ${ts}`, `AWB${ts}`.slice(0, 13)]
+  );
+  tenantBId = tenantBRow.rows[0].id;
+
+  const tenantBCampusRow = await pool.query(
+    `INSERT INTO campuses (nombre, tenant_id) VALUES ($1, $2) RETURNING id`,
+    ["Campus AWF-B", tenantBId]
+  );
+  tenantBCampusId = tenantBCampusRow.rows[0].id;
+
+  const tenantBAprRow = await pool.query(
+    `INSERT INTO users (tenant_id, campus_id, name, email, password_hash, role)
+     VALUES ($1, $2, 'AWF TenantB Approver', $3,
+             '$2b$10$fakehashfortestonly000000000000000', 'administrador_general')
+     RETURNING id`,
+    [tenantBId, tenantBCampusId, `awf-b-apr-${ts}@test.com`]
+  );
+  tenantBApproverId = tenantBAprRow.rows[0].id;
+
+  tenantBApproverToken = jwt.sign(
+    { id: tenantBApproverId, email: `awf-b-apr-${ts}@test.com`,
+      role: "administrador_general",
+      campus_id: tenantBCampusId, tenant_id: tenantBId },
+    JWT_SECRET,
+    { expiresIn: "1h" }
+  );
 });
 
 afterAll(async () => {
@@ -155,6 +191,23 @@ afterAll(async () => {
       `DELETE FROM pending_approvals WHERE id = ANY($1::int[])`,
       [createdApprovalIds]
     );
+  }
+  // Tenant B — limpiar registros directos insertados en AWF-08
+  if (tenantBId) {
+    await pool.query(
+      `DELETE FROM approval_workflow_logs
+         WHERE approval_id IN (SELECT id FROM pending_approvals WHERE tenant_id = $1)`,
+      [tenantBId]
+    );
+    await pool.query(
+      `DELETE FROM approval_notifications
+         WHERE approval_id IN (SELECT id FROM pending_approvals WHERE tenant_id = $1)`,
+      [tenantBId]
+    );
+    await pool.query(`DELETE FROM pending_approvals WHERE tenant_id = $1`, [tenantBId]);
+    await pool.query(`DELETE FROM users     WHERE tenant_id = $1`, [tenantBId]);
+    await pool.query(`DELETE FROM campuses  WHERE tenant_id = $1`, [tenantBId]);
+    await pool.query(`DELETE FROM tenants   WHERE id        = $1`, [tenantBId]);
   }
   // Entidades del test (orden inverso al de creación)
   await pool.query(`DELETE FROM payments  WHERE tenant_id = $1`, [tenantId]);
@@ -334,6 +387,145 @@ describe("Approval Workflow — entity_id y tenant_id reales", () => {
     expect(row.rows[0].entity_id).toBe(chargeId);
     expect(row.rows[0].entity_type).toBe("charge");
     expect(Number(row.rows[0].tenant_id)).toBe(tenantId);
+  });
+
+  // ── AWF-06 ───────────────────────────────────────────────────────────────
+  // REPRODUCCIÓN EMPÍRICA de la brecha: antes del fix el endpoint devolvía 200
+  // y ejecutaba el cambio. Con el fix debe devolver 403 sin tocar el registro.
+  it("AWF-06: administrador_general de tenantB intenta aprobar solicitud de tenantA → 403", async () => {
+    // Paso 1: requester de tenantA crea una solicitud pendiente válida
+    const reqRes = await apiFetch(
+      "POST", "/api/approvals/request",
+      requesterToken,
+      {
+        action_type:       "modify_charge_amount",
+        action_description:"Solicitud cross-tenant para auditoría de aislamiento",
+        proposed_value:    { charge_id: chargeId, amount: 100000 },
+        current_value:     { amount: 150000 },
+        reason:            "Verificación de bloqueo cross-tenant en decision",
+      }
+    );
+    expect(reqRes.status).toBe(200);
+    const approvalId = reqRes.body.approval_id as number;
+    createdApprovalIds.push(approvalId);
+
+    // Confirmar que la solicitud pertenece al tenantA correcto
+    const beforeRow = await pool.query(
+      `SELECT tenant_id, status FROM pending_approvals WHERE id = $1`,
+      [approvalId]
+    );
+    expect(Number(beforeRow.rows[0].tenant_id)).toBe(tenantId);
+    expect(beforeRow.rows[0].status).toBe("pending");
+
+    // Paso 2: administrador_general de tenantB intenta aprobar → debe recibir 403
+    const decRes = await apiFetch(
+      "POST", "/api/approvals/decision",
+      tenantBApproverToken,                  // ← JWT de otro tenant
+      {
+        approval_id: approvalId,
+        decision:    "approved",
+        notes:       "Intento de aprobación cross-tenant",
+      }
+    );
+    expect(decRes.status).toBe(403);
+    expect(decRes.body.message).toMatch(/otro plantel|no puedes/i);
+
+    // Paso 3: verificar que el estado NO cambió (sigue en 'pending')
+    const afterRow = await pool.query(
+      `SELECT status, approved_by FROM pending_approvals WHERE id = $1`,
+      [approvalId]
+    );
+    expect(afterRow.rows[0].status).toBe("pending");
+    expect(afterRow.rows[0].approved_by).toBeNull();
+  });
+
+  // ── AWF-07 ───────────────────────────────────────────────────────────────
+  // Regresión: el mismo tenant sigue pudiendo aprobar correctamente.
+  it("AWF-07: administrador_general del mismo tenant aprueba solicitud → 200 (no regresión)", async () => {
+    // Crear un segundo payment 'exitoso' (el paymentId original quedó 'reversado' en AWF-01)
+    const pay2Row = await pool.query(
+      `INSERT INTO payments (tenant_id, charge_id, metodo, monto_centavos, estado)
+       VALUES ($1, $2, 'transferencia', 150000, 'exitoso') RETURNING id`,
+      [tenantId, chargeId]
+    );
+    const payment2Id: number = pay2Row.rows[0].id;
+
+    // Solicitar reembolso del nuevo payment
+    const reqRes = await apiFetch(
+      "POST", "/api/approvals/request",
+      requesterToken,
+      {
+        action_type:       "refund_payment",
+        action_description:"Reembolso de transferencia — regresión de aislamiento",
+        proposed_value:    { payment_id: payment2Id },
+        current_value:     { estado: "exitoso" },
+        reason:            "Verificar que el mismo tenant sigue pudiendo aprobar",
+      }
+    );
+    expect(reqRes.status).toBe(200);
+    const approvalId = reqRes.body.approval_id as number;
+    createdApprovalIds.push(approvalId);
+
+    // Aprobar con administrador_general del MISMO tenant → debe funcionar
+    const decRes = await apiFetch(
+      "POST", "/api/approvals/decision",
+      approverToken,                         // ← JWT del mismo tenantA
+      {
+        approval_id: approvalId,
+        decision:    "approved",
+        notes:       "Aprobación legítima del mismo tenant",
+      }
+    );
+    expect(decRes.status).toBe(200);
+    expect(decRes.body.decision).toBe("approved");
+
+    // El payment fue revertido correctamente
+    const pmtRow = await pool.query(
+      `SELECT estado FROM payments WHERE id = $1`,
+      [payment2Id]
+    );
+    expect(pmtRow.rows[0].estado).toBe("reversado");
+  });
+
+  // ── AWF-08 ───────────────────────────────────────────────────────────────
+  // GET /api/approvals/history filtra por tenant: tenantA no ve registros de tenantB.
+  it("AWF-08: GET /api/approvals/history devuelve solo registros del propio tenant", async () => {
+    // Insertar directamente en pending_approvals un registro 'approved' de tenantB.
+    // reason y original_data/requested_data son NOT NULL en la DB real (drift con schema.ts).
+    await pool.query(
+      `INSERT INTO pending_approvals
+         (tenant_id, campus_id, requested_by, action_type, action_description,
+          entity_type, entity_id, original_data, requested_data, reason, status)
+       VALUES ($1, $2, $3, 'modify_price', 'Registro de tenantB para auditoría de aislamiento',
+               'concept', 1, '{}', '{}', 'Prueba de aislamiento', 'approved')`,
+      [tenantBId, tenantBCampusId, tenantBApproverId]
+    );
+
+    // tenantA pide su historial
+    const histRes = await apiFetch("GET", "/api/approvals/history", approverToken);
+    expect(histRes.status).toBe(200);
+    const records = histRes.body as any[];
+
+    // Ningún registro puede pertenecer a tenantB
+    const tenantBLeak = records.filter(
+      (r: any) => r.tenant_id !== null && Number(r.tenant_id) === tenantBId
+    );
+    expect(tenantBLeak).toHaveLength(0);
+
+    // Todos los registros con tenant_id definido deben ser de tenantA
+    const withTenant = records.filter((r: any) => r.tenant_id !== null);
+    for (const r of withTenant) {
+      expect(Number(r.tenant_id)).toBe(tenantId);
+    }
+
+    // tenantB pide su propio historial — ve su registro, no el de tenantA
+    const histResB = await apiFetch("GET", "/api/approvals/history", tenantBApproverToken);
+    expect(histResB.status).toBe(200);
+    const recordsB = histResB.body as any[];
+    const tenantALeak = recordsB.filter(
+      (r: any) => r.tenant_id !== null && Number(r.tenant_id) === tenantId
+    );
+    expect(tenantALeak).toHaveLength(0);
   });
 
 });

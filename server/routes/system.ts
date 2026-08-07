@@ -31,8 +31,19 @@ export function registerSystemRoutes(app: Express): void {
       const campusId = req.user?.campus_id;
       const tenantId = req.user?.tenant_id;
       if (!campusId || !tenantId) return res.status(400).json({ error: "Campus y tenant requeridos" });
-      const { type, value, gracePeriodDays, description } = req.body;
-      if (!type || value === undefined) return res.status(400).json({ error: "type y value requeridos" });
+
+      // Validación con los nombres reales de columna que envía el frontend.
+      // Bug original: el handler validaba 'type' y 'value' (nombres incorrectos)
+      // mientras que el frontend (reglas-pago.tsx:173–189) envía 'rule_type',
+      // 'name', 'late_fee_percentage', etc. — exactamente los nombres de columna
+      // del schema Drizzle.  La validación incorrecta causaba 400 siempre, antes
+      // incluso de llegar al INSERT (que también fallaba por tabla inexistente).
+      const { rule_type, name: ruleName } = req.body;
+      if (!rule_type) return res.status(400).json({ error: "rule_type es requerido" });
+      if (!ruleName) return res.status(400).json({ error: "name es requerido" });
+
+      // El frontend sobreescribe campus_id con un valor hardcodeado (campus_id: 24).
+      // Lo sobreescribimos con el campus_id del JWT del usuario autenticado.
       const ruleData = { ...req.body, campus_id: campusId, tenant_id: tenantId };
       const [newRule] = await db.insert(payment_rules).values(ruleData).returning();
       res.json(newRule);

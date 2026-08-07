@@ -904,10 +904,14 @@ export function registerNotificationRoutes(app: Express): void {
     switch (action_type) {
       case 'modify_scholarship':
         if (entity_type === 'scholarship' && entity_id) {
-          // Update scholarship percentage
-          await db.update(scholarships)
-            .set({ porcentaje_aplicado: requestedData.percentage })
-            .where(eq(scholarships.id, entity_id));
+          // La columna real en la DB es 'porcentaje' (numeric NOT NULL).
+          // El schema Drizzle la define como 'porcentaje_aplicado' (integer) —
+          // drift conocido entre schema.ts y la DB real.
+          // Usamos SQL crudo para garantizar el nombre de columna correcto.
+          await pool.query(
+            `UPDATE scholarships SET porcentaje = $1, updated_at = now() WHERE id = $2`,
+            [requestedData.percentage, entity_id]
+          );
         }
         break;
 
@@ -974,6 +978,44 @@ export function registerNotificationRoutes(app: Express): void {
             userId:   approval.approved_by ?? approval.requested_by,
             metadata: { flujo: 'approval_workflow', action: 'refund_payment' },
           });
+        }
+        break;
+
+      case 'modify_late_fee':
+        if (entity_type === 'surcharge_rule' && entity_id) {
+          // Actualiza porcentaje y/o monto_fijo_centavos según lo que incluya requestedData.
+          // Columnas reales: porcentaje (numeric), monto_fijo_centavos (integer) — ambas en
+          // payment_surcharge_rules y correctamente mapeadas en el schema Drizzle.
+          const lateFeeUpdate: Partial<{ porcentaje: string; monto_fijo_centavos: number }> = {};
+          if (requestedData.porcentaje !== undefined) {
+            lateFeeUpdate.porcentaje = String(requestedData.porcentaje);
+          }
+          if (requestedData.monto_fijo_centavos !== undefined) {
+            lateFeeUpdate.monto_fijo_centavos = Number(requestedData.monto_fijo_centavos);
+          }
+          if (Object.keys(lateFeeUpdate).length > 0) {
+            await db.update(payment_surcharge_rules)
+              .set(lateFeeUpdate)
+              .where(eq(payment_surcharge_rules.id, entity_id));
+          }
+        }
+        break;
+
+      case 'modify_concept':
+        if (entity_type === 'concept' && entity_id) {
+          // Actualiza campos de metadatos del concepto: nombre, tipo, periodicidad.
+          // (Los cambios de precio van por modify_price que actualiza monto_centavos.)
+          // Columnas reales: nombre (varchar NOT NULL), tipo (varchar NOT NULL),
+          // periodicidad (varchar NOT NULL) — todas correctamente mapeadas en schema Drizzle.
+          const conceptUpdate: Partial<{ nombre: string; tipo: string; periodicidad: string }> = {};
+          if (requestedData.nombre !== undefined) conceptUpdate.nombre = requestedData.nombre;
+          if (requestedData.tipo !== undefined) conceptUpdate.tipo = requestedData.tipo;
+          if (requestedData.periodicidad !== undefined) conceptUpdate.periodicidad = requestedData.periodicidad;
+          if (Object.keys(conceptUpdate).length > 0) {
+            await db.update(concepts)
+              .set(conceptUpdate)
+              .where(eq(concepts.id, entity_id));
+          }
         }
         break;
 

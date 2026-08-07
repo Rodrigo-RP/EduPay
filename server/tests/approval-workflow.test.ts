@@ -210,10 +210,12 @@ afterAll(async () => {
     await pool.query(`DELETE FROM tenants   WHERE id        = $1`, [tenantBId]);
   }
   // Entidades del test (orden inverso al de creación)
-  await pool.query(`DELETE FROM payments  WHERE tenant_id = $1`, [tenantId]);
-  await pool.query(`DELETE FROM charges   WHERE tenant_id = $1`, [tenantId]);
-  await pool.query(`DELETE FROM concepts  WHERE tenant_id = $1`, [tenantId]);
-  await pool.query(`DELETE FROM students  WHERE tenant_id = $1`, [tenantId]);
+  await pool.query(`DELETE FROM payments               WHERE tenant_id  = $1`, [tenantId]);
+  await pool.query(`DELETE FROM charges                WHERE tenant_id  = $1`, [tenantId]);
+  await pool.query(`DELETE FROM scholarships           WHERE tenant_id  = $1`, [tenantId]);
+  await pool.query(`DELETE FROM payment_surcharge_rules WHERE campus_id = $1`, [campusId]);
+  await pool.query(`DELETE FROM concepts               WHERE tenant_id  = $1`, [tenantId]);
+  await pool.query(`DELETE FROM students               WHERE tenant_id  = $1`, [tenantId]);
   await pool.query(`DELETE FROM users     WHERE tenant_id = $1`, [tenantId]);
   await pool.query(`DELETE FROM campuses  WHERE tenant_id = $1`, [tenantId]);
   await pool.query(`DELETE FROM tenants   WHERE id        = $1`, [tenantId]);
@@ -525,6 +527,329 @@ describe("Approval Workflow — entity_id y tenant_id reales", () => {
     );
     expect(afterRow.rows[0].status).toBe("pending");
     expect(afterRow.rows[0].approved_by).toBeNull();
+  });
+
+  // ── AWF-10 ───────────────────────────────────────────────────────────────
+  it("AWF-10: modify_charge_amount — cargo real, solicitar cambio, aprobar, verificar nuevo monto en DB", async () => {
+    const chRow = await pool.query(
+      `INSERT INTO charges (tenant_id, student_id, concept_id, fecha_emision, fecha_vencimiento,
+                            monto_base_centavos, estado)
+       VALUES ($1, $2, $3, CURRENT_DATE, CURRENT_DATE + 30, 100000, 'pendiente') RETURNING id`,
+      [tenantId, studentId, conceptId]
+    );
+    const freshChargeId: number = chRow.rows[0].id;
+
+    const reqRes = await apiFetch("POST", "/api/approvals/request", requesterToken, {
+      action_type:       "modify_charge_amount",
+      action_description:"Corregir monto del cargo (AWF-10)",
+      proposed_value:    { charge_id: freshChargeId, amount: 200000 },
+      current_value:     { amount: 100000 },
+      reason:            "El cargo original tenía un monto incorrecto",
+    });
+    expect(reqRes.status).toBe(200);
+    const approvalId = reqRes.body.approval_id as number;
+    createdApprovalIds.push(approvalId);
+
+    const decRes = await apiFetch("POST", "/api/approvals/decision", approverToken, {
+      approval_id: approvalId, decision: "approved", notes: "Monto corregido"
+    });
+    expect(decRes.status).toBe(200);
+
+    const row = await pool.query(
+      `SELECT monto_base_centavos FROM charges WHERE id = $1`, [freshChargeId]
+    );
+    expect(Number(row.rows[0].monto_base_centavos)).toBe(200000);
+  });
+
+  // ── AWF-11 ───────────────────────────────────────────────────────────────
+  it("AWF-11: modify_scholarship — beca real, solicitar cambio de porcentaje, aprobar, verificar en DB", async () => {
+    // La columna real es 'porcentaje' (numeric). El schema Drizzle la llama
+    // 'porcentaje_aplicado' (bug conocido). executeApprovedChange usa SQL crudo — este
+    // test confirma que el fix funciona de extremo a extremo.
+    const schRow = await pool.query(
+      `INSERT INTO scholarships (tenant_id, student_id, porcentaje, vigencia_inicio, vigencia_fin)
+       VALUES ($1, $2, 25.00, CURRENT_DATE, CURRENT_DATE + 365) RETURNING id`,
+      [tenantId, studentId]
+    );
+    const scholarshipId: number = schRow.rows[0].id;
+
+    const reqRes = await apiFetch("POST", "/api/approvals/request", requesterToken, {
+      action_type:       "modify_scholarship",
+      action_description:"Aumentar beca (AWF-11)",
+      proposed_value:    { scholarship_id: scholarshipId, percentage: 50 },
+      current_value:     { percentage: 25 },
+      reason:            "El alumno cumple criterios para beca mayor",
+    });
+    expect(reqRes.status).toBe(200);
+    const approvalId = reqRes.body.approval_id as number;
+    createdApprovalIds.push(approvalId);
+
+    const decRes = await apiFetch("POST", "/api/approvals/decision", approverToken, {
+      approval_id: approvalId, decision: "approved", notes: "Beca aprobada al 50%"
+    });
+    expect(decRes.status).toBe(200);
+
+    const row = await pool.query(
+      `SELECT porcentaje FROM scholarships WHERE id = $1`, [scholarshipId]
+    );
+    expect(parseFloat(row.rows[0].porcentaje)).toBe(50);
+  });
+
+  // ── AWF-12 ───────────────────────────────────────────────────────────────
+  it("AWF-12: modify_price — concepto real, solicitar cambio de precio, aprobar, verificar en DB", async () => {
+    const concRow = await pool.query(
+      `INSERT INTO concepts (tenant_id, campus_id, nombre, tipo, periodicidad, monto_centavos)
+       VALUES ($1, $2, 'Material AWF-12', 'material', 'anual', 100000) RETURNING id`,
+      [tenantId, campusId]
+    );
+    const freshConceptId: number = concRow.rows[0].id;
+
+    const reqRes = await apiFetch("POST", "/api/approvals/request", requesterToken, {
+      action_type:       "modify_price",
+      action_description:"Actualizar precio de material (AWF-12)",
+      proposed_value:    { concept_id: freshConceptId, amount: 150000 },
+      current_value:     { amount: 100000 },
+      reason:            "Ajuste por inflación",
+    });
+    expect(reqRes.status).toBe(200);
+    const approvalId = reqRes.body.approval_id as number;
+    createdApprovalIds.push(approvalId);
+
+    const decRes = await apiFetch("POST", "/api/approvals/decision", approverToken, {
+      approval_id: approvalId, decision: "approved", notes: "Precio actualizado"
+    });
+    expect(decRes.status).toBe(200);
+
+    const row = await pool.query(
+      `SELECT monto_centavos FROM concepts WHERE id = $1`, [freshConceptId]
+    );
+    expect(Number(row.rows[0].monto_centavos)).toBe(150000);
+  });
+
+  // ── AWF-13 ───────────────────────────────────────────────────────────────
+  it("AWF-13: delete_charge — cargo real, solicitar eliminación, aprobar, verificar que ya no existe en DB", async () => {
+    const chRow = await pool.query(
+      `INSERT INTO charges (tenant_id, student_id, concept_id, fecha_emision, fecha_vencimiento,
+                            monto_base_centavos, estado)
+       VALUES ($1, $2, $3, CURRENT_DATE, CURRENT_DATE + 30, 50000, 'pendiente') RETURNING id`,
+      [tenantId, studentId, conceptId]
+    );
+    const deleteChargeId: number = chRow.rows[0].id;
+
+    const reqRes = await apiFetch("POST", "/api/approvals/request", requesterToken, {
+      action_type:       "delete_charge",
+      action_description:"Eliminar cargo duplicado (AWF-13)",
+      proposed_value:    { charge_id: deleteChargeId },
+      current_value:     { estado: "pendiente" },
+      reason:            "El cargo fue creado por duplicado",
+    });
+    expect(reqRes.status).toBe(200);
+    const approvalId = reqRes.body.approval_id as number;
+    createdApprovalIds.push(approvalId);
+
+    const decRes = await apiFetch("POST", "/api/approvals/decision", approverToken, {
+      approval_id: approvalId, decision: "approved", notes: "Cargo duplicado eliminado"
+    });
+    expect(decRes.status).toBe(200);
+
+    const row = await pool.query(
+      `SELECT id FROM charges WHERE id = $1`, [deleteChargeId]
+    );
+    expect(row.rows).toHaveLength(0); // ← debe haber sido eliminado
+  });
+
+  // ── AWF-14 ───────────────────────────────────────────────────────────────
+  it("AWF-14: delete_concept — concepto real, solicitar eliminación, aprobar, verificar que ya no existe en DB", async () => {
+    const concRow = await pool.query(
+      `INSERT INTO concepts (tenant_id, campus_id, nombre, tipo, periodicidad, monto_centavos)
+       VALUES ($1, $2, 'Concepto a eliminar AWF-14', 'otro', 'anual', 10000) RETURNING id`,
+      [tenantId, campusId]
+    );
+    const deleteConceptId: number = concRow.rows[0].id;
+
+    const reqRes = await apiFetch("POST", "/api/approvals/request", requesterToken, {
+      action_type:       "delete_concept",
+      action_description:"Eliminar concepto obsoleto (AWF-14)",
+      proposed_value:    { concept_id: deleteConceptId },
+      current_value:     {},
+      reason:            "El concepto ya no aplica al ciclo actual",
+    });
+    expect(reqRes.status).toBe(200);
+    const approvalId = reqRes.body.approval_id as number;
+    createdApprovalIds.push(approvalId);
+
+    const decRes = await apiFetch("POST", "/api/approvals/decision", approverToken, {
+      approval_id: approvalId, decision: "approved", notes: "Concepto eliminado"
+    });
+    expect(decRes.status).toBe(200);
+
+    const row = await pool.query(
+      `SELECT id FROM concepts WHERE id = $1`, [deleteConceptId]
+    );
+    expect(row.rows).toHaveLength(0); // ← debe haber sido eliminado
+  });
+
+  // ── AWF-15 ───────────────────────────────────────────────────────────────
+  it("AWF-15: modify_payment_due_date — cargo real, solicitar cambio de fecha, aprobar, verificar en DB", async () => {
+    const chRow = await pool.query(
+      `INSERT INTO charges (tenant_id, student_id, concept_id, fecha_emision, fecha_vencimiento,
+                            monto_base_centavos, estado)
+       VALUES ($1, $2, $3, CURRENT_DATE, CURRENT_DATE + 30, 75000, 'pendiente') RETURNING id`,
+      [tenantId, studentId, conceptId]
+    );
+    const freshChargeId: number = chRow.rows[0].id;
+
+    const reqRes = await apiFetch("POST", "/api/approvals/request", requesterToken, {
+      action_type:       "modify_payment_due_date",
+      action_description:"Ampliar plazo del cargo (AWF-15)",
+      proposed_value:    { charge_id: freshChargeId, due_date: "2026-12-31" },
+      current_value:     {},
+      reason:            "El alumno solicitó prórroga",
+    });
+    expect(reqRes.status).toBe(200);
+    const approvalId = reqRes.body.approval_id as number;
+    createdApprovalIds.push(approvalId);
+
+    const decRes = await apiFetch("POST", "/api/approvals/decision", approverToken, {
+      approval_id: approvalId, decision: "approved", notes: "Prórroga autorizada"
+    });
+    expect(decRes.status).toBe(200);
+
+    const row = await pool.query(
+      `SELECT fecha_vencimiento::text AS fv FROM charges WHERE id = $1`, [freshChargeId]
+    );
+    expect(row.rows[0].fv).toBe("2026-12-31");
+  });
+
+  // ── AWF-16 ───────────────────────────────────────────────────────────────
+  it("AWF-16: cancel_payment — pago en 'pendiente', solicitar cancelación, aprobar, verificar estado='fallido' en DB", async () => {
+    const payRow = await pool.query(
+      `INSERT INTO payments (tenant_id, charge_id, metodo, monto_centavos, estado)
+       VALUES ($1, $2, 'efectivo', 80000, 'pendiente') RETURNING id`,
+      [tenantId, chargeId]
+    );
+    const cancelPaymentId: number = payRow.rows[0].id;
+
+    const reqRes = await apiFetch("POST", "/api/approvals/request", requesterToken, {
+      action_type:       "cancel_payment",
+      action_description:"Cancelar pago pendiente (AWF-16)",
+      proposed_value:    { payment_id: cancelPaymentId },
+      current_value:     { estado: "pendiente" },
+      reason:            "El tutor reportó que el pago fue un error",
+    });
+    expect(reqRes.status).toBe(200);
+    const approvalId = reqRes.body.approval_id as number;
+    createdApprovalIds.push(approvalId);
+
+    const decRes = await apiFetch("POST", "/api/approvals/decision", approverToken, {
+      approval_id: approvalId, decision: "approved", notes: "Cancelación aprobada"
+    });
+    expect(decRes.status).toBe(200);
+
+    const row = await pool.query(
+      `SELECT estado FROM payments WHERE id = $1`, [cancelPaymentId]
+    );
+    expect(row.rows[0].estado).toBe("fallido");
+  });
+
+  // ── AWF-17 ───────────────────────────────────────────────────────────────
+  it("AWF-17: refund_payment — pago en 'exitoso', solicitar reembolso, aprobar, verificar estado='reversado' en DB", async () => {
+    const payRow = await pool.query(
+      `INSERT INTO payments (tenant_id, charge_id, metodo, monto_centavos, estado)
+       VALUES ($1, $2, 'tarjeta', 90000, 'exitoso') RETURNING id`,
+      [tenantId, chargeId]
+    );
+    const refundPaymentId: number = payRow.rows[0].id;
+
+    const reqRes = await apiFetch("POST", "/api/approvals/request", requesterToken, {
+      action_type:       "refund_payment",
+      action_description:"Reembolso de pago con tarjeta (AWF-17)",
+      proposed_value:    { payment_id: refundPaymentId },
+      current_value:     { estado: "exitoso" },
+      reason:            "El cargo fue aplicado al concepto equivocado",
+    });
+    expect(reqRes.status).toBe(200);
+    const approvalId = reqRes.body.approval_id as number;
+    createdApprovalIds.push(approvalId);
+
+    const decRes = await apiFetch("POST", "/api/approvals/decision", approverToken, {
+      approval_id: approvalId, decision: "approved", notes: "Reembolso autorizado"
+    });
+    expect(decRes.status).toBe(200);
+
+    const row = await pool.query(
+      `SELECT estado FROM payments WHERE id = $1`, [refundPaymentId]
+    );
+    expect(row.rows[0].estado).toBe("reversado");
+  });
+
+  // ── AWF-18 ───────────────────────────────────────────────────────────────
+  it("AWF-18: modify_late_fee — regla de recargo real, solicitar cambio de porcentaje, aprobar, verificar en DB", async () => {
+    // payment_surcharge_rules usa campus_id (NOT NULL) para el check de ownership,
+    // no tenant_id. El JWT del requester tiene campus_id = campusId.
+    // tipo en la DB es 'porcentaje' (no 'porcentaje_fijo' — ese es el alias del frontend)
+    const ruleRow = await pool.query(
+      `INSERT INTO payment_surcharge_rules
+         (campus_id, tenant_id, concepto, nombre, tipo, dias_gracia, porcentaje,
+          aplica_fines_semana, aplica_festivos, activo)
+       VALUES ($1, $2, 'Colegiatura', 'Recargo mora AWF-18', 'porcentaje',
+               5, 5.00, false, false, true)
+       RETURNING id`,
+      [campusId, tenantId]
+    );
+    const ruleId: number = ruleRow.rows[0].id;
+
+    const reqRes = await apiFetch("POST", "/api/approvals/request", requesterToken, {
+      action_type:       "modify_late_fee",
+      action_description:"Actualizar porcentaje de recargo por mora (AWF-18)",
+      proposed_value:    { surcharge_rule_id: ruleId, porcentaje: "10.00" },
+      current_value:     { porcentaje: "5.00" },
+      reason:            "Ajuste de política institucional de recargos",
+    });
+    expect(reqRes.status).toBe(200);
+    const approvalId = reqRes.body.approval_id as number;
+    createdApprovalIds.push(approvalId);
+
+    const decRes = await apiFetch("POST", "/api/approvals/decision", approverToken, {
+      approval_id: approvalId, decision: "approved", notes: "Recargo actualizado"
+    });
+    expect(decRes.status).toBe(200);
+
+    const row = await pool.query(
+      `SELECT porcentaje FROM payment_surcharge_rules WHERE id = $1`, [ruleId]
+    );
+    expect(parseFloat(row.rows[0].porcentaje)).toBe(10);
+  });
+
+  // ── AWF-19 ───────────────────────────────────────────────────────────────
+  it("AWF-19: modify_concept — concepto real, solicitar cambio de nombre, aprobar, verificar en DB", async () => {
+    const concRow = await pool.query(
+      `INSERT INTO concepts (tenant_id, campus_id, nombre, tipo, periodicidad, monto_centavos)
+       VALUES ($1, $2, 'Nombre Original AWF-19', 'otro', 'mensual', 20000) RETURNING id`,
+      [tenantId, campusId]
+    );
+    const freshConceptId: number = concRow.rows[0].id;
+
+    const reqRes = await apiFetch("POST", "/api/approvals/request", requesterToken, {
+      action_type:       "modify_concept",
+      action_description:"Renombrar concepto (AWF-19)",
+      proposed_value:    { concept_id: freshConceptId, nombre: "Nombre Actualizado AWF-19" },
+      current_value:     { nombre: "Nombre Original AWF-19" },
+      reason:            "El nombre del concepto debe reflejar el ciclo actual",
+    });
+    expect(reqRes.status).toBe(200);
+    const approvalId = reqRes.body.approval_id as number;
+    createdApprovalIds.push(approvalId);
+
+    const decRes = await apiFetch("POST", "/api/approvals/decision", approverToken, {
+      approval_id: approvalId, decision: "approved", notes: "Renombrado aprobado"
+    });
+    expect(decRes.status).toBe(200);
+
+    const row = await pool.query(
+      `SELECT nombre FROM concepts WHERE id = $1`, [freshConceptId]
+    );
+    expect(row.rows[0].nombre).toBe("Nombre Actualizado AWF-19");
   });
 
   // ── AWF-08 ───────────────────────────────────────────────────────────────

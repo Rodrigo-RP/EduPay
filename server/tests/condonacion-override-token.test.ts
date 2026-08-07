@@ -38,6 +38,8 @@ let planSetup: number;
 let planCot:   number;
 // planCot2: en estado 'activo', para COT-04 y COT-05 (token inválido — no se cancela)
 let planCot2:  number;
+// planCotConc: en estado 'activo', para COT-08 (test de concurrencia real)
+let planCotConc: number;
 
 // alerta_id capturada en COT-01 y usada en COT-02
 let alertaIdCot01: number;
@@ -97,9 +99,10 @@ beforeAll(async () => {
     [tenantId, campusId],
   )).rows[0].id;
 
-  planSetup = await mkPlan(studentId);
-  planCot   = await mkPlan(studentId);
-  planCot2  = await mkPlan(studentId);
+  planSetup   = await mkPlan(studentId);
+  planCot     = await mkPlan(studentId);
+  planCot2    = await mkPlan(studentId);
+  planCotConc = await mkPlan(studentId);
 
   const base = { campus_id: campusId, tenant_id: tenantId };
   tokenAdminCampus  = jwt.sign({ ...base, role: "administrador_campus"  }, JWT_SECRET, { expiresIn: "1h" });
@@ -379,6 +382,73 @@ describe("Override token de condonación repetida", () => {
     );
     expect(r3.status).toBe(400);
     expect(r3.body.message).toMatch(/motivo/i);
+  });
+
+  // ── COT-08 ────────────────────────────────────────────────────────────────
+  it("COT-08: doble request simultáneo con el mismo token → exactamente 1 éxito y 1 rechazo", async () => {
+    // El handler usa UPDATE ... WHERE estado='activo' RETURNING id dentro del BEGIN,
+    // NO SELECT FOR UPDATE. El UPDATE adquiere el lock de fila implícitamente:
+    // el segundo UPDATE espera a que el primero haga COMMIT, luego ve estado='cancelado'
+    // y devuelve 0 filas → el handler retorna 409. El resultado esperado es 1×200 + 1×409.
+    //
+    // Este test confirma empíricamente que no es posible que ambas requests completen
+    // con 200 (doble condonación del mismo plan) incluso si el token es stateless.
+
+    // Paso 1: obtener alerta_id (planCotConc no ha sido tocado aún → 409 porque hay
+    // saldo_condonado de planSetup en el mismo tenant/alumno)
+    const step1 = await apiFetch(
+      "PATCH", `/api/planes-pago/${planCotConc}/cancelar`,
+      tokenAdminCampus, bodyCondonar,
+    );
+    expect(step1.status).toBe(409);
+    const alertaIdConc = step1.body.alerta_id as number;
+    expect(typeof alertaIdConc).toBe("number");
+
+    // Paso 2: admin_general genera el override_token para planCotConc
+    const tokenRes = await apiFetch(
+      "POST", `/api/admin/alertas/condonaciones/${planCotConc}/override-token`,
+      tokenAdminGeneral,
+      { motivo: "Prueba de concurrencia doble envio simultaneo de token", alerta_id: alertaIdConc },
+    );
+    expect(tokenRes.status).toBe(200);
+    const concToken = tokenRes.body.token as string;
+
+    // Paso 3: dos requests simultáneos con el mismo token (mismo plan, mismo token)
+    const [r1, r2] = await Promise.all([
+      apiFetch("PATCH", `/api/planes-pago/${planCotConc}/cancelar`,
+        tokenAdminCampus, { ...bodyCondonar, override_token: concToken }),
+      apiFetch("PATCH", `/api/planes-pago/${planCotConc}/cancelar`,
+        tokenAdminCampus, { ...bodyCondonar, override_token: concToken }),
+    ]);
+
+    const statuses = [r1.status, r2.status].sort();
+    // Nunca pueden ser ambos 200 — el UPDATE dentro del BEGIN garantiza exclusividad
+    expect(statuses.filter(s => s === 200).length).toBeLessThanOrEqual(1);
+    // Al menos uno debe rechazarse
+    expect(statuses.filter(s => s !== 200).length).toBeGreaterThanOrEqual(1);
+    // El caso normal es exactamente [200, 409]
+    expect(statuses).toEqual([200, 409]);
+
+    // El plan debe estar cancelado exactamente una vez
+    const planRow = await pool.query(
+      `SELECT estado FROM payment_plans WHERE id = $1`, [planCotConc]
+    );
+    expect((planRow.rows as any[])[0].estado).toBe('cancelado');
+
+    // Esperar y contar las entradas saldo_condonado — debe ser exactamente 1
+    const deadline = Date.now() + 2500;
+    let saldoCount = 0;
+    while (Date.now() < deadline) {
+      const r = await pool.query(
+        `SELECT COUNT(*)::int AS cnt FROM audit_log
+         WHERE tenant_id = $1 AND action = 'saldo_condonado' AND entity_id = $2`,
+        [tenantId, planCotConc],
+      );
+      saldoCount = (r.rows as any[])[0].cnt;
+      if (saldoCount >= 1) break;
+      await new Promise(r => setTimeout(r, 100));
+    }
+    expect(saldoCount).toBe(1);
   });
 
 });

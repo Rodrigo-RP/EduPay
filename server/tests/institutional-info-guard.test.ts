@@ -46,7 +46,8 @@ let campusId: number;
 let originalRfc: string;
 let settingsId: number;   // institutional_settings row (para CF-19)
 let infoId: number;       // institutional_info row (para profile endpoints)
-let adminUserId: number;  // usuario real administrador_campus (para CF-19 control +)
+let adminUserId: number;     // usuario real administrador_campus (para CF-19 control +)
+let asistenteUserId: number; // usuario real asistente (para reproducción CF-19 con user.id válido)
 
 let tokenAsistente: string;
 let tokenAdminCampus: string;
@@ -78,6 +79,24 @@ beforeAll(async () => {
     [`Campus IIG ${ts}`, tenantId]
   );
   campusId = cRow.rows[0].id;
+
+  // Usuario real asistente — para que IIG-01 tenga user.id válido en el JWT
+  // (sin este ID, el endpoint devuelve 404 antes de llegar a la lógica de
+  //  escritura; en producción todos los JWT llevan id real)
+  const asRow = await pool.query(
+    `INSERT INTO users
+       (tenant_id, campus_id, name, email, password_hash, role)
+     VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+    [
+      tenantId,
+      campusId,
+      `Asistente IIG ${ts}`,
+      `asistente_iig_${ts}@test.com`,
+      `$2b$10$placeholder_hash_for_test`,
+      `asistente`,
+    ]
+  );
+  asistenteUserId = asRow.rows[0].id;
 
   // Usuario real administrador_campus — necesario para CF-19 (llama getUserById)
   const uRow = await pool.query(
@@ -113,9 +132,13 @@ beforeAll(async () => {
   );
   infoId = iRow.rows[0].id;
 
-  // JWT sin 'id' para el asistente (guard dispara antes de getUserById)
+  // JWT con 'id' real — igual al JWT que emite producción en cada login.
+  // Sin este id, getUserById(undefined) devuelve 404 antes de llegar a la
+  // lógica de escritura; eso no es protección real (todos los JWT de prod
+  // llevan id). El arnes debe usar un user.id válido para reproducir el
+  // comportamiento real.
   tokenAsistente = jwt.sign(
-    { role: "asistente", campus_id: campusId, tenant_id: tenantId },
+    { id: asistenteUserId, role: "asistente", campus_id: campusId, tenant_id: tenantId },
     JWT_SECRET,
     { expiresIn: "1h" }
   );
@@ -132,7 +155,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await pool.query(`DELETE FROM institutional_settings WHERE campus_id = $1`, [campusId]);
   await pool.query(`DELETE FROM institutional_info WHERE campus_id = $1`, [campusId]);
-  await pool.query(`DELETE FROM users WHERE id = $1`, [adminUserId]);
+  await pool.query(`DELETE FROM users WHERE id = ANY($1)`, [[adminUserId, asistenteUserId]]);
   await pool.query(`DELETE FROM campuses WHERE id = $1`, [campusId]);
   await pool.query(`DELETE FROM tenants WHERE id = $1`, [tenantId]);
 });

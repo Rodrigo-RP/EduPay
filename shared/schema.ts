@@ -19,6 +19,10 @@ export const campuses = pgTable("campuses", {
   tenant_id: integer("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
   nombre: varchar("nombre", { length: 255 }).notNull(),
   clave_sep: varchar("clave_sep", { length: 50 }),
+  // Onboarding lifecycle flag (migration 002).
+  // true = campus completed the guided setup wizard at least once.
+  // New campuses default to false; existing campuses were grandfathered to true.
+  onboarding_completado: boolean("onboarding_completado").default(false).notNull(),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });

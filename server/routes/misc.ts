@@ -976,12 +976,41 @@ export function registerMiscRoutes(app: Express): void {
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
-  // /api/admin/configuracion/completar-onboarding
+  // /api/admin/configuracion/onboarding-status  — leer estado real desde DB
+  app.get("/api/admin/configuracion/onboarding-status", authenticateToken, async (req, res) => {
+    try {
+      const role = (req as any).user?.role;
+      if (!hasPermission(role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para ver el estado de onboarding" });
+      }
+      const campusId = (req as any).user?.campus_id;
+      const row = await pool.query(
+        `SELECT onboarding_completado FROM campuses WHERE id = $1`,
+        [campusId]
+      );
+      const completado = (row.rows[0] as any)?.onboarding_completado ?? false;
+      res.json({ completado, campus_id: campusId });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
+  // /api/admin/configuracion/completar-onboarding  — persistir en campuses
   app.post("/api/admin/configuracion/completar-onboarding", authenticateToken, async (req, res) => {
     try {
+      const role = (req as any).user?.role;
+      if (!hasPermission(role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para completar el onboarding" });
+      }
       const campusId = (req as any).user?.campus_id;
-      res.json({ mensaje: "Onboarding completado", campus_id: campusId, completado: true });
-    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
+      await pool.query(
+        `UPDATE campuses SET onboarding_completado = true, updated_at = NOW() WHERE id = $1`,
+        [campusId]
+      );
+      res.json({ completado: true, campus_id: campusId });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
   });
 
   // /api/caja — alias resumen de caja (caja-conciliacion.tsx invalida esta key)

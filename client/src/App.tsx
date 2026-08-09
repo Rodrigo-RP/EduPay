@@ -56,6 +56,7 @@ import ReporteConsejo from "@/pages/reporte-consejo";
 import ExcepcionesConciliacion from "@/pages/excepciones-conciliacion";
 import MagicLinkRedirect from "@/pages/magic-link-redirect";
 import AssistantWidget from "@/components/AssistantWidget";
+import OnboardingGuard from "@/components/OnboardingGuard";
 
 function AuthenticatedRoutes() {
   const { user, guardian, isLoading } = useAuth();
@@ -135,49 +136,56 @@ function AuthenticatedRoutes() {
       <div className="flex-1 flex flex-col">
         <Header />
         <main className="flex-1 p-6 bg-slate-50">
-          <Switch>
-            <Route path="/" component={getRoleBasedDashboard()} />
-            <Route path="/admin" component={AdminDashboard} />
-            <Route path="/dashboard-admisiones" component={DashboardAdmisiones} />
-            <Route path="/dashboard-caja" component={DashboardCaja} />
-            <Route path="/estudiantes" component={Estudiantes} />
-            <Route path="/familias" component={Familias} />
-            <Route path="/usuarios" component={UsuariosUnificado} />
-            <Route path="/cargos" component={Cargos} />
-            <Route path="/pagos" component={Pagos} />
-            <Route path="/cuentas-por-cobrar" component={CuentasPorCobrar} />
-            <Route path="/cuentas-standalone" component={CuentasPorCobrarStandalone} />
-            <Route path="/catalogo-productos" component={CatalogoProductos} />
-            <Route path="/becas" component={Becas} />
-            <Route path="/notificaciones" component={Notificaciones} />
-            <Route path="/reportes" component={Reportes} />
-            <Route path="/configuracion" component={Configuracion} />
-            <Route path="/configuracion-inicial" component={ConfiguracionInicial} />
-            <Route path="/configuracion-pagos-completa" component={ConfiguracionPagosCompleta} />
-            <Route path="/emision-cargos" component={EmisionCargos} />
-            <Route path="/asignacion-precios" component={AsignacionPrecios} />
-            <Route path="/importacion-datos" component={ImportacionDatos} />
-            <Route path="/caja-conciliacion" component={CajaConciliacion} />
-            <Route path="/fiscal-contable" component={FiscalContable} />
-            <Route path="/reportes-financieros" component={ReportesFinancieros} />
-            <Route path="/reportes-admisiones" component={ReportesAdmisiones} />
-            <Route path="/portal-3clics" component={PortalPadres3Clics} />
-            <Route path="/aprobaciones" component={Aprobaciones} />
-            <Route path="/demo-aprobaciones" component={DemoAprobaciones} />
-            <Route path="/dashboard-admisiones" component={DashboardAdmisiones} />
-            <Route path="/dashboard-caja" component={DashboardCaja} />
-            <Route path="/migration-refeerence" component={MigrationRefeerence} />
-            <Route path="/historial" component={Historial} />
-            <Route path="/profile" component={Profile} />
-            <Route path="/demo-setup" component={DemoSetup} />
-            <Route path="/comandos-contador" component={CentroComandos} />
-            <Route path="/semaforo-riesgo" component={SemaforoRiesgo} />
-            <Route path="/planes-pago" component={PlanesPago} />
-            <Route path="/calendario-financiero" component={CalendarioFinanciero} />
-            <Route path="/reporte-consejo" component={ReporteConsejo} />
-            <Route path="/excepciones-conciliacion" component={ExcepcionesConciliacion} />
-            <Route component={NotFound} />
-          </Switch>
+          {/*
+           * OnboardingGuard: redirects to /configuracion-inicial if
+           * campuses.onboarding_completado = false for the current campus.
+           * Unguarded paths (wizard, profile, demo-setup) are exempt.
+           * super_admin is handled in a separate routing block above and
+           * is not wrapped by this guard.
+           */}
+          <OnboardingGuard>
+            <Switch>
+              <Route path="/" component={getRoleBasedDashboard()} />
+              <Route path="/admin" component={AdminDashboard} />
+              <Route path="/dashboard-admisiones" component={DashboardAdmisiones} />
+              <Route path="/dashboard-caja" component={DashboardCaja} />
+              <Route path="/estudiantes" component={Estudiantes} />
+              <Route path="/familias" component={Familias} />
+              <Route path="/usuarios" component={UsuariosUnificado} />
+              <Route path="/cargos" component={Cargos} />
+              <Route path="/pagos" component={Pagos} />
+              <Route path="/cuentas-por-cobrar" component={CuentasPorCobrar} />
+              <Route path="/cuentas-standalone" component={CuentasPorCobrarStandalone} />
+              <Route path="/catalogo-productos" component={CatalogoProductos} />
+              <Route path="/becas" component={Becas} />
+              <Route path="/notificaciones" component={Notificaciones} />
+              <Route path="/reportes" component={Reportes} />
+              <Route path="/configuracion" component={Configuracion} />
+              <Route path="/configuracion-inicial" component={ConfiguracionInicial} />
+              <Route path="/configuracion-pagos-completa" component={ConfiguracionPagosCompleta} />
+              <Route path="/emision-cargos" component={EmisionCargos} />
+              <Route path="/asignacion-precios" component={AsignacionPrecios} />
+              <Route path="/importacion-datos" component={ImportacionDatos} />
+              <Route path="/caja-conciliacion" component={CajaConciliacion} />
+              <Route path="/fiscal-contable" component={FiscalContable} />
+              <Route path="/reportes-financieros" component={ReportesFinancieros} />
+              <Route path="/reportes-admisiones" component={ReportesAdmisiones} />
+              <Route path="/portal-3clics" component={PortalPadres3Clics} />
+              <Route path="/aprobaciones" component={Aprobaciones} />
+              <Route path="/demo-aprobaciones" component={DemoAprobaciones} />
+              <Route path="/migration-refeerence" component={MigrationRefeerence} />
+              <Route path="/historial" component={Historial} />
+              <Route path="/profile" component={Profile} />
+              <Route path="/demo-setup" component={DemoSetup} />
+              <Route path="/comandos-contador" component={CentroComandos} />
+              <Route path="/semaforo-riesgo" component={SemaforoRiesgo} />
+              <Route path="/planes-pago" component={PlanesPago} />
+              <Route path="/calendario-financiero" component={CalendarioFinanciero} />
+              <Route path="/reporte-consejo" component={ReporteConsejo} />
+              <Route path="/excepciones-conciliacion" component={ExcepcionesConciliacion} />
+              <Route component={NotFound} />
+            </Switch>
+          </OnboardingGuard>
         </main>
       </div>
       <AssistantWidget />

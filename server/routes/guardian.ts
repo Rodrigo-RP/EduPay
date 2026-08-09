@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { pool, db } from "../db";
 import { enqueueAuditLog } from "../audit-retry";
-import { eq, and, gte, lt } from "drizzle-orm";
+import { eq, and, gte, lt, count } from "drizzle-orm";
 import { storage } from "../storage";
 import { authenticateToken, requireAuth, requireSuperAdmin, authenticateGuardian, checkCampusTenant, upload, esmRequire, JWT_SECRET } from "./shared";
 import { hasPermission, MODULES, ACTIONS } from "@shared/permissions";
@@ -1268,6 +1268,53 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       }
       const campusId = (req as any).user.campus_id;
       const id = parseInt(req.params.id);
+
+      // Verificar que el concepto existe y pertenece al campus
+      const [concepto] = await db
+        .select({ id: concepts.id, nombre: concepts.nombre })
+        .from(concepts)
+        .where(and(eq(concepts.id, id), eq(concepts.campus_id, campusId)));
+
+      if (!concepto) {
+        return res.status(404).json({ message: "Concepto no encontrado" });
+      }
+
+      // --- Verificación de integridad referencial previa al DELETE ---
+      // charges: FK real (concept_id). Sin pre-check, la DB rechaza con FK
+      //   violation que el catch convertía en 500 opaco.
+      // payment_due_dates / payment_surcharge_rules: referencia por nombre
+      //   (texto libre, sin FK). Sin pre-check, el DELETE procede dejando
+      //   registros huérfanos apuntando a un concepto inexistente.
+      const [[{ n: nCargos }], [{ n: nFechas }], [{ n: nRecargos }]] =
+        await Promise.all([
+          db.select({ n: count() }).from(charges)
+            .where(eq(charges.concept_id, id)),
+          db.select({ n: count() }).from(payment_due_dates)
+            .where(and(
+              eq(payment_due_dates.concepto, concepto.nombre),
+              eq(payment_due_dates.campus_id, campusId),
+            )),
+          db.select({ n: count() }).from(payment_surcharge_rules)
+            .where(and(
+              eq(payment_surcharge_rules.concepto, concepto.nombre),
+              eq(payment_surcharge_rules.campus_id, campusId),
+            )),
+        ]);
+
+      const totalDependientes = Number(nCargos) + Number(nFechas) + Number(nRecargos);
+
+      if (totalDependientes > 0) {
+        return res.status(409).json({
+          message: `No se puede eliminar: ${totalDependientes} registro(s) dependen de este concepto`,
+          dependientes: {
+            cargos: Number(nCargos),
+            fechas_vencimiento: Number(nFechas),
+            reglas_recargo: Number(nRecargos),
+            total: totalDependientes,
+          },
+        });
+      }
+
       await db
         .delete(concepts)
         .where(and(eq(concepts.id, id), eq(concepts.campus_id, campusId)));

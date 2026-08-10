@@ -299,15 +299,13 @@ export const scholarships = pgTable("scholarships", {
   tenant_id: integer("tenant_id").references(() => tenants.id),
   student_id: integer("student_id").references(() => students.id, { onDelete: "cascade" }),
   scholarship_type_id: integer("scholarship_type_id").references(() => scholarship_types.id),
-  metodo_asignacion: varchar("metodo_asignacion", { length: 50 }).default("manual"), // 'manual', 'automatico'
-  porcentaje_aplicado: integer("porcentaje_aplicado"),
-  monto_fijo_aplicado_centavos: bigint("monto_fijo_aplicado_centavos", { mode: "number" }),
-  score_evaluacion: numeric("score_evaluacion", { precision: 5, scale: 2 }), // scoring algorithm result
+  // Columnas reales verificadas directamente en la DB (2026-08-10).
+  // Columnas ELIMINADAS que no existen en la DB: porcentaje_aplicado, monto_fijo_aplicado_centavos,
+  // score_evaluacion, metodo_asignacion, estado, observaciones, created_by.
+  porcentaje: numeric("porcentaje").notNull(),
+  motivo: varchar("motivo", { length: 500 }),
   vigencia_inicio: date("vigencia_inicio").notNull(),
-  vigencia_fin: date("vigencia_fin"),
-  estado: varchar("estado", { length: 50 }).default("activa"), // 'activa', 'suspendida', 'vencida'
-  observaciones: text("observaciones"),
-  created_by: integer("created_by").references(() => users.id),
+  vigencia_fin: date("vigencia_fin").notNull(),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });

@@ -721,25 +721,31 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       }
 
       // Cargar becas activas del campus — vigencia_inicio <= hoy <= vigencia_fin
+      // Columnas reales: porcentaje (numeric, NOT NULL). Sin columna 'estado' en la DB.
+      // vigencia_fin es NOT NULL en la DB — no se necesita IS NULL check.
       const becasRows = aplicar_becas
         ? await pool.query(
-            `SELECT s.student_id, s.porcentaje_aplicado, s.monto_fijo_aplicado_centavos
+            `SELECT s.student_id, s.porcentaje
              FROM scholarships s
              JOIN students stu ON stu.id = s.student_id
-             WHERE stu.campus_id = $1 AND s.estado = 'activa'
+             WHERE stu.campus_id = $1
                AND s.vigencia_inicio <= CURRENT_DATE
-               AND (s.vigencia_fin IS NULL OR s.vigencia_fin >= CURRENT_DATE)`,
+               AND s.vigencia_fin >= CURRENT_DATE`,
             [userCampusId]
-          ).catch(() => ({ rows: [] }))
+          ).catch((err: any) => {
+            console.error("[guardian charges/generate] becas DB error:", err.message);
+            return { rows: [] };
+          })
         : { rows: [] };
 
-      // Índice student_id → beca (la más beneficiosa si hay varias)
+      // Índice student_id → beca (la más beneficiosa si hay varias).
+      // monto_fijo siempre 0: la columna monto_fijo_aplicado_centavos no existe en la DB actual.
+      // La rama `else if (beca.monto_fijo > 0)` queda como placeholder para implementación futura.
       const becaMap: Record<number, { porcentaje_exacto: number; monto_fijo: number }> = {};
       for (const b of (becasRows.rows as any[])) {
-        const pct  = Number(b.porcentaje_aplicado   || 0);
-        const fijo = Number(b.monto_fijo_aplicado_centavos || 0);
+        const pct = Number(b.porcentaje || 0);
         if (!becaMap[b.student_id] || pct > becaMap[b.student_id].porcentaje_exacto) {
-          becaMap[b.student_id] = { porcentaje_exacto: pct, monto_fijo: fijo };
+          becaMap[b.student_id] = { porcentaje_exacto: pct, monto_fijo: 0 };
         }
       }
 

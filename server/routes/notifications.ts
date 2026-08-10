@@ -905,9 +905,7 @@ export function registerNotificationRoutes(app: Express): void {
       case 'modify_scholarship':
         if (entity_type === 'scholarship' && entity_id) {
           // La columna real en la DB es 'porcentaje' (numeric NOT NULL).
-          // El schema Drizzle la define como 'porcentaje_aplicado' (integer) —
-          // drift conocido entre schema.ts y la DB real.
-          // Usamos SQL crudo para garantizar el nombre de columna correcto.
+          // El schema.ts fue corregido para reflejar esto (2026-08-10).
           await pool.query(
             `UPDATE scholarships SET porcentaje = $1, updated_at = now() WHERE id = $2`,
             [requestedData.percentage, entity_id]

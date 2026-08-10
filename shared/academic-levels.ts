@@ -62,37 +62,54 @@ const GRADO_TO_NIVEL: Record<string, NivelAcademico> = {
 };
 
 /**
- * Obtiene el nivel académico basado en el grado del estudiante
+ * Obtiene el nivel académico basado en el grado del estudiante.
+ *
+ * Orden de evaluación (de mayor a menor señal):
+ *   1. Mapa exacto — fuente de verdad para formatos institucionales conocidos.
+ *   2. Palabras clave explícitas (BACHILLERATO, SECUNDARIA, PRIMARIA, KINDER…) —
+ *      siempre ganan sobre patrones de dígito. "1er BACHILLERATO" → BACHILLERATO,
+ *      nunca PRIMARIA.
+ *   3. Patrones de dígito inicial — solo actúan cuando no hay ninguna palabra clave.
+ *   4. Default PRIMARIA — para cadenas completamente ambiguas ("1er año", "texto raro").
+ *
+ * Decisión de diseño: el default es PRIMARIA (no error).
+ *   Lanzar un error en el default bloquearía lotes completos de cargos si una escuela
+ *   importa un formato de grado no estándar. El operador ve el precio autocompleto en la
+ *   UI antes de confirmar, y el guard 422 en /api/charges/generate bloquea el cargo si
+ *   precio_primaria=0 en el producto, actuando como red de seguridad adicional.
+ *
+ * Nota: `includes('PRE')` fue eliminado del check de KINDER porque capturaba 'PREPA'
+ * y 'PREPARATORIA', asignándolas a KINDER en lugar de BACHILLERATO.
  */
 export function getAcademicLevel(grado: string | null): NivelAcademico {
-  if (!grado) return 'PRIMARIA'; // Default
-  
+  if (!grado) return 'PRIMARIA';
+
   const gradoUpper = grado.toUpperCase().trim();
-  
-  // Buscar mapeo exacto
-  if (GRADO_TO_NIVEL[gradoUpper]) {
-    return GRADO_TO_NIVEL[gradoUpper];
-  }
-  
-  // Buscar por patrones
-  if (gradoUpper.includes('KINDER') || gradoUpper.includes('PREESCOLAR') || gradoUpper.includes('PRE')) {
-    return 'KINDER';
-  }
-  
-  if (gradoUpper.includes('PRIMARIA') || /^[1-6]/.test(gradoUpper)) {
-    return 'PRIMARIA';
-  }
-  
-  if (gradoUpper.includes('SECUNDARIA') || /^[7-9]/.test(gradoUpper)) {
-    return 'SECUNDARIA';
-  }
-  
-  if (gradoUpper.includes('BACHILLERATO') || gradoUpper.includes('PREPARATORIA') || 
-      gradoUpper.includes('PREPA') || /^1[0-2]/.test(gradoUpper)) {
+
+  // 1. Búsqueda exacta en el mapa — señal más fuerte
+  if (GRADO_TO_NIVEL[gradoUpper]) return GRADO_TO_NIVEL[gradoUpper];
+
+  // 2. Palabras clave explícitas — evaluar ANTES de cualquier patrón numérico.
+  //    Un texto explícito es señal inequívoca; un dígito inicial es ambiguo.
+  if (gradoUpper.includes('BACHILLERATO') || gradoUpper.includes('PREPARATORIA') ||
+      gradoUpper.includes('PREPA')) {
     return 'BACHILLERATO';
   }
-  
-  // Default fallback
+
+  if (gradoUpper.includes('SECUNDARIA')) return 'SECUNDARIA';
+  if (gradoUpper.includes('PRIMARIA'))   return 'PRIMARIA';
+
+  // KINDER: incluye KINDER y PREESCOLAR.
+  // includes('PRE') eliminado — capturaba 'PREPA'/'PREPARATORIA' como KINDER.
+  if (gradoUpper.includes('KINDER') || gradoUpper.includes('PREESCOLAR')) return 'KINDER';
+
+  // 3. Patrones de dígito inicial — solo aplican cuando no hubo palabra clave.
+  //    ^1[0-2] primero para que "10°", "11°", "12°" no caigan en ^[1-6].
+  if (/^1[0-2]/.test(gradoUpper)) return 'BACHILLERATO';
+  if (/^[7-9]/.test(gradoUpper))  return 'SECUNDARIA';
+  if (/^[1-6]/.test(gradoUpper))  return 'PRIMARIA';
+
+  // 4. Default: PRIMARIA (ver decisión de diseño arriba)
   return 'PRIMARIA';
 }
 

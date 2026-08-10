@@ -145,14 +145,16 @@ export const KNOWLEDGE_BASE: KnowledgeModule[] = [
   {
     route: "/catalogo-productos",
     label: "Catálogo de Productos",
-    description: "Alta y gestión de conceptos de cobro: colegiaturas, cuotas, servicios.",
+    description: "Catálogo de plantillas de precio por nivel académico (Kinder, Primaria, Secundaria, Bachillerato) con metadata fiscal SAT: clave de producto y unidad de medida para CFDI.",
     keywords: [
-      "catalogo", "catálogo", "producto", "productos", "concepto de cobro",
-      "crear concepto", "nuevo concepto", "precio", "precios", "tarifa", "tarifas",
-      "colegiatura mensual", "cuota de inscripcion", "servicio", "servicios",
-      "tipo de cobro", "catalogo de cobros", "lista de precios"
+      "catalogo", "catálogo", "producto", "productos",
+      "precio", "precios", "tarifa", "tarifas", "lista de precios",
+      "precio por nivel", "precios por nivel", "precio kinder", "precio primaria",
+      "precio secundaria", "precio bachillerato", "nivel academico", "nivel académico",
+      "clave sat", "unidad de medida", "metadata fiscal", "plantilla de precio",
+      "agregar producto", "nuevo producto", "editar producto"
     ],
-    roles: ["super_admin","administrador_general","contador_general"],
+    roles: ["super_admin","administrador_general","administrador_campus","contador_general"],
   },
   {
     route: "/asignacion-precios",

@@ -262,41 +262,42 @@ export const MODULE_CHECKS: ModuleCheck[] = [
   },
 
   // ── Catálogo de Productos ────────────────────────────────────────────────────
+  // Nota: este módulo usa la tabla `products` (precios por nivel + metadata SAT),
+  // distinta de `concepts` (conceptos de cobro operacionales). Bug corregido: antes
+  // ambos checks consultaban `concepts` en vez de `products`.
   {
     moduleId: "catalogo-productos",
     label: "Catálogo de Productos",
     checks: [
       {
-        name: "Tabla de conceptos responde",
-        expectedBehavior: "La consulta de conceptos devuelve sin error",
+        name: "Tabla de productos responde",
+        expectedBehavior: "La consulta de productos devuelve sin error",
         async run(ctx) {
           try {
-            // Buscar primero por campus; si no hay, ampliar a tenant completo
             const res = await pool.query(
-              `SELECT COUNT(*) AS cnt FROM concepts
+              `SELECT COUNT(*) AS cnt FROM products
                WHERE tenant_id = $1
-                 AND (campus_id = $2 OR campus_id IS NULL OR $2 = 0)`,
+                 AND (campus_id = $2 OR $2 = 0)`,
               [ctx.tenantId, ctx.campusId]
             );
             return {
-              name: "Tabla de conceptos responde",
+              name: "Tabla de productos responde",
               ok: true,
-              detail: `${res.rows[0].cnt} concepto(s) en catálogo`,
-              expectedBehavior: "La consulta de conceptos devuelve sin error",
+              detail: `${res.rows[0].cnt} producto(s) en catálogo`,
+              expectedBehavior: "La consulta de productos devuelve sin error",
             };
           } catch (e: any) {
-            return { name: "Tabla de conceptos responde", ok: false, detail: e.message, expectedBehavior: "La consulta de conceptos devuelve sin error" };
+            return { name: "Tabla de productos responde", ok: false, detail: e.message, expectedBehavior: "La consulta de productos devuelve sin error" };
           }
         },
       },
       {
-        name: "Existen conceptos registrados",
-        expectedBehavior: "Al menos un concepto de cobro existe para este campus o institución",
+        name: "Existen productos registrados",
+        expectedBehavior: "Al menos un producto existe para este campus o institución",
         async run(ctx) {
           try {
-            // Primero buscar por campus; si no hay, buscar a nivel tenant
             const byCampus = await pool.query(
-              "SELECT COUNT(*) AS cnt FROM concepts WHERE campus_id = $1",
+              "SELECT COUNT(*) AS cnt FROM products WHERE campus_id = $1",
               [ctx.campusId]
             );
             let cnt = parseInt(byCampus.rows[0].cnt, 10);
@@ -304,7 +305,7 @@ export const MODULE_CHECKS: ModuleCheck[] = [
 
             if (cnt === 0) {
               const byTenant = await pool.query(
-                "SELECT COUNT(*) AS cnt FROM concepts WHERE tenant_id = $1",
+                "SELECT COUNT(*) AS cnt FROM products WHERE tenant_id = $1",
                 [ctx.tenantId]
               );
               cnt = parseInt(byTenant.rows[0].cnt, 10);
@@ -312,15 +313,15 @@ export const MODULE_CHECKS: ModuleCheck[] = [
             }
 
             return {
-              name: "Existen conceptos registrados",
+              name: "Existen productos registrados",
               ok: cnt > 0,
               detail: cnt === 0
-                ? "No hay conceptos de cobro registrados — agrega al menos uno en Catálogo de Productos"
-                : `${cnt} concepto(s) registrado(s) a nivel ${scope}`,
-              expectedBehavior: "Al menos un concepto de cobro existe para este campus o institución",
+                ? "No hay productos registrados — agrega al menos uno en Catálogo de Productos"
+                : `${cnt} producto(s) registrado(s) a nivel ${scope}`,
+              expectedBehavior: "Al menos un producto existe para este campus o institución",
             };
           } catch (e: any) {
-            return { name: "Existen conceptos registrados", ok: false, detail: e.message, expectedBehavior: "Al menos un concepto de cobro existe para este campus o institución" };
+            return { name: "Existen productos registrados", ok: false, detail: e.message, expectedBehavior: "Al menos un producto existe para este campus o institución" };
           }
         },
       },

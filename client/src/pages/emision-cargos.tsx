@@ -376,140 +376,97 @@ export default function EmisionCargos() {
     );
   };
 
-  // Generación desde catálogo con precios por nivel académico
+  // Generación desde catálogo — precios derivados automáticamente por nivel académico
   const GeneracionDesdeCatalogo = () => {
-    const [selectedProduct, setSelectedProduct] = useState("");
-    const [selectedGrades, setSelectedGrades] = useState<string[]>([]);
-    const [preview, setPreview] = useState<any[]>([]);
+    const [selectedProductId, setSelectedProductId] = useState<string>("");
+    const [nivelAcademico, setNivelAcademico]       = useState<string>("todos");
+    const [fechaEmision, setFechaEmision]           = useState<string>(
+      new Date().toISOString().split("T")[0],
+    );
+    const [fechaVencimiento, setFechaVencimiento]   = useState<string>("");
+    const [previewConfirmed, setPreviewConfirmed]   = useState(false);
 
-    // Productos del catálogo completo con precios por nivel
-    const productos = [
-      { 
-        id: 1, 
-        codigo: "COL-2025", 
-        nombre: "Colegiatura Mensual", 
-        categoria: "COLEGIATURAS",
-        precios_por_nivel: {
-          KINDER: 350000,
-          PRIMARIA: 450000,
-          SECUNDARIA: 550000,
-          BACHILLERATO: 650000
-        }
-      },
-      { 
-        id: 2, 
-        codigo: "INS-2025", 
-        nombre: "Inscripción Anual", 
-        categoria: "INSCRIPCIONES",
-        precios_por_nivel: {
-          KINDER: 250000,
-          PRIMARIA: 300000,
-          SECUNDARIA: 350000,
-          BACHILLERATO: 400000
-        }
-      },
-      { 
-        id: 3, 
-        codigo: "REINS-2025", 
-        nombre: "Reinscripción", 
-        categoria: "REINSCRIPCIONES",
-        precios_por_nivel: {
-          KINDER: 150000,
-          PRIMARIA: 180000,
-          SECUNDARIA: 220000,
-          BACHILLERATO: 280000
-        }
-      },
-      { 
-        id: 4, 
-        codigo: "SEG-ESC-2025", 
-        nombre: "Seguro Escolar", 
-        categoria: "SEGURO_ESCOLAR",
-        precios_por_nivel: {
-          KINDER: 60000,
-          PRIMARIA: 70000,
-          SECUNDARIA: 80000,
-          BACHILLERATO: 90000
-        }
-      },
-      { 
-        id: 5, 
-        codigo: "LIB-2025", 
-        nombre: "Paquete de Libros", 
-        categoria: "LIBROS",
-        precios_por_nivel: {
-          KINDER: 80000,
-          PRIMARIA: 120000,
-          SECUNDARIA: 180000,
-          BACHILLERATO: 250000
-        }
-      },
-      { 
-        id: 6, 
-        codigo: "UNI-2025", 
-        nombre: "Uniforme Escolar", 
-        categoria: "OTROS",
-        precios_por_nivel: {
-          KINDER: 95000,
-          PRIMARIA: 110000,
-          SECUNDARIA: 125000,
-          BACHILLERATO: 140000
-        }
-      }
-    ];
+    // Productos reales del catálogo
+    const { data: productosData, isLoading: productosLoading } = useQuery<any[]>({
+      queryKey: ["/api/products"],
+    });
+    const productos: any[] = productosData ?? [];
 
-    // Estudiantes de ejemplo con diferentes grados
-    const estudiantes = [
-      { id: 1, nombre: "Ana García", grado: "K2", grupo: "A" },
-      { id: 2, nombre: "Luis Rodríguez", grado: "3° PRIMARIA", grupo: "B" },
-      { id: 3, nombre: "María López", grado: "1° SECUNDARIA", grupo: "A" },
-      { id: 4, nombre: "Carlos Mendoza", grado: "2° BACHILLERATO", grupo: "C" },
-      { id: 5, nombre: "Sofia Hernández", grado: "5° PRIMARIA", grupo: "A" },
-      { id: 6, nombre: "Diego Morales", grado: "3° SECUNDARIA", grupo: "B" }
-    ];
+    // Producto seleccionado — para mostrar los precios por nivel antes de confirmar
+    const productoSeleccionado = productos.find(
+      (p: any) => p.id.toString() === selectedProductId,
+    ) ?? null;
 
-    const generarPreview = () => {
-      if (!selectedProduct) return;
-      
-      const producto = productos.find(p => p.id.toString() === selectedProduct);
-      if (!producto) return;
-
-      const previewData = estudiantes.map(estudiante => {
-        const nivel = getAcademicLevel(estudiante.grado);
-        const precio = producto.precios_por_nivel[nivel];
-        
-        return {
-          estudiante: estudiante.nombre,
-          grado: estudiante.grado,
-          grupo: estudiante.grupo,
-          nivel_academico: NIVEL_NAMES[nivel],
-          precio: precio,
-          concepto: producto.nombre
-        };
-      });
-
-      setPreview(previewData);
+    // Precio derivado para el nivel seleccionado (autocomplete visible)
+    const precioParaNivel = (prod: any, nivel: string): number | null => {
+      if (!prod) return null;
+      const col =
+        nivel === "KINDER"       ? prod.precio_kinder :
+        nivel === "PRIMARIA"     ? prod.precio_primaria :
+        nivel === "SECUNDARIA"   ? prod.precio_secundaria :
+        nivel === "BACHILLERATO" ? prod.precio_bachillerato :
+        null;
+      return col && Number(col) > 0 ? Number(col) : null;
     };
 
+    // Precios de los 4 niveles para el producto elegido
+    const tablaPrecios =
+      productoSeleccionado
+        ? ([
+            { nivel: "KINDER",       label: "Kinder",       precio: productoSeleccionado.precio_kinder },
+            { nivel: "PRIMARIA",     label: "Primaria",     precio: productoSeleccionado.precio_primaria },
+            { nivel: "SECUNDARIA",   label: "Secundaria",   precio: productoSeleccionado.precio_secundaria },
+            { nivel: "BACHILLERATO", label: "Bachillerato", precio: productoSeleccionado.precio_bachillerato },
+          ] as const)
+        : [];
+
+    // Precio específico para el nivel seleccionado en el formulario
+    const precioAutocomplete =
+      productoSeleccionado && nivelAcademico !== "todos"
+        ? precioParaNivel(productoSeleccionado, nivelAcademico)
+        : null;
+
     const aplicarCargos = useMutation({
-      mutationFn: (data: any) => apiRequest("/api/admin/cargos/desde-catalogo", { method: "POST", body: JSON.stringify(data) }),
+      mutationFn: (data: any) =>
+        apiRequest("/api/charges/generate", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
       onSuccess: (response: any) => {
         toast({
           title: "Cargos aplicados correctamente",
-          description: `Se generaron ${response.charges_created} cargos reales con precios específicos por nivel académico`
+          description: `Se generaron ${response.charges_created} cargo(s) con precios del catálogo`,
         });
-        setPreview([]);
-        setSelectedProduct("");
-        queryClient.invalidateQueries({ queryKey: ["/api/admin/charges"] });
+        setSelectedProductId("");
+        setNivelAcademico("todos");
+        setFechaVencimiento("");
+        setPreviewConfirmed(false);
+        queryClient.invalidateQueries({ queryKey: ["/api/charges"] });
       },
       onError: (error: any) => {
         toast({
           title: "Error al aplicar cargos",
           description: error.message || "Ocurrió un error al crear los cargos",
-          variant: "destructive"
+          variant: "destructive",
         });
-      }
+        setPreviewConfirmed(false);
+      },
     });
+
+    const puedeConfirmar =
+      !!selectedProductId &&
+      !!fechaVencimiento &&
+      !aplicarCargos.isPending;
+
+    const handleAplicar = () => {
+      if (!puedeConfirmar) return;
+      aplicarCargos.mutate({
+        product_id:        Number(selectedProductId),
+        nivel_academico:   nivelAcademico,
+        fecha_emision:     fechaEmision,
+        fecha_vencimiento: fechaVencimiento,
+      });
+    };
 
     return (
       <div className="space-y-6">
@@ -517,115 +474,165 @@ export default function EmisionCargos() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-green-800">
               <DollarSign className="w-5 h-5" />
-              Generación automática desde catálogo de productos
+              Generación desde catálogo de productos
             </CardTitle>
+            <p className="text-sm text-green-700">
+              El monto se toma automáticamente del catálogo según el nivel académico del alumno.
+            </p>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
+              {/* Selector de producto */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label>Producto del catálogo</Label>
-                  <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+                  <Select
+                    value={selectedProductId}
+                    onValueChange={(v) => { setSelectedProductId(v); setPreviewConfirmed(false); }}
+                    disabled={productosLoading}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar producto..." />
+                      <SelectValue placeholder={productosLoading ? "Cargando productos…" : "Seleccionar producto…"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {productos.map(producto => (
-                        <SelectItem key={producto.id} value={producto.id.toString()}>
-                          {producto.codigo} - {producto.nombre} ({producto.categoria.replace('_', ' ')})
+                      {productos.map((p: any) => (
+                        <SelectItem key={p.id} value={p.id.toString()}>
+                          {p.codigo} – {p.nombre} ({(p.categoria ?? "").replace(/_/g, " ")})
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                
+
+                {/* Nivel académico → autocompleta el precio */}
                 <div>
-                  <Label>Fecha de vencimiento</Label>
-                  <Input type="date" defaultValue="2025-02-15" />
+                  <Label>Nivel académico</Label>
+                  <Select
+                    value={nivelAcademico}
+                    onValueChange={(v) => { setNivelAcademico(v); setPreviewConfirmed(false); }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos los niveles</SelectItem>
+                      <SelectItem value="KINDER">Kinder</SelectItem>
+                      <SelectItem value="PRIMARIA">Primaria</SelectItem>
+                      <SelectItem value="SECUNDARIA">Secundaria</SelectItem>
+                      <SelectItem value="BACHILLERATO">Bachillerato</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
-              <div className="flex gap-2">
-                <Button 
-                  onClick={generarPreview}
-                  disabled={!selectedProduct}
-                  variant="outline"
-                >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Generar vista previa
-                </Button>
-                
-                {preview.length > 0 && (
-                  <Button 
-                    onClick={() => aplicarCargos.mutate({ 
-                      producto_id: selectedProduct, 
-                      fecha_vencimiento: "2025-02-15"
+              {/* Fechas */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Fecha de emisión</Label>
+                  <Input
+                    type="date"
+                    value={fechaEmision}
+                    onChange={(e) => setFechaEmision(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>Fecha de vencimiento</Label>
+                  <Input
+                    type="date"
+                    value={fechaVencimiento}
+                    onChange={(e) => setFechaVencimiento(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Autocomplete de precio: visible en cuanto se elige producto + nivel */}
+              {productoSeleccionado && (
+                <div className="rounded-lg border border-green-300 bg-white p-4 space-y-3">
+                  <div className="text-sm font-semibold text-slate-700">
+                    Precios del catálogo — <span className="text-green-700">{productoSeleccionado.nombre}</span>
+                  </div>
+
+                  {/* Tabla de 4 niveles */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {tablaPrecios.map(({ nivel, label, precio }) => {
+                      const monto   = Number(precio ?? 0);
+                      const esActivo = nivelAcademico === nivel || nivelAcademico === "todos";
+                      const sinPrecio = !monto || monto <= 0;
+                      return (
+                        <div
+                          key={nivel}
+                          className={`rounded-lg p-3 text-center border-2 transition-colors ${
+                            esActivo && !sinPrecio
+                              ? "border-green-400 bg-green-50"
+                              : sinPrecio
+                              ? "border-red-200 bg-red-50"
+                              : "border-slate-200 bg-slate-50 opacity-50"
+                          }`}
+                        >
+                          <div className="text-xs font-medium text-slate-600 mb-1">{label}</div>
+                          {sinPrecio ? (
+                            <div className="text-xs text-red-500 font-medium">Sin precio</div>
+                          ) : (
+                            <div className={`text-sm font-bold ${esActivo ? "text-green-700" : "text-slate-500"}`}>
+                              ${(monto / 100).toLocaleString("es-MX")}
+                            </div>
+                          )}
+                        </div>
+                      );
                     })}
-                    disabled={aplicarCargos.isPending}
-                  >
-                    {aplicarCargos.isPending 
-                      ? "Aplicando cargos..." 
-                      : `Aplicar cargos reales (${preview.length} estudiantes)`
-                    }
-                  </Button>
+                  </div>
+
+                  {/* Precio específico del nivel seleccionado */}
+                  {nivelAcademico !== "todos" && (
+                    <div className={`rounded-md px-4 py-3 text-sm font-medium flex items-center gap-2 ${
+                      precioAutocomplete
+                        ? "bg-green-100 text-green-800"
+                        : "bg-red-100 text-red-700"
+                    }`}>
+                      {precioAutocomplete ? (
+                        <>
+                          <CheckCircle className="w-4 h-4" />
+                          Precio que se aplicará para {NIVEL_NAMES[nivelAcademico as keyof typeof NIVEL_NAMES]}:{" "}
+                          <strong>${(precioAutocomplete / 100).toLocaleString("es-MX")} MXN</strong>
+                        </>
+                      ) : (
+                        <>
+                          <AlertTriangle className="w-4 h-4" />
+                          Este producto no tiene precio configurado para el nivel{" "}
+                          {NIVEL_NAMES[nivelAcademico as keyof typeof NIVEL_NAMES]}.
+                          No se podrán generar cargos para ese nivel.
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Botón de acción */}
+              <div className="flex items-center gap-3 pt-2">
+                <Button
+                  onClick={handleAplicar}
+                  disabled={!puedeConfirmar}
+                >
+                  {aplicarCargos.isPending ? (
+                    "Generando cargos…"
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Generar cargos desde catálogo
+                    </>
+                  )}
+                </Button>
+
+                {!fechaVencimiento && selectedProductId && (
+                  <span className="text-xs text-amber-600">
+                    Selecciona la fecha de vencimiento para continuar
+                  </span>
                 )}
               </div>
             </div>
           </CardContent>
         </Card>
-
-        {/* Vista previa de cargos */}
-        {preview.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Vista previa - Precios automáticos por nivel académico</CardTitle>
-              <p className="text-sm text-slate-600">
-                Los precios se asignan automáticamente según el grado del estudiante
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {preview.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <div className="flex-1">
-                      <div className="font-medium">{item.estudiante}</div>
-                      <div className="text-sm text-slate-600">
-                        {item.grado} - Grupo {item.grupo} | Nivel: {item.nivel_academico}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-semibold text-green-700">
-                        ${(item.precio / 100).toLocaleString()} MXN
-                      </div>
-                      <Badge variant="secondary">{item.concepto}</Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                <div className="text-sm font-medium text-blue-800">Resumen por nivel académico:</div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
-                  {Object.entries(
-                    preview.reduce((acc, item) => {
-                      const nivel = item.nivel_academico;
-                      if (!acc[nivel]) acc[nivel] = { count: 0, total: 0 };
-                      acc[nivel].count++;
-                      acc[nivel].total += item.precio;
-                      return acc;
-                    }, {} as Record<string, {count: number, total: number}>)
-                  ).map(([nivel, data]: [string, any]) => (
-                    <div key={nivel} className="text-center">
-                      <div className="text-xs text-slate-600">{nivel}</div>
-                      <div className="font-medium">{data.count} estudiantes</div>
-                      <div className="text-xs">${(data.total / 100).toLocaleString()}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
     );
   };

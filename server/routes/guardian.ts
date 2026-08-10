@@ -640,6 +640,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
         ciclo_escolar,   // ciclo opcional; por defecto el actual
         descripcion,     // para cargos extraordinarios
         monto_manual,    // monto en centavos para cargos extraordinarios manuales
+        product_id,      // ID de producto del catálogo → precio derivado por nivel; gana sobre monto_manual
       } = req.body;
 
       const userCampusId  = req.user.campus_id;
@@ -657,6 +658,28 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       // Validar fechas
       if (fecha_emision && fecha_vencimiento && fecha_vencimiento < fecha_emision) {
         return res.status(400).json({ message: "La fecha de vencimiento no puede ser anterior a la fecha de emisión" });
+      }
+
+      // ── Validar producto del catálogo (si viene product_id) ─────────────────
+      // product_id gana sobre monto_manual: si ambos vienen, el precio del catálogo
+      // se usa y monto_manual se ignora silenciosamente para evitar que un operador
+      // pueda sobreescribir el precio oficial por error de UI.
+      let productForPricing: any = null;
+      if (product_id !== undefined && product_id !== null) {
+        const productRow = await pool.query(
+          `SELECT id, campus_id, nombre,
+                  precio_kinder, precio_primaria, precio_secundaria, precio_bachillerato
+           FROM products WHERE id = $1`,
+          [Number(product_id)],
+        );
+        if (productRow.rows.length === 0) {
+          return res.status(404).json({ message: "Producto no encontrado en el catálogo" });
+        }
+        const prod = productRow.rows[0] as any;
+        if (Number(prod.campus_id) !== Number(userCampusId)) {
+          return res.status(403).json({ message: "El producto pertenece a otro campus" });
+        }
+        productForPricing = prod;
       }
 
       // Resolver concepto: por nombre para cargos normales, o crear ad-hoc para extraordinarios
@@ -723,13 +746,27 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
         const academicLevel = getAcademicLevel((student as any).grado);
 
         // Monto base
-        let baseAmount = monto_manual
-          ? Math.round(Number(monto_manual))
-          : concept?.monto_centavos ?? 0;
-
-        if (concept && !monto_manual) {
-          const levelPrice = (concept as any)[`monto_${academicLevel}`];
-          if (levelPrice && levelPrice > 0) baseAmount = levelPrice;
+        // Si hay product_id, el precio del catálogo gana siempre; monto_manual se ignora.
+        let baseAmount: number;
+        if (productForPricing) {
+          const nivelCol = `precio_${academicLevel.toLowerCase()}`;
+          const precio = Number(productForPricing[nivelCol] ?? 0);
+          if (!precio || precio <= 0) {
+            return res.status(422).json({
+              message: `El producto "${productForPricing.nombre}" no tiene precio configurado para el nivel ${academicLevel}`,
+              nivel:      academicLevel,
+              student_id: student.id,
+            });
+          }
+          baseAmount = precio;
+        } else {
+          baseAmount = monto_manual
+            ? Math.round(Number(monto_manual))
+            : concept?.monto_centavos ?? 0;
+          if (concept && !monto_manual) {
+            const levelPrice = (concept as any)[`monto_${academicLevel}`];
+            if (levelPrice && levelPrice > 0) baseAmount = levelPrice;
+          }
         }
 
         // Beca real — precisión a 2 decimales para no perder centavos

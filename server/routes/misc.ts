@@ -644,9 +644,10 @@ export function registerMiscRoutes(app: Express): void {
   });
 
   // Alias sin campusId para el frontend que llama /api/calendario/eventos
-  app.get("/api/calendario/eventos", authenticateToken, async (req, res) => {
+  app.get("/api/calendario/eventos", authenticateToken, async (req: any, res) => {
     try {
-      const campusId = (req as any).user?.campus_id;
+      const campusId = req.user?.campus_id;
+      if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
       const rows = await pool.query(`SELECT * FROM financial_events WHERE campus_id = $1 ORDER BY fecha, id`, [campusId]);
       res.json(rows.rows);
     } catch (error: any) {
@@ -656,6 +657,10 @@ export function registerMiscRoutes(app: Express): void {
 
   app.post("/api/calendario/eventos", authenticateToken, async (req: any, res) => {
     try {
+      const role = req.user?.role;
+      if (!hasPermission(role, MODULES.CALENDAR, ACTIONS.CREATE)) {
+        return res.status(403).json({ message: "No tienes permiso para crear eventos de calendario" });
+      }
       const campusId = req.user?.campus_id;
       const tenantId = req.user?.tenant_id;
       const { titulo, descripcion, fecha, tipo, urgencia } = req.body;
@@ -669,10 +674,18 @@ export function registerMiscRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/calendario/eventos/:id/completar", authenticateToken, async (req, res) => {
+  app.post("/api/calendario/eventos/:id/completar", authenticateToken, async (req: any, res) => {
     try {
-      const campusId = (req as any).user?.campus_id;
-      await pool.query(`UPDATE financial_events SET completado = true WHERE id = $1 AND campus_id = $2`, [parseInt(req.params.id), campusId]);
+      const role = req.user?.role;
+      if (!hasPermission(role, MODULES.CALENDAR, ACTIONS.CREATE)) {
+        return res.status(403).json({ message: "No tienes permiso para completar eventos de calendario" });
+      }
+      const campusId = req.user?.campus_id;
+      const tenantId = req.user?.tenant_id;
+      await pool.query(
+        `UPDATE financial_events SET completado = true WHERE id = $1 AND campus_id = $2 AND tenant_id = $3`,
+        [parseInt(req.params.id), campusId, tenantId],
+      );
       res.json({ message: "Evento marcado como completado" });
     } catch (error: any) {
       res.status(500).json({ message: "Error interno del servidor" });

@@ -82,7 +82,8 @@ export const MODULES = {
   RECEIVABLES: 'receivables',
   SECURITY: 'security',
   FISCAL: 'fiscal',
-  SYSTEM: 'system'
+  SYSTEM: 'system',
+  CALENDAR: 'calendar'
 } as const;
 
 export const ACTIONS = {
@@ -137,7 +138,9 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.SECURITY, action: ACTIONS.READ,      scope: 'all', description: 'Ver historial de auditoría y eventos de seguridad de la plataforma' },
       { module: MODULES.SECURITY, action: ACTIONS.CONFIGURE, scope: 'all', description: 'Configurar seguridad del sistema' },
       { module: MODULES.SYSTEM, action: ACTIONS.CONFIGURE, scope: 'all', description: 'Configurar parámetros del sistema' },
-      { module: MODULES.SYSTEM, action: ACTIONS.APPROVE, scope: 'all', description: 'Aprobar solicitudes del sistema' }
+      { module: MODULES.SYSTEM, action: ACTIONS.APPROVE, scope: 'all', description: 'Aprobar solicitudes del sistema' },
+      { module: MODULES.CALENDAR, action: ACTIONS.READ, scope: 'all', description: 'Ver eventos del calendario financiero en toda la plataforma' },
+      { module: MODULES.CALENDAR, action: ACTIONS.CREATE, scope: 'all', description: 'Crear y completar eventos del calendario financiero en cualquier campus' }
     ],
     restrictions: []
   },
@@ -187,7 +190,9 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.SYSTEM, action: ACTIONS.READ, scope: 'campus', description: 'Ver sistemas del campus' },
       { module: MODULES.SYSTEM, action: ACTIONS.IMPORT, scope: 'campus', description: 'Importar datos del campus' },
       { module: MODULES.SYSTEM, action: ACTIONS.APPROVE, scope: 'campus', description: 'Aprobar acciones del campus' },
-      { module: MODULES.SECURITY, action: ACTIONS.READ, scope: 'campus', description: 'Ver historial de auditoría del campus' }
+      { module: MODULES.SECURITY, action: ACTIONS.READ, scope: 'campus', description: 'Ver historial de auditoría del campus' },
+      { module: MODULES.CALENDAR, action: ACTIONS.READ, scope: 'campus', description: 'Ver eventos del calendario financiero del campus' },
+      { module: MODULES.CALENDAR, action: ACTIONS.CREATE, scope: 'campus', description: 'Crear y completar eventos del calendario financiero del campus' }
     ],
     restrictions: [
       'Control total sobre el instituto',
@@ -227,7 +232,9 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.SETTINGS, action: ACTIONS.READ, scope: 'campus', description: 'Ver configuración del campus' },
       { module: MODULES.SETTINGS, action: ACTIONS.CONFIGURE, scope: 'campus', description: 'Configurar reglas de pago y recargo del campus' },
       { module: MODULES.SYSTEM, action: ACTIONS.READ, scope: 'campus', description: 'Ver sistemas del campus' },
-      { module: MODULES.SECURITY, action: ACTIONS.READ, scope: 'campus', description: 'Ver historial de auditoría del campus' }
+      { module: MODULES.SECURITY, action: ACTIONS.READ, scope: 'campus', description: 'Ver historial de auditoría del campus' },
+      { module: MODULES.CALENDAR, action: ACTIONS.READ, scope: 'campus', description: 'Ver eventos del calendario financiero del campus' },
+      { module: MODULES.CALENDAR, action: ACTIONS.CREATE, scope: 'campus', description: 'Crear y completar eventos del calendario financiero del campus' }
     ],
     restrictions: [
       'Cambios financieros requieren aprobación del Administrador General',
@@ -256,7 +263,9 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.SCHOLARSHIPS, action: ACTIONS.ASSIGN, scope: 'campus', description: 'Asignar becas del campus' },
       { module: MODULES.FISCAL, action: ACTIONS.READ, scope: 'campus', description: 'Ver información fiscal completa' },
       { module: MODULES.FISCAL, action: ACTIONS.CONFIGURE, scope: 'campus', description: 'Configurar aspectos fiscales' },
-      { module: MODULES.SECURITY, action: ACTIONS.READ, scope: 'campus', description: 'Ver historial de auditoría financiera del campus' }
+      { module: MODULES.SECURITY, action: ACTIONS.READ, scope: 'campus', description: 'Ver historial de auditoría financiera del campus' },
+      { module: MODULES.CALENDAR, action: ACTIONS.READ, scope: 'campus', description: 'Ver eventos del calendario financiero del campus' },
+      { module: MODULES.CALENDAR, action: ACTIONS.CREATE, scope: 'campus', description: 'Crear y completar eventos del calendario financiero (función de tesorería)' }
     ],
     restrictions: [
       'No puede crear o eliminar estudiantes',
@@ -278,7 +287,8 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.PAYMENTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver pagos del campus' },
       { module: MODULES.RECEIVABLES, action: ACTIONS.READ, scope: 'campus', description: 'Ver cuentas por cobrar básicas' },
       { module: MODULES.REPORTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver reportes básicos' },
-      { module: MODULES.FISCAL, action: ACTIONS.READ, scope: 'campus', description: 'Ver información fiscal básica' }
+      { module: MODULES.FISCAL, action: ACTIONS.READ, scope: 'campus', description: 'Ver información fiscal básica' },
+      { module: MODULES.CALENDAR, action: ACTIONS.READ, scope: 'campus', description: 'Ver eventos del calendario financiero del campus' }
     ],
     restrictions: [
       'Solo acceso de lectura a información financiera',
@@ -311,7 +321,8 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.CRM, action: ACTIONS.READ, scope: 'campus', description: 'Ver CRM del campus' },
       { module: MODULES.CRM, action: ACTIONS.UPDATE, scope: 'campus', description: 'Gestionar prospectos' },
       { module: MODULES.ALUMNI, action: ACTIONS.READ, scope: 'campus', description: 'Ver ex-alumnos del campus' },
-      { module: MODULES.ALUMNI, action: ACTIONS.UPDATE, scope: 'campus', description: 'Actualizar información de ex-alumnos' }
+      { module: MODULES.ALUMNI, action: ACTIONS.UPDATE, scope: 'campus', description: 'Actualizar información de ex-alumnos' },
+      { module: MODULES.CALENDAR, action: ACTIONS.READ, scope: 'campus', description: 'Ver eventos del calendario financiero del campus' }
     ],
     restrictions: [
       'No puede eliminar estudiantes o familias',
@@ -339,7 +350,8 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.REPORTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver reportes básicos' },
       { module: MODULES.CRM, action: ACTIONS.READ, scope: 'campus', description: 'Ver CRM del campus' },
       { module: MODULES.PROVIDERS, action: ACTIONS.READ, scope: 'campus', description: 'Ver proveedores del campus' },
-      { module: MODULES.ALUMNI, action: ACTIONS.READ, scope: 'campus', description: 'Ver ex-alumnos del campus' }
+      { module: MODULES.ALUMNI, action: ACTIONS.READ, scope: 'campus', description: 'Ver ex-alumnos del campus' },
+      { module: MODULES.CALENDAR, action: ACTIONS.READ, scope: 'campus', description: 'Ver eventos del calendario financiero del campus' }
     ],
     restrictions: [
       'No puede crear nuevos registros',

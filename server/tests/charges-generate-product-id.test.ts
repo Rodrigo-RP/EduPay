@@ -246,6 +246,86 @@ describe("Tarea #128 — POST /api/charges/generate con product_id", () => {
     expect(status).toBe(403);
   });
 
+  it("CGP-06: product_id + nivel SECUNDARIA → charge creado con precio_secundaria=550000 (verificado en DB)", async () => {
+    // Alumno de SECUNDARIA — grado '1° SECUNDARIA'
+    const sRow = await pool.query(
+      `INSERT INTO students (campus_id, tenant_id, nombres, apellido_paterno, nombre_completo,
+         grado, status)
+       VALUES ($1,$2,'Alumno','Secundaria CGP','Alumno Secundaria CGP','1° SECUNDARIA','activo')
+       RETURNING id`,
+      [campusId, tenantId],
+    );
+    const studentSecId = (sRow.rows[0] as any).id;
+
+    const { status, body } = await POST(
+      "/api/charges/generate",
+      tokenAdmin,
+      {
+        product_id:        productId,
+        nivel_academico:   "SECUNDARIA",
+        fecha_emision:     "2026-08-10",
+        fecha_vencimiento: "2026-09-10",
+      },
+    );
+
+    expect(status).toBe(201);
+    const resumen = body.summary.find((s: any) => s.student_id === studentSecId);
+    expect(resumen).toBeDefined();
+    expect(resumen.base_amount).toBe(550000);
+    expect(resumen.academic_level).toBe("SECUNDARIA");
+
+    const dbRow = await pool.query(
+      `SELECT monto_base_centavos FROM charges WHERE student_id=$1 ORDER BY id DESC LIMIT 1`,
+      [studentSecId],
+    );
+    expect(dbRow.rows.length).toBe(1);
+    expect(Number((dbRow.rows[0] as any).monto_base_centavos)).toBe(550000);
+
+    // Limpieza
+    await pool.query(`DELETE FROM charges  WHERE student_id=$1`, [studentSecId]).catch(() => {});
+    await pool.query(`DELETE FROM students WHERE id=$1`,         [studentSecId]).catch(() => {});
+  });
+
+  it("CGP-07: product_id + nivel BACHILLERATO → charge creado con precio_bachillerato=650000 (verificado en DB)", async () => {
+    // Alumno de BACHILLERATO — grado '2° BACHILLERATO'
+    const sRow = await pool.query(
+      `INSERT INTO students (campus_id, tenant_id, nombres, apellido_paterno, nombre_completo,
+         grado, status)
+       VALUES ($1,$2,'Alumno','Bachillerato CGP','Alumno Bachillerato CGP','2° BACHILLERATO','activo')
+       RETURNING id`,
+      [campusId, tenantId],
+    );
+    const studentBachId = (sRow.rows[0] as any).id;
+
+    const { status, body } = await POST(
+      "/api/charges/generate",
+      tokenAdmin,
+      {
+        product_id:        productId,
+        nivel_academico:   "BACHILLERATO",
+        fecha_emision:     "2026-08-10",
+        fecha_vencimiento: "2026-09-10",
+      },
+    );
+
+    expect(status).toBe(201);
+    const resumen = body.summary.find((s: any) => s.student_id === studentBachId);
+    expect(resumen).toBeDefined();
+    expect(resumen.base_amount).toBe(650000);
+    expect(resumen.academic_level).toBe("BACHILLERATO");
+
+    const dbRow = await pool.query(
+      `SELECT monto_base_centavos FROM charges WHERE student_id=$1 ORDER BY id DESC LIMIT 1`,
+      [studentBachId],
+    );
+    expect(dbRow.rows.length).toBe(1);
+    expect(Number((dbRow.rows[0] as any).monto_base_centavos)).toBe(650000);
+
+    // Limpieza
+    await pool.query(`DELETE FROM charges  WHERE student_id=$1`, [studentBachId]).catch(() => {});
+    await pool.query(`DELETE FROM students WHERE id=$1`,         [studentBachId]).catch(() => {});
+  });
+
   it("CGP-05: product_id + monto_manual juntos → precio del catálogo gana (monto_manual=999999 ignorado), verificado en DB", async () => {
     await pool.query(`DELETE FROM charges WHERE student_id=$1`, [studentPrimariaId]);
 

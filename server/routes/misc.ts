@@ -710,7 +710,18 @@ export function registerMiscRoutes(app: Express): void {
         pool.query(`SELECT COALESCE(SUM(p.monto_centavos),0) as total FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND TO_CHAR(p.created_at,'YYYY-MM')=$2`, [campusId, periodo]),
         pool.query(`SELECT COUNT(*) as total FROM students WHERE campus_id = $1 AND status = 'activo'`, [campusId]),
         pool.query(`SELECT COALESCE(SUM(c.monto_base_centavos),0) as total FROM charges c JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND TO_CHAR(c.created_at,'YYYY-MM')=$2`, [campusId, periodo]),
-        pool.query(`SELECT COUNT(DISTINCT student_id) as total FROM scholarships WHERE campus_id = $1 AND activo = true`, [campusId]).catch(()=>({rows:[{total:0}]})),
+        pool.query(
+          `SELECT COUNT(DISTINCT sh.student_id) as total
+           FROM scholarships sh
+           JOIN students stu ON stu.id = sh.student_id
+           WHERE stu.campus_id = $1
+             AND sh.vigencia_inicio <= CURRENT_DATE
+             AND sh.vigencia_fin >= CURRENT_DATE`,
+          [campusId]
+        ).catch((err: any) => {
+          console.error("[GET /api/reportes/consejo/:campusId] becas_aplicadas error:", err.message);
+          return { rows: [{ total: 0 }] };
+        }),
         pool.query(`SELECT COUNT(*) as total FROM payment_plans WHERE campus_id = $1 AND estado = 'activo'`, [campusId]),
       ]);
 
@@ -777,7 +788,18 @@ export function registerMiscRoutes(app: Express): void {
         pool.query(`SELECT COALESCE(SUM(p.monto_centavos),0) as total FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND TO_CHAR(p.created_at,'YYYY-MM')=$2`, [campusId, periodo]),
         pool.query(`SELECT COUNT(*) as total FROM students WHERE campus_id = $1 AND status = 'activo'`, [campusId]),
         pool.query(`SELECT COALESCE(SUM(c.monto_base_centavos),0) as total FROM charges c JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND TO_CHAR(c.created_at,'YYYY-MM')=$2`, [campusId, periodo]),
-        pool.query(`SELECT COUNT(DISTINCT student_id) as total FROM scholarships WHERE campus_id = $1 AND activo = true`, [campusId]).catch(() => ({ rows: [{total: 0}] })),
+        pool.query(
+          `SELECT COUNT(DISTINCT sh.student_id) as total
+           FROM scholarships sh
+           JOIN students stu ON stu.id = sh.student_id
+           WHERE stu.campus_id = $1
+             AND sh.vigencia_inicio <= CURRENT_DATE
+             AND sh.vigencia_fin >= CURRENT_DATE`,
+          [campusId]
+        ).catch((err: any) => {
+          console.error("[GET /api/reportes/consejo] becas_aplicadas error:", err.message);
+          return { rows: [{ total: 0 }] };
+        }),
         pool.query(`SELECT COUNT(*) as total FROM payment_plans WHERE campus_id = $1 AND estado = 'activo'`, [campusId]),
       ]);
       const ingresos = Number((ingRows.rows[0] as any)?.total || 0);

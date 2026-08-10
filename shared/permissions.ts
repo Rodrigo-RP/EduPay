@@ -233,6 +233,7 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.SETTINGS, action: ACTIONS.CONFIGURE, scope: 'campus', description: 'Configurar reglas de pago y recargo del campus' },
       { module: MODULES.SYSTEM, action: ACTIONS.READ, scope: 'campus', description: 'Ver sistemas del campus' },
       { module: MODULES.SECURITY, action: ACTIONS.READ, scope: 'campus', description: 'Ver historial de auditoría del campus' },
+      { module: MODULES.FINANCIAL, action: ACTIONS.READ, scope: 'campus', description: 'Ver análisis financiero y KPIs del campus' },
       { module: MODULES.CALENDAR, action: ACTIONS.READ, scope: 'campus', description: 'Ver eventos del calendario financiero del campus' },
       { module: MODULES.CALENDAR, action: ACTIONS.CREATE, scope: 'campus', description: 'Crear y completar eventos del calendario financiero del campus' }
     ],

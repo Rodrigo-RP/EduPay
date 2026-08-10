@@ -695,6 +695,10 @@ export function registerMiscRoutes(app: Express): void {
   // ── 8. REPORTE PARA CONSEJO DIRECTIVO ────────────────────────────────────
   app.get("/api/reportes/consejo/:campusId", authenticateToken, async (req: any, res) => {
     try {
+      const role = req.user?.role;
+      if (!hasPermission(role, MODULES.FINANCIAL, ACTIONS.READ)) {
+        return res.status(403).json({ message: "No tienes permiso para ver el reporte del consejo directivo" });
+      }
       const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
       if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
       const { mes, anio } = req.query;

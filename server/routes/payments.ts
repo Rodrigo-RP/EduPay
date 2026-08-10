@@ -394,67 +394,116 @@ export function registerPaymentRoutes(app: Express): void {
 
       // Process based on category and template
       if (category === 'becas' && templateId === 'asignaciones') {
-        // Process scholarship assignments
+        // Importación real de becas.
+        //
+        // Columnas reales de la tabla scholarships (verificado agosto 2026):
+        //   porcentaje, motivo, vigencia_inicio, vigencia_fin, student_id, tenant_id
+        // Columnas que NO existen: estado, monto_fijo, campus_id, activo, scholarship_type_id
+        // El aislamiento por campus se logra buscando al alumno WHERE campus_id = JWT.campus_id.
+        //
+        // Columnas del archivo CSV esperadas:
+        //   id_estudiante | curp_estudiante  (al menos uno)
+        //   tipo_beca                         (requerido)
+        //   valor_descuento                   (0 < x ≤ 100, porcentaje)
+        //   vigencia_inicio                   (opcional, default: hoy)
+        //   vigencia_fin                      (opcional, default: null)
+        //   motivo                            (opcional, fallback: tipo_beca)
+        const importUser = (req as any).user;
+        const tenantId   = importUser?.tenant_id;
+
         for (let index = 0; index < jsonData.length; index++) {
           try {
             const becaData = jsonData[index] as any;
-            
-            // Basic validation
+
+            // ── Validación de campos obligatorios ──────────────────────────
             if (!becaData.id_estudiante && !becaData.curp_estudiante) {
-              results.errors.push(`Fila ${index + 2}: ID de estudiante o CURP requerido`);
+              results.errors.push(`Fila ${index + 2}: id_estudiante o curp_estudiante requerido`);
               results.failed++;
               continue;
             }
 
             if (!becaData.tipo_beca) {
-              results.errors.push(`Fila ${index + 2}: Tipo de beca requerido`);
+              results.errors.push(`Fila ${index + 2}: tipo_beca requerido`);
               results.failed++;
               continue;
             }
 
-            if (!becaData.valor_descuento) {
-              results.errors.push(`Fila ${index + 2}: Valor de descuento requerido`);
+            const porcentaje = parseFloat(becaData.valor_descuento);
+            if (!becaData.valor_descuento || isNaN(porcentaje) || porcentaje <= 0 || porcentaje > 100) {
+              results.errors.push(`Fila ${index + 2}: valor_descuento debe ser un número entre 0 y 100`);
               results.failed++;
               continue;
             }
 
-            // Find student by ID or CURP - For demonstration purposes
-            let student;
-            const simulatedStudents = [
-              {id: 1, nombre_completo: "Carlos Pérez Méndez", curp: "PEMC051215MDFNPR03"},
-              {id: 2, nombre_completo: "Andrea García Luna", curp: "GAML031020HDFMND04"},
-              {id: 3, nombre_completo: "Luis Martínez Gil", curp: "MAGL080912MDFLRN01"},
-              {id: 4, nombre_completo: "Diego Martínez Gil", curp: "DIGL080912MDFLRN01"}
-            ];
-            
+            // ── Búsqueda real del alumno en la DB ─────────────────────────
+            // Siempre restringida al campus_id del JWT — nunca cruza campus.
+            let studentRow: any;
+
             if (becaData.id_estudiante) {
-              student = simulatedStudents.find(s => s.id === parseInt(becaData.id_estudiante));
-            } else if (becaData.curp_estudiante) {
-              student = simulatedStudents.find(s => s.curp === becaData.curp_estudiante);
+              const r = await pool.query(
+                `SELECT id, nombre_completo FROM students
+                 WHERE id_referencia = $1 AND campus_id = $2 AND tenant_id = $3
+                 LIMIT 1`,
+                [String(becaData.id_estudiante).trim(), campusId, tenantId],
+              );
+              studentRow = r.rows[0];
             }
 
-            if (!student) {
-              results.errors.push(`Fila ${index + 2}: Estudiante no encontrado`);
+            if (!studentRow && becaData.curp_estudiante) {
+              const r = await pool.query(
+                `SELECT id, nombre_completo FROM students
+                 WHERE curp = $1 AND campus_id = $2 AND tenant_id = $3
+                 LIMIT 1`,
+                [String(becaData.curp_estudiante).trim().toUpperCase(), campusId, tenantId],
+              );
+              studentRow = r.rows[0];
+            }
+
+            if (!studentRow) {
+              results.errors.push(`Fila ${index + 2}: Estudiante no encontrado en este campus`);
               results.failed++;
               continue;
             }
 
-            // Create scholarship assignment (simulated - would need real database schema)
-            const scholarshipData = {
-              student_id: student.id,
-              scholarship_type: becaData.tipo_beca,
-              discount_type: becaData.tipo_descuento || 'porcentaje',
-              discount_value: parseFloat(becaData.valor_descuento),
-              start_date: becaData.vigencia_inicio || new Date().toISOString().split('T')[0],
-              end_date: becaData.vigencia_fin || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-              observations: becaData.observaciones || '',
-              created_by: (req as any).user?.id,
-              campus_id: campusId
+            // ── INSERT real en scholarships ────────────────────────────────
+            //
+            // XLSX auto-convierte cadenas de fecha ISO ("2026-08-01") a números
+            // seriales de Excel (e.g. 46235) al parsear el CSV. Se necesita
+            // normalizar antes de pasar el valor a PostgreSQL.
+            const parseXlsxDate = (val: any): string | null => {
+              if (!val && val !== 0) return null;
+              if (typeof val === 'number') {
+                // Número serial de Excel: días desde 1899-12-30 (epoch de Excel)
+                const jsDate = new Date((val - 25569) * 86400 * 1000);
+                return jsDate.toISOString().split('T')[0];
+              }
+              if (val instanceof Date) return val.toISOString().split('T')[0];
+              return String(val).trim();
             };
 
-            // This would be implemented with actual database schema
-            // console.log('Creating scholarship assignment:', scholarshipData);
-            
+            const vigenciaInicio = parseXlsxDate(becaData.vigencia_inicio)
+              || new Date().toISOString().split('T')[0];
+
+            // vigencia_fin es NOT NULL en la DB.
+            // Si no se provee en el CSV se calcula 1 año después de vigencia_inicio.
+            const vigenciaFinParsed = parseXlsxDate(becaData.vigencia_fin);
+            const vigenciaFin = vigenciaFinParsed || (() => {
+              const d = new Date(vigenciaInicio);
+              d.setFullYear(d.getFullYear() + 1);
+              return d.toISOString().split('T')[0];
+            })();
+
+            // motivo acepta el campo 'motivo' del CSV, con fallback a 'observaciones'
+            // (alias histórico) y luego al tipo de beca como etiqueta mínima.
+            const motivo = becaData.motivo || becaData.observaciones || String(becaData.tipo_beca);
+
+            await pool.query(
+              `INSERT INTO scholarships
+                 (student_id, tenant_id, porcentaje, vigencia_inicio, vigencia_fin, motivo)
+               VALUES ($1, $2, $3, $4, $5, $6)`,
+              [studentRow.id, tenantId, porcentaje, vigenciaInicio, vigenciaFin, motivo],
+            );
+
             results.successful++;
           } catch (error: any) {
             results.errors.push(`Fila ${index + 2}: ${error.message}`);

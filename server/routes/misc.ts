@@ -1343,14 +1343,14 @@ export function registerMiscRoutes(app: Express): void {
   // ══════════════════════════════════════════════════════════════════════════
   // CATÁLOGO DE PRODUCTOS  (CF-22)
   // Tabla: products — precios diferenciados por nivel académico + campos SAT
-  // Guard: MODULES.CONCEPTS + ACTIONS.READ (GET) / ACTIONS.CONFIGURE (resto)
+  // Guard: MODULES.PRODUCTS + ACTIONS.READ (GET) / ACTIONS.CONFIGURE (resto)
   // ══════════════════════════════════════════════════════════════════════════
 
   // GET /api/products  — lista del campus
   app.get("/api/products", authenticateToken, async (req: any, res) => {
     try {
       const { role, campus_id, tenant_id } = req.user ?? {};
-      if (!hasPermission(role, MODULES.CONCEPTS, ACTIONS.READ)) {
+      if (!hasPermission(role, MODULES.PRODUCTS, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para ver el catálogo de productos" });
       }
       const rows = await pool.query(
@@ -1372,7 +1372,7 @@ export function registerMiscRoutes(app: Express): void {
   app.post("/api/products", authenticateToken, async (req: any, res) => {
     try {
       const { role, campus_id, tenant_id } = req.user ?? {};
-      if (!hasPermission(role, MODULES.CONCEPTS, ACTIONS.CONFIGURE)) {
+      if (!hasPermission(role, MODULES.PRODUCTS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para crear productos" });
       }
       const {
@@ -1407,7 +1407,7 @@ export function registerMiscRoutes(app: Express): void {
   app.put("/api/products/:id", authenticateToken, async (req: any, res) => {
     try {
       const { role, campus_id, tenant_id } = req.user ?? {};
-      if (!hasPermission(role, MODULES.CONCEPTS, ACTIONS.CONFIGURE)) {
+      if (!hasPermission(role, MODULES.PRODUCTS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para editar productos" });
       }
       const id = Number(req.params.id);
@@ -1467,7 +1467,7 @@ export function registerMiscRoutes(app: Express): void {
   app.patch("/api/products/:id", authenticateToken, async (req: any, res) => {
     try {
       const { role, campus_id, tenant_id } = req.user ?? {};
-      if (!hasPermission(role, MODULES.CONCEPTS, ACTIONS.CONFIGURE)) {
+      if (!hasPermission(role, MODULES.PRODUCTS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para modificar productos" });
       }
       const id = Number(req.params.id);
@@ -1494,7 +1494,7 @@ export function registerMiscRoutes(app: Express): void {
   app.delete("/api/products/:id", authenticateToken, async (req: any, res) => {
     try {
       const { role, campus_id, tenant_id } = req.user ?? {};
-      if (!hasPermission(role, MODULES.CONCEPTS, ACTIONS.CONFIGURE)) {
+      if (!hasPermission(role, MODULES.PRODUCTS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para eliminar productos" });
       }
       const id = Number(req.params.id);

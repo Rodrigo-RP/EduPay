@@ -5,10 +5,10 @@
  * (KINDER / PRIMARIA / SECUNDARIA / BACHILLERATO) y metadata SAT para CFDI.
  *
  * CAT-01  GET sin token → 401
- * CAT-02  GET con asistente (sin CONCEPTS.READ) → 403
+ * CAT-02  GET con asistente (sin PRODUCTS.READ) → 403
  * CAT-03  GET con administrador_campus → 200, lista vacía para campus nuevo
  * CAT-04  POST sin token → 401
- * CAT-05  POST con asistente (sin CONCEPTS.CONFIGURE) → 403, DB intacta
+ * CAT-05  POST con asistente (sin PRODUCTS.CONFIGURE) → 403, DB intacta
  * CAT-06  POST campos obligatorios faltantes → 400
  * CAT-07  POST categoría inválida → 400
  * CAT-08  POST administrador_campus → 201, persiste en DB con precios por nivel
@@ -126,7 +126,7 @@ describe("CF-22 — GET /api/products", () => {
     expect(status).toBe(401);
   });
 
-  it("CAT-02: asistente (sin CONCEPTS.READ) → 403", async () => {
+  it("CAT-02: asistente (sin PRODUCTS.READ) → 403", async () => {
     const { status } = await GET("/api/products", tokenAsistente);
     expect(status).toBe(403);
   });
@@ -147,7 +147,7 @@ describe("CF-22 — POST /api/products", () => {
     expect(status).toBe(401);
   });
 
-  it("CAT-05: asistente (sin CONCEPTS.CONFIGURE) → 403, DB intacta", async () => {
+  it("CAT-05: asistente (sin PRODUCTS.CONFIGURE) → 403, DB intacta", async () => {
     const { status } = await POST("/api/products", tokenAsistente, PRODUCTO_BASE);
     expect(status).toBe(403);
     const r = await pool.query(`SELECT id FROM products WHERE campus_id=$1`, [campusId]);

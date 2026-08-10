@@ -1340,6 +1340,176 @@ export function registerMiscRoutes(app: Express): void {
     }
   });
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // CATÁLOGO DE PRODUCTOS  (CF-22)
+  // Tabla: products — precios diferenciados por nivel académico + campos SAT
+  // Guard: MODULES.CONCEPTS + ACTIONS.READ (GET) / ACTIONS.CONFIGURE (resto)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // GET /api/products  — lista del campus
+  app.get("/api/products", authenticateToken, async (req: any, res) => {
+    try {
+      const { role, campus_id, tenant_id } = req.user ?? {};
+      if (!hasPermission(role, MODULES.CONCEPTS, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver el catálogo de productos" });
+      }
+      const rows = await pool.query(
+        `SELECT id, codigo, nombre, descripcion, categoria, unidad_medida, clave_sat, activo,
+                precio_kinder, precio_primaria, precio_secundaria, precio_bachillerato,
+                created_at, updated_at
+           FROM products
+          WHERE campus_id = $1 AND tenant_id = $2
+          ORDER BY categoria, nombre`,
+        [campus_id, tenant_id],
+      );
+      res.json(rows.rows);
+    } catch (e: any) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
+  // POST /api/products  — crear producto
+  app.post("/api/products", authenticateToken, async (req: any, res) => {
+    try {
+      const { role, campus_id, tenant_id } = req.user ?? {};
+      if (!hasPermission(role, MODULES.CONCEPTS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para crear productos" });
+      }
+      const {
+        codigo, nombre, descripcion, categoria, unidad_medida, clave_sat, activo,
+        precio_kinder = 0, precio_primaria = 0, precio_secundaria = 0, precio_bachillerato = 0,
+      } = req.body ?? {};
+      if (!codigo || !nombre || !categoria) {
+        return res.status(400).json({ message: "codigo, nombre y categoria son obligatorios" });
+      }
+      const CATEGORIAS_VALIDAS = ["COLEGIATURAS","INSCRIPCIONES","REINSCRIPCIONES","SEGURO_ESCOLAR","LIBROS","OTROS"];
+      if (!CATEGORIAS_VALIDAS.includes(categoria)) {
+        return res.status(400).json({ message: `categoria debe ser una de: ${CATEGORIAS_VALIDAS.join(", ")}` });
+      }
+      const r = await pool.query(
+        `INSERT INTO products
+           (campus_id, tenant_id, codigo, nombre, descripcion, categoria, unidad_medida, clave_sat, activo,
+            precio_kinder, precio_primaria, precio_secundaria, precio_bachillerato)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+         RETURNING *`,
+        [campus_id, tenant_id, codigo, nombre, descripcion ?? null, categoria,
+         unidad_medida ?? "SERVICIO", clave_sat ?? null, activo ?? true,
+         precio_kinder, precio_primaria, precio_secundaria, precio_bachillerato],
+      );
+      res.status(201).json(r.rows[0]);
+    } catch (e: any) {
+      if (e.code === "23505") return res.status(409).json({ message: "Ya existe un producto con ese código en este campus" });
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
+  // PUT /api/products/:id  — edición completa
+  app.put("/api/products/:id", authenticateToken, async (req: any, res) => {
+    try {
+      const { role, campus_id, tenant_id } = req.user ?? {};
+      if (!hasPermission(role, MODULES.CONCEPTS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para editar productos" });
+      }
+      const id = Number(req.params.id);
+      if (!id) return res.status(400).json({ message: "id inválido" });
+
+      const {
+        codigo, nombre, descripcion, categoria, unidad_medida, clave_sat, activo,
+        precio_kinder, precio_primaria, precio_secundaria, precio_bachillerato,
+      } = req.body ?? {};
+
+      // Verify ownership
+      const exists = await pool.query(
+        `SELECT id FROM products WHERE id=$1 AND campus_id=$2 AND tenant_id=$3`,
+        [id, campus_id, tenant_id],
+      );
+      if (!exists.rows.length) return res.status(404).json({ message: "Producto no encontrado" });
+
+      if (categoria) {
+        const CATEGORIAS_VALIDAS = ["COLEGIATURAS","INSCRIPCIONES","REINSCRIPCIONES","SEGURO_ESCOLAR","LIBROS","OTROS"];
+        if (!CATEGORIAS_VALIDAS.includes(categoria)) {
+          return res.status(400).json({ message: `categoria debe ser una de: ${CATEGORIAS_VALIDAS.join(", ")}` });
+        }
+      }
+
+      const r = await pool.query(
+        `UPDATE products SET
+           codigo              = COALESCE($4,  codigo),
+           nombre              = COALESCE($5,  nombre),
+           descripcion         = COALESCE($6,  descripcion),
+           categoria           = COALESCE($7,  categoria),
+           unidad_medida       = COALESCE($8,  unidad_medida),
+           clave_sat           = COALESCE($9,  clave_sat),
+           activo              = COALESCE($10, activo),
+           precio_kinder       = COALESCE($11, precio_kinder),
+           precio_primaria     = COALESCE($12, precio_primaria),
+           precio_secundaria   = COALESCE($13, precio_secundaria),
+           precio_bachillerato = COALESCE($14, precio_bachillerato),
+           updated_at          = NOW()
+         WHERE id=$1 AND campus_id=$2 AND tenant_id=$3
+         RETURNING *`,
+        [id, campus_id, tenant_id,
+         codigo ?? null, nombre ?? null, descripcion ?? null, categoria ?? null,
+         unidad_medida ?? null, clave_sat ?? null,
+         activo !== undefined ? activo : null,
+         precio_kinder !== undefined ? precio_kinder : null,
+         precio_primaria !== undefined ? precio_primaria : null,
+         precio_secundaria !== undefined ? precio_secundaria : null,
+         precio_bachillerato !== undefined ? precio_bachillerato : null],
+      );
+      res.json(r.rows[0]);
+    } catch (e: any) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
+  // PATCH /api/products/:id  — toggle activo (y cualquier campo parcial)
+  app.patch("/api/products/:id", authenticateToken, async (req: any, res) => {
+    try {
+      const { role, campus_id, tenant_id } = req.user ?? {};
+      if (!hasPermission(role, MODULES.CONCEPTS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para modificar productos" });
+      }
+      const id = Number(req.params.id);
+      if (!id) return res.status(400).json({ message: "id inválido" });
+      const exists = await pool.query(
+        `SELECT id FROM products WHERE id=$1 AND campus_id=$2 AND tenant_id=$3`,
+        [id, campus_id, tenant_id],
+      );
+      if (!exists.rows.length) return res.status(404).json({ message: "Producto no encontrado" });
+
+      const { activo } = req.body ?? {};
+      const r = await pool.query(
+        `UPDATE products SET activo = $4, updated_at = NOW()
+          WHERE id=$1 AND campus_id=$2 AND tenant_id=$3 RETURNING *`,
+        [id, campus_id, tenant_id, activo],
+      );
+      res.json(r.rows[0]);
+    } catch (e: any) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
+  // DELETE /api/products/:id  — eliminación permanente
+  app.delete("/api/products/:id", authenticateToken, async (req: any, res) => {
+    try {
+      const { role, campus_id, tenant_id } = req.user ?? {};
+      if (!hasPermission(role, MODULES.CONCEPTS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para eliminar productos" });
+      }
+      const id = Number(req.params.id);
+      if (!id) return res.status(400).json({ message: "id inválido" });
+      const r = await pool.query(
+        `DELETE FROM products WHERE id=$1 AND campus_id=$2 AND tenant_id=$3 RETURNING id`,
+        [id, campus_id, tenant_id],
+      );
+      if (!r.rows.length) return res.status(404).json({ message: "Producto no encontrado" });
+      res.json({ deleted: true, id });
+    } catch (e: any) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
   // /api/admin/dashboard — alias sin campusId (lee del JWT)
   app.get("/api/admin/dashboard", authenticateToken, async (req, res) => {
     try {

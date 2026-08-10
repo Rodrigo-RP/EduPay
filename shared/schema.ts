@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, varchar, bigint, numeric, date, timestamp, primaryKey, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, varchar, bigint, numeric, date, timestamp, primaryKey, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -230,6 +230,34 @@ export const concepts = pgTable("concepts", {
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
+
+// ── PRODUCT CATALOG ──────────────────────────────────────────────────────────
+// Plantilla de precios por nivel académico + metadata fiscal para CFDI.
+// Distinto de `concepts` (precio único operacional): aquí cada producto tiene
+// 4 precios (KINDER / PRIMARIA / SECUNDARIA / BACHILLERATO) y campos SAT.
+export const products = pgTable("products", {
+  id:                  serial("id").primaryKey(),
+  campus_id:           integer("campus_id").notNull().references(() => campuses.id, { onDelete: "cascade" }),
+  tenant_id:           integer("tenant_id").notNull().references(() => tenants.id),
+  codigo:              varchar("codigo", { length: 50 }).notNull(),
+  nombre:              varchar("nombre", { length: 255 }).notNull(),
+  descripcion:         text("descripcion"),
+  categoria:           varchar("categoria", { length: 50 }).notNull(),   // COLEGIATURAS | INSCRIPCIONES | REINSCRIPCIONES | SEGURO_ESCOLAR | LIBROS | OTROS
+  unidad_medida:       varchar("unidad_medida", { length: 20 }).notNull().default("SERVICIO"), // SERVICIO | PIEZA | LOTE | KILOGRAMO
+  clave_sat:           varchar("clave_sat", { length: 20 }),
+  activo:              boolean("activo").notNull().default(true),
+  precio_kinder:       bigint("precio_kinder",       { mode: "number" }).notNull().default(0),
+  precio_primaria:     bigint("precio_primaria",     { mode: "number" }).notNull().default(0),
+  precio_secundaria:   bigint("precio_secundaria",   { mode: "number" }).notNull().default(0),
+  precio_bachillerato: bigint("precio_bachillerato", { mode: "number" }).notNull().default(0),
+  created_at:          timestamp("created_at").defaultNow(),
+  updated_at:          timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  // código único por campus (no por tenant): el mismo código puede usarse en campus distintos del mismo tenant
+  campusCodigoUnique: uniqueIndex("products_campus_codigo_unique").on(table.campus_id, table.codigo),
+}));
+
+export type Product = typeof products.$inferSelect;
 
 // ADVANCED SCHOLARSHIPS & DISCOUNTS SYSTEM
 export const scholarship_types = pgTable("scholarship_types", {

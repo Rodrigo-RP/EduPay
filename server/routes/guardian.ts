@@ -526,6 +526,10 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   // EXPORT CHARGES - ENDPOINT PARA EXPORTAR CARGOS EN EXCEL/CSV
   app.get("/api/charges/export", authenticateToken, async (req: any, res: any) => {
     try {
+      const role = req.user?.role;
+      if (!hasPermission(role, MODULES.REPORTS, ACTIONS.EXPORT)) {
+        return res.status(403).json({ message: "No tienes permiso para exportar datos" });
+      }
       const { format = 'excel', status = 'all' } = req.query;
       const userCampusId = req.user.campus_id;
       

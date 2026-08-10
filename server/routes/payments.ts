@@ -4,6 +4,7 @@ import { enqueueAuditLog } from "../audit-retry";
 import { eq, and, gte, lt } from "drizzle-orm";
 import { storage } from "../storage";
 import { authenticateToken, requireAuth, authenticateGuardian, checkCampusTenant, upload, esmRequire, JWT_SECRET } from "./shared";
+import { hasPermission, MODULES, ACTIONS } from "@shared/permissions";
 import { students, guardians, student_guardian, charges, payments, concepts, scholarships, invoices, payment_rules, late_fee_calculations } from "@shared/schema";
 import { insertPaymentSchema } from "@shared/schema";
 import { getAcademicLevel } from "@shared/academic-levels";
@@ -584,6 +585,10 @@ export function registerPaymentRoutes(app: Express): void {
   // Export data to Excel
   app.get("/api/export/:type", authenticateToken, async (req, res) => {
     try {
+      const role = (req as any).user?.role;
+      if (!hasPermission(role, MODULES.REPORTS, ACTIONS.EXPORT)) {
+        return res.status(403).json({ message: "No tienes permiso para exportar datos" });
+      }
       const { type } = req.params;
       const campusId = (req as any).user?.campus_id;
 
@@ -613,49 +618,6 @@ export function registerPaymentRoutes(app: Express): void {
       XLSX.utils.book_append_sheet(wb, ws, "Datos");
 
       // Generate Excel buffer
-      const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}_${new Date().toISOString().split('T')[0]}.xlsx"`);
-      res.send(excelBuffer);
-
-    } catch (error: any) {
-      res.status(500).json({ message: "Error generando exportación" });
-    }
-  });
-
-  // [DUPLICATE REMOVED - kept comprehensive version above]
-
-  // Export data to Excel
-  app.get("/api/export-legacy/:type", authenticateToken, async (req, res) => {
-    try {
-      const { type } = req.params;
-      const campusId = (req as any).user?.campus_id;
-
-      if (!campusId) {
-        return res.status(400).json({ message: "Campus ID requerido" });
-      }
-
-      let data: any[] = [];
-      let filename = "export";
-
-      switch (type) {
-        case 'estudiantes':
-          data = await storage.getStudentsByCampus(campusId);
-          filename = "estudiantes";
-          break;
-        case 'conceptos':
-          data = await storage.getConceptsByCampus(campusId);
-          filename = "conceptos";
-          break;
-        default:
-          return res.status(400).json({ message: "Tipo de exportación no válido" });
-      }
-
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(data);
-      XLSX.utils.book_append_sheet(wb, ws, "Datos");
-
       const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

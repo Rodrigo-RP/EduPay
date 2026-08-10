@@ -782,6 +782,10 @@ export function registerAdminRoutes(app: Express): void {
     try {
       const campusId = parseInt(req.params.campusId);
       if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
+      const role = req.user?.role;
+      if (!hasPermission(role, MODULES.REPORTS, ACTIONS.EXPORT)) {
+        return res.status(403).json({ message: "No tienes permiso para exportar datos" });
+      }
       const format = req.query.format as string || 'xlsx';
       
       const students = await storage.getStudentsByCampus(campusId);

@@ -1248,85 +1248,152 @@ export function registerMiscRoutes(app: Express): void {
   });
 
   // ── GET /api/search?q= ────────────────────────────────────────────────────
-  // Buscador universal: alumnos, tutores, pagos y cargos del tenant del usuario.
+  // Buscador universal: alumnos, tutores, pagos y cargos.
+  //
+  // Guard de rol: solo authenticateToken — búsqueda es funcionalidad UX esencial
+  // para todos los roles; el aislamiento real lo provee el filtro campus_id/tenant_id,
+  // no la restricción de acceso al endpoint.
+  //
+  // Aislamiento cross-campus:
+  //   - administrador_general y super_admin: ven todos los campuses del tenant
+  //     (necesitan buscar en toda la institución).
+  //   - Todos los demás roles: resultados limitados a su propio campus_id.
+  //
+  // Bug corregido: antes las 4 queries filtraban solo por tenant_id, permitiendo
+  // que administrador_campus de Campus A viera alumnos/tutores/pagos de Campus B
+  // dentro del mismo tenant.
   app.get("/api/search", authenticateToken, async (req: any, res) => {
     try {
       const q        = ((req.query.q as string) || "").trim();
       const tenantId = req.user?.tenant_id;
       const campusId = req.user?.campus_id;
+      const role     = req.user?.role;
 
       if (!q || q.length < 3) return res.json({ alumnos: [], tutores: [], pagos: [], cargos: [] });
 
       const like = `%${q}%`;
 
+      // Roles con visibilidad tenant-wide (cross-campus intencional)
+      const isTenantWide = role === 'super_admin' || role === 'administrador_general';
+
       // 4 búsquedas en paralelo
       const [studRows, guardRows, payRows, chargeRows] = await Promise.all([
+
         // Alumnos: por nombre completo o matrícula
-        pool.query(`
-          SELECT s.id,
-                 CONCAT(s.nombres, ' ', s.apellido_paterno, COALESCE(' ' || s.apellido_materno, '')) AS label,
-                 s.grado                         AS sublabel,
-                 s.id_referencia                 AS matricula,
-                 s.status
-          FROM   students s
-          WHERE  s.tenant_id = $1
-            AND  (s.nombre_completo ILIKE $2
-              OR CONCAT(s.nombres, ' ', s.apellido_paterno) ILIKE $2
-              OR s.id_referencia ILIKE $2
-              OR s.nombres ILIKE $2)
-          ORDER  BY s.apellido_paterno, s.nombres
-          LIMIT  10
-        `, [tenantId, like]),
+        pool.query(
+          isTenantWide
+            ? `SELECT s.id,
+                      CONCAT(s.nombres, ' ', s.apellido_paterno, COALESCE(' ' || s.apellido_materno, '')) AS label,
+                      s.grado         AS sublabel,
+                      s.id_referencia AS matricula,
+                      s.status
+               FROM   students s
+               WHERE  s.tenant_id = $1
+                 AND  (s.nombre_completo ILIKE $2
+                   OR CONCAT(s.nombres, ' ', s.apellido_paterno) ILIKE $2
+                   OR s.id_referencia ILIKE $2
+                   OR s.nombres ILIKE $2)
+               ORDER  BY s.apellido_paterno, s.nombres LIMIT 10`
+            : `SELECT s.id,
+                      CONCAT(s.nombres, ' ', s.apellido_paterno, COALESCE(' ' || s.apellido_materno, '')) AS label,
+                      s.grado         AS sublabel,
+                      s.id_referencia AS matricula,
+                      s.status
+               FROM   students s
+               WHERE  s.tenant_id = $1
+                 AND  s.campus_id = $3
+                 AND  (s.nombre_completo ILIKE $2
+                   OR CONCAT(s.nombres, ' ', s.apellido_paterno) ILIKE $2
+                   OR s.id_referencia ILIKE $2
+                   OR s.nombres ILIKE $2)
+               ORDER  BY s.apellido_paterno, s.nombres LIMIT 10`,
+          isTenantWide ? [tenantId, like] : [tenantId, like, campusId],
+        ),
 
         // Tutores: por nombre o correo
-        pool.query(`
-          SELECT g.id,
-                 CONCAT(g.nombres, ' ', g.apellido_paterno, COALESCE(' ' || g.apellido_materno, '')) AS label,
-                 g.correo_institucional_familiar AS sublabel
-          FROM   guardians g
-          WHERE  g.tenant_id = $1
-            AND  (g.nombre_completo ILIKE $2
-              OR CONCAT(g.nombres, ' ', g.apellido_paterno) ILIKE $2
-              OR g.correo_institucional_familiar ILIKE $2
-              OR g.nombres ILIKE $2)
-          ORDER  BY g.apellido_paterno, g.nombres
-          LIMIT  10
-        `, [tenantId, like]),
+        pool.query(
+          isTenantWide
+            ? `SELECT g.id,
+                      CONCAT(g.nombres, ' ', g.apellido_paterno, COALESCE(' ' || g.apellido_materno, '')) AS label,
+                      g.correo_institucional_familiar AS sublabel
+               FROM   guardians g
+               WHERE  g.tenant_id = $1
+                 AND  (g.nombre_completo ILIKE $2
+                   OR CONCAT(g.nombres, ' ', g.apellido_paterno) ILIKE $2
+                   OR g.correo_institucional_familiar ILIKE $2
+                   OR g.nombres ILIKE $2)
+               ORDER  BY g.apellido_paterno, g.nombres LIMIT 10`
+            : `SELECT g.id,
+                      CONCAT(g.nombres, ' ', g.apellido_paterno, COALESCE(' ' || g.apellido_materno, '')) AS label,
+                      g.correo_institucional_familiar AS sublabel
+               FROM   guardians g
+               WHERE  g.tenant_id = $1
+                 AND  g.campus_id = $3
+                 AND  (g.nombre_completo ILIKE $2
+                   OR CONCAT(g.nombres, ' ', g.apellido_paterno) ILIKE $2
+                   OR g.correo_institucional_familiar ILIKE $2
+                   OR g.nombres ILIKE $2)
+               ORDER  BY g.apellido_paterno, g.nombres LIMIT 10`,
+          isTenantWide ? [tenantId, like] : [tenantId, like, campusId],
+        ),
 
-        // Pagos: por referencia de pasarela
-        pool.query(`
-          SELECT p.id,
-                 p.referencia_pasarela           AS label,
-                 TO_CHAR(p.fecha_pago, 'DD/MM/YYYY') || ' — $' ||
-                   TO_CHAR(p.monto_centavos / 100.0, 'FM999,999.00') AS sublabel,
-                 p.estado,
-                 c.student_id
-          FROM   payments p
-          JOIN   charges  c ON c.id = p.charge_id
-          JOIN   students s ON s.id = c.student_id
-          WHERE  s.tenant_id = $1
-            AND  p.referencia_pasarela ILIKE $2
-          ORDER  BY p.fecha_pago DESC
-          LIMIT  10
-        `, [tenantId, like]),
+        // Pagos: por referencia de pasarela (join vía charges→students→campus)
+        pool.query(
+          isTenantWide
+            ? `SELECT p.id,
+                      p.referencia_pasarela AS label,
+                      TO_CHAR(p.fecha_pago, 'DD/MM/YYYY') || ' — $' ||
+                        TO_CHAR(p.monto_centavos / 100.0, 'FM999,999.00') AS sublabel,
+                      p.estado, c.student_id
+               FROM   payments p
+               JOIN   charges  c ON c.id = p.charge_id
+               JOIN   students s ON s.id = c.student_id
+               WHERE  s.tenant_id = $1
+                 AND  p.referencia_pasarela ILIKE $2
+               ORDER  BY p.fecha_pago DESC LIMIT 10`
+            : `SELECT p.id,
+                      p.referencia_pasarela AS label,
+                      TO_CHAR(p.fecha_pago, 'DD/MM/YYYY') || ' — $' ||
+                        TO_CHAR(p.monto_centavos / 100.0, 'FM999,999.00') AS sublabel,
+                      p.estado, c.student_id
+               FROM   payments p
+               JOIN   charges  c ON c.id = p.charge_id
+               JOIN   students s ON s.id = c.student_id
+               WHERE  s.tenant_id = $1
+                 AND  s.campus_id = $3
+                 AND  p.referencia_pasarela ILIKE $2
+               ORDER  BY p.fecha_pago DESC LIMIT 10`,
+          isTenantWide ? [tenantId, like] : [tenantId, like, campusId],
+        ),
 
-        // Cargos: por id numérico o concept name
-        pool.query(`
-          SELECT c.id,
-                 CONCAT('#', c.id, ' — ', COALESCE(con.nombre, 'Cargo')) AS label,
-                 CONCAT(s.nombres, ' ', s.apellido_paterno, ' — $',
-                   TO_CHAR(c.monto_base_centavos / 100.0, 'FM999,999.00')) AS sublabel,
-                 c.estado,
-                 c.student_id
-          FROM   charges  c
-          JOIN   students s ON s.id = c.student_id
-          LEFT   JOIN concepts con ON con.id = c.concept_id
-          WHERE  s.tenant_id = $1
-            AND  (CAST(c.id AS TEXT) = $3
-              OR  con.nombre ILIKE $2)
-          ORDER  BY c.fecha_vencimiento DESC
-          LIMIT  10
-        `, [tenantId, like, q]),
+        // Cargos: por id numérico o nombre del concepto
+        pool.query(
+          isTenantWide
+            ? `SELECT c.id,
+                      CONCAT('#', c.id, ' — ', COALESCE(con.nombre, 'Cargo')) AS label,
+                      CONCAT(s.nombres, ' ', s.apellido_paterno, ' — $',
+                        TO_CHAR(c.monto_base_centavos / 100.0, 'FM999,999.00')) AS sublabel,
+                      c.estado, c.student_id
+               FROM   charges  c
+               JOIN   students s   ON s.id  = c.student_id
+               LEFT   JOIN concepts con ON con.id = c.concept_id
+               WHERE  s.tenant_id = $1
+                 AND  (CAST(c.id AS TEXT) = $3 OR con.nombre ILIKE $2)
+               ORDER  BY c.fecha_vencimiento DESC LIMIT 10`
+            : `SELECT c.id,
+                      CONCAT('#', c.id, ' — ', COALESCE(con.nombre, 'Cargo')) AS label,
+                      CONCAT(s.nombres, ' ', s.apellido_paterno, ' — $',
+                        TO_CHAR(c.monto_base_centavos / 100.0, 'FM999,999.00')) AS sublabel,
+                      c.estado, c.student_id
+               FROM   charges  c
+               JOIN   students s   ON s.id  = c.student_id
+               LEFT   JOIN concepts con ON con.id = c.concept_id
+               WHERE  s.tenant_id = $1
+                 AND  s.campus_id = $3
+                 AND  (CAST(c.id AS TEXT) = $4 OR con.nombre ILIKE $2)
+               ORDER  BY c.fecha_vencimiento DESC LIMIT 10`,
+          isTenantWide ? [tenantId, like, q] : [tenantId, like, campusId, q],
+        ),
       ]);
 
       res.json({

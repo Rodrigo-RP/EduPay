@@ -516,8 +516,8 @@ export function registerAdminRoutes(app: Express): void {
     try {
       // ── Guard de rol ──────────────────────────────────────────────────────
       // Mismo caso que /api/scholarships: nunca auditado por tabla inexistente.
-      if (!hasPermission(req.user?.role, MODULES.SCHOLARSHIPS, ACTIONS.READ)) {
-        return res.status(403).json({ message: "Sin permisos para consultar reportes de becas" });
+      if (!hasPermission(req.user?.role, MODULES.ADMISSIONS, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para consultar reportes de admisiones" });
       }
 
       const campusId = req.user?.campus_id;

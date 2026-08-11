@@ -83,7 +83,8 @@ export const MODULES = {
   SECURITY: 'security',
   FISCAL: 'fiscal',
   SYSTEM: 'system',
-  CALENDAR: 'calendar'
+  CALENDAR: 'calendar',
+  ADMISSIONS: 'admissions'
 } as const;
 
 export const ACTIONS = {
@@ -227,6 +228,7 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.PRODUCTS, action: ACTIONS.CONFIGURE, scope: 'campus', description: 'Gestionar catálogo de productos del campus' },
       { module: MODULES.SCHOLARSHIPS, action: ACTIONS.READ, scope: 'campus', description: 'Ver becas del campus' },
       { module: MODULES.SCHOLARSHIPS, action: ACTIONS.ASSIGN, scope: 'campus', description: 'Asignar becas del campus' },
+      { module: MODULES.ADMISSIONS, action: ACTIONS.READ, scope: 'campus', description: 'Ver reporte de admisiones del campus' },
       { module: MODULES.USERS, action: ACTIONS.CREATE, scope: 'campus', description: 'Crear usuarios del campus' },
       { module: MODULES.USERS, action: ACTIONS.READ, scope: 'campus', description: 'Ver usuarios del campus' },
       { module: MODULES.USERS, action: ACTIONS.UPDATE, scope: 'campus', description: 'Editar usuarios del campus' },
@@ -321,6 +323,7 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.FAMILIES, action: ACTIONS.IMPORT, scope: 'campus', description: 'Importar familias masivamente' },
       { module: MODULES.CHARGES, action: ACTIONS.READ, scope: 'campus', description: 'Ver cargos del campus' },
       { module: MODULES.SCHOLARSHIPS, action: ACTIONS.READ, scope: 'campus', description: 'Ver becas del campus' },
+      { module: MODULES.ADMISSIONS, action: ACTIONS.READ, scope: 'campus', description: 'Ver reporte de admisiones del campus' },
       { module: MODULES.REPORTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver reportes de estudiantes' },
       { module: MODULES.REPORTS, action: ACTIONS.EXPORT, scope: 'campus', description: 'Exportar reportes de estudiantes' },
       { module: MODULES.CRM, action: ACTIONS.READ, scope: 'campus', description: 'Ver CRM del campus' },
@@ -352,6 +355,7 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.CHARGES, action: ACTIONS.READ, scope: 'campus', description: 'Ver cargos del campus' },
       { module: MODULES.PAYMENTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver pagos del campus' },
       { module: MODULES.SCHOLARSHIPS, action: ACTIONS.READ, scope: 'campus', description: 'Ver becas del campus' },
+      { module: MODULES.ADMISSIONS, action: ACTIONS.READ, scope: 'campus', description: 'Ver reporte de admisiones del campus' },
       { module: MODULES.REPORTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver reportes básicos' },
       { module: MODULES.CRM, action: ACTIONS.READ, scope: 'campus', description: 'Ver CRM del campus' },
       { module: MODULES.PROVIDERS, action: ACTIONS.READ, scope: 'campus', description: 'Ver proveedores del campus' },

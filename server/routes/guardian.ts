@@ -1756,28 +1756,14 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
 
   // TEST endpoint - verify requests reach server
   app.post("/api/test-create", authenticateToken, async (req, res) => {
-    console.log("🧪 TEST ENDPOINT - Request received with body:", JSON.stringify(req.body, null, 2));
-    console.log("🧪 TEST ENDPOINT - User:", JSON.stringify((req as any).user, null, 2));
     res.json({ success: true, message: "Test endpoint works", receivedData: req.body });
   });
 
   // Create payment due date configuration
   app.post("/api/payment-config/due-dates", authenticateToken, async (req, res) => {
-    console.log("🚀 POST ENDPOINT HIT - Raw middleware passed");
-    console.log("🚀 POST ENDPOINT - Headers:", JSON.stringify(req.headers, null, 2));
-    
     try {
-      console.log("🚀 POST /api/payment-config/due-dates - Request received");
-      console.log("🚀 POST /api/payment-config/due-dates - Full request body:", JSON.stringify(req.body, null, 2));
       const campusId = (req as any).user?.campus_id;
-      console.log("🚀 POST /api/payment-config/due-dates - Campus ID:", campusId);
-      console.log("🚀 POST /api/payment-config/due-dates - User object:", JSON.stringify((req as any).user, null, 2));
       const { concepto, dia_vencimiento, mes_aplicacion, activo } = req.body;
-      
-      console.log("🚀 Creating payment due date:", {
-        campusId,
-        rawBody: req.body
-      });
 
       // Fix HTML entity encoding issue
       const cleanedMesAplicacion = typeof mes_aplicacion === 'string' 
@@ -1792,12 +1778,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
         activo: activo !== undefined ? activo : true
       };
 
-      console.log("🚀 Processed create data:", JSON.stringify(dueDateData, null, 2));
-      console.log("🚀 About to call storage.createPaymentDueDate...");
-
       const createdDueDate = await storage.createPaymentDueDate(dueDateData);
-      
-      console.log("🚀 Storage returned created due date:", createdDueDate);
       
       // Verify creation by querying database
       const verification = await db
@@ -1805,7 +1786,6 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
         .from(payment_due_dates)
         .where(eq(payment_due_dates.id, createdDueDate.id));
       
-      console.log("🚀 Verification query result:", verification);
       res.status(201).json({ message: "Fecha de vencimiento creada correctamente", data: createdDueDate });
     } catch (error: any) {
       console.error("🚀 Error creating payment due date:", error);

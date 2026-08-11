@@ -333,9 +333,6 @@ export function registerChargesRoutes(app: Express): void {
       const { producto_id, fecha_vencimiento } = req.body;
       const userCampusId = req.user.campus_id; // Use authenticated user's campus
       
-      // Debug logging
-      console.log("Request from user:", req.user.email, "Campus ID:", userCampusId);
-
       
       // Catalog products with differentiated pricing
       const catalogProducts = {

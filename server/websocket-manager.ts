@@ -189,7 +189,7 @@ class WebSocketManager {
         }
       }));
 
-      console.log(`✅ Usuario autenticado: ${user.email} (${user.role})`);
+      console.log(`✅ Usuario autenticado: user_id=${user.id} role=${user.role}`);
 
     } catch (error) {
       console.error('❌ Error autenticando usuario:', error);

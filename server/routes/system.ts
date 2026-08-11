@@ -116,7 +116,17 @@ export function registerSystemRoutes(app: Express): void {
 
 
   // Update profile photo
-  app.put("/api/profile/photo", authenticateToken, upload.single('photo'), async (req, res) => {
+  // Usa el patrón callback de multer para interceptar errores del fileFilter
+  // (MIME no permitido) y devolver 400 en lugar de dejar que lleguen al
+  // error handler global, que los convierte en 500 por falta de err.status.
+  app.put("/api/profile/photo", authenticateToken, (req, res, next) => {
+    upload.single("photo")(req, res, (err) => {
+      if (err) {
+        return res.status(400).json({ message: err.message });
+      }
+      next();
+    });
+  }, async (req, res) => {
     try {
       const userId = (req as any).user?.id;
       

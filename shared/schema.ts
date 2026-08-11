@@ -37,7 +37,13 @@ export const users = pgTable("users", {
   name: varchar("name", { length: 255 }).notNull(),
   role: varchar("role", { length: 50 }).notNull(), // 'administrador_general', 'administrador_campus', 'contador_general', 'auxiliar_contable', 'asistente', 'admisiones'
   telefono: varchar("telefono", { length: 20 }),
-  foto_url: varchar("foto_url", { length: 500 }),
+  // TEXT (sin límite): almacena la foto como data URI base64 directamente en la columna.
+  // varchar(500) era insuficiente para cualquier imagen real (incluso un thumbnail de
+  // 16×16 produce > 800 chars de base64). Decisión provisional: TEXT resuelve el
+  // problema hoy sin infraestructura nueva. Pendiente Fase 2: migrar a almacenamiento
+  // de objetos (S3/bucket) cuando se conecte el PAC de CFDI; en ese momento esta
+  // columna pasará a guardar solo la URL del objeto, no el contenido en base64.
+  foto_url: text("foto_url"),
   twofa_secret: varchar("twofa_secret", { length: 255 }),
   is_active: boolean("is_active").default(true),
   is_super_admin: boolean("is_super_admin").default(false),

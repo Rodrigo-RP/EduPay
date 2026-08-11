@@ -24,14 +24,25 @@ export const upload = multer({
   fileFilter: (req, file, cb) => {
     if (req.path === "/api/profile/photo") {
       const allowed = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
-      cb(null, allowed.includes(file.mimetype) ? true : (new Error("Solo imágenes (JPEG, PNG, GIF, WebP)") as any));
+      if (allowed.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        // cb(error) — primer argumento es el error; multer rechaza el archivo
+        // y devuelve 400 al cliente. La forma incorrecta cb(null, new Error(...))
+        // trata el objeto Error como truthy y lo acepta (bug original).
+        cb(new Error("Solo imágenes (JPEG, PNG, GIF, WebP)"));
+      }
     } else {
       const allowed = [
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "application/vnd.ms-excel",
         "text/csv",
       ];
-      cb(null, allowed.includes(file.mimetype) ? true : (new Error("Solo archivos Excel (.xlsx, .xls) o CSV (.csv)") as any));
+      if (allowed.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error("Solo archivos Excel (.xlsx, .xls) o CSV (.csv)"));
+      }
     }
   },
 });

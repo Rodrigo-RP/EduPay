@@ -2,15 +2,16 @@
  * TESTS — PUT /api/profile/photo (system.ts:119)
  *
  * Verifica con multipart/form-data real:
- *   PPH-01  camino feliz — PNG válido → 200, foto_url en DB, sin barras codificadas
+ *   PPH-01  camino feliz PNG válido → 200, foto_url en DB, sin chars base64 codificados
  *   PPH-02  sin archivo  → 400
- *   PPH-03  MIME no imagen → evidencia empírica del estado real del fileFilter
+ *   PPH-03  MIME no imagen → 400 (fileFilter corregido: cb(Error) en lugar de cb(null,Error))
  *   PPH-04  aislamiento de userId — subir con token de otro usuario NO muta el perfil propio
+ *   PPH-05  imagen de tamaño realista (~300 KB) → 200, persiste íntegra en DB (TEXT sin límite)
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { pool, db } from "../db";
-import { users, tenants, campuses } from "../../shared/schema";
+import { users } from "../../shared/schema";
 import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
@@ -18,47 +19,60 @@ import bcrypt from "bcrypt";
 const BASE = "http://localhost:5000";
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
 
-// ── Imagen sintética: 1×1 píxel PNG (67 bytes, válido según spec PNG) ─────────
-// Generado fuera de la suite; no depende de librerías de imagen externas.
+// ── Imagen sintética mínima: 1×1 px PNG (67 bytes) ───────────────────────────
+// Multer acepta por MIME type, no por contenido. Buffer válido para pruebas de upload.
 const PNG_1X1 = Buffer.from(
-  "89504e470d0a1a0a" +           // PNG signature
-  "0000000d49484452" +           // IHDR length + type
-  "00000001" +                   // width = 1
-  "00000001" +                   // height = 1
-  "08020000" +                   // bit depth=8, color=RGB, compression, filter, interlace
-  "009001" +                     // partial CRC placeholder
-  "7753de" +                     // rest of IHDR CRC
-  "0000000c" +                   // IDAT length
-  "49444154" +                   // IDAT type
-  "08d76360" +                   // zlib header + compressed pixel
-  "f8cfc000" +
-  "0000020001" +                 // remaining compressed + Adler-32
-  "e221bc33" +                   // IDAT CRC
-  "0000000049454e44" +           // IEND length + type
-  "ae426082",                    // IEND CRC
+  "89504e470d0a1a0a" +
+  "0000000d49484452" +
+  "00000001" +
+  "00000001" +
+  "08020000009077" +
+  "53de0000000c" +
+  "4944415408d7" +
+  "636860000000" +
+  "020001e221bc" +
+  "330000000049" +
+  "454e44ae426082",
   "hex",
 );
+
+// ── Imagen sintética "real": ~300 KB de datos JPEG simulados ─────────────────
+// No es un JPEG válido decodificable, pero multer y el endpoint no inspeccionan
+// el contenido — solo el MIME type declarado en el multipart. 307 200 bytes
+// producen ~409 KB de base64 + prefijo, muy por encima de los 500 chars de
+// varchar(500) original. Confirma que la migración a TEXT funciona.
+const JPEG_300K = (() => {
+  // Cabecera JPEG SOI + APP0 real (20 bytes) + relleno aleatorio-pero-determinista
+  const header = Buffer.from(
+    "ffd8ffe000104a464946000101000001000100",  // SOI + JFIF APP0 (19 bytes)
+    "hex",
+  );
+  // Relleno de 0xAB repetido hasta alcanzar ~300 KB total
+  const padding = Buffer.alloc(307200 - header.length, 0xab);
+  return Buffer.concat([header, padding]);
+})();
 
 // ── Estado compartido ─────────────────────────────────────────────────────────
 let testUserId: number;
 let testUserToken: string;
+let testCampusId: number;
+let testTenantId: number;
 let cleanupUserId2: number | null = null;
 
 // ── Fixture setup ─────────────────────────────────────────────────────────────
 beforeAll(async () => {
-  // Obtener tenant y campus reales (primer registro disponible)
   const { rows: tRows } = await pool.query<{ id: number }>(
     "SELECT id FROM tenants ORDER BY id LIMIT 1",
   );
   if (!tRows.length) throw new Error("No hay tenants en la DB de prueba");
-  const tenantId = tRows[0].id;
+  testTenantId = tRows[0].id;
 
   const { rows: cRows } = await pool.query<{ id: number }>(
     "SELECT id FROM campuses WHERE tenant_id = $1 LIMIT 1",
-    [tenantId],
+    [testTenantId],
   );
   if (!cRows.length) throw new Error("No hay campuses para el tenant");
-  const campusId = cRows[0].id;
+  testCampusId = cRows[0].id;
 
   const ts = Date.now().toString().slice(-8);
   const hash = await bcrypt.hash("TestPass123!", 10);
@@ -69,22 +83,15 @@ beforeAll(async () => {
       email: `photo_test_${ts}@test.com`,
       password_hash: hash,
       role: "administrador_campus",
-      campus_id: campusId,
-      tenant_id: tenantId,
+      campus_id: testCampusId,
+      tenant_id: testTenantId,
       nombre_completo: "Photo Test User",
     })
     .returning();
 
   testUserId = u.id;
   testUserToken = jwt.sign(
-    {
-      id: testUserId,
-      email: u.email,
-      role: u.role,
-      campus_id: campusId,
-      tenant_id: tenantId,
-      type: "user",
-    },
+    { id: testUserId, email: u.email, role: u.role, campus_id: testCampusId, tenant_id: testTenantId, type: "user" },
     JWT_SECRET,
     { expiresIn: "1h" },
   );
@@ -117,29 +124,27 @@ async function uploadPhoto(
 // ── Tests ─────────────────────────────────────────────────────────────────────
 describe("PUT /api/profile/photo — multipart/form-data real", () => {
 
-  it("PPH-01: PNG válido → 200, foto_url en DB es data URI, sin barras ni + ni = codificados", async () => {
+  it("PPH-01: PNG válido (67 B) → 200, foto_url en DB es data URI, sin %2F %2B %3D", async () => {
     const blob = new Blob([PNG_1X1], { type: "image/png" });
     const { status, body } = await uploadPhoto(blob, "avatar.png", testUserToken);
 
     expect(status).toBe(200);
     expect(body.foto_url).toMatch(/^data:image\/png;base64,/);
 
-    // Verificación en DB — la URL persiste correctamente
+    // Verificación en DB — persiste correctamente
     const [row] = await db
       .select({ foto_url: users.foto_url })
       .from(users)
       .where(eq(users.id, testUserId));
     expect(row.foto_url).toBe(body.foto_url);
 
-    // El sanitizador global no debe codificar los caracteres del base64
-    // (+, /, = son legales dentro de una data URI y no deben aparecer como %2B %2F %3D)
+    // El sanitizador global no debe URL-encodear los caracteres propios de base64
     expect(body.foto_url).not.toContain("%2F");
     expect(body.foto_url).not.toContain("%2B");
     expect(body.foto_url).not.toContain("%3D");
   });
 
-  it("PPH-02: sin archivo adjunto → 400", async () => {
-    // Multipart vacío — ningún campo 'photo'
+  it("PPH-02: multipart sin campo 'photo' → 400", async () => {
     const form = new FormData();
     const res = await fetch(`${BASE}/api/profile/photo`, {
       method: "PUT",
@@ -151,37 +156,15 @@ describe("PUT /api/profile/photo — multipart/form-data real", () => {
     expect(body.message).toMatch(/no se subió/i);
   });
 
-  it("PPH-03: MIME application/pdf → evidencia empírica del fileFilter real", async () => {
-    // El fileFilter llama cb(null, new Error(...)) para rechazar.
-    // new Error(...) es truthy — multer lo interpreta como cb(null, true) → acepta.
-    // Este test documenta el comportamiento REAL del endpoint, no el esperado.
+  it("PPH-03: MIME application/pdf → 400 (fileFilter rechaza con cb(Error))", async () => {
+    // Bug original: cb(null, new Error(...)) → Error es truthy → multer aceptaba.
+    // Fix: cb(new Error(...)) → multer rechaza con MulterError → Express devuelve 400.
     const blob = new Blob([Buffer.from("fake-pdf-content")], { type: "application/pdf" });
-    const { status, body } = await uploadPhoto(blob, "malicious.pdf", testUserToken);
-
-    // RESULTADO ESPERADO CORRECTO si el fileFilter funcionara: 400
-    // RESULTADO REAL (bug cb(null, Error) truthy): 200
-    // El test afirma lo que ocurre realmente para que quede como evidencia.
-    // Ver diagnóstico: shared.ts:27 usa cb(null, Error) en vez de cb(Error).
-    if (status === 200) {
-      // fileFilter roto — acepta cualquier MIME → reportar al usuario
-      expect(status).toBe(200); // documenta el bug, no lo silencia
-      // La foto_url contiene el base64 del "PDF"
-      expect(body.foto_url).toMatch(/^data:application\/pdf;base64,/);
-    } else {
-      // Si en alguna versión futura se corrige el fileFilter, debe devolver 400
-      expect(status).toBe(400);
-    }
+    const { status } = await uploadPhoto(blob, "malicious.pdf", testUserToken);
+    expect(status).toBe(400);
   });
 
   it("PPH-04: JWT de usuario B → actualiza perfil de B, no el de A (aislamiento)", async () => {
-    // Crear un segundo usuario temporal
-    const { rows: tRows } = await pool.query<{ id: number }>(
-      "SELECT id FROM tenants ORDER BY id LIMIT 1",
-    );
-    const { rows: cRows } = await pool.query<{ id: number }>(
-      "SELECT id FROM campuses WHERE tenant_id = $1 LIMIT 1",
-      [tRows[0].id],
-    );
     const ts = Date.now().toString().slice(-8);
     const hash = await bcrypt.hash("TestPass123!", 10);
     const [u2] = await db
@@ -190,26 +173,25 @@ describe("PUT /api/profile/photo — multipart/form-data real", () => {
         email: `photo_other_${ts}@test.com`,
         password_hash: hash,
         role: "administrador_campus",
-        campus_id: cRows[0].id,
-        tenant_id: tRows[0].id,
+        campus_id: testCampusId,
+        tenant_id: testTenantId,
         nombre_completo: "Other User",
       })
       .returning();
     cleanupUserId2 = u2.id;
 
     const token2 = jwt.sign(
-      { id: u2.id, email: u2.email, role: u2.role, campus_id: cRows[0].id, tenant_id: tRows[0].id, type: "user" },
+      { id: u2.id, email: u2.email, role: u2.role, campus_id: testCampusId, tenant_id: testTenantId, type: "user" },
       JWT_SECRET,
       { expiresIn: "1h" },
     );
 
-    // Leer foto_url actual de testUser antes de la subida ajena
+    // foto_url de testUser antes de la subida ajena
     const [before] = await db
       .select({ foto_url: users.foto_url })
       .from(users)
       .where(eq(users.id, testUserId));
 
-    // Subir con token de u2
     const blob = new Blob([PNG_1X1], { type: "image/png" });
     const { status } = await uploadPhoto(blob, "avatar.png", token2);
     expect(status).toBe(200);
@@ -221,12 +203,39 @@ describe("PUT /api/profile/photo — multipart/form-data real", () => {
       .where(eq(users.id, testUserId));
     expect(after.foto_url).toBe(before.foto_url);
 
-    // u2.foto_url sí cambió
+    // u2.foto_url sí se actualizó
     const [u2row] = await db
       .select({ foto_url: users.foto_url })
       .from(users)
       .where(eq(users.id, u2.id));
     expect(u2row.foto_url).toMatch(/^data:image\/png;base64,/);
+  });
+
+  it("PPH-05: imagen JPEG ~300 KB → 200, foto_url persiste íntegra en DB (columna TEXT, sin límite)", async () => {
+    // JPEG_300K tiene 307 200 bytes → base64 ≈ 409 600 chars + prefijo "data:image/jpeg;base64,"
+    // = ~409 623 chars. Muy por encima del varchar(500) original.
+    // Confirma que la migración 009 (varchar → TEXT) funciona y no hay truncamiento.
+    const blob = new Blob([JPEG_300K], { type: "image/jpeg" });
+    const { status, body } = await uploadPhoto(blob, "photo.jpg", testUserToken);
+
+    expect(status).toBe(200);
+    expect(body.foto_url).toMatch(/^data:image\/jpeg;base64,/);
+
+    // Longitud mínima esperada: prefijo (23) + base64 de 307200 bytes = ceil(307200/3)*4 = 409600
+    expect(body.foto_url.length).toBeGreaterThan(400_000);
+
+    // Verificación en DB — la columna TEXT almacena el valor completo sin truncar
+    const [row] = await db
+      .select({ foto_url: users.foto_url })
+      .from(users)
+      .where(eq(users.id, testUserId));
+
+    // Longitud en DB idéntica a la respuesta
+    expect(row.foto_url).not.toBeNull();
+    expect(row.foto_url!.length).toBe(body.foto_url.length);
+
+    // El contenido en DB es idéntico byte a byte (no truncado)
+    expect(row.foto_url).toBe(body.foto_url);
   });
 
 });

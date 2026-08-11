@@ -1,0 +1,48 @@
+Antes de tocar cualquiera de las 54 llamadas, necesito un ADR con las
+siguientes decisiones de diseño resueltas:
+
+1. Frescura del dato: ¿custom_permissions se lee del JWT (rápido, pero
+   puede quedar desactualizado si el admin revoca un permiso mientras la
+   sesión sigue activa — el mismo problema de #138 pero en la dirección
+   opuesta: aquí el riesgo es un permiso que YA NO debería tener siga
+   activo) o se consulta a la base de datos en cada request? Dame tu
+   recomendación. Mi instinto es que, si el propósito de este sistema es
+   dar control fino y revocable al administrador, la fuente de verdad
+   debe ser la base de datos, no el JWT — pero quiero tu análisis, no solo
+   mi instinto.
+
+2. Optimización de rendimiento: si eliges consultar la DB, propone un
+   diseño donde esa consulta solo ocurra en el camino donde el chequeo de
+   rol normal (ROLE_PERMISSIONS) ya habría denegado el acceso — es decir,
+   custom_permissions actúa como una excepción adicional que se evalúa
+   solo cuando el permiso base del rol no alcanza, no como una consulta
+   extra en cada request exitoso por rol. Confirma si esto es viable con
+   la arquitectura actual.
+
+3. Migración de las 54 llamadas sin romper ninguna: propone un mecanismo
+   donde no haya que editar el cuerpo de las 54 llamadas una por una a
+   mano. Por ejemplo, una función wrapper (hasPermissionForUser(user,
+   module, action, scope)) que internamente resuelva tanto el rol como
+   los custom_permissions, y que las 54 llamadas se migren a usarla de
+   forma mecánica (búsqueda y reemplazo verificable), no editadas a
+   criterio una por una.
+
+4. Verificación de que las 54 no cambiaron de comportamiento para
+   cualquier usuario SIN permisos personalizados (custom_permissions
+   vacío o null): esto debe comportarse exactamente igual que hoy. Propone
+   cómo lo vas a demostrar — por ejemplo, correr la suite completa antes y
+   después de la migración y confirmar que ningún test existente cambió de
+   resultado, no solo que sigue en verde.
+
+5. Formato real del dato: confirma con evidencia qué formato tienen hoy
+   los valores ya guardados en custom_permissions (los que insertó
+   Hallazgo 2, como "invoices.create") — ¿es siempre "modulo.accion" en
+   minúsculas, coincide 1:1 con los nombres de MODULES/ACTIONS de
+   permissions.ts, o hay alguna discrepancia de formato que haya que
+   normalizar antes de poder comparar contra algo real?
+
+6. Alcance del frontend: la UI del modal de permisos, ¿usa los mismos
+   nombres de módulo/acción que el backend, o tiene su propia lista que
+   habría que reconciliar?
+
+No escribas ni modifiques ningún código todavía. Solo el ADR completo.

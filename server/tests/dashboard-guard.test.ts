@@ -16,7 +16,7 @@
  *   administrador_campus  ✓ scope 'campus'
  *   contador_general      ✓ scope 'campus' — "dashboard financiero"
  *   auxiliar_contable     ✓ scope 'campus' — "dashboard básico"
- *   admisiones            ✓ scope 'campus'
+ *   admisiones            ✗ DASHBOARD.READ eliminado → 403
  *   asistente             ✓ scope 'campus'
  *   guardian              ✗ no está en ROLE_PERMISSIONS → 403
  *   (rol desconocido)     ✗ ídem
@@ -159,6 +159,11 @@ describe("DSH — Guard DASHBOARD.READ en GET /api/admin/dashboard/:campusId", (
       const r   = await getWith(tok);
       expect(r.status).toBe(403);
     });
+
+    it("DSH-08: admisiones GET /api/admin/dashboard → 403 (DASHBOARD.READ eliminado)", async () => {
+      const r = await getWith(tokenAdmisiones);
+      expect(r.status).toBe(403);
+    });
   });
 
   // ── CONTROL POSITIVO (todos los roles estándar tienen DASHBOARD.READ) ───────
@@ -183,12 +188,8 @@ describe("DSH — Guard DASHBOARD.READ en GET /api/admin/dashboard/:campusId", (
       await expectDashboard200(tokenContador, "contador_general");
     });
 
-    it("DSH-07: asistente → 200 con KPIs (permissions.ts concede DASHBOARD.READ)", async () => {
+    it("DSH-07: asistente → 200 con KPIs (DASHBOARD.READ intacto — regresión)", async () => {
       await expectDashboard200(tokenAsistente, "asistente");
-    });
-
-    it("DSH-08: admisiones → 200 con KPIs (permissions.ts concede DASHBOARD.READ)", async () => {
-      await expectDashboard200(tokenAdmisiones, "admisiones");
     });
 
     it("DSH-09: auxiliar_contable → 200 con KPIs", async () => {

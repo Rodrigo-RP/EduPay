@@ -308,7 +308,6 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
     name: 'Admisiones',
     description: 'Gestión de estudiantes, familias y proceso de admisión',
     permissions: [
-      { module: MODULES.DASHBOARD, action: ACTIONS.READ, scope: 'campus', description: 'Ver dashboard del campus' },
       { module: MODULES.STUDENTS, action: ACTIONS.CREATE, scope: 'campus', description: 'Crear estudiantes del campus' },
       { module: MODULES.STUDENTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver estudiantes del campus' },
       { module: MODULES.STUDENTS, action: ACTIONS.UPDATE, scope: 'campus', description: 'Editar estudiantes del campus' },

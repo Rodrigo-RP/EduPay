@@ -188,6 +188,7 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.PRODUCTS, action: ACTIONS.READ,      scope: 'campus', description: 'Ver catálogo de productos (precios por nivel) del campus' },
       { module: MODULES.PRODUCTS, action: ACTIONS.CONFIGURE, scope: 'campus', description: 'Gestionar catálogo de productos del campus' },
       { module: MODULES.FISCAL, action: ACTIONS.READ, scope: 'campus', description: 'Ver funcionalidad fiscal y contable' },
+      { module: MODULES.FISCAL, action: ACTIONS.CONFIGURE, scope: 'campus', description: 'Timbrar, cancelar y configurar CFDI del campus' },
       { module: MODULES.SYSTEM, action: ACTIONS.READ, scope: 'campus', description: 'Ver sistemas del campus' },
       { module: MODULES.SYSTEM, action: ACTIONS.IMPORT, scope: 'campus', description: 'Importar datos del campus' },
       { module: MODULES.SYSTEM, action: ACTIONS.APPROVE, scope: 'campus', description: 'Aprobar acciones del campus' },
@@ -237,6 +238,8 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.SYSTEM, action: ACTIONS.READ, scope: 'campus', description: 'Ver sistemas del campus' },
       { module: MODULES.SECURITY, action: ACTIONS.READ, scope: 'campus', description: 'Ver historial de auditoría del campus' },
       { module: MODULES.FINANCIAL, action: ACTIONS.READ, scope: 'campus', description: 'Ver análisis financiero y KPIs del campus' },
+      { module: MODULES.FISCAL, action: ACTIONS.READ, scope: 'campus', description: 'Ver información fiscal y CFDI del campus' },
+      { module: MODULES.FISCAL, action: ACTIONS.CONFIGURE, scope: 'campus', description: 'Timbrar, cancelar y configurar CFDI del campus' },
       { module: MODULES.CALENDAR, action: ACTIONS.READ, scope: 'campus', description: 'Ver eventos del calendario financiero del campus' },
       { module: MODULES.CALENDAR, action: ACTIONS.CREATE, scope: 'campus', description: 'Crear y completar eventos del calendario financiero del campus' }
     ],

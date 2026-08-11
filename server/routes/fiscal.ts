@@ -2,8 +2,8 @@ import type { Express } from "express";
 import { pool, db } from "../db";
 import { eq, and } from "drizzle-orm";
 import { storage } from "../storage";
-import { authenticateToken, esmRequire, checkCampusTenant } from "./shared";
-import { hasPermission, MODULES, ACTIONS } from "@shared/permissions";
+import { authenticateToken, esmRequire, checkCampusTenant, hasPermissionForUser} from "./shared";
+import { MODULES, ACTIONS } from "@shared/permissions";
 import { invoices, payments, charges, students } from "@shared/schema";
 import { z } from "zod";
 
@@ -11,7 +11,7 @@ export function registerFiscalRoutes(app: Express): void {
   app.get("/api/fiscal/pendientes-cfdi/:campusId", authenticateToken, async (req: any, res) => {
     try {
       const role = req.user?.role;
-      if (!hasPermission(role, MODULES.FISCAL, ACTIONS.READ)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para acceder a información fiscal" });
       }
       const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
@@ -45,7 +45,7 @@ export function registerFiscalRoutes(app: Express): void {
   app.post("/api/fiscal/timbrar-lote", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.FISCAL, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para ejecutar operaciones fiscales" });
       }
       const campusId = (req as any).user?.campus_id;
@@ -81,7 +81,7 @@ export function registerFiscalRoutes(app: Express): void {
   app.get("/api/fiscal", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.FISCAL, ACTIONS.READ)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para acceder a información fiscal" });
       }
       const campusId = (req as any).user?.campus_id;
@@ -94,7 +94,7 @@ export function registerFiscalRoutes(app: Express): void {
   app.get("/api/fiscal/pendientes-cfdi", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.FISCAL, ACTIONS.READ)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para acceder a información fiscal" });
       }
       const campusId = (req as any).user?.campus_id;
@@ -122,7 +122,7 @@ export function registerFiscalRoutes(app: Express): void {
   app.get("/api/fiscal/estadisticas-cfdi", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.FISCAL, ACTIONS.READ)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para acceder a información fiscal" });
       }
       const campusId = (req as any).user?.campus_id;
@@ -143,7 +143,7 @@ export function registerFiscalRoutes(app: Express): void {
   app.post("/api/fiscal/regenerar-cfdi/:id", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.FISCAL, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para ejecutar operaciones fiscales" });
       }
       const id = parseInt(req.params.id);
@@ -167,7 +167,7 @@ export function registerFiscalRoutes(app: Express): void {
   app.post("/api/fiscal/cancelar-cfdi", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.FISCAL, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para ejecutar operaciones fiscales" });
       }
       const { invoice_id, motivo } = req.body;
@@ -185,7 +185,7 @@ export function registerFiscalRoutes(app: Express): void {
   app.get("/api/fiscal/config-automatica", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.FISCAL, ACTIONS.READ)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para acceder a información fiscal" });
       }
       const campusId = (req as any).user?.campus_id;
@@ -198,7 +198,7 @@ export function registerFiscalRoutes(app: Express): void {
   app.put("/api/fiscal/config-automatica", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.FISCAL, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para ejecutar operaciones fiscales" });
       }
       const campusId = (req as any).user?.campus_id;
@@ -213,7 +213,7 @@ export function registerFiscalRoutes(app: Express): void {
   });
 
   app.get("/api/fiscal/estado-pac", authenticateToken, async (req, res) => {
-    if (!hasPermission((req as any).user?.role, MODULES.FISCAL, ACTIONS.READ)) {
+    if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.READ)) {
       return res.status(403).json({ message: "Sin permisos para acceder a información fiscal" });
     }
     res.json({ pac: "Facturama", estado: "conectado", ambiente: "sandbox", version: "3.3", timbres_disponibles: 500, timbres_usados: 0 });
@@ -222,7 +222,7 @@ export function registerFiscalRoutes(app: Express): void {
   app.post("/api/fiscal/configurar-pac", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.FISCAL, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para ejecutar operaciones fiscales" });
       }
       const campusId = (req as any).user?.campus_id;
@@ -234,7 +234,7 @@ export function registerFiscalRoutes(app: Express): void {
   app.get("/api/fiscal/reportes-contables", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.FISCAL, ACTIONS.READ)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para acceder a información fiscal" });
       }
       const campusId = (req as any).user?.campus_id;
@@ -259,7 +259,7 @@ export function registerFiscalRoutes(app: Express): void {
   app.post("/api/fiscal/generar-reporte-contable", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.FISCAL, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para ejecutar operaciones fiscales" });
       }
       const campusId = (req as any).user?.campus_id;
@@ -271,7 +271,7 @@ export function registerFiscalRoutes(app: Express): void {
   app.post("/api/fiscal/generar-reporte-sat", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.FISCAL, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para ejecutar operaciones fiscales" });
       }
       const campusId = (req as any).user?.campus_id;
@@ -295,7 +295,7 @@ export function registerFiscalRoutes(app: Express): void {
   app.post("/api/becas-auto/reglas", authenticateToken, async (req: any, res) => {
     try {
       const role = req.user?.role;
-      if (!hasPermission(role, MODULES.SCHOLARSHIPS, ACTIONS.ASSIGN)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.SCHOLARSHIPS, ACTIONS.ASSIGN)) {
         return res.status(403).json({ message: "Sin permisos para gestionar becas" });
       }
       const campusId = req.user?.campus_id;
@@ -314,7 +314,7 @@ export function registerFiscalRoutes(app: Express): void {
   app.delete("/api/becas-auto/reglas/:id", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.SCHOLARSHIPS, ACTIONS.ASSIGN)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.SCHOLARSHIPS, ACTIONS.ASSIGN)) {
         return res.status(403).json({ message: "Sin permisos para gestionar becas" });
       }
       const campusId = (req as any).user?.campus_id;
@@ -328,7 +328,7 @@ export function registerFiscalRoutes(app: Express): void {
   app.post("/api/becas-auto/ejecutar/:campusId", authenticateToken, async (req: any, res) => {
     try {
       const role = req.user?.role;
-      if (!hasPermission(role, MODULES.SCHOLARSHIPS, ACTIONS.ASSIGN)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.SCHOLARSHIPS, ACTIONS.ASSIGN)) {
         return res.status(403).json({ message: "Sin permisos para gestionar becas" });
       }
       const campusId = parseInt(req.params.campusId) || req.user?.campus_id;

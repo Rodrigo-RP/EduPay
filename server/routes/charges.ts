@@ -3,8 +3,8 @@ import { pool, db } from "../db";
 import { enqueueAuditLog } from "../audit-retry";
 import { eq, and, gte, lt } from "drizzle-orm";
 import { storage } from "../storage";
-import { authenticateToken, requireAuth, checkCampusTenant, upload } from "./shared";
-import { hasPermission, MODULES, ACTIONS } from "@shared/permissions";
+import { authenticateToken, requireAuth, checkCampusTenant, upload, hasPermissionForUser} from "./shared";
+import { MODULES, ACTIONS } from "@shared/permissions";
 import { students, guardians, student_guardian, charges, payments, concepts, scholarships, payment_due_dates, payment_surcharge_rules, invoices } from "@shared/schema";
 import { insertChargeSchema } from "@shared/schema";
 import { getAcademicLevel } from "@shared/academic-levels";
@@ -28,7 +28,7 @@ export function registerChargesRoutes(app: Express): void {
   app.post("/api/admin/concepts", authenticateToken, async (req: any, res) => {
     try {
       const role = req.user?.role;
-      if (!hasPermission(role, MODULES.CONCEPTS, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.CONCEPTS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para gestionar conceptos" });
       }
       // campus_id y tenant_id SIEMPRE del JWT — nunca del body (previene cross-tenant)
@@ -54,7 +54,7 @@ export function registerChargesRoutes(app: Express): void {
   // Bulk create charges
   app.post("/api/admin/charges/bulk", authenticateToken, async (req, res) => {
     try {
-      if (!hasPermission((req as any).user?.role, MODULES.CHARGES, ACTIONS.CREATE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.CHARGES, ACTIONS.CREATE)) {
         return res.status(403).json({ message: "Sin permisos para crear cargos en masa" });
       }
       const { campus_id, concept_id, ciclo_escolar, fecha_vencimiento } = req.body;
@@ -123,7 +123,7 @@ export function registerChargesRoutes(app: Express): void {
   // /api/admin/cargos — base GET (alias de listado de cargos para cache invalidation)
   app.get("/api/admin/cargos", authenticateToken, async (req: any, res: any) => {
     try {
-      if (!hasPermission(req.user?.role, MODULES.CHARGES, ACTIONS.READ)) {
+      if (!hasPermissionForUser(req.user, MODULES.CHARGES, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para ver cargos" });
       }
       const campusId = req.user?.campus_id;
@@ -134,7 +134,7 @@ export function registerChargesRoutes(app: Express): void {
 
   app.get("/api/admin/cargos/estadisticas", authenticateToken, async (req: any, res: any) => {
     try {
-      if (!hasPermission(req.user?.role, MODULES.CHARGES, ACTIONS.READ)) {
+      if (!hasPermissionForUser(req.user, MODULES.CHARGES, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para ver estadísticas de cargos" });
       }
       const campusId = req.user.campus_id;
@@ -158,7 +158,7 @@ export function registerChargesRoutes(app: Express): void {
   // Generate monthly charges for all active students
   app.post("/api/admin/cargos/generar-mensual", authenticateToken, async (req: any, res: any) => {
     try {
-      if (!hasPermission(req.user?.role, MODULES.CHARGES, ACTIONS.CREATE)) {
+      if (!hasPermissionForUser(req.user, MODULES.CHARGES, ACTIONS.CREATE)) {
         return res.status(403).json({ message: "Sin permisos para generar cargos mensuales" });
       }
       const campusId = req.user.campus_id;
@@ -198,7 +198,7 @@ export function registerChargesRoutes(app: Express): void {
   app.post("/api/admin/cargos/extraordinario", authenticateToken, async (req: any, res: any) => {
     try {
       const role = req.user?.role;
-      if (!hasPermission(role, MODULES.CHARGES, ACTIONS.CREATE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.CHARGES, ACTIONS.CREATE)) {
         return res.status(403).json({ message: "Sin permisos para crear cargos" });
       }
       const campusId = req.user.campus_id;
@@ -259,7 +259,7 @@ export function registerChargesRoutes(app: Express): void {
   // Get overdue students list
   app.get("/api/admin/cargos/morosos", authenticateToken, async (req: any, res: any) => {
     try {
-      if (!hasPermission(req.user?.role, MODULES.CHARGES, ACTIONS.READ)) {
+      if (!hasPermissionForUser(req.user, MODULES.CHARGES, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para ver morosos" });
       }
       const campusId = req.user.campus_id;
@@ -288,7 +288,7 @@ export function registerChargesRoutes(app: Express): void {
   app.post("/api/admin/cargos/aplicar-recargos", authenticateToken, async (req: any, res: any) => {
     try {
       const role = req.user?.role;
-      if (!hasPermission(role, MODULES.PAYMENTS, ACTIONS.PROCESS)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.PAYMENTS, ACTIONS.PROCESS)) {
         return res.status(403).json({ message: "Sin permisos para procesar pagos" });
       }
       const campusId = req.user.campus_id;
@@ -327,7 +327,7 @@ export function registerChargesRoutes(app: Express): void {
   // Apply charges from catalog with automatic academic level pricing
   app.post("/api/admin/cargos/desde-catalogo", authenticateToken, async (req: any, res: any) => {
     try {
-      if (!hasPermission(req.user?.role, MODULES.CHARGES, ACTIONS.CREATE)) {
+      if (!hasPermissionForUser(req.user, MODULES.CHARGES, ACTIONS.CREATE)) {
         return res.status(403).json({ message: "Sin permisos para aplicar cargos desde catálogo" });
       }
       const { producto_id, fecha_vencimiento } = req.body;
@@ -447,7 +447,7 @@ export function registerChargesRoutes(app: Express): void {
   app.post("/api/admin/charges/:chargeId/pagar-manual", authenticateToken, async (req: any, res) => {
     try {
       const role = req.user?.role;
-      if (!hasPermission(role, MODULES.CHARGES, ACTIONS.UPDATE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.CHARGES, ACTIONS.UPDATE)) {
         return res.status(403).json({ message: "Sin permisos para modificar cargos" });
       }
       const tenantId = req.user?.tenant_id;

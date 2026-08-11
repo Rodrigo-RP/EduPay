@@ -3,8 +3,8 @@ import { pool, db } from "../db";
 import { enqueueAuditLog } from "../audit-retry";
 import { eq, and, gte, lt } from "drizzle-orm";
 import { storage } from "../storage";
-import { authenticateToken, requireAuth, authenticateGuardian, checkCampusTenant, upload, esmRequire, JWT_SECRET } from "./shared";
-import { hasPermission, MODULES, ACTIONS } from "@shared/permissions";
+import { authenticateToken, requireAuth, authenticateGuardian, checkCampusTenant, upload, esmRequire, JWT_SECRET, hasPermissionForUser} from "./shared";
+import { MODULES, ACTIONS } from "@shared/permissions";
 import { students, guardians, student_guardian, charges, payments, concepts, scholarships, invoices, payment_rules, late_fee_calculations } from "@shared/schema";
 import { insertPaymentSchema } from "@shared/schema";
 import { getAcademicLevel } from "@shared/academic-levels";
@@ -586,7 +586,7 @@ export function registerPaymentRoutes(app: Express): void {
   app.get("/api/export/:type", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.REPORTS, ACTIONS.EXPORT)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.REPORTS, ACTIONS.EXPORT)) {
         return res.status(403).json({ message: "No tienes permiso para exportar datos" });
       }
       const { type } = req.params;

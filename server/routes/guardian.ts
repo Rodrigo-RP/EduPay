@@ -3,8 +3,8 @@ import { pool, db } from "../db";
 import { enqueueAuditLog } from "../audit-retry";
 import { eq, and, gte, lt, count } from "drizzle-orm";
 import { storage } from "../storage";
-import { authenticateToken, requireAuth, requireSuperAdmin, authenticateGuardian, checkCampusTenant, upload, esmRequire, JWT_SECRET } from "./shared";
-import { hasPermission, MODULES, ACTIONS } from "@shared/permissions";
+import { authenticateToken, requireAuth, requireSuperAdmin, authenticateGuardian, checkCampusTenant, upload, esmRequire, JWT_SECRET, hasPermissionForUser} from "./shared";
+import { MODULES, ACTIONS } from "@shared/permissions";
 import { students, guardians, student_guardian, charges, payments, concepts, scholarships, invoices, payment_due_dates, payment_surcharge_rules, families, family_students, payment_applications, payment_events, institutional_credentials, institutional_info } from "@shared/schema";
 import { insertPaymentSchema, insertChargeSchema } from "@shared/schema";
 import { getAcademicLevel } from "@shared/academic-levels";
@@ -527,7 +527,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   app.get("/api/charges/export", authenticateToken, async (req: any, res: any) => {
     try {
       const role = req.user?.role;
-      if (!hasPermission(role, MODULES.REPORTS, ACTIONS.EXPORT)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.REPORTS, ACTIONS.EXPORT)) {
         return res.status(403).json({ message: "No tienes permiso para exportar datos" });
       }
       const { format = 'excel', status = 'all' } = req.query;
@@ -1039,7 +1039,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   app.post("/api/profile/institutional-info", authenticateToken, async (req, res) => {
     try {
       // ── Guard de rol ──────────────────────────────────────────────────────
-      if (!hasPermission((req as any).user?.role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para modificar la información institucional" });
       }
 
@@ -1088,7 +1088,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   app.put("/api/profile/institutional-info/:id", authenticateToken, async (req, res) => {
     try {
       // ── Guard de rol ──────────────────────────────────────────────────────
-      if (!hasPermission((req as any).user?.role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para modificar la información institucional" });
       }
 
@@ -1128,7 +1128,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   app.delete("/api/profile/institutional-info/:id", authenticateToken, async (req, res) => {
     try {
       // ── Guard de rol ──────────────────────────────────────────────────────
-      if (!hasPermission((req as any).user?.role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para modificar la información institucional" });
       }
 
@@ -1256,7 +1256,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   app.post("/api/concepts", authenticateToken, async (req: any, res) => {
     try {
       const role = req.user?.role;
-      if (!hasPermission(role, MODULES.CONCEPTS, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.CONCEPTS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para gestionar conceptos" });
       }
       // campus_id y tenant_id SIEMPRE del JWT — nunca del body
@@ -1288,7 +1288,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   app.put("/api/concepts/:id", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.CONCEPTS, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.CONCEPTS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para gestionar conceptos" });
       }
       const campusId = (req as any).user.campus_id;
@@ -1310,7 +1310,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   app.delete("/api/concepts/:id", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.CONCEPTS, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.CONCEPTS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para gestionar conceptos" });
       }
       const campusId = (req as any).user.campus_id;
@@ -1375,7 +1375,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   app.get("/api/payment-config/due-dates-complete", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.SETTINGS, ACTIONS.READ)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.SETTINGS, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para ver configuración de fechas de vencimiento" });
       }
       const campusId = (req as any).user.campus_id;
@@ -1413,7 +1413,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   app.post("/api/payment-config/due-dates-complete", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para gestionar fechas de vencimiento" });
       }
       const campusId = (req as any).user.campus_id;
@@ -1452,7 +1452,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   app.put("/api/payment-config/due-dates-complete/:id", authenticateToken, async (req: any, res) => {
     try {
       const role = req.user?.role;
-      if (!hasPermission(role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para gestionar fechas de vencimiento" });
       }
       const dueDateId = parseInt(req.params.id);
@@ -1503,7 +1503,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   app.delete("/api/payment-config/due-dates-complete/:id", authenticateToken, async (req: any, res) => {
     try {
       const role = req.user?.role;
-      if (!hasPermission(role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para gestionar fechas de vencimiento" });
       }
       const dueDateId = parseInt(req.params.id);
@@ -1571,7 +1571,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
   app.post("/api/payment-config/surcharge-rules-complete", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para gestionar reglas de recargo" });
       }
       const campusId = (req as any).user.campus_id;
@@ -1640,7 +1640,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       if (!ruleId || isNaN(ruleId)) return res.status(400).json({ message: "ID inválido" });
 
       // ── Guard de rol ──────────────────────────────────────────────────────
-      if (!hasPermission((req as any).user?.role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para configurar reglas de recargo" });
       }
 
@@ -1736,7 +1736,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       const campusId = req.user?.campus_id;
 
       // ── Guard de rol ──────────────────────────────────────────────────────
-      if (!hasPermission(req.user?.role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser(req.user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para configurar reglas de recargo" });
       }
       if (!campusId) return res.status(400).json({ message: "Campus requerido" });
@@ -1914,7 +1914,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       if (!campusId) return res.status(400).json({ message: "Campus requerido" });
 
       // ── Guard de rol ──────────────────────────────────────────────────────
-      if (!hasPermission(req.user?.role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser(req.user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para configurar reglas de recargo" });
       }
 
@@ -1962,7 +1962,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       if (!campusId) return res.status(400).json({ message: "Campus requerido" });
 
       // ── Guard de rol ──────────────────────────────────────────────────────
-      if (!hasPermission(req.user?.role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser(req.user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para configurar reglas de recargo" });
       }
 

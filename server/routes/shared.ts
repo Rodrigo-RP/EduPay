@@ -10,6 +10,7 @@ import multer from "multer";
 import { createRequire } from "module";
 import { storage } from "../storage";
 import { pool } from "../db";
+import { hasPermission } from "@shared/permissions";
 
 // ── createRequire para paquetes CJS en módulo ESM ────────────────────────────
 // "type":"module" en package.json rompe require(); usar esmRequire en su lugar.
@@ -47,6 +48,24 @@ export const upload = multer({
   },
 });
 
+// ── Helper: cargar custom_permissions desde DB ───────────────────────────────
+// Decisión 1 ADR-003: la fuente de verdad es la DB, no el JWT.
+// La revocación tiene efecto inmediato sin esperar la expiración del token.
+// Si el usuario no existe en DB o la consulta falla, devuelve [] (no rompe auth).
+async function loadCustomPermissions(userId: number | undefined): Promise<string[]> {
+  if (!userId) return [];
+  try {
+    const row = await pool.query(
+      `SELECT custom_permissions FROM users WHERE id = $1 LIMIT 1`,
+      [userId]
+    );
+    const raw = (row.rows[0] as any)?.custom_permissions;
+    return Array.isArray(raw) ? raw : [];
+  } catch {
+    return [];
+  }
+}
+
 // ── Middleware: autenticación de usuarios (admin/staff) ──────────────────────
 export const authenticateToken = async (req: any, res: any, next: any) => {
   const authHeader = req.headers["authorization"];
@@ -54,7 +73,10 @@ export const authenticateToken = async (req: any, res: any, next: any) => {
   if (!token) return res.status(401).json({ message: "Token requerido" });
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
-    req.user = decoded;
+    // Enriquecer req.user con custom_permissions leídos de DB (Decisión 1 ADR-003).
+    // El JWT puede estar desactualizado; la DB siempre refleja el estado vigente.
+    const customPermissions = await loadCustomPermissions(decoded.id);
+    req.user = { ...decoded, custom_permissions: customPermissions };
     req.tenantId = decoded.tenant_id ?? null;
     next();
   } catch {
@@ -86,7 +108,9 @@ export const requireAuth = async (req: any, res: any, next: any) => {
   const token = authHeader.split(" ")[1];
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
-    req.user = decoded;
+    // Misma fuente de verdad que authenticateToken (Decisión 1 ADR-003).
+    const customPermissions = await loadCustomPermissions(decoded.id);
+    req.user = { ...decoded, custom_permissions: customPermissions };
     req.tenantId = decoded.tenant_id ?? null;
     next();
   } catch {
@@ -139,4 +163,31 @@ export async function checkCampusTenant(
     return false;
   }
   return true;
+}
+
+// ── hasPermissionForUser ─────────────────────────────────────────────────────
+// Decisión 2 ADR-003: extiende hasPermission con custom_permissions por usuario.
+//
+// Orden de evaluación:
+//   1. hasPermission(user.role, module, action, scope) — permisos del rol base.
+//      Si retorna true, acceso garantizado (comportamiento preexistente intacto).
+//   2. Si el rol no concede acceso, busca "${module}.${action}" en
+//      user.custom_permissions (array cargado desde DB por authenticateToken).
+//      Permite granularidad individual sin cambiar el rol.
+//
+// Ningún usuario con permisos solo por rol pierde acceso.
+// Ningún usuario con custom_permissions ganará acceso si el rol ya lo concede
+// (sin efecto duplicado).
+export function hasPermissionForUser(
+  user: any,
+  module: string,
+  action: string,
+  scope?: string
+): boolean {
+  // 1. Evaluación por rol base (sistema preexistente, intacto)
+  if (hasPermission(user?.role, module, action, scope)) return true;
+  // 2. Evaluación por permiso custom explícito
+  const key = `${module}.${action}`;
+  return Array.isArray(user?.custom_permissions) &&
+    user.custom_permissions.includes(key);
 }

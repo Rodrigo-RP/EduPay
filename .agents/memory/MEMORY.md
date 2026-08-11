@@ -1,4 +1,5 @@
 - [Audit Protocol](audit-protocol.md) — checklist E2E + Modo Auditoría requerido antes de marcar cualquier tarea crítica como finalizada.
+- [ADR-003 custom_permissions migration](adr003-custom-permissions.md) — hasPermissionForUser + DB enrichment en authenticateToken; 88 llamadas migradas; resetApiAuthRateLimitStore para tests.
 - [ADR-002 planes de pago](adr-002-planes-pago.md) — charges con plan_id FK; helpers getOrCreateCuotaPlanConcept + generarCuotaCharges; cancelar requiere destino_saldo_pendiente para reestructuracion.
 - [Pago manual admin](pago-manual-admin.md) — /api/admin/charges/:id/pagar-manual es genérico para cualquier charge; guardian/pagar + payments/process + caja/pago-efectivo ahora también escriben payment_applications (fix completo).
 - [Payment atomicity pattern](payment-atomicity.md) — patrón canónico para endpoints de pago: BEGIN → SELECT FOR UPDATE → saldo real → INSERT payment → INSERT payment_application → UPDATE charges → COMMIT; audit fuera de txn (ADR-001).

@@ -113,6 +113,7 @@ const createRateLimit = (
 
 const _paymentLimiterStore = new MemoryStore();
 const _authLimiterStore    = new MemoryStore();
+const _apiAuthLimiterStore = new MemoryStore();
 
 /** Resetea el bucket del rate-limiter de /api/guardian/pagar para tests. */
 export function resetPaymentRateLimitStore(): void {
@@ -130,6 +131,16 @@ export function resetLoginRateLimitStore(): void {
   void _authLimiterStore.resetKey('::ffff:127.0.0.1');
 }
 
+/** Resetea el bucket del rate-limiter de /api/admin y /api/super-admin para tests.
+ *  Úsalo en beforeAll de cualquier test file que agregue peticiones admin para
+ *  evitar que corridas consecutivas acumulen el contador y generen 429 inesperados.
+ */
+export function resetApiAuthRateLimitStore(): void {
+  void _apiAuthLimiterStore.resetKey('::1');
+  void _apiAuthLimiterStore.resetKey('127.0.0.1');
+  void _apiAuthLimiterStore.resetKey('::ffff:127.0.0.1');
+}
+
 // Diferentes límites según el endpoint
 export const rateLimits = {
   general:   createRateLimit(15 * 60 * 1000, 100, 'Demasiadas solicitudes generales'),
@@ -143,7 +154,8 @@ export const rateLimits = {
   // no de barrera de autenticación. 300 req/5min ≈ 1 req/s sostenido — muy por
   // encima del uso legítimo y de la suite (~32 req/corrida × 2 corridas = 64),
   // pero frenará cualquier script automatizado que abuse del mismo token.
-  apiAuth:   createRateLimit(5  * 60 * 1000, 300, 'Demasiadas solicitudes a la API autenticada'),
+  // store explícito → permite resetear el bucket en tests (resetApiAuthRateLimitStore).
+  apiAuth:   createRateLimit(5  * 60 * 1000, 300, 'Demasiadas solicitudes a la API autenticada', _apiAuthLimiterStore),
 };
 
 // ========================================

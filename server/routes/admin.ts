@@ -3,8 +3,8 @@ import { pool, db } from "../db";
 import { enqueueAuditLog } from "../audit-retry";
 import { eq, and, gte, lt } from "drizzle-orm";
 import { storage } from "../storage";
-import { authenticateToken, requireAuth, requireSuperAdmin, checkCampusTenant, serializeUser, upload, esmRequire, authenticateGuardian } from "./shared";
-import { hasPermission, MODULES, ACTIONS } from "@shared/permissions";
+import { authenticateToken, requireAuth, requireSuperAdmin, checkCampusTenant, serializeUser, upload, esmRequire, authenticateGuardian, hasPermissionForUser} from "./shared";
+import { MODULES, ACTIONS } from "@shared/permissions";
 import { students, guardians, student_guardian, charges, payments, concepts, scholarships, invoices, institutional_info, institutional_credentials, payment_due_dates, payment_surcharge_rules } from "@shared/schema";
 import { insertInstitutionalInfoSchema } from "@shared/schema";
 import { getAcademicLevel } from "@shared/academic-levels";
@@ -67,7 +67,7 @@ export function registerAdminRoutes(app: Express): void {
   app.get("/api/admin/dashboard/:campusId", requireAuth, async (req: any, res) => {
     try {
       const role = req.user?.role;
-      if (!hasPermission(role, MODULES.DASHBOARD, ACTIONS.READ)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.DASHBOARD, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para ver el dashboard" });
       }
       const campusId = parseInt(req.params.campusId);
@@ -245,7 +245,7 @@ export function registerAdminRoutes(app: Express): void {
   app.get("/api/admin/students", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.STUDENTS, ACTIONS.READ)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.STUDENTS, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para ver alumnos" });
       }
       const campusId = (req as any).user?.campus_id;
@@ -264,7 +264,7 @@ export function registerAdminRoutes(app: Express): void {
     try {
       const campusId = parseInt(req.params.campusId);
       if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
-      if (!hasPermission(req.user?.role, MODULES.STUDENTS, ACTIONS.READ)) {
+      if (!hasPermissionForUser(req.user, MODULES.STUDENTS, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para ver alumnos" });
       }
       const students = await storage.getStudentsByCampus(campusId);
@@ -277,7 +277,7 @@ export function registerAdminRoutes(app: Express): void {
   // Get guardians by campus — requiere autenticación y campus del tenant
   app.get("/api/admin/guardians/:campusId", authenticateToken, async (req: any, res) => {
     try {
-      if (!hasPermission(req.user?.role, MODULES.FAMILIES, ACTIONS.READ)) {
+      if (!hasPermissionForUser(req.user, MODULES.FAMILIES, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para ver tutores" });
       }
       const campusId = parseInt(req.params.campusId);
@@ -293,7 +293,7 @@ export function registerAdminRoutes(app: Express): void {
   app.get("/api/students", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.STUDENTS, ACTIONS.READ)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.STUDENTS, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para ver alumnos" });
       }
       const campusId = (req as any).user?.campus_id;
@@ -312,7 +312,7 @@ export function registerAdminRoutes(app: Express): void {
   // Get payments (real data from database)
   app.get("/api/payments", authenticateToken, async (req, res) => {
     try {
-      if (!hasPermission((req as any).user?.role, MODULES.PAYMENTS, ACTIONS.READ)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.PAYMENTS, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para ver pagos" });
       }
       const campusId = (req as any).user?.campus_id;
@@ -331,7 +331,7 @@ export function registerAdminRoutes(app: Express): void {
   // Get charges (real data from database)
   app.get("/api/charges", authenticateToken, async (req, res) => {
     try {
-      if (!hasPermission((req as any).user?.role, MODULES.CHARGES, ACTIONS.READ)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.CHARGES, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para ver cargos" });
       }
       const campusId = (req as any).user?.campus_id;
@@ -350,7 +350,7 @@ export function registerAdminRoutes(app: Express): void {
   // Get accounts receivable with detailed student and guardian information
   app.get("/api/accounts-receivable", authenticateToken, async (req, res) => {
     try {
-      if (!hasPermission((req as any).user?.role, MODULES.RECEIVABLES, ACTIONS.READ)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.RECEIVABLES, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para ver cuentas por cobrar" });
       }
       const campusId = (req as any).user?.campus_id;
@@ -373,7 +373,7 @@ export function registerAdminRoutes(app: Express): void {
       // Este endpoint nunca llegó a auditarse porque estaba roto por tabla
       // inexistente (scholarship_types). Ahora que la tabla existe, se aplica
       // el guard que corresponde: SCHOLARSHIPS.READ (ver permissions.ts).
-      if (!hasPermission((req as any).user?.role, MODULES.SCHOLARSHIPS, ACTIONS.READ)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.SCHOLARSHIPS, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para consultar becas" });
       }
 
@@ -421,7 +421,7 @@ export function registerAdminRoutes(app: Express): void {
   // con su historia de pagos, y un resumen numérico.
   app.get("/api/students/:studentId/estado-cuenta", authenticateToken, async (req: any, res) => {
     try {
-      if (!hasPermission(req.user?.role, MODULES.CHARGES, ACTIONS.READ)) {
+      if (!hasPermissionForUser(req.user, MODULES.CHARGES, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para ver estado de cuenta" });
       }
       const studentId = parseInt(req.params.studentId);
@@ -516,7 +516,7 @@ export function registerAdminRoutes(app: Express): void {
     try {
       // ── Guard de rol ──────────────────────────────────────────────────────
       // Mismo caso que /api/scholarships: nunca auditado por tabla inexistente.
-      if (!hasPermission(req.user?.role, MODULES.ADMISSIONS, ACTIONS.READ)) {
+      if (!hasPermissionForUser(req.user, MODULES.ADMISSIONS, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para consultar reportes de admisiones" });
       }
 
@@ -604,7 +604,7 @@ export function registerAdminRoutes(app: Express): void {
   app.post("/api/admin/students", authenticateToken, async (req, res) => {
     try {
       const user = (req as any).user;
-      if (!hasPermission(user?.role, MODULES.STUDENTS, ACTIONS.CREATE)) {
+      if (!hasPermissionForUser(user, MODULES.STUDENTS, ACTIONS.CREATE)) {
         return res.status(403).json({ message: "Sin permisos para crear alumnos" });
       }
       const studentData = req.body;
@@ -634,7 +634,7 @@ export function registerAdminRoutes(app: Express): void {
    */
   app.patch("/api/admin/students/:studentId", authenticateToken, async (req: any, res) => {
     try {
-      if (!hasPermission(req.user?.role, MODULES.STUDENTS, ACTIONS.UPDATE)) {
+      if (!hasPermissionForUser(req.user, MODULES.STUDENTS, ACTIONS.UPDATE)) {
         return res.status(403).json({ message: "Sin permisos para editar alumnos" });
       }
       const studentId = parseInt(req.params.studentId);
@@ -698,7 +698,7 @@ export function registerAdminRoutes(app: Express): void {
    */
   app.get("/api/admin/students/:studentId/guardians", authenticateToken, async (req: any, res) => {
     try {
-      if (!hasPermission(req.user?.role, MODULES.FAMILIES, ACTIONS.READ)) {
+      if (!hasPermissionForUser(req.user, MODULES.FAMILIES, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para ver tutores del alumno" });
       }
       const studentId = parseInt(req.params.studentId);
@@ -749,7 +749,7 @@ export function registerAdminRoutes(app: Express): void {
    */
   app.patch("/api/admin/students/:studentId/guardians/:guardianId", authenticateToken, async (req: any, res) => {
     try {
-      if (!hasPermission(req.user?.role, MODULES.FAMILIES, ACTIONS.UPDATE)) {
+      if (!hasPermissionForUser(req.user, MODULES.FAMILIES, ACTIONS.UPDATE)) {
         return res.status(403).json({ message: "Sin permisos para editar responsabilidad de tutores" });
       }
       const studentId  = parseInt(req.params.studentId);
@@ -825,7 +825,7 @@ export function registerAdminRoutes(app: Express): void {
       const campusId = parseInt(req.params.campusId);
       if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
       const role = req.user?.role;
-      if (!hasPermission(role, MODULES.REPORTS, ACTIONS.EXPORT)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.REPORTS, ACTIONS.EXPORT)) {
         return res.status(403).json({ message: "No tienes permiso para exportar datos" });
       }
       const format = req.query.format as string || 'xlsx';
@@ -882,7 +882,7 @@ export function registerAdminRoutes(app: Express): void {
   app.post("/api/admin/students/import", authenticateToken, upload.single('file'), async (req, res) => {
     try {
       const user = (req as any).user;
-      if (!hasPermission(user?.role, MODULES.STUDENTS, ACTIONS.IMPORT)) {
+      if (!hasPermissionForUser(user, MODULES.STUDENTS, ACTIONS.IMPORT)) {
         return res.status(403).json({ message: "Sin permisos para importar alumnos" });
       }
       const file = req.file;
@@ -1025,7 +1025,7 @@ export function registerAdminRoutes(app: Express): void {
   app.post("/api/admin/family-credits/:creditId/aplicar", authenticateToken, async (req: any, res) => {
     try {
       const role = req.user?.role;
-      if (!hasPermission(role, MODULES.PAYMENTS, ACTIONS.PROCESS)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.PAYMENTS, ACTIONS.PROCESS)) {
         return res.status(403).json({ message: "Sin permisos para procesar pagos" });
       }
       const tenantId  = req.user?.tenant_id;

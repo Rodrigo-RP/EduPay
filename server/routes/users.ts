@@ -7,10 +7,10 @@ import { db, pool } from "../db";
 import { eq, and } from "drizzle-orm";
 import { users, institutional_info, institutional_credentials, guardians } from "@shared/schema";
 import { insertUserSchema, insertGuardianSchema, insertInstitutionalInfoSchema } from "@shared/schema";
-import { canEditUser, hasPermission, MODULES, ACTIONS, UserRole } from "@shared/permissions";
+import { canEditUser,MODULES, ACTIONS, UserRole } from "@shared/permissions";
 import { storage } from "../storage";
 import { wsManager } from "../websocket-manager";
-import { authenticateToken, authenticateGuardian, requireSuperAdmin, serializeUser, esmRequire, JWT_SECRET } from "./shared";
+import { authenticateToken, authenticateGuardian, requireSuperAdmin, serializeUser, esmRequire, JWT_SECRET, hasPermissionForUser} from "./shared";
 import { enqueueAuditLog, type AuditLogPayload } from "../audit-retry";
 
 // ── Generador de contraseñas criptográficamente seguro ────────────────────────
@@ -199,7 +199,7 @@ export function registerUserRoutes(app: Express): void {
     try {
       const user = (req as any).user;
 
-      if (!hasPermission(user.role, MODULES.USERS, ACTIONS.READ)) {
+      if (!hasPermissionForUser(user, MODULES.USERS, ACTIONS.READ)) {
         return res.status(403).json({ message: "No tienes permiso para ver usuarios" });
       }
 
@@ -232,7 +232,7 @@ export function registerUserRoutes(app: Express): void {
       const { name, email, password_hash, role, telefono, foto_url, is_active, is_super_admin, platform_permissions, custom_permissions } = req.body;
       
       // SEGURIDAD: Verificar permiso de módulo ANTES de evaluar jerarquía
-      if (!hasPermission(user.role, MODULES.USERS, ACTIONS.CREATE)) {
+      if (!hasPermissionForUser(user, MODULES.USERS, ACTIONS.CREATE)) {
         return res.status(403).json({ message: "No tienes permiso para crear usuarios" });
       }
 
@@ -297,7 +297,7 @@ export function registerUserRoutes(app: Express): void {
       }
       
       // SEGURIDAD: Verificar permiso de módulo ANTES de evaluar jerarquía
-      if (!hasPermission(user.role, MODULES.USERS, ACTIONS.UPDATE)) {
+      if (!hasPermissionForUser(user, MODULES.USERS, ACTIONS.UPDATE)) {
         return res.status(403).json({ message: "No tienes permiso para editar usuarios" });
       }
 
@@ -412,7 +412,7 @@ export function registerUserRoutes(app: Express): void {
       if (!existingUser || existingUser.campus_id !== user.campus_id) return res.status(404).json({ message: "Usuario no encontrado" });
       if (userId === user.id) return res.status(400).json({ message: "No puedes eliminar tu propia cuenta" });
       // SEGURIDAD: Verificar permiso de módulo ANTES de evaluar jerarquía
-      if (!hasPermission(user.role, MODULES.USERS, ACTIONS.DELETE)) {
+      if (!hasPermissionForUser(user, MODULES.USERS, ACTIONS.DELETE)) {
         return res.status(403).json({ message: "No tienes permiso para eliminar usuarios" });
       }
       // SEGURIDAD: misma guardia de jerarquía que /api/users/:id (línea 329).
@@ -487,7 +487,7 @@ export function registerUserRoutes(app: Express): void {
       }
 
       // SEGURIDAD: Permiso de módulo ANTES de jerarquía
-      if (!hasPermission(actor.role, MODULES.USERS, ACTIONS.UPDATE)) {
+      if (!hasPermissionForUser(actor, MODULES.USERS, ACTIONS.UPDATE)) {
         return res.status(403).json({ message: "No tienes permiso para editar usuarios" });
       }
 
@@ -660,7 +660,7 @@ export function registerUserRoutes(app: Express): void {
       // Solo administrador_campus y superior pueden modificar RFC, nombre legal
       // y datos fiscales del plantel. SETTINGS.CONFIGURE ya está asignado a
       // administrador_campus (scope campus), administrador_general y super_admin.
-      if (!hasPermission(user?.role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser(user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para modificar la información institucional" });
       }
 

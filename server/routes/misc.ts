@@ -2,8 +2,8 @@ import type { Express } from "express";
 import { pool, db } from "../db";
 import { eq, and } from "drizzle-orm";
 import { storage } from "../storage";
-import { authenticateToken, requireAuth, checkCampusTenant } from "./shared";
-import { hasPermission, MODULES, ACTIONS } from "@shared/permissions";
+import { authenticateToken, requireAuth, checkCampusTenant, hasPermissionForUser} from "./shared";
+import { MODULES, ACTIONS } from "@shared/permissions";
 import { students, guardians, charges, payments, concepts, invoices, families, family_students, payment_applications, payment_events, audit_log } from "@shared/schema";
 import { enqueueAuditLog } from "../audit-retry";
 import { z } from "zod";
@@ -92,7 +92,7 @@ export function registerMiscRoutes(app: Express): void {
   app.post("/api/planes-pago", authenticateToken, async (req: any, res) => {
     try {
       const role = req.user?.role;
-      if (!hasPermission(role, MODULES.CHARGES, ACTIONS.CREATE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.CHARGES, ACTIONS.CREATE)) {
         return res.status(403).json({ message: "Sin permisos para crear cargos" });
       }
       const campusId  = req.user?.campus_id;
@@ -328,7 +328,7 @@ export function registerMiscRoutes(app: Express): void {
   app.patch("/api/planes-pago/:id/cancelar", authenticateToken, async (req: any, res) => {
     try {
       const role = req.user?.role;
-      if (!hasPermission(role, MODULES.CHARGES, ACTIONS.UPDATE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.CHARGES, ACTIONS.UPDATE)) {
         return res.status(403).json({ message: "Sin permisos para modificar cargos" });
       }
       const tenantId = req.user?.tenant_id;
@@ -658,7 +658,7 @@ export function registerMiscRoutes(app: Express): void {
   app.post("/api/calendario/eventos", authenticateToken, async (req: any, res) => {
     try {
       const role = req.user?.role;
-      if (!hasPermission(role, MODULES.CALENDAR, ACTIONS.CREATE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.CALENDAR, ACTIONS.CREATE)) {
         return res.status(403).json({ message: "No tienes permiso para crear eventos de calendario" });
       }
       const campusId = req.user?.campus_id;
@@ -677,7 +677,7 @@ export function registerMiscRoutes(app: Express): void {
   app.post("/api/calendario/eventos/:id/completar", authenticateToken, async (req: any, res) => {
     try {
       const role = req.user?.role;
-      if (!hasPermission(role, MODULES.CALENDAR, ACTIONS.CREATE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.CALENDAR, ACTIONS.CREATE)) {
         return res.status(403).json({ message: "No tienes permiso para completar eventos de calendario" });
       }
       const campusId = req.user?.campus_id;
@@ -696,7 +696,7 @@ export function registerMiscRoutes(app: Express): void {
   app.get("/api/reportes/consejo/:campusId", authenticateToken, async (req: any, res) => {
     try {
       const role = req.user?.role;
-      if (!hasPermission(role, MODULES.FINANCIAL, ACTIONS.READ)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.FINANCIAL, ACTIONS.READ)) {
         return res.status(403).json({ message: "No tienes permiso para ver el reporte del consejo directivo" });
       }
       const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
@@ -974,7 +974,7 @@ export function registerMiscRoutes(app: Express): void {
   app.post("/api/admin/configuracion/escuela", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permiso para configurar ajustes institucionales" });
       }
       const campusId = (req as any).user?.campus_id;
@@ -1019,7 +1019,7 @@ export function registerMiscRoutes(app: Express): void {
   app.get("/api/admin/configuracion/onboarding-status", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para ver el estado de onboarding" });
       }
       const campusId = (req as any).user?.campus_id;
@@ -1038,7 +1038,7 @@ export function registerMiscRoutes(app: Express): void {
   app.post("/api/admin/configuracion/completar-onboarding", authenticateToken, async (req, res) => {
     try {
       const role = (req as any).user?.role;
-      if (!hasPermission(role, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para completar el onboarding" });
       }
       const campusId = (req as any).user?.campus_id;
@@ -1263,7 +1263,7 @@ export function registerMiscRoutes(app: Express): void {
       // y operaciones financieras de todos los módulos. Solo roles con SECURITY.READ
       // pueden consultarlo. Roles excluidos: auxiliar_contable, asistente, admisiones.
       const role = user?.role;
-      if (!hasPermission(role, MODULES.SECURITY, ACTIONS.READ)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.SECURITY, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para ver el historial de auditoría" });
       }
 
@@ -1456,7 +1456,7 @@ export function registerMiscRoutes(app: Express): void {
   app.get("/api/products", authenticateToken, async (req: any, res) => {
     try {
       const { role, campus_id, tenant_id } = req.user ?? {};
-      if (!hasPermission(role, MODULES.PRODUCTS, ACTIONS.READ)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.PRODUCTS, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para ver el catálogo de productos" });
       }
       const rows = await pool.query(
@@ -1478,7 +1478,7 @@ export function registerMiscRoutes(app: Express): void {
   app.post("/api/products", authenticateToken, async (req: any, res) => {
     try {
       const { role, campus_id, tenant_id } = req.user ?? {};
-      if (!hasPermission(role, MODULES.PRODUCTS, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.PRODUCTS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para crear productos" });
       }
       const {
@@ -1513,7 +1513,7 @@ export function registerMiscRoutes(app: Express): void {
   app.put("/api/products/:id", authenticateToken, async (req: any, res) => {
     try {
       const { role, campus_id, tenant_id } = req.user ?? {};
-      if (!hasPermission(role, MODULES.PRODUCTS, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.PRODUCTS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para editar productos" });
       }
       const id = Number(req.params.id);
@@ -1573,7 +1573,7 @@ export function registerMiscRoutes(app: Express): void {
   app.patch("/api/products/:id", authenticateToken, async (req: any, res) => {
     try {
       const { role, campus_id, tenant_id } = req.user ?? {};
-      if (!hasPermission(role, MODULES.PRODUCTS, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.PRODUCTS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para modificar productos" });
       }
       const id = Number(req.params.id);
@@ -1600,7 +1600,7 @@ export function registerMiscRoutes(app: Express): void {
   app.delete("/api/products/:id", authenticateToken, async (req: any, res) => {
     try {
       const { role, campus_id, tenant_id } = req.user ?? {};
-      if (!hasPermission(role, MODULES.PRODUCTS, ACTIONS.CONFIGURE)) {
+      if (!hasPermissionForUser((req as any).user, MODULES.PRODUCTS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para eliminar productos" });
       }
       const id = Number(req.params.id);

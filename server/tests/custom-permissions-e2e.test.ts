@@ -26,12 +26,18 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+
 import jwt from "jsonwebtoken";
 import { pool } from "../db";
-import { resetApiAuthRateLimitStore } from "../security-middleware";
 
 const BASE       = "http://localhost:5000";
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+
+// Llama al endpoint del servidor (mismo proceso) que resetea todos los stores
+// de rate-limit en memoria. Evita que corridas consecutivas de la suite acumulen
+// el contador de 300 req/5min para /api/admin y generen 429 inesperados.
+const resetRateLimits = () =>
+  fetch(`${BASE}/api/test/reset-rate-limits`, { method: "POST" }).catch(() => {});
 
 const TS = Date.now().toString().slice(-7);
 
@@ -55,10 +61,10 @@ function makeToken(userId: number, role: string): string {
 }
 
 beforeAll(async () => {
-  // Resetear el store del rate-limiter de /api/admin antes de comenzar.
-  // Este test añade peticiones admin; sin el reset, corridas consecutivas
-  // acumulan el contador y generan 429 en tests posteriores de la suite.
-  resetApiAuthRateLimitStore();
+  // Resetear rate-limiters en el servidor antes de comenzar.
+  // Este test añade peticiones a /api/admin; sin el reset, corridas consecutivas
+  // acumulan el contador (300 req/5min) y generan 429 en tests posteriores.
+  await resetRateLimits();
 
   const bcrypt = await import("bcrypt");
   const hash   = await bcrypt.hash("TestCPS2025!", 10);
@@ -97,8 +103,8 @@ afterAll(async () => {
   await pool.query(`DELETE FROM users    WHERE tenant_id = $1`, [tenantId]);
   await pool.query(`DELETE FROM campuses WHERE tenant_id = $1`, [tenantId]);
   await pool.query(`DELETE FROM tenants  WHERE id        = $1`, [tenantId]);
-  // Limpiar el store después también, para no contaminar corridas posteriores.
-  resetApiAuthRateLimitStore();
+  // Limpiar rate-limiters después también para no contaminar corridas posteriores.
+  await resetRateLimits();
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

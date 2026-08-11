@@ -3,6 +3,7 @@ import { pool, db } from "../db";
 import { eq, and } from "drizzle-orm";
 import { storage } from "../storage";
 import { authenticateToken, requireAuth, requireSuperAdmin, checkCampusTenant, serializeUser, upload, esmRequire, JWT_SECRET } from "./shared";
+import { resetApiAuthRateLimitStore, resetPaymentRateLimitStore, resetLoginRateLimitStore } from "../security-middleware";
 import { users, students, guardians, charges, payments, concepts, invoices, payment_rules, late_fee_calculations, payment_due_dates, payment_surcharge_rules } from "@shared/schema";
 import { insertUserSchema } from "@shared/schema";
 import { canEditUser, UserRole } from "@shared/permissions";
@@ -1120,4 +1121,19 @@ export function registerSystemRoutes(app: Express): void {
    * Historial real de notificaciones enviadas, filtrado por tenant del usuario.
    * Soporta query: ?canal=EMAIL|SMS|WHATSAPP&tipo=...&limit=&offset=
    */
+
+  // ── Endpoint de utilidad de tests ────────────────────────────────────────────
+  // Solo disponible fuera de producción.
+  // Resetea los buckets de rate-limit en memoria para que corridas consecutivas
+  // de la suite no acumulen el contador y generen 429 inesperados.
+  // Referenciado en: server/security-middleware.ts (comentario), tests que usan
+  // resetPaymentRateLimitStore / resetLoginRateLimitStore / resetApiAuthRateLimitStore.
+  if (process.env.NODE_ENV !== "production") {
+    app.post("/api/test/reset-rate-limits", (_req, res) => {
+      resetApiAuthRateLimitStore();
+      resetPaymentRateLimitStore();
+      resetLoginRateLimitStore();
+      res.json({ ok: true, reset: ["apiAuth", "payment", "login"] });
+    });
+  }
 }

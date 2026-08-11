@@ -76,6 +76,10 @@ const createRateLimit = (windowMs: number, max: number, message: string) => {
     message: { error: message },
     standardHeaders: true,
     legacyHeaders: false,
+    // En entorno de test vitest establece NODE_ENV=test. El limiter se
+    // desactiva para que la suite no acumule hits entre corridas ni falle
+    // al superar el límite de pagos (20/hora) en corridas consecutivas.
+    skip: () => process.env.NODE_ENV === 'test',
     handler: (req: Request, res: Response) => {
       SecurityAudit.logSecurityEvent({
         userId: (req as any).user?.id,

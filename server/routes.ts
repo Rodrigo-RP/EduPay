@@ -60,6 +60,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/admin",               rateLimits.apiAuth); // 300/5min — ya requiere JWT
   app.use("/api/super-admin",         rateLimits.apiAuth); // 300/5min — ya requiere JWT
   app.use("/api/security",            rateLimits.api);     // 50/5min
+  // Endpoint de pago del portal de padres — mayor riesgo económico del portal.
+  // Limiter específico para /api/guardian/pagar (no el prefijo completo) para no
+  // afectar GET /api/guardian/dashboard ni GET/PUT /api/guardian/profile que
+  // tienen patrones de uso de lectura frecuente (incompatibles con 20 req/hora).
+  app.use("/api/guardian/pagar",      rateLimits.payment); // 20/60min — limiter preexistente
 
   // ── Montar módulos de dominio (en orden lógico de dependencia) ────────────────
   registerAuthRoutes(app);

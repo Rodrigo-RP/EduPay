@@ -4,7 +4,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { MemoryStore } from 'express-rate-limit';
 import helmet from 'helmet';
 import cors from 'cors';
 import ExpressBrute from 'express-brute';
@@ -69,17 +69,21 @@ const bruteForce = new ExpressBrute(bruteForceStore, {
 // RATE LIMITING INTELIGENTE
 // ========================================
 
-const createRateLimit = (windowMs: number, max: number, message: string) => {
+// store opcional: sólo el limiter de pagos recibe uno explícito para poder
+// resetearlo desde tests sin tocar la lógica del factory.
+const createRateLimit = (
+  windowMs: number,
+  max: number,
+  message: string,
+  store?: InstanceType<typeof MemoryStore>,
+) => {
   return rateLimit({
     windowMs,
     max,
     message: { error: message },
     standardHeaders: true,
     legacyHeaders: false,
-    // En entorno de test vitest establece NODE_ENV=test. El limiter se
-    // desactiva para que la suite no acumule hits entre corridas ni falle
-    // al superar el límite de pagos (20/hora) en corridas consecutivas.
-    skip: () => process.env.NODE_ENV === 'test',
+    ...(store ? { store } : {}),
     handler: (req: Request, res: Response) => {
       SecurityAudit.logSecurityEvent({
         userId: (req as any).user?.id,
@@ -101,11 +105,27 @@ const createRateLimit = (windowMs: number, max: number, message: string) => {
   });
 };
 
+// Store dedicado para /api/guardian/pagar.
+// Exportado únicamente para aislamiento de tests: ningún archivo de producción
+// lo importa. Los test files llaman resetPaymentRateLimitStore() en beforeAll
+// para evitar que acumulaciones de corridas manuales o consecutivas contaminen
+// el bucket y generen 429 inesperados en la suite.
+const _paymentLimiterStore = new MemoryStore();
+
+export function resetPaymentRateLimitStore(): void {
+  // Express puede representar localhost como cualquiera de estas tres variantes
+  // dependiendo de la pila IPv4/IPv6 del sistema. Se resetean las tres.
+  void _paymentLimiterStore.resetKey('::1');
+  void _paymentLimiterStore.resetKey('127.0.0.1');
+  void _paymentLimiterStore.resetKey('::ffff:127.0.0.1');
+}
+
 // Diferentes límites según el endpoint
 export const rateLimits = {
   general:   createRateLimit(15 * 60 * 1000, 100, 'Demasiadas solicitudes generales'),
   auth:      createRateLimit(15 * 60 * 1000,  10, 'Demasiados intentos de autenticación'),
-  payment:   createRateLimit(60 * 60 * 1000,  20, 'Demasiadas solicitudes de pago'),
+  // store explícito → permite resetear el bucket en tests sin alterar el factory.
+  payment:   createRateLimit(60 * 60 * 1000,  20, 'Demasiadas solicitudes de pago', _paymentLimiterStore),
   api:       createRateLimit(5  * 60 * 1000,  50, 'Demasiadas solicitudes a la API'),
   // Rutas autenticadas (/api/admin, /api/super-admin): ya exigen JWT válido,
   // por lo que el rate-limit cumple un rol de protección ante token comprometido,

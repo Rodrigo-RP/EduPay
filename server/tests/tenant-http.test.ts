@@ -17,6 +17,10 @@ import {
 } from "../../shared/schema";
 import { eq, or } from "drizzle-orm";
 import jwt from "jsonwebtoken";
+import { resetPaymentRateLimitStore } from "../security-middleware";
+
+// Limpia el bucket de /api/guardian/pagar antes de este archivo.
+beforeAll(() => { resetPaymentRateLimitStore(); });
 
 const BASE_URL = "http://localhost:5000";
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";

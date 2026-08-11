@@ -215,6 +215,34 @@ export default function UsuariosUnificado() {
     }
   });
 
+  // ── Guardar permisos personalizados ───────────────────────────────────────
+  // Llama a PUT /api/users/:id con { custom_permissions } — el backend ya
+  // tiene los guards USERS.UPDATE + canEditUser (jerarquía respetada).
+  // El toast de éxito sólo aparece cuando la API responde 200.
+  const savePermissionsMutation = useMutation({
+    mutationFn: async ({ userId, permissions }: { userId: number; permissions: string[] }) => {
+      return await apiRequest(`/api/users/${userId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ custom_permissions: permissions }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      toast({
+        title: "Permisos actualizados",
+        description: `Se han actualizado los permisos de ${selectedUserForPermissions?.nombre_completo}`,
+      });
+      setShowPermissionsModal(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error al actualizar permisos",
+        description: error.message || "No se pudieron guardar los permisos",
+        variant: "destructive",
+      });
+    },
+  });
+
   // ── Reset de contraseña ─────────────────────────────────────────────────────
   // El servidor genera la contraseña con CSPRNG y persiste el hash en DB.
   // El cliente sólo muestra el resultado; nunca genera ni envía contraseñas.
@@ -792,13 +820,16 @@ export default function UsuariosUnificado() {
           
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPermissionsModal(false)}>Cancelar</Button>
-            <Button onClick={() => {
-              toast({
-                title: "Permisos actualizados",
-                description: `Se han actualizado los permisos de ${selectedUserForPermissions?.nombre_completo}`,
-              });
-              setShowPermissionsModal(false);
-            }}>
+            <Button
+              disabled={savePermissionsMutation.isPending}
+              onClick={() => {
+                if (!selectedUserForPermissions) return;
+                savePermissionsMutation.mutate({
+                  userId:      selectedUserForPermissions.id,
+                  permissions: customPermissions,
+                });
+              }}
+            >
               Guardar permisos
             </Button>
           </DialogFooter>

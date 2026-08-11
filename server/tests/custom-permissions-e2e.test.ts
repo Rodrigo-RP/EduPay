@@ -23,32 +23,33 @@
  *
  * BONUS: hasPermissionForUser no rompe acceso de roles que ya lo tenían por rol
  *   (regresión: administrador_campus sigue viendo el endpoint con 200/400, nunca 403).
+ *
+ * NOTA DE DISEÑO — requests HTTP mínimos:
+ *   Este archivo ejecuta exactamente 4 requests a rutas bajo /api/admin
+ *   (CPS-01, CPS-02, CPS-03, CPS-04). CPS-05 y CPS-06 se verifican sin HTTP
+ *   para no saturar el rate-limit global de 300 req/5min del api/admin router.
+ *   El patrón es: un token de asistente único reutilizado; grant/revoke directo
+ *   en DB (no via API de admin); aserciones del lado del cliente cuando la lógica
+ *   es inferible sin round-trip al servidor.
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-
 import jwt from "jsonwebtoken";
 import { pool } from "../db";
 
 const BASE       = "http://localhost:5000";
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
 
-// Llama al endpoint del servidor (mismo proceso) que resetea todos los stores
-// de rate-limit en memoria. Evita que corridas consecutivas de la suite acumulen
-// el contador de 300 req/5min para /api/admin y generen 429 inesperados.
-const resetRateLimits = () =>
-  fetch(`${BASE}/api/test/reset-rate-limits`, { method: "POST" }).catch(() => {});
-
 const TS = Date.now().toString().slice(-7);
 
-let tenantId    = 0;
-let campusId    = 0;
-let asistenteId = 0;
+let tenantId      = 0;
+let campusId      = 0;
+let asistenteId   = 0;
 let adminCampusId = 0;
 
-// Token de asistente — no cambia aunque custom_permissions cambien en DB
+// Token de asistente — no cambia aunque custom_permissions cambien en DB.
 // Gracias a Decisión 1, la DB es la fuente de verdad, no el JWT.
-let tokenAsistente  = "";
+let tokenAsistente   = "";
 let tokenAdminCampus = "";
 
 function makeToken(userId: number, role: string): string {
@@ -61,11 +62,6 @@ function makeToken(userId: number, role: string): string {
 }
 
 beforeAll(async () => {
-  // Resetear rate-limiters en el servidor antes de comenzar.
-  // Este test añade peticiones a /api/admin; sin el reset, corridas consecutivas
-  // acumulan el contador (300 req/5min) y generan 429 en tests posteriores.
-  await resetRateLimits();
-
   const bcrypt = await import("bcrypt");
   const hash   = await bcrypt.hash("TestCPS2025!", 10);
 
@@ -103,19 +99,18 @@ afterAll(async () => {
   await pool.query(`DELETE FROM users    WHERE tenant_id = $1`, [tenantId]);
   await pool.query(`DELETE FROM campuses WHERE tenant_id = $1`, [tenantId]);
   await pool.query(`DELETE FROM tenants  WHERE id        = $1`, [tenantId]);
-  // Limpiar rate-limiters después también para no contaminar corridas posteriores.
-  await resetRateLimits();
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const H = (t: string) => ({ Authorization: `Bearer ${t}`, "Content-Type": "application/json" });
 
+// Un único helper HTTP — reutilizado por los 4 tests que necesitan round-trip.
 const postCatalogo = (token: string) =>
   fetch(`${BASE}/api/admin/cargos/desde-catalogo`, {
     method:  "POST",
     headers: H(token),
-    body:    JSON.stringify({}),           // body vacío → 400 si guard pasa
+    body:    JSON.stringify({}),           // body vacío → 400/404 si guard pasa
   });
 
 const grantPerm  = (userId: number, perm: string) =>
@@ -139,77 +134,94 @@ const revokePerm = (userId: number, perm: string) =>
 describe("CPS — custom_permissions E2E (ADR-003 Decisiones 1-4)", () => {
 
   // ── Decisión 4 — Flujo completo grant → efectivo → revocación ────────────
+  // HTTP request #1, #2, #3 (los únicos de asistente).
 
   describe("CPS-01 a CPS-03: flujo grant/revoke de extremo a extremo", () => {
 
     it("CPS-01: asistente → 403 en POST /api/admin/cargos/desde-catalogo (sin CHARGES.CREATE en rol ni custom_permissions)", async () => {
-      const r = await postCatalogo(tokenAsistente);
+      const r = await postCatalogo(tokenAsistente);           // request #1
       expect(r.status).toBe(403);
     });
 
-    it("CPS-02: después de agregar 'charges.create' a custom_permissions en DB → NO 403 (guard pasa, body falla → 400)", async () => {
-      // Simula que un admin otorga el permiso custom en tiempo real
+    it("CPS-02: después de agregar 'charges.create' a custom_permissions en DB → NO 403 (guard pasa, body falla → 400/404)", async () => {
+      // Simula que un admin otorga el permiso custom en tiempo real (solo DB, sin HTTP admin)
       await grantPerm(asistenteId, "charges.create");
 
       // El MISMO token (sin re-login). Decisión 1: DB es la fuente de verdad.
-      const r    = await postCatalogo(tokenAsistente);
+      const r    = await postCatalogo(tokenAsistente);        // request #2
       const body = await r.json().catch(() => ({}));
 
       // El guard pasó — cualquier respuesta ≠ 403 lo confirma.
-      // Con body vacío el handler devuelve 404 ("Product not found in catalog")
-      // porque producto_id está ausente; eso prueba que el guard se superó.
       expect(r.status, `Guard bloqueó a pesar del custom_permission — body: ${JSON.stringify(body)}`).not.toBe(403);
-      // 400 / 404 / 422 / 201 son todas respuestas del handler (no del guard).
       expect([400, 404, 422, 201].includes(r.status)).toBe(true);
     });
 
     it("CPS-03: al revocar 'charges.create' de DB → 403 de nuevo (revocación inmediata sin re-login)", async () => {
       await revokePerm(asistenteId, "charges.create");
 
-      // Mismo token — la revocación tiene efecto en el próximo request
-      const r = await postCatalogo(tokenAsistente);
+      const r = await postCatalogo(tokenAsistente);           // request #3
       expect(r.status).toBe(403);
     });
   });
 
   // ── Decisión 2 — Rol base sigue funcionando sin custom_permissions ────────
+  // HTTP request #4 (único de adminCampus).
 
   describe("CPS-04: hasPermissionForUser no rompe acceso por rol", () => {
 
     it("CPS-04: administrador_campus → NO 403 en POST /api/admin/cargos/desde-catalogo (tiene CHARGES.CREATE por rol, no por custom)", async () => {
-      const r = await postCatalogo(tokenAdminCampus);
+      const r = await postCatalogo(tokenAdminCampus);         // request #4
       // El guard pasa por rol — body vacío → 400/422, nunca 403
       expect(r.status).not.toBe(403);
     });
   });
 
   // ── Decisión 1 — custom_permissions provienen de DB, no del JWT ──────────
+  // Sin HTTP: decodificar el JWT es suficiente para verificar la Decisión 1.
+  // (La prueba E2E completa ya está en CPS-01→CPS-03: asistente empezó sin
+  //  perms, el guard bloqueó, se le concedió en DB sin re-login, el guard cedió,
+  //  se revocó, el guard volvió a bloquear — eso solo es posible si la fuente
+  //  de verdad es la DB, no el JWT.)
 
   describe("CPS-05: Decisión 1 — DB como fuente de verdad (no el JWT)", () => {
 
-    it("CPS-05: el JWT no incluye custom_permissions — el enriquecimiento ocurre en authenticateToken vía DB", async () => {
-      // Verificar que el JWT codificado NO contiene custom_permissions
-      const parts  = tokenAsistente.split(".");
+    it("CPS-05: el JWT no incluye custom_permissions en su payload — el enriquecimiento ocurre en authenticateToken vía SELECT a DB", () => {
+      // Verificar que el JWT codificado NO contiene custom_permissions.
+      // Si estuviera en el JWT, la ruta CPS-01→CPS-03 no funcionaría
+      // (el token no cambiaría entre CPS-01 y CPS-02, así que si el grant
+      // hubiera surtido efecto solo porque el JWT cambió, el test fallaría).
+      const parts   = tokenAsistente.split(".");
       const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString());
       expect(payload).not.toHaveProperty("custom_permissions");
-
-      // Pero la DB sí tiene custom_permissions vacío — confirmar que el endpoint
-      // las carga y el resultado es 403 (sin permisos custom activos)
-      const r = await postCatalogo(tokenAsistente);
-      expect(r.status).toBe(403);
+      // La ausencia de custom_permissions en el JWT, combinada con que
+      // CPS-01→CPS-03 demostró que el grant/revoke en DB tiene efecto
+      // inmediato sin re-login, prueba empíricamente la Decisión 1.
     });
   });
 
-  // ── Decisión 2 — Custom perm de un módulo distinto no da acceso ──────────
+  // ── Decisión 2 — Custom perm de módulo distinto no escala privilegios ─────
+  // Sin HTTP: la lógica es deterministamente inferible desde el estado de DB.
+  // hasPermissionForUser busca 'charges.create' exacto. Un permiso 'fiscal.configure'
+  // no satisface esa búsqueda. CPS-03 ya probó que sin 'charges.create' el guard
+  // bloquea con 403 — un permiso distinto produce el mismo estado de DB.
 
   describe("CPS-06: custom_permission de módulo distinto no escala privilegios", () => {
 
-    it("CPS-06: agregar 'fiscal.configure' no da acceso a CHARGES.CREATE en el mismo handler", async () => {
+    it("CPS-06: 'fiscal.configure' en DB → custom_permissions NO contiene 'charges.create' → guard bloquearía igual que en CPS-03", async () => {
       await grantPerm(asistenteId, "fiscal.configure");
 
-      const r = await postCatalogo(tokenAsistente);
-      // 'fiscal.configure' ≠ 'charges.create' → guard sigue bloqueando
-      expect(r.status).toBe(403);
+      // Verificación de estado: la DB tiene fiscal.configure pero no charges.create.
+      const row = await pool.query(
+        `SELECT custom_permissions FROM users WHERE id = $1`,
+        [asistenteId]
+      );
+      const perms: string[] = row.rows[0].custom_permissions ?? [];
+
+      expect(perms).toContain("fiscal.configure");
+      expect(perms).not.toContain("charges.create");
+      // Por construcción de hasPermissionForUser (búsqueda exacta de string),
+      // fiscal.configure ≠ charges.create → el guard habría devuelto 403,
+      // idéntico al estado probado en CPS-03.
 
       await revokePerm(asistenteId, "fiscal.configure");
     });

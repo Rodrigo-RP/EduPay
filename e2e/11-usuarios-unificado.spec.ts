@@ -68,13 +68,11 @@ let asisteUserId: number | null  = null;
 // ── beforeAll: login ÚNICO vía browser fixture ──────────────────────────────
 // Evita múltiples llamadas a POST /api/auth/login (rate-limited: 10/15 min).
 // Guarda token + auth_user en memoria; cada test los restaura en localStorage.
-test.beforeAll(async ({ browser, request }) => {
-  // Resetear los buckets de rate-limit antes de cualquier POST /api/auth/login.
-  // El limiter de auth (10 req/15 min por IP) se agota en corridas manuales
-  // consecutivas durante desarrollo; este endpoint está disponible sólo fuera
-  // de producción (NODE_ENV !== 'production').
-  await request.post("/api/test/reset-rate-limits", { failOnStatusCode: false });
-
+test.beforeAll(async ({ browser }) => {
+  // Login UNA SOLA VEZ. Total de llamadas a /api/auth/login por corrida: 2
+  // (aquí como admin + U09-02 como asistente). Límite: 10/15 min → no se agota
+  // en uso normal. No se usa ningún endpoint de reset: la ruta no existe en el
+  // servidor y nunca debe existir.
   const ctx  = await browser.newContext();
   const page = await ctx.newPage();
 

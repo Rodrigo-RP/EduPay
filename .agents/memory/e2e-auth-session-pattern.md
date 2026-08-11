@@ -28,10 +28,8 @@ justo antes. La restauración manual vía `localStorage.setItem` en `beforeEach`
 let adminToken    = "";
 let adminAuthUser = "";
 
-test.beforeAll(async ({ browser, request }) => {
-  // 1. Resetear rate-limit (endpoint test-only; gated en NODE_ENV !== 'production')
-  await request.post("/api/test/reset-rate-limits", { failOnStatusCode: false });
-  // 2. Login único
+// beforeAll: fixture 'browser' (no 'request') — login UI una sola vez
+test.beforeAll(async ({ browser }) => {
   const ctx  = await browser.newContext();
   const page = await ctx.newPage();
   await loginAsAdmin(page);
@@ -40,6 +38,7 @@ test.beforeAll(async ({ browser, request }) => {
   await ctx.close();
 });
 
+// beforeEach: restaurar sesión sin re-llamar al endpoint de login
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await page.evaluate(({ token, user }) => {
@@ -52,17 +51,22 @@ test.beforeEach(async ({ page }) => {
 });
 ```
 
-## Endpoint de reset (server/routes/auth.ts)
+## Por qué NO hay endpoint HTTP de reset
 
-```typescript
-if (process.env.NODE_ENV !== "production") {
-  app.post("/api/test/reset-rate-limits", (_req, res) => {
-    resetLoginRateLimitStore();
-    resetPaymentRateLimitStore();
-    res.json({ ok: true });
-  });
-}
-```
+Un endpoint `POST /api/test/reset-rate-limits` gateado en `NODE_ENV !== 'production'` es
+inseguro: el servidor siempre corre en `development` en este entorno (Replit), así que la
+ruta quedaría pública y funcional sin token. El mismo resultado con `NODE_ENV === 'test'`
+sería inútil porque los tests E2E corren contra el servidor en modo `development`.
 
-El `_authLimiterStore` está declarado en `security-middleware.ts` junto a `_paymentLimiterStore`.
-`resetLoginRateLimitStore()` hace `resetKey` para `::1`, `127.0.0.1`, `::ffff:127.0.0.1`.
+La solución correcta es no necesitar el endpoint: con 2 llamadas a `/api/auth/login` por
+corrida (1 admin en beforeAll + 1 asistente en U09-02), el límite de 10/15 min no se agota
+en uso normal.
+
+`resetLoginRateLimitStore()` existe en `security-middleware.ts` para uso directo desde
+Vitest tests (mismo proceso que el servidor) — no requiere HTTP.
+
+## SPA catch-all y rutas inexistentes
+
+Esta app sirve `index.html` con HTTP 200 para cualquier path desconocido (client-side routing).
+POST a una ruta no registrada en Express devuelve 200 + HTML, no 404. Para distinguir si
+una ruta existe: verificar `Content-Type: text/html` (SPA) vs `application/json` (Express).

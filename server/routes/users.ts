@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import crypto from "node:crypto";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
@@ -11,6 +12,17 @@ import { storage } from "../storage";
 import { wsManager } from "../websocket-manager";
 import { authenticateToken, authenticateGuardian, requireSuperAdmin, serializeUser, esmRequire, JWT_SECRET } from "./shared";
 import { enqueueAuditLog, type AuditLogPayload } from "../audit-retry";
+
+// ── Generador de contraseñas criptográficamente seguro ────────────────────────
+// crypto.randomInt(min, max) usa CSPRNG del SO, sin modulo bias.
+// Se excluyen caracteres visualmente ambiguos (O/0/I/l/1) para facilitar
+// la comunicación entre el admin y el usuario.
+const PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#%";
+function generateSecurePassword(length = 16): string {
+  return Array.from({ length }, () =>
+    PASSWORD_CHARS[crypto.randomInt(0, PASSWORD_CHARS.length)]
+  ).join("");
+}
 
 export function registerUserRoutes(app: Express): void {
   app.get("/api/profile", authenticateToken, async (req, res) => {
@@ -438,6 +450,97 @@ export function registerUserRoutes(app: Express): void {
 
       res.json({ message: "Usuario eliminado exitosamente" });
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
+  });
+
+  // ── POST /api/admin/users/:id/reset-password ──────────────────────────────
+  // El servidor genera la contraseña con CSPRNG y persiste el hash (bcrypt).
+  // El texto plano se devuelve UNA SOLA VEZ en la respuesta para que el admin
+  // lo comunique al usuario; nunca se almacena ni se registra en audit_log.
+  //
+  // LIMITACIÓN DOCUMENTADA (JWT stateless):
+  //   Cualquier JWT ya emitido para la cuenta objetivo sigue siendo válido hasta
+  //   su expiración natural (máx. 24 h). Este endpoint bloquea logins futuros
+  //   con la contraseña anterior pero NO invalida sesiones activas.
+  //   No existe mecanismo de force-logout en este sistema.
+  //
+  // Guards: mismo orden que PUT /api/users/:id —
+  //   1. hasPermission(MODULES.USERS, ACTIONS.UPDATE) — módulo primero
+  //   2. canEditUser(actor.role, target.role)          — jerarquía después
+  app.post("/api/admin/users/:id/reset-password", authenticateToken, async (req, res) => {
+    try {
+      const actor    = (req as any).user;
+      const targetId = parseInt(req.params.id);
+
+      if (isNaN(targetId)) {
+        return res.status(400).json({ message: "ID de usuario inválido" });
+      }
+
+      // Solo usuarios del mismo campus
+      const targetUser = await storage.getUser(targetId);
+      if (!targetUser || targetUser.campus_id !== actor.campus_id) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+
+      // No auto-reset por esta ruta (usar /api/profile/password)
+      if (targetId === actor.id) {
+        return res.status(400).json({ message: "Usa /api/profile/password para cambiar tu propia contraseña" });
+      }
+
+      // SEGURIDAD: Permiso de módulo ANTES de jerarquía
+      if (!hasPermission(actor.role, MODULES.USERS, ACTIONS.UPDATE)) {
+        return res.status(403).json({ message: "No tienes permiso para editar usuarios" });
+      }
+
+      // SEGURIDAD: Jerarquía — no se puede resetear a alguien de igual o mayor nivel
+      if (actor.role !== 'super_admin' && !canEditUser(actor.role as UserRole, targetUser.role as UserRole)) {
+        return res.status(403).json({
+          message: "No tienes permisos para resetear la contraseña de este usuario",
+          detail:  `Un ${actor.role} no puede editar usuarios con rol ${targetUser.role}`,
+        });
+      }
+
+      // Generar contraseña segura en el servidor — nunca en el cliente
+      const newPassword    = generateSecurePassword();
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Persistir el nuevo hash via storage (actualiza también updated_at)
+      await storage.updateUserPassword(targetId, hashedPassword);
+
+      // Auditoría: fire-and-forget fuera de transacción (ADR-001)
+      // IMPORTANTE: la contraseña en texto plano NUNCA se incluye en audit_log
+      const auditPayload: AuditLogPayload = {
+        tenant_id:   actor.tenant_id,
+        user_id:     actor.id ?? null,
+        action:      "password_reset",
+        entity_type: "user",
+        entity_id:   targetId,
+        metadata: {
+          target_user_id:    targetId,
+          target_user_email: targetUser.email,
+          target_user_role:  targetUser.role,
+          actor_id:          actor.id,
+          actor_role:        actor.role,
+          endpoint:          "POST /api/admin/users/:id/reset-password",
+        },
+      };
+      pool.query(
+        `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [auditPayload.tenant_id, auditPayload.user_id, auditPayload.action,
+         auditPayload.entity_type, auditPayload.entity_id, JSON.stringify(auditPayload.metadata)]
+      ).catch((err) => enqueueAuditLog(auditPayload, err));
+
+      // Devolver texto plano UNA SOLA VEZ — nunca más recuperable después de esta respuesta
+      res.json({
+        password:        newPassword,
+        email:           targetUser.email,
+        nombre_completo: targetUser.name,
+        role:            targetUser.role,
+      });
+    } catch (error: any) {
+      console.error("Error resetting password:", error);
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
   });
 
   // PLATFORM LOGIN for Support and Implementation users

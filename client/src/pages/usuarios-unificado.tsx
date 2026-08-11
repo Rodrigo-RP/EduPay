@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Users, Plus, Edit, Trash2, UserCheck, UserX, Shield, Mail, AlertTriangle, Key, Settings, Eye, User, Search, Filter, Download, Copy, RefreshCw } from "lucide-react";
+import { Users, Plus, Edit, Trash2, UserCheck, UserX, Shield, Mail, AlertTriangle, Key, Settings, Eye, User, Search, Filter, Download, Copy } from "lucide-react";
 import { USER_ROLES, PERMISSIONS, hasPermission, getUserPermissions, getRoleDisplayName, getRoleDescription, UserRole } from "@shared/user-roles";
 import { canEditUser, getEditableRoles, ROLE_HIERARCHY } from "@shared/permissions";
 import { useAuth } from "@/hooks/use-auth";
@@ -213,6 +213,34 @@ export default function UsuariosUnificado() {
         variant: "destructive",
       });
     }
+  });
+
+  // ── Reset de contraseña ─────────────────────────────────────────────────────
+  // El servidor genera la contraseña con CSPRNG y persiste el hash en DB.
+  // El cliente sólo muestra el resultado; nunca genera ni envía contraseñas.
+  const resetPasswordMutation = useMutation({
+    mutationFn: async (userId: number) => {
+      return await apiRequest(`/api/admin/users/${userId}/reset-password`, {
+        method: 'POST',
+      });
+    },
+    onSuccess: (data: any) => {
+      setGeneratedCredentials({
+        username:        generateUsername(data.nombre_completo),
+        password:        data.password,
+        email:           data.email,
+        nombre_completo: data.nombre_completo,
+        role:            data.role,
+      });
+      setShowCredentialsModal(true);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error al regenerar credenciales",
+        description: error.message || "No se pudo resetear la contraseña",
+        variant: "destructive",
+      });
+    },
   });
 
   // Función para manejar la creación de usuarios
@@ -441,22 +469,8 @@ export default function UsuariosUnificado() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => {
-                          const newPassword = generatePassword();
-                          const username = generateUsername(user.nombre_completo);
-                          setGeneratedCredentials({
-                            username: username,
-                            password: newPassword,
-                            email: user.email,
-                            nombre_completo: user.nombre_completo,
-                            role: user.role
-                          });
-                          setShowCredentialsModal(true);
-                          toast({
-                            title: "Credenciales regeneradas",
-                            description: `Se han generado nuevas credenciales para ${user.nombre_completo}`,
-                          });
-                        }}
+                        onClick={() => resetPasswordMutation.mutate(user.id)}
+                        disabled={resetPasswordMutation.isPending}
                         title="Regenerar credenciales"
                       >
                         <Key className="w-4 h-4" />
@@ -841,7 +855,8 @@ export default function UsuariosUnificado() {
               Credenciales generadas
             </DialogTitle>
             <DialogDescription>
-              Guarda estas credenciales de forma segura y compártelas con el usuario
+              La contraseña ha sido actualizada en la base de datos. Guarda estas
+              credenciales y compártelas con el usuario de forma segura.
             </DialogDescription>
           </DialogHeader>
           
@@ -900,17 +915,6 @@ export default function UsuariosUnificado() {
                     >
                       <Copy className="w-4 h-4" />
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const newPassword = generatePassword();
-                        setGeneratedCredentials({...generatedCredentials, password: newPassword});
-                        toast({ title: "Contraseña regenerada" });
-                      }}
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                    </Button>
                   </div>
                 </div>
               </div>
@@ -921,9 +925,10 @@ export default function UsuariosUnificado() {
                   <div className="text-sm text-amber-800">
                     <p className="font-semibold">Información importante:</p>
                     <ul className="mt-1 space-y-1 text-xs">
-                      <li>• Comparte estas credenciales de forma segura</li>
+                      <li>• Esta contraseña se muestra una única vez — no se puede recuperar</li>
+                      <li>• Comparte estas credenciales de forma segura con el usuario</li>
                       <li>• El usuario debe cambiar la contraseña en su primer acceso</li>
-                      <li>• URL: https://edupay.institutojfr.edu.mx/login</li>
+                      <li>• Las sesiones activas del usuario siguen válidas hasta que el token expire (máx. 24 h)</li>
                     </ul>
                   </div>
                 </div>

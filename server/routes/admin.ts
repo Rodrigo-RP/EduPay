@@ -66,6 +66,10 @@ export function registerAdminRoutes(app: Express): void {
   // Get dashboard KPIs — 3 capas: ciclo / mes / alertas + desglose por nivel
   app.get("/api/admin/dashboard/:campusId", requireAuth, async (req: any, res) => {
     try {
+      const role = req.user?.role;
+      if (!hasPermission(role, MODULES.DASHBOARD, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver el dashboard" });
+      }
       const campusId = parseInt(req.params.campusId);
       if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
 

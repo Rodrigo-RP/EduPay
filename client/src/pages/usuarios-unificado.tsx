@@ -360,15 +360,53 @@ export default function UsuariosUnificado() {
     setShowPermissionsModal(true);
   };
 
+  // Catálogo canónico de permisos: usa las claves REALES de shared/permissions.ts
+  // (MODULES.X + ACTIONS.Y) como id, para que el valor guardado en custom_permissions
+  // sea exactamente lo que hasPermissionForUser() puede comparar contra el backend.
+  // ─────────────────────────────────────────────────────────────────────────────────
+  // CLAVES QUE AÚN NO APARECEN AQUÍ (pendientes de decisión de arquitectura):
+  //   students.*, families.*, charges.read, payments.read, receivables.*,
+  //   fiscal.read/manage, admissions.*, dashboard.read
+  // Se agregarán cuando sus rutas de backend tengan guards de hasPermission.
+  // ─────────────────────────────────────────────────────────────────────────────────
+  const BACKEND_PERMISSION_LIST = [
+    // ── Usuarios ──────────────────────────────────────────────────────────────
+    { id: 'users.create',        description: 'Crear usuarios',                                  module: 'users',        action: 'create'    },
+    { id: 'users.read',          description: 'Ver usuarios',                                    module: 'users',        action: 'read'      },
+    { id: 'users.update',        description: 'Editar usuarios',                                 module: 'users',        action: 'update'    },
+    { id: 'users.delete',        description: 'Eliminar usuarios',                               module: 'users',        action: 'delete'    },
+    // ── Cargos ────────────────────────────────────────────────────────────────
+    { id: 'charges.create',      description: 'Crear cargos',                                    module: 'charges',      action: 'create'    },
+    { id: 'charges.update',      description: 'Editar cargos',                                   module: 'charges',      action: 'update'    },
+    // ── Pagos ─────────────────────────────────────────────────────────────────
+    { id: 'payments.process',    description: 'Procesar pagos',                                  module: 'payments',     action: 'process'   },
+    // ── Reportes ──────────────────────────────────────────────────────────────
+    { id: 'reports.export',      description: 'Exportar reportes',                               module: 'reports',      action: 'export'    },
+    // era "reports.financial" en Sistema A — el backend guarda esto como financial.read (MODULES.FINANCIAL)
+    { id: 'financial.read',      description: 'Ver análisis financiero',                         module: 'financial',    action: 'read'      },
+    // ── Conceptos y catálogo ──────────────────────────────────────────────────
+    // era concepts.create + concepts.update — el backend solo verifica concepts.configure
+    { id: 'concepts.configure',  description: 'Gestionar conceptos de cobro',                    module: 'concepts',     action: 'configure' },
+    { id: 'products.read',       description: 'Ver catálogo de productos',                       module: 'products',     action: 'read'      },
+    { id: 'products.configure',  description: 'Gestionar catálogo de productos',                 module: 'products',     action: 'configure' },
+    // ── Becas ─────────────────────────────────────────────────────────────────
+    { id: 'scholarships.read',   description: 'Ver becas',                                       module: 'scholarships', action: 'read'      },
+    // era "scholarships.create" — el backend guarda y verifica scholarships.assign
+    { id: 'scholarships.assign', description: 'Asignar y gestionar becas',                       module: 'scholarships', action: 'assign'    },
+    // ── Configuración ─────────────────────────────────────────────────────────
+    { id: 'settings.read',       description: 'Ver configuración del campus',                    module: 'settings',     action: 'read'      },
+    // era settings.general / settings.institution / settings.payments / settings.fiscal
+    // y notifications.manage — todos guardan el mismo settings.configure en el backend
+    { id: 'settings.configure',  description: 'Configurar ajustes del campus',                   module: 'settings',     action: 'configure' },
+    // ── Seguridad ─────────────────────────────────────────────────────────────
+    // era "settings.security" — el backend guarda esto como security.read (MODULES.SECURITY)
+    { id: 'security.read',       description: 'Ver historial de auditoría y seguridad',          module: 'security',     action: 'read'      },
+    // ── Calendario financiero ─────────────────────────────────────────────────
+    { id: 'calendar.create',     description: 'Gestionar eventos del calendario financiero',      module: 'calendar',     action: 'create'    },
+  ] as const;
+
   // Función para obtener permisos disponibles
-  const getAvailablePermissions = () => {
-    return Object.entries(PERMISSIONS).map(([key, description]) => ({
-      id: key,
-      description: description,
-      module: key.split('.')[0],
-      action: key.split('.')[1]
-    }));
-  };
+  const getAvailablePermissions = () => BACKEND_PERMISSION_LIST;
 
   // Función para agrupar permisos por módulo
   const groupPermissionsByModule = () => {

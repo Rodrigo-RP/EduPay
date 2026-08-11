@@ -26,3 +26,4 @@
 - [E2E auth session pattern](e2e-auth-session-pattern.md) — login ONCE en beforeAll (browser fixture), restaurar localStorage en beforeEach; endpoint /api/test/reset-rate-limits para auth+payment limiters.
 - [Playwright E2E pitfalls](e2e-playwright-pitfalls.md) — strict-mode con aria-live/dialog text; h3 genérico captura sidebar; test.use storageState race; SPA wouter: pushState no goto.
 - [Audit log metadata check in tests](audit-log-meta-test.md) — pg puede devolver JSONB como objeto o como string según config; usar metadata::text AS meta_text + toContain('"key"') en vez de meta.key para evitar falsos undefined.
+- [Students nombre_completo NOT NULL](students-nombre-completo.md) — nombre_completo es NOT NULL en la DB real; storage.createStudent lo computa automáticamente; test beforeAll debe usar API no SQL directo.

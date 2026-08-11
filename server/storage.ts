@@ -409,7 +409,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createStudent(student: InsertStudent): Promise<Student> {
-    const [newStudent] = await db.insert(students).values(student).returning();
+    // nombre_completo es NOT NULL en la DB (campo calculado para compatibilidad)
+    const nombre_completo = [student.nombres, student.apellido_paterno, student.apellido_materno]
+      .filter(Boolean).join(" ") || student.nombres;
+    const [newStudent] = await db.insert(students).values({ ...student, nombre_completo }).returning();
     return newStudent;
   }
 

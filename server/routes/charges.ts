@@ -54,6 +54,9 @@ export function registerChargesRoutes(app: Express): void {
   // Bulk create charges
   app.post("/api/admin/charges/bulk", authenticateToken, async (req, res) => {
     try {
+      if (!hasPermission((req as any).user?.role, MODULES.CHARGES, ACTIONS.CREATE)) {
+        return res.status(403).json({ message: "Sin permisos para crear cargos en masa" });
+      }
       const { campus_id, concept_id, ciclo_escolar, fecha_vencimiento } = req.body;
       const tenantId = (req as any).user?.tenant_id;
 
@@ -120,6 +123,9 @@ export function registerChargesRoutes(app: Express): void {
   // /api/admin/cargos — base GET (alias de listado de cargos para cache invalidation)
   app.get("/api/admin/cargos", authenticateToken, async (req: any, res: any) => {
     try {
+      if (!hasPermission(req.user?.role, MODULES.CHARGES, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver cargos" });
+      }
       const campusId = req.user?.campus_id;
       const rows = await pool.query(`SELECT c.*, CONCAT(s.nombres,' ',s.apellido_paterno) AS estudiante FROM charges c JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 ORDER BY c.created_at DESC LIMIT 200`, [campusId]).catch(()=>({rows:[]}));
       res.json(rows.rows);
@@ -128,6 +134,9 @@ export function registerChargesRoutes(app: Express): void {
 
   app.get("/api/admin/cargos/estadisticas", authenticateToken, async (req: any, res: any) => {
     try {
+      if (!hasPermission(req.user?.role, MODULES.CHARGES, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver estadísticas de cargos" });
+      }
       const campusId = req.user.campus_id;
       const [studentsResult, conceptsResult] = await Promise.all([
         storage.getStudentsByCampus(campusId),
@@ -149,6 +158,9 @@ export function registerChargesRoutes(app: Express): void {
   // Generate monthly charges for all active students
   app.post("/api/admin/cargos/generar-mensual", authenticateToken, async (req: any, res: any) => {
     try {
+      if (!hasPermission(req.user?.role, MODULES.CHARGES, ACTIONS.CREATE)) {
+        return res.status(403).json({ message: "Sin permisos para generar cargos mensuales" });
+      }
       const campusId = req.user.campus_id;
       const { periodo, ciclo_escolar } = req.body;
       const students = await storage.getStudentsByCampus(campusId);
@@ -247,6 +259,9 @@ export function registerChargesRoutes(app: Express): void {
   // Get overdue students list
   app.get("/api/admin/cargos/morosos", authenticateToken, async (req: any, res: any) => {
     try {
+      if (!hasPermission(req.user?.role, MODULES.CHARGES, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver morosos" });
+      }
       const campusId = req.user.campus_id;
       const rows = await pool.query(`
         SELECT s.id, CONCAT(s.nombres, ' ', s.apellido_paterno) AS nombre_completo,
@@ -312,6 +327,9 @@ export function registerChargesRoutes(app: Express): void {
   // Apply charges from catalog with automatic academic level pricing
   app.post("/api/admin/cargos/desde-catalogo", authenticateToken, async (req: any, res: any) => {
     try {
+      if (!hasPermission(req.user?.role, MODULES.CHARGES, ACTIONS.CREATE)) {
+        return res.status(403).json({ message: "Sin permisos para aplicar cargos desde catálogo" });
+      }
       const { producto_id, fecha_vencimiento } = req.body;
       const userCampusId = req.user.campus_id; // Use authenticated user's campus
       

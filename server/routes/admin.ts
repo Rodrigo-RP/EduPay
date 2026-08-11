@@ -240,6 +240,10 @@ export function registerAdminRoutes(app: Express): void {
   // Get students for authenticated user's campus (no campusId in URL)
   app.get("/api/admin/students", authenticateToken, async (req, res) => {
     try {
+      const role = (req as any).user?.role;
+      if (!hasPermission(role, MODULES.STUDENTS, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver alumnos" });
+      }
       const campusId = (req as any).user?.campus_id;
       if (!campusId) {
         return res.status(400).json({ message: "Campus ID requerido" });
@@ -256,6 +260,9 @@ export function registerAdminRoutes(app: Express): void {
     try {
       const campusId = parseInt(req.params.campusId);
       if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
+      if (!hasPermission(req.user?.role, MODULES.STUDENTS, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver alumnos" });
+      }
       const students = await storage.getStudentsByCampus(campusId);
       res.json(students);
     } catch (error: any) {
@@ -266,6 +273,9 @@ export function registerAdminRoutes(app: Express): void {
   // Get guardians by campus — requiere autenticación y campus del tenant
   app.get("/api/admin/guardians/:campusId", authenticateToken, async (req: any, res) => {
     try {
+      if (!hasPermission(req.user?.role, MODULES.FAMILIES, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver tutores" });
+      }
       const campusId = parseInt(req.params.campusId);
       if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
       const guardians = await storage.getGuardiansByCampus(campusId);
@@ -278,6 +288,10 @@ export function registerAdminRoutes(app: Express): void {
   // Get students (real data from database)
   app.get("/api/students", authenticateToken, async (req, res) => {
     try {
+      const role = (req as any).user?.role;
+      if (!hasPermission(role, MODULES.STUDENTS, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver alumnos" });
+      }
       const campusId = (req as any).user?.campus_id;
       
       if (!campusId) {
@@ -294,6 +308,9 @@ export function registerAdminRoutes(app: Express): void {
   // Get payments (real data from database)
   app.get("/api/payments", authenticateToken, async (req, res) => {
     try {
+      if (!hasPermission((req as any).user?.role, MODULES.PAYMENTS, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver pagos" });
+      }
       const campusId = (req as any).user?.campus_id;
       
       if (!campusId) {
@@ -310,6 +327,9 @@ export function registerAdminRoutes(app: Express): void {
   // Get charges (real data from database)
   app.get("/api/charges", authenticateToken, async (req, res) => {
     try {
+      if (!hasPermission((req as any).user?.role, MODULES.CHARGES, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver cargos" });
+      }
       const campusId = (req as any).user?.campus_id;
       
       if (!campusId) {
@@ -326,6 +346,9 @@ export function registerAdminRoutes(app: Express): void {
   // Get accounts receivable with detailed student and guardian information
   app.get("/api/accounts-receivable", authenticateToken, async (req, res) => {
     try {
+      if (!hasPermission((req as any).user?.role, MODULES.RECEIVABLES, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver cuentas por cobrar" });
+      }
       const campusId = (req as any).user?.campus_id;
       
       if (!campusId) {
@@ -394,6 +417,9 @@ export function registerAdminRoutes(app: Express): void {
   // con su historia de pagos, y un resumen numérico.
   app.get("/api/students/:studentId/estado-cuenta", authenticateToken, async (req: any, res) => {
     try {
+      if (!hasPermission(req.user?.role, MODULES.CHARGES, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver estado de cuenta" });
+      }
       const studentId = parseInt(req.params.studentId);
       if (isNaN(studentId)) return res.status(400).json({ message: "ID de alumno inválido" });
 
@@ -573,8 +599,11 @@ export function registerAdminRoutes(app: Express): void {
   // Create new student
   app.post("/api/admin/students", authenticateToken, async (req, res) => {
     try {
-      const studentData = req.body;
       const user = (req as any).user;
+      if (!hasPermission(user?.role, MODULES.STUDENTS, ACTIONS.CREATE)) {
+        return res.status(403).json({ message: "Sin permisos para crear alumnos" });
+      }
+      const studentData = req.body;
       
       // campus_id y tenant_id SIEMPRE se derivan del JWT, nunca del body del request
       studentData.campus_id = user.campus_id;
@@ -601,6 +630,9 @@ export function registerAdminRoutes(app: Express): void {
    */
   app.patch("/api/admin/students/:studentId", authenticateToken, async (req: any, res) => {
     try {
+      if (!hasPermission(req.user?.role, MODULES.STUDENTS, ACTIONS.UPDATE)) {
+        return res.status(403).json({ message: "Sin permisos para editar alumnos" });
+      }
       const studentId = parseInt(req.params.studentId);
       const campusId  = req.user?.campus_id;
       const tenantId  = req.user?.tenant_id;
@@ -662,6 +694,9 @@ export function registerAdminRoutes(app: Express): void {
    */
   app.get("/api/admin/students/:studentId/guardians", authenticateToken, async (req: any, res) => {
     try {
+      if (!hasPermission(req.user?.role, MODULES.FAMILIES, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver tutores del alumno" });
+      }
       const studentId = parseInt(req.params.studentId);
       const tenantId  = req.user?.tenant_id;
 
@@ -710,6 +745,9 @@ export function registerAdminRoutes(app: Express): void {
    */
   app.patch("/api/admin/students/:studentId/guardians/:guardianId", authenticateToken, async (req: any, res) => {
     try {
+      if (!hasPermission(req.user?.role, MODULES.FAMILIES, ACTIONS.UPDATE)) {
+        return res.status(403).json({ message: "Sin permisos para editar responsabilidad de tutores" });
+      }
       const studentId  = parseInt(req.params.studentId);
       const guardianId = parseInt(req.params.guardianId);
       const tenantId   = req.user?.tenant_id;
@@ -840,6 +878,9 @@ export function registerAdminRoutes(app: Express): void {
   app.post("/api/admin/students/import", authenticateToken, upload.single('file'), async (req, res) => {
     try {
       const user = (req as any).user;
+      if (!hasPermission(user?.role, MODULES.STUDENTS, ACTIONS.IMPORT)) {
+        return res.status(403).json({ message: "Sin permisos para importar alumnos" });
+      }
       const file = req.file;
       
       if (!file) {

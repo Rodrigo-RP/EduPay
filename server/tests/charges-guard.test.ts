@@ -289,6 +289,14 @@ describe("CHG — Guards CHARGES/PAYMENTS/RECEIVABLES en endpoints financieros",
       expect(resp.status).toBe(200);
     });
 
+    it("CHG-23b: administrador_campus GET /api/accounts-receivable → 200 (RECEIVABLES.READ añadido)", async () => {
+      const resp = await getReceivable(tokenAdmin);
+      const body = await resp.json() as any;
+      expect(resp.status).toBe(200);
+      // Verificar que es un array (lista de cuentas por cobrar)
+      expect(Array.isArray(body)).toBe(true);
+    });
+
     it("CHG-24: administrador_campus GET /api/admin/cargos → 200 (CHARGES.READ)", async () => {
       const resp = await getCargos(tokenAdmin);
       expect(resp.status).toBe(200);

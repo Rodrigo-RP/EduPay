@@ -223,6 +223,11 @@ describe("CHG — Guards CHARGES/PAYMENTS/RECEIVABLES en endpoints financieros",
       expect(body.message).toContain("permisos");
     });
 
+    it("CHG-11b: admisiones GET /api/payments → 403 (PAYMENTS.READ eliminado de admisiones)", async () => {
+      const resp = await getPayments(tokenAdmisiones);
+      expect(resp.status).toBe(403);
+    });
+
     it("CHG-12: rol_sin_permisos GET /api/accounts-receivable → 403", async () => {
       const resp = await getReceivable(tokenSinPermisos);
       expect(resp.status).toBe(403);
@@ -267,6 +272,12 @@ describe("CHG — Guards CHARGES/PAYMENTS/RECEIVABLES en endpoints financieros",
     it("CHG-19: contador_general GET /api/payments → 200 (PAYMENTS.READ)", async () => {
       const resp = await getPayments(tokenContador);
       expect(resp.status).toBe(200);
+    });
+
+    it("CHG-19b: asistente GET /api/payments → 200 (PAYMENTS.READ intacto — regresión)", async () => {
+      const resp = await getPayments(tokenAsistente);
+      expect(resp.status).toBe(200);
+      expect(Array.isArray(await resp.json())).toBe(true);
     });
 
     it("CHG-20: auxiliar_contable GET /api/charges → 200 (CHARGES.READ)", async () => {

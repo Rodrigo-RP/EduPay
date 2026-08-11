@@ -105,13 +105,16 @@ const createRateLimit = (
   });
 };
 
-// Store dedicado para /api/guardian/pagar.
-// Exportado únicamente para aislamiento de tests: ningún archivo de producción
-// lo importa. Los test files llaman resetPaymentRateLimitStore() en beforeAll
-// para evitar que acumulaciones de corridas manuales o consecutivas contaminen
-// el bucket y generen 429 inesperados en la suite.
-const _paymentLimiterStore = new MemoryStore();
+// Stores dedicados para rate-limiters que los tests necesitan poder resetear.
+// Ningún archivo de producción los importa directamente.
+// Los test files (Vitest: beforeAll; E2E: endpoint /api/test/reset-rate-limits)
+// llaman a las funciones reset* para evitar que acumulaciones de corridas manuales
+// o consecutivas contaminen el bucket y generen 429 inesperados en la suite.
 
+const _paymentLimiterStore = new MemoryStore();
+const _authLimiterStore    = new MemoryStore();
+
+/** Resetea el bucket del rate-limiter de /api/guardian/pagar para tests. */
 export function resetPaymentRateLimitStore(): void {
   // Express puede representar localhost como cualquiera de estas tres variantes
   // dependiendo de la pila IPv4/IPv6 del sistema. Se resetean las tres.
@@ -120,11 +123,19 @@ export function resetPaymentRateLimitStore(): void {
   void _paymentLimiterStore.resetKey('::ffff:127.0.0.1');
 }
 
+/** Resetea el bucket del rate-limiter de /api/auth/login para tests. */
+export function resetLoginRateLimitStore(): void {
+  void _authLimiterStore.resetKey('::1');
+  void _authLimiterStore.resetKey('127.0.0.1');
+  void _authLimiterStore.resetKey('::ffff:127.0.0.1');
+}
+
 // Diferentes límites según el endpoint
 export const rateLimits = {
   general:   createRateLimit(15 * 60 * 1000, 100, 'Demasiadas solicitudes generales'),
-  auth:      createRateLimit(15 * 60 * 1000,  10, 'Demasiados intentos de autenticación'),
-  // store explícito → permite resetear el bucket en tests sin alterar el factory.
+  // store explícito → permite resetear el bucket en tests (resetLoginRateLimitStore).
+  auth:      createRateLimit(15 * 60 * 1000,  10, 'Demasiados intentos de autenticación', _authLimiterStore),
+  // store explícito → permite resetear el bucket en tests (resetPaymentRateLimitStore).
   payment:   createRateLimit(60 * 60 * 1000,  20, 'Demasiadas solicitudes de pago', _paymentLimiterStore),
   api:       createRateLimit(5  * 60 * 1000,  50, 'Demasiadas solicitudes a la API'),
   // Rutas autenticadas (/api/admin, /api/super-admin): ya exigen JWT válido,

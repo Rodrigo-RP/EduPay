@@ -23,3 +23,5 @@
 - [Playwright page.route onError toast](playwright-page-route-onError.md) — patrón E2E para interceptar endpoint con page.route() y verificar que el toast de error aparece y el de éxito no; archivo e2e/10-caja-onerror.spec.ts.
 - [Teardown ledger transaccional](test-ledger-teardown.md) — afterAll del ledger en una sola txn; fixtures usan markChargeAsPaidForTest; /api/admin rate limit 50/5min causa 429 en corridas repetidas.
 - [audit_retry_queue contaminación](audit-retry-queue-contamination.md) — fuente: bug-audit-log-rollback.test.ts PASO 2; identificar con tenant_id NOT IN tenants; limpiar con DELETE directo (no hay FK en JSONB).
+- [E2E auth session pattern](e2e-auth-session-pattern.md) — login ONCE en beforeAll (browser fixture), restaurar localStorage en beforeEach; endpoint /api/test/reset-rate-limits para auth+payment limiters.
+- [Playwright E2E pitfalls](e2e-playwright-pitfalls.md) — strict-mode con aria-live/dialog text; h3 genérico captura sidebar; test.use storageState race; SPA wouter: pushState no goto.

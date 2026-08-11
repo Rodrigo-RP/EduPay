@@ -18,6 +18,7 @@ import {
 } from "../../shared/schema";
 import jwt from "jsonwebtoken";
 import { markChargeAsPaidForTest } from "./test-helpers";
+import { resetApiAuthRateLimitStore } from "../security-middleware";
 
 const BASE       = "http://localhost:5000";
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
@@ -67,6 +68,7 @@ async function mkCharge(estado: "pendiente" | "cancelado"): Promise<number> {
 
 // ── Setup / Teardown ───────────────────────────────────────────────────────
 beforeAll(async () => {
+  resetApiAuthRateLimitStore(); // Evita 429 por acumulación entre corridas consecutivas
   const ts = Date.now().toString().slice(-7);
 
   const [t] = await db.insert(tenants).values({

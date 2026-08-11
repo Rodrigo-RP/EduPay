@@ -1100,6 +1100,10 @@ export function registerMiscRoutes(app: Express): void {
       if (user?.type === 'guardian') {
         return res.status(403).json({ message: "Acceso denegado: solo personal administrativo puede ver la lista de familias" });
       }
+      // Guard de rol: requiere FAMILIES.READ (mismo módulo que admin/students/guardians)
+      if (!hasPermissionForUser(user, MODULES.FAMILIES, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver familias" });
+      }
       const tenantId = user?.tenant_id;
       if (!tenantId) return res.status(403).json({ message: "Sin contexto de tenant" });
 
@@ -1152,6 +1156,10 @@ export function registerMiscRoutes(app: Express): void {
       const user = (req as any).user;
       if (user?.type === 'guardian') {
         return res.status(403).json({ message: "Acceso denegado: solo personal administrativo puede consultar balances de familia" });
+      }
+      // Guard de rol: requiere FAMILIES.READ
+      if (!hasPermissionForUser(user, MODULES.FAMILIES, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para consultar balances de familia" });
       }
       const tenantId = user?.tenant_id;
       if (!tenantId) return res.status(403).json({ message: "Sin contexto de tenant" });

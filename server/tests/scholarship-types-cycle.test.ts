@@ -38,6 +38,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { pool } from "../db";
 import jwt from "jsonwebtoken";
+import { resetApiAuthRateLimitStore } from "../security-middleware";
 
 const BASE = "http://localhost:5000";
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
@@ -62,6 +63,7 @@ async function apiFetch(method: string, path: string, token: string) {
 }
 
 beforeAll(async () => {
+  resetApiAuthRateLimitStore(); // Evita 429 por acumulación entre corridas consecutivas
   const ts = Date.now().toString().slice(-6);
 
   // Tenant y campus

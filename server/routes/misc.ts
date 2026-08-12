@@ -778,7 +778,11 @@ export function registerMiscRoutes(app: Express): void {
 
   // Alias con query params para el frontend
   app.get("/api/reportes/consejo", authenticateToken, async (req, res) => {
-    const campusId = (req as any).user?.campus_id;
+    const user = (req as any).user;
+    if (!hasPermissionForUser(user, MODULES.FINANCIAL, ACTIONS.READ)) {
+      return res.status(403).json({ message: "No tienes permiso para ver el reporte del consejo directivo" });
+    }
+    const campusId = user?.campus_id;
     try {
       const { mes, anio } = req.query;
       const mesNum = mes !== undefined ? String(mes).padStart(2, '0') : String(new Date().getMonth() + 1).padStart(2, '0');

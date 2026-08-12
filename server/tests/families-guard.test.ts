@@ -213,9 +213,9 @@ describe("FAM — Guards FAMILIES/CHARGES en endpoints de tutores", () => {
       expect(Array.isArray(body)).toBe(true);
     });
 
-    it("FAM-09: admisiones GET /api/admin/guardians/:campusId → 200 (FAMILIES.READ)", async () => {
+    it("FAM-09: admisiones GET /api/admin/guardians/:campusId → 403 (FAMILIES.READ eliminado)", async () => {
       const resp = await getGuardians(tokenAdmisiones);
-      expect(resp.status).toBe(200);
+      expect(resp.status).toBe(403);
     });
 
     it("FAM-10: asistente GET /api/admin/guardians/:campusId → 200 (FAMILIES.READ)", async () => {

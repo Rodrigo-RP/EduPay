@@ -318,7 +318,6 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.STUDENTS, action: ACTIONS.UPDATE, scope: 'campus', description: 'Editar estudiantes del campus' },
       { module: MODULES.STUDENTS, action: ACTIONS.IMPORT, scope: 'campus', description: 'Importar estudiantes masivamente' },
       { module: MODULES.FAMILIES, action: ACTIONS.CREATE, scope: 'campus', description: 'Crear familias del campus' },
-      { module: MODULES.FAMILIES, action: ACTIONS.READ, scope: 'campus', description: 'Ver familias del campus' },
       { module: MODULES.FAMILIES, action: ACTIONS.UPDATE, scope: 'campus', description: 'Editar familias del campus' },
       { module: MODULES.FAMILIES, action: ACTIONS.IMPORT, scope: 'campus', description: 'Importar familias masivamente' },
       { module: MODULES.CHARGES, action: ACTIONS.READ, scope: 'campus', description: 'Ver cargos del campus' },

@@ -63,6 +63,9 @@ export function registerMiscRoutes(app: Express): void {
 
   // ── PLANES DE PAGO — GET con campusId ────────────────────────────────────
   app.get("/api/planes-pago/:campusId", authenticateToken, async (req: any, res) => {
+    if (!hasPermissionForUser(req.user, MODULES.RECEIVABLES, ACTIONS.READ)) {
+      return res.status(403).json({ message: "Sin permisos para ver planes de pago" });
+    }
     try {
       const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
       if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
@@ -845,8 +848,12 @@ export function registerMiscRoutes(app: Express): void {
 
   // Alias /api/planes-pago sin campusId (ADR-002: lee cuotas de charges)
   app.get("/api/planes-pago", authenticateToken, async (req, res) => {
+    const user = (req as any).user;
+    if (!hasPermissionForUser(user, MODULES.RECEIVABLES, ACTIONS.READ)) {
+      return res.status(403).json({ message: "Sin permisos para ver planes de pago" });
+    }
     try {
-      const campusId = (req as any).user?.campus_id;
+      const campusId = user?.campus_id;
       const planesRows = await pool.query(`
         SELECT pp.*, CONCAT(s.nombres, ' ', s.apellido_paterno) AS student_nombre
         FROM payment_plans pp

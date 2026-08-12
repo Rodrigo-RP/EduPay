@@ -497,6 +497,9 @@ export function registerConciliacionRoutes(app: Express): void {
 
   // Alias without campusId param (reads from JWT)
   app.get("/api/conciliacion/transacciones", authenticateToken, async (req, res) => {
+    if (!hasPermissionForUser((req as any).user, MODULES.PAYMENTS, ACTIONS.READ)) {
+      return res.status(403).json({ message: "Sin permisos para ver transacciones bancarias" });
+    }
     try {
       const campusId = (req as any).user?.campus_id;
       const rows = await pool.query(`SELECT * FROM bank_transactions WHERE campus_id = $1 ORDER BY fecha DESC, id DESC LIMIT 200`, [campusId]);
@@ -507,6 +510,9 @@ export function registerConciliacionRoutes(app: Express): void {
   });
 
   app.get("/api/conciliacion/transacciones/:campusId", authenticateToken, async (req: any, res) => {
+    if (!hasPermissionForUser(req.user, MODULES.PAYMENTS, ACTIONS.READ)) {
+      return res.status(403).json({ message: "Sin permisos para ver transacciones bancarias" });
+    }
     try {
       const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
       if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;

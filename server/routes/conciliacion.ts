@@ -10,6 +10,9 @@ import { payments, charges, students, invoices, guardians } from "@shared/schema
 export function registerConciliacionRoutes(app: Express): void {
   // ── 1. CENTRO DE COMANDOS ─────────────────────────────────────────────────
   app.get("/api/dashboard/comandos/:campusId", authenticateToken, async (req: any, res) => {
+    if (!hasPermissionForUser(req.user, MODULES.FINANCIAL, ACTIONS.READ)) {
+      return res.status(403).json({ message: "Sin permisos para ver KPIs financieros del campus" });
+    }
     try {
       const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
       if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;

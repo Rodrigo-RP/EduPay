@@ -922,6 +922,9 @@ export function registerMiscRoutes(app: Express): void {
 
   // Alias /api/dashboard/comandos sin campusId
   app.get("/api/dashboard/comandos", authenticateToken, async (req, res) => {
+    if (!hasPermissionForUser((req as any).user, MODULES.FINANCIAL, ACTIONS.READ)) {
+      return res.status(403).json({ message: "Sin permisos para ver KPIs financieros del campus" });
+    }
     try {
       const campusId = (req as any).user?.campus_id;
       const [paymentsRows, chargesRows, studentsRows, speiRows] = await Promise.all([

@@ -935,6 +935,9 @@ export function registerMiscRoutes(app: Express): void {
 
   // Alias /api/becas-auto/reglas sin campusId
   app.get("/api/becas-auto/reglas", authenticateToken, async (req, res) => {
+    if (!hasPermissionForUser((req as any).user, MODULES.SCHOLARSHIPS, ACTIONS.ASSIGN)) {
+      return res.status(403).json({ message: "Sin permisos para ver reglas de becas automáticas" });
+    }
     try {
       const campusId = (req as any).user?.campus_id;
       const rows = await pool.query(`SELECT * FROM scholarship_auto_rules WHERE campus_id=$1 ORDER BY created_at DESC`, [campusId]);

@@ -11,6 +11,9 @@ import { z } from "zod";
 
 export function registerNotificationRoutes(app: Express): void {
   app.get("/api/notifications", authenticateToken, async (req, res) => {
+    if (!hasPermissionForUser((req as any).user, MODULES.RECEIVABLES, ACTIONS.READ)) {
+      return res.status(403).json({ message: "No tienes permiso para ver el historial de notificaciones" });
+    }
     try {
       const user = (req as any).user;
       const tenantId = user?.tenant_id;
@@ -55,6 +58,9 @@ export function registerNotificationRoutes(app: Express): void {
    * Estadísticas de notificaciones para el tenant.
    */
   app.get("/api/notifications/stats", authenticateToken, async (req, res) => {
+    if (!hasPermissionForUser((req as any).user, MODULES.RECEIVABLES, ACTIONS.READ)) {
+      return res.status(403).json({ message: "No tienes permiso para ver estadísticas de notificaciones" });
+    }
     try {
       const tenantId = (req as any).user?.tenant_id;
       if (!tenantId) return res.status(403).json({ message: "Sin contexto de tenant" });

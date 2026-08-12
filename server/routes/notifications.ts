@@ -91,6 +91,9 @@ export function registerNotificationRoutes(app: Express): void {
    * Datos reales del sistema, no simulados.
    */
   app.get("/api/notifications/pending-students", authenticateToken, async (req, res) => {
+    if (!hasPermissionForUser((req as any).user, MODULES.RECEIVABLES, ACTIONS.READ)) {
+      return res.status(403).json({ message: "Sin permisos para ver alumnos con cargos pendientes" });
+    }
     try {
       const user = (req as any).user;
       const campusId  = user?.campus_id;

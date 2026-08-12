@@ -51,6 +51,9 @@ export function registerConciliacionRoutes(app: Express): void {
 
   // ── 2. SEMÁFORO DE RIESGO ─────────────────────────────────────────────────
   app.get("/api/riesgo/semaforo/:campusId", authenticateToken, async (req: any, res) => {
+    if (!hasPermissionForUser(req.user, MODULES.RECEIVABLES, ACTIONS.READ)) {
+      return res.status(403).json({ message: "Sin permisos para ver el semáforo de riesgo" });
+    }
     try {
       const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
       if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;

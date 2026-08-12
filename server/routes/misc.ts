@@ -867,13 +867,17 @@ export function registerMiscRoutes(app: Express): void {
 
   // Alias /api/riesgo/semaforo sin campusId
   app.get("/api/riesgo/semaforo", authenticateToken, async (req, res) => {
-    const campusId = (req as any).user?.campus_id;
+    const user = (req as any).user;
+    if (!hasPermissionForUser(user, MODULES.RECEIVABLES, ACTIONS.READ)) {
+      return res.status(403).json({ message: "Sin permisos para ver el semáforo de riesgo" });
+    }
+    const campusId = user?.campus_id;
     try {
       const rows = await pool.query(`
         SELECT s.id AS student_id, CONCAT(s.nombres,' ',s.apellido_paterno) AS estudiante,
           CONCAT(g.nombres,' ',g.apellido_paterno) AS nombre_familia, s.nivel_escolar AS nivel,
           COALESCE(SUM(CASE WHEN c.estado='pendiente' THEN c.monto_base_centavos ELSE 0 END),0) AS adeudo_centavos,
-          COALESCE(MAX(EXTRACT(DAY FROM (NOW()-c.fecha_vencimiento::date)) FILTER (WHERE c.estado='pendiente' AND c.fecha_vencimiento < NOW()::date)),0) AS dias_vencido,
+          COALESCE(MAX(EXTRACT(DAY FROM (NOW()-c.fecha_vencimiento::date))) FILTER (WHERE c.estado='pendiente' AND c.fecha_vencimiento < NOW()::date),0) AS dias_vencido,
           COALESCE(ROUND(COUNT(p.id) FILTER (WHERE p.created_at > NOW()-INTERVAL '6 months')::numeric /
             NULLIF(COUNT(c2.id) FILTER (WHERE c2.created_at > NOW()-INTERVAL '6 months'),0)*100),0) AS tasa_pago_historica
         FROM students s

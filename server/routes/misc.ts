@@ -636,6 +636,9 @@ export function registerMiscRoutes(app: Express): void {
 
   // ── 7. CALENDARIO FINANCIERO ──────────────────────────────────────────────
   app.get("/api/calendario/eventos/:campusId", authenticateToken, async (req: any, res) => {
+    if (!hasPermissionForUser(req.user, MODULES.CALENDAR, ACTIONS.READ)) {
+      return res.status(403).json({ message: "Sin permisos para ver el calendario financiero" });
+    }
     try {
       const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
       if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
@@ -648,6 +651,9 @@ export function registerMiscRoutes(app: Express): void {
 
   // Alias sin campusId para el frontend que llama /api/calendario/eventos
   app.get("/api/calendario/eventos", authenticateToken, async (req: any, res) => {
+    if (!hasPermissionForUser(req.user, MODULES.CALENDAR, ACTIONS.READ)) {
+      return res.status(403).json({ message: "Sin permisos para ver el calendario financiero" });
+    }
     try {
       const campusId = req.user?.campus_id;
       if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;

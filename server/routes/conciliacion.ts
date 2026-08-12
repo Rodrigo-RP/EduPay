@@ -312,6 +312,9 @@ export function registerConciliacionRoutes(app: Express): void {
 
   // Get bank movements
   app.get("/api/caja/movimientos-banco", authenticateToken, async (req, res) => {
+    if (!hasPermissionForUser((req as any).user, MODULES.PAYMENTS, ACTIONS.READ)) {
+      return res.status(403).json({ message: "Sin permisos para ver movimientos bancarios" });
+    }
     try {
       const campusId = (req as any).user?.campus_id;
       const rows = await pool.query(`SELECT * FROM bank_transactions WHERE campus_id = $1 ORDER BY fecha DESC, id DESC LIMIT 100`, [campusId]).catch(() => ({ rows: [] }));

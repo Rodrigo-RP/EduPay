@@ -1137,13 +1137,17 @@ export class DatabaseStorage implements IStorage {
     return logs;
   }
 
-  async getAllApprovalsHistory(tenantId?: number): Promise<any[]> {
+  async getAllApprovalsHistory(tenantId?: number, userId?: number): Promise<any[]> {
     // Get all approvals with requester information and student data when applicable.
-    // tenantId filtra por tenant; si no se pasa (super_admin) se devuelve todo.
+    // tenantId: undefined → super_admin (sin filtro de tenant).
+    // userId: undefined → admin (ve todo el tenant); definido → solo sus propias solicitudes.
     const statusFilter = inArray(pending_approvals.status, ['approved', 'rejected']);
-    const whereClause = tenantId !== undefined
+    const tenantClause = tenantId !== undefined
       ? and(statusFilter, eq(pending_approvals.tenant_id, tenantId))
       : statusFilter;
+    const whereClause = userId !== undefined
+      ? and(tenantClause, eq(pending_approvals.requested_by, userId))
+      : tenantClause;
 
     const allApprovals = await db
       .select({

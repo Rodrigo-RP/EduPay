@@ -590,10 +590,14 @@ export function registerNotificationRoutes(app: Express): void {
   app.get("/api/approvals/history", authenticateToken, async (req, res) => {
     try {
       const user = (req as any).user;
-      // super_admin ve historial global; todos los demás roles solo ven su propio tenant
+      const isGlobalAdmin = user.role === 'super_admin' || user.role === 'administrador_general';
+      // super_admin ve historial global; administrador_general ve todo su tenant;
+      // cualquier otro rol solo ve sus propias solicitudes históricas (requested_by = userId).
       const tenantFilter: number | undefined =
         user.role === 'super_admin' ? undefined : (user.tenant_id as number | undefined);
-      const allApprovals = await storage.getAllApprovalsHistory(tenantFilter);
+      const userFilter: number | undefined =
+        isGlobalAdmin ? undefined : (user.id as number | undefined);
+      const allApprovals = await storage.getAllApprovalsHistory(tenantFilter, userFilter);
       res.json(allApprovals);
     } catch (error: any) {
       res.status(500).json({ message: "Error obteniendo historial de aprobaciones" });

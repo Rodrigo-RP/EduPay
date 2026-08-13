@@ -1,81 +1,43 @@
 # Protocolo estándar de trabajo — EduPay
 
-Este documento describe cómo reportar cualquier cambio de código en este proyecto. Aplica
-a corrección de bugs, nuevos guards de permisos, features nuevas, y cualquier cambio de
-schema. Síguelo sin que se te pida cada vez — es el estándar por default, no una excepción.
+Este documento describe cómo reportar cualquier cambio de código en este proyecto. Aplica a corrección de bugs, nuevos guards de permisos, features nuevas, y cualquier cambio de schema. Síguelo sin que se te pida cada vez — es el estándar por default, no una excepción.
 
 ## 1. Antes de corregir — reproduce el problema
 
-Si el trabajo es corregir un bug o cerrar un hallazgo de seguridad, reprodúcelo empíricamente
-ANTES de tocar el código: llama al endpoint real, con el rol o condición real que expone el
-problema, y pega la respuesta real (código HTTP + body). No describas el problema de memoria
-ni infieras que "seguramente así funciona" — ejecútalo y muestra la evidencia.
+Si el trabajo es corregir un bug o cerrar un hallazgo de seguridad, reprodúcelo empíricamente ANTES de tocar el código: llama al endpoint real, con el rol o condición real que expone el problema, y pega la respuesta real (código HTTP + body). No describas el problema de memoria ni infieras que "seguramente así funciona" — ejecútalo y muestra la evidencia.
 
-Si afirmas que algo "ya existía antes de esta sesión" o es "preexistente", no lo dejes como
-suposición: verifícalo con `git log -S "<string>" -- <archivo>` o `git blame` y cita el commit
-y la fecha real. Si no puedes verificarlo, dilo explícitamente ("es una inferencia, todavía no
-lo confirmé") en vez de presentarlo como hecho.
+Si afirmas que algo "ya existía antes de esta sesión" o es "preexistente", no lo dejes como suposición: verifícalo con git log -S "cadena" -- archivo o git blame y cita el commit y la fecha real. Si no puedes verificarlo, dilo explícitamente ("es una inferencia, todavía no lo confirmé") en vez de presentarlo como hecho.
 
 ## 2. Después de corregir — las tres marcas de tiempo, en este orden exacto
 
-1. **Reinicia el servidor** y copia la línea real del log ("serving on port XXXX" o
-   equivalente), con su hora exacta.
-2. **Corre la suite completa** (no solo los tests nuevos) y copia la hora de inicio real de
-   vitest ("Start at").
-3. Confirma que el paso 2 ocurrió DESPUÉS del paso 1, con al menos unos segundos de margen.
-   Si las horas no tienen sentido cronológico entre sí, es una señal de que se mezclaron
-   resultados de corridas distintas — vuelve a correr todo limpio antes de reportar.
+1. Reinicia el servidor y copia la línea real del log ("serving on port XXXX" o equivalente), con su hora exacta.
+2. Corre la suite completa (no solo los tests nuevos) y copia la hora de inicio real de vitest ("Start at").
+3. Confirma que el paso 2 ocurrió DESPUÉS del paso 1, con al menos unos segundos de margen. Si las horas no tienen sentido cronológico entre sí, es una señal de que se mezclaron resultados de corridas distintas — vuelve a correr todo limpio antes de reportar.
 
-Nunca reportes solo "Start at" de vitest sin la hora de reinicio del servidor — son cosas
-distintas y las dos son necesarias.
+Nunca reportes solo "Start at" de vitest sin la hora de reinicio del servidor — son cosas distintas y las dos son necesarias.
 
 ## 3. El resultado de la suite — siempre agregado, siempre completo
 
-Reporta siempre el bloque completo, con estas cuatro líneas: "Test Files X passed (X)",
-"Tests Y passed (Y)", "Start at HH:MM:SS", "Duration Ns". No solo los tests nuevos. Si el
-número total no coincide con lo que se esperaría (revisiones anteriores + tests nuevos), dilo
-y explica la diferencia antes de que se te pregunte.
+Reporta siempre el bloque completo, con estas cuatro líneas: "Test Files X passed (X)", "Tests Y passed (Y)", "Start at HH:MM:SS", "Duration Ns". No solo los tests nuevos. Si el número total no coincide con lo que se esperaría (revisiones anteriores + tests nuevos), dilo y explica la diferencia antes de que se te pregunte.
 
 ## 4. Nunca inventes ni resumas de memoria un inventario de tests
 
-Si te piden la lista de test IDs de un archivo, o cuántos tests tiene, usa `grep -n` o
-`cat -n` y cita el comando exacto que corriste. Nunca "leí el archivo y son estos" sin el
-comando — la paráfrasis es donde se cuela el error.
+Si te piden la lista de test IDs de un archivo, o cuántos tests tiene, usa grep -n o cat -n y cita el comando exacto que corriste. Nunca "leí el archivo y son estos" sin el comando — la paráfrasis es donde se cuela el error.
 
-Si el output de una herramienta se trunca, dilo explícitamente ("el tool cortó esta parte,
-no tengo esos datos") en vez de rellenar el hueco con contenido inventado que suene plausible.
+Si el output de una herramienta se trunca, dilo explícitamente ("el tool cortó esta parte, no tengo esos datos") en vez de rellenar el hueco con contenido inventado que suene plausible.
 
 ## 5. Reglas de código no negociables (ya aprendidas de la manera difícil)
 
-- Nunca registres una ruta condicionada por `NODE_ENV`
-  (`if (process.env.NODE_ENV !== "production") { app.post(...) }`). Este patrón apareció tres
-  veces en la sesión de auditoría como bypass de rate limiting, siempre alcanzable sin
-  restricción en modo development. Si necesitas un mecanismo solo-para-test, expórtalo como
-  función (nunca como ruta HTTP) e impórtalo solo desde archivos de test.
-- Todo endpoint que lea o escriba datos de otro usuario necesita verificación de rol, no solo
-  `authenticateToken`. Antes de dar por cerrado un módulo, verifica también las rutas alias
-  (sin parámetro de campus) — es el patrón de hueco más repetido de todos: la ruta canónica
-  tiene guard, el alias se olvida.
-- No confíes en `shared/schema.ts` como fuente de verdad de la estructura real de la base de
-  datos. Ante cualquier duda sobre una columna, verifica contra `information_schema`
-  directamente.
-- Todo pago, condonación, o cambio financiero debe ser atómico
-  (`SELECT ... FOR UPDATE` o `UPDATE ... WHERE estado = 'activo' RETURNING id`) para prevenir
-  doble ejecución bajo concurrencia.
-- Nunca borres un archivo de test que reproduce una vulnerabilidad ya corregida. Inviértelo
-  (que ahora espere el comportamiento correcto, bloqueado) y déjalo como regresión permanente.
+- Nunca registres una ruta condicionada por NODE_ENV (if (process.env.NODE_ENV !== "production") { app.post(...) }). Este patrón apareció tres veces en la sesión de auditoría como bypass de rate limiting, siempre alcanzable sin restricción en modo development. Si necesitas un mecanismo solo-para-test, expórtalo como función (nunca como ruta HTTP) e impórtalo solo desde archivos de test.
+- Todo endpoint que lea o escriba datos de otro usuario necesita verificación de rol, no solo authenticateToken. Antes de dar por cerrado un módulo, verifica también las rutas alias (sin parámetro de campus) — es el patrón de hueco más repetido de todos: la ruta canónica tiene guard, el alias se olvida.
+- No confíes en shared/schema.ts como fuente de verdad de la estructura real de la base de datos. Ante cualquier duda sobre una columna, verifica contra information_schema directamente.
+- Todo pago, condonación, o cambio financiero debe ser atómico (SELECT ... FOR UPDATE o UPDATE ... WHERE estado = 'activo' RETURNING id) para prevenir doble ejecución bajo concurrencia.
+- Nunca borres un archivo de test que reproduce una vulnerabilidad ya corregida. Inviértelo (que ahora espere el comportamiento correcto, bloqueado) y déjalo como regresión permanente.
 
 ## 6. Antes de proponer una tarea de seguimiento
 
-Si vas a proponer un hallazgo nuevo o una tarea de seguimiento (con o sin número), incluye
-siempre en el mismo mensaje: qué problema resuelve, qué archivo tocaría, y por qué es
-necesaria. No la dejes solo como título — así se puede decidir sin una ronda adicional de
-"detállame esto primero".
+Si vas a proponer un hallazgo nuevo o una tarea de seguimiento (con o sin número), incluye siempre en el mismo mensaje: qué problema resuelve, qué archivo tocaría, y por qué es necesaria. No la dejes solo como título — así se puede decidir sin una ronda adicional de "detállame esto primero".
 
 ## 7. Decisiones de negocio — pregunta, no asumas
 
-Si un permiso o alcance de un rol no está explícitamente decidido (por ejemplo, si un rol
-nuevo hereda un permiso amplio de un módulo similar sin que nadie lo haya decidido a
-propósito), señálalo explícitamente en vez de aplicar el default silenciosamente. Rodrigo
-decide el alcance de cada permiso; tu trabajo es señalar cuándo la decisión no se ha tomado
-todavía, no tomarla por él.
+Si un permiso o alcance de un rol no está explícitamente decidido (por ejemplo, si un rol nuevo hereda un permiso amplio de un módulo similar sin que nadie lo haya decidido a propósito), señálalo explícitamente en vez de aplicar el default silenciosamente. Rodrigo decide el alcance de cada permiso; tu trabajo es señalar cuándo la decisión no se ha tomado todavía, no tomarla por él.

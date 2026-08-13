@@ -1097,7 +1097,7 @@ export function registerMiscRoutes(app: Express): void {
   // PATCH — idempotente: llamar dos veces al mismo stepId es seguro (jsonb merge).
   // stepId válidos: escuela | alumnos | familias | becas | adeudos | activar
   // Responde: { step_id, steps }  donde steps es el objeto completo actualizado.
-  const VALID_ONBOARDING_STEPS = new Set(["escuela", "alumnos", "familias", "becas", "adeudos", "activar"]);
+  const VALID_ONBOARDING_STEPS = new Set(["escuela", "alumnos", "familias", "becas", "adeudos", "validar", "simular", "activar"]);
 
   app.patch("/api/admin/configuracion/onboarding-step/:stepId", authenticateToken, async (req, res) => {
     try {

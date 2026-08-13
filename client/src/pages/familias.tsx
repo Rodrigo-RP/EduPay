@@ -35,10 +35,13 @@ export default function Familias() {
   const [showViewModal, setShowViewModal] = useState(false);
   const [viewingFamily, setViewingFamily] = useState<any>(null);
   
-  // Estados para importación Excel
+  // Estados para importación — flujo preview → confirmar
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [isImporting, setIsImporting] = useState(false);
-  const [importProgress, setImportProgress] = useState(0);
+  const [importStep, setImportStep] = useState<'idle' | 'previewing' | 'preview_done' | 'confirming'>('idle');
+  const [importPreview, setImportPreview] = useState<{
+    successful: number; failed: number; total: number;
+    errors: any[]; warnings: string[]; committed: boolean;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [formData, setFormData] = useState({
@@ -108,62 +111,61 @@ export default function Familias() {
 
   const [familias, setFamilias] = useState<any[]>([]);
 
-  // Cargar familias reales desde la API
-  useEffect(() => {
-    async function loadFamilias() {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const token = localStorage.getItem("auth_token");
-        const userData = localStorage.getItem("auth_user");
-        const user = userData ? JSON.parse(userData) : null;
-        const campusId = user?.campus_id;
-        if (!campusId) {
-          setLoadError("No se encontró campus del usuario. Inicia sesión nuevamente.");
-          return;
-        }
-        const res = await fetch(`/api/families/${campusId}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        if (!res.ok) throw new Error(`Error ${res.status}: ${await res.text()}`);
-        const data: any[] = await res.json();
-        // Normalizar campos para compatibilidad con la UI existente
-        const normalized = data.map((f) => ({
-          ...f,
-          numero_familia: `FAM${String(f.id).padStart(3, "0")}`,
-          padre_nombre: f.nombre,
-          padre_telefono: "",
-          padre_email: "",
-          madre_nombre: "",
-          madre_telefono: "",
-          madre_email: "",
-          direccion: "",
-          ciudad: "Querétaro",
-          codigo_postal: f.codigo_postal || f.cp || "",
-          razon_social: f.nombre,
-          rfc: "",
-          estatus: "activo",
-          // La API devuelve estudiantes bajo "estudiantes"
-          estudiantes_vinculados: (f.estudiantes || []).map((s: any) => ({
-            id: s.id,
-            nombre: s.nombre_completo,
-            grado: `${s.grado || ""} ${s.grupo || ""}`.trim(),
-            nivel_escolar: s.nivel_escolar || "",
-            grado_raw: s.grado || "",
-            grupo: s.grupo || "",
-          })),
-          saldo_total: f.saldo_pendiente_centavos ?? 0,
-          fecha_registro: f.created_at ? f.created_at.split("T")[0] : "",
-        }));
-        setFamilias(normalized);
-      } catch (err: any) {
-        setLoadError(err.message || "Error al cargar familias");
-      } finally {
-        setIsLoading(false);
+  // Normalizar familia del servidor al shape de la UI
+  const normalizeFamilia = (f: any) => ({
+    ...f,
+    numero_familia: `FAM${String(f.id).padStart(3, "0")}`,
+    padre_nombre: f.nombre,
+    padre_telefono: "",
+    padre_email: "",
+    madre_nombre: "",
+    madre_telefono: "",
+    madre_email: "",
+    direccion: "",
+    ciudad: "Querétaro",
+    codigo_postal: f.codigo_postal || f.cp || "",
+    razon_social: f.nombre,
+    rfc: "",
+    estatus: "activo",
+    estudiantes_vinculados: (f.estudiantes || []).map((s: any) => ({
+      id: s.id,
+      nombre: s.nombre_completo,
+      grado: `${s.grado || ""} ${s.grupo || ""}`.trim(),
+      nivel_escolar: s.nivel_escolar || "",
+      grado_raw: s.grado || "",
+      grupo: s.grupo || "",
+    })),
+    saldo_total: f.saldo_pendiente_centavos ?? 0,
+    fecha_registro: f.created_at ? f.created_at.split("T")[0] : "",
+  });
+
+  // Cargar familias desde la API — llamado en mount Y después de import exitoso.
+  const loadFamilias = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const token = localStorage.getItem("auth_token");
+      const userData = localStorage.getItem("auth_user");
+      const user = userData ? JSON.parse(userData) : null;
+      const campusId = user?.campus_id;
+      if (!campusId) {
+        setLoadError("No se encontró campus del usuario. Inicia sesión nuevamente.");
+        return;
       }
+      const res = await fetch(`/api/families/${campusId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}: ${await res.text()}`);
+      const data: any[] = await res.json();
+      setFamilias(data.map(normalizeFamilia));
+    } catch (err: any) {
+      setLoadError(err.message || "Error al cargar familias");
+    } finally {
+      setIsLoading(false);
     }
-    loadFamilias();
-  }, []);
+  };
+
+  useEffect(() => { loadFamilias(); }, []);
 
   // ── PLACEHOLDER (mantenido para que los formularios de alta sigan funcionando) ──
   const _unusedPlaceholder = [
@@ -499,8 +501,118 @@ export default function Familias() {
     ]);
   };
 
-  // Funciones para importación Excel de familias
-  const downloadFamilyTemplate = () => {
+  // ── Importación masiva — flujo preview → confirmar ───────────────────────────
+
+  const _importAuthHeaders = () => {
+    const token = localStorage.getItem("auth_token");
+    return token ? { Authorization: `Bearer ${token}` } : {} as Record<string, string>;
+  };
+
+  /** Descarga la plantilla CSV real desde el endpoint del servidor. */
+  const downloadFamilyTemplate = async () => {
+    try {
+      const res = await fetch("/api/import/template/familias/tutores", {
+        headers: _importAuthHeaders(),
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href     = url;
+      link.download = "plantilla_familias_tutores.csv";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast({ title: "Plantilla descargada", description: "Completa los datos y súbela para importar." });
+    } catch {
+      toast({ title: "Error", description: "No se pudo descargar la plantilla.", variant: "destructive" });
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImportFile(file);
+      setImportStep('idle');
+      setImportPreview(null);
+      toast({ title: "Archivo seleccionado", description: `${file.name} listo para previsualizar.` });
+    }
+  };
+
+  /**
+   * Paso 1 — Preview (dry_run=true):
+   * Sube el archivo al endpoint real sin escribir nada en DB.
+   * Muestra cuántas filas son válidas, cuáles fallan y los warnings.
+   */
+  const runPreview = async () => {
+    if (!importFile) return;
+    setImportStep('previewing');
+    try {
+      const form = new FormData();
+      form.append("file", importFile);
+      const res = await fetch("/api/import/data/familias/tutores?dry_run=true", {
+        method: "POST",
+        headers: _importAuthHeaders(),
+        body: form,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: "Error al previsualizar", description: data.message || "Error desconocido", variant: "destructive" });
+        setImportStep('idle');
+        return;
+      }
+      setImportPreview(data);
+      setImportStep('preview_done');
+    } catch {
+      toast({ title: "Error de red", description: "No se pudo conectar con el servidor.", variant: "destructive" });
+      setImportStep('idle');
+    }
+  };
+
+  /**
+   * Paso 2 — Confirmar (import real):
+   * Solo se ejecuta si el usuario aprueba el preview.
+   * Después del commit, recarga la lista desde /api/families/:campusId
+   * para que la UI muestre los datos reales del servidor, no estado local.
+   */
+  const confirmImport = async () => {
+    if (!importFile) return;
+    setImportStep('confirming');
+    try {
+      const form = new FormData();
+      form.append("file", importFile);
+      const res = await fetch("/api/import/data/familias/tutores", {
+        method: "POST",
+        headers: _importAuthHeaders(),
+        body: form,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: "Error al importar", description: data.message || "Error desconocido", variant: "destructive" });
+        setImportStep('preview_done');
+        return;
+      }
+      toast({
+        title: "Importación completada",
+        description: `${data.successful} fila(s) importadas correctamente.${data.failed > 0 ? ` ${data.failed} fila(s) con error.` : ""}`,
+      });
+      // Limpiar estado
+      setImportFile(null);
+      setImportPreview(null);
+      setImportStep('idle');
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      setShowAddModal(false);
+      // ── Recargar desde el servidor — prueba de que no es cosmético ──────────
+      await loadFamilias();
+    } catch {
+      toast({ title: "Error de red", description: "No se pudo conectar con el servidor.", variant: "destructive" });
+      setImportStep('preview_done');
+    }
+  };
+
+  // ── (bloque heredado eliminado — procesamiento local de CSV reemplazado por endpoint real) ──
+  const _legacyPlaceholder = () => {
     const headers = [
       "padre_nombres",
       "padre_primer_apellido",
@@ -656,111 +768,6 @@ export default function Familias() {
       title: "Plantilla descargada",
       description: "La plantilla Excel ha sido descargada exitosamente con nombres separados para padre y madre (33 campos) y 3 ejemplos de familias.",
     });
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImportFile(file);
-      toast({
-        title: "Archivo seleccionado",
-        description: `${file.name} está listo para importar.`,
-      });
-    }
-  };
-
-  const processExcelImport = async () => {
-    if (!importFile) return;
-    
-    setIsImporting(true);
-    setImportProgress(0);
-    
-    try {
-      const text = await importFile.text();
-      const lines = text.split('\n');
-      const headers = lines[0].split(',').map(h => h.trim());
-      
-      const newFamilies: any[] = [];
-      
-      // Procesar cada línea (excluyendo encabezados)
-      for (let i = 1; i < lines.length; i++) {
-        if (lines[i].trim()) {
-          const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-          const family: any = { id: Date.now() + i };
-          
-          headers.forEach((header, index) => {
-            if (values[index]) {
-              family[header] = values[index];
-            }
-          });
-          
-          // Combinar nombres del padre en padre_nombre
-          const padreNombres = family.padre_nombres || "";
-          const padrePrimerApellido = family.padre_primer_apellido || "";
-          const padreSegundoApellido = family.padre_segundo_apellido || "";
-          family.padre_nombre = `${padreNombres} ${padrePrimerApellido} ${padreSegundoApellido}`.trim();
-          
-          // Combinar nombres de la madre en madre_nombre
-          const madreNombres = family.madre_nombres || "";
-          const madrePrimerApellido = family.madre_primer_apellido || "";
-          const madreSegundoApellido = family.madre_segundo_apellido || "";
-          family.madre_nombre = `${madreNombres} ${madrePrimerApellido} ${madreSegundoApellido}`.trim();
-          
-          // Generar número de familia automáticamente
-          family.numero_familia = `FAM${String(Date.now() + i).slice(-3)}`;
-          
-          // Generar datos fiscales múltiples con la información del CSV
-          family.datos_fiscales = [
-            {
-              id: 1,
-              razon_social: family.razon_social || family.padre_nombre || "",
-              rfc: family.rfc || "",
-              email_facturacion: family.email_facturacion || family.padre_email || "",
-              direccion_fiscal: family.direccion_fiscal || family.direccion || "",
-              uso_cfdi: family.uso_cfdi || "G03",
-              metodo_pago: family.metodo_pago || "PUE",
-              forma_pago: family.forma_pago || "03",
-              es_principal: true
-            }
-          ];
-          
-          // Agregar propiedades adicionales
-          family.estudiantes_vinculados = [];
-          family.saldo_total = 0;
-          family.fecha_registro = new Date().toISOString().split('T')[0];
-          
-          newFamilies.push(family);
-        }
-        
-        // Actualizar progreso
-        setImportProgress(Math.round((i / lines.length) * 100));
-      }
-      
-      // Agregar familias al estado
-      setFamilias(prev => [...prev, ...newFamilies]);
-      
-      toast({
-        title: "Importación exitosa",
-        description: `Se importaron ${newFamilies.length} familias correctamente.`,
-      });
-      
-      // Limpiar formulario
-      setImportFile(null);
-      setShowAddModal(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-      
-    } catch (error) {
-      toast({
-        title: "Error en importación",
-        description: "Hubo un error al procesar el archivo Excel.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsImporting(false);
-      setImportProgress(0);
-    }
   };
 
   const loadFamilyForEdit = (familia: any) => {
@@ -2381,114 +2388,148 @@ export default function Familias() {
               </TabsContent>
 
               <TabsContent value="excel" className="space-y-4">
+                {/* Encabezado */}
                 <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-2 mb-1">
                     <Upload className="w-5 h-5 text-blue-600" />
                     <h3 className="font-semibold text-blue-900">Importación masiva de familias</h3>
                   </div>
                   <p className="text-sm text-blue-700">
-                    Importa múltiples familias desde un archivo Excel (.csv). Descarga la plantilla, completa los datos y súbela para procesamiento automático.
+                    <strong>Paso 1</strong> — sube el CSV y previsualiza sin guardar nada.
+                    <strong>Paso 2</strong> — confirma para escribir en la base de datos real.
                   </p>
                 </div>
 
+                {/* Descarga + selector */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Button onClick={downloadFamilyTemplate} variant="outline" className="w-full">
+                    <Download className="w-4 h-4 mr-2" />
+                    Descargar plantilla CSV
+                  </Button>
                   <div>
-                    <Button onClick={downloadFamilyTemplate} variant="outline" className="w-full">
-                      <Download className="w-4 h-4 mr-2" />
-                      Descargar plantilla Excel
-                    </Button>
-                  </div>
-                  <div>
-                    <Label htmlFor="family-file-input">Seleccionar archivo Excel</Label>
+                    <Label htmlFor="family-file-input">Seleccionar archivo CSV</Label>
                     <Input
                       id="family-file-input"
                       type="file"
-                      accept=".csv,.xlsx,.xls"
+                      accept=".csv"
                       onChange={handleFileSelect}
                       ref={fileInputRef}
+                      disabled={importStep === 'previewing' || importStep === 'confirming'}
                     />
                   </div>
                 </div>
 
-                {importFile && (
-                  <div className="bg-green-50 p-4 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <AlertCircle className="w-5 h-5 text-green-600" />
-                      <span className="font-medium text-green-900">Archivo seleccionado: {importFile.name}</span>
-                    </div>
-                    <p className="text-sm text-green-700">
-                      Archivo listo para importar. Presiona "Importar familias" para comenzar.
-                    </p>
+                {/* Archivo listo, sin preview */}
+                {importFile && importStep === 'idle' && (
+                  <div className="bg-green-50 border border-green-200 p-3 rounded-lg flex items-center gap-2">
+                    <FileSpreadsheet className="w-4 h-4 text-green-600 shrink-0" />
+                    <span className="text-sm text-green-800">
+                      <strong>{importFile.name}</strong> — listo para previsualizar
+                    </span>
                   </div>
                 )}
 
-                {isImporting && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-slate-600">Importando familias...</span>
-                      <span className="text-sm font-medium text-slate-900">{importProgress}%</span>
-                    </div>
-                    <Progress value={importProgress} className="w-full" />
+                {/* Validando (dry_run en curso) */}
+                {importStep === 'previewing' && (
+                  <div className="bg-slate-50 border rounded-lg p-4 flex items-center gap-3">
+                    <span className="text-sm text-slate-600">Validando sin guardar…</span>
                   </div>
                 )}
 
-                <div className="bg-amber-50 p-4 rounded-lg">
-                  <h4 className="font-semibold text-amber-900 mb-2">Formato de la plantilla:</h4>
-                  <p className="text-sm text-amber-700 mb-2">
-                    La plantilla incluye <strong>33 campos obligatorios</strong> con nombres separados para padre y madre:
-                  </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-amber-700">
-                    <div>
-                      <p><strong>Información de la familia:</strong></p>
-                      <ul className="ml-4 space-y-1">
-                        <li>• apellido_paterno</li>
-                        <li>• apellido_materno</li>
-                      </ul>
+                {/* Resultado del preview */}
+                {importStep === 'preview_done' && importPreview && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                      <div className="bg-slate-50 border rounded-lg p-3">
+                        <div className="text-2xl font-bold text-slate-700">{importPreview.total}</div>
+                        <div className="text-xs text-slate-500 mt-1">Total filas</div>
+                      </div>
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div className="text-2xl font-bold text-green-700">{importPreview.successful}</div>
+                        <div className="text-xs text-green-600 mt-1">Válidas</div>
+                      </div>
+                      <div className={`border rounded-lg p-3 ${importPreview.failed > 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                        <div className={`text-2xl font-bold ${importPreview.failed > 0 ? 'text-red-700' : 'text-green-700'}`}>
+                          {importPreview.failed}
+                        </div>
+                        <div className={`text-xs mt-1 ${importPreview.failed > 0 ? 'text-red-600' : 'text-green-600'}`}>Con error</div>
+                      </div>
                     </div>
-                    <div>
-                      <p><strong>Datos del padre:</strong></p>
-                      <ul className="ml-4 space-y-1">
-                        <li>• padre_nombres</li>
-                        <li>• padre_primer_apellido</li>
-                        <li>• padre_segundo_apellido</li>
-                        <li>• padre_telefono</li>
-                        <li>• padre_email</li>
-                        <li>• padre_ocupacion</li>
-                        <li>• padre_empresa</li>
-                      </ul>
-                    </div>
-                    <div>
-                      <p><strong>Datos de la madre:</strong></p>
-                      <ul className="ml-4 space-y-1">
-                        <li>• madre_nombres</li>
-                        <li>• madre_primer_apellido</li>
-                        <li>• madre_segundo_apellido</li>
-                        <li>• madre_telefono</li>
-                        <li>• madre_email</li>
-                        <li>• madre_ocupacion</li>
-                        <li>• madre_empresa</li>
-                      </ul>
-                    </div>
-                    <div>
-                      <p><strong>Otros datos:</strong></p>
-                      <ul className="ml-4 space-y-1">
-                        <li>• direccion, colonia, ciudad, estado, codigo_postal</li>
-                        <li>• razon_social, rfc, email_facturacion</li>
-                        <li>• contacto_emergencia (nombre, telefono, relacion)</li>
-                        <li>• observaciones, estatus</li>
-                      </ul>
-                    </div>
+                    {importPreview.errors.length > 0 && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <AlertTriangle className="w-4 h-4 text-red-600" />
+                          <h4 className="text-sm font-semibold text-red-800">Errores ({importPreview.errors.length}) — estas filas no se importarán</h4>
+                        </div>
+                        <ul className="space-y-1 max-h-40 overflow-y-auto">
+                          {importPreview.errors.map((e: any, i: number) => (
+                            <li key={i} className="text-xs text-red-700">
+                              • {typeof e === 'string' ? e : JSON.stringify(e)}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {importPreview.warnings.length > 0 && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <AlertCircle className="w-4 h-4 text-amber-600" />
+                          <h4 className="text-sm font-semibold text-amber-800">Avisos ({importPreview.warnings.length})</h4>
+                        </div>
+                        <ul className="space-y-1 max-h-32 overflow-y-auto">
+                          {importPreview.warnings.map((w: string, i: number) => (
+                            <li key={i} className="text-xs text-amber-700">• {w}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {importPreview.successful === 0 && (
+                      <div className="bg-red-50 border border-red-200 p-3 rounded-lg text-sm text-red-700">
+                        No hay filas válidas para importar. Corrige los errores y vuelve a intentarlo.
+                      </div>
+                    )}
                   </div>
-                </div>
+                )}
 
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setShowAddModal(false)}>
+                {/* Importando real */}
+                {importStep === 'confirming' && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <span className="text-sm text-blue-700">Importando en la base de datos…</span>
+                  </div>
+                )}
+
+                {/* Botones */}
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="outline" onClick={() => { setShowAddModal(false); setImportStep('idle'); setImportPreview(null); }}>
                     Cancelar
                   </Button>
-                  <Button onClick={processExcelImport} disabled={!importFile || isImporting}>
-                    {isImporting ? 'Importando...' : 'Importar familias'}
-                  </Button>
+                  {(importStep === 'idle' || importStep === 'previewing') && (
+                    <Button onClick={runPreview} disabled={!importFile || importStep === 'previewing'}>
+                      <Eye className="w-4 h-4 mr-2" />
+                      {importStep === 'previewing' ? 'Validando…' : 'Vista previa'}
+                    </Button>
+                  )}
+                  {importStep === 'preview_done' && (
+                    <>
+                      <Button variant="outline" onClick={() => { setImportStep('idle'); setImportPreview(null); setImportFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}>
+                        Cambiar archivo
+                      </Button>
+                      {importPreview && importPreview.successful > 0 && (
+                        <Button onClick={confirmImport}>
+                          Confirmar importación ({importPreview.successful} fila{importPreview.successful !== 1 ? 's' : ''})
+                        </Button>
+                      )}
+                    </>
+                  )}
                 </div>
+
+                {/* Referencia de columnas */}
+                <details className="bg-slate-50 border rounded-lg">
+                  <summary className="p-3 text-sm font-medium text-slate-700 cursor-pointer">Columnas del CSV (referencia)</summary>
+                  <div className="px-4 pb-3 text-xs text-slate-600 grid grid-cols-2 gap-x-4 gap-y-1">
+                    {["nombre_familia","id_referencia_alumno","curp_alumno","tipo_guardian","nombres_tutor","apellido_paterno_tutor","apellido_materno_tutor","curp_tutor","email_tutor","celular_tutor","es_responsable_pago","porcentaje_responsabilidad"].map(col => <span key={col}>• {col}</span>)}
+                  </div>
+                </details>
               </TabsContent>
             </Tabs>
           ) : (

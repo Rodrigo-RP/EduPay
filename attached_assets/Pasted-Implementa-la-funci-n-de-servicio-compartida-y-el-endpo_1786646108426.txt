@@ -1,0 +1,45 @@
+Implementa la función de servicio compartida y el endpoint manual de
+creación de familias, con el diseño ya corregido y aprobado:
+
+1. server/lib/family-service.ts — createFamily(input, tenantId, campusId,
+   client) dentro de una transacción:
+   - Resuelve family existente vía family_students por los student_ids
+     dados (no por nombre). Error fatal si los alumnos pertenecen a
+     familias distintas entre sí.
+   - Si no hay familia existente: INSERT INTO families con el nombre del
+     input.
+   - Por cada tutor: resuelve por guardian_id si viene, si no por
+     CURP → email en ese orden (CURP gana sobre email si ambos coinciden
+     con guardians distintos). Nunca sobrescribe email/CURP de un guardian
+     existente; el teléfono solo se completa si estaba vacío.
+   - Valida que la suma de porcentaje_responsabilidad de los tutores con
+     es_responsable_pago=true sea exactamente 100 por alumno, con la
+     excepción del tutor único sin porcentaje especificado (default 100
+     implícito, sin error).
+   - Vincula family_students y student_guardian (ON CONFLICT según ya
+     diseñamos).
+   - Puebla guardian_id_principal con el primer tutor responsable de pago
+     después de la deduplicación.
+
+2. POST /api/admin/families — guard FAMILIES.CREATE, valida el body según
+   las reglas ya diseñadas, llama a createFamily(), devuelve la respuesta
+   con family_id, guardians_created, guardians_linked, students_linked,
+   warnings.
+
+3. Pruebas, cada una verificada en DB, no solo por código HTTP:
+   - Familia nueva con 2 tutores y 1 alumno → todo creado correctamente,
+     guardian_id_principal poblado con el primer responsable.
+   - Segundo hijo de una familia ya existente (mismo tutor, otro alumno)
+     → se vincula a la familia existente, no crea una nueva, nombre de
+     la familia existente se conserva.
+   - Alumnos del body pertenecientes a familias distintas entre sí →
+     error fatal, nada se escribe.
+   - Tutor identificado por CURP que ya existe con otro email → usa el
+     guardian del CURP, ignora el email nuevo, warning presente.
+   - Suma de porcentaje ≠ 100 con dos tutores responsables → error fatal.
+   - Un solo tutor responsable sin porcentaje especificado → default 100
+     implícito, sin error.
+   - Rol sin FAMILIES.CREATE → 403, nada se escribe.
+
+Reinicia el servidor, confirma con las tres marcas de tiempo reales, corre
+la suite completa, y pégame el resultado sin resumir.

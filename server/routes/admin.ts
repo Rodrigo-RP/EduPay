@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { pool, db } from "../db";
+import { createFamily } from "../lib/family-service";
 import { enqueueAuditLog } from "../audit-retry";
 import { eq, and, gte, lt } from "drizzle-orm";
 import { storage } from "../storage";
@@ -1352,6 +1353,53 @@ export function registerAdminRoutes(app: Express): void {
       res.json({ token, expires_in: '30m', plan_id: planId, alerta_id: Number(alerta_id) });
     } catch (error: any) {
       res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
+  /**
+   * POST /api/admin/families
+   * Crea una familia con tutores y alumnos en una sola llamada atómica,
+   * o agrega miembros a una familia existente si alguno de los alumnos
+   * ya está vinculado vía family_students.
+   *
+   * Guard:  FAMILIES.CREATE
+   * Body:   { nombre, student_ids: number[], tutores: TutorInput[] }
+   * 201:    { family_id, family_nombre, guardians_created, guardians_linked,
+   *           students_linked, warnings }
+   * 400/422: validación — mensaje descriptivo, nada escrito en DB.
+   */
+  app.post("/api/admin/families", authenticateToken, async (req: any, res) => {
+    try {
+      if (!hasPermissionForUser(req.user, MODULES.FAMILIES, ACTIONS.CREATE)) {
+        return res.status(403).json({ message: "Sin permisos para crear familias" });
+      }
+
+      const tenantId = req.user?.tenant_id as number;
+      const campusId = req.user?.campus_id as number;
+      const { nombre, student_ids, tutores } = req.body;
+
+      // Validación de estructura básica (la lógica de dominio está en createFamily)
+      if (!nombre || typeof nombre !== "string" || !nombre.trim()) {
+        return res.status(400).json({ message: "nombre es requerido" });
+      }
+      if (!Array.isArray(student_ids) || student_ids.length === 0) {
+        return res.status(400).json({ message: "student_ids debe ser un array no vacío" });
+      }
+      if (!Array.isArray(tutores) || tutores.length === 0) {
+        return res.status(400).json({ message: "tutores debe ser un array no vacío" });
+      }
+
+      const result = await createFamily(
+        { nombre: nombre.trim(), student_ids, tutores },
+        tenantId,
+        campusId,
+      );
+
+      res.status(201).json(result);
+    } catch (error: any) {
+      const status  = typeof error.status === "number" ? error.status : 500;
+      const message = error.message || "Error interno del servidor";
+      res.status(status).json({ message });
     }
   });
 }

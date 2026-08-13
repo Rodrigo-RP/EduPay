@@ -30,3 +30,4 @@
 - [Students nombre_completo NOT NULL](students-nombre-completo.md) — nombre_completo es NOT NULL en la DB real; storage.createStudent lo computa automáticamente; test beforeAll debe usar API no SQL directo.
 - [Charges schema columns](charges-schema-columns.md) — columnas reales de charges vs Drizzle; descripcion y es_adeudo_migrado requieren migraciones; concepts no tiene columna activo.
 - [Import test disambiguation](import-test-disambiguation.md) — usar tipo ficticio exclusivo del test para evitar colisiones con seed demo al probar desambigüación de concept_id.
+- [Guardians email NOT NULL drift](guardians-email-drift.md) — columna email en DB real tiene NOT NULL; Drizzle schema la declara nullable; INSERT directo debe incluir email=correo_institucional_familiar.

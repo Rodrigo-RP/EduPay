@@ -1006,36 +1006,44 @@ export function registerMiscRoutes(app: Express): void {
       }
       const campusId = (req as any).user?.campus_id;
       const tenantId = (req as any).user?.tenant_id;
-      const { nombre, rfc, direccion, telefono, email, logo_url } = req.body;
-      // nivel_educativo omitido intencionalmente: no existe en campuses ni en institutional_settings
-      // logo_url: sanitizeInput ya no codifica '/' (fix en security-engine.ts) → se guarda directo
+      // BUG FIX (2026-08-13): el wizard envía 'nombre_legal' pero el backend solo extraía 'nombre'.
+      // Ahora se acepta ambos: 'nombre' tiene prioridad por compatibilidad con código existente;
+      // 'nombre_legal' (enviado por el wizard) se usa como fallback.
+      // Además se persiste 'nombre_legal' en institutional_settings.nombre_legal.
+      const { nombre, nombre_legal, rfc, direccion, telefono, email, logo_url } = req.body;
+      // nivel_educativo, timbrado_sat, pac_proveedor, pasarela_pagos omitidos intencionalmente:
+      // no existen en campuses ni en institutional_settings.
+      // logo_url: sanitizeInput ya no codifica '/' → se guarda directo.
+
+      const nombreEfectivo = nombre ?? nombre_legal ?? null;
 
       // 1. nombre vive en campuses
       await pool.query(
         `UPDATE campuses SET nombre = COALESCE($2, nombre), updated_at = NOW() WHERE id = $1`,
-        [campusId, nombre ?? null]
+        [campusId, nombreEfectivo]
       );
 
-      // 2. rfc, direccion, telefono, email, logo_url viven en institutional_settings
+      // 2. rfc, direccion, telefono, email, logo_url, nombre_legal viven en institutional_settings.
       // institutional_settings.campus_id solo tiene FK (no UNIQUE) → no se puede usar ON CONFLICT.
       // Patrón: UPDATE primero; si rowCount=0 la fila no existe, INSERT.
       const upd = await pool.query(`
         UPDATE institutional_settings SET
-          rfc                 = COALESCE($2, rfc),
-          direccion_fiscal    = COALESCE($3, direccion_fiscal),
-          telefono_principal  = COALESCE($4, telefono_principal),
-          email_institucional = COALESCE($5, email_institucional),
-          logo_url            = COALESCE($6, logo_url),
+          nombre_legal        = COALESCE($2, nombre_legal),
+          rfc                 = COALESCE($3, rfc),
+          direccion_fiscal    = COALESCE($4, direccion_fiscal),
+          telefono_principal  = COALESCE($5, telefono_principal),
+          email_institucional = COALESCE($6, email_institucional),
+          logo_url            = COALESCE($7, logo_url),
           updated_at          = NOW()
         WHERE campus_id = $1
-      `, [campusId, rfc ?? null, direccion ?? null, telefono ?? null, email ?? null, logo_url ?? null]);
+      `, [campusId, nombre_legal ?? null, rfc ?? null, direccion ?? null, telefono ?? null, email ?? null, logo_url ?? null]);
 
       if ((upd.rowCount ?? 0) === 0) {
         await pool.query(`
           INSERT INTO institutional_settings
-            (campus_id, tenant_id, rfc, direccion_fiscal, telefono_principal, email_institucional, logo_url, updated_at)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-        `, [campusId, tenantId, rfc ?? null, direccion ?? null, telefono ?? null, email ?? null, logo_url ?? null]);
+            (campus_id, tenant_id, nombre_legal, rfc, direccion_fiscal, telefono_principal, email_institucional, logo_url, updated_at)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+        `, [campusId, tenantId, nombre_legal ?? null, rfc ?? null, direccion ?? null, telefono ?? null, email ?? null, logo_url ?? null]);
       }
 
       res.json({ mensaje: "Configuración de escuela guardada", campus_id: campusId });
@@ -1043,19 +1051,26 @@ export function registerMiscRoutes(app: Express): void {
   });
 
   // /api/admin/configuracion/onboarding-status  — leer estado real desde DB
+  // Devuelve: { completado, campus_id, steps }
+  // 'steps' es el objeto jsonb onboarding_steps_completados (e.g. { escuela: true, alumnos: true })
   app.get("/api/admin/configuracion/onboarding-status", authenticateToken, async (req, res) => {
     try {
-      const role = (req as any).user?.role;
       if (!hasPermissionForUser((req as any).user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para ver el estado de onboarding" });
       }
       const campusId = (req as any).user?.campus_id;
       const row = await pool.query(
-        `SELECT onboarding_completado FROM campuses WHERE id = $1`,
+        `SELECT onboarding_completado, onboarding_steps_completados FROM campuses WHERE id = $1`,
         [campusId]
       );
       const completado = (row.rows[0] as any)?.onboarding_completado ?? false;
-      res.json({ completado, campus_id: campusId });
+      // onboarding_steps_completados puede llegar como objeto o como string JSON según driver config
+      let steps: Record<string, boolean> = {};
+      const raw = (row.rows[0] as any)?.onboarding_steps_completados;
+      if (raw) {
+        steps = typeof raw === "string" ? JSON.parse(raw) : raw;
+      }
+      res.json({ completado, campus_id: campusId, steps });
     } catch (error: any) {
       res.status(500).json({ message: "Error interno del servidor" });
     }
@@ -1064,7 +1079,6 @@ export function registerMiscRoutes(app: Express): void {
   // /api/admin/configuracion/completar-onboarding  — persistir en campuses
   app.post("/api/admin/configuracion/completar-onboarding", authenticateToken, async (req, res) => {
     try {
-      const role = (req as any).user?.role;
       if (!hasPermissionForUser((req as any).user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para completar el onboarding" });
       }
@@ -1074,6 +1088,48 @@ export function registerMiscRoutes(app: Express): void {
         [campusId]
       );
       res.json({ completado: true, campus_id: campusId });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
+  // /api/admin/configuracion/onboarding-step/:stepId  — marcar un paso como confirmado
+  // PATCH — idempotente: llamar dos veces al mismo stepId es seguro (jsonb merge).
+  // stepId válidos: escuela | alumnos | familias | becas | adeudos | activar
+  // Responde: { step_id, steps }  donde steps es el objeto completo actualizado.
+  const VALID_ONBOARDING_STEPS = new Set(["escuela", "alumnos", "familias", "becas", "adeudos", "activar"]);
+
+  app.patch("/api/admin/configuracion/onboarding-step/:stepId", authenticateToken, async (req, res) => {
+    try {
+      if (!hasPermissionForUser((req as any).user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para actualizar el progreso de onboarding" });
+      }
+      const { stepId } = req.params;
+      if (!VALID_ONBOARDING_STEPS.has(stepId)) {
+        return res.status(400).json({
+          message: `stepId inválido: '${stepId}'. Válidos: ${[...VALID_ONBOARDING_STEPS].join(", ")}`,
+        });
+      }
+      const campusId = (req as any).user?.campus_id;
+
+      // jsonb merge: || no sobrescribe claves existentes distintas → operación segura e idempotente
+      const upd = await pool.query(
+        `UPDATE campuses
+            SET onboarding_steps_completados = onboarding_steps_completados || jsonb_build_object($2::text, true),
+                updated_at = NOW()
+          WHERE id = $1
+          RETURNING onboarding_steps_completados`,
+        [campusId, stepId]
+      );
+
+      if (upd.rowCount === 0) {
+        return res.status(404).json({ message: "Campus no encontrado" });
+      }
+
+      const raw = (upd.rows[0] as any).onboarding_steps_completados;
+      const steps: Record<string, boolean> = typeof raw === "string" ? JSON.parse(raw) : raw;
+
+      res.json({ step_id: stepId, steps });
     } catch (error: any) {
       res.status(500).json({ message: "Error interno del servidor" });
     }

@@ -110,7 +110,7 @@ export interface IStorage {
   
   // Charge operations
   getChargesByStudent(studentId: number): Promise<(Charge & { concept: Concept })[]>;
-  getChargesByCampus(campusId: number): Promise<Charge[]>;
+  getChargesByCampus(campusId: number): Promise<(Charge & { concept: Concept })[]>;
   getPendingChargesByGuardian(guardianId: number): Promise<(Charge & { student: Student; concept: Concept })[]>;
   createCharge(charge: InsertCharge): Promise<Charge>;
   /** Valida transición de estado (state machine), actualiza y emite audit_log. Atómico con SELECT FOR UPDATE. */
@@ -449,15 +449,31 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(charges.fecha_vencimiento));
   }
 
-  async getChargesByCampus(campusId: number): Promise<Charge[]> {
+  async getChargesByCampus(campusId: number): Promise<(Charge & { concept: Concept })[]> {
     const results = await db
-      .select()
+      .select({
+        id: charges.id,
+        tenant_id: charges.tenant_id,
+        student_id: charges.student_id,
+        concept_id: charges.concept_id,
+        ciclo_escolar: charges.ciclo_escolar,
+        fecha_emision: charges.fecha_emision,
+        fecha_vencimiento: charges.fecha_vencimiento,
+        monto_base_centavos: charges.monto_base_centavos,
+        beca_aplicada: charges.beca_aplicada,
+        recargo_aplicado_centavos: charges.recargo_aplicado_centavos,
+        estado: charges.estado,
+        created_at: charges.created_at,
+        updated_at: charges.updated_at,
+        concept: concepts,
+      })
       .from(charges)
       .innerJoin(students, eq(charges.student_id, students.id))
+      .innerJoin(concepts, eq(charges.concept_id, concepts.id))
       .where(eq(students.campus_id, campusId))
       .orderBy(desc(charges.fecha_vencimiento));
-    
-    return results.map((row: any) => row.charges);
+
+    return results as (Charge & { concept: Concept })[];
   }
 
   async getAccountsReceivableByCampus(campusId: number): Promise<any[]> {

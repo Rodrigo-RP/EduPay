@@ -233,7 +233,7 @@ export default function Sidebar() {
       href: "/historial", 
       active: location === "/historial",
       category: "sistema",
-      module: MODULES.SYSTEM,
+      module: MODULES.SECURITY,
       action: ACTIONS.READ
     },
 

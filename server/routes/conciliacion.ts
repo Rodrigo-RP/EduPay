@@ -349,6 +349,9 @@ export function registerConciliacionRoutes(app: Express): void {
 
   // Get conciliation statistics
   app.get("/api/caja/estadisticas-conciliacion", authenticateToken, async (req, res) => {
+    if (!hasPermissionForUser((req as any).user, MODULES.PAYMENTS, ACTIONS.READ)) {
+      return res.status(403).json({ message: "No tienes permiso para ver estadísticas de conciliación" });
+    }
     try {
       const campusId = (req as any).user?.campus_id;
       const [totalRows, conciliadosRows, pendientesRows] = await Promise.all([

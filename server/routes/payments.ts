@@ -341,6 +341,15 @@ export function registerPaymentRoutes(app: Express): void {
   });
 
   // Import data from Excel/CSV file
+  // Guards de módulo (verificado agosto 2026):
+  //   becas/asignaciones      → SCHOLARSHIPS.ASSIGN  (igual que asignación manual)
+  //   estudiantes/estudiantes → STUDENTS.IMPORT
+  //   estudiantes/tutores     → FAMILIES.IMPORT
+  //
+  // Atomicidad: BEGIN/COMMIT envuelve la totalidad del procesamiento.
+  // Errores de validación por fila (campo faltante, alumno no encontrado) se
+  // cuentan como "failed" y el resto continúa — el ROLLBACK sólo ocurre ante
+  // errores fatales imprevistos (excepción no controlada en un INSERT/SELECT).
   app.post("/api/import/data/:category/:templateId", authenticateToken, upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
@@ -348,10 +357,33 @@ export function registerPaymentRoutes(app: Express): void {
       }
 
       const { category, templateId } = req.params;
-      const campusId = (req as any).user?.campus_id;
+      const importUser = (req as any).user;
+      const campusId = importUser?.campus_id;
+      const tenantId = importUser?.tenant_id;
 
       if (!campusId) {
         return res.status(400).json({ message: "Campus ID requerido" });
+      }
+
+      // ── Guard de módulo por template ────────────────────────────────────
+      let requiredModule: string;
+      let requiredAction: string;
+
+      if (category === 'becas' && templateId === 'asignaciones') {
+        requiredModule = MODULES.SCHOLARSHIPS;
+        requiredAction = ACTIONS.ASSIGN;
+      } else if (category === 'estudiantes' && templateId === 'estudiantes') {
+        requiredModule = MODULES.STUDENTS;
+        requiredAction = ACTIONS.IMPORT;
+      } else if (category === 'estudiantes' && templateId === 'tutores') {
+        requiredModule = MODULES.FAMILIES;
+        requiredAction = ACTIONS.CREATE; // administrador_campus tiene FAMILIES.CREATE
+      } else {
+        return res.status(400).json({ message: "Template de importación no reconocido" });
+      }
+
+      if (!hasPermissionForUser(importUser, requiredModule, requiredAction)) {
+        return res.status(403).json({ message: "Sin permisos para importar este tipo de datos" });
       }
 
       // Parse Excel/CSV file
@@ -393,6 +425,11 @@ export function registerPaymentRoutes(app: Express): void {
         total: jsonData.length
       };
 
+      // ── Transacción envolvente ────────────────────────────────────────────
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+
       // Process based on category and template
       if (category === 'becas' && templateId === 'asignaciones') {
         // Importación real de becas.
@@ -409,173 +446,165 @@ export function registerPaymentRoutes(app: Express): void {
         //   vigencia_inicio                   (opcional, default: hoy)
         //   vigencia_fin                      (opcional, default: null)
         //   motivo                            (opcional, fallback: tipo_beca)
-        const importUser = (req as any).user;
-        const tenantId   = importUser?.tenant_id;
-
         for (let index = 0; index < jsonData.length; index++) {
-          try {
-            const becaData = jsonData[index] as any;
+          const becaData = jsonData[index] as any;
 
-            // ── Validación de campos obligatorios ──────────────────────────
-            if (!becaData.id_estudiante && !becaData.curp_estudiante) {
-              results.errors.push(`Fila ${index + 2}: id_estudiante o curp_estudiante requerido`);
-              results.failed++;
-              continue;
-            }
-
-            if (!becaData.tipo_beca) {
-              results.errors.push(`Fila ${index + 2}: tipo_beca requerido`);
-              results.failed++;
-              continue;
-            }
-
-            const porcentaje = parseFloat(becaData.valor_descuento);
-            if (!becaData.valor_descuento || isNaN(porcentaje) || porcentaje <= 0 || porcentaje > 100) {
-              results.errors.push(`Fila ${index + 2}: valor_descuento debe ser un número entre 0 y 100`);
-              results.failed++;
-              continue;
-            }
-
-            // ── Búsqueda real del alumno en la DB ─────────────────────────
-            // Siempre restringida al campus_id del JWT — nunca cruza campus.
-            let studentRow: any;
-
-            if (becaData.id_estudiante) {
-              const r = await pool.query(
-                `SELECT id, nombre_completo FROM students
-                 WHERE id_referencia = $1 AND campus_id = $2 AND tenant_id = $3
-                 LIMIT 1`,
-                [String(becaData.id_estudiante).trim(), campusId, tenantId],
-              );
-              studentRow = r.rows[0];
-            }
-
-            if (!studentRow && becaData.curp_estudiante) {
-              const r = await pool.query(
-                `SELECT id, nombre_completo FROM students
-                 WHERE curp = $1 AND campus_id = $2 AND tenant_id = $3
-                 LIMIT 1`,
-                [String(becaData.curp_estudiante).trim().toUpperCase(), campusId, tenantId],
-              );
-              studentRow = r.rows[0];
-            }
-
-            if (!studentRow) {
-              results.errors.push(`Fila ${index + 2}: Estudiante no encontrado en este campus`);
-              results.failed++;
-              continue;
-            }
-
-            // ── INSERT real en scholarships ────────────────────────────────
-            //
-            // XLSX auto-convierte cadenas de fecha ISO ("2026-08-01") a números
-            // seriales de Excel (e.g. 46235) al parsear el CSV. Se necesita
-            // normalizar antes de pasar el valor a PostgreSQL.
-            const parseXlsxDate = (val: any): string | null => {
-              if (!val && val !== 0) return null;
-              if (typeof val === 'number') {
-                // Número serial de Excel: días desde 1899-12-30 (epoch de Excel)
-                const jsDate = new Date((val - 25569) * 86400 * 1000);
-                return jsDate.toISOString().split('T')[0];
-              }
-              if (val instanceof Date) return val.toISOString().split('T')[0];
-              return String(val).trim();
-            };
-
-            const vigenciaInicio = parseXlsxDate(becaData.vigencia_inicio)
-              || new Date().toISOString().split('T')[0];
-
-            // vigencia_fin es NOT NULL en la DB.
-            // Si no se provee en el CSV se calcula 1 año después de vigencia_inicio.
-            const vigenciaFinParsed = parseXlsxDate(becaData.vigencia_fin);
-            const vigenciaFin = vigenciaFinParsed || (() => {
-              const d = new Date(vigenciaInicio);
-              d.setFullYear(d.getFullYear() + 1);
-              return d.toISOString().split('T')[0];
-            })();
-
-            // motivo acepta el campo 'motivo' del CSV, con fallback a 'observaciones'
-            // (alias histórico) y luego al tipo de beca como etiqueta mínima.
-            const motivo = becaData.motivo || becaData.observaciones || String(becaData.tipo_beca);
-
-            await pool.query(
-              `INSERT INTO scholarships
-                 (student_id, tenant_id, porcentaje, vigencia_inicio, vigencia_fin, motivo)
-               VALUES ($1, $2, $3, $4, $5, $6)`,
-              [studentRow.id, tenantId, porcentaje, vigenciaInicio, vigenciaFin, motivo],
-            );
-
-            results.successful++;
-          } catch (error: any) {
-            results.errors.push(`Fila ${index + 2}: ${error.message}`);
+          // ── Validación (sin escrituras DB) — errores van a failed[], resto continúa
+          if (!becaData.id_estudiante && !becaData.curp_estudiante) {
+            results.errors.push(`Fila ${index + 2}: id_estudiante o curp_estudiante requerido`);
             results.failed++;
+            continue;
           }
+          if (!becaData.tipo_beca) {
+            results.errors.push(`Fila ${index + 2}: tipo_beca requerido`);
+            results.failed++;
+            continue;
+          }
+          const porcentaje = parseFloat(becaData.valor_descuento);
+          if (!becaData.valor_descuento || isNaN(porcentaje) || porcentaje <= 0 || porcentaje > 100) {
+            results.errors.push(`Fila ${index + 2}: valor_descuento debe ser un número entre 0 y 100`);
+            results.failed++;
+            continue;
+          }
+
+          // ── SELECTs de búsqueda (si fallan por error DB → propagan → ROLLBACK)
+          // Siempre restringida al campus_id del JWT — nunca cruza campus.
+          let studentRow: any;
+          if (becaData.id_estudiante) {
+            const r = await client.query(
+              `SELECT id, nombre_completo FROM students
+               WHERE id_referencia = $1 AND campus_id = $2 AND tenant_id = $3
+               LIMIT 1`,
+              [String(becaData.id_estudiante).trim(), campusId, tenantId],
+            );
+            studentRow = r.rows[0];
+          }
+          if (!studentRow && becaData.curp_estudiante) {
+            const r = await client.query(
+              `SELECT id, nombre_completo FROM students
+               WHERE curp = $1 AND campus_id = $2 AND tenant_id = $3
+               LIMIT 1`,
+              [String(becaData.curp_estudiante).trim().toUpperCase(), campusId, tenantId],
+            );
+            studentRow = r.rows[0];
+          }
+
+          // No encontrado = validación de datos, no error fatal
+          if (!studentRow) {
+            results.errors.push(`Fila ${index + 2}: Estudiante no encontrado en este campus`);
+            results.failed++;
+            continue;
+          }
+
+          // ── INSERT (si falla → propaga → ROLLBACK de toda la importación)
+          //
+          // XLSX auto-convierte cadenas de fecha ISO ("2026-08-01") a números
+          // seriales de Excel (e.g. 46235) al parsear el CSV.
+          const parseXlsxDate = (val: any): string | null => {
+            if (!val && val !== 0) return null;
+            if (typeof val === 'number') {
+              const jsDate = new Date((val - 25569) * 86400 * 1000);
+              return jsDate.toISOString().split('T')[0];
+            }
+            if (val instanceof Date) return val.toISOString().split('T')[0];
+            return String(val).trim();
+          };
+          const vigenciaInicio = parseXlsxDate(becaData.vigencia_inicio)
+            || new Date().toISOString().split('T')[0];
+          const vigenciaFinParsed = parseXlsxDate(becaData.vigencia_fin);
+          const vigenciaFin = vigenciaFinParsed || (() => {
+            const d = new Date(vigenciaInicio);
+            d.setFullYear(d.getFullYear() + 1);
+            return d.toISOString().split('T')[0];
+          })();
+          const motivo = becaData.motivo || becaData.observaciones || String(becaData.tipo_beca);
+
+          await client.query(
+            `INSERT INTO scholarships
+               (student_id, tenant_id, porcentaje, vigencia_inicio, vigencia_fin, motivo)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [studentRow.id, tenantId, porcentaje, vigenciaInicio, vigenciaFin, motivo],
+          );
+          results.successful++;
         }
-      } else if (category === 'estudiantes') {
-        if (templateId === 'estudiantes') {
-          // Process students
-          for (let index = 0; index < jsonData.length; index++) {
-            try {
-              const studentData = jsonData[index] as any;
-              
-              // Basic validation
-              if (!studentData.nombre_completo || !studentData.curp) {
-                results.errors.push(`Fila ${index + 2}: Nombre completo y CURP son requeridos`);
-                results.failed++;
-                continue;
-              }
 
-              // Create student con tenant_id del usuario autenticado
-              const importUser = (req as any).user;
-              await storage.createStudent({
-                campus_id: campusId,
-                tenant_id: importUser?.tenant_id,
-                nombres: studentData.nombre_completo || '',
-                curp: studentData.curp,
-                grado: studentData.grado || '',
-                grupo: studentData.grupo || 'A',
-                status: studentData.status || 'activo'
-              });
-              
-              results.successful++;
-            } catch (error: any) {
-              results.errors.push(`Fila ${index + 2}: ${error.message}`);
-              results.failed++;
-            }
-          }
-        } else if (templateId === 'tutores') {
-          // Process guardians/tutors
-          for (let index = 0; index < jsonData.length; index++) {
-            try {
-              const tutorData = jsonData[index] as any;
-              
-              if (!tutorData.nombre_completo || !tutorData.email) {
-                results.errors.push(`Fila ${index + 2}: Nombre completo y email son requeridos`);
-                results.failed++;
-                continue;
-              }
+      } else if (category === 'estudiantes' && templateId === 'estudiantes') {
+        for (let index = 0; index < jsonData.length; index++) {
+          const studentData = jsonData[index] as any;
 
-              // Create guardian con tenant_id y campus_id del usuario autenticado
-              const importUser2 = (req as any).user;
-              await storage.createGuardian({
-                nombres: tutorData.nombre_completo || '',
-                correo_institucional_familiar: tutorData.email || '',
-                celular: tutorData.telefono || '',
-                campus_id: importUser2?.campus_id,
-                tenant_id: importUser2?.tenant_id,
-              } as any);
-              
-              results.successful++;
-            } catch (error: any) {
-              results.errors.push(`Fila ${index + 2}: ${error.message}`);
-              results.failed++;
-            }
+          // ── Validación
+          if (!studentData.nombre_completo || !studentData.curp) {
+            results.errors.push(`Fila ${index + 2}: Nombre completo y CURP son requeridos`);
+            results.failed++;
+            continue;
           }
+
+          // ── INSERT (si falla → propaga → ROLLBACK)
+          // Replicamos la lógica de storage.createStudent inline para usar el client
+          // de transacción. nombre_completo es NOT NULL en la DB.
+          const nombreCompleto = studentData.nombre_completo;
+          await client.query(
+            `INSERT INTO students
+               (tenant_id, campus_id, nombres, nombre_completo, curp, grado, grupo, status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [
+              tenantId,
+              campusId,
+              studentData.nombre_completo || '',
+              nombreCompleto,
+              studentData.curp || '',
+              studentData.grado || '',
+              studentData.grupo || 'A',
+              studentData.status || 'activo',
+            ],
+          );
+          results.successful++;
+        }
+
+      } else if (category === 'estudiantes' && templateId === 'tutores') {
+        for (let index = 0; index < jsonData.length; index++) {
+          const tutorData = jsonData[index] as any;
+
+          // ── Validación
+          if (!tutorData.nombre_completo || !tutorData.email) {
+            results.errors.push(`Fila ${index + 2}: Nombre completo y email son requeridos`);
+            results.failed++;
+            continue;
+          }
+
+          // ── INSERT (si falla → propaga → ROLLBACK)
+          // Replicamos storage.createGuardian inline (sin password_hash, no aplica en import).
+          // email y nombre_completo son NOT NULL en guardians.
+          await client.query(
+            `INSERT INTO guardians
+               (nombres, nombre_completo, email, correo_institucional_familiar, celular,
+                campus_id, tenant_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [
+              tutorData.nombre_completo || '',
+              tutorData.nombre_completo || '',
+              tutorData.email || '',
+              tutorData.email || '',
+              tutorData.telefono || '',
+              campusId,
+              tenantId,
+            ],
+          );
+          results.successful++;
         }
       }
 
+        await client.query('COMMIT');
+      } catch (fatalError: any) {
+        // Error fatal en un INSERT/SELECT — rollback completo: ninguna fila queda escrita.
+        await client.query('ROLLBACK').catch(() => {});
+        throw fatalError; // re-lanza → catch externo → 500
+      } finally {
+        client.release();
+      }
+
       res.json(results);
-      
+
     } catch (error: any) {
       console.error('Error importing data:', error);
       res.status(500).json({ message: "Error procesando archivo" });

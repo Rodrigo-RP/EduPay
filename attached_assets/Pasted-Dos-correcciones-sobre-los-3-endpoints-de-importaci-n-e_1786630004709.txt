@@ -1,0 +1,38 @@
+Dos correcciones sobre los 3 endpoints de importación existentes
+(POST /api/import/data/becas/asignaciones, estudiantes/estudiantes,
+estudiantes/tutores en payments.ts) antes de cualquier rediseño del Centro
+de Implementación:
+
+1. Guard de módulo — MÁXIMA PRIORIDAD:
+   - Reproduce el riesgo empíricamente con un JWT de 'asistente' en los
+     tres templates antes del fix.
+   - Aplica STUDENTS.IMPORT a estudiantes/estudiantes y estudiantes/tutores
+     (o dime si tutores merece su propio módulo, con tu recomendación).
+     Aplica el mismo permiso que ya protege la asignación manual de becas
+     a becas/asignaciones.
+   - Prueba: rol sin permiso → 403 en los tres; rol con permiso → 200
+     (regresión).
+
+2. Atomicidad — envolver cada importación completa en una transacción:
+   - Cada uno de los tres templates debe correr dentro de un BEGIN/COMMIT
+     (o el equivalente de tu ORM). Si cualquier fila falla de forma que
+     hoy se consideraría un error fatal (no un error de validación
+     esperado que ya cuenta como "failed" en el resultado), toda la
+     importación hace ROLLBACK — nunca se quedan filas parciales escritas.
+   - Aclara primero: hoy, cuando una fila individual falla por datos
+     inválidos (por ejemplo, un CURP mal formado), ¿el comportamiento
+     esperado es que esa fila cuente como "failed" y el resto continúe
+     (que es el comportamiento actual), o debe abortar toda la
+     importación? Sospecho que quieres conservar el comportamiento actual
+     para errores de validación de fila individual (es razonable seguir
+     importando las demás), y que el ROLLBACK completo debe reservarse
+     para errores fatales inesperados (conexión perdida, excepción no
+     controlada) — confírmalo o corrígeme antes de implementar.
+   - Prueba: fuerza un error fatal a mitad de una importación de varias
+     filas y confirma que ninguna fila de esa corrida quedó en la base de
+     datos (rollback limpio). Prueba también que una fila con error de
+     validación normal sigue contando como "failed" sin abortar el resto
+     (regresión del comportamiento actual).
+
+Reinicia el servidor, confirma con las tres marcas de tiempo reales, corre
+la suite completa, y pégame el resultado sin resumir.

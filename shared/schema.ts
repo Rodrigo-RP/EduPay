@@ -336,6 +336,10 @@ export const charges = pgTable("charges", {
   // puede usarse para CFDI mientras la exención de recargo sigue activa.
   // Rollback: ALTER TABLE charges DROP COLUMN es_adeudo_migrado;
   es_adeudo_migrado: boolean("es_adeudo_migrado").default(false).notNull(),
+  // Migración 011: texto libre del sistema origen (ej. "Colegiatura Marzo 2024").
+  // Visible en estado de cuenta del tutor; no altera concept_id ni tipo fiscal.
+  // Rollback: ALTER TABLE charges DROP COLUMN descripcion;
+  descripcion: text("descripcion"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });

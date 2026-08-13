@@ -28,3 +28,5 @@
 - [Playwright E2E pitfalls](e2e-playwright-pitfalls.md) — strict-mode con aria-live/dialog text; h3 genérico captura sidebar; test.use storageState race; SPA wouter: pushState no goto.
 - [Audit log metadata check in tests](audit-log-meta-test.md) — pg puede devolver JSONB como objeto o como string según config; usar metadata::text AS meta_text + toContain('"key"') en vez de meta.key para evitar falsos undefined.
 - [Students nombre_completo NOT NULL](students-nombre-completo.md) — nombre_completo es NOT NULL en la DB real; storage.createStudent lo computa automáticamente; test beforeAll debe usar API no SQL directo.
+- [Charges schema columns](charges-schema-columns.md) — columnas reales de charges vs Drizzle; descripcion y es_adeudo_migrado requieren migraciones; concepts no tiene columna activo.
+- [Import test disambiguation](import-test-disambiguation.md) — usar tipo ficticio exclusivo del test para evitar colisiones con seed demo al probar desambigüación de concept_id.

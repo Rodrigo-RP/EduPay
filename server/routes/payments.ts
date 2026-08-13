@@ -299,6 +299,29 @@ export function registerPaymentRoutes(app: Express): void {
               observaciones: "Beca por destacar en fútbol"
             }]
           }
+        },
+        adeudos: {
+          migrados: {
+            name: "Adeudos Migrados de Sistema Anterior",
+            columns: ["id_estudiante", "curp_estudiante", "tipo_concepto", "monto_centavos", "fecha_vencimiento", "ciclo_escolar", "descripcion"],
+            sampleData: [{
+              id_estudiante:    "A-00123",
+              curp_estudiante:  "GOLM051215MDFNPR03",
+              tipo_concepto:    "colegiatura",
+              monto_centavos:   "350000",
+              fecha_vencimiento:"2024-03-10",
+              ciclo_escolar:    "2023-2024",
+              descripcion:      "Colegiatura Marzo 2024"
+            }, {
+              id_estudiante:    "A-00124",
+              curp_estudiante:  "RAMS031020HDFMND04",
+              tipo_concepto:    "inscripcion",
+              monto_centavos:   "500000",
+              fecha_vencimiento:"2023-08-15",
+              ciclo_escolar:    "2023-2024",
+              descripcion:      "Inscripción ciclo 2023-2024"
+            }]
+          }
         }
       };
 
@@ -378,6 +401,9 @@ export function registerPaymentRoutes(app: Express): void {
       } else if (category === 'estudiantes' && templateId === 'tutores') {
         requiredModule = MODULES.FAMILIES;
         requiredAction = ACTIONS.CREATE; // administrador_campus tiene FAMILIES.CREATE
+      } else if (category === 'adeudos' && templateId === 'migrados') {
+        requiredModule = MODULES.CHARGES;
+        requiredAction = ACTIONS.CREATE; // misma guardia que POST /api/admin/cargos/extraordinario
       } else {
         return res.status(400).json({ message: "Template de importación no reconocido" });
       }
@@ -430,6 +456,7 @@ export function registerPaymentRoutes(app: Express): void {
         successful: number;
         failed: number;
         errors: any[];
+        warnings: string[];
         preview: any[];
         total: number;
         committed: boolean;
@@ -437,6 +464,7 @@ export function registerPaymentRoutes(app: Express): void {
         successful: 0,
         failed: 0,
         errors: [],
+        warnings: [],    // mensajes de desambigüación no fatales (ej. concepto elegido por defecto)
         preview: jsonData.slice(0, 5),
         total: jsonData.length,
         committed: !dryRun,  // se sobreescribe abajo; aquí es el valor esperado
@@ -610,6 +638,175 @@ export function registerPaymentRoutes(app: Express): void {
               tutorData.telefono || '',
               campusId,
               tenantId,
+            ],
+          );
+          results.successful++;
+        }
+
+      } else if (category === 'adeudos' && templateId === 'migrados') {
+        // ── Importación de adeudos migrados desde sistema anterior ───────────
+        //
+        // Columnas del CSV:
+        //   id_estudiante | curp_estudiante   (al menos uno)
+        //   tipo_concepto                     (vocabulario controlado: colegiatura, inscripcion, etc.)
+        //   monto_centavos                    (entero en centavos, sin decimales ni símbolo $)
+        //   fecha_vencimiento                 (ISO YYYY-MM-DD)
+        //   ciclo_escolar                     (ej. 2023-2024)
+        //   descripcion                       (libre, opcional — ej. "Colegiatura Marzo 2024")
+        //
+        // Cada charge se crea con:
+        //   es_adeudo_migrado = TRUE   → exento del batch de recargos automáticos
+        //   recargo_aplicado_centavos = 0
+        //   estado = 'pendiente'
+        //
+        // Resolución de concept_id por tipo_concepto:
+        //   1. SELECT todos los conceptos de ese tipo para el campus (sin filtro activo — campo no existe).
+        //   2. Si 0 → failed con mensaje exacto: "No existe concepto de tipo 'X'…"
+        //   3. Si 1 → usar directamente.
+        //   4. Si >1 → desambiguar por nivel_escolar del alumno vs. nombre del concepto.
+        //   5. Si la ambigüedad persiste → usar el primero, agregar aviso a warnings[].
+
+        // Helper reutilizado del template de becas: convierte fecha serial Excel → ISO.
+        const parseFecha = (val: any): string | null => {
+          if (!val && val !== 0) return null;
+          if (typeof val === 'number') {
+            const jsDate = new Date((val - 25569) * 86400 * 1000);
+            return jsDate.toISOString().split('T')[0];
+          }
+          if (val instanceof Date) return val.toISOString().split('T')[0];
+          return String(val).trim() || null;
+        };
+
+        for (let index = 0; index < jsonData.length; index++) {
+          const row = jsonData[index] as any;
+
+          // ── Validación de campos obligatorios (errores de fila → failed, no ROLLBACK)
+          if (!row.id_estudiante && !row.curp_estudiante) {
+            results.errors.push(`Fila ${index + 2}: id_estudiante o curp_estudiante es requerido`);
+            results.failed++;
+            continue;
+          }
+          if (!row.tipo_concepto) {
+            results.errors.push(`Fila ${index + 2}: tipo_concepto es requerido`);
+            results.failed++;
+            continue;
+          }
+          const monto = parseInt(String(row.monto_centavos ?? ''), 10);
+          if (!row.monto_centavos || isNaN(monto) || monto <= 0) {
+            results.errors.push(`Fila ${index + 2}: monto_centavos debe ser un entero positivo (en centavos, sin decimales)`);
+            results.failed++;
+            continue;
+          }
+          if (!row.fecha_vencimiento) {
+            results.errors.push(`Fila ${index + 2}: fecha_vencimiento es requerido (formato YYYY-MM-DD)`);
+            results.failed++;
+            continue;
+          }
+          if (!row.ciclo_escolar) {
+            results.errors.push(`Fila ${index + 2}: ciclo_escolar es requerido (ej. 2023-2024)`);
+            results.failed++;
+            continue;
+          }
+
+          // ── Buscar alumno en este campus (restringido al campus_id del JWT)
+          let studentRow: any;
+          if (row.id_estudiante) {
+            const r = await client.query(
+              `SELECT id, nombre_completo, nivel_escolar FROM students
+               WHERE id_referencia = $1 AND campus_id = $2 AND tenant_id = $3 LIMIT 1`,
+              [String(row.id_estudiante).trim(), campusId, tenantId],
+            );
+            studentRow = r.rows[0];
+          }
+          if (!studentRow && row.curp_estudiante) {
+            const r = await client.query(
+              `SELECT id, nombre_completo, nivel_escolar FROM students
+               WHERE curp = $1 AND campus_id = $2 AND tenant_id = $3 LIMIT 1`,
+              [String(row.curp_estudiante).trim().toUpperCase(), campusId, tenantId],
+            );
+            studentRow = r.rows[0];
+          }
+          if (!studentRow) {
+            results.errors.push(`Fila ${index + 2}: Estudiante no encontrado en este campus`);
+            results.failed++;
+            continue;
+          }
+
+          // ── Resolver concept_id por tipo_concepto
+          // La tabla concepts no tiene columna 'activo' — no se filtra por ella.
+          const tipoConcepto = String(row.tipo_concepto).trim().toLowerCase();
+          const conceptosR = await client.query(
+            `SELECT id, nombre FROM concepts
+             WHERE campus_id = $1 AND tenant_id = $2 AND LOWER(tipo) = $3
+             ORDER BY id`,
+            [campusId, tenantId, tipoConcepto],
+          );
+          const conceptos = conceptosR.rows as Array<{ id: number; nombre: string }>;
+
+          if (conceptos.length === 0) {
+            results.errors.push(
+              `Fila ${index + 2}: No existe concepto de tipo '${tipoConcepto}' para este campus. Configure el catálogo primero.`,
+            );
+            results.failed++;
+            continue;
+          }
+
+          let conceptId: number;
+          if (conceptos.length === 1) {
+            conceptId = conceptos[0].id;
+          } else {
+            // Desambigüar por nivel_escolar del alumno:
+            // buscar el concepto cuyo nombre contenga el nivel (KINDER, PRIMARIA, etc.).
+            const NIVELES = ['KINDER', 'PRIMARIA', 'SECUNDARIA', 'BACHILLERATO'] as const;
+            const nivelEscolar = (studentRow.nivel_escolar ?? '').toUpperCase();
+            const nivelMatch = NIVELES.find(n => nivelEscolar.includes(n));
+
+            const filtrados = nivelMatch
+              ? conceptos.filter(c => c.nombre.toUpperCase().includes(nivelMatch))
+              : [];
+
+            if (filtrados.length === 1) {
+              // Desambigüación exitosa por nivel académico.
+              conceptId = filtrados[0].id;
+            } else {
+              // Ambigüedad persistente: usar el primero, registrar warning no fatal.
+              conceptId = conceptos[0].id;
+              results.warnings.push(
+                `Fila ${index + 2}: ${conceptos.length} conceptos de tipo '${tipoConcepto}' para ${studentRow.nombre_completo}` +
+                (nivelMatch
+                  ? ` (nivel ${nivelMatch} sin coincidencia única en nombre del concepto)`
+                  : ` (nivel_escolar del alumno no determinado)`) +
+                ` — usando '${conceptos[0].nombre}' (id ${conceptos[0].id}). Verifique el resultado.`,
+              );
+            }
+          }
+
+          // ── Parsear y validar fechas
+          const fechaVencimiento = parseFecha(row.fecha_vencimiento);
+          if (!fechaVencimiento) {
+            results.errors.push(`Fila ${index + 2}: fecha_vencimiento inválida`);
+            results.failed++;
+            continue;
+          }
+          // fecha_emision: columna del CSV opcional; si no viene, usar fecha_vencimiento.
+          const fechaEmision = parseFecha(row.fecha_emision) ?? fechaVencimiento;
+          const descripcion   = row.descripcion ? String(row.descripcion).trim() : null;
+          const cicloEscolar  = String(row.ciclo_escolar).trim();
+
+          // ── INSERT del charge migrardo
+          // es_adeudo_migrado = TRUE  → exime del batch de recargo automático (ADR-010)
+          // recargo_aplicado_centavos hardcodeado a 0 — nunca hereda mora del sistema anterior
+          await client.query(
+            `INSERT INTO charges
+               (student_id, concept_id, tenant_id, ciclo_escolar,
+                fecha_emision, fecha_vencimiento, monto_base_centavos,
+                beca_aplicada, recargo_aplicado_centavos, estado,
+                es_adeudo_migrado, descripcion)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, '0.00', 0, 'pendiente', TRUE, $8)`,
+            [
+              studentRow.id, conceptId, tenantId, cicloEscolar,
+              fechaEmision, fechaVencimiento, monto,
+              descripcion,
             ],
           );
           results.successful++;

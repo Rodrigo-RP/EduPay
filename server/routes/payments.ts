@@ -540,8 +540,12 @@ export function registerPaymentRoutes(app: Express): void {
           }
 
           // ── INSERT (si falla → propaga → ROLLBACK)
-          // Replicamos la lógica de storage.createStudent inline para usar el client
-          // de transacción. nombre_completo es NOT NULL en la DB.
+          // ATENCIÓN — implementación inline deliberada: storage.createStudent usa
+          // db (Drizzle, conexión propia) y no puede participar en el BEGIN/COMMIT
+          // de esta transacción. Si en el futuro storage.createStudent añade
+          // normalización de campos (capitalización, derivación de nivel_escolar,
+          // etc.), replicar ese cambio aquí o extraer un helper puro compartido.
+          // nombre_completo es NOT NULL en la DB.
           const nombreCompleto = studentData.nombre_completo;
           await client.query(
             `INSERT INTO students
@@ -573,8 +577,9 @@ export function registerPaymentRoutes(app: Express): void {
           }
 
           // ── INSERT (si falla → propaga → ROLLBACK)
-          // Replicamos storage.createGuardian inline (sin password_hash, no aplica en import).
-          // email y nombre_completo son NOT NULL en guardians.
+          // ATENCIÓN — implementación inline deliberada (misma razón que students).
+          // Si storage.createGuardian añade lógica nueva, replicar aquí.
+          // correo_institucional_familiar y nombres son NOT NULL en guardians.
           await client.query(
             `INSERT INTO guardians
                (nombres, nombre_completo, email, correo_institucional_familiar, celular,

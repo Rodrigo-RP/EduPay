@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { pool, db } from "../db";
 import { enqueueAuditLog } from "../audit-retry";
+import { createFamily, type TutorInput } from "../lib/family-service";
 import { eq, and, gte, lt } from "drizzle-orm";
 import { storage } from "../storage";
 import { authenticateToken, requireAuth, authenticateGuardian, checkCampusTenant, upload, esmRequire, JWT_SECRET, hasPermissionForUser} from "./shared";
@@ -322,6 +323,44 @@ export function registerPaymentRoutes(app: Express): void {
               descripcion:      "Inscripción ciclo 2023-2024"
             }]
           }
+        },
+        familias: {
+          tutores: {
+            name: "Importación Masiva de Familias y Tutores",
+            columns: [
+              "nombre_familia", "id_referencia_alumno", "curp_alumno",
+              "tipo_guardian", "nombres_tutor", "apellido_paterno_tutor", "apellido_materno_tutor",
+              "curp_tutor", "email_tutor", "celular_tutor",
+              "es_responsable_pago", "porcentaje_responsabilidad"
+            ],
+            sampleData: [{
+              nombre_familia:            "Familia García Pérez",
+              id_referencia_alumno:      "A-00123",
+              curp_alumno:               "",
+              tipo_guardian:             "padre",
+              nombres_tutor:             "Juan",
+              apellido_paterno_tutor:    "García",
+              apellido_materno_tutor:    "López",
+              curp_tutor:                "GALJ780312HDFRCN02",
+              email_tutor:               "juan.garcia@correo.mx",
+              celular_tutor:             "5551234567",
+              es_responsable_pago:       "true",
+              porcentaje_responsabilidad:"60"
+            }, {
+              nombre_familia:            "Familia García Pérez",
+              id_referencia_alumno:      "A-00123",
+              curp_alumno:               "",
+              tipo_guardian:             "madre",
+              nombres_tutor:             "María",
+              apellido_paterno_tutor:    "Pérez",
+              apellido_materno_tutor:    "Ruiz",
+              curp_tutor:                "PERM820715MDFRZR04",
+              email_tutor:               "maria.perez@correo.mx",
+              celular_tutor:             "5559876543",
+              es_responsable_pago:       "true",
+              porcentaje_responsabilidad:"40"
+            }]
+          }
         }
       };
 
@@ -404,6 +443,9 @@ export function registerPaymentRoutes(app: Express): void {
       } else if (category === 'adeudos' && templateId === 'migrados') {
         requiredModule = MODULES.CHARGES;
         requiredAction = ACTIONS.CREATE; // misma guardia que POST /api/admin/cargos/extraordinario
+      } else if (category === 'familias' && templateId === 'tutores') {
+        requiredModule = MODULES.FAMILIES;
+        requiredAction = ACTIONS.CREATE; // administrador_campus tiene FAMILIES.CREATE
       } else {
         return res.status(400).json({ message: "Template de importación no reconocido" });
       }
@@ -810,6 +852,151 @@ export function registerPaymentRoutes(app: Express): void {
             ],
           );
           results.successful++;
+        }
+      } else if (category === 'familias' && templateId === 'tutores') {
+        // ── Importación masiva de familias y tutores ─────────────────────────
+        //
+        // Columnas del CSV (diseño aprobado):
+        //   nombre_familia            — clave de agrupación en el CSV (nunca en DB)
+        //   id_referencia_alumno      — alternativo
+        //   curp_alumno               — alternativo (al menos uno requerido)
+        //   tipo_guardian / nombres_tutor / apellido_paterno_tutor / ...
+        //   curp_tutor / email_tutor / celular_tutor
+        //   es_responsable_pago       — 'true' | '1' | 'false' | '0'
+        //   porcentaje_responsabilidad — número o vacío
+        //
+        // Atomicidad por grupo (SAVEPOINT):
+        //   - createFamily() recibe el client exterior y participa en la txn.
+        //   - Error de negocio (status 400/422) → ROLLBACK TO SAVEPOINT del grupo,
+        //     grupo contado como "failed", resto continúa.
+        //   - Error de DB inesperado → propaga → ROLLBACK exterior.
+        //   - dry_run: ROLLBACK exterior final deshace todo.
+
+        // Paso 1: Agrupar filas por nombre_familia
+        const familyGroups = new Map<string, any[]>();
+        for (let idx = 0; idx < jsonData.length; idx++) {
+          const row = jsonData[idx] as any;
+          const key = String(row.nombre_familia ?? '').trim();
+          if (!key) {
+            results.failed++;
+            results.errors.push(`Fila ${idx + 2}: nombre_familia es requerido`);
+            continue;
+          }
+          if (!familyGroups.has(key)) familyGroups.set(key, []);
+          familyGroups.get(key)!.push({ ...row, __csvRowIdx: idx + 2 });
+        }
+
+        // Paso 2: Procesar cada grupo
+        let groupSeq = 0;
+        for (const [groupName, groupRows] of familyGroups) {
+          groupSeq++;
+          const rowCount = groupRows.length;
+          const sp = `sp_fam_${groupSeq}`;
+
+          await client.query(`SAVEPOINT ${sp}`);
+
+          try {
+            // 2a. Resolver student_ids únicos del grupo
+            const studentIdMap = new Map<string, number>(); // ref_key → student_id
+            let groupError: string | null = null;
+
+            for (const row of groupRows) {
+              const ref  = String(row.id_referencia_alumno ?? '').trim();
+              const curp = String(row.curp_alumno          ?? '').trim();
+              const refKey = ref || curp;
+
+              if (!refKey) {
+                groupError = `Grupo '${groupName}', fila ${row.__csvRowIdx}: ` +
+                  `se requiere id_referencia_alumno o curp_alumno`;
+                break;
+              }
+              if (studentIdMap.has(refKey)) continue; // ya resuelto
+
+              let sRow: any = null;
+              if (ref) {
+                const r = await client.query(
+                  `SELECT id FROM students
+                   WHERE id_referencia = $1 AND campus_id = $2 AND tenant_id = $3 LIMIT 1`,
+                  [ref, campusId, tenantId],
+                );
+                sRow = r.rows[0] ?? null;
+              }
+              if (!sRow && curp) {
+                const r = await client.query(
+                  `SELECT id FROM students
+                   WHERE curp = $1 AND campus_id = $2 AND tenant_id = $3 LIMIT 1`,
+                  [curp.toUpperCase(), campusId, tenantId],
+                );
+                sRow = r.rows[0] ?? null;
+              }
+              if (!sRow) {
+                groupError = `Grupo '${groupName}': alumno '${refKey}' no encontrado en este campus. ` +
+                  `Ejecute el import de alumnos primero.`;
+                break;
+              }
+              studentIdMap.set(refKey, (sRow as any).id);
+            }
+
+            if (groupError) {
+              await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
+              results.failed += rowCount;
+              results.errors.push(groupError);
+              continue;
+            }
+
+            const studentIds = Array.from(new Set(studentIdMap.values()));
+
+            // 2b. Construir array de tutores únicos (dedup por CURP → email)
+            const tutorMap = new Map<string, TutorInput>();
+            for (const row of groupRows) {
+              const curpT  = String(row.curp_tutor  ?? '').trim() || null;
+              const emailT = String(row.email_tutor ?? '').trim() || null;
+              const dedupKey = curpT ?? emailT ?? `__row_${row.__csvRowIdx}`;
+
+              if (!tutorMap.has(dedupKey)) {
+                const esResp = String(row.es_responsable_pago ?? '').trim().toLowerCase();
+                const pct    = String(row.porcentaje_responsabilidad ?? '').trim();
+                tutorMap.set(dedupKey, {
+                  tipo_guardian:                  String(row.tipo_guardian            ?? '').trim() || undefined,
+                  nombres:                        String(row.nombres_tutor            ?? '').trim() || undefined,
+                  apellido_paterno:               String(row.apellido_paterno_tutor   ?? '').trim() || undefined,
+                  apellido_materno:               String(row.apellido_materno_tutor   ?? '').trim() || undefined,
+                  curp:                           curpT  ?? undefined,
+                  correo_institucional_familiar:  emailT ?? undefined,
+                  celular:                        String(row.celular_tutor            ?? '').trim() || undefined,
+                  es_responsable_pago:            esResp === 'true' || esResp === '1',
+                  porcentaje_responsabilidad:     pct    || undefined,
+                });
+              }
+            }
+            const tutores = Array.from(tutorMap.values());
+
+            // 2c. Llamar a createFamily con el client exterior
+            //     (participa en la txn; SAVEPOINT hace rollback si falla)
+            const familyResult = await createFamily(
+              { nombre: groupName, student_ids: studentIds, tutores },
+              tenantId,
+              campusId,
+              client,
+            );
+
+            await client.query(`RELEASE SAVEPOINT ${sp}`);
+            results.successful += rowCount;
+            results.warnings.push(...familyResult.warnings);
+
+          } catch (groupErr: any) {
+            // SIEMPRE revertir al SAVEPOINT antes de decidir si es fatal
+            await client.query(`ROLLBACK TO SAVEPOINT ${sp}`).catch(() => {});
+
+            if (groupErr.status === 400 || groupErr.status === 422) {
+              // Error de negocio: el grupo falla, el resto continúa.
+              results.failed += rowCount;
+              results.errors.push(`Grupo '${groupName}': ${groupErr.message}`);
+            } else {
+              // Error fatal de DB: propaga → ROLLBACK exterior.
+              throw groupErr;
+            }
+          }
         }
       }
 

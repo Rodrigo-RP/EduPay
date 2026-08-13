@@ -640,12 +640,14 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
         fecha_vencimiento,
         aplicar_becas,
         incluir_recargos,
-        dry_run,         // si true: calcula y devuelve preview sin crear nada en BD
-        ciclo_escolar,   // ciclo opcional; por defecto el actual
-        descripcion,     // para cargos extraordinarios
-        monto_manual,    // monto en centavos para cargos extraordinarios manuales
-        product_id,      // ID de producto del catálogo → precio derivado por nivel; gana sobre monto_manual
+        dry_run,             // si true: calcula y devuelve preview sin crear nada en BD
+        ciclo_escolar,       // ciclo opcional; por defecto el actual
+        descripcion,         // para cargos extraordinarios
+        monto_manual,        // monto en centavos para cargos extraordinarios manuales
+        product_id,          // ID de producto del catálogo → precio derivado por nivel; gana sobre monto_manual
+        es_adeudo_migrado,   // bandera de adeudo heredado — exime de recargo sin importar el concepto
       } = req.body;
+      const esAdeudoMigrado = !!es_adeudo_migrado;
 
       const userCampusId  = req.user.campus_id;
       const userTenantId  = req.user.tenant_id;
@@ -802,10 +804,12 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
           }
         }
 
-        // Exención de recargo para adeudo_migrado: un charge de migración hereda el
-        // importe original del sistema anterior y nunca debe acumular mora adicional.
-        const conceptTipo = concept?.tipo ?? '';
-        const lateFee     = (incluir_recargos && conceptTipo !== 'adeudo_migrado')
+        // Exención de recargo para adeudos migrados: un charge importado de sistemas
+        // anteriores hereda el importe original sin acumular mora adicional.
+        // La bandera esAdeudoMigrado (req.body.es_adeudo_migrado) es ortogonal al
+        // concept_id: el concepto puede seguir siendo 'Colegiatura Agosto' para CFDI
+        // mientras la exención de recargo actúa independientemente.
+        const lateFee = (incluir_recargos && !esAdeudoMigrado)
           ? Math.floor(baseAmount * 0.05)
           : 0;
         const finalAmount = baseAmount - discountCentavos + lateFee;
@@ -835,6 +839,7 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
             beca_aplicada:             discountPct.toFixed(2),
             recargo_aplicado_centavos: lateFee,
             estado:                    "pendiente",
+            es_adeudo_migrado:         esAdeudoMigrado,
           });
           chargesCreated.push(charge);
         }

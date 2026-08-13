@@ -331,6 +331,11 @@ export const charges = pgTable("charges", {
   estado: varchar("estado", { length: 50 }).default("pendiente"), // 'pendiente', 'pagado', 'parcial', 'cancelado'
   // ADR-002: FK nullable al plan de pago que generó este cargo (cuotas de plan)
   plan_id: integer("plan_id"),
+  // Migración 010: bandera de adeudo heredado de sistema anterior.
+  // Independiente del concept_id — el mismo concepto real (colegiatura, inscripción)
+  // puede usarse para CFDI mientras la exención de recargo sigue activa.
+  // Rollback: ALTER TABLE charges DROP COLUMN es_adeudo_migrado;
+  es_adeudo_migrado: boolean("es_adeudo_migrado").default(false).notNull(),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });

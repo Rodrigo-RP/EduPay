@@ -297,15 +297,15 @@ export function registerChargesRoutes(app: Express): void {
       const rule = rules.find((r: any) => r.activo) || rules[0];
       // date − date en PostgreSQL devuelve INTEGER (días), no interval.
       // EXTRACT(DAY FROM integer) no existe → usamos la resta directamente.
+      // El LEFT JOIN a concepts ya no es necesario: la exención usa c.es_adeudo_migrado.
       const overdueCharges = await pool.query(`
         SELECT c.id, c.monto_base_centavos,
           (CURRENT_DATE - c.fecha_vencimiento::date) AS dias_vencido
         FROM charges c
         JOIN students s ON s.id = c.student_id
-        LEFT JOIN concepts co ON co.id = c.concept_id
         WHERE s.campus_id = $1 AND c.estado = 'pendiente' AND c.fecha_vencimiento < CURRENT_DATE
           AND (c.recargo_aplicado_centavos IS NULL OR c.recargo_aplicado_centavos = 0)
-          AND COALESCE(co.tipo, '') != 'adeudo_migrado'
+          AND NOT c.es_adeudo_migrado
       `, [campusId]);
       let actualizados = 0;
       for (const charge of (overdueCharges.rows as any[])) {

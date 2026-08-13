@@ -912,7 +912,9 @@ export function registerAdminRoutes(app: Express): void {
           headers.forEach((header, index) => {
             obj[header] = values[index] || '';
           });
-          if (obj['Nombre Completo'] || obj['CURP']) { // Only add rows with essential data
+          // Filtro de fila: acepta las mismas variantes que el mapeo de columnas
+          if (obj['Nombre Completo'] || obj['nombre_completo'] || obj['Nombre'] ||
+              obj['CURP'] || obj['curp']) {
             jsonData.push(obj);
           }
         }
@@ -973,32 +975,136 @@ export function registerAdminRoutes(app: Express): void {
         });
       }
 
-      // Create students in batch
-      const createdStudents = [];
-      const creationErrors = [];
+      // ── dry_run: igual que el resto de endpoints de import ───────────────────
+      const isDryRun =
+        req.query.dry_run === 'true' ||
+        req.query.dry_run === '1'    ||
+        (req as any).body?.dry_run === true ||
+        (req as any).body?.dry_run === 'true';
 
-      for (const studentData of studentsToCreate) {
-        try {
-          const student = await storage.createStudent(studentData);
-          createdStudents.push(student);
-          
-          // Notify real-time update
+      // ── Creación atómica con BEGIN / SAVEPOINT por fila / COMMIT|ROLLBACK ────
+      //
+      // Por qué SAVEPOINT por fila y no una sola transacción rígida:
+      //   • Error de validación de fila → ya filtrado arriba (studentsToCreate
+      //     solo tiene filas que pasaron la fase de validación del frontend).
+      //   • Error de DB en fila N (ej. nombre > varchar 255) → SAVEPOINT hace
+      //     ROLLBACK solo de esa fila; las demás continúan → mismo comportamiento
+      //     observable que antes, pero ahora dentro de BEGIN/COMMIT.
+      //   • Error fatal de conexión → ROLLBACK total: cero filas quedan escritas.
+      //
+      // Por qué no storage.createStudent:
+      //   storage.createStudent usa Drizzle (conexión propia) y no puede
+      //   participar en el BEGIN/COMMIT de este pool.connect().
+      //   Se hace INSERT inline idéntico, con RETURNING * para obtener el
+      //   objeto alumno que espera wsManager.notifyStudentUpdate.
+
+      const createdStudents: any[] = [];
+      const creationErrors: string[] = [];
+
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+
+        for (let i = 0; i < studentsToCreate.length; i++) {
+          const studentData = studentsToCreate[i];
+          const sp = `sp_stu_${i}`;
+          await client.query(`SAVEPOINT ${sp}`);
+          try {
+            const result = await client.query(
+              `INSERT INTO students
+                 (campus_id, tenant_id, nombres, nombre_completo, curp,
+                  grado, grupo, status)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+               RETURNING *`,
+              [
+                studentData.campus_id,
+                studentData.tenant_id,
+                studentData.nombres,
+                studentData.nombres,   // nombre_completo ← NOT NULL en la DB real
+                studentData.curp  || null,
+                studentData.grado || null,
+                studentData.grupo || 'A',
+                studentData.status || 'activo',
+              ],
+            );
+            createdStudents.push(result.rows[0]);
+            await client.query(`RELEASE SAVEPOINT ${sp}`);
+          } catch (rowErr: any) {
+            await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
+            creationErrors.push(
+              `Error creando estudiante ${studentData.nombres}: ${rowErr.message}`,
+            );
+          }
+        }
+
+        if (isDryRun) {
+          await client.query('ROLLBACK');
+          // dry_run → devolvemos conteos pero vaciamos created_students
+          //           (ninguna fila quedó en DB)
+          return res.json({
+            message: 'Importación completada',
+            total_processed: jsonData.length,
+            successful: createdStudents.length,
+            errors: [...errors, ...creationErrors],
+            created_students: [],
+          });
+        }
+
+        await client.query('COMMIT');
+
+        // ── WS por alumno — igual que antes, después del COMMIT ──────────────
+        for (const student of createdStudents) {
           wsManager.notifyStudentUpdate(student, 'create', {
             campus_id: user.campus_id,
             tenant_id: user.tenant_id,
-            created_by: user.id
+            created_by: user.id,
           });
-        } catch (error: any) {
-          creationErrors.push(`Error creando estudiante ${studentData.nombres}: ${error.message}`);
         }
+
+        // ── Auditoría — fuera de txn commiteada, fire-and-forget ─────────────
+        const auditPayload = {
+          tenant_id:   user.tenant_id,
+          user_id:     user.id,
+          action:      'STUDENTS_IMPORT',
+          entity_type: 'students',
+          entity_id:   user.campus_id,
+          metadata: {
+            total:      jsonData.length,
+            successful: createdStudents.length,
+            failed:     creationErrors.length,
+            validation_errors: errors.length,
+          },
+        };
+        pool.query(
+          `INSERT INTO audit_log
+             (tenant_id, user_id, action, entity_type, entity_id, metadata)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            auditPayload.tenant_id,
+            auditPayload.user_id,
+            auditPayload.action,
+            auditPayload.entity_type,
+            auditPayload.entity_id,
+            JSON.stringify(auditPayload.metadata),
+          ],
+        ).catch((err) => enqueueAuditLog(auditPayload, err));
+
+      } catch (fatalError: any) {
+        await client.query('ROLLBACK').catch(() => {});
+        client.release();
+        return res.status(500).json({ message: 'Error importing students' });
+      } finally {
+        // release solo si no fue liberado ya en el catch de error fatal
+        try { client.release(); } catch {}
       }
 
+      // ── Respuesta — formato idéntico al contrato actual con estudiantes.tsx ──
       res.json({
         message: `Importación completada`,
         total_processed: jsonData.length,
         successful: createdStudents.length,
         errors: [...errors, ...creationErrors],
-        created_students: createdStudents
+        created_students: createdStudents,
       });
 
     } catch (error: any) {

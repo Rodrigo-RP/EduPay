@@ -416,13 +416,30 @@ export function registerPaymentRoutes(app: Express): void {
       const worksheet = workbook.Sheets[sheetName];
       jsonData = XLSX.utils.sheet_to_json(worksheet);
 
+      // dry_run: acepta ?dry_run=true (query string) o { dry_run: true } (body JSON).
+      // Con dry_run activo, el procesamiento es idéntico al real pero termina en
+      // ROLLBACK: ninguna fila queda escrita. La respuesta incluye committed: false.
+      const dryRun =
+        req.query.dry_run === 'true' ||
+        req.query.dry_run === '1' ||
+        (req as any).body?.dry_run === true ||
+        (req as any).body?.dry_run === 'true';
+
       // Validate and process data based on template
-      const results = {
+      const results: {
+        successful: number;
+        failed: number;
+        errors: any[];
+        preview: any[];
+        total: number;
+        committed: boolean;
+      } = {
         successful: 0,
         failed: 0,
-        errors: [] as any[],
+        errors: [],
         preview: jsonData.slice(0, 5),
-        total: jsonData.length
+        total: jsonData.length,
+        committed: !dryRun,  // se sobreescribe abajo; aquí es el valor esperado
       };
 
       // ── Transacción envolvente ────────────────────────────────────────────
@@ -599,7 +616,14 @@ export function registerPaymentRoutes(app: Express): void {
         }
       }
 
-        await client.query('COMMIT');
+        if (dryRun) {
+          // dry_run: revertir todo — ninguna fila queda escrita.
+          await client.query('ROLLBACK');
+          results.committed = false;
+        } else {
+          await client.query('COMMIT');
+          results.committed = true;
+        }
       } catch (fatalError: any) {
         // Error fatal en un INSERT/SELECT — rollback completo: ninguna fila queda escrita.
         await client.query('ROLLBACK').catch(() => {});

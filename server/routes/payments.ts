@@ -618,15 +618,74 @@ export function registerPaymentRoutes(app: Express): void {
 
         if (dryRun) {
           // dry_run: revertir todo — ninguna fila queda escrita.
+          // No se genera entrada en audit_log: no ocurrió ningún cambio real.
           await client.query('ROLLBACK');
           results.committed = false;
         } else {
           await client.query('COMMIT');
           results.committed = true;
+
+          // ── Audit de importación exitosa (ADR-001: fuera de la txn, fire-and-forget)
+          const auditPayloadImport = {
+            tenant_id: tenantId,
+            user_id:   importUser?.id ?? null,
+            action:    'import',
+            entity_type: templateId,
+            entity_id:   campusId,
+            metadata:  {
+              category,
+              template:   templateId,
+              total:      results.total,
+              successful: results.successful,
+              failed:     results.failed,
+            },
+          };
+          pool.query(
+            `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
+              auditPayloadImport.tenant_id,
+              auditPayloadImport.user_id,
+              auditPayloadImport.action,
+              auditPayloadImport.entity_type,
+              auditPayloadImport.entity_id,
+              JSON.stringify(auditPayloadImport.metadata),
+            ],
+          ).catch((err) => enqueueAuditLog(auditPayloadImport, err));
         }
       } catch (fatalError: any) {
         // Error fatal en un INSERT/SELECT — rollback completo: ninguna fila queda escrita.
         await client.query('ROLLBACK').catch(() => {});
+
+        // ── Audit del intento fallido (fuera de txn revertida, fire-and-forget)
+        const auditFailPayload = {
+          tenant_id:   tenantId,
+          user_id:     importUser?.id ?? null,
+          action:      'import_failed',
+          entity_type: templateId,
+          entity_id:   campusId,
+          metadata: {
+            category,
+            template:   templateId,
+            total:      results.total,
+            successful: results.successful,
+            failed:     results.failed,
+            error:      fatalError instanceof Error ? fatalError.message : String(fatalError),
+          },
+        };
+        pool.query(
+          `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            auditFailPayload.tenant_id,
+            auditFailPayload.user_id,
+            auditFailPayload.action,
+            auditFailPayload.entity_type,
+            auditFailPayload.entity_id,
+            JSON.stringify(auditFailPayload.metadata),
+          ],
+        ).catch((err) => enqueueAuditLog(auditFailPayload, err));
+
         throw fatalError; // re-lanza → catch externo → 500
       } finally {
         client.release();

@@ -1,0 +1,41 @@
+Necesito que crees exactamente este archivo con el contenido que te doy a
+continuación, sin reescribirlo ni resumirlo — cópialo tal cual:
+
+docs/PROTOCOLO-AUDITORIA.md
+
+[CONTENIDO EXACTO A CONTINUACIÓN]
+
+# Protocolo estándar de trabajo — EduPay
+
+Este documento describe cómo reportar cualquier cambio de código en este proyecto. Aplica
+a corrección de bugs, nuevos guards de permisos, features nuevas, y cualquier cambio de
+schema. Síguelo sin que se te pida cada vez — es el estándar por default, no una excepción.
+
+## 1. Antes de corregir — reproduce el problema
+
+Si el trabajo es corregir un bug o cerrar un hallazgo de seguridad, reprodúcelo empíricamente
+ANTES de tocar el código: llama al endpoint real, con el rol o condición real que expone el
+problema, y pega la respuesta real (código HTTP + body). No describas el problema de memoria
+ni infieras que "seguramente así funciona" — ejecútalo y muestra la evidencia.
+
+Si afirmas que algo "ya existía antes de esta sesión" o es "preexistente", no lo dejes como
+suposición: verifícalo con `git log -S "<string>" -- <archivo>` o `git blame` y cita el commit
+y la fecha real. Si no puedes verificarlo, dilo explícitamente ("es una inferencia, todavía no
+lo confirmé") en vez de presentarlo como hecho.
+
+## 2. Después de corregir — las tres marcas de tiempo, en este orden exacto
+
+1. **Reinicia el servidor** y copia la línea real del log ("serving on port XXXX" o
+   equivalente), con su hora exacta.
+2. **Corre la suite completa** (no solo los tests nuevos) y copia la hora de inicio real de
+   vitest ("Start at").
+3. Confirma que el paso 2 ocurrió DESPUÉS del paso 1, con al menos unos segundos de margen.
+   Si las horas no tienen sentido cronológico entre sí, es una señal de que se mezclaron
+   resultados de corridas distintas — vuelve a correr todo limpio antes de reportar.
+
+Nunca reportes solo "Start at" de vitest sin la hora de reinicio del servidor — son cosas
+distintas y las dos son necesarias.
+
+## 3. El resultado de la suite — siempre agregado, siempre completo
+
+Reporta siempre el bloque completo:

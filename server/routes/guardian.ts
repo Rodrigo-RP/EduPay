@@ -802,7 +802,12 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
           }
         }
 
-        const lateFee     = incluir_recargos ? Math.floor(baseAmount * 0.05) : 0;
+        // Exención de recargo para adeudo_migrado: un charge de migración hereda el
+        // importe original del sistema anterior y nunca debe acumular mora adicional.
+        const conceptTipo = concept?.tipo ?? '';
+        const lateFee     = (incluir_recargos && conceptTipo !== 'adeudo_migrado')
+          ? Math.floor(baseAmount * 0.05)
+          : 0;
         const finalAmount = baseAmount - discountCentavos + lateFee;
 
         chargesSummary.push({

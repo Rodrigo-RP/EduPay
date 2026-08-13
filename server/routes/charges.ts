@@ -295,13 +295,17 @@ export function registerChargesRoutes(app: Express): void {
       const rules = await storage.getSurchargeRulesByCampus(campusId);
       if (rules.length === 0) return res.json({ message: "No hay reglas de recargo configuradas", actualizados: 0 });
       const rule = rules.find((r: any) => r.activo) || rules[0];
+      // date − date en PostgreSQL devuelve INTEGER (días), no interval.
+      // EXTRACT(DAY FROM integer) no existe → usamos la resta directamente.
       const overdueCharges = await pool.query(`
         SELECT c.id, c.monto_base_centavos,
-          EXTRACT(DAY FROM (CURRENT_DATE - c.fecha_vencimiento::date)) AS dias_vencido
+          (CURRENT_DATE - c.fecha_vencimiento::date) AS dias_vencido
         FROM charges c
         JOIN students s ON s.id = c.student_id
+        LEFT JOIN concepts co ON co.id = c.concept_id
         WHERE s.campus_id = $1 AND c.estado = 'pendiente' AND c.fecha_vencimiento < CURRENT_DATE
           AND (c.recargo_aplicado_centavos IS NULL OR c.recargo_aplicado_centavos = 0)
+          AND COALESCE(co.tipo, '') != 'adeudo_migrado'
       `, [campusId]);
       let actualizados = 0;
       for (const charge of (overdueCharges.rows as any[])) {

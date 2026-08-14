@@ -18,7 +18,7 @@ import {
   CheckCircle, Circle, School, FileText, Users, Gift,
   Archive, ClipboardCheck, Play, Rocket, ArrowLeft, ArrowRight,
   ExternalLink, Download, Upload, AlertTriangle, AlertCircle,
-  FileSpreadsheet, SkipForward,
+  FileSpreadsheet, SkipForward, Loader2,
 } from "lucide-react";
 
 // ── Pasos del wizard ──────────────────────────────────────────────────────────
@@ -41,7 +41,8 @@ const WIZARD_STEPS: WizardStep[] = [
   { id: "activar",  title: "Activar plataforma",       description: "Confirmar configuración y abrir el sistema",       icon: Rocket         },
 ];
 
-const IMPORT_STEP_IDS = new Set(["alumnos", "familias", "becas", "adeudos"]);
+// Pasos que gestionan su propio botón de avance (no usan el botón exterior "Confirmar y continuar")
+const SELF_MANAGED_STEP_IDS = new Set(["alumnos", "familias", "becas", "adeudos", "validar", "simular"]);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -179,7 +180,7 @@ export default function ConfiguracionInicial() {
   }
 
   const step = WIZARD_STEPS[currentStep];
-  const isImportStep = IMPORT_STEP_IDS.has(step.id);
+  const isSelfManagedStep = SELF_MANAGED_STEP_IDS.has(step.id);
   const isLastStep = currentStep === WIZARD_STEPS.length - 1;
 
   return (
@@ -280,7 +281,7 @@ export default function ConfiguracionInicial() {
 
           <span className="text-sm text-slate-500">{currentStep + 1} / {WIZARD_STEPS.length}</span>
 
-          {!isImportStep && (
+          {!isSelfManagedStep && (
             isLastStep ? (
               <Button onClick={handleActivar} disabled={confirming} className="flex items-center gap-2 bg-green-600 hover:bg-green-700">
                 {confirming ? "Activando…" : "Activar plataforma"}
@@ -294,8 +295,8 @@ export default function ConfiguracionInicial() {
             )
           )}
 
-          {/* Espacio vacío para mantener centrado el contador cuando es import step */}
-          {isImportStep && <div className="w-32" />}
+          {/* Espacio vacío para mantener centrado el contador cuando el paso gestiona su propio avance */}
+          {isSelfManagedStep && <div className="w-32" />}
         </div>
 
       </div>
@@ -373,6 +374,12 @@ function StepContent({ stepId, onConfirm, onImportAdvance, markStepComplete, con
           onAdvance={onImportAdvance}
         />
       );
+
+    case "validar":
+      return <ValidacionStep markStepComplete={markStepComplete} onAdvance={onImportAdvance} />;
+
+    case "simular":
+      return <SimulacionStep markStepComplete={markStepComplete} onAdvance={onImportAdvance} />;
 
     default:
       return <PlaceholderStep stepId={stepId} />;
@@ -755,12 +762,325 @@ function EscuelaForm({ onSuccess, confirming }: EscuelaFormProps) {
   );
 }
 
+// ── ValidacionStep ────────────────────────────────────────────────────────────
+// Llama a GET /api/admin/configuracion/validacion-onboarding y muestra resultado.
+// Errores → bloqueantes (deshabilitan el botón de confirmar).
+// Warnings → informativos (no impiden avanzar).
+
+interface ValidacionResult {
+  errores: string[];
+  warnings: string[];
+  ok: boolean;
+}
+
+function ValidacionStep({
+  markStepComplete,
+  onAdvance,
+}: {
+  markStepComplete: (id: string) => Promise<Record<string, boolean>>;
+  onAdvance: () => void;
+}) {
+  const { toast } = useToast();
+  const [result, setResult] = useState<ValidacionResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
+  async function runValidation() {
+    setLoading(true);
+    setResult(null);
+    try {
+      const data = await authFetch("/api/admin/configuracion/validacion-onboarding");
+      setResult(data);
+    } catch {
+      toast({ title: "Error", description: "No se pudo ejecutar la validación", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { runValidation(); }, []);
+
+  async function handleConfirm() {
+    setConfirming(true);
+    try {
+      await markStepComplete("validar");
+      onAdvance();
+    } catch {
+      toast({ title: "Error", description: "No se pudo registrar el avance", variant: "destructive" });
+    } finally {
+      setConfirming(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-10 gap-3">
+        <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+        <span className="text-sm text-slate-600">Validando integridad de los datos…</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-slate-600">
+          {result
+            ? result.ok
+              ? "Todos los checks pasaron correctamente."
+              : "Se encontraron problemas que deben resolverse antes de activar."
+            : ""}
+        </p>
+        <Button variant="outline" size="sm" onClick={runValidation} disabled={loading}>
+          Volver a validar
+        </Button>
+      </div>
+
+      {result && result.errores.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle className="w-4 h-4 text-red-600" />
+            <span className="text-sm font-semibold text-red-800">
+              Errores bloqueantes ({result.errores.length}) — deben resolverse antes de continuar
+            </span>
+          </div>
+          <ul className="space-y-1">
+            {result.errores.map((e, i) => (
+              <li key={i} className="text-sm text-red-700">• {e}</li>
+            ))}
+          </ul>
+          <p className="text-xs text-red-600 mt-2">
+            Use los pasos anteriores para importar o corregir los datos.
+          </p>
+        </div>
+      )}
+
+      {result && result.warnings.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertCircle className="w-4 h-4 text-amber-600" />
+            <span className="text-sm font-semibold text-amber-800">
+              Avisos ({result.warnings.length}) — no impiden activar la plataforma
+            </span>
+          </div>
+          <ul className="space-y-1">
+            {result.warnings.map((w, i) => (
+              <li key={i} className="text-sm text-amber-700">• {w}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {result && result.ok && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
+          <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+          <span className="text-sm text-green-800">
+            Todos los datos son consistentes. Puede continuar al siguiente paso.
+          </span>
+        </div>
+      )}
+
+      <div className="flex justify-end pt-2 border-t">
+        <Button
+          onClick={handleConfirm}
+          disabled={!result || !result.ok || confirming}
+          className="flex items-center gap-2"
+        >
+          {confirming ? "Guardando…" : "Confirmar validación y continuar"}
+          <ArrowRight className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── SimulacionStep ────────────────────────────────────────────────────────────
+// Llama a GET /api/admin/configuracion/simulacion-cargos.
+// Siempre permite continuar — es informativo.
+
+interface SimulacionConcepto {
+  concepto_id: number;
+  nombre: string;
+  tipo: string;
+  periodicidad: string;
+  monto_unitario_centavos: number;
+  cargos_proyectados: number;
+  subtotal_centavos: number;
+}
+
+interface SimulacionResult {
+  total_alumnos: number;
+  total_cargos_proyectados_centavos: number;
+  sin_conceptos: boolean;
+  desglose_por_concepto: SimulacionConcepto[];
+}
+
+function SimulacionStep({
+  markStepComplete,
+  onAdvance,
+}: {
+  markStepComplete: (id: string) => Promise<Record<string, boolean>>;
+  onAdvance: () => void;
+}) {
+  const { toast } = useToast();
+  const [data, setData] = useState<SimulacionResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
+  async function runSimulation() {
+    setLoading(true);
+    try {
+      const result = await authFetch("/api/admin/configuracion/simulacion-cargos");
+      setData(result);
+    } catch {
+      toast({ title: "Error", description: "No se pudo ejecutar la simulación", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { runSimulation(); }, []);
+
+  async function handleConfirm() {
+    setConfirming(true);
+    try {
+      await markStepComplete("simular");
+      onAdvance();
+    } catch {
+      toast({ title: "Error", description: "No se pudo registrar el avance", variant: "destructive" });
+    } finally {
+      setConfirming(false);
+    }
+  }
+
+  async function handleSkip() {
+    try {
+      await markStepComplete("simular");
+      onAdvance();
+    } catch {
+      toast({ title: "Error", description: "No se pudo omitir el paso", variant: "destructive" });
+    }
+  }
+
+  function pesos(centavos: number) {
+    return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(centavos / 100);
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-10 gap-3">
+        <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+        <span className="text-sm text-slate-600">Calculando proyección de cargos…</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Sin conceptos — aviso especial con enlace */}
+      {data?.sin_conceptos && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertCircle className="w-4 h-4 text-amber-600" />
+            <span className="text-sm font-semibold text-amber-800">No hay conceptos de cobro configurados</span>
+          </div>
+          <p className="text-sm text-amber-700">
+            Sin conceptos no se generarán cargos automáticos.{" "}
+            <a href="/configuracion" className="underline font-medium hover:text-amber-900">
+              Configura tus conceptos en Ajustes Institucionales
+            </a>{" "}
+            y regresa a este paso para ver la proyección.
+          </p>
+        </div>
+      )}
+
+      {/* Resumen + desglose */}
+      {data && !data.sin_conceptos && (
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+              <div className="text-3xl font-bold text-blue-700">{data.total_alumnos}</div>
+              <div className="text-xs text-blue-600 mt-1">Alumnos activos</div>
+            </div>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+              <div className="text-xl font-bold text-green-700">
+                {pesos(data.total_cargos_proyectados_centavos)}
+              </div>
+              <div className="text-xs text-green-600 mt-1">Total proyectado por concepto</div>
+            </div>
+          </div>
+
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 border-b">
+                <tr>
+                  <th className="text-left p-3 font-medium text-slate-700">Concepto</th>
+                  <th className="text-center p-3 font-medium text-slate-700">Periodicidad</th>
+                  <th className="text-right p-3 font-medium text-slate-700">Monto unitario</th>
+                  <th className="text-right p-3 font-medium text-slate-700">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.desglose_por_concepto.map((c, i) => (
+                  <tr key={c.concepto_id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}>
+                    <td className="p-3 text-slate-800">{c.nombre}</td>
+                    <td className="p-3 text-center text-slate-600">{c.periodicidad}</td>
+                    <td className="p-3 text-right text-slate-800">{pesos(c.monto_unitario_centavos)}</td>
+                    <td className="p-3 text-right font-medium">{pesos(c.subtotal_centavos)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-slate-100 border-t">
+                <tr>
+                  <td colSpan={3} className="p-3 font-semibold text-slate-800">Total proyectado</td>
+                  <td className="p-3 text-right font-bold text-slate-900">
+                    {pesos(data.total_cargos_proyectados_centavos)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <p className="text-xs text-slate-500">
+            Esta proyección asume que todos los conceptos aplican a todos los alumnos activos.
+            Los descuentos por beca se aplicarán al generar los cargos reales.
+          </p>
+        </>
+      )}
+
+      {data && data.total_alumnos === 0 && !data.sin_conceptos && (
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-sm text-slate-600 text-center">
+          No hay alumnos activos. Importe alumnos antes de simular los cargos.
+        </div>
+      )}
+
+      <p className="text-xs text-slate-400 text-center">
+        Este paso es informativo — no genera ningún cargo real.
+      </p>
+
+      <div className="flex items-center justify-between pt-2 border-t">
+        <Button
+          variant="ghost" size="sm"
+          onClick={handleSkip}
+          disabled={confirming}
+          className="text-slate-500 hover:text-slate-700 flex items-center gap-1"
+        >
+          <SkipForward className="w-4 h-4" />
+          Omitir este paso
+        </Button>
+        <Button onClick={handleConfirm} disabled={!data || confirming} className="flex items-center gap-2">
+          {confirming ? "Guardando…" : "Continuar"}
+          <ArrowRight className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // ── Placeholder para pasos no implementados ───────────────────────────────────
 
 const PLACEHOLDER_NOTES: Record<string, string> = {
-  validar:  "El sistema revisará la consistencia de alumnos, familias y conceptos antes de activar.",
-  simular:  "Vista previa de los cargos que se generarán al activar la plataforma.",
-  activar:  "Confirma la configuración y activa el sistema de cobros. Este es el último paso.",
+  activar: "Confirma la configuración y activa el sistema de cobros. Este es el último paso.",
 };
 
 function PlaceholderStep({ stepId }: { stepId: string }) {

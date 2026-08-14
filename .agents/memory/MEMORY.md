@@ -32,3 +32,5 @@
 - [Import test disambiguation](import-test-disambiguation.md) — usar tipo ficticio exclusivo del test para evitar colisiones con seed demo al probar desambigüación de concept_id.
 - [Guardians email NOT NULL drift](guardians-email-drift.md) — columna email en DB real tiene NOT NULL; Drizzle schema la declara nullable; INSERT directo debe incluir email=correo_institucional_familiar.
 - [git credential.helper comillas simples](git-credential-helper.md) — usar comillas SIMPLES obligatoriamente; dobles expanden el token al escribir ~/.gitconfig y lo exponen en git config --list.
+- [Test JWT secret](test-jwt-secret.md) — tests usan process.env.JWT_SECRET || "fallback-secret-key" (NO SESSION_SECRET); el servidor usa JWT_SECRET de shared.ts:19; confundirlos da 403 "Token inválido".
+- [Guardians schema real](guardians-schema-real.md) — guardians NO tiene family_id; relación familia→guardian es vía family_students→student_guardian→guardians. nombre_completo es NOT NULL en DB real.

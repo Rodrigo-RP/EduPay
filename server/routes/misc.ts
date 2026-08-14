@@ -1135,6 +1135,157 @@ export function registerMiscRoutes(app: Express): void {
     }
   });
 
+  // ── Validación de integridad de datos para el wizard de onboarding ──────────
+  // GET /api/admin/configuracion/validacion-onboarding
+  // Ejecuta 4 checks de integridad sobre el campus del JWT.
+  // Responde: { errores: string[], warnings: string[], ok: boolean }
+  // errores → bloqueantes (ok=false); warnings → informativos (ok puede ser true).
+  app.get("/api/admin/configuracion/validacion-onboarding", authenticateToken, async (req, res) => {
+    try {
+      if (!hasPermissionForUser((req as any).user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para ver la validación de onboarding" });
+      }
+      const campusId = (req as any).user?.campus_id;
+
+      const errores: string[] = [];
+      const warnings: string[] = [];
+
+      // 1. Alumnos activos sin familia asignada (error bloqueante — no se les puede cobrar)
+      const alumnosSinFamilia = await pool.query<{ id: number; nombre_completo: string }>(
+        `SELECT s.id, s.nombre_completo
+         FROM students s
+         LEFT JOIN family_students fs ON fs.student_id = s.id
+         WHERE s.campus_id = $1
+           AND COALESCE(s.status, 'activo') = 'activo'
+           AND fs.student_id IS NULL`,
+        [campusId],
+      );
+      if ((alumnosSinFamilia.rowCount ?? 0) > 0) {
+        const n = alumnosSinFamilia.rowCount!;
+        const muestra = alumnosSinFamilia.rows.slice(0, 3).map((r) => r.nombre_completo).join(", ");
+        errores.push(`${n} alumno${n !== 1 ? "s" : ""} sin familia asignada: ${muestra}${n > 3 ? "…" : ""}`);
+      }
+
+      // 2. Familias de este campus sin correo_institucional_familiar en ningún tutor (warning)
+      // Cadena: family_students → student_guardian → guardians (guardians no tiene family_id directamente)
+      const familiasSinCorreo = await pool.query<{ family_id: number }>(
+        `SELECT DISTINCT fs.family_id
+         FROM family_students fs
+         JOIN students s ON s.id = fs.student_id
+         WHERE s.campus_id = $1
+           AND NOT EXISTS (
+             SELECT 1
+             FROM family_students fs2
+             JOIN student_guardian sg ON sg.student_id = fs2.student_id
+             JOIN guardians g ON g.id = sg.guardian_id
+             WHERE fs2.family_id = fs.family_id
+               AND g.correo_institucional_familiar IS NOT NULL
+               AND g.correo_institucional_familiar <> ''
+           )`,
+        [campusId],
+      );
+      if ((familiasSinCorreo.rowCount ?? 0) > 0) {
+        const n = familiasSinCorreo.rowCount!;
+        warnings.push(`${n} familia${n !== 1 ? "s" : ""} sin correo de tutor — no recibirán notificaciones automáticas`);
+      }
+
+      // 3. Becas asignadas a alumnos de OTRO campus del mismo tenant (error)
+      const becasHuerfanas = await pool.query<{ id: number }>(
+        `SELECT sch.id
+         FROM scholarships sch
+         JOIN students s ON s.id = sch.student_id
+         JOIN campuses c ON c.id = s.campus_id
+         WHERE c.tenant_id = (SELECT tenant_id FROM campuses WHERE id = $1)
+           AND s.campus_id <> $1`,
+        [campusId],
+      );
+      if ((becasHuerfanas.rowCount ?? 0) > 0) {
+        const n = becasHuerfanas.rowCount!;
+        errores.push(`${n} beca${n !== 1 ? "s" : ""} asignada${n !== 1 ? "s" : ""} a alumnos que no pertenecen a este campus`);
+      }
+
+      // 4. Adeudos migrados con monto_base_centavos = 0 (error — registro inválido)
+      const adeudosCero = await pool.query<{ id: number }>(
+        `SELECT c.id
+         FROM charges c
+         JOIN students s ON s.id = c.student_id
+         WHERE s.campus_id = $1
+           AND c.es_adeudo_migrado = TRUE
+           AND c.monto_base_centavos = 0`,
+        [campusId],
+      );
+      if ((adeudosCero.rowCount ?? 0) > 0) {
+        const n = adeudosCero.rowCount!;
+        errores.push(`${n} adeudo${n !== 1 ? "s" : ""} migrado${n !== 1 ? "s" : ""} con monto $0.00 — deben corregirse antes de activar`);
+      }
+
+      res.json({ errores, warnings, ok: errores.length === 0 });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
+  // ── Simulación de cargos proyectados (lectura pura, sin escritura) ───────────
+  // GET /api/admin/configuracion/simulacion-cargos
+  // Cruza students activos × concepts del campus.
+  // Responde: { total_alumnos, total_cargos_proyectados_centavos, sin_conceptos, desglose_por_concepto }
+  app.get("/api/admin/configuracion/simulacion-cargos", authenticateToken, async (req, res) => {
+    try {
+      if (!hasPermissionForUser((req as any).user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para ver la simulación de cargos" });
+      }
+      const campusId = (req as any).user?.campus_id;
+
+      const [alumnosRow, conceptosRow] = await Promise.all([
+        pool.query<{ count: string }>(
+          `SELECT COUNT(*) AS count FROM students WHERE campus_id = $1 AND COALESCE(status, 'activo') = 'activo'`,
+          [campusId],
+        ),
+        pool.query<{ id: number; nombre: string; tipo: string; periodicidad: string; monto_centavos: string; iva: boolean }>(
+          `SELECT id, nombre, tipo, periodicidad, monto_centavos, iva
+           FROM concepts
+           WHERE campus_id = $1
+           ORDER BY nombre`,
+          [campusId],
+        ),
+      ]);
+
+      const total_alumnos = Number(alumnosRow.rows[0].count);
+
+      const desglose_por_concepto = conceptosRow.rows.map((c) => {
+        const montoBase = Number(c.monto_centavos);
+        const montoConIva = c.iva ? Math.round(montoBase * 1.16) : montoBase;
+        const subtotal = montoConIva * total_alumnos;
+        return {
+          concepto_id: c.id,
+          nombre: c.nombre,
+          tipo: c.tipo,
+          periodicidad: c.periodicidad,
+          monto_unitario_centavos: montoConIva,
+          cargos_proyectados: total_alumnos,
+          subtotal_centavos: subtotal,
+        };
+      });
+
+      const total_cargos_proyectados_centavos = desglose_por_concepto.reduce(
+        (sum, c) => sum + c.subtotal_centavos, 0,
+      );
+
+      // sin_conceptos = true cuando no hay conceptos configurados (y hay alumnos)
+      // → el frontend muestra aviso especial con enlace a Ajustes Institucionales
+      const sin_conceptos = (conceptosRow.rowCount ?? 0) === 0;
+
+      res.json({
+        total_alumnos,
+        total_cargos_proyectados_centavos,
+        sin_conceptos,
+        desglose_por_concepto,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
   // /api/caja — alias resumen de caja (caja-conciliacion.tsx invalida esta key)
   app.get("/api/caja", authenticateToken, async (req, res) => {
     try {

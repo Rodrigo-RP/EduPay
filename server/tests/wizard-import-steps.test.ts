@@ -34,7 +34,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { pool } from "../db";
 import jwt from "jsonwebtoken";
-import { resetApiAuthRateLimitStore } from "../security-middleware";
+
 
 const BASE       = "http://localhost:5000";
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
@@ -83,8 +83,6 @@ let originalSteps: Record<string, boolean> = {};
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
 beforeAll(async () => {
-  resetApiAuthRateLimitStore(); // Evita 429 por acumulación entre corridas consecutivas
-
   // Guardar estado original de onboarding_steps_completados
   const r = await pool.query(
     `SELECT onboarding_steps_completados FROM campuses WHERE id = $1`,
@@ -103,8 +101,6 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  resetApiAuthRateLimitStore(); // Limpia las 12 llamadas /api/admin del WIS para no contaminar archivos posteriores
-
   // Limpiar adeudos migrados de test
   // charges NO tiene campus_id — filtrar via JOIN con students
   if (importedChargeIds.length) {

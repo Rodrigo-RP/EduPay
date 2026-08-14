@@ -20,7 +20,7 @@
 
 import { describe, it, expect, beforeAll, afterEach, vi } from "vitest";
 import { pool } from "../db";
-import { resetPaymentRateLimitStore } from "../security-middleware";
+
 import {
   initAuditRetryQueue,
   processAuditRetries,
@@ -37,7 +37,7 @@ const SITE_MARKER = "test_audit_catch_site";
 let realTenantId: number;
 
 beforeAll(async () => {
-  resetPaymentRateLimitStore(); // limpia bucket antes de que este archivo haga calls a /api/guardian/pagar
+
   await initAuditRetryQueue();
   stopAuditRetryWorker();
   const { rows } = await pool.query<{ id: number }>(

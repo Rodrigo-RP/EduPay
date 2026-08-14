@@ -18,12 +18,6 @@ import { charges, concepts, tenants, campuses, students, guardians, student_guar
 import { eq, inArray } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import { markChargeAsPaidForTest } from "./test-helpers";
-import { resetPaymentRateLimitStore } from "../security-middleware";
-
-// Limpia el bucket de /api/guardian/pagar antes de este archivo.
-// Previene que corridas empíricas manuales o suites consecutivas acumulen
-// hits y generen 429 inesperados en tests que esperan 200/4xx.
-beforeAll(() => { resetPaymentRateLimitStore(); });
 
 const BASE       = "http://localhost:5000";
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";

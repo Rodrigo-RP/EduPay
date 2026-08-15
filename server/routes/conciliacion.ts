@@ -272,7 +272,8 @@ async function _applyReconciliacion(params: {
     const upd = await client.query(
       `UPDATE bank_transactions
        SET estado_conciliacion='conciliado', charge_id=$1, payment_id=$2,
-           confianza_pct=$3, nota_conciliacion=COALESCE($4, nota_conciliacion)
+           confianza_pct=$3, nota_conciliacion=COALESCE($4, nota_conciliacion),
+           conciliado_at = NOW()
        WHERE id=$5 AND estado_conciliacion='pendiente'`,
       [params.chargeIds[0], firstPaymentId, params.score, notaHermanos, params.txId]
     );
@@ -710,6 +711,7 @@ export function registerConciliacionRoutes(app: Express): void {
 
       const consumedIds = new Set<number>();
       let conciliados   = 0;
+      let en_revision   = 0; // subset de conciliados con score 90-99
       const sugerencias: any[] = [];
 
       for (const tx of (txRows.rows as any[])) {
@@ -721,7 +723,8 @@ export function registerConciliacionRoutes(app: Express): void {
         );
         if (!candidato || candidato.score === 0) continue;
 
-        if (candidato.score >= 90) {
+        if (candidato.score === 100) {
+          // score=100: auto-aplica, confianza máxima — sin revisión adicional
           const pid = await _applyReconciliacion({
             txId: Number(tx.id), chargeIds: candidato.chargeIds,
             score: candidato.score, familyId: candidato.familyId,
@@ -733,6 +736,21 @@ export function registerConciliacionRoutes(app: Express): void {
           if (pid !== null) {
             candidato.chargeIds.forEach(id => consumedIds.add(id));
             conciliados++;
+          }
+        } else if (candidato.score >= 90) {
+          // score=90-99: auto-aplica, pero queda en cola de revisión de supervisor 24h
+          const pid = await _applyReconciliacion({
+            txId: Number(tx.id), chargeIds: candidato.chargeIds,
+            score: candidato.score, familyId: candidato.familyId,
+            tenantId, referencia: tx.referencia ?? null,
+            clabe_ordenante: tx.clabe_ordenante ?? null,
+            nombre_ordenante: tx.nombre_ordenante ?? null,
+            monto_tx_centavos: Number(tx.monto_centavos), userId: user?.id ?? null,
+          });
+          if (pid !== null) {
+            candidato.chargeIds.forEach(id => consumedIds.add(id));
+            conciliados++;
+            en_revision++;
           }
         } else if (candidato.score >= 70) {
           // 70-89: sugerencia pre-calculada — el operador confirma con un clic
@@ -754,6 +772,7 @@ export function registerConciliacionRoutes(app: Express): void {
 
       res.json({
         conciliados,
+        en_revision,
         sugerencias,
         mensaje: `${conciliados} transacciones conciliadas automáticamente`,
       });
@@ -862,6 +881,7 @@ export function registerConciliacionRoutes(app: Express): void {
 
       const consumedIds = new Set<number>();
       let conciliados   = 0;
+      let en_revision   = 0; // subset de conciliados con score 90-99
       const sugerencias: any[] = [];
 
       for (const tx of (txRows.rows as any[])) {
@@ -873,7 +893,8 @@ export function registerConciliacionRoutes(app: Express): void {
         );
         if (!candidato || candidato.score === 0) continue;
 
-        if (candidato.score >= 90) {
+        if (candidato.score === 100) {
+          // score=100: auto-aplica, confianza máxima — sin revisión adicional
           const pid = await _applyReconciliacion({
             txId: Number(tx.id), chargeIds: candidato.chargeIds,
             score: candidato.score, familyId: candidato.familyId,
@@ -885,6 +906,21 @@ export function registerConciliacionRoutes(app: Express): void {
           if (pid !== null) {
             candidato.chargeIds.forEach(id => consumedIds.add(id));
             conciliados++;
+          }
+        } else if (candidato.score >= 90) {
+          // score=90-99: auto-aplica, pero queda en cola de revisión de supervisor 24h
+          const pid = await _applyReconciliacion({
+            txId: Number(tx.id), chargeIds: candidato.chargeIds,
+            score: candidato.score, familyId: candidato.familyId,
+            tenantId, referencia: tx.referencia ?? null,
+            clabe_ordenante: tx.clabe_ordenante ?? null,
+            nombre_ordenante: tx.nombre_ordenante ?? null,
+            monto_tx_centavos: Number(tx.monto_centavos), userId: user?.id ?? null,
+          });
+          if (pid !== null) {
+            candidato.chargeIds.forEach(id => consumedIds.add(id));
+            conciliados++;
+            en_revision++;
           }
         } else if (candidato.score >= 70) {
           sugerencias.push({
@@ -906,10 +942,49 @@ export function registerConciliacionRoutes(app: Express): void {
       const noConciliados = total - conciliados - sugerencias.length;
       res.json({
         conciliados,
+        en_revision,
         sugerencias,
         no_conciliados: noConciliados,
         no_coinciden: noConciliados,
         total,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
+  // ── Cola de revisión de supervisor (score 90-99, ventana 24h) ───────────────
+  //
+  // Devuelve las transacciones que fueron auto-conciliadas con confianza 90-99
+  // y cuyo conciliado_at está dentro de las últimas 24 horas.
+  // Requiere rol administrativo.  Sin tabla adicional: la cola es una view SQL
+  // sobre bank_transactions filtrando confianza_pct BETWEEN 90 AND 99.
+  app.get("/api/conciliacion/revision-supervisor", authenticateToken, async (req: any, res) => {
+    if (!hasPermissionForUser(req.user, MODULES.PAYMENTS, ACTIONS.PROCESS)) {
+      return res.status(403).json({ message: "Sin permisos para ver la cola de revisión de supervisor" });
+    }
+    try {
+      const campusId = req.user?.campus_id;
+      if (!campusId) return res.status(400).json({ message: "Campus requerido" });
+
+      const rows = await pool.query(`
+        SELECT bt.id, bt.fecha, bt.descripcion, bt.monto_centavos,
+               bt.clabe_ordenante, bt.nombre_ordenante,
+               bt.confianza_pct, bt.conciliado_at,
+               bt.charge_id, bt.payment_id, bt.nota_conciliacion
+        FROM bank_transactions bt
+        WHERE bt.campus_id = $1
+          AND bt.estado_conciliacion = 'conciliado'
+          AND bt.confianza_pct BETWEEN 90 AND 99
+          AND bt.conciliado_at >= NOW() - INTERVAL '24 hours'
+        ORDER BY bt.conciliado_at DESC
+      `, [campusId]);
+
+      res.json({
+        total: rows.rows.length,
+        items: rows.rows,
+        ventana_horas: 24,
+        descripcion: "Transacciones auto-conciliadas con confianza 90-99 en las últimas 24h. Requieren revisión de supervisor.",
       });
     } catch (error: any) {
       res.status(500).json({ message: "Error interno del servidor" });

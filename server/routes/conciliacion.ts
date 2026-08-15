@@ -3,7 +3,7 @@ import { pool, db } from "../db";
 import { enqueueAuditLog } from "../audit-retry";
 import { eq, and } from "drizzle-orm";
 import { storage } from "../storage";
-import { authenticateToken, requireAuth, checkCampusTenant, hasPermissionForUser, upload } from "./shared";
+import { authenticateToken, requireAuth, checkCampusTenant, hasPermissionForUser, upload, uploadBinary } from "./shared";
 import { getParser } from "../lib/bank-parsers/index";
 import { MODULES, ACTIONS } from "@shared/permissions";
 import { payments, charges, students, invoices, guardians } from "@shared/schema";
@@ -1064,7 +1064,7 @@ export function registerConciliacionRoutes(app: Express): void {
   // Auditoría : enqueueAuditLog post-COMMIT, acción BANK_PDF_IMPORT
   app.post("/api/conciliacion/importar-pdf",
     authenticateToken,
-    upload.single("pdf"),
+    uploadBinary.single("pdf"),
     async (req: any, res) => {
       try {
         const user     = req.user;

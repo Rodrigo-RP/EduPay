@@ -19,6 +19,16 @@ export const esmRequire = createRequire(import.meta.url);
 export const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
 
 // ── Multer (upload de archivos) ───────────────────────────────────────────────
+
+/**
+ * uploadBinary — acepta cualquier tipo de archivo (PDF, XML, binario).
+ * Usar para endpoints que reciben estados de cuenta bancarios.
+ */
+export const uploadBinary = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+});
+
 export const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB

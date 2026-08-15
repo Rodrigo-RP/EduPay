@@ -201,7 +201,7 @@ function _buscarMejorCandidato(
  * Fase 1 (transacción atómica) + Fase 2 (fuera de txn, ADR-001).
  * Devuelve el primer payment_id creado, o null si no pudo adquirir los locks.
  */
-async function _applyReconciliacion(params: {
+export async function applyReconciliation(params: {
   txId: number;
   chargeIds: number[];
   score: number;
@@ -725,7 +725,7 @@ export function registerConciliacionRoutes(app: Express): void {
 
         if (candidato.score === 100) {
           // score=100: auto-aplica, confianza máxima — sin revisión adicional
-          const pid = await _applyReconciliacion({
+          const pid = await applyReconciliation({
             txId: Number(tx.id), chargeIds: candidato.chargeIds,
             score: candidato.score, familyId: candidato.familyId,
             tenantId, referencia: tx.referencia ?? null,
@@ -739,7 +739,7 @@ export function registerConciliacionRoutes(app: Express): void {
           }
         } else if (candidato.score >= 90) {
           // score=90-99: auto-aplica, pero queda en cola de revisión de supervisor 24h
-          const pid = await _applyReconciliacion({
+          const pid = await applyReconciliation({
             txId: Number(tx.id), chargeIds: candidato.chargeIds,
             score: candidato.score, familyId: candidato.familyId,
             tenantId, referencia: tx.referencia ?? null,
@@ -895,7 +895,7 @@ export function registerConciliacionRoutes(app: Express): void {
 
         if (candidato.score === 100) {
           // score=100: auto-aplica, confianza máxima — sin revisión adicional
-          const pid = await _applyReconciliacion({
+          const pid = await applyReconciliation({
             txId: Number(tx.id), chargeIds: candidato.chargeIds,
             score: candidato.score, familyId: candidato.familyId,
             tenantId, referencia: tx.referencia ?? null,
@@ -909,7 +909,7 @@ export function registerConciliacionRoutes(app: Express): void {
           }
         } else if (candidato.score >= 90) {
           // score=90-99: auto-aplica, pero queda en cola de revisión de supervisor 24h
-          const pid = await _applyReconciliacion({
+          const pid = await applyReconciliation({
             txId: Number(tx.id), chargeIds: candidato.chargeIds,
             score: candidato.score, familyId: candidato.familyId,
             tenantId, referencia: tx.referencia ?? null,

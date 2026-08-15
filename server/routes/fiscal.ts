@@ -60,7 +60,8 @@ export function registerFiscalRoutes(app: Express): void {
           const pRows = await pool.query(`SELECT p.id FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE p.id=$1 AND s.campus_id=$2`, [pid, campusId]);
           if ((pRows.rows as any[]).length > 0) {
             const uuid = `DEMO-${Date.now()}-${pid}`;
-            await pool.query(`INSERT INTO invoices (payment_id, uuid_cfdi, estado) VALUES ($1,$2,'emitido') ON CONFLICT DO NOTHING`, [pid, uuid]);
+            const tenantId = (req as any).user?.tenant_id ?? null;
+            await pool.query(`INSERT INTO invoices (payment_id, uuid_cfdi, estado, tenant_id) VALUES ($1,$2,'emitido',$3) ON CONFLICT DO NOTHING`, [pid, uuid, tenantId]);
             timbrados++;
             resultados.push({ payment_id: pid, uuid, status: "ok" });
           }

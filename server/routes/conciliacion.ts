@@ -3,7 +3,8 @@ import { pool, db } from "../db";
 import { enqueueAuditLog } from "../audit-retry";
 import { eq, and } from "drizzle-orm";
 import { storage } from "../storage";
-import { authenticateToken, requireAuth, checkCampusTenant, hasPermissionForUser} from "./shared";
+import { authenticateToken, requireAuth, checkCampusTenant, hasPermissionForUser, upload } from "./shared";
+import { getParser } from "../lib/bank-parsers/index";
 import { MODULES, ACTIONS } from "@shared/permissions";
 import { payments, charges, students, invoices, guardians } from "@shared/schema";
 
@@ -320,6 +321,64 @@ export async function applyReconciliation(params: {
   }
 
   return firstPaymentId;
+}
+
+// ── Helper compartido: inserción atómica de filas ya validadas ────────────────
+// Usado por /importar (JSON) y /importar-pdf (PDF parseado).
+// Recibe filas con monto_centavos ya en enteros — no hace conversión de string.
+// Devuelve contadores; la transacción BEGIN/COMMIT la maneja el caller.
+async function insertBankRows(
+  client: any,
+  campusId: number,
+  tenantId: number | null,
+  rows: Array<{
+    fecha:            string;
+    descripcion:      string | null;
+    monto_centavos:   number;
+    tipo:             string;
+    referencia:       string | null;
+    clabe_ordenante:  string | null;
+    nombre_ordenante: string | null;
+  }>,
+): Promise<{ successful: number; skipped: number; failed: string[] }> {
+  let successful = 0;
+  let skipped    = 0;
+  const failed: string[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row    = rows[i];
+    const rowNum = i + 1;
+    const sp     = `sp_bt_${i}`;
+
+    await client.query(`SAVEPOINT ${sp}`);
+    try {
+      const result = await client.query(`
+        INSERT INTO bank_transactions
+          (campus_id, tenant_id, fecha, descripcion, monto_centavos, tipo,
+           referencia, clabe_ordenante, nombre_ordenante, estado_conciliacion)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pendiente')
+        ON CONFLICT DO NOTHING
+      `, [
+        campusId,               tenantId,
+        row.fecha,              row.descripcion      ?? null,
+        row.monto_centavos,     row.tipo             || "credito",
+        row.referencia          ?? null,
+        row.clabe_ordenante     ?? null,
+        row.nombre_ordenante    ?? null,
+      ]);
+      await client.query(`RELEASE SAVEPOINT ${sp}`);
+      if ((result.rowCount ?? 0) === 1) {
+        successful++;
+      } else {
+        skipped++;
+      }
+    } catch (rowErr: any) {
+      await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
+      failed.push(`Fila ${rowNum}: ${rowErr.message}`);
+    }
+  }
+
+  return { successful, skipped, failed };
 }
 
 export function registerConciliacionRoutes(app: Express): void {
@@ -894,59 +953,47 @@ export function registerConciliacionRoutes(app: Express): void {
         req.query.dry_run === 'true' || req.query.dry_run === '1' ||
         req.body?.dry_run === true   || req.body?.dry_run === 'true';
 
+      // Convertir al formato de insertBankRows (centavos enteros)
+      // Validación de fecha/monto permanece aquí para mantener mensajes idénticos
+      // a la versión original (los tests IBT comprueban esos mensajes exactos).
+      const rowsToInsert: Parameters<typeof insertBankRows>[3] = [];
+      const preFailed: string[] = [];
+
+      for (let i = 0; i < transacciones.length; i++) {
+        const tx     = transacciones[i];
+        const rowNum = i + 1;
+        if (!tx.fecha) {
+          preFailed.push(`Fila ${rowNum}: fecha requerida`);
+          continue;
+        }
+        const montoNum = parseFloat(tx.monto ?? '0');
+        if (isNaN(montoNum)) {
+          preFailed.push(`Fila ${rowNum}: monto inválido ("${tx.monto}")`);
+          continue;
+        }
+        rowsToInsert.push({
+          fecha:           tx.fecha,
+          descripcion:     tx.descripcion      ?? null,
+          monto_centavos:  Math.round(montoNum * 100),
+          tipo:            tx.tipo             || 'credito',
+          referencia:      tx.referencia       ?? null,
+          clabe_ordenante: tx.clabe            ?? null,
+          nombre_ordenante: tx.nombre          ?? null,
+        });
+      }
+
       let successful = 0;
-      let skipped    = 0;          // ON CONFLICT deduplicadas — no es error
-      const failed: string[] = []; // validación fallida o error de fila
+      let skipped    = 0;
+      let failed: string[] = [...preFailed];
 
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
 
-        for (let i = 0; i < transacciones.length; i++) {
-          const tx     = transacciones[i];
-          const rowNum = i + 1;
-
-          // Validación de fila — error de validación → failed[], continúa
-          if (!tx.fecha) {
-            failed.push(`Fila ${rowNum}: fecha requerida`);
-            continue;
-          }
-          const montoNum = parseFloat(tx.monto ?? '0');
-          if (isNaN(montoNum)) {
-            failed.push(`Fila ${rowNum}: monto inválido ("${tx.monto}")`);
-            continue;
-          }
-
-          const sp = `sp_bt_${i}`;
-          await client.query(`SAVEPOINT ${sp}`);
-          try {
-            const result = await client.query(`
-              INSERT INTO bank_transactions
-                (campus_id, tenant_id, fecha, descripcion, monto_centavos, tipo,
-                 referencia, clabe_ordenante, nombre_ordenante, estado_conciliacion)
-              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pendiente')
-              ON CONFLICT DO NOTHING
-            `, [
-              campusId, tenantId,
-              tx.fecha, tx.descripcion ?? null,
-              Math.round(montoNum * 100),
-              tx.tipo       || 'credito',
-              tx.referencia ?? null,
-              tx.clabe      ?? null,
-              tx.nombre     ?? null,
-            ]);
-            await client.query(`RELEASE SAVEPOINT ${sp}`);
-            // rowCount===1 → fila insertada; 0 → ON CONFLICT disparó (dedup)
-            if ((result.rowCount ?? 0) === 1) {
-              successful++;
-            } else {
-              skipped++;
-            }
-          } catch (rowErr: any) {
-            await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
-            failed.push(`Fila ${rowNum}: ${rowErr.message}`);
-          }
-        }
+        const ins = await insertBankRows(client, campusId, tenantId, rowsToInsert);
+        successful = ins.successful;
+        skipped    = ins.skipped;
+        failed     = [...preFailed, ...ins.failed];
 
         if (isDryRun) {
           await client.query('ROLLBACK');
@@ -1000,6 +1047,145 @@ export function registerConciliacionRoutes(app: Express): void {
       res.status(500).json({ message: "Error interno del servidor" });
     }
   });
+
+  // ── POST /api/conciliacion/importar-pdf ──────────────────────────────────
+  //
+  // Recibe un PDF de estado de cuenta bancario (multipart/form-data, campo "pdf"),
+  // extrae las transacciones de abono usando el parser del banco indicado, y las
+  // inserta en bank_transactions reutilizando insertBankRows.
+  //
+  // Query params / body:
+  //   banco    : "BBVA" (requerido; "Santander" lanza 400 hasta tener CSV)
+  //   dry_run  : "true" | "1" → ROLLBACK, devuelve conteos sin commitear
+  //
+  // Guard    : PAYMENTS.PROCESS (mismo dominio que /importar)
+  // Atomicidad: BEGIN + SAVEPOINT por fila + COMMIT|ROLLBACK (via insertBankRows)
+  // Seguridad : PDF en memoria (multer memoryStorage) — nunca se persiste en disco
+  // Auditoría : enqueueAuditLog post-COMMIT, acción BANK_PDF_IMPORT
+  app.post("/api/conciliacion/importar-pdf",
+    authenticateToken,
+    upload.single("pdf"),
+    async (req: any, res) => {
+      try {
+        const user     = req.user;
+        const campusId = user?.campus_id;
+        const tenantId = user?.tenant_id ?? null;
+        const userId   = user?.id        ?? null;
+
+        // ── Guard ───────────────────────────────────────────────────────────
+        if (!hasPermissionForUser(user, MODULES.PAYMENTS, ACTIONS.PROCESS)) {
+          return res.status(403).json({ message: "Sin permisos para importar transacciones bancarias" });
+        }
+
+        if (!req.file) {
+          return res.status(400).json({ message: "Se requiere un archivo PDF (campo: pdf)" });
+        }
+
+        const banco    = ((req.body?.banco ?? req.query.banco ?? "BBVA") as string).trim();
+        const isDryRun =
+          req.query.dry_run === "true" || req.query.dry_run === "1" ||
+          req.body?.dry_run === true   || req.body?.dry_run === "true";
+
+        // ── Parser — lanza si banco no soportado ────────────────────────────
+        let parser;
+        try {
+          parser = getParser(banco);
+        } catch (e: any) {
+          return res.status(400).json({ message: e.message });
+        }
+
+        // ── Parseo del PDF — lanza si sin capa de texto ─────────────────────
+        let parseResult;
+        try {
+          parseResult = await parser.parse(req.file.buffer);
+        } catch (e: any) {
+          return res.status(422).json({ message: e.message });
+        }
+
+        const { transactions, errors: parseErrors, metadata } = parseResult;
+
+        // Sin movimientos ni errores → el PDF estaba vacío o sin tabla
+        if (transactions.length === 0 && parseErrors.length === 0) {
+          return res.json({
+            successful: 0, skipped: 0, failed: [],
+            parse_errors: [],
+            committed:    false,
+            metadata,
+            mensaje: "No se encontraron transacciones de abono en el PDF",
+          });
+        }
+
+        // ── Inserción atómica ────────────────────────────────────────────────
+        let successful = 0;
+        let skipped    = 0;
+        let failed: string[] = [];
+
+        const client = await pool.connect();
+        try {
+          await client.query("BEGIN");
+
+          const ins = await insertBankRows(client, campusId, tenantId, transactions);
+          successful = ins.successful;
+          skipped    = ins.skipped;
+          failed     = ins.failed;
+
+          if (isDryRun) {
+            await client.query("ROLLBACK");
+            return res.json({
+              successful, skipped, failed,
+              parse_errors: parseErrors,
+              committed:    false,
+              metadata,
+              mensaje: `dry_run: ${successful} se insertarían, ${skipped} ya existirían, ${failed.length} con error`,
+            });
+          }
+
+          await client.query("COMMIT");
+        } catch (fatalError: any) {
+          await client.query("ROLLBACK").catch(() => {});
+          client.release();
+          return res.status(500).json({ message: "Error interno del servidor" });
+        } finally {
+          try { client.release(); } catch {}
+        }
+
+        // ── Auditoría post-COMMIT (ADR-001) ──────────────────────────────────
+        const auditPayload = {
+          tenant_id:   tenantId,
+          user_id:     userId,
+          action:      "BANK_PDF_IMPORT",
+          entity_type: "bank_transactions",
+          entity_id:   campusId,
+          metadata: {
+            banco,
+            total_parseados:   transactions.length,
+            successful,
+            skipped,
+            failed_count:      failed.length,
+            parse_errors:      parseErrors.length,
+            periodo_inicio:    metadata.periodo_inicio,
+            periodo_fin:       metadata.periodo_fin,
+          },
+        };
+        pool.query(
+          `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
+           VALUES ($1,$2,$3,$4,$5,$6)`,
+          [auditPayload.tenant_id, auditPayload.user_id, auditPayload.action,
+           auditPayload.entity_type, auditPayload.entity_id, JSON.stringify(auditPayload.metadata)],
+        ).catch((err) => enqueueAuditLog(auditPayload, err));
+
+        res.json({
+          successful, skipped, failed,
+          parse_errors: parseErrors,
+          committed:    true,
+          metadata,
+          mensaje: `${successful} transacciones importadas desde PDF ${banco}, ${skipped} ya existían, ${failed.length} con error`,
+        });
+      } catch (error: any) {
+        res.status(500).json({ message: "Error interno del servidor" });
+      }
+    }
+  );
 
   app.post("/api/conciliacion/auto-match/:campusId", authenticateToken, async (req: any, res) => {
     try {

@@ -40,3 +40,4 @@
 - [Rate limit acumulado entre runs de Vitest](rate-limit-vitest-runs.md) — el rate limiter del servidor (300 req/5min) acumula entre runs consecutivos sin reinicio; solución: WorkflowsRestart antes de cada npx vitest run completo.
 - [PDF parser validation](pdf-parser-validation.md) — pdfjs-dist (no pdf-parse) para BBVA; CARGO x≤400 / ABONO x≥410; Santander disponible es escaneado (0 texto).
 - [Parser BBVA PDF](bank-parsers-bbva.md) — BBVAParser + parseFromLines + /importar-pdf; umbrales X, estructura SPEI, helper insertBankRows compartido con /importar.
+- [IEDU validators & CURP](iedu-curp-validators.md) — CURP_RE oficial SAT, path ../lib/validators, prefijos canónicos de test, CHECK constraint TEAT% para rollback tests.

@@ -372,6 +372,22 @@ export const payment_methods = pgTable("payment_methods", {
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
+// CAMPUS PAYMENT CONFIG — configuración de Stripe Connect por campus
+// La clave secreta de la plataforma (sk_live_/sk_test_) vive en Replit Secrets
+// como STRIPE_SECRET_KEY, nunca en esta tabla ni en ninguna fila DB.
+export const campus_payment_config = pgTable("campus_payment_config", {
+  id:                serial("id").primaryKey(),
+  campus_id:         integer("campus_id").notNull().references(() => campuses.id, { onDelete: "cascade" }),
+  tenant_id:         integer("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  payment_provider:  varchar("payment_provider", { length: 50 }).notNull().default("stripe"),
+  stripe_account_id: varchar("stripe_account_id", { length: 255 }),
+  charges_enabled:   boolean("charges_enabled").notNull().default(false),
+  payouts_enabled:   boolean("payouts_enabled").notNull().default(false),
+  details_submitted: boolean("details_submitted").notNull().default(false),
+  created_at:        timestamp("created_at").defaultNow(),
+  updated_at:        timestamp("updated_at").defaultNow(),
+});
+
 // INVOICES (CFDI)
 export const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),

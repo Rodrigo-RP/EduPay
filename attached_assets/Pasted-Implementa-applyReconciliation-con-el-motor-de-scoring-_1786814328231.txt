@@ -1,0 +1,56 @@
+Implementa applyReconciliation() con el motor de scoring completo, tal
+como quedó diseñado y aprobado en esta sesión:
+
+1. Función compartida applyReconciliation(txId, chargeIds[], score,
+   familyId) en conciliacion.ts, con las dos fases ya diseñadas:
+   - Fase 1 (transacción atómica): SELECT FOR UPDATE SKIP LOCKED sobre
+     bank_transaction y charge(s), INSERT payments, INSERT
+     payment_applications (uno por charge si son hermanos), UPDATE
+     charges, UPDATE bank_transactions con estado_conciliacion y
+     confianza_pct, COMMIT.
+   - Fase 2 (fuera de la transacción, patrón ADR-001): upsert en
+     family_payment_sources SIEMPRE que la conciliación haya sido
+     exitosa — sin importar si fue auto-apply o confirmación manual del
+     operador — y enqueueAuditLog.
+
+2. Cálculo del score con los tres componentes ya aprobados:
+   - monto_score (0-70): cargo único exacto=70, cargo único ±$1=65, suma
+     de 2 cargos de la misma familia exacta=70, suma 2 ±$1=60, suma 3-4
+     exacta=65, suma 3-4 ±$1=55, ambigüedad (2+ cargos distintos
+     coinciden)=50, sin coincidencia=0. Techo K=4 cargos para las
+     combinaciones de hermanos.
+   - clabe_score (0-20): coincide con confirmaciones≥2 → 20, coincide con
+     confirmaciones=1 → 15, no coincide o NULL → 0.
+   - nombre_score (0-15): Jaccard normalizado (NFD sin diacríticos,
+     mayúsculas, sin partículas de,del,la,las,los,y,mc,mac) contra todos
+     los tutores de la familia candidata, tomando el máximo. ≥0.70→15,
+     ≥0.50→10, ≥0.30→5, <0.30 o NULL→0.
+
+3. Los cuatro niveles de acción: 100 auto-aplica sin revisión; 90-99
+   auto-aplica pero queda marcado para auditoría de 24h; 70-89 no aplica,
+   muestra sugerencia pre-calculada esperando confirmación de un clic;
+   0-69 va a la bandeja de aclaración actual sin sugerencia.
+
+4. Migra los dos endpoints existentes (/api/caja/ejecutar-conciliacion y
+   /api/conciliacion/auto-match/:campusId) para que llamen a esta función
+   compartida en vez de duplicar la lógica de match.
+
+5. Reproduce el caso de hermanos empíricamente: dos cargos de la misma
+   familia, una transacción bancaria por la suma exacta de ambos,
+   confirma que antes del fix caía en 422 sin resolución, y después cae
+   en el nivel correcto (70-89% en su primera vez, sin CLABE conocida).
+
+6. Prueba la curva de aprendizaje completa para una familia nueva: primera
+   transacción (score ~70, revisión), operador confirma → upsert
+   confirmaciones=1; segunda transacción con la misma CLABE (score ~85,
+   todavía revisión) → confirmaciones=2; tercera transacción misma CLABE
+   (score ~90, ahora auto-aplica) — confirma la transición real en los
+   tres pasos, no solo el cálculo aislado.
+
+7. Prueba de regresión: un pago individual con monto exacto de una
+   familia con CLABE ya conocida (confirmaciones≥2) y nombre coincidente
+   → score 100, auto-aplica igual que el comportamiento actual, sin
+   fricción nueva para el caso simple.
+
+Reinicia el servidor, confirma con las tres marcas de tiempo reales, corre
+la suite completa, y pégame el resultado sin resumir.

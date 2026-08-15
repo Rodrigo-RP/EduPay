@@ -85,11 +85,13 @@ beforeAll(async () => {
   testStudentId = sRes.rows[0].id;
 
   // CHECK CONSTRAINT temporal para el test de rollback (IGM-08).
-  // Solo rechaza CURPs con el patrón FATAL-%-TEST — nunca aparece en datos reales.
+  // Rechaza CURPs que empiecen con 'TEAT' — patrón que nunca aparece en datos reales
+  // pero que sí es un CURP de formato válido, de modo que el error lo produce la DB
+  // (no la validación de formato en aplicación).
   await pool.query(`
     ALTER TABLE students
     ADD CONSTRAINT chk_igm_test_rollback
-    CHECK (curp NOT LIKE 'FATAL-%-TEST')
+    CHECK (curp NOT LIKE 'TEAT%')
   `);
 });
 
@@ -164,8 +166,9 @@ describe("POST /api/import/data — guard de módulo y atomicidad", () => {
   });
 
   it("IGM-05: administrador_campus → 200 en estudiantes/estudiantes, alumno insertado en DB", async () => {
-    // curp VARCHAR(18) — usar máximo 12 chars para dejar margen
-    const curp = `IGM5${String(Date.now()).slice(-8)}`;
+    // GUMA: G(letra), U(vocal), M, A — prefijo válido para formato CURP.
+    const _ts5 = Date.now();
+    const curp = `GUMA${String(_ts5 % 100).padStart(2,'0')}0101HNENNNA${_ts5 % 10}`;
     createdStudentCurps.push(curp);
 
     const csv = `nombre_completo,curp\nAlumno IGM Import,${curp}`;
@@ -198,7 +201,8 @@ describe("POST /api/import/data — guard de módulo y atomicidad", () => {
 
   // ── IGM-07: Fila con error de validación → failed++, resto continúa ──────
   it("IGM-07: fila sin nombre_completo → failed=1, fila válida siguiente → successful=1", async () => {
-    const curp = `IGM7${String(Date.now()).slice(-8)}`;
+    const _ts7 = Date.now();
+    const curp = `GUMB${String(_ts7 % 100).padStart(2,'0')}0101HNENNNA${_ts7 % 10}`;
     createdStudentCurps.push(curp);
 
     // Fila 1: sin nombre_completo (error de validación)
@@ -224,9 +228,11 @@ describe("POST /api/import/data — guard de módulo y atomicidad", () => {
 
   // ── IGM-08: Error fatal en INSERT → rollback completo ────────────────────
   it("IGM-08: error fatal (CHECK constraint) → HTTP 500 + rollback: ninguna fila queda en DB", async () => {
-    // curpRow1 ≤ 18 chars, curpRow2 ≤ 18 chars y viola CHECK NOT LIKE 'FATAL-%-TEST'
-    const curpRow1 = `IGM8${String(Date.now()).slice(-8)}`;  // 12 chars
-    const curpRow2 = `FATAL-X-TEST`;                          // 12 chars, viola CHECK
+    // curpRow1 = CURP válido (no empieza con TEAT) → pasa validación y CHECK, se inserta.
+    // curpRow2 = CURP válido en formato pero viola CHECK NOT LIKE 'TEAT%' → error fatal DB.
+    const _ts8 = Date.now();
+    const curpRow1 = `GUMC${String(_ts8 % 100).padStart(2,'0')}0101HNENNNA${_ts8 % 10}`;
+    const curpRow2 = `TEAT000101HNENNNA0`; // formato CURP válido, viola chk_igm_test_rollback
 
     const csv = [
       "nombre_completo,curp",

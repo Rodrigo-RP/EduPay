@@ -657,6 +657,15 @@ export function registerAdminRoutes(app: Express): void {
         nivel_escolar, grado, grupo, turno, status,
       } = req.body;
 
+      // Validar CURP si viene en el body (edición individual — error bloqueante)
+      if (curp) {
+        const { validarCurp, normalizarCurp } = await import("../lib/validators");
+        const curpNorm = normalizarCurp(curp);
+        if (!validarCurp(curpNorm)) {
+          return res.status(400).json({ message: `CURP inválida: "${curpNorm}". Verifique el formato oficial SAT de 18 caracteres.` });
+        }
+      }
+
       await pool.query(
         `UPDATE students SET
            nombres = COALESCE($1, nombres),
@@ -956,10 +965,14 @@ export function registerAdminRoutes(app: Express): void {
             continue;
           }
 
-          // Validate CURP format if provided
-          if (studentData.curp && studentData.curp.length !== 18) {
-            errors.push(`Fila ${rowNum}: CURP debe tener 18 caracteres`);
-            continue;
+          // Validate CURP format if provided (patrón oficial SAT, incluye X para no binarios)
+          if (studentData.curp) {
+            const { validarCurp, normalizarCurp } = await import("../lib/validators");
+            studentData.curp = normalizarCurp(studentData.curp);
+            if (!validarCurp(studentData.curp)) {
+              errors.push(`Fila ${rowNum}: CURP inválida (${studentData.curp}) — verifique el formato oficial de 18 caracteres`);
+              continue;
+            }
           }
 
           studentsToCreate.push(studentData);

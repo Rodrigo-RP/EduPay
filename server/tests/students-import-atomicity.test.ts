@@ -45,21 +45,22 @@ const createdIds: number[] = [];
 
 const NOMBRE_LARGO_260 = "Z".repeat(260); // pasa validación, falla varchar(255) en DB
 
-/** Genera un CURP de exactamente 18 chars basado en el timestamp. */
+/** Genera un CURP de exactamente 18 chars que pasa el patrón oficial SAT. */
 function mkCurp(ts: number, offset = 0): string {
-  // ts es 13 dígitos; padStart(14,'0') lo convierte en 14 chars siempre.
-  const suffix = String(ts + offset).padStart(14, '0').slice(-14);
-  return `SIAA${suffix}`; // 4 + 14 = 18 ✓
+  // Codifica unicidad en los 2 dígitos de "año" (posiciones 5-6).
+  // Prefijo SIAT: S(letra), I(vocal), A, T — posiciones 1-4 válidas.
+  const yy = String((ts + offset) % 100).padStart(2, '0');
+  return `SIAT${yy}0101HNENNNA0`; // 18 chars, formato CURP oficial ✓
 }
 
 afterAll(async () => {
   if (createdIds.length) {
     await pool.query(`DELETE FROM students WHERE id = ANY($1::int[])`, [createdIds]);
   }
-  // limpiar por patrón de CURP de test (prefijo SIA-)
+  // limpiar por patrón de CURP de test (prefijo SIAT-)
   await pool.query(
     `DELETE FROM students
-     WHERE curp LIKE 'SIAA%' AND tenant_id = $1`,
+     WHERE curp LIKE 'SIAT%' AND tenant_id = $1`,
     [TENANT_ID],
   );
 });

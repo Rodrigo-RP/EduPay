@@ -117,7 +117,9 @@ describe("POST /api/import/data — modo dry_run", () => {
 
   // ── IDR-02: dry_run estudiantes → sin escritura en DB ───────────────────
   it("IDR-02: dry_run=true, alumno válido → 200, committed:false, ningún alumno en DB", async () => {
-    const curp = `IDR2${String(Date.now()).slice(-8)}`;
+    // DIDR: D(letra), I(vocal), D, R — prefijo 4 chars válido para CURP.
+    const _ts2 = Date.now();
+    const curp = `DIDR${String(_ts2 % 100).padStart(2,'0')}0101HNENNNA${_ts2 % 10}`;
     const csv = `nombre_completo,curp\nAlumno IDR Dry,${curp}`;
     const { status, body } = await importCsv(tokenAdmin, "estudiantes", "estudiantes", csv, { dry_run: "true" });
 
@@ -165,7 +167,8 @@ describe("POST /api/import/data — modo dry_run", () => {
 
   // ── IDR-05: sin dry_run → COMMIT real (regresión) ────────────────────────
   it("IDR-05: sin dry_run → committed:true, alumno efectivamente en DB", async () => {
-    const curp = `IDR5${String(Date.now()).slice(-8)}`;
+    const _ts5 = Date.now();
+    const curp = `DIDR${String(_ts5 % 100).padStart(2,'0')}0101HNENNNA${_ts5 % 10}`;
     committedStudentCurps.push(curp);
 
     const csv = `nombre_completo,curp\nAlumno IDR Commit,${curp}`;
@@ -199,7 +202,8 @@ describe("POST /api/import/data — modo dry_run", () => {
 
   // ── IDR-07: dry_run=1 (variante numérica) → rollback ────────────────────
   it("IDR-07: dry_run=1 → committed:false, ningún alumno en DB", async () => {
-    const curp = `IDR7${String(Date.now()).slice(-8)}`;
+    const _ts7 = Date.now();
+    const curp = `DIDR${String(_ts7 % 100).padStart(2,'0')}0101HNENNNA${_ts7 % 10}`;
     const csv = `nombre_completo,curp\nAlumno IDR One,${curp}`;
     const { status, body } = await importCsv(tokenAdmin, "estudiantes", "estudiantes", csv, { dry_run: "1" });
 

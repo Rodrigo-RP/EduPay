@@ -61,8 +61,11 @@ const TOKEN = adminToken();
 const TS = Date.now();
 
 function mkCurp(prefix: string, offset = 0): string {
-  const digits = String(TS + offset).padStart(14, "0").slice(-14);
-  return `${prefix}${digits}`; // 4 + 14 = 18 ✓
+  // Genera CURP de 18 chars que pasa el patrón oficial SAT.
+  // prefix debe ser: letra + vocal + letra + letra (ej: "WISA", "WISB").
+  // Unicidad codificada en 2 dígitos del "año" (posiciones 5-6).
+  const yy = String((TS + offset) % 100).padStart(2, "0");
+  return `${prefix}${yy}0101HNENNNA0`; // 4+2+4+1+2+3+1+1 = 18 ✓
 }
 
 // CURPs de los estudiantes creados por importación (para cleanup)

@@ -78,7 +78,8 @@ export const institutional_info = pgTable("institutional_info", {
   tenant_id: integer("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
   seccion_educativa: varchar("seccion_educativa", { length: 50 }).notNull(), // 'KINDER', 'PRIMARIA', 'SECUNDARIA', 'BACHILLERATO'
   rfc: varchar("rfc", { length: 13 }),
-  cct: varchar("cct", { length: 20 }), // Clave de Centro de Trabajo
+  cct: varchar("cct", { length: 20 }), // Clave de Centro de Trabajo — educación básica (Preescolar/Primaria/Secundaria)
+  rvoe: varchar("rvoe", { length: 20 }), // Reconocimiento de Validez Oficial de Estudios — media superior (Bachillerato/Profesional técnico)
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
@@ -141,6 +142,11 @@ export const students = pgTable("students", {
   // Datos institucionales (columnas 14-20 Excel)
   correo_institucional: varchar("correo_institucional", { length: 255 }),
   nivel_escolar: varchar("nivel_escolar", { length: 100 }),
+  // Nivel educativo controlado (catálogo SAT — 5 valores exactos del XSD iedu.pdf).
+  // Se puebla automáticamente desde nivel_escolar en migración 017; NULL = requiere
+  // revisión manual antes de poder timbrar el CFDI del alumno.
+  nivel_educativo: varchar("nivel_educativo", { length: 50 }),
+  // 'Preescolar' | 'Primaria' | 'Secundaria' | 'Profesional técnico' | 'Bachillerato o su equivalente'
   clave_centro_trabajo: varchar("clave_centro_trabajo", { length: 50 }),
   grado: varchar("grado", { length: 50 }),
   grupo: varchar("grupo", { length: 50 }),
@@ -351,6 +357,9 @@ export const payments = pgTable("payments", {
   charge_id: integer("charge_id").references(() => charges.id, { onDelete: "cascade" }),
   guardian_id: integer("guardian_id").references(() => guardians.id),
   metodo: varchar("metodo", { length: 50 }).notNull(), // 'tarjeta', 'spei', 'paypal', 'efectivo', 'oxxo'
+  // subtipo_tarjeta: 'credito' → forma_pago SAT '04', 'debito' → '28'.
+  // NULL mientras Stripe Connect no esté activo — se llenará desde la respuesta del procesador.
+  subtipo_tarjeta: varchar("subtipo_tarjeta", { length: 10 }), // 'credito' | 'debito' | null
   referencia_pasarela: varchar("referencia_pasarela", { length: 255 }),
   monto_centavos: bigint("monto_centavos", { mode: "number" }).notNull(),
   fecha_pago: timestamp("fecha_pago").defaultNow(),
@@ -397,6 +406,24 @@ export const invoices = pgTable("invoices", {
   xml_url: text("xml_url"),
   pdf_url: text("pdf_url"),
   estado: varchar("estado", { length: 50 }).default("pendiente"), // 'pendiente' → 'emitido' | 'cancelado'
+
+  // ── Complemento IEDU (SAT XSD iedu.pdf) ────────────────────────────────────
+  // Estos campos se populan al momento de generar el CFDI real.
+  // Timbrado simulado (guardian.ts / fiscal.ts) los deja NULL intencionalmente.
+  curp_alumno:     varchar("curp_alumno",     { length: 18 }),
+  // nivel_educativo: exactamente uno de los 5 valores del catálogo SAT
+  nivel_educativo: varchar("nivel_educativo", { length: 50 }),
+  // aut_rvoe: CCT (básica) o RVOE (bachillerato/profesional técnico) — ver CAMPO_AUT_RVOE en validators.ts
+  aut_rvoe:        varchar("aut_rvoe",        { length: 20 }),
+  // rfc_pago: solo se incluye en el nodo CFDI cuando el pagador difiere del receptor
+  rfc_pago:        varchar("rfc_pago",        { length: 13 }),
+  uso_cfdi:        varchar("uso_cfdi",        { length: 10 }).default("D10"),
+  // forma_pago: catálogo c_FormaPago del SAT. '01' efectivo es válido pero no deducible con D10.
+  forma_pago:      varchar("forma_pago",      { length: 2 }),
+  // clave_prod_serv: 86121500 básica | 86121600 bachillerato/técnico — ver CLAVE_PROD_SERV en validators.ts
+  clave_prod_serv: varchar("clave_prod_serv", { length: 20 }),
+  clave_unidad:    varchar("clave_unidad",    { length: 10 }).default("E48"),
+
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });

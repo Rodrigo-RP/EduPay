@@ -111,12 +111,13 @@ beforeAll(async () => {
   testStudentId = r.rows[0].id;
 
   // CHECK CONSTRAINT temporal para forzar error fatal en IAL-02.
-  // Nombre distinto al de import-guard-atomicity para evitar conflicto
-  // si los archivos corrieran en orden distinto.
+  // Rechaza CURPs que empiecen con 'TEAT' — patrón válido en formato SAT
+  // pero nunca aparece en datos reales. Así el error lo produce la DB
+  // (no la validación de formato en aplicación), probando el path de rollback.
   await pool.query(`
     ALTER TABLE students
     ADD CONSTRAINT chk_ial_test_rollback
-    CHECK (curp NOT LIKE 'FATAL-%-TEST')
+    CHECK (curp NOT LIKE 'TEAT%')
   `);
 
   // Marca temporal de inicio — filtra entradas previas en audit_log
@@ -172,9 +173,11 @@ describe("POST /api/import/data — registro en audit_log", () => {
   // ── IAL-02: error fatal (ROLLBACK) → action='import_failed' en audit_log ──
   it("IAL-02: importación con rollback fatal → entrada en audit_log con action='import_failed'", async () => {
     const beforeReq = new Date().toISOString();
-    // Fila 1 válida, fila 2 viola CHECK constraint → error fatal → ROLLBACK
-    const curpRow1 = `IAL2${String(Date.now()).slice(-8)}`;
-    const curpRow2 = `FATAL-X-TEST`;                        // viola chk_ial_test_rollback
+    // curpRow1 = CURP válido (no empieza con TEAT) → pasa validación y CHECK.
+    // curpRow2 = CURP válido en formato pero viola CHECK NOT LIKE 'TEAT%' → error fatal DB.
+    const _tsIal = Date.now();
+    const curpRow1 = `AUID${String(_tsIal % 100).padStart(2,'0')}0101HNENNNA${_tsIal % 10}`;
+    const curpRow2 = `TEAT000101HNENNNA0`; // formato válido, viola chk_ial_test_rollback
     const csv = [
       "nombre_completo,curp",
       `Alumno IAL Row1,${curpRow1}`,

@@ -626,6 +626,17 @@ export function registerPaymentRoutes(app: Express): void {
             continue;
           }
 
+          // Validar y normalizar CURP (patrón oficial SAT — no bloqueante en bulk import)
+          {
+            const { validarCurp, normalizarCurp } = await import("../lib/validators");
+            studentData.curp = normalizarCurp(studentData.curp);
+            if (!validarCurp(studentData.curp)) {
+              results.errors.push(`Fila ${index + 2}: CURP inválida (${studentData.curp}) — formato incorrecto, verifique el patrón oficial SAT`);
+              results.failed++;
+              continue;
+            }
+          }
+
           // ── INSERT (si falla → propaga → ROLLBACK)
           // ATENCIÓN — implementación inline deliberada: storage.createStudent usa
           // db (Drizzle, conexión propia) y no puede participar en el BEGIN/COMMIT

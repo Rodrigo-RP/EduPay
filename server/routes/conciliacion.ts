@@ -643,20 +643,48 @@ export function registerConciliacionRoutes(app: Express): void {
   });
 
   // Register manual transfer
-  app.post("/api/caja/transferencia-manual", authenticateToken, async (req, res) => {
+  // tenant_id desde JWT (fix: antes se dejaba NULL), auditoría post-INSERT
+  app.post("/api/caja/transferencia-manual", authenticateToken, async (req: any, res) => {
     try {
-      const role = (req as any).user?.role;
-      if (!hasPermissionForUser((req as any).user, MODULES.PAYMENTS, ACTIONS.PROCESS)) {
+      const user      = req.user;
+      if (!hasPermissionForUser(user, MODULES.PAYMENTS, ACTIONS.PROCESS)) {
         return res.status(403).json({ message: "Sin permisos para procesar pagos" });
       }
-      const campusId = (req as any).user?.campus_id;
+      const campusId = user?.campus_id;
+      const tenantId = user?.tenant_id ?? null;
+      const userId   = user?.id        ?? null;
       const { fecha, descripcion, monto, tipo, referencia, clabe, nombre } = req.body;
       const montoCentavos = Math.round(parseFloat(monto || '0') * 100);
       const row = await pool.query(`
-        INSERT INTO bank_transactions (campus_id, fecha, descripcion, monto_centavos, tipo, referencia, clabe_ordenante, nombre_ordenante, estado_conciliacion)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pendiente') RETURNING *
-      `, [campusId, fecha || new Date().toISOString().split('T')[0], descripcion, montoCentavos, tipo || 'credito', referencia || null, clabe || null, nombre || null]);
-      res.json({ message: "Transferencia registrada", transaccion: (row.rows as any[])[0] });
+        INSERT INTO bank_transactions
+          (campus_id, tenant_id, fecha, descripcion, monto_centavos, tipo,
+           referencia, clabe_ordenante, nombre_ordenante, estado_conciliacion)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pendiente') RETURNING *
+      `, [
+        campusId, tenantId,
+        fecha || new Date().toISOString().split('T')[0],
+        descripcion, montoCentavos, tipo || 'credito',
+        referencia || null, clabe || null, nombre || null,
+      ]);
+      const tx = (row.rows as any[])[0];
+
+      // Auditoría — fire-and-forget (ADR-001)
+      const auditPayload = {
+        tenant_id:   tenantId,
+        user_id:     userId,
+        action:      'BANK_TRANSACTION_MANUAL',
+        entity_type: 'bank_transactions',
+        entity_id:   tx.id,
+        metadata:    { monto_centavos: montoCentavos, tipo: tipo || 'credito', referencia: referencia || null },
+      };
+      pool.query(
+        `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [auditPayload.tenant_id, auditPayload.user_id, auditPayload.action,
+         auditPayload.entity_type, auditPayload.entity_id, JSON.stringify(auditPayload.metadata)],
+      ).catch((err) => enqueueAuditLog(auditPayload, err));
+
+      res.json({ message: "Transferencia registrada", transaccion: tx });
     } catch (error: any) {
       res.status(500).json({ message: "Error interno del servidor" });
     }
@@ -834,23 +862,140 @@ export function registerConciliacionRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/conciliacion/importar", authenticateToken, async (req, res) => {
+  // ── POST /api/conciliacion/importar ──────────────────────────────────────
+  //
+  // Guard    : PAYMENTS.PROCESS  (mismo que transferencia-manual — dominio financiero)
+  // Atomicidad: BEGIN + SAVEPOINT por fila + COMMIT|ROLLBACK  (patrón admin.ts §importar)
+  //   • Fila inválida (fecha ausente / monto no numérico) → failed[], continúa
+  //   • ON CONFLICT (dedup por referencia, mig-016) → skipped++, no es error
+  //   • Error fatal de DB → ROLLBACK completo, 500
+  // dry_run  : ROLLBACK + committed=false, mismos conteos
+  // tenant_id: desde el JWT (fix — antes se dejaba NULL)
+  // Auditoría: enqueueAuditLog post-COMMIT (fire-and-forget, patrón ADR-001)
+  app.post("/api/conciliacion/importar", authenticateToken, async (req: any, res) => {
     try {
-      const campusId = (req as any).user?.campus_id;
+      const user     = req.user;
+      const campusId = user?.campus_id;
+      const tenantId = user?.tenant_id ?? null;
+      const userId   = user?.id        ?? null;
+
+      // ── Guard ─────────────────────────────────────────────────────────────
+      if (!hasPermissionForUser(user, MODULES.PAYMENTS, ACTIONS.PROCESS)) {
+        return res.status(403).json({ message: "Sin permisos para importar transacciones bancarias" });
+      }
+
       const { transacciones } = req.body;
       if (!Array.isArray(transacciones) || transacciones.length === 0) {
         return res.status(400).json({ message: "No hay transacciones para importar" });
       }
-      let importadas = 0;
-      for (const tx of transacciones) {
-        await pool.query(`
-          INSERT INTO bank_transactions (campus_id, fecha, descripcion, monto_centavos, tipo, referencia, clabe_ordenante, nombre_ordenante, estado_conciliacion)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pendiente')
-          ON CONFLICT DO NOTHING
-        `, [campusId, tx.fecha, tx.descripcion, Math.round(Number(tx.monto) * 100), tx.tipo || 'credito', tx.referencia || null, tx.clabe || null, tx.nombre || null]);
-        importadas++;
+
+      // ── dry_run ───────────────────────────────────────────────────────────
+      const isDryRun =
+        req.query.dry_run === 'true' || req.query.dry_run === '1' ||
+        req.body?.dry_run === true   || req.body?.dry_run === 'true';
+
+      let successful = 0;
+      let skipped    = 0;          // ON CONFLICT deduplicadas — no es error
+      const failed: string[] = []; // validación fallida o error de fila
+
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+
+        for (let i = 0; i < transacciones.length; i++) {
+          const tx     = transacciones[i];
+          const rowNum = i + 1;
+
+          // Validación de fila — error de validación → failed[], continúa
+          if (!tx.fecha) {
+            failed.push(`Fila ${rowNum}: fecha requerida`);
+            continue;
+          }
+          const montoNum = parseFloat(tx.monto ?? '0');
+          if (isNaN(montoNum)) {
+            failed.push(`Fila ${rowNum}: monto inválido ("${tx.monto}")`);
+            continue;
+          }
+
+          const sp = `sp_bt_${i}`;
+          await client.query(`SAVEPOINT ${sp}`);
+          try {
+            const result = await client.query(`
+              INSERT INTO bank_transactions
+                (campus_id, tenant_id, fecha, descripcion, monto_centavos, tipo,
+                 referencia, clabe_ordenante, nombre_ordenante, estado_conciliacion)
+              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pendiente')
+              ON CONFLICT DO NOTHING
+            `, [
+              campusId, tenantId,
+              tx.fecha, tx.descripcion ?? null,
+              Math.round(montoNum * 100),
+              tx.tipo       || 'credito',
+              tx.referencia ?? null,
+              tx.clabe      ?? null,
+              tx.nombre     ?? null,
+            ]);
+            await client.query(`RELEASE SAVEPOINT ${sp}`);
+            // rowCount===1 → fila insertada; 0 → ON CONFLICT disparó (dedup)
+            if ((result.rowCount ?? 0) === 1) {
+              successful++;
+            } else {
+              skipped++;
+            }
+          } catch (rowErr: any) {
+            await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
+            failed.push(`Fila ${rowNum}: ${rowErr.message}`);
+          }
+        }
+
+        if (isDryRun) {
+          await client.query('ROLLBACK');
+          return res.json({
+            successful,
+            skipped,
+            failed,
+            committed: false,
+            mensaje: `dry_run: ${successful} se insertarían, ${skipped} ya existirían, ${failed.length} con error`,
+          });
+        }
+
+        await client.query('COMMIT');
+      } catch (fatalError: any) {
+        await client.query('ROLLBACK').catch(() => {});
+        client.release();
+        return res.status(500).json({ message: "Error interno del servidor" });
+      } finally {
+        try { client.release(); } catch {}
       }
-      res.json({ importadas, mensaje: `${importadas} transacciones importadas correctamente` });
+
+      // ── Auditoría — fire-and-forget post-COMMIT (ADR-001) ─────────────────
+      const auditPayload = {
+        tenant_id:   tenantId,
+        user_id:     userId,
+        action:      'BANK_TRANSACTIONS_IMPORT',
+        entity_type: 'bank_transactions',
+        entity_id:   campusId,
+        metadata:    {
+          total:      transacciones.length,
+          successful,
+          skipped,
+          failed_count: failed.length,
+        },
+      };
+      pool.query(
+        `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [auditPayload.tenant_id, auditPayload.user_id, auditPayload.action,
+         auditPayload.entity_type, auditPayload.entity_id, JSON.stringify(auditPayload.metadata)],
+      ).catch((err) => enqueueAuditLog(auditPayload, err));
+
+      res.json({
+        successful,
+        skipped,
+        failed,
+        committed: true,
+        mensaje: `${successful} transacciones importadas, ${skipped} ya existían, ${failed.length} con error`,
+      });
     } catch (error: any) {
       res.status(500).json({ message: "Error interno del servidor" });
     }

@@ -8,11 +8,6 @@ import { students, guardians, charges, payments, concepts, invoices, families, f
 import { enqueueAuditLog } from "../audit-retry";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
-import {
-  resetApiAuthRateLimitStore,
-  resetPaymentRateLimitStore,
-  resetLoginRateLimitStore,
-} from "../security-middleware";
 
 // ── ADR-002: Helpers para planes de pago integrados al ledger ─────────────────
 
@@ -1883,17 +1878,4 @@ export function registerMiscRoutes(app: Express): void {
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
-  // ── Utilidad de tests: resetear stores de rate-limiting en memoria ──────────
-  // Solo disponible cuando NODE_ENV !== 'production'.
-  // Permite correr la suite de Vitest múltiples veces consecutivas sin que los
-  // limiters en memoria saturen (50 req/5 min) y devuelvan 429 espurios.
-  app.post("/api/test/reset-rate-limits", (req, res) => {
-    if (process.env.NODE_ENV === "production") {
-      return res.status(404).json({ message: "Not found" });
-    }
-    resetApiAuthRateLimitStore();
-    resetPaymentRateLimitStore();
-    resetLoginRateLimitStore();
-    res.json({ ok: true, message: "Rate limit stores reseteados" });
-  });
 }

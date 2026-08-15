@@ -1,0 +1,41 @@
+MÁXIMA PRIORIDAD, por encima de cualquier otra cosa:
+
+1. Reproduce el riesgo empíricamente ahora mismo: con el servidor
+   corriendo en modo development, llama a POST /api/test/reset-rate-limits
+   sin ningún token ni header especial, y confirma si responde 200 y
+   resetea los stores. Pega la respuesta real.
+
+2. Elimina la ruta por completo — el app.post(...), el handler, y
+   cualquier import asociado. La solución NUNCA es un guard más estricto,
+   es que la ruta no exista, exactamente como se resolvió las tres veces
+   anteriores.
+
+3. Rediseña server/tests/setup.ts para que use el patrón correcto ya
+   establecido: las funciones reset*RateLimitStore() ya existen,
+   exportadas, en security-middleware.ts (confirmado hace poco cuando
+   limpiamos las llamadas muertas) — impórtalas directamente como
+   funciones dentro del setupFile de vitest, nunca vía una petición HTTP
+   a una ruta del servidor.
+
+4. Busca en TODO el codebase, otra vez, cualquier otro lugar con el
+   patrón "ruta registrada condicionalmente por NODE_ENV" —
+   grep -rn "NODE_ENV.*production\|NODE_ENV !== " server/. Esta es la
+   cuarta vez que aparece sin que se detectara antes de pedírtelo yo.
+
+5. Antes de que hagas nada más: ¿por qué volviste a proponer e
+   implementar exactamente el patrón que docs/PROTOCOLO-AUDITORIA.md
+   prohíbe explícitamente, y que la tarea #164 ya había rechazado por
+   escrito en esta misma conversación? ¿Tuviste acceso a ese documento en
+   algún momento de este trabajo, o no llegó a tu contexto? Necesito
+   saber si el problema es que la regla no se consultó, o que se
+   consultó y no se aplicó.
+
+6. Una vez eliminada la ruta y confirmado que no hay una quinta
+   instancia en ningún otro lado, haz un nuevo push que la elimine del
+   commit ya existente en GitHub — no puede quedar ahí ni un minuto más
+   del necesario.
+
+Reinicia el servidor, confirma con las tres marcas de tiempo reales, corre
+la suite completa (que debe seguir en 800/800, ya que el fix del
+rate-limiter debe lograrse sin esta ruta), y pégame el resultado sin
+resumir.

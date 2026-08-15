@@ -107,9 +107,10 @@ const createRateLimit = (
 
 // Stores dedicados para rate-limiters que los tests necesitan poder resetear.
 // Ningún archivo de producción los importa directamente.
-// Los test files (Vitest: beforeAll; E2E: endpoint /api/test/reset-rate-limits)
-// llaman a las funciones reset* para evitar que acumulaciones de corridas manuales
-// o consecutivas contaminen el bucket y generen 429 inesperados en la suite.
+// Los archivos de test importan las funciones reset* directamente desde este módulo
+// (vía tests/setup.ts como setupFiles de Vitest) para evitar que acumulaciones de
+// corridas consecutivas contaminen el bucket y generen 429 inesperados en la suite.
+// NUNCA exponer estas funciones vía una ruta HTTP — ver PROTOCOLO-AUDITORIA.md §5.
 
 const _paymentLimiterStore = new MemoryStore();
 const _authLimiterStore    = new MemoryStore();

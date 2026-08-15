@@ -7,6 +7,320 @@ import { authenticateToken, requireAuth, checkCampusTenant, hasPermissionForUser
 import { MODULES, ACTIONS } from "@shared/permissions";
 import { payments, charges, students, invoices, guardians } from "@shared/schema";
 
+// ── Motor de scoring de conciliación bancaria ─────────────────────────────────
+//
+// Tres señales: monto_score (0-70) + clabe_score (0-20) + nombre_score (0-15),
+// techo 100. Niveles de acción:
+//   100     → auto-concilia sin revisión
+//   90-99   → auto-concilia + queda en cola de auditoría 24h
+//   70-89   → no aplica; devuelve sugerencia esperando un clic del operador
+//   0-69    → bandeja de aclaración sin sugerencia
+
+interface CandidatoScore {
+  chargeIds: number[];
+  familyId: number | null;
+  montoTotal: number;
+  montoScore: number;
+  clabeScore: number;
+  nombreScore: number;
+  score: number;
+}
+
+const _PARTICULAS = new Set(['DE','DEL','LA','LAS','LOS','Y','MC','MAC','E']);
+
+/** Tokeniza un nombre: NFD → sin diacríticos → mayúsculas → filtra partículas */
+function _tokenizar(s: string): string[] {
+  return s
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase().replace(/[^A-Z\s]/g, '')
+    .split(/\s+/).filter(t => t.length > 1 && !_PARTICULAS.has(t));
+}
+
+/** Similitud Jaccard a nivel de tokens */
+function jaccardNombre(a: string, b: string): number {
+  if (!a || !b) return 0;
+  const ta = new Set(_tokenizar(a));
+  const tb = new Set(_tokenizar(b));
+  if (ta.size === 0 || tb.size === 0) return 0;
+  let inter = 0;
+  for (const t of ta) { if (tb.has(t)) inter++; }
+  const union = ta.size + tb.size - inter;
+  return union === 0 ? 0 : inter / union;
+}
+
+/** monto_score según tabla de diseño aprobada */
+function _montoScore(diff: number, n: number): number {
+  if (n === 1) return diff === 0 ? 70 : diff < 100 ? 65 : 0;
+  if (n === 2) return diff === 0 ? 70 : diff < 100 ? 60 : 0;
+  /* n=3|4 */ return diff === 0 ? 65 : diff < 100 ? 55 : 0;
+}
+
+/** Genera todos los sub-arreglos de tamaño k */
+function _subsets<T>(arr: T[], k: number): T[][] {
+  const result: T[][] = [];
+  function helper(start: number, curr: T[]) {
+    if (curr.length === k) { result.push([...curr]); return; }
+    for (let i = start; i < arr.length; i++) {
+      curr.push(arr[i]); helper(i + 1, curr); curr.pop();
+    }
+  }
+  helper(0, []);
+  return result;
+}
+
+/** Carga en memoria los datos necesarios para evaluar un lote de transacciones */
+async function _cargarContextoScoring(tenantId: number, campusId: number): Promise<{
+  charges: Array<{id: number; monto_neto: number; family_id: number | null}>;
+  fpsByClabe: Map<string, {family_id: number; confirmaciones: number}>;
+  tutoresByFamilyId: Map<number, string[]>;
+}> {
+  const [chargesR, fpsR] = await Promise.all([
+    pool.query(`
+      SELECT c.id,
+             (ROUND(c.monto_base_centavos * (1 - COALESCE(c.beca_aplicada,0)::numeric/100))
+               + COALESCE(c.recargo_aplicado_centavos, 0))::bigint AS monto_neto,
+             (SELECT fs.family_id FROM family_students fs
+              WHERE fs.student_id = c.student_id LIMIT 1) AS family_id
+      FROM charges c
+      JOIN students s ON s.id = c.student_id
+      WHERE s.campus_id = $1 AND c.estado = 'pendiente'
+      ORDER BY c.fecha_vencimiento ASC, c.id ASC
+    `, [campusId]),
+    pool.query(`
+      SELECT family_id, clabe, confirmaciones
+      FROM family_payment_sources WHERE tenant_id = $1
+    `, [tenantId]),
+  ]);
+
+  const charges = (chargesR.rows as any[]).map(r => ({
+    id: Number(r.id), monto_neto: Number(r.monto_neto),
+    family_id: r.family_id != null ? Number(r.family_id) : null,
+  }));
+
+  const fpsByClabe = new Map<string, {family_id: number; confirmaciones: number}>();
+  for (const r of fpsR.rows as any[]) {
+    fpsByClabe.set(String(r.clabe), {
+      family_id: Number(r.family_id), confirmaciones: Number(r.confirmaciones),
+    });
+  }
+
+  // Tutores (nombre_completo) de cada familia con cargos pendientes — para Jaccard
+  const familyIds = [...new Set(
+    charges.map(c => c.family_id).filter((id): id is number => id !== null)
+  )];
+  const tutoresByFamilyId = new Map<number, string[]>();
+  if (familyIds.length > 0) {
+    const tutoresR = await pool.query(`
+      SELECT DISTINCT fs.family_id, g.nombre_completo
+      FROM family_students fs
+      JOIN student_guardian sg ON sg.student_id = fs.student_id
+      JOIN guardians g ON g.id = sg.guardian_id
+      WHERE fs.family_id = ANY($1::int[]) AND g.nombre_completo IS NOT NULL
+    `, [familyIds]);
+    for (const r of tutoresR.rows as any[]) {
+      const fid = Number(r.family_id);
+      if (!tutoresByFamilyId.has(fid)) tutoresByFamilyId.set(fid, []);
+      tutoresByFamilyId.get(fid)!.push(String(r.nombre_completo));
+    }
+  }
+
+  return { charges, fpsByClabe, tutoresByFamilyId };
+}
+
+/** Retorna el mejor candidato de match para una transacción (null si score = 0) */
+function _buscarMejorCandidato(
+  tx: {monto_centavos: number; clabe_ordenante: string | null; nombre_ordenante: string | null},
+  charges: Array<{id: number; monto_neto: number; family_id: number | null}>,
+  fpsByClabe: Map<string, {family_id: number; confirmaciones: number}>,
+  tutoresByFamilyId: Map<number, string[]>,
+  consumedIds: Set<number>,
+): CandidatoScore | null {
+  const disponibles = charges.filter(c => !consumedIds.has(c.id));
+  if (!disponibles.length) return null;
+
+  // Detectar ambigüedad: ≥2 cargos individuales de distintas familias coinciden en monto
+  let singlesMatch = 0;
+  for (const c of disponibles) {
+    if (Math.abs(c.monto_neto - tx.monto_centavos) < 100) singlesMatch++;
+  }
+  const ambiguo = singlesMatch >= 2;
+
+  // Agrupar por family_id (−1 para cargos sin familia)
+  const byFamily = new Map<number, typeof disponibles>();
+  for (const c of disponibles) {
+    const key = c.family_id ?? -1;
+    if (!byFamily.has(key)) byFamily.set(key, []);
+    byFamily.get(key)!.push(c);
+  }
+
+  let mejor: CandidatoScore | null = null;
+
+  for (const [fkey, fCharges] of byFamily) {
+    const pool4 = fCharges.slice(0, 4); // K=4 máx por familia
+    const familyId = fkey > 0 ? fkey : null;
+
+    // clabe_score: se evalúa una vez por familia
+    let clabeScore = 0;
+    if (tx.clabe_ordenante && familyId !== null) {
+      const fps = fpsByClabe.get(tx.clabe_ordenante);
+      if (fps && fps.family_id === familyId) {
+        clabeScore = fps.confirmaciones >= 2 ? 20 : 15;
+      }
+    }
+
+    // nombre_score: Jaccard máximo contra tutores de la familia
+    let nombreScore = 0;
+    if (tx.nombre_ordenante && familyId !== null) {
+      const tutores = tutoresByFamilyId.get(familyId) ?? [];
+      let maxJ = 0;
+      for (const t of tutores) { const j = jaccardNombre(tx.nombre_ordenante, t); if (j > maxJ) maxJ = j; }
+      nombreScore = maxJ >= 0.70 ? 15 : maxJ >= 0.50 ? 10 : maxJ >= 0.30 ? 5 : 0;
+    }
+
+    // Probar subsets 1..4
+    for (let k = 1; k <= pool4.length; k++) {
+      for (const subset of _subsets(pool4, k)) {
+        const suma = subset.reduce((acc, c) => acc + c.monto_neto, 0);
+        const diff = Math.abs(suma - tx.monto_centavos);
+        const montoScore = (ambiguo && k === 1) ? (diff < 100 ? 50 : 0) : _montoScore(diff, k);
+        if (montoScore === 0) continue;
+        const score = Math.min(100, montoScore + clabeScore + nombreScore);
+        if (!mejor || score > mejor.score) {
+          mejor = {
+            chargeIds: subset.map(c => c.id), familyId,
+            montoTotal: suma, montoScore, clabeScore, nombreScore, score,
+          };
+        }
+      }
+    }
+  }
+  return mejor;
+}
+
+/**
+ * Fase 1 (transacción atómica) + Fase 2 (fuera de txn, ADR-001).
+ * Devuelve el primer payment_id creado, o null si no pudo adquirir los locks.
+ */
+async function _applyReconciliacion(params: {
+  txId: number;
+  chargeIds: number[];
+  score: number;
+  familyId: number | null;
+  tenantId: number;
+  referencia: string | null;
+  clabe_ordenante: string | null;
+  nombre_ordenante: string | null;
+  monto_tx_centavos: number;
+  userId: number | null;
+}): Promise<number | null> {
+  // ── Fase 1: transacción atómica ────────────────────────────────────────────
+  const client = await pool.connect();
+  let firstPaymentId: number | null = null;
+  try {
+    await client.query('BEGIN');
+
+    // Bloquear la bank_transaction
+    const txLock = await client.query(
+      `SELECT id FROM bank_transactions
+       WHERE id = $1 AND estado_conciliacion = 'pendiente'
+         AND tipo = 'credito' AND monto_centavos > 0
+       FOR UPDATE SKIP LOCKED`,
+      [params.txId]
+    );
+    if (!txLock.rows.length) { await client.query('ROLLBACK'); return null; }
+
+    // Bloquear todos los cargos (en orden ascendente de ID para evitar deadlocks)
+    const sortedIds = [...params.chargeIds].sort((a, b) => a - b);
+    for (const chargeId of sortedIds) {
+      const lock = await client.query(
+        `SELECT id FROM charges WHERE id = $1 AND estado = 'pendiente' FOR UPDATE SKIP LOCKED`,
+        [chargeId]
+      );
+      if (!lock.rows.length) { await client.query('ROLLBACK'); return null; }
+    }
+
+    // Un payment + payment_application por cargo
+    const paymentIds: number[] = [];
+    for (const chargeId of params.chargeIds) {
+      const mnRow = await client.query(
+        `SELECT ROUND(monto_base_centavos*(1-COALESCE(beca_aplicada,0)::numeric/100))
+                + COALESCE(recargo_aplicado_centavos,0) AS mn FROM charges WHERE id=$1`,
+        [chargeId]
+      );
+      const montoNeto = Number(mnRow.rows[0]?.mn ?? 0);
+      const payRow = await client.query(
+        `INSERT INTO payments (tenant_id, charge_id, guardian_id, metodo, referencia_pasarela,
+                               monto_centavos, fecha_pago, estado)
+         VALUES ($1,$2,NULL,'spei',$3,$4,NOW(),'exitoso') RETURNING id`,
+        [params.tenantId, chargeId, params.referencia || `AUTO-${params.txId}`, montoNeto]
+      );
+      const pid = payRow.rows[0].id;
+      paymentIds.push(pid);
+      await client.query(
+        `INSERT INTO payment_applications (payment_id, charge_id, amount_centavos, applied_at)
+         VALUES ($1,$2,$3,NOW())`,
+        [pid, chargeId, montoNeto]
+      );
+      await client.query(`UPDATE charges SET estado='pagado' WHERE id=$1`, [chargeId]);
+    }
+
+    firstPaymentId = paymentIds[0];
+    const notaHermanos = params.chargeIds.length > 1
+      ? `Hermanos: cargos #${params.chargeIds.join(', #')} — score ${params.score}`
+      : null;
+
+    const upd = await client.query(
+      `UPDATE bank_transactions
+       SET estado_conciliacion='conciliado', charge_id=$1, payment_id=$2,
+           confianza_pct=$3, nota_conciliacion=COALESCE($4, nota_conciliacion)
+       WHERE id=$5 AND estado_conciliacion='pendiente'`,
+      [params.chargeIds[0], firstPaymentId, params.score, notaHermanos, params.txId]
+    );
+    if ((upd as any).rowCount !== 1) { await client.query('ROLLBACK'); return null; }
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  // ── Fase 2: fuera de la txn comprometida (ADR-001) ────────────────────────
+  if (firstPaymentId !== null && params.familyId && params.clabe_ordenante) {
+    pool.query(
+      `INSERT INTO family_payment_sources
+         (tenant_id, family_id, clabe, nombre_inferido, confirmaciones, primera_vez_at, ultima_vez_at)
+       VALUES ($1,$2,$3,$4,1,NOW(),NOW())
+       ON CONFLICT (family_id, clabe) DO UPDATE
+         SET confirmaciones  = family_payment_sources.confirmaciones + 1,
+             nombre_inferido = COALESCE($4, family_payment_sources.nombre_inferido),
+             ultima_vez_at   = NOW()`,
+      [params.tenantId, params.familyId, params.clabe_ordenante, params.nombre_ordenante || null]
+    ).catch(() => {}); // fire-and-forget — no revierte el pago ya commitado
+  }
+
+  if (firstPaymentId !== null && params.userId && params.tenantId) {
+    const ap = {
+      tenant_id: params.tenantId, user_id: params.userId,
+      action: 'conciliar_pago_spei' as const, entity_type: 'bank_transaction' as const,
+      entity_id: params.txId,
+      metadata: {
+        charge_ids: params.chargeIds, payment_id: firstPaymentId,
+        score: params.score, monto_centavos: params.monto_tx_centavos,
+        referencia: params.referencia, clabe_ordenante: params.clabe_ordenante,
+      },
+    };
+    pool.query(
+      `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6::jsonb,NOW())`,
+      [ap.tenant_id, ap.user_id, ap.action, ap.entity_type, ap.entity_id, JSON.stringify(ap.metadata)]
+    ).catch((err) => { enqueueAuditLog(ap, err); });
+  }
+
+  return firstPaymentId;
+}
+
 export function registerConciliacionRoutes(app: Express): void {
   // ── 1. CENTRO DE COMANDOS ─────────────────────────────────────────────────
   app.get("/api/dashboard/comandos/:campusId", authenticateToken, async (req: any, res) => {
@@ -375,105 +689,74 @@ export function registerConciliacionRoutes(app: Express): void {
   // Execute automatic conciliation (FIFO)
   app.post("/api/caja/ejecutar-conciliacion", authenticateToken, async (req, res) => {
     try {
-      const user      = (req as any).user;
-      const campusId  = user?.campus_id;
-      const tenantId  = user?.tenant_id;
+      const user     = (req as any).user;
+      const campusId = user?.campus_id;
+      const tenantId = user?.tenant_id;
       const ROLES_CAJA = ['administrador_general','administrador_campus','super_admin','caja','auxiliar_caja'];
       if (!user?.is_super_admin && !ROLES_CAJA.includes(user?.role)) {
         return res.status(403).json({ message: "Sin permisos para ejecutar conciliación automática" });
       }
 
-      // Solo créditos/entradas con monto positivo pueden liquidar cargos
       const txRows = await pool.query(`
-        SELECT id, monto_centavos, referencia FROM bank_transactions
+        SELECT id, monto_centavos, referencia, clabe_ordenante, nombre_ordenante
+        FROM bank_transactions
         WHERE campus_id = $1 AND estado_conciliacion = 'pendiente'
           AND tipo = 'credito' AND monto_centavos > 0
         ORDER BY fecha ASC, id ASC
       `, [campusId]).catch(() => ({ rows: [] }));
 
-      const chargeRows = await pool.query(`
-        SELECT c.id,
-               ROUND(c.monto_base_centavos * (1 - COALESCE(c.beca_aplicada,0)::numeric/100))
-                 + COALESCE(c.recargo_aplicado_centavos, 0) AS monto_neto
-        FROM charges c
-        JOIN students s ON s.id = c.student_id
-        WHERE s.campus_id = $1 AND c.estado = 'pendiente'
-        ORDER BY c.fecha_vencimiento ASC, c.id ASC
-      `, [campusId]).catch(() => ({ rows: [] }));
+      const { charges, fpsByClabe, tutoresByFamilyId } =
+        await _cargarContextoScoring(tenantId, campusId);
 
       const consumedIds = new Set<number>();
       let conciliados   = 0;
+      const sugerencias: any[] = [];
 
       for (const tx of (txRows.rows as any[])) {
-        const match = (chargeRows.rows as any[]).find(c =>
-          !consumedIds.has(c.id) &&
-          Math.abs(Number(c.monto_neto) - Number(tx.monto_centavos)) < 100
+        const candidato = _buscarMejorCandidato(
+          { monto_centavos: Number(tx.monto_centavos),
+            clabe_ordenante: tx.clabe_ordenante ?? null,
+            nombre_ordenante: tx.nombre_ordenante ?? null },
+          charges, fpsByClabe, tutoresByFamilyId, consumedIds
         );
-        if (!match) continue;
-        consumedIds.add(match.id);
+        if (!candidato || candidato.score === 0) continue;
 
-        const client = await pool.connect();
-        try {
-          await client.query('BEGIN');
-
-          // Bloquear la transacción bancaria primero (SKIP LOCKED evita espera en concurrencia)
-          const txLock = await client.query(
-            `SELECT id FROM bank_transactions
-             WHERE id = $1 AND estado_conciliacion = 'pendiente'
-               AND tipo = 'credito' AND monto_centavos > 0
-             FOR UPDATE SKIP LOCKED`,
-            [tx.id]
-          );
-          if (!txLock.rows.length) { await client.query('ROLLBACK'); continue; }
-
-          // Luego bloquear el cargo
-          const chargeLock = await client.query(
-            `SELECT id FROM charges WHERE id = $1 AND estado = 'pendiente' FOR UPDATE SKIP LOCKED`,
-            [match.id]
-          );
-          if (!chargeLock.rows.length) { await client.query('ROLLBACK'); continue; }
-
-          // Crear el registro de pago
-          const payResult = await client.query(
-            `INSERT INTO payments (tenant_id, charge_id, guardian_id, metodo, referencia_pasarela,
-                                   monto_centavos, fecha_pago, estado)
-             VALUES ($1,$2,NULL,'spei',$3,$4,NOW(),'exitoso') RETURNING id`,
-            [tenantId, match.id, tx.referencia || `AUTO-${tx.id}`, Number(match.monto_neto)]
-          );
-          const paymentId = payResult.rows[0].id;
-
-          // Registrar la aplicación del pago (ledger familiar)
-          await client.query(
-            `INSERT INTO payment_applications (payment_id, charge_id, amount_centavos, applied_at)
-             VALUES ($1, $2, $3, NOW())`,
-            [paymentId, match.id, Number(match.monto_neto)]
-          );
-
-          // Marcar cargo como pagado
-          await client.query(`UPDATE charges SET estado = 'pagado' WHERE id = $1`, [match.id]);
-
-          // Marcar transacción bancaria como conciliada (condición en WHERE garantiza idempotencia)
-          const updTx = await client.query(
-            `UPDATE bank_transactions SET estado_conciliacion='conciliado', charge_id=$1, payment_id=$2
-             WHERE id = $3 AND estado_conciliacion = 'pendiente'`,
-            [match.id, paymentId, tx.id]
-          );
-          if ((updTx as any).rowCount !== 1) {
-            // Otra operación concurrente nos ganó — deshacer
-            await client.query('ROLLBACK');
-            continue;
+        if (candidato.score >= 90) {
+          const pid = await _applyReconciliacion({
+            txId: Number(tx.id), chargeIds: candidato.chargeIds,
+            score: candidato.score, familyId: candidato.familyId,
+            tenantId, referencia: tx.referencia ?? null,
+            clabe_ordenante: tx.clabe_ordenante ?? null,
+            nombre_ordenante: tx.nombre_ordenante ?? null,
+            monto_tx_centavos: Number(tx.monto_centavos), userId: user?.id ?? null,
+          });
+          if (pid !== null) {
+            candidato.chargeIds.forEach(id => consumedIds.add(id));
+            conciliados++;
           }
-
-          await client.query('COMMIT');
-          conciliados++;
-        } catch (txErr) {
-          await client.query('ROLLBACK');
-        } finally {
-          client.release();
+        } else if (candidato.score >= 70) {
+          // 70-89: sugerencia pre-calculada — el operador confirma con un clic
+          sugerencias.push({
+            tx_id: Number(tx.id),
+            monto_centavos: Number(tx.monto_centavos),
+            score: candidato.score,
+            charge_ids: candidato.chargeIds,
+            family_id: candidato.familyId,
+            detalle: {
+              monto: candidato.montoScore,
+              clabe: candidato.clabeScore,
+              nombre: candidato.nombreScore,
+            },
+          });
         }
+        // 0-69: sin acción — queda en la bandeja de aclaración
       }
 
-      res.json({ conciliados, mensaje: `${conciliados} transacciones conciliadas` });
+      res.json({
+        conciliados,
+        sugerencias,
+        mensaje: `${conciliados} transacciones conciliadas automáticamente`,
+      });
     } catch (error: any) {
       res.status(500).json({ message: "Error interno del servidor" });
     }
@@ -556,110 +839,78 @@ export function registerConciliacionRoutes(app: Express): void {
 
   app.post("/api/conciliacion/auto-match/:campusId", authenticateToken, async (req: any, res) => {
     try {
-      const user      = req.user;
-      const campusId  = parseInt(req.params.campusId) || user?.campus_id;
-      const tenantId  = user?.tenant_id;
+      const user     = req.user;
+      const campusId = parseInt(req.params.campusId) || user?.campus_id;
+      const tenantId = user?.tenant_id;
       if (!await checkCampusTenant(campusId, tenantId, res)) return;
 
-      // Solo roles de caja/administración pueden conciliar
       const ROLES_CAJA = ['administrador_general','administrador_campus','super_admin','caja','auxiliar_caja'];
       if (!user?.is_super_admin && !ROLES_CAJA.includes(user?.role)) {
         return res.status(403).json({ message: "Sin permisos para ejecutar conciliación automática" });
       }
 
-      // Solo créditos/entradas con monto positivo pueden liquidar cargos
       const txRows = await pool.query(`
-        SELECT id, monto_centavos, referencia FROM bank_transactions
+        SELECT id, monto_centavos, referencia, clabe_ordenante, nombre_ordenante
+        FROM bank_transactions
         WHERE campus_id = $1 AND estado_conciliacion = 'pendiente'
           AND tipo = 'credito' AND monto_centavos > 0
         ORDER BY fecha ASC, id ASC
       `, [campusId]);
 
-      // Cargos pendientes FIFO — monto neto calculado server-side
-      const chargeRows = await pool.query(`
-        SELECT c.id,
-               ROUND(c.monto_base_centavos * (1 - COALESCE(c.beca_aplicada,0)::numeric/100))
-                 + COALESCE(c.recargo_aplicado_centavos, 0) AS monto_neto
-        FROM charges c
-        JOIN students s ON s.id = c.student_id
-        WHERE s.campus_id = $1 AND c.estado = 'pendiente'
-        ORDER BY c.fecha_vencimiento ASC, c.id ASC
-      `, [campusId]);
+      const { charges, fpsByClabe, tutoresByFamilyId } =
+        await _cargarContextoScoring(tenantId, campusId);
 
       const consumedIds = new Set<number>();
       let conciliados   = 0;
+      const sugerencias: any[] = [];
 
       for (const tx of (txRows.rows as any[])) {
-        const match = (chargeRows.rows as any[]).find(c =>
-          !consumedIds.has(c.id) &&
-          Math.abs(Number(c.monto_neto) - Number(tx.monto_centavos)) < 100
+        const candidato = _buscarMejorCandidato(
+          { monto_centavos: Number(tx.monto_centavos),
+            clabe_ordenante: tx.clabe_ordenante ?? null,
+            nombre_ordenante: tx.nombre_ordenante ?? null },
+          charges, fpsByClabe, tutoresByFamilyId, consumedIds
         );
-        if (!match) continue;
-        consumedIds.add(match.id);
+        if (!candidato || candidato.score === 0) continue;
 
-        const client = await pool.connect();
-        try {
-          await client.query('BEGIN');
-
-          // Bloquear la transacción bancaria primero (SKIP LOCKED = sin espera en concurrencia)
-          const txLock = await client.query(
-            `SELECT id FROM bank_transactions
-             WHERE id = $1 AND estado_conciliacion = 'pendiente'
-               AND tipo = 'credito' AND monto_centavos > 0
-             FOR UPDATE SKIP LOCKED`,
-            [tx.id]
-          );
-          if (!txLock.rows.length) { await client.query('ROLLBACK'); continue; }
-
-          // Luego bloquear el cargo
-          const chargeLock = await client.query(
-            `SELECT id FROM charges WHERE id = $1 AND estado = 'pendiente' FOR UPDATE SKIP LOCKED`,
-            [match.id]
-          );
-          if (!chargeLock.rows.length) { await client.query('ROLLBACK'); continue; }
-
-          // Crear registro de pago
-          const payResult = await client.query(
-            `INSERT INTO payments (tenant_id, charge_id, guardian_id, metodo, referencia_pasarela,
-                                   monto_centavos, fecha_pago, estado)
-             VALUES ($1,$2,NULL,'spei',$3,$4,NOW(),'exitoso') RETURNING id`,
-            [tenantId, match.id, tx.referencia || `AUTO-${tx.id}`, Number(match.monto_neto)]
-          );
-          const paymentId = payResult.rows[0].id;
-
-          // Registrar la aplicación del pago (ledger familiar)
-          await client.query(
-            `INSERT INTO payment_applications (payment_id, charge_id, amount_centavos, applied_at)
-             VALUES ($1, $2, $3, NOW())`,
-            [paymentId, match.id, Number(match.monto_neto)]
-          );
-
-          // Marcar cargo como pagado
-          await client.query(`UPDATE charges SET estado = 'pagado' WHERE id = $1`, [match.id]);
-
-          // Marcar transacción bancaria como conciliada (rowCount=0 = otra concurrencia nos ganó)
-          const updTx = await client.query(
-            `UPDATE bank_transactions
-             SET estado_conciliacion = 'conciliado', charge_id = $1, payment_id = $2
-             WHERE id = $3 AND estado_conciliacion = 'pendiente'`,
-            [match.id, paymentId, tx.id]
-          );
-          if ((updTx as any).rowCount !== 1) {
-            await client.query('ROLLBACK');
-            continue;
+        if (candidato.score >= 90) {
+          const pid = await _applyReconciliacion({
+            txId: Number(tx.id), chargeIds: candidato.chargeIds,
+            score: candidato.score, familyId: candidato.familyId,
+            tenantId, referencia: tx.referencia ?? null,
+            clabe_ordenante: tx.clabe_ordenante ?? null,
+            nombre_ordenante: tx.nombre_ordenante ?? null,
+            monto_tx_centavos: Number(tx.monto_centavos), userId: user?.id ?? null,
+          });
+          if (pid !== null) {
+            candidato.chargeIds.forEach(id => consumedIds.add(id));
+            conciliados++;
           }
-
-          await client.query('COMMIT');
-          conciliados++;
-        } catch (txErr) {
-          await client.query('ROLLBACK');
-        } finally {
-          client.release();
+        } else if (candidato.score >= 70) {
+          sugerencias.push({
+            tx_id: Number(tx.id),
+            monto_centavos: Number(tx.monto_centavos),
+            score: candidato.score,
+            charge_ids: candidato.chargeIds,
+            family_id: candidato.familyId,
+            detalle: {
+              monto: candidato.montoScore,
+              clabe: candidato.clabeScore,
+              nombre: candidato.nombreScore,
+            },
+          });
         }
       }
 
-      const noConciliados = (txRows.rows as any[]).length - conciliados;
-      res.json({ conciliados, no_conciliados: noConciliados, total: (txRows.rows as any[]).length });
+      const total = (txRows.rows as any[]).length;
+      const noConciliados = total - conciliados - sugerencias.length;
+      res.json({
+        conciliados,
+        sugerencias,
+        no_conciliados: noConciliados,
+        no_coinciden: noConciliados,
+        total,
+      });
     } catch (error: any) {
       res.status(500).json({ message: "Error interno del servidor" });
     }
@@ -748,7 +999,8 @@ export function registerConciliacionRoutes(app: Express): void {
 
       // ── Bloquear la transacción bancaria (FOR UPDATE) y verificar que sigue pendiente
       const txLock = await client.query(
-        `SELECT id, monto_centavos, referencia, campus_id, estado_conciliacion
+        `SELECT id, monto_centavos, referencia, campus_id, estado_conciliacion,
+                clabe_ordenante, nombre_ordenante
          FROM bank_transactions WHERE id = $1 FOR UPDATE`,
         [txId]
       );
@@ -829,6 +1081,37 @@ export function registerConciliacionRoutes(app: Express): void {
 
         await client.query('COMMIT');
         res.json({ message: "Pago aplicado correctamente al cargo seleccionado", payment_id: paymentId });
+
+        // ── Fase 2: upsert CLABE aprendida + confianza_pct (ADR-001, fuera de txn) ──
+        // Se ejecuta SIEMPRE en conciliación exitosa — incluso en aplicación manual.
+        if (tx.clabe_ordenante) {
+          pool.query(
+            `SELECT fs.family_id FROM family_students fs
+             JOIN charges c ON c.student_id = fs.student_id
+             WHERE c.id = $1 LIMIT 1`,
+            [charge_id]
+          ).then(famR => {
+            const fid = famR.rows[0]?.family_id;
+            if (!fid) return;
+            pool.query(
+              `INSERT INTO family_payment_sources
+                 (tenant_id, family_id, clabe, nombre_inferido, confirmaciones, primera_vez_at, ultima_vez_at)
+               VALUES ($1,$2,$3,$4,1,NOW(),NOW())
+               ON CONFLICT (family_id, clabe) DO UPDATE
+                 SET confirmaciones  = family_payment_sources.confirmaciones + 1,
+                     nombre_inferido = COALESCE($4, family_payment_sources.nombre_inferido),
+                     ultima_vez_at   = NOW()`,
+              [tenantId, fid, tx.clabe_ordenante, tx.nombre_ordenante ?? null]
+            ).catch(() => {});
+            // Guardar monto_score como confianza_pct (aplicación manual = solo señal de monto)
+            const diff = Math.abs(Number(tx.monto_centavos) - Number(cargo.monto_neto));
+            const ms = _montoScore(diff, 1);
+            pool.query(
+              `UPDATE bank_transactions SET confianza_pct=$1 WHERE id=$2`,
+              [ms, txId]
+            ).catch(() => {});
+          }).catch(() => {});
+        }
 
       } else {
         // ── descartar/ignorar: marcar como no escolar (motivo obligatorio)

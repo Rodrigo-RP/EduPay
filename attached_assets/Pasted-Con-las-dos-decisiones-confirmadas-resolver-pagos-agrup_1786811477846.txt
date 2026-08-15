@@ -1,0 +1,46 @@
+Con las dos decisiones confirmadas (resolver pagos agrupados de hermanos
+automáticamente, usar las tres señales desde el principio), propón el
+diseño concreto del algoritmo de confianza porcentual — sin implementar
+nada todavía.
+
+1. Monto: hoy compara contra un solo cargo. Para resolver el caso de
+   hermanos, debe poder comparar también contra la SUMA de varios cargos
+   de la misma familia (mismo family_id vía family_students). Propón
+   cómo se decide cuántos cargos combinar — ¿todos los cargos pendientes
+   de la familia, o algún subconjunto acotado (por ejemplo, solo los del
+   ciclo escolar actual)?
+
+2. clabe_ordenante: no hay ningún valor "esperado" contra el cual
+   comparar hoy — ninguna familia tiene una CLABE de origen conocida de
+   antemano. Propón un mecanismo de aprendizaje: cuando una transacción
+   se concilia con alta confianza (monto exacto, sin ambigüedad), se
+   guarda esa CLABE como "conocida" para esa familia, para usarse como
+   señal en transacciones futuras. Confirma si hace falta una tabla nueva
+   para esto o si cabe en alguna existente.
+
+3. nombre_ordenante: propón el método de comparación difusa (insensible a
+   acentos, mayúsculas, orden de nombres) contra los tutores de la
+   familia vía family_students → student_guardian → guardians.
+
+4. referencia: a diferencia de las otras dos, hoy no existe ningún valor
+   "esperado" de referencia que EduPay le comunique a las familias para
+   incluir en su transferencia. Confirma si esto requiere construir esa
+   pieza adicional (generar y mostrar una referencia esperada por cargo o
+   por familia) antes de que esta señal pueda aportar algo real, o si hay
+   alguna forma de usarla sin esa infraestructura previa. Si requiere
+   trabajo adicional, dilo explícitamente — puede quedar fuera de esta
+   ronda si es demasiado.
+
+5. Propón la fórmula o lógica que combina las señales en los cuatro
+   niveles (100% / 90-99% / 70-89% / 0-69%), y qué acción toma el sistema
+   en cada nivel — ¿100% aplica automáticamente sin revisión humana,
+   90-99% aplica pero queda visible para auditoría posterior, 70-89% va a
+   revisión con la aplicación sugerida pre-calculada, 0-69% va a
+   aclaración como hoy?
+
+6. Para el caso específico de hermanos: si el monto coincide con la suma
+   de 2+ cargos pero clabe_ordenante o nombre_ordenante no confirman
+   nada (primera vez que se ve esa familia), ¿en qué nivel de confianza
+   cae? Tu recomendación.
+
+Solo el diseño con tu razonamiento — no implementes nada todavía.

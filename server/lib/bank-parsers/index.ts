@@ -5,7 +5,8 @@
  * Agregar un nuevo banco = crear su clase e incluirla en el switch.
  */
 
-import { BBVAParser } from "./bbva-parser.js";
+import { BBVAParser }      from "./bbva-parser.js";
+import { SantanderParser } from "./santander-parser.js";
 import type { BankStatementParser } from "./types.js";
 
 export type BancoSoportado = "BBVA" | "Santander";
@@ -20,15 +21,10 @@ export function getParser(banco: string): BankStatementParser {
       return new BBVAParser();
 
     case "SANTANDER":
-      // Pendiente: los PDFs de Santander México (Compart MFFPDF) renderizan
-      // texto como image masks — necesita OCR o exportación CSV/Excel del portal.
-      // No falla silenciosamente: lanza explícitamente para que el endpoint
-      // devuelva 400 con mensaje accionable al operador.
-      throw new Error(
-        "Santander aún no está soportado. " +
-        "Descarga el estado de cuenta en formato CSV o Excel desde el portal de Santander " +
-        "y usa el endpoint /api/conciliacion/importar."
-      );
+      // El estado de cuenta de Santander México se descarga del portal como un
+      // CFDI 4.0 (.xml) con addenda EstadoDeCuentaBancario — NO como PDF.
+      // El SantanderParser extrae los <MovimientoECB> del addenda.
+      return new SantanderParser();
 
     default:
       throw new Error(

@@ -18,6 +18,7 @@ import { charges, concepts, tenants, campuses, students, guardians, student_guar
 import { eq, inArray } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import { markChargeAsPaidForTest } from "./test-helpers";
+// resetPaymentRateLimitStore se llama globalmente desde tests/setup.ts
 
 const BASE       = "http://localhost:5000";
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";

@@ -17,6 +17,7 @@ import {
 } from "../../shared/schema";
 import { eq, or } from "drizzle-orm";
 import jwt from "jsonwebtoken";
+// resetPaymentRateLimitStore se llama globalmente desde tests/setup.ts
 
 const BASE_URL = "http://localhost:5000";
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";

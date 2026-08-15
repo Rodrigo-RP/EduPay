@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, varchar, bigint, numeric, date, timestamp, primaryKey, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, varchar, bigint, numeric, date, timestamp, primaryKey, jsonb, uniqueIndex, smallint } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -1101,9 +1101,31 @@ export const bank_transactions = pgTable("bank_transactions", {
   charge_id: integer("charge_id").references(() => charges.id),
   payment_id: integer("payment_id").references(() => payments.id),
   nota_conciliacion: text("nota_conciliacion"),
+  // Motor de confianza porcentual (migración 014).
+  // NULL = conciliado antes de esta migración (sin score retroactivo).
+  // 0–69 = aclaración manual; 70–89 = revisión sugerida;
+  // 90–99 = auto+auditoría; 100 = auto sin revisión.
+  confianza_pct: smallint("confianza_pct"),
   created_at: timestamp("created_at").defaultNow(),
 });
 export type BankTransaction = typeof bank_transactions.$inferSelect;
+
+// ── CLABEs conocidas por familia (motor de confianza — migración 013) ─────────
+// Acumula las CLABEs de origen de SPEIs conciliados exitosamente.
+// applyReconciliation() hace upsert aquí en TODA conciliación, sin excepción,
+// para que incluso las conciliaciones manuales (70-89%) bootstrapeen el
+// aprendizaje. STRIPE_SECRET_KEY nunca va aquí ni en ninguna tabla.
+export const family_payment_sources = pgTable("family_payment_sources", {
+  id: serial("id").primaryKey(),
+  tenant_id: integer("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  family_id: integer("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
+  clabe: varchar("clabe", { length: 18 }).notNull(),
+  nombre_inferido: varchar("nombre_inferido", { length: 255 }),
+  confirmaciones: integer("confirmaciones").notNull().default(1),
+  primera_vez_at: timestamp("primera_vez_at").defaultNow(),
+  ultima_vez_at: timestamp("ultima_vez_at").defaultNow(),
+});
+export type FamilyPaymentSource = typeof family_payment_sources.$inferSelect;
 
 // ── PLANES DE PAGO NEGOCIADOS (Convenios) ────────────────────────────────────
 export const payment_plans = pgTable("payment_plans", {

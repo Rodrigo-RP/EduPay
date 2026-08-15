@@ -13,6 +13,9 @@ export default defineConfig({
     // Glob: recoge automáticamente cualquier *.test.ts bajo tests/,
     // igual que Playwright recoge e2e/**/*.spec.ts con testDir.
     include: ["tests/**/*.test.ts"],
+    // Resetea los tres stores de rate-limiting antes de cada archivo de test
+    // para evitar 429 cuando la suite se corre múltiples veces seguidas.
+    setupFiles: ["tests/setup.ts"],
   },
   resolve: {
     alias: {

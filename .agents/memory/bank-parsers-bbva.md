@@ -50,5 +50,10 @@ Guard: PAYMENTS.PROCESS. Auditoría: BANK_PDF_IMPORT post-COMMIT.
 Espera `monto_centavos` ya en enteros; no hace conversión. La validación de fecha/monto se hace ANTES de llamarlo.
 
 ## Santander
-PDFs de Santander México (Compart MFFPDF) son "born digital" pero sin capa de texto — todo es image mask.
-Estado: pendiente exportación CSV/Excel del portal del banco.
+Santander México emite el estado de cuenta como un CFDI 4.0 (.xml) con addenda `EstadoDeCuentaBancario`.
+El XML contiene `<Santander:MovimientoECB IdMovto="..." fecha="..." descripcion="..." importe="..." monMov="..." />`.
+Los importes son SIEMPRE positivos — la dirección se infiere por whitelist de prefijos en `descripcion`:
+  ABONO_PREFIXES = ["ABONO", "DEPOSITO", "SPEI RECIBIDO", "TRANSFERENCIA RECIBIDA", "PAGO RECIBIDO", ...]
+El parser usa regex `<Santander:MovimientoECB\b([^>]*?)\/>`  (NO `[^/]+` — se rompe con "N/A" en atributos).
+La referencia es el `IdMovto`; no hay CLABE ni nombre del ordenante en el ECB.
+El endpoint `/api/conciliacion/importar-pdf` ya acepta banco=Santander con archivo .xml (multer acepta cualquier mime).

@@ -37,6 +37,7 @@
 - [Guardians schema real](guardians-schema-real.md) — guardians NO tiene family_id; relación familia→guardian es vía family_students→student_guardian→guardians. nombre_completo es NOT NULL en DB real.
 - [RPT-03 Cobranza](rpt03-cobranza.md) — payment_applications.amount_centavos (no monto); REPORTS.READ universal en todos los roles admin.
 - [RPT-04 Admisiones](rpt04-admisiones.md) — ADMISSIONS.READ (no REPORTS.READ); monto_descuento de charges.beca_aplicada; ciclo reutiliza mismo $N en EXISTS y LATERAL; tests ADM y STC migrados.
+- [RPT-05 Consejo](rpt05-consejo.md) — FINANCIAL.READ; R7 (con :campusId) nunca usado por frontend; mes 0-indexed en Select → +1 para fecha_desde/fecha_hasta; por_nivel ahora real (no []).
 - [Conciliacion scoring engine](conciliacion-scoring-engine.md) — applyReconciliation (export); score=100 vs 90-99 branching; cola revisión = query sobre bank_transactions.confianza_pct+conciliado_at; Neon usa WebSocket, psql falla con "endpoint disabled".
 - [Bank transactions importar blindaje](bank-tx-importar.md) — guard PAYMENTS.PROCESS; dedup mig-016 UNIQUE parcial (referencia IS NOT NULL); tenant_id desde JWT; rowCount===1 para contador real; skipped vs failed distintos.
 - [Rate limit acumulado entre runs de Vitest](rate-limit-vitest-runs.md) — el rate limiter del servidor (300 req/5min) acumula entre runs consecutivos sin reinicio; solución: WorkflowsRestart antes de cada npx vitest run completo.

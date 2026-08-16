@@ -144,12 +144,13 @@ describe("scholarship_types — ciclo completo POST→DB→GET", () => {
     expect(status).toBe(403);
   });
 
-  it("STC-02: contador_general GET /api/admin/admissions-report → 403", async () => {
+  it("STC-02: contador_general GET /api/reportes/admisiones → 403 (sin ADMISSIONS.READ)", async () => {
     const tokenNone = jwt.sign(
       { role: "contador_general", campus_id: campusId, tenant_id: tenantId },
       JWT_SECRET, { expiresIn: "1h" }
     );
-    const { status } = await apiFetch("GET", "/api/admin/admissions-report", tokenNone);
+    // RPT-04 usa el mismo guard ADMISSIONS.READ que R6
+    const { status } = await apiFetch("GET", "/api/reportes/admisiones", tokenNone);
     expect(status).toBe(403);
   });
 
@@ -157,7 +158,8 @@ describe("scholarship_types — ciclo completo POST→DB→GET", () => {
     const r1 = await apiFetch("GET", "/api/scholarships", tokenAdmin);
     expect(r1.status).toBe(200);
 
-    const r2 = await apiFetch("GET", "/api/admin/admissions-report", tokenAdmin);
+    // RPT-04 reemplaza R6 (/api/admin/admissions-report)
+    const r2 = await apiFetch("GET", "/api/reportes/admisiones", tokenAdmin);
     expect(r2.status).toBe(200);
   });
 
@@ -182,13 +184,13 @@ describe("scholarship_types — ciclo completo POST→DB→GET", () => {
     expect(beca.observaciones).toBe("Promedio alto");
   });
 
-  it("STC-05: GET /api/admin/admissions-report.becas.por_tipo contiene el tipo creado", async () => {
-    const { status, body } = await apiFetch("GET", "/api/admin/admissions-report", tokenAdmin);
+  it("STC-05: GET /api/reportes/admisiones.por_tipo_beca contiene el tipo creado (RPT-04)", async () => {
+    // R6 (/api/admin/admissions-report) retirado → verificar en RPT-04
+    // RPT-04 retorna por_tipo_beca[] en lugar de becas.por_tipo[]
+    const { status, body } = await apiFetch("GET", "/api/reportes/admisiones", tokenAdmin);
     expect(status).toBe(200);
 
-    // Antes del fix: por_tipo era [] (query fallaba, catch lo absorbía)
-    // Después del fix: debe contener la distribución real
-    const porTipo: any[] = body?.becas?.por_tipo ?? [];
+    const porTipo: any[] = body?.por_tipo_beca ?? [];
     expect(Array.isArray(porTipo)).toBe(true);
 
     const tipoEncontrado = porTipo.find((t: any) => t.tipo?.match(/Beca Excelencia STC/));

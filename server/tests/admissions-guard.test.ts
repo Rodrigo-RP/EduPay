@@ -2,22 +2,20 @@
  * server/tests/admissions-guard.test.ts
  * ─────────────────────────────────────────────────────────────────────────────
  * AUDITORÍA SEGURIDAD — Control ADM: Guard ADMISSIONS.READ
- * en GET /api/admin/admissions-report
+ * en GET /api/reportes/admisiones  (RPT-04)
  *
  * CONTEXTO:
- *   - El guard existía bajo MODULES.SCHOLARSHIPS, ACTIONS.READ.
- *   - Este test verifica que la migración a MODULES.ADMISSIONS, ACTIONS.READ
- *     no cambia el comportamiento observable: los mismos roles que antes
- *     podían acceder siguen accediendo; los mismos que estaban bloqueados
- *     siguen bloqueados.
+ *   R6 (GET /api/admin/admissions-report) fue retirado y reemplazado por RPT-04
+ *   (GET /api/reportes/admisiones).  El guard es idéntico — MODULES.ADMISSIONS,
+ *   ACTIONS.READ — por lo que los mismos roles que accedían antes siguen
+ *   accediendo, y los mismos que estaban bloqueados siguen bloqueados.
  *
- * ROLES CON ADMISSIONS.READ (= podían ver el reporte con SCHOLARSHIPS.READ):
- *   ✓ super_admin           — bypass incondicional
+ * ROLES CON ADMISSIONS.READ:
  *   ✓ administrador_campus  — explícito en permissions.ts
  *   ✓ admisiones            — explícito en permissions.ts
  *   ✓ asistente             — explícito en permissions.ts
  *
- * ROLES SIN ADMISSIONS.READ (= bloqueados antes y ahora):
+ * ROLES SIN ADMISSIONS.READ:
  *   ✗ administrador_general — solo tenía SCHOLARSHIPS.ASSIGN, no READ
  *   ✗ contador_general      — solo tenía SCHOLARSHIPS.ASSIGN, no READ
  *   ✗ auxiliar_contable     — sin entrada SCHOLARSHIPS en absoluto
@@ -29,7 +27,7 @@ import { pool } from "../db";
 
 const BASE       = "http://localhost:5000";
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
-const ENDPOINT   = "/api/admin/admissions-report";
+const ENDPOINT   = "/api/reportes/admisiones"; // RPT-04 (R6 retirado)
 
 const TS = Date.now().toString().slice(-7);
 
@@ -135,9 +133,9 @@ describe("ADM — Regresión de acceso: roles con ADMISSIONS.READ siguen en 200"
     const r    = await GET(token);
     const body = await r.json() as any;
     expect(r.status, `${label}: esperaba 200, recibió ${r.status} — ${JSON.stringify(body)}`).toBe(200);
-    // El reporte siempre devuelve las dos secciones, aunque estén en cero
-    expect(body).toHaveProperty("becas");
-    expect(body).toHaveProperty("inscripciones");
+    // RPT-04 devuelve resumen + alumnos + por_tipo_beca (estructura nueva)
+    expect(body).toHaveProperty("resumen");
+    expect(body).toHaveProperty("alumnos");
   }
 
   it("ADM-05: administrador_campus → 200 con estructura becas+inscripciones (ADMISSIONS.READ)", async () => {

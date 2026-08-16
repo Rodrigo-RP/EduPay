@@ -509,97 +509,11 @@ export function registerAdminRoutes(app: Express): void {
     }
   });
 
-  // ── GET /api/admin/admissions-report ──────────────────────────────────────
-  // Reporte de admisiones con sección de becas reales.
-  // Devuelve: métricas de inscripción + becas activas, monto descontado y
-  // distribución por tipo de beca.
-  app.get("/api/admin/admissions-report", authenticateToken, async (req: any, res) => {
-    try {
-      // ── Guard de rol ──────────────────────────────────────────────────────
-      // Mismo caso que /api/scholarships: nunca auditado por tabla inexistente.
-      if (!hasPermissionForUser(req.user, MODULES.ADMISSIONS, ACTIONS.READ)) {
-        return res.status(403).json({ message: "Sin permisos para consultar reportes de admisiones" });
-      }
-
-      const campusId = req.user?.campus_id;
-      if (!campusId) return res.status(400).json({ message: "Campus ID requerido" });
-
-      // ── Becas activas ──────────────────────────────────────────────────
-      // La tabla scholarships real no tiene columna 'estado' — se cuenta
-      // el total de becas sin filtrar por estado (schema drift documentado).
-      const becasActivasResult = await pool.query(`
-        SELECT COUNT(*)::int                     AS total_activas,
-               COUNT(DISTINCT s.student_id)::int AS alumnos_con_beca
-        FROM scholarships s
-        JOIN students stu ON stu.id = s.student_id
-        WHERE stu.campus_id = $1
-      `, [campusId]).catch((err: any) => {
-        console.error("[GET /api/admin/admissions-report] becasActivas DB error:", err.message);
-        return { rows: [{ total_activas: 0, alumnos_con_beca: 0 }] };
-      });
-
-      // ── Monto total descontado (beca_aplicada > 0) ────────────────────
-      const montoResult = await pool.query(`
-        SELECT COALESCE(SUM(
-          ROUND(c.monto_base_centavos * CAST(c.beca_aplicada AS NUMERIC) / 100)
-        ), 0)::bigint AS monto_total_descuento_centavos
-        FROM charges c
-        JOIN students stu ON stu.id = c.student_id
-        WHERE stu.campus_id = $1 AND CAST(c.beca_aplicada AS NUMERIC) > 0
-      `, [campusId]).catch(() => ({ rows: [{ monto_total_descuento_centavos: 0 }] }));
-
-      // ── Distribución por tipo de beca ─────────────────────────────────
-      // Columnas reales: porcentaje (no porcentaje_aplicado), sin estado.
-      const distribucionResult = await pool.query(`
-        SELECT st.nombre                            AS tipo,
-               st.categoria                         AS categoria,
-               COUNT(*)::int                        AS cantidad,
-               COALESCE(SUM(s.porcentaje), 0)::int  AS porcentaje_total
-        FROM scholarships s
-        JOIN students stu ON stu.id = s.student_id
-        LEFT JOIN scholarship_types st ON st.id = s.scholarship_type_id
-        WHERE stu.campus_id = $1
-        GROUP BY st.id, st.nombre, st.categoria
-        ORDER BY cantidad DESC
-      `, [campusId]).catch((err: any) => {
-        console.error("[GET /api/admin/admissions-report] distribucion DB error:", err.message);
-        return { rows: [] };
-      });
-
-      // ── Inscripciones del ciclo actual ────────────────────────────────
-      const cicloActual = `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
-      const inscripcionesResult = await pool.query(`
-        SELECT COUNT(DISTINCT c.id)::int       AS total,
-               COALESCE(SUM(pa.amount_centavos), 0)::bigint AS monto_centavos
-        FROM payment_applications pa
-        JOIN charges c   ON c.id  = pa.charge_id
-        JOIN concepts co ON co.id = c.concept_id
-        JOIN students stu ON stu.id = c.student_id
-        JOIN payments p  ON p.id  = pa.payment_id
-        WHERE stu.campus_id = $1
-          AND LOWER(co.nombre) LIKE '%inscripci%'
-          AND (c.ciclo_escolar = $2 OR (c.ciclo_escolar IS NULL AND p.created_at >= date_trunc('year', NOW())))
-          AND p.estado = 'exitoso'
-      `, [campusId, cicloActual]).catch(() => ({ rows: [{ total: 0, monto_centavos: 0 }] }));
-
-      res.json({
-        becas: {
-          total_activas:                 becasActivasResult.rows[0].total_activas,
-          alumnos_con_beca:              becasActivasResult.rows[0].alumnos_con_beca,
-          monto_total_descuento_centavos: Number(montoResult.rows[0].monto_total_descuento_centavos),
-          por_tipo:                      distribucionResult.rows,
-        },
-        inscripciones: {
-          total:          inscripcionesResult.rows[0].total,
-          monto_centavos: Number(inscripcionesResult.rows[0].monto_centavos),
-          ciclo:          cicloActual,
-        },
-      });
-    } catch (error: any) {
-      console.error("[admissions-report]", error.message);
-      if (!res.headersSent) res.status(500).json({ message: "Error en reporte de admisiones" });
-    }
-  });
+  // R6 — GET /api/admin/admissions-report
+  // RETIRADO. Migrado a RPT-04: GET /api/reportes/admisiones
+  // (server/routes/reportes-admisiones.ts)
+  // Agrega filtros ciclo/nivel/estado/fecha_desde/fecha_hasta,
+  // ADMISSIONS.READ guard, y POST /api/reportes/admisiones/exportar.
 
   // Create new student
   app.post("/api/admin/students", authenticateToken, async (req, res) => {

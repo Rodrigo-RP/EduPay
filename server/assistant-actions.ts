@@ -11,6 +11,7 @@
 
 import { pool } from "./db";
 import { runAllProbes } from "./assistant-validation";
+import type { SuggestActionSignal, SuggestActionTrigger } from "./assistant-knowledge";
 
 // ── Tipos públicos ────────────────────────────────────────────────────────────
 
@@ -655,4 +656,201 @@ export async function executeAction(
     default:
       return { success: false, title: "Acción no reconocida", summary: "No entendí qué necesitas. Puedes preguntarme por alumnos, becas, pagos, cargos o el resumen financiero." };
   }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// N4/N5 — Resolución de contexto para acciones con confirmación
+// ══════════════════════════════════════════════════════════════════════════════
+
+export type SuggestContextResult =
+  | { kind: "signal";        signal: SuggestActionSignal }
+  | { kind: "clarification"; reply: string }
+  | null;
+
+/** Resuelve el contexto completo desde la DB para una intención de escritura.
+ *  NUNCA ejecuta nada — solo consulta y construye la señal de sugerencia.
+ *
+ *  Devuelve:
+ *   - `{ kind: "signal" }`        → 1 coincidencia exacta, lista para confirmar.
+ *   - `{ kind: "clarification" }` → ambigüedad, explica al usuario qué especificar.
+ *   - `null`                      → sin coincidencias, caer a matchIntent. */
+export async function resolveSuggestContext(
+  trigger: SuggestActionTrigger,
+  ctx: { campusId: number; tenantId: number }
+): Promise<SuggestContextResult> {
+  const { campusId, tenantId } = ctx;
+
+  // ── pagar_manual ──────────────────────────────────────────────────────────
+  if (trigger.action === "pagar_manual" && trigger.nombre) {
+    const pattern = `%${trigger.nombre.trim()}%`;
+    const { rows } = await pool.query(
+      `SELECT c.id, c.monto_base_centavos, c.fecha_vencimiento,
+              con.nombre AS concepto, s.nombre_completo AS alumno
+       FROM charges c
+       JOIN students s ON s.id = c.student_id
+       LEFT JOIN concepts con ON con.id = c.concept_id
+       WHERE s.campus_id = $1
+         AND c.tenant_id = $2
+         AND c.estado    = 'pendiente'
+         AND s.nombre_completo ILIKE $3
+       ORDER BY c.fecha_vencimiento ASC
+       LIMIT 10`,
+      [campusId, tenantId, pattern]
+    );
+
+    if (rows.length === 0) return null;
+
+    if (rows.length > 1) {
+      const lista = rows
+        .map((r: any, i: number) => {
+          const monto = `$${(Number(r.monto_base_centavos) / 100).toLocaleString("es-MX")}`;
+          const vence = r.fecha_vencimiento
+            ? new Date(r.fecha_vencimiento).toLocaleDateString("es-MX")
+            : "";
+          return `${i + 1}. ${r.concepto ?? "Cargo"} — ${monto}${vence ? ` (vence ${vence})` : ""}`;
+        })
+        .join("\n");
+      return {
+        kind: "clarification",
+        reply:
+          `Encontré ${rows.length} cargos pendientes de **${rows[0].alumno}**. ` +
+          `Especifica cuál quieres pagar:\n\n${lista}\n\nEscribe el número o el concepto exacto.`,
+      };
+    }
+
+    const cargo = rows[0] as any;
+    const monto = `$${(Number(cargo.monto_base_centavos) / 100).toLocaleString("es-MX")}`;
+    return {
+      kind: "signal",
+      signal: {
+        action:   "pagar_manual",
+        endpoint: `/api/admin/charges/${cargo.id}/pagar-manual`,
+        body:     { metodo: "efectivo" },
+        label:    "Registrar pago manual",
+        contexto: {
+          alumno:   cargo.alumno,
+          monto,
+          concepto: cargo.concepto ?? "Cargo pendiente",
+          cargo_id: cargo.id,
+        },
+      },
+    };
+  }
+
+  // ── resolver_excepcion ────────────────────────────────────────────────────
+  if (trigger.action === "resolver_excepcion") {
+    const txParams: any[] = [campusId];
+    let whereExtra = "";
+    if (trigger.monto_centavos) {
+      txParams.push(trigger.monto_centavos);
+      whereExtra += ` AND ABS(bt.monto_centavos - $${txParams.length}) <= 200`;
+    }
+    if (trigger.referencia) {
+      txParams.push(`%${trigger.referencia}%`);
+      whereExtra += ` AND bt.referencia ILIKE $${txParams.length}`;
+    }
+
+    const { rows: txRows } = await pool.query(
+      `SELECT bt.id, bt.monto_centavos, bt.referencia, bt.nombre_ordenante, bt.fecha
+       FROM bank_transactions bt
+       WHERE bt.campus_id = $1
+         AND bt.estado_conciliacion = 'pendiente'
+         AND bt.tipo = 'credito'
+         ${whereExtra}
+       ORDER BY bt.fecha DESC
+       LIMIT 5`,
+      txParams
+    );
+
+    if (txRows.length === 0) return null;
+
+    if (txRows.length > 1) {
+      const lista = (txRows as any[])
+        .map((tx, i) => {
+          const m = `$${(Number(tx.monto_centavos) / 100).toLocaleString("es-MX")}`;
+          return `${i + 1}. ${m} — ${tx.nombre_ordenante ?? "sin nombre"} (ref: ${tx.referencia ?? "—"})`;
+        })
+        .join("\n");
+      return {
+        kind: "clarification",
+        reply:
+          `Encontré ${txRows.length} transacciones pendientes. Especifica cuál conciliar:\n\n${lista}` +
+          `\n\nEscribe el número de referencia o el monto exacto.`,
+      };
+    }
+
+    const tx = txRows[0] as any;
+
+    // Buscar el mejor cargo pendiente por monto (±$1 = tolerancia del endpoint resolver)
+    const { rows: chargeRows } = await pool.query(
+      `SELECT c.id,
+              ROUND(c.monto_base_centavos * (1 - COALESCE(c.beca_aplicada,0)::numeric/100))
+                + COALESCE(c.recargo_aplicado_centavos,0) AS monto_neto,
+              con.nombre AS concepto, s.nombre_completo AS alumno
+       FROM charges c
+       JOIN students s ON s.id = c.student_id
+       LEFT JOIN concepts con ON con.id = c.concept_id
+       WHERE s.campus_id = $1
+         AND c.tenant_id = $2
+         AND c.estado    = 'pendiente'
+         AND ABS(
+               ROUND(c.monto_base_centavos * (1 - COALESCE(c.beca_aplicada,0)::numeric/100))
+                 + COALESCE(c.recargo_aplicado_centavos,0)
+               - $3
+             ) <= 100
+       ORDER BY c.fecha_vencimiento ASC
+       LIMIT 5`,
+      [campusId, tenantId, Number(tx.monto_centavos)]
+    );
+
+    if (chargeRows.length === 0) {
+      const montoTx = `$${(Number(tx.monto_centavos) / 100).toLocaleString("es-MX")}`;
+      return {
+        kind: "clarification",
+        reply:
+          `Encontré una transacción de **${montoTx}** de ${tx.nombre_ordenante ?? "banco"}, ` +
+          `pero no hay ningún cargo pendiente con ese monto exacto. ` +
+          `Revisa la bandeja de excepciones para aplicarla manualmente.`,
+      };
+    }
+
+    if (chargeRows.length > 1) {
+      const lista = (chargeRows as any[])
+        .map((c, i) =>
+          `${i + 1}. ${c.alumno} — ${c.concepto ?? "Cargo"} ($${(Number(c.monto_neto) / 100).toLocaleString("es-MX")})`
+        )
+        .join("\n");
+      return {
+        kind: "clarification",
+        reply:
+          `Hay ${chargeRows.length} cargos pendientes con ese monto. Especifica a cuál aplicar:\n\n${lista}` +
+          `\n\nEscribe el nombre del alumno.`,
+      };
+    }
+
+    const cargo    = chargeRows[0] as any;
+    const montoTx  = `$${(Number(tx.monto_centavos)     / 100).toLocaleString("es-MX")}`;
+    const montoC   = `$${(Number(cargo.monto_neto)       / 100).toLocaleString("es-MX")}`;
+
+    return {
+      kind: "signal",
+      signal: {
+        action:   "resolver_excepcion",
+        endpoint: `/api/conciliacion/excepciones/${tx.id}/resolver`,
+        body:     { accion: "aplicar", charge_id: cargo.id },
+        label:    "Aplicar excepción bancaria al cargo",
+        contexto: {
+          banco:     tx.nombre_ordenante ?? "SPEI",
+          monto:     montoTx,
+          referencia: tx.referencia ?? undefined,
+          tx_id:     tx.id,
+          alumno:    cargo.alumno,
+          concepto:  `${cargo.concepto ?? "Cargo"} (${montoC})`,
+          cargo_id:  cargo.id,
+        },
+      },
+    };
+  }
+
+  return null;
 }

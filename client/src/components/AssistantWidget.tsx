@@ -54,6 +54,24 @@ interface ActionResult {
   rows?: ActionResultRow[];
 }
 
+/** Señal N4/N5: el servidor reconoció una intención de escritura supervisada.
+ *  El widget muestra el contexto al usuario ANTES de confirmar cualquier acción. */
+interface SuggestActionSignal {
+  action: "pagar_manual" | "resolver_excepcion";
+  endpoint: string;
+  body: Record<string, any>;
+  label: string;
+  contexto: {
+    alumno?: string;
+    monto?: string;
+    concepto?: string;
+    cargo_id?: number;
+    banco?: string;
+    referencia?: string;
+    tx_id?: number;
+  };
+}
+
 /** Señal N3: el servidor reconoció una intención de exportación.
  *  El widget hace fetch + blob + anchor-download con estos datos. */
 interface ExportSignal {
@@ -82,6 +100,8 @@ interface ChatMessage {
   actionResult?: ActionResult;
   /** N3: señal de exportación de reporte */
   export?: ExportSignal;
+  /** N4/N5: señal de acción con confirmación */
+  suggest?: SuggestActionSignal;
   ts: number;
 }
 
@@ -93,6 +113,8 @@ interface AssistantResponse {
   actionResult?: ActionResult;
   /** N3: señal de exportación */
   export?: ExportSignal;
+  /** N4/N5: señal de acción con confirmación */
+  suggest?: SuggestActionSignal;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -199,6 +221,96 @@ function ExportCard({ signal }: { signal: ExportSignal }) {
         <div className="flex items-center gap-1.5 text-red-600">
           <XCircle className="w-3 h-3" />
           {errMsg}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Subcomponente: SuggestActionCard (N4/N5) ─────────────────────────────────
+
+function SuggestActionCard({ signal }: { signal: SuggestActionSignal }) {
+  const [phase, setPhase] = useState<"idle" | "confirming" | "done" | "error" | "dismissed">("idle");
+  const [errMsg, setErrMsg] = useState("");
+
+  async function confirm() {
+    setPhase("confirming");
+    try {
+      const token = localStorage.getItem("auth_token") ?? "";
+      const res   = await fetch(signal.endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(signal.body),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as any).message || `Error ${res.status}`);
+      }
+      setPhase("done");
+    } catch (e: any) {
+      setErrMsg(e.message ?? "Error al ejecutar la acción");
+      setPhase("error");
+    }
+  }
+
+  if (phase === "dismissed") return null;
+
+  const ctx = signal.contexto;
+  return (
+    <div className="rounded-xl border p-3 text-xs max-w-[260px] bg-amber-50 border-amber-200">
+      {/* Encabezado */}
+      <div className="flex items-center gap-1.5 mb-2.5">
+        <AlertTriangle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+        <span className="font-semibold text-slate-800 leading-tight">{signal.label}</span>
+      </div>
+
+      {/* Contexto — el usuario ve esto ANTES de confirmar */}
+      <div className="space-y-0.5 mb-3 text-slate-700 leading-relaxed">
+        {ctx.alumno    && <div><span className="font-medium">Alumno:</span> {ctx.alumno}</div>}
+        {ctx.monto     && <div><span className="font-medium">Monto:</span> {ctx.monto}</div>}
+        {ctx.concepto  && <div><span className="font-medium">Concepto:</span> {ctx.concepto}</div>}
+        {ctx.banco     && <div><span className="font-medium">Banco:</span> {ctx.banco}</div>}
+        {ctx.referencia && <div><span className="font-medium">Referencia:</span> {ctx.referencia}</div>}
+      </div>
+
+      {/* Acciones */}
+      {phase === "idle" && (
+        <div className="flex gap-2">
+          <button
+            onClick={confirm}
+            className="flex-1 px-2 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium rounded-full transition-colors"
+          >
+            Confirmar acción
+          </button>
+          <button
+            onClick={() => setPhase("dismissed")}
+            className="px-2 py-1.5 bg-white border border-slate-300 text-slate-600 text-xs rounded-full hover:bg-slate-50 transition-colors"
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+      {phase === "confirming" && (
+        <div className="flex items-center gap-1.5 text-amber-700">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          Ejecutando…
+        </div>
+      )}
+      {phase === "done" && (
+        <div className="flex items-center gap-1.5 text-green-700">
+          <CheckCircle2 className="w-3 h-3" />
+          Acción ejecutada correctamente
+        </div>
+      )}
+      {phase === "error" && (
+        <div>
+          <div className="flex items-center gap-1.5 text-red-600 mb-1">
+            <XCircle className="w-3 h-3" />
+            <span className="break-words">{errMsg}</span>
+          </div>
+          <button onClick={() => setPhase("idle")} className="text-[10px] text-red-500 underline">
+            Reintentar
+          </button>
         </div>
       )}
     </div>
@@ -568,7 +680,8 @@ export default function AssistantWidget() {
             }
           : {}),
         ...(data.actionResult ? { actionResult: data.actionResult } : {}),
-        ...(data.export     ? { export: data.export }             : {}),
+        ...(data.export   ? { export:   data.export   } : {}),
+        ...(data.suggest  ? { suggest: data.suggest  } : {}),
         ts: Date.now(),
       };
       setMessages((prev) => [...prev, assistantMsg]);
@@ -677,6 +790,11 @@ export default function AssistantWidget() {
                       <Loader2 className="w-3 h-3 animate-spin" />
                       Ejecutando pruebas…
                     </div>
+                  )}
+
+                  {/* N4/N5: tarjeta de acción con confirmación */}
+                  {msg.suggest && (
+                    <SuggestActionCard signal={msg.suggest} />
                   )}
 
                   {/* N3: tarjeta de exportación de reporte */}

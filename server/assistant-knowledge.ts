@@ -814,6 +814,92 @@ export function matchIntent(
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// N4/N5 — Acciones con confirmación desde el asistente
+// ══════════════════════════════════════════════════════════════════════════════
+
+/** Señal que el asistente devuelve al frontend cuando reconoció una intención
+ *  de escritura. El widget muestra el contexto al usuario y le pide confirmación
+ *  ANTES de disparar cualquier llamada HTTP al endpoint real. */
+export interface SuggestActionSignal {
+  action: "pagar_manual" | "resolver_excepcion";
+  /** Endpoint completo con IDs embebidos, listo para el POST del widget */
+  endpoint: string;
+  /** Body para el POST */
+  body: Record<string, any>;
+  /** Etiqueta de la acción para mostrar al usuario */
+  label: string;
+  /** Contexto resuelto desde la DB — el usuario ve esto antes de confirmar */
+  contexto: {
+    alumno?: string;
+    monto?: string;
+    concepto?: string;
+    cargo_id?: number;
+    banco?: string;
+    referencia?: string;
+    tx_id?: number;
+  };
+}
+
+/** Resultado interno del detector de disparadores (puro, sin DB). */
+export interface SuggestActionTrigger {
+  action: "pagar_manual" | "resolver_excepcion";
+  /** Nombre del alumno extraído del mensaje (para pagar_manual) */
+  nombre?: string;
+  /** Monto en centavos extraído del mensaje (para resolver_excepcion) */
+  monto_centavos?: number;
+  /** Referencia bancaria extraída del mensaje (para resolver_excepcion) */
+  referencia?: string;
+}
+
+/** Forma A — solo regex/keywords, sin DB, sin IA externa.
+ *  Mismo patrón que detectExportIntent y detectActionIntent.
+ *
+ *  Retorna `null` cuando:
+ *  - No hay trigger de escritura supervisada en el mensaje.
+ *  El caller (assistant.ts) llama a resolveSuggestContext() solo si no null. */
+export function detectSuggestTrigger(message: string): SuggestActionTrigger | null {
+  const n = normalize(message);
+
+  // ── pagar_manual ──────────────────────────────────────────────────────────
+  // Triggers: "marcar como pagado a X", "registrar pago manual de X",
+  //           "pago manual de X", "ya pagó X", "cobré a X", "pagar cargo de X"
+  const PAGO_RE =
+    /(?:marcar?\s+(?:como\s+)?pagad[oa]|registrar?\s+pago\s+manual|pago\s+manual|ya\s+pag[oó]|cobr[eé]\s+(?:a\s+)?|pagar?\s+(?:el\s+)?cargo\s+de|marca\s+(?:como\s+)?pagad[oa])\s+(?:a\s+|de\s+|del?\s+alumno\s+)?(.{2,40})/i;
+  // Detectar en normalizado (sin acentos) para trigger-matching,
+  // pero extraer el nombre del mensaje ORIGINAL para preservar acentos en la
+  // query ILIKE que hace la resolución en DB.
+  if (PAGO_RE.test(n)) {
+    const rawMatch = message.match(PAGO_RE);
+    const nombre = (rawMatch?.[1] ?? "")
+      .replace(/\s+con\b.*/i, "")
+      .replace(/\s+por\b.*/i, "")
+      .replace(/\s+en\b.*/i, "")
+      .trim();
+    if (nombre.length >= 2) return { action: "pagar_manual", nombre };
+  }
+
+  // ── resolver_excepcion ────────────────────────────────────────────────────
+  // Triggers: "concilia la excepción/transacción", "aplica el SPEI/pago bancario",
+  //           "aplica la transacción de $X", "resolver excepción"
+  const RESOL_RE =
+    /(?:concilia(?:r)?|aplica(?:r)?\s+(?:la\s+)?(?:transacci[oó]n|excepci[oó]n|(?:el\s+)?pago\s+(?:bancario|spei)|(?:el\s+)?spei)|resolver?\s+(?:la\s+)?excepci[oó]n)/;
+  if (RESOL_RE.test(n)) {
+    // Extraer monto del mensaje ORIGINAL (normalize() elimina $ y comas)
+    // Acepta: "$3,500" | "$1200" | "3500 pesos" | "1,200 MXN"
+    const montoMatch = message.match(/\$\s*([\d,]+(?:\.\d{1,2})?)|(?:^|\s)([\d,]{3,})\s*(?:pesos?|mxn)/i);
+    const rawMonto = montoMatch?.[1] ?? montoMatch?.[2];
+    const monto_centavos = rawMonto
+      ? Math.round(parseFloat(rawMonto.replace(/,/g, "")) * 100)
+      : undefined;
+    // Extraer referencia bancaria del original también (alfanumérico ≥6 chars)
+    const refMatch = message.match(/referencia\s+([A-Z0-9]{6,})/i);
+    return { action: "resolver_excepcion", monto_centavos, referencia: refMatch?.[1] };
+  }
+
+  return null;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // N3 — Exportación desde el asistente
 // ══════════════════════════════════════════════════════════════════════════════
 

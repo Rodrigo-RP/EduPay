@@ -279,10 +279,57 @@ export default function ReporteConsejo() {
             </CardContent>
           </Card>
 
-          {/* Nota de cierre */}
-          <div className="bg-slate-50 rounded-lg p-4 text-sm text-slate-600 border">
-            <p className="font-medium text-slate-800 mb-1">Nota del contador:</p>
-            <p>{r.nota_contador || `Este reporte corresponde al período ${mesNombre} ${anio}. Los datos reflejan el estado de cobranza al cierre del período. Se recomienda revisar los convenios de pago vigentes y dar seguimiento prioritario a los ${topDeudores.length || 10} casos identificados en rojo.`}</p>
+          {/* Panel narrativo — Análisis del período */}
+          <div className="rounded-lg border bg-white shadow-sm">
+            <div className="flex items-center gap-2 px-4 pt-4 pb-2">
+              <svg className="w-4 h-4 text-indigo-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+              </svg>
+              <span className="text-sm font-semibold text-slate-800">Análisis del período</span>
+            </div>
+            <div className="px-4 pb-4">
+              {(!r.insights || r.insights.length === 0) ? (
+                <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-md px-3 py-2">
+                  <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>Sin alertas relevantes este período — todos los indicadores dentro del rango saludable.</span>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {(r.insights as any[]).map((insight: any, i: number) => (
+                    <div
+                      key={i}
+                      className={`flex items-start gap-3 pl-3 border-l-4 rounded-r-sm ${
+                        insight.severidad === "critico"
+                          ? "border-red-500 bg-red-50/60"
+                          : insight.severidad === "atencion"
+                          ? "border-amber-400 bg-amber-50/60"
+                          : "border-blue-400 bg-blue-50/40"
+                      } py-2 pr-3`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-slate-700 leading-snug">{insight.texto}</p>
+                        <p className={`text-xs mt-0.5 font-medium ${
+                          insight.severidad === "critico" ? "text-red-600" :
+                          insight.severidad === "atencion" ? "text-amber-600" : "text-blue-600"
+                        }`}>
+                          {insight.dato_label}: <span className="tabular-nums">{insight.dato_numerico}</span>
+                        </p>
+                      </div>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 mt-0.5 ${
+                        insight.severidad === "critico"
+                          ? "bg-red-100 text-red-700"
+                          : insight.severidad === "atencion"
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-blue-100 text-blue-700"
+                      }`}>
+                        {insight.severidad === "critico" ? "Crítico" :
+                         insight.severidad === "atencion" ? "Atención" : "Info"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </>
       )}

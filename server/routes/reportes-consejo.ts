@@ -41,6 +41,7 @@ import {
   filenameFor,
   type ReportExportRequest,
 } from "../lib/report-exporter";
+import { generateNarrativeInsights } from "../lib/narrative-insights";
 
 // ─── tipos ────────────────────────────────────────────────────────────────────
 
@@ -83,6 +84,25 @@ function buildChargeFilters(p: ConsejoParams, startIdx: number) {
   return { clauses, vals, nextIdx: i };
 }
 
+// ─── helper: mes anterior ─────────────────────────────────────────────────────
+
+/**
+ * Devuelve el primer y último día del mes anterior a fecha_desde
+ * (o al mes actual si no se proporciona fecha_desde).
+ *
+ * Ejemplo: fecha_desde="2026-08-01" → { start:"2026-07-01", end:"2026-07-31" }
+ */
+function prevMonthRange(fechaDesde?: string): { start: string; end: string } {
+  const ref = fechaDesde
+    ? new Date(fechaDesde + "T12:00:00Z")
+    : new Date();
+  // Date.UTC(year, month, 0) = último día del mes anterior (month es 0-indexed)
+  const prevLast  = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), 0));
+  const prevFirst = new Date(Date.UTC(prevLast.getUTCFullYear(), prevLast.getUTCMonth(), 1));
+  const fmt = (d: Date) => d.toISOString().split("T")[0];
+  return { start: fmt(prevFirst), end: fmt(prevLast) };
+}
+
 // ─── núcleo de datos ──────────────────────────────────────────────────────────
 
 async function fetchConsejoData(campusId: number, p: ConsejoParams) {
@@ -106,36 +126,69 @@ async function fetchConsejoData(campusId: number, p: ConsejoParams) {
     WHERE  s.campus_id = $1
     ${facF.clauses.length ? "AND " + facF.clauses.join(" AND ") : ""}`;
 
+  // ── mes anterior (para KPIs comparativos + NI-04) ─────────────────────────
+  const prev = prevMonthRange(p.fecha_desde);
+
   // ── consultas paralelas ─────────────────────────────────────────────────────
-  const [ingRows, estudRows, facRows, becasRows, conveniosRows] = await Promise.all([
-    pool.query(ingSQL, [campusId, ...ingF.vals]),
-    pool.query(
-      `SELECT COUNT(*) AS total FROM students WHERE campus_id = $1 AND status = 'activo'`,
-      [campusId],
-    ),
-    pool.query(facSQL, [campusId, ...facF.vals]),
-    pool.query(
-      `SELECT COUNT(DISTINCT sh.student_id) AS total
-       FROM   scholarships sh
-       JOIN   students     stu ON stu.id = sh.student_id
-       WHERE  stu.campus_id = $1
-         AND  sh.vigencia_inicio <= CURRENT_DATE
-         AND  sh.vigencia_fin    >= CURRENT_DATE`,
-      [campusId],
-    ).catch((err: any) => {
-      console.error("[RPT-05/consejo] becas_aplicadas error:", err.message);
-      return { rows: [{ total: 0 }] };
-    }),
-    pool.query(
-      `SELECT COUNT(*) AS total FROM payment_plans WHERE campus_id = $1 AND estado = 'activo'`,
-      [campusId],
-    ),
-  ]);
+  const [ingRows, estudRows, facRows, becasRows, conveniosRows, prevIngRows, prevFacRows] =
+    await Promise.all([
+      pool.query(ingSQL, [campusId, ...ingF.vals]),
+      pool.query(
+        `SELECT COUNT(*) AS total FROM students WHERE campus_id = $1 AND status = 'activo'`,
+        [campusId],
+      ),
+      pool.query(facSQL, [campusId, ...facF.vals]),
+      pool.query(
+        `SELECT COUNT(DISTINCT sh.student_id) AS total
+         FROM   scholarships sh
+         JOIN   students     stu ON stu.id = sh.student_id
+         WHERE  stu.campus_id = $1
+           AND  sh.vigencia_inicio <= CURRENT_DATE
+           AND  sh.vigencia_fin    >= CURRENT_DATE`,
+        [campusId],
+      ).catch((err: any) => {
+        console.error("[RPT-05/consejo] becas_aplicadas error:", err.message);
+        return { rows: [{ total: 0 }] };
+      }),
+      pool.query(
+        `SELECT COUNT(*) AS total FROM payment_plans WHERE campus_id = $1 AND estado = 'activo'`,
+        [campusId],
+      ),
+      // Ingresos del mes anterior (pagos registrados en ese período)
+      pool.query(
+        `SELECT COALESCE(SUM(p.monto_centavos), 0) AS total
+         FROM   payments p
+         JOIN   charges  c ON c.id = p.charge_id
+         JOIN   students s ON s.id = c.student_id
+         WHERE  s.campus_id = $1
+           AND  p.created_at::date >= $2
+           AND  p.created_at::date <= $3`,
+        [campusId, prev.start, prev.end],
+      ).catch(() => ({ rows: [{ total: 0 }] })),
+      // Facturado del mes anterior (cargos creados en ese período)
+      pool.query(
+        `SELECT COALESCE(SUM(c.monto_base_centavos), 0) AS total
+         FROM   charges  c
+         JOIN   students s ON s.id = c.student_id
+         WHERE  s.campus_id = $1
+           AND  c.created_at::date >= $2
+           AND  c.created_at::date <= $3`,
+        [campusId, prev.start, prev.end],
+      ).catch(() => ({ rows: [{ total: 0 }] })),
+    ]);
 
   const ingresos  = Number((ingRows.rows[0]  as any)?.total || 0);
   const facturado = Number((facRows.rows[0]  as any)?.total || 0);
   const pendiente = Math.max(0, facturado - ingresos);
   const tasaCobro = facturado > 0 ? Math.round((ingresos / facturado) * 100) : 0;
+
+  // Mes anterior — cálculo real (elimina los valores hardcodeados anteriores)
+  const prevIngresos  = Number((prevIngRows.rows[0] as any)?.total || 0);
+  const prevFacturado = Number((prevFacRows.rows[0] as any)?.total || 0);
+  const tasa_cobro_anterior: number | null =
+    prevFacturado > 0 ? Math.round((prevIngresos / prevFacturado) * 100) : null;
+  const mora_ant =
+    tasa_cobro_anterior !== null ? 100 - tasa_cobro_anterior : 100 - tasaCobro;
 
   // ── top 10 deudores (estado actual, sin filtro de período) ─────────────────
   const topRows = await pool.query(`
@@ -174,14 +227,14 @@ async function fetchConsejoData(campusId: number, p: ConsejoParams) {
   return {
     kpis: {
       ingresos_mes:          ingresos,
-      ingresos_mes_anterior: Math.round(ingresos * 0.92),
+      ingresos_mes_anterior: prevIngresos,      // real — antes: Math.round(ingresos * 0.92)
       total_facturado:       facturado,
       pendiente,
       vencido:               Math.round(pendiente * 0.4),
       tasa_cobro:            tasaCobro,
       meta_cobro:            85,
       mora:                  100 - tasaCobro,
-      mora_anterior:         Math.max(0, 100 - tasaCobro + 3),
+      mora_anterior:         mora_ant,          // real — antes: Math.max(0, 100 - tasaCobro + 3)
       estudiantes_activos:   Number((estudRows.rows[0]    as any)?.total || 0),
       nuevos_ingresos:       0,
       cfdi_emitidos:         0,
@@ -200,8 +253,9 @@ async function fetchConsejoData(campusId: number, p: ConsejoParams) {
       cobrado: Number(r.cobrado || 0),
       total:   Number(r.total   || 0),
     })),
-    tendencias: [],
-    filters: p,
+    tendencias:          [],
+    filters:             p,
+    tasa_cobro_anterior,  // interno — el GET handler lo extrae antes de responder
   };
 }
 
@@ -225,7 +279,14 @@ export function registerReportesConsejoRoutes(app: Express) {
         fecha_hasta: req.query.fecha_hasta ? String(req.query.fecha_hasta) : undefined,
       };
       const data = await fetchConsejoData(campusId, p);
-      res.json(data);
+      // Extraer tasa_cobro_anterior (interno) antes de responder
+      const { tasa_cobro_anterior, ...responseData } = data;
+      const insights = await generateNarrativeInsights(
+        campusId,
+        { tasa_cobro: responseData.kpis.tasa_cobro },
+        tasa_cobro_anterior,
+      );
+      res.json({ ...responseData, insights });
     } catch (error: any) {
       console.error("[RPT-05] GET /api/reportes/consejo:", error.message);
       res.status(500).json({ message: "Error interno del servidor" });

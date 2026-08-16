@@ -1,5 +1,5 @@
 /**
- * CF-EXPORT — guard de rol en los 3 endpoints de exportación masiva de datos
+ * CF-EXPORT — guard de rol en los endpoints de exportación masiva de datos
  *
  * Antes del fix: solo authenticateToken — cualquier rol descargaba padrón
  * completo de alumnos (nombre_completo, CURP, matrícula).
@@ -10,20 +10,22 @@
  * Roles SIN permiso: asistente, auxiliar_contable
  *
  * Endpoints cubiertos:
- *   GET /api/export/:type                    (payments.ts — type=conceptos únicamente)
- *   GET /api/export-legacy/:type             → SPA fallback (ruta eliminada)
+ *   GET /api/export/:type        → ELIMINADO (#182). El único case útil era
+ *                                  'conceptos'; sin cases, se eliminó el endpoint.
+ *                                  SPA fallback responde; garantía = no xlsx.
+ *   GET /api/export-legacy/:type → SPA fallback (ruta eliminada)
  *   GET /api/admin/students/:campusId/export → SPA fallback (R4 retirado, migrado a RPT-02)
- *   GET /api/charges/export                  (guardian.ts)
+ *   GET /api/charges/export      (guardian.ts — activo)
  *
- * EXP-01  /api/export/:type sin token → 401
- * EXP-02  /api/export/:type rol asistente → 403
- * EXP-03  /api/export/:type rol auxiliar_contable → 403
- * EXP-04  /api/export/estudiantes → 400 (type=estudiantes retirado, migrado a RPT-02)
- * EXP-05  /api/export/:type rol contador_general + type=conceptos → 200 + xlsx
- * EXP-06  /api/export-legacy/:type → no xlsx (ruta eliminada)
- * EXP-07  /api/admin/students/:campusId/export → no xlsx (R4 retirado, migrado a RPT-02)
- * EXP-08  /api/admin/students/:campusId/export → no xlsx (R4 retirado)
- * EXP-09  /api/admin/students/:campusId/export → no xlsx (R4 retirado)
+ * EXP-01  /api/export/conceptos sin token    → no xlsx (endpoint eliminado)
+ * EXP-02  /api/export/conceptos asistente    → no xlsx (endpoint eliminado)
+ * EXP-03  /api/export/conceptos auxiliar     → no xlsx (endpoint eliminado)
+ * EXP-04  /api/export/estudiantes admin      → no xlsx (endpoint eliminado)
+ * EXP-05  /api/export/conceptos contador     → no xlsx (endpoint eliminado; era 200+xlsx)
+ * EXP-06  /api/export-legacy/:type           → no xlsx (ruta eliminada)
+ * EXP-07  /api/admin/students/:id/export     → no xlsx (R4 retirado, migrado a RPT-02)
+ * EXP-08  /api/admin/students/:id/export     → no xlsx (R4 retirado)
+ * EXP-09  /api/admin/students/:id/export     → no xlsx (R4 retirado)
  * EXP-10  /api/charges/export sin token → 401
  * EXP-11  /api/charges/export rol asistente → 403
  * EXP-12  /api/charges/export rol auxiliar_contable → 403
@@ -108,35 +110,38 @@ afterAll(async () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 describe("CF-EXPORT — guard de rol en endpoints de exportación masiva", () => {
 
-  // ── GET /api/export/:type ─────────────────────────────────────────────────
+  // ── GET /api/export/:type — ELIMINADO (#182) ─────────────────────────────
+  // El endpoint fue retirado porque su único case útil ('conceptos') no tenía
+  // flujo contable real. El SPA responde en su lugar; garantía = no xlsx.
 
-  it("EXP-01: /api/export/:type sin token → 401", async () => {
-    const { status } = await apiGet("/api/export/estudiantes");
-    expect(status).toBe(401);
+  it("EXP-01: /api/export/conceptos sin token → no xlsx (endpoint eliminado)", async () => {
+    const { contentType } = await apiGet("/api/export/conceptos");
+    expect(contentType).not.toContain("spreadsheetml");
+    expect(contentType).not.toContain("octet-stream");
   });
 
-  it("EXP-02: /api/export/:type rol asistente → 403", async () => {
-    const { status, body } = await apiGet("/api/export/estudiantes", tokAsistente);
-    expect(status).toBe(403);
-    expect(body?.message).toMatch(/permiso/i);
+  it("EXP-02: /api/export/conceptos rol asistente → no xlsx (endpoint eliminado)", async () => {
+    const { contentType } = await apiGet("/api/export/conceptos", tokAsistente);
+    expect(contentType).not.toContain("spreadsheetml");
+    expect(contentType).not.toContain("octet-stream");
   });
 
-  it("EXP-03: /api/export/:type rol auxiliar_contable → 403", async () => {
-    const { status } = await apiGet("/api/export/estudiantes", tokAuxiliar);
-    expect(status).toBe(403);
+  it("EXP-03: /api/export/conceptos rol auxiliar_contable → no xlsx (endpoint eliminado)", async () => {
+    const { contentType } = await apiGet("/api/export/conceptos", tokAuxiliar);
+    expect(contentType).not.toContain("spreadsheetml");
+    expect(contentType).not.toContain("octet-stream");
   });
 
-  it("EXP-04: /api/export/estudiantes → 400 (type retirado; migrado a POST /api/reportes/estudiantes/exportar)", async () => {
-    // El case 'estudiantes' fue eliminado del switch; cae al default → 400.
-    // La exportación de alumnos vive ahora en RPT-02.
-    const { status } = await apiGet("/api/export/estudiantes", tokAdminCampus);
-    expect(status).toBe(400);
+  it("EXP-04: /api/export/estudiantes admin → no xlsx (endpoint eliminado; exportación migrada a RPT-02)", async () => {
+    const { contentType } = await apiGet("/api/export/estudiantes", tokAdminCampus);
+    expect(contentType).not.toContain("spreadsheetml");
+    expect(contentType).not.toContain("octet-stream");
   });
 
-  it("EXP-05: /api/export/:type rol contador_general → 200", async () => {
-    const { status, contentType } = await apiGet("/api/export/conceptos", tokContador);
-    expect(status).toBe(200);
-    expect(contentType).toContain("spreadsheetml");
+  it("EXP-05: /api/export/conceptos contador → no xlsx (endpoint eliminado; antes devolvía 200+xlsx)", async () => {
+    const { contentType } = await apiGet("/api/export/conceptos", tokContador);
+    expect(contentType).not.toContain("spreadsheetml");
+    expect(contentType).not.toContain("octet-stream");
   });
 
   // ── Ruta legacy eliminada ─────────────────────────────────────────────────

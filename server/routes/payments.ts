@@ -1094,48 +1094,10 @@ export function registerPaymentRoutes(app: Express): void {
     }
   });
 
-  // Export data to Excel
-  app.get("/api/export/:type", authenticateToken, async (req, res) => {
-    try {
-      const role = (req as any).user?.role;
-      if (!hasPermissionForUser((req as any).user, MODULES.REPORTS, ACTIONS.EXPORT)) {
-        return res.status(403).json({ message: "No tienes permiso para exportar datos" });
-      }
-      const { type } = req.params;
-      const campusId = (req as any).user?.campus_id;
-
-      if (!campusId) {
-        return res.status(400).json({ message: "Campus ID requerido" });
-      }
-
-      let data: any[] = [];
-      let filename = "export";
-
-      switch (type) {
-        case 'conceptos':
-          data = await storage.getConceptsByCampus(campusId);
-          filename = "conceptos";
-          break;
-        default:
-          return res.status(400).json({ message: "Tipo de exportación no válido" });
-      }
-
-      // Create Excel workbook
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(data);
-      XLSX.utils.book_append_sheet(wb, ws, "Datos");
-
-      // Generate Excel buffer
-      const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}_${new Date().toISOString().split('T')[0]}.xlsx"`);
-      res.send(excelBuffer);
-
-    } catch (error: any) {
-      res.status(500).json({ message: "Error generando exportación" });
-    }
-  });
+  // GET /api/export/:type — eliminado (#182).
+  // El único case ('conceptos') era un volcado de configuración sin uso contable.
+  // Los reportes financieros reales viven en /api/reportes/financiero y
+  // /api/reportes/estudiantes (RPT-01 / RPT-02).
 
   // MIGRATION STATUS TRACKING
   

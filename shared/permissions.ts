@@ -193,6 +193,7 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.SYSTEM, action: ACTIONS.READ, scope: 'campus', description: 'Ver sistemas del campus' },
       { module: MODULES.SYSTEM, action: ACTIONS.IMPORT, scope: 'campus', description: 'Importar datos del campus' },
       { module: MODULES.SYSTEM, action: ACTIONS.APPROVE, scope: 'campus', description: 'Aprobar acciones del campus' },
+      { module: MODULES.SYSTEM, action: ACTIONS.CONFIGURE, scope: 'campus', description: 'Ejecutar operaciones de mantenimiento del sistema (optimize, cleanup, maintenance)' },
       { module: MODULES.SECURITY, action: ACTIONS.READ, scope: 'campus', description: 'Ver historial de auditoría del campus' },
       { module: MODULES.CALENDAR, action: ACTIONS.READ, scope: 'campus', description: 'Ver eventos del calendario financiero del campus' },
       { module: MODULES.CALENDAR, action: ACTIONS.CREATE, scope: 'campus', description: 'Crear y completar eventos del calendario financiero del campus' }

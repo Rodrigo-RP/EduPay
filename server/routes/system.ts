@@ -2,10 +2,10 @@ import type { Express } from "express";
 import { pool, db } from "../db";
 import { eq, and } from "drizzle-orm";
 import { storage } from "../storage";
-import { authenticateToken, requireAuth, requireSuperAdmin, checkCampusTenant, serializeUser, upload, esmRequire, JWT_SECRET } from "./shared";
+import { authenticateToken, requireAuth, requireSuperAdmin, checkCampusTenant, serializeUser, upload, esmRequire, JWT_SECRET, hasPermissionForUser } from "./shared";
 import { users, students, guardians, charges, payments, concepts, invoices, payment_rules, late_fee_calculations, payment_due_dates, payment_surcharge_rules } from "@shared/schema";
 import { insertUserSchema } from "@shared/schema";
-import { canEditUser, UserRole } from "@shared/permissions";
+import { canEditUser, UserRole, MODULES, ACTIONS } from "@shared/permissions";
 import { optimizeDatabase, checkQueryPerformance, cleanupObsoleteData, runMaintenanceTask } from "../optimize-database";
 import { seedDemoData } from "../seed-demo";
 import { wsManager } from "../websocket-manager";
@@ -167,6 +167,9 @@ export function registerSystemRoutes(app: Express): void {
   // Security dashboard metrics - PROTEGIDO
   app.get("/api/security/metrics", requireAuth, async (req, res) => {
     try {
+      if (!hasPermissionForUser((req as any).user, MODULES.SECURITY, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver métricas de seguridad" });
+      }
       const metrics = {
         totalThreats: 127,
         blockedAttacks: 89,
@@ -183,6 +186,9 @@ export function registerSystemRoutes(app: Express): void {
   // Security events log - PROTEGIDO
   app.get("/api/security/events", requireAuth, async (req, res) => {
     try {
+      if (!hasPermissionForUser((req as any).user, MODULES.SECURITY, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver eventos de seguridad" });
+      }
       const events = [
         {
           id: "1",
@@ -212,6 +218,9 @@ export function registerSystemRoutes(app: Express): void {
   // Security scan - PROTEGIDO
   app.post("/api/security/scan", requireAuth, async (req, res) => {
     try {
+      if (!hasPermissionForUser((req as any).user, MODULES.SECURITY, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ejecutar escaneos de seguridad" });
+      }
       res.json({ 
         message: "Escaneo de seguridad iniciado",
         estimatedTime: "3 segundos",
@@ -230,6 +239,9 @@ export function registerSystemRoutes(app: Express): void {
   // Block IP address - PROTEGIDO
   app.post("/api/security/block-ip", requireAuth, async (req, res) => {
     try {
+      if (!hasPermissionForUser((req as any).user, MODULES.SECURITY, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para gestionar bloqueos de seguridad" });
+      }
       const { ipAddress } = req.body;
       
       if (!ipAddress) {
@@ -248,6 +260,9 @@ export function registerSystemRoutes(app: Express): void {
   // Enable 2FA globally - PROTEGIDO
   app.post("/api/security/enable-2fa", requireAuth, async (req, res) => {
     try {
+      if (!hasPermissionForUser((req as any).user, MODULES.SECURITY, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para configurar seguridad global" });
+      }
       res.json({ 
         message: "2FA habilitado globalmente para todos los usuarios admin",
         enabledAt: new Date().toISOString()
@@ -260,6 +275,9 @@ export function registerSystemRoutes(app: Express): void {
   // Generate security report - PROTEGIDO
   app.get("/api/security/report", requireAuth, async (req, res) => {
     try {
+      if (!hasPermissionForUser((req as any).user, MODULES.SECURITY, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver el reporte de seguridad" });
+      }
       const report = {
         generatedAt: new Date().toISOString(),
         securityScore: 94,
@@ -295,6 +313,9 @@ export function registerSystemRoutes(app: Express): void {
   // Optimize database performance
   app.post("/api/admin/optimize-database", requireAuth, async (req, res) => {
     try {
+      if (!hasPermissionForUser((req as any).user, MODULES.SYSTEM, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para ejecutar optimización de base de datos" });
+      }
       const result = await optimizeDatabase();
       res.json(result);
     } catch (error: any) {
@@ -305,6 +326,9 @@ export function registerSystemRoutes(app: Express): void {
   // Check query performance
   app.get("/api/admin/database-performance", requireAuth, async (req, res) => {
     try {
+      if (!hasPermissionForUser((req as any).user, MODULES.SYSTEM, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver rendimiento de la base de datos" });
+      }
       const result = await checkQueryPerformance();
       res.json(result);
     } catch (error: any) {
@@ -315,6 +339,9 @@ export function registerSystemRoutes(app: Express): void {
   // Clean obsolete data
   app.post("/api/admin/cleanup-database", requireAuth, async (req, res) => {
     try {
+      if (!hasPermissionForUser((req as any).user, MODULES.SYSTEM, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para ejecutar limpieza de base de datos" });
+      }
       const result = await cleanupObsoleteData();
       res.json(result);
     } catch (error: any) {
@@ -325,6 +352,9 @@ export function registerSystemRoutes(app: Express): void {
   // Run complete maintenance task
   app.post("/api/admin/database-maintenance", requireAuth, async (req, res) => {
     try {
+      if (!hasPermissionForUser((req as any).user, MODULES.SYSTEM, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para ejecutar mantenimiento de base de datos" });
+      }
       const result = await runMaintenanceTask();
       res.json(result);
     } catch (error: any) {

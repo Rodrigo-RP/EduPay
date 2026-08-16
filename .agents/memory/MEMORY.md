@@ -47,3 +47,4 @@
 - [PDF parser validation](pdf-parser-validation.md) — pdfjs-dist (no pdf-parse) para BBVA; CARGO x≤400 / ABONO x≥410; Santander disponible es escaneado (0 texto).
 - [Parser BBVA PDF](bank-parsers-bbva.md) — BBVAParser + parseFromLines + /importar-pdf; umbrales X, estructura SPEI, helper insertBankRows compartido con /importar.
 - [IEDU validators & CURP](iedu-curp-validators.md) — CURP_RE oficial SAT, path ../lib/validators, prefijos canónicos de test, CHECK constraint TEAT% para rollback tests.
+- [Assistant N4/N5 suggest pattern](assistant-n4-n5-suggest.md) — detectSuggestTrigger(msg) Forma A en assistant-knowledge; resolveSuggestContext(trigger,ctx) async en assistant-actions; normalize() elimina $ y comas → extraer nombre y monto del msg ORIGINAL antes de normalize.

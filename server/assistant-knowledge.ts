@@ -383,6 +383,99 @@ export const KNOWLEDGE_BASE: KnowledgeModule[] = [
     ],
     roles: ["super_admin","administrador_general","administrador_campus","contador_general","auxiliar_contable"],
   },
+
+  // ── Catálogo de reportes (RPT-04, RPT-07, RPT-08) — antes sin cobertura ──
+
+  {
+    route: "/reportes-admisiones",
+    label: "Reportes de Admisiones",
+    description: "Métricas de captación, embudo de prospectos e inscritos por ciclo y nivel.",
+    keywords: [
+      "reportes admisiones", "reporte de admisiones", "reporte de inscritos",
+      "captacion alumnos", "nuevos alumnos ciclo", "prospectos inscritos",
+      "funnel admisiones", "tasa de conversion admisiones", "cuantos se inscribieron",
+      "alumnos nuevos", "reporte admision", "cuantos ingresaron", "captacion escolar",
+      "reporte de captacion", "reporte de prospectos"
+    ],
+    roles: ["super_admin","administrador_general","administrador_campus","admisiones"],
+  },
+  {
+    route: "/reporte-antiguedad-saldos",
+    label: "Antigüedad de Saldos",
+    description: "Cartera vencida organizada en tramos: 0-30, 31-60, 61-90, 91-120, 121-180, +180 días.",
+    keywords: [
+      "antiguedad de saldos", "antiguedad cartera", "cartera vencida tramos",
+      "cuanto tiempo debe", "cuanto llevan sin pagar", "tramos de cartera",
+      "tramos vencimiento", "30 dias vencido", "60 dias vencido", "90 dias vencido",
+      "morosidad por tramo", "bucket vencimiento", "vencidos por tramo",
+      "dias sin pagar", "cartera por antiguedad"
+    ],
+    roles: ["super_admin","administrador_general","administrador_campus","contador_general","auxiliar_contable"],
+  },
+  {
+    // Distinción respecto a /semaforo-riesgo:
+    //   Semáforo = dashboard operativo en tiempo real, filtrado client-side.
+    //   Reporte de Riesgo = reporte formal exportable con scoring por alumno.
+    // Keywords deliberadamente distintos: "reporte", "scoring", "exportar", "detalle"
+    // nunca aparecen en las keywords de /semaforo-riesgo.
+    route: "/reporte-riesgo",
+    label: "Reporte de Riesgo de Cobranza",
+    description: "Scoring predictivo de riesgo por alumno con semáforo exportable a Excel y PDF.",
+    keywords: [
+      "reporte de riesgo", "scoring de riesgo",
+      "reporte formal riesgo", "exportar riesgo",
+      "detalle de riesgo", "riesgo por alumno", "reporte scoring",
+      "alumnos con riesgo exportar", "scoring por alumno"
+    ],
+    roles: ["super_admin","administrador_general","administrador_campus","contador_general","auxiliar_contable"],
+  },
+
+  // ── Rutas operativas sin cobertura previa ────────────────────────────────
+
+  {
+    route: "/comandos-contador",
+    label: "Comandos del Contador",
+    description: "Panel de acciones rápidas del contador: conciliación, cierre y herramientas contables avanzadas.",
+    keywords: [
+      "comandos contador", "panel contador", "herramientas contables",
+      "acciones contables", "cierre contable", "comandos contables",
+      "herramientas del contador", "acciones del contador"
+    ],
+    roles: ["super_admin","administrador_general","contador_general"],
+  },
+  {
+    route: "/configuracion-inicial",
+    label: "Configuración Inicial",
+    description: "Asistente de primer inicio para configurar datos del campus, ciclo escolar y conceptos base.",
+    keywords: [
+      "configuracion inicial", "setup inicial", "primer inicio",
+      "configurar por primera vez", "inicializar campus", "wizard configuracion",
+      "configurar sistema primera vez", "inicio del sistema"
+    ],
+    roles: ["super_admin","administrador_general"],
+  },
+  {
+    route: "/configuracion-pagos-completa",
+    label: "Configuración de Pagos",
+    description: "Configuración avanzada de métodos de pago, pasarelas y reglas de recargo.",
+    keywords: [
+      "configuracion de pagos", "metodos de pago", "pasarela de pago",
+      "configurar pagos", "metodo de cobro", "configurar recargos",
+      "reglas de pago", "configurar pasarela", "metodo pago avanzado"
+    ],
+    roles: ["super_admin","administrador_general"],
+  },
+  {
+    route: "/portal-3clics",
+    label: "Portal de Padres",
+    description: "Portal de pago en línea para padres y tutores con liga de pago en tres clics.",
+    keywords: [
+      "portal padres", "portal de pago", "pago en linea padres",
+      "liga de pago", "pago 3 clics", "portal tutor", "link de pago padre",
+      "liga cobro", "pago en linea tutores", "portal familiar"
+    ],
+    roles: [],
+  },
 ];
 
 // ── §9.1 Validación en tiempo de inicio: KNOWLEDGE_BASE vs route-registry ────
@@ -439,6 +532,14 @@ const ROUTE_LABELS: Record<string, string> = {
   "/configuracion": "Configuración",
   "/usuarios": "Gestión de Usuarios",
   "/historial": "Historial de Movimientos",
+  // Rutas agregadas al cerrar advertencia §9.1
+  "/reportes-admisiones":          "Reportes de Admisiones",
+  "/reporte-antiguedad-saldos":    "Antigüedad de Saldos",
+  "/reporte-riesgo":               "Reporte de Riesgo de Cobranza",
+  "/comandos-contador":            "Comandos del Contador",
+  "/configuracion-inicial":        "Configuración Inicial",
+  "/configuracion-pagos-completa": "Configuración de Pagos",
+  "/portal-3clics":                "Portal de Padres",
 };
 
 export function getPageLabel(route: string): string {

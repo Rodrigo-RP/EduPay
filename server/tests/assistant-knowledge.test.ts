@@ -223,3 +223,116 @@ describe("detectActionIntent — casos directos", () => {
     expect(a?.actionId).toBe("query:discrepancia");
   });
 });
+
+// ── matchIntent: catálogo de reportes RPT-01..RPT-08 ─────────────────────────
+//
+// RPT-01 → /reportes-financieros  (ya en KB — verifica keywords existentes)
+// RPT-02 → infraestructura de tests, sin ruta frontend independiente
+// RPT-03 → /reportes-financieros  (sección cobranza dentro del mismo módulo)
+// RPT-04 → /reportes-admisiones
+// RPT-05 → /reporte-consejo       (ya en KB — verifica keywords existentes)
+// RPT-06 → /reportes-financieros  (sección contable dentro del mismo módulo)
+// RPT-07 → /reporte-antiguedad-saldos
+// RPT-08 → /reporte-riesgo
+//
+// Caso especial: semáforo-riesgo vs reporte-riesgo — dos módulos distintos,
+// se diferencian por "semaforo/indicador" vs "reporte/scoring/exportar".
+
+describe("matchIntent — catálogo de reportes RPT-01..RPT-08", () => {
+
+  // RPT-01 — Reportes Financieros ─────────────────────────────────────────────
+  it("RPT-01: 'flujo de efectivo del mes' → /reportes-financieros", () => {
+    const r = matchIntent("quiero ver el flujo de efectivo del mes", "contador_general");
+    expect(r.navigate?.route).toBe("/reportes-financieros");
+  });
+
+  // RPT-03 — Cobranza (sección dentro de Reportes Financieros) ─────────────────
+  it("RPT-03: 'recaudacion mensual del campus' → /reportes-financieros", () => {
+    const r = matchIntent("recaudacion mensual del campus", "contador_general");
+    expect(r.navigate?.route).toBe("/reportes-financieros");
+  });
+
+  // RPT-04 — Reportes de Admisiones ───────────────────────────────────────────
+  it("RPT-04: 'captacion de alumnos del ciclo' → /reportes-admisiones", () => {
+    const r = matchIntent("captacion de alumnos del ciclo", "administrador_campus");
+    expect(r.navigate?.route).toBe("/reportes-admisiones");
+  });
+
+  it("RPT-04: 'tasa de conversion admisiones' → /reportes-admisiones", () => {
+    const r = matchIntent("tasa de conversion admisiones", "administrador_campus");
+    expect(r.navigate?.route).toBe("/reportes-admisiones");
+  });
+
+  it("RPT-04: 'reporte de prospectos inscritos' → /reportes-admisiones", () => {
+    const r = matchIntent("reporte de prospectos inscritos", "administrador_campus");
+    expect(r.navigate?.route).toBe("/reportes-admisiones");
+  });
+
+  // RPT-05 — Reporte Consejo ─────────────────────────────────────────────────
+  it("RPT-05: 'informe para el consejo directivo' → /reporte-consejo", () => {
+    const r = matchIntent("informe para el consejo directivo", "administrador_general");
+    expect(r.navigate?.route).toBe("/reporte-consejo");
+  });
+
+  // RPT-06 — Contable → /fiscal-contable (tiene "contable" como keyword exacta)
+  it("RPT-06: 'necesito el reporte contable' → /fiscal-contable", () => {
+    const r = matchIntent("necesito el reporte contable", "contador_general");
+    expect(r.navigate?.route).toBe("/fiscal-contable");
+  });
+
+  // RPT-07 — Antigüedad de Saldos ────────────────────────────────────────────
+  it("RPT-07: 'cuanto tiempo llevan sin pagar' → /reporte-antiguedad-saldos", () => {
+    const r = matchIntent("cuanto tiempo llevan sin pagar", "contador_general");
+    expect(r.navigate?.route).toBe("/reporte-antiguedad-saldos");
+  });
+
+  it("RPT-07: 'cartera vencida por tramos' → /reporte-antiguedad-saldos", () => {
+    const r = matchIntent("cartera vencida por tramos", "contador_general");
+    expect(r.navigate?.route).toBe("/reporte-antiguedad-saldos");
+  });
+
+  it("RPT-07: 'antiguedad de saldos' → /reporte-antiguedad-saldos", () => {
+    const r = matchIntent("antiguedad de saldos", "contador_general");
+    expect(r.navigate?.route).toBe("/reporte-antiguedad-saldos");
+  });
+
+  // RPT-08 — Reporte de Riesgo ────────────────────────────────────────────────
+  it("RPT-08: 'reporte de riesgo de cobranza' → /reporte-riesgo", () => {
+    const r = matchIntent("dame el reporte de riesgo de cobranza", "contador_general");
+    expect(r.navigate?.route).toBe("/reporte-riesgo");
+  });
+
+  it("RPT-08: 'scoring de riesgo por alumno' → /reporte-riesgo", () => {
+    const r = matchIntent("necesito el scoring de riesgo por alumno", "contador_general");
+    expect(r.navigate?.route).toBe("/reporte-riesgo");
+  });
+
+  it("RPT-08: 'detalle de riesgo por alumno' → /reporte-riesgo", () => {
+    const r = matchIntent("detalle de riesgo por alumno", "contador_general");
+    expect(r.navigate?.route).toBe("/reporte-riesgo");
+  });
+
+  // ── Desambiguación: semáforo-riesgo vs reporte-riesgo ──────────────────────
+  // "semáforo" → dashboard operativo en tiempo real  → /semaforo-riesgo
+  // "reporte"/"scoring"/"exportar" → reporte formal  → /reporte-riesgo
+
+  it("Disambigüación: 'semáforo de riesgo' → /semaforo-riesgo (no /reporte-riesgo)", () => {
+    const r = matchIntent("quiero ver el semaforo de riesgo", "contador_general");
+    expect(r.navigate?.route).toBe("/semaforo-riesgo");
+  });
+
+  it("Disambigüación: 'indicador de riesgo financiero' → /semaforo-riesgo", () => {
+    const r = matchIntent("indicador de riesgo financiero", "contador_general");
+    expect(r.navigate?.route).toBe("/semaforo-riesgo");
+  });
+
+  it("Disambigüación: 'exportar reporte de riesgo' → /reporte-riesgo (no /semaforo-riesgo)", () => {
+    const r = matchIntent("exportar reporte de riesgo", "contador_general");
+    expect(r.navigate?.route).toBe("/reporte-riesgo");
+  });
+
+  it("Disambigüación: 'scoring formal riesgo cobranza' → /reporte-riesgo", () => {
+    const r = matchIntent("scoring formal riesgo cobranza", "contador_general");
+    expect(r.navigate?.route).toBe("/reporte-riesgo");
+  });
+});

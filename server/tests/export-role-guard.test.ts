@@ -15,7 +15,8 @@
  *                                  SPA fallback responde; garantía = no xlsx.
  *   GET /api/export-legacy/:type → SPA fallback (ruta eliminada)
  *   GET /api/admin/students/:campusId/export → SPA fallback (R4 retirado, migrado a RPT-02)
- *   GET /api/charges/export      (guardian.ts — activo)
+ *   GET /api/charges/export      → RETIRADO (migrado a POST /api/reportes/cobranza/exportar)
+ *                                  Tests de RPT-03 en rpt03-cobranza.test.ts (COB-17..19).
  *
  * EXP-01  /api/export/conceptos sin token    → no xlsx (endpoint eliminado)
  * EXP-02  /api/export/conceptos asistente    → no xlsx (endpoint eliminado)
@@ -26,11 +27,11 @@
  * EXP-07  /api/admin/students/:id/export     → no xlsx (R4 retirado, migrado a RPT-02)
  * EXP-08  /api/admin/students/:id/export     → no xlsx (R4 retirado)
  * EXP-09  /api/admin/students/:id/export     → no xlsx (R4 retirado)
- * EXP-10  /api/charges/export sin token → 401
- * EXP-11  /api/charges/export rol asistente → 403
- * EXP-12  /api/charges/export rol auxiliar_contable → 403
- * EXP-13  /api/charges/export rol administrador_campus → 200 + xlsx
- * EXP-14  /api/charges/export rol admisiones → 200 (admisiones tiene EXPORT)
+ * EXP-10  /api/charges/export sin token       → no xlsx (R5 retirado, migrado a RPT-03)
+ * EXP-11  /api/charges/export rol asistente   → no xlsx (R5 retirado)
+ * EXP-12  /api/charges/export rol auxiliar    → no xlsx (R5 retirado)
+ * EXP-13  /api/charges/export rol admin       → no xlsx (R5 retirado; usar RPT-03)
+ * EXP-14  /api/charges/export rol admisiones  → no xlsx (R5 retirado; usar RPT-03)
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -189,33 +190,37 @@ describe("CF-EXPORT — guard de rol en endpoints de exportación masiva", () =>
     expect(contentType).not.toContain("octet-stream");
   });
 
-  // ── GET /api/charges/export ───────────────────────────────────────────────
+  // ── GET /api/charges/export — R5 RETIRADO, migrado a POST /api/reportes/cobranza/exportar ──
+  // Guards de RPT-03 verificados en rpt03-cobranza.test.ts (COB-17..19).
+  // Aquí solo se confirma que la URL antigua ya no sirve xlsx.
 
-  it("EXP-10: /api/charges/export sin token → 401", async () => {
-    const { status } = await apiGet("/api/charges/export");
-    expect(status).toBe(401);
+  it("EXP-10: /api/charges/export sin token → no xlsx (R5 retirado)", async () => {
+    const { contentType } = await apiGet("/api/charges/export");
+    expect(contentType).not.toContain("spreadsheetml");
+    expect(contentType).not.toContain("octet-stream");
   });
 
-  it("EXP-11: /api/charges/export rol asistente → 403", async () => {
-    const { status, body } = await apiGet("/api/charges/export", tokAsistente);
-    expect(status).toBe(403);
-    expect(body?.message).toMatch(/permiso/i);
+  it("EXP-11: /api/charges/export rol asistente → no xlsx (R5 retirado)", async () => {
+    const { contentType } = await apiGet("/api/charges/export", tokAsistente);
+    expect(contentType).not.toContain("spreadsheetml");
+    expect(contentType).not.toContain("octet-stream");
   });
 
-  it("EXP-12: /api/charges/export rol auxiliar_contable → 403", async () => {
-    const { status } = await apiGet("/api/charges/export", tokAuxiliar);
-    expect(status).toBe(403);
+  it("EXP-12: /api/charges/export rol auxiliar_contable → no xlsx (R5 retirado)", async () => {
+    const { contentType } = await apiGet("/api/charges/export", tokAuxiliar);
+    expect(contentType).not.toContain("spreadsheetml");
+    expect(contentType).not.toContain("octet-stream");
   });
 
-  it("EXP-13: /api/charges/export rol administrador_campus → 200 + xlsx", async () => {
-    const { status, contentType } = await apiGet("/api/charges/export", tokAdminCampus);
-    expect(status).toBe(200);
-    expect(contentType).toContain("spreadsheetml");
+  it("EXP-13: /api/charges/export rol administrador_campus → no xlsx (R5 retirado; usar RPT-03)", async () => {
+    const { contentType } = await apiGet("/api/charges/export", tokAdminCampus);
+    expect(contentType).not.toContain("spreadsheetml");
+    expect(contentType).not.toContain("octet-stream");
   });
 
-  it("EXP-14: /api/charges/export rol admisiones → 200 (admisiones tiene REPORTS.EXPORT)", async () => {
-    const { status, contentType } = await apiGet("/api/charges/export", tokAdmisiones);
-    expect(status).toBe(200);
-    expect(contentType).toContain("spreadsheetml");
+  it("EXP-14: /api/charges/export rol admisiones → no xlsx (R5 retirado; usar RPT-03)", async () => {
+    const { contentType } = await apiGet("/api/charges/export", tokAdmisiones);
+    expect(contentType).not.toContain("spreadsheetml");
+    expect(contentType).not.toContain("octet-stream");
   });
 });

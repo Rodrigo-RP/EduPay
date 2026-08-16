@@ -137,20 +137,30 @@ export default function Cargos() {
     },
   });
 
-  /** Exportar */
+  /** Exportar — RPT-03: POST /api/reportes/cobranza/exportar
+   *  El campus viene del JWT; siempre genera Excel real con saldo_pendiente
+   *  calculado desde payment_applications (no el campo estado del cargo).
+   */
   const exportMutation = useMutation({
-    mutationFn: async (format: "excel" | "csv") => {
-      const res = await fetch(`/api/charges/export?format=${format}&status=${selectedStatus}`, {
-        headers: { Authorization: `Bearer ${token()}` },
+    mutationFn: async (_format: "excel" | "csv") => {
+      const body: Record<string, string> = { formato: "excel" };
+      if (selectedStatus && selectedStatus !== "all") body.estado = selectedStatus;
+      const res = await fetch("/api/reportes/cobranza/exportar", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token()}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(`Error ${res.status}`);
-      return { blob: await res.blob(), format };
+      return { blob: await res.blob() };
     },
-    onSuccess: ({ blob, format }) => {
+    onSuccess: ({ blob }) => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `cargos_${new Date().toISOString().split("T")[0]}.${format === "excel" ? "xlsx" : "csv"}`;
+      a.download = `cargos_${new Date().toISOString().split("T")[0]}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
       toast({ title: "Exportación exitosa" });

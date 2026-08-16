@@ -9,7 +9,7 @@
 
 import type { Express } from "express";
 import { authenticateToken } from "./shared";
-import { matchIntent } from "../assistant-knowledge";
+import { matchIntent, detectExportIntent } from "../assistant-knowledge";
 import { runDiagnostic, runFullDiagnostic, MODULE_CHECKS } from "../assistant-health-checks";
 import { executeAction } from "../assistant-actions";
 import { pool } from "../db";
@@ -39,6 +39,27 @@ export function registerAssistantRoutes(app: Express): void {
       const decodedPath = currentPath
         ? currentPath.replace(/&#x2F;/g, "/").replace(/&#x27;/g, "'").replace(/&amp;/g, "&")
         : undefined;
+
+      // ── N3: intención de exportación — tiene prioridad sobre matchIntent ─────
+      const exportIntent = detectExportIntent(message.trim());
+      if (exportIntent) {
+        const fmtLabel = exportIntent.format === "pdf" ? "PDF" : "Excel";
+        pool.query(
+          `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
+           VALUES ($1, $2, 'assistant_chat_interaction', 'system', $3, $4, NOW())`,
+          [
+            tenantId || null,
+            userId || null,
+            campusId || null,
+            JSON.stringify({ intentType: "export", endpoint: exportIntent.endpoint, format: exportIntent.format }),
+          ]
+        ).catch(() => {});
+
+        return res.json({
+          reply: `Aquí está tu **${exportIntent.reportLabel}** en ${fmtLabel}. Haz clic en el botón para descargarlo.`,
+          export: exportIntent,
+        });
+      }
 
       const result = matchIntent(message.trim(), userRole, decodedPath);
 

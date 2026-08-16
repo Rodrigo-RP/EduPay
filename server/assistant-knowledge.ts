@@ -812,3 +812,197 @@ export function matchIntent(
     suggestions: topModules,
   };
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// N3 — Exportación desde el asistente
+// ══════════════════════════════════════════════════════════════════════════════
+
+interface ExportReportDef {
+  endpoint: string;
+  /** Nombre del campo que el endpoint espera ("formato" vs "format") */
+  formatKey: "formato" | "format";
+  /** Palabras clave para identificar el reporte en el mensaje del usuario */
+  keywords: string[];
+  /** Etiqueta legible para mostrar al usuario */
+  label: string;
+  /** Slug usado en el nombre de archivo sugerido */
+  slug: string;
+}
+
+/** Catálogo de los 8 reportes exportables. El orden importa en caso de empate:
+ *  los reportes más específicos deben ir antes que los más genéricos. */
+const EXPORT_REPORTS: ExportReportDef[] = [
+  {
+    endpoint: "/api/reportes/financiero/exportar",
+    formatKey: "formato",
+    keywords: [
+      "financiero", "ingresos", "egresos", "flujo de efectivo",
+      "estado de resultados", "cierre mensual", "recaudacion",
+    ],
+    label: "Reporte Financiero",
+    slug: "financiero",
+  },
+  {
+    endpoint: "/api/reportes/estudiantes/exportar",
+    formatKey: "formato",
+    keywords: [
+      "estudiantes", "padron", "padron de alumnos", "matricula",
+      "alumnos inscritos",
+    ],
+    label: "Reporte de Estudiantes",
+    slug: "estudiantes",
+  },
+  {
+    endpoint: "/api/reportes/admisiones/exportar",
+    formatKey: "formato",
+    keywords: [
+      "admisiones", "captacion", "prospectos", "nuevos alumnos",
+      "funnel admisiones",
+    ],
+    label: "Reporte de Admisiones",
+    slug: "admisiones",
+  },
+  {
+    endpoint: "/api/reportes/cobranza/exportar",
+    formatKey: "formato",
+    keywords: [
+      "cobranza", "cargos vencidos", "adeudos", "morosidad",
+      "cuentas por cobrar", "alumnos morosos",
+    ],
+    label: "Reporte de Cobranza",
+    slug: "cobranza",
+  },
+  {
+    endpoint: "/api/reportes/consejo/exportar",
+    formatKey: "format",
+    keywords: [
+      "consejo", "consejo directivo", "consejo escolar",
+      "informe directivo", "reporte del consejo",
+    ],
+    label: "Reporte para el Consejo",
+    slug: "consejo",
+  },
+  {
+    endpoint: "/api/reportes/contable/exportar",
+    formatKey: "format",
+    keywords: [
+      "contable", "integracion contable", "auxiliar contable",
+      "reportes contables", "contabilidad",
+    ],
+    label: "Reporte Contable",
+    slug: "contable",
+  },
+  {
+    endpoint: "/api/reportes/antiguedad-saldos/exportar",
+    formatKey: "format",
+    keywords: [
+      "antiguedad", "antiguedad de saldos", "cartera vencida",
+      "tramos", "dias vencido", "saldos vencidos",
+    ],
+    label: "Antigüedad de Saldos",
+    slug: "antiguedad-saldos",
+  },
+  {
+    endpoint: "/api/reportes/riesgo/exportar",
+    formatKey: "format",
+    keywords: [
+      "riesgo", "scoring", "riesgo de cobranza",
+      "alumnos en riesgo", "score de riesgo",
+    ],
+    label: "Reporte de Riesgo de Cobranza",
+    slug: "riesgo",
+  },
+];
+
+/** Señal de exportación que el asistente devuelve al frontend.
+ *  El widget hace el fetch con JWT y dispara la descarga del blob. */
+export interface ExportIntent {
+  /** Endpoint al que el widget hará POST */
+  endpoint: string;
+  /** Formato resuelto (excel por defecto) */
+  format: "excel" | "pdf";
+  /** Body completo listo para enviar (incluye la clave formato/format y filtros) */
+  body: Record<string, string>;
+  /** Nombre de archivo sugerido para el anchor-download */
+  suggestedFilename: string;
+  /** Etiqueta legible del reporte */
+  reportLabel: string;
+}
+
+/** Extrae la intención de exportación del mensaje del usuario.
+ *
+ *  Retorna `null` cuando:
+ *  - No hay un trigger de exportación explícito (verbo o mención de formato).
+ *  - Hay trigger pero ningún reporte alcanzó score > 0.
+ *
+ *  En ambos casos el caller cae al flujo normal de `matchIntent`.
+ */
+export function detectExportIntent(message: string): ExportIntent | null {
+  const norm = normalize(message);
+
+  // ── Trigger: verbo de exportación ────────────────────────────────────────
+  const EXPORT_VERBS = ["exportar", "descargar", "bajar"];
+  const hasVerb = EXPORT_VERBS.some((v) => norm.includes(v));
+
+  // ── Trigger: mención explícita de formato ─────────────────────────────────
+  const hasFmt = /\b(excel|xlsx|pdf)\b/.test(norm);
+
+  // Sin ningún trigger → no es una intención de exportación
+  if (!hasVerb && !hasFmt) return null;
+
+  // ── Detectar formato (default: excel) ─────────────────────────────────────
+  const format: "excel" | "pdf" = /\bpdf\b/.test(norm) ? "pdf" : "excel";
+
+  // ── Puntuar reportes ──────────────────────────────────────────────────────
+  // Keywords más largas (multi-palabra) suman más; empate → primer match gana.
+  let bestReport: ExportReportDef | null = null;
+  let bestScore = 0;
+
+  for (const rep of EXPORT_REPORTS) {
+    let score = 0;
+    for (const kw of rep.keywords) {
+      const kwNorm = normalize(kw);
+      if (norm.includes(kwNorm)) {
+        score += kwNorm.split(" ").length;
+      }
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestReport = rep;
+    }
+  }
+
+  // Sin reporte reconocido → no confiar en el resultado
+  if (!bestReport || bestScore === 0) return null;
+
+  // ── Extraer filtros del mensaje ───────────────────────────────────────────
+  const body: Record<string, string> = { [bestReport.formatKey]: format };
+
+  // Ciclo escolar: "2025-2026", "2024-2025", "2025–2026" (guión largo)
+  const cicloMatch = norm.match(/\b(20\d{2}[- ]\d{2,4})\b/);
+  if (cicloMatch) {
+    body.ciclo = cicloMatch[1].replace(" ", "-");
+  }
+
+  // Nivel educativo
+  const NIVELES: [string, string][] = [
+    ["primaria", "Primaria"],
+    ["secundaria", "Secundaria"],
+    ["preparatoria", "Preparatoria"],
+    ["bachillerato", "Bachillerato"],
+    ["preescolar", "Preescolar"],
+    ["kinder", "Kinder"],
+  ];
+  for (const [kw, label] of NIVELES) {
+    if (norm.includes(kw)) { body.nivel = label; break; }
+  }
+
+  const ext = format === "pdf" ? "pdf" : "xlsx";
+  return {
+    endpoint: bestReport.endpoint,
+    format,
+    body,
+    suggestedFilename: `${bestReport.slug}.${ext}`,
+    reportLabel: bestReport.label,
+  };
+}

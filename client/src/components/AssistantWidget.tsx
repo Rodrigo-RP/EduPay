@@ -7,7 +7,7 @@
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { BotMessageSquare, X, Send, ChevronRight, CheckCircle2, XCircle, AlertTriangle, Wrench, Loader2 } from "lucide-react";
+import { BotMessageSquare, X, Send, ChevronRight, CheckCircle2, XCircle, AlertTriangle, Wrench, Loader2, FileDown } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -54,6 +54,16 @@ interface ActionResult {
   rows?: ActionResultRow[];
 }
 
+/** Señal N3: el servidor reconoció una intención de exportación.
+ *  El widget hace fetch + blob + anchor-download con estos datos. */
+interface ExportSignal {
+  endpoint: string;
+  format: "excel" | "pdf";
+  body: Record<string, string>;
+  suggestedFilename: string;
+  reportLabel: string;
+}
+
 interface ChatMessage {
   id: number;
   role: "assistant" | "user";
@@ -70,6 +80,8 @@ interface ChatMessage {
   diagnosing?: boolean;
   /** Resultado de una consulta/acción de datos */
   actionResult?: ActionResult;
+  /** N3: señal de exportación de reporte */
+  export?: ExportSignal;
   ts: number;
 }
 
@@ -79,6 +91,8 @@ interface AssistantResponse {
   suggestions?: NavTarget[];
   diagnose?: { moduleId: string; label: string };
   actionResult?: ActionResult;
+  /** N3: señal de exportación */
+  export?: ExportSignal;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -116,6 +130,79 @@ function renderMarkdown(text: string) {
   return text
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/_(.+?)_/g, "<em>$1</em>");
+}
+
+// ── Subcomponente: ExportCard (N3) ───────────────────────────────────────────
+
+function ExportCard({ signal }: { signal: ExportSignal }) {
+  const [phase, setPhase] = useState<"idle" | "downloading" | "done" | "error">("idle");
+  const [errMsg, setErrMsg] = useState("");
+
+  async function triggerDownload() {
+    setPhase("downloading");
+    try {
+      const token = localStorage.getItem("auth_token") ?? "";
+      const res = await fetch(signal.endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(signal.body),
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = signal.suggestedFilename;
+      a.click();
+      URL.revokeObjectURL(url);
+      setPhase("done");
+    } catch (e: any) {
+      setErrMsg(e.message ?? "Error al descargar");
+      setPhase("error");
+    }
+  }
+
+  return (
+    <div className="rounded-xl border p-3 text-xs max-w-[240px] bg-indigo-50 border-indigo-200">
+      <div className="flex items-center gap-1.5 mb-2">
+        <FileDown className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" />
+        <span className="font-semibold text-slate-800 truncate flex-1">{signal.reportLabel}</span>
+        <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 text-[10px] font-medium uppercase">
+          {signal.format}
+        </span>
+      </div>
+
+      {phase === "idle" && (
+        <button
+          onClick={triggerDownload}
+          className="w-full px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-full transition-colors"
+        >
+          Descargar {signal.format === "pdf" ? "PDF" : "Excel"}
+        </button>
+      )}
+      {phase === "downloading" && (
+        <div className="flex items-center gap-1.5 text-indigo-600">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          Descargando…
+        </div>
+      )}
+      {phase === "done" && (
+        <div className="flex items-center gap-1.5 text-green-700">
+          <CheckCircle2 className="w-3 h-3" />
+          Listo: {signal.suggestedFilename}
+        </div>
+      )}
+      {phase === "error" && (
+        <div className="flex items-center gap-1.5 text-red-600">
+          <XCircle className="w-3 h-3" />
+          {errMsg}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ── Subcomponente: ActionResultCard ──────────────────────────────────────────
@@ -481,6 +568,7 @@ export default function AssistantWidget() {
             }
           : {}),
         ...(data.actionResult ? { actionResult: data.actionResult } : {}),
+        ...(data.export     ? { export: data.export }             : {}),
         ts: Date.now(),
       };
       setMessages((prev) => [...prev, assistantMsg]);
@@ -589,6 +677,11 @@ export default function AssistantWidget() {
                       <Loader2 className="w-3 h-3 animate-spin" />
                       Ejecutando pruebas…
                     </div>
+                  )}
+
+                  {/* N3: tarjeta de exportación de reporte */}
+                  {msg.export && (
+                    <ExportCard signal={msg.export} />
                   )}
 
                   {/* Tarjeta de resultado de acción/consulta */}

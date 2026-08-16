@@ -257,6 +257,15 @@ export default function Sidebar() {
       action: ACTIONS.READ
     },
     {
+      icon: "fas fa-shield-alt",
+      label: "Reporte de Riesgo",
+      href: "/reporte-riesgo",
+      active: location === "/reporte-riesgo",
+      category: "contador",
+      module: MODULES.RECEIVABLES,
+      action: ACTIONS.READ
+    },
+    {
       icon: "fas fa-handshake",
       label: "Planes de Pago",
       href: "/planes-pago",

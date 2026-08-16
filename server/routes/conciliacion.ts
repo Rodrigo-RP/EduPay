@@ -381,6 +381,29 @@ async function insertBankRows(
   return { successful, skipped, failed };
 }
 
+// ── Fórmula canónica de scoring de riesgo ─────────────────────────────────────
+// Exportada para ser reutilizada por RPT-08 sin duplicar la lógica.
+// NUNCA modificar esta función sin actualizar también los tests RSG-14
+// (consistencia de score entre semáforo y reporte).
+export function computeRiesgoScore(params: {
+  diasVencido:     number;
+  adeudoCentavos:  number;
+  tasaPago:        number;
+}): { score: number; semaforo: "verde" | "amarillo" | "rojo"; historial_descripcion: string } {
+  const { diasVencido, adeudoCentavos, tasaPago } = params;
+  let score = 100;
+  if (diasVencido > 0) score -= Math.min(diasVencido, 40);
+  if (adeudoCentavos > 500000) score -= 20;
+  else if (adeudoCentavos > 200000) score -= 10;
+  score = Math.max(0, score - (100 - tasaPago) * 0.3);
+  score = Math.round(Math.max(0, Math.min(100, score)));
+  const semaforo = score >= 75 ? "verde" : score >= 50 ? "amarillo" : "rojo";
+  const historial_descripcion =
+    tasaPago >= 90 ? "Excelente historial" :
+    tasaPago >= 70 ? "Historial regular"   : "Historial irregular";
+  return { score, semaforo, historial_descripcion };
+}
+
 export function registerConciliacionRoutes(app: Express): void {
   // ── 1. CENTRO DE COMANDOS ─────────────────────────────────────────────────
   app.get("/api/dashboard/comandos/:campusId", authenticateToken, async (req: any, res) => {
@@ -462,23 +485,21 @@ export function registerConciliacionRoutes(app: Express): void {
 
       const familias = (rows.rows as any[]).map(f => {
         const diasVencido = Number(f.dias_vencido || 0);
-        const adeudo = Number(f.adeudo_centavos || 0);
-        const tasaPago = Number(f.tasa_pago_historica || 0);
-        let score = 100;
-        if (diasVencido > 0) score -= Math.min(diasVencido, 40);
-        if (adeudo > 500000) score -= 20;
-        else if (adeudo > 200000) score -= 10;
-        score = Math.max(0, score - (100 - tasaPago) * 0.3);
-        score = Math.round(Math.max(0, Math.min(100, score)));
-        const semaforo = score >= 75 ? "verde" : score >= 50 ? "amarillo" : "rojo";
+        const adeudo      = Number(f.adeudo_centavos || 0);
+        const tasaPago    = Number(f.tasa_pago_historica || 0);
+        const { score, semaforo, historial_descripcion } = computeRiesgoScore({
+          diasVencido,
+          adeudoCentavos: adeudo,
+          tasaPago,
+        });
         return {
           ...f,
-          adeudo_centavos: adeudo,
-          dias_vencido: diasVencido,
-          tasa_pago_historica: tasaPago,
+          adeudo_centavos:      adeudo,
+          dias_vencido:         diasVencido,
+          tasa_pago_historica:  tasaPago,
           score,
           semaforo,
-          historial_descripcion: tasaPago >= 90 ? "Excelente historial" : tasaPago >= 70 ? "Historial regular" : "Historial irregular",
+          historial_descripcion,
         };
       });
       res.json(familias);

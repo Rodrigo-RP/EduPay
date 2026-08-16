@@ -1112,10 +1112,6 @@ export function registerPaymentRoutes(app: Express): void {
       let filename = "export";
 
       switch (type) {
-        case 'estudiantes':
-          data = await storage.getStudentsByCampus(campusId);
-          filename = "estudiantes";
-          break;
         case 'conceptos':
           data = await storage.getConceptsByCampus(campusId);
           filename = "conceptos";

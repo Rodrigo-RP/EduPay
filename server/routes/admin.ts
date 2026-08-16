@@ -829,65 +829,6 @@ export function registerAdminRoutes(app: Express): void {
     }
   });
 
-  // Export students to Excel/CSV
-  app.get("/api/admin/students/:campusId/export", authenticateToken, async (req: any, res) => {
-    try {
-      const campusId = parseInt(req.params.campusId);
-      if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
-      const role = req.user?.role;
-      if (!hasPermissionForUser((req as any).user, MODULES.REPORTS, ACTIONS.EXPORT)) {
-        return res.status(403).json({ message: "No tienes permiso para exportar datos" });
-      }
-      const format = req.query.format as string || 'xlsx';
-      
-      const students = await storage.getStudentsByCampus(campusId);
-      
-      // Transform data for export
-      const exportData = students.map(student => ({
-        'ID': student.id,
-        'CURP': student.curp || '',
-        'Nombre Completo': student.nombre_completo,
-        'Grado': student.grado || '',
-        'Grupo': student.grupo || '',
-        'Estatus': student.status,
-        'Fecha de Registro': student.created_at ? new Date(student.created_at).toLocaleDateString('es-MX') : ''
-      }));
-
-      if (format === 'csv') {
-        // CSV Export
-        const csvHeader = Object.keys(exportData[0] || {}).join(',');
-        const csvRows = exportData.map(row => 
-          Object.values(row).map(value => `"${value}"`).join(',')
-        );
-        const csvContent = [csvHeader, ...csvRows].join('\n');
-        
-        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-        res.setHeader('Content-Disposition', `attachment; filename="estudiantes_${new Date().toISOString().split('T')[0]}.csv"`);
-        res.send('\uFEFF' + csvContent); // BOM for UTF-8
-      } else {
-        // Excel Export
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.json_to_sheet(exportData);
-        
-        // Auto-adjust column widths
-        const colWidths = Object.keys(exportData[0] || {}).map(key => ({
-          wch: Math.max(key.length, 15)
-        }));
-        ws['!cols'] = colWidths;
-        
-        XLSX.utils.book_append_sheet(wb, ws, 'Estudiantes');
-        
-        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-        
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename="estudiantes_${new Date().toISOString().split('T')[0]}.xlsx"`);
-        res.send(buffer);
-      }
-    } catch (error: any) {
-      res.status(500).json({ message: "Error exporting students" });
-    }
-  });
-
   // Import students from Excel/CSV
   app.post("/api/admin/students/import", authenticateToken, upload.single('file'), async (req, res) => {
     try {

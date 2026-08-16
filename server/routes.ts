@@ -27,7 +27,8 @@ import { registerConciliacionRoutes } from "./routes/conciliacion";
 import { registerFiscalRoutes }       from "./routes/fiscal";
 import { registerMiscRoutes }         from "./routes/misc";
 import { registerAssistantRoutes }    from "./routes/assistant";
-import { registerReportesFinancieroRoutes } from "./routes/reportes-financiero";
+import { registerReportesFinancieroRoutes }  from "./routes/reportes-financiero";
+import { registerReportesEstudiantesRoutes } from "./routes/reportes-estudiantes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // ── Trust proxy (Replit reverse proxy) ──────────────────────────────────────
@@ -81,6 +82,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerMiscRoutes(app);
   registerAssistantRoutes(app);
   registerReportesFinancieroRoutes(app);
+  registerReportesEstudiantesRoutes(app);
 
   // ── Servidor HTTP (devuelto a server/index.ts para WebSocket) ─────────────────
   const httpServer = createServer(app);

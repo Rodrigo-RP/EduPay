@@ -10,20 +10,20 @@
  * Roles SIN permiso: asistente, auxiliar_contable
  *
  * Endpoints cubiertos:
- *   GET /api/export/:type                    (payments.ts)
- *   GET /api/export-legacy/:type             → 404 (ruta eliminada)
- *   GET /api/admin/students/:campusId/export (admin.ts)
+ *   GET /api/export/:type                    (payments.ts — type=conceptos únicamente)
+ *   GET /api/export-legacy/:type             → SPA fallback (ruta eliminada)
+ *   GET /api/admin/students/:campusId/export → SPA fallback (R4 retirado, migrado a RPT-02)
  *   GET /api/charges/export                  (guardian.ts)
  *
  * EXP-01  /api/export/:type sin token → 401
  * EXP-02  /api/export/:type rol asistente → 403
  * EXP-03  /api/export/:type rol auxiliar_contable → 403
- * EXP-04  /api/export/:type rol administrador_campus → 200 + xlsx
- * EXP-05  /api/export/:type rol contador_general → 200
- * EXP-06  /api/export-legacy/:type → 404 (ruta eliminada del servidor)
- * EXP-07  /api/admin/students/:campusId/export sin token → 401
- * EXP-08  /api/admin/students/:campusId/export rol asistente → 403
- * EXP-09  /api/admin/students/:campusId/export rol administrador_campus → 200
+ * EXP-04  /api/export/estudiantes → 400 (type=estudiantes retirado, migrado a RPT-02)
+ * EXP-05  /api/export/:type rol contador_general + type=conceptos → 200 + xlsx
+ * EXP-06  /api/export-legacy/:type → no xlsx (ruta eliminada)
+ * EXP-07  /api/admin/students/:campusId/export → no xlsx (R4 retirado, migrado a RPT-02)
+ * EXP-08  /api/admin/students/:campusId/export → no xlsx (R4 retirado)
+ * EXP-09  /api/admin/students/:campusId/export → no xlsx (R4 retirado)
  * EXP-10  /api/charges/export sin token → 401
  * EXP-11  /api/charges/export rol asistente → 403
  * EXP-12  /api/charges/export rol auxiliar_contable → 403
@@ -126,10 +126,11 @@ describe("CF-EXPORT — guard de rol en endpoints de exportación masiva", () =>
     expect(status).toBe(403);
   });
 
-  it("EXP-04: /api/export/:type rol administrador_campus → 200 + xlsx", async () => {
-    const { status, contentType } = await apiGet("/api/export/estudiantes", tokAdminCampus);
-    expect(status).toBe(200);
-    expect(contentType).toContain("spreadsheetml");
+  it("EXP-04: /api/export/estudiantes → 400 (type retirado; migrado a POST /api/reportes/estudiantes/exportar)", async () => {
+    // El case 'estudiantes' fue eliminado del switch; cae al default → 400.
+    // La exportación de alumnos vive ahora en RPT-02.
+    const { status } = await apiGet("/api/export/estudiantes", tokAdminCampus);
+    expect(status).toBe(400);
   });
 
   it("EXP-05: /api/export/:type rol contador_general → 200", async () => {
@@ -154,25 +155,33 @@ describe("CF-EXPORT — guard de rol en endpoints de exportación masiva", () =>
     expect(isFileDownload).toBe(false);
   });
 
-  // ── GET /api/admin/students/:campusId/export ──────────────────────────────
+  // ── GET /api/admin/students/:campusId/export — R4 retirado → migrado a RPT-02 ──
+  // La ruta fue eliminada de admin.ts. Express no tiene handler para este path;
+  // el SPA de Vite responde con HTML o el proxy devuelve un fallback.
+  // La garantía de seguridad es que la respuesta NO es un archivo xlsx descargable.
 
-  it("EXP-07: /api/admin/students/:campusId/export sin token → 401", async () => {
-    const { status } = await apiGet(`/api/admin/students/${campusId}/export`);
-    expect(status).toBe(401);
+  it("EXP-07: /api/admin/students/:campusId/export (R4 retirado) → no xlsx sin token", async () => {
+    const { contentType } = await apiGet(`/api/admin/students/${campusId}/export`);
+    expect(contentType).not.toContain("spreadsheetml");
+    expect(contentType).not.toContain("octet-stream");
   });
 
-  it("EXP-08: /api/admin/students/:campusId/export rol asistente → 403", async () => {
-    const { status } = await apiGet(`/api/admin/students/${campusId}/export`, tokAsistente);
-    expect(status).toBe(403);
+  it("EXP-08: /api/admin/students/:campusId/export (R4 retirado) → no xlsx con asistente", async () => {
+    const { contentType } = await apiGet(
+      `/api/admin/students/${campusId}/export`,
+      tokAsistente,
+    );
+    expect(contentType).not.toContain("spreadsheetml");
+    expect(contentType).not.toContain("octet-stream");
   });
 
-  it("EXP-09: /api/admin/students/:campusId/export rol administrador_campus → 200 + xlsx", async () => {
-    const { status, contentType } = await apiGet(
+  it("EXP-09: /api/admin/students/:campusId/export (R4 retirado) → no xlsx con admin_campus", async () => {
+    const { contentType } = await apiGet(
       `/api/admin/students/${campusId}/export`,
       tokAdminCampus,
     );
-    expect(status).toBe(200);
-    expect(contentType).toContain("spreadsheetml");
+    expect(contentType).not.toContain("spreadsheetml");
+    expect(contentType).not.toContain("octet-stream");
   });
 
   // ── GET /api/charges/export ───────────────────────────────────────────────

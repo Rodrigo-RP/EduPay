@@ -522,15 +522,46 @@ export default function FiscalContable() {
       queryKey: [`/api/reportes/contable${selectedPeriod ? `?periodo=${selectedPeriod}` : ""}`],
     });
 
-    const generarReporteContable = useMutation({
-      mutationFn: (data: any) => apiRequest("/api/fiscal/generar-reporte-contable", { method: "POST", body: JSON.stringify(data) }),
-      onSuccess: () => {
-        toast({
-          title: "Reporte generado",
-          description: "El reporte contable está listo para descarga"
+    const [exporting, setExporting] = useState(false);
+
+    // Llama a POST /api/reportes/contable/exportar (RPT-06) y descarga el blob.
+    // Reemplaza el stub /api/fiscal/generar-reporte-contable que devolvía
+    // { url: null, mensaje: "..." } sin producir ningún archivo.
+    const exportarContable = async () => {
+      const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+      if (!token) return;
+      setExporting(true);
+      try {
+        const r = await fetch("/api/reportes/contable/exportar", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ format: "excel", periodo: selectedPeriod }),
         });
+        if (!r.ok) throw new Error(await r.text());
+        const blob = await r.blob();
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement("a");
+        a.href     = url;
+        a.download = `reporte-contable-${selectedPeriod}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast({
+          title: "Reporte descargado",
+          description: `reporte-contable-${selectedPeriod}.xlsx`,
+        });
+      } catch (e: any) {
+        toast({
+          title: "Error al exportar",
+          description: e.message,
+          variant: "destructive",
+        });
+      } finally {
+        setExporting(false);
       }
-    });
+    };
 
     return (
       <div className="space-y-6">
@@ -579,8 +610,8 @@ export default function FiscalContable() {
             </div>
 
             <Button 
-              onClick={() => generarReporteContable.mutate({ periodo: selectedPeriod, tipo: "COMPLETO" })}
-              disabled={generarReporteContable.isPending}
+              onClick={exportarContable}
+              disabled={exporting}
               className="w-full mt-4"
             >
               <Download className="w-4 h-4 mr-2" />

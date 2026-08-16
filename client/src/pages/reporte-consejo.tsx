@@ -24,11 +24,48 @@ export default function ReporteConsejo() {
   const [mes, setMes] = useState(String(hoy.getMonth()));
   const [anio, setAnio] = useState(String(hoy.getFullYear()));
 
+  // mes es 0-indexed en el Select (0=Enero). Convertir a 1-indexed para la URL.
+  const monthNum   = Number(mes) + 1;
+  const fechaDesde = `${anio}-${String(monthNum).padStart(2, "0")}-01`;
+  const lastDay    = new Date(Number(anio), monthNum, 0).getDate();
+  const fechaHasta = `${anio}-${String(monthNum).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+  const token    = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+  const endpoint = `/api/reportes/consejo?fecha_desde=${fechaDesde}&fecha_hasta=${fechaHasta}`;
+
   const { data: reporte, isLoading } = useQuery<any>({
-    queryKey: ["/api/reportes/consejo", campusId, mes, anio],
+    queryKey: [endpoint],
+    enabled:  !!token,
   });
 
-  const imprimir = () => window.print();
+  const [exporting, setExporting] = useState(false);
+
+  const exportar = async (formato: "excel" | "pdf") => {
+    if (!token) return;
+    setExporting(true);
+    try {
+      const r = await fetch("/api/reportes/consejo/exportar", {
+        method:  "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization:  `Bearer ${token}`,
+        },
+        body: JSON.stringify({ format: formato, fecha_desde: fechaDesde, fecha_hasta: fechaHasta }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const blob = await r.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = formato === "excel" ? "reporte-consejo.xlsx" : "reporte-consejo.pdf";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      console.error("[reporte-consejo] exportar:", e.message);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const r = reporte || {};
   const kpis = r.kpis || {};
@@ -66,8 +103,11 @@ export default function ReporteConsejo() {
               {[2023, 2024, 2025, 2026].map(a => <SelectItem key={a} value={String(a)}>{a}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button variant="outline" className="gap-2" onClick={imprimir}>
-            <Printer className="w-4 h-4" /> Imprimir / PDF
+          <Button variant="outline" className="gap-2" onClick={() => exportar("excel")} disabled={exporting}>
+            <Download className="w-4 h-4" /> Excel
+          </Button>
+          <Button variant="outline" className="gap-2" onClick={() => exportar("pdf")} disabled={exporting}>
+            <FileText className="w-4 h-4" /> PDF
           </Button>
         </div>
       </div>

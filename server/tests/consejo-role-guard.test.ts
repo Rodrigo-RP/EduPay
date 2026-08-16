@@ -1,16 +1,11 @@
 /**
- * CF-CONSEJO — guard de rol en GET /api/reportes/consejo/:campusId
- *                          y GET /api/reportes/consejo (alias)
+ * CF-CONSEJO — guard de rol en GET /api/reportes/consejo (RPT-05)
  *
- * Antes del fix: solo authenticateToken + checkCampusTenant. Cualquier rol
- * autenticado podía descargar el reporte ejecutivo del consejo directivo.
+ * R7 (/api/reportes/consejo/:campusId) fue retirado (no lo consumía ningún
+ * frontend).  Todos los tests usan ahora la ruta canónica.
+ * R8 (alias sin :campusId) también retirado — reemplazado por RPT-05.
  *
- * Guard aplicado: hasPermission(role, MODULES.FINANCIAL, ACTIONS.READ)
- * administrador_campus tenía omisión de FINANCIAL.READ → corregido.
- *
- * Fix #135: queries de becas_aplicadas usaban campus_id y activo que no
- * existen en scholarships → ahora JOIN a students + filtro de vigencia.
- * CON-04b y CON-08 verifican el valor real (>= 1), no solo presencia.
+ * Guard: hasPermission(user, MODULES.FINANCIAL, ACTIONS.READ)
  *
  * CON-01  sin token → 401
  * CON-02  asistente → 403
@@ -20,7 +15,7 @@
  * CON-05  contador_general → 200 + kpis con las claves esperadas
  * CON-06  administrador_general → 200
  * CON-07  admisiones → 403 (no tiene FINANCIAL.READ)
- * CON-08  alias /api/reportes/consejo → becas_aplicadas >= 1 para el campus del token
+ * CON-08  regresión POST-RPT05: becas_aplicadas >= 1 vía ruta canónica
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -126,26 +121,26 @@ afterAll(async () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-describe("CF-CONSEJO — guard FINANCIAL.READ en /api/reportes/consejo/:campusId", () => {
+describe("CF-CONSEJO — guard FINANCIAL.READ en /api/reportes/consejo (RPT-05)", () => {
 
   it("CON-01: sin token → 401", async () => {
-    const { status } = await get(`/api/reportes/consejo/${campusId}`);
+    const { status } = await get('/api/reportes/consejo');
     expect(status).toBe(401);
   });
 
   it("CON-02: asistente → 403", async () => {
-    const { status, body } = await get(`/api/reportes/consejo/${campusId}`, tokAsistente);
+    const { status, body } = await get('/api/reportes/consejo', tokAsistente);
     expect(status).toBe(403);
     expect(body.message).toMatch(/permiso/i);
   });
 
   it("CON-03: auxiliar_contable → 403", async () => {
-    const { status } = await get(`/api/reportes/consejo/${campusId}`, tokAuxiliar);
+    const { status } = await get('/api/reportes/consejo', tokAuxiliar);
     expect(status).toBe(403);
   });
 
   it("CON-04: administrador_campus → 200 + kpis + top_deudores array", async () => {
-    const { status, body } = await get(`/api/reportes/consejo/${campusId}`, tokAdminCampus);
+    const { status, body } = await get('/api/reportes/consejo', tokAdminCampus);
     expect(status).toBe(200);
     expect(body).toHaveProperty("kpis");
     for (const key of EXPECTED_KPI_KEYS) {
@@ -160,13 +155,13 @@ describe("CF-CONSEJO — guard FINANCIAL.READ en /api/reportes/consejo/:campusId
     // Hay 1 beca vigente para el campus de prueba (insertada en beforeAll).
     // Antes del fix de #135 la query fallaba con 'column not found'
     // y el catch devolvía 0 siempre — este test lo habría detectado.
-    const { status, body } = await get(`/api/reportes/consejo/${campusId}`, tokAdminCampus);
+    const { status, body } = await get('/api/reportes/consejo', tokAdminCampus);
     expect(status).toBe(200);
     expect(body.kpis.becas_aplicadas).toBeGreaterThanOrEqual(1);
   });
 
   it("CON-05: contador_general → 200 + kpis con las claves esperadas", async () => {
-    const { status, body } = await get(`/api/reportes/consejo/${campusId}`, tokContador);
+    const { status, body } = await get('/api/reportes/consejo', tokContador);
     expect(status).toBe(200);
     expect(body).toHaveProperty("kpis");
     expect(body.kpis).toHaveProperty("tasa_cobro");
@@ -175,22 +170,20 @@ describe("CF-CONSEJO — guard FINANCIAL.READ en /api/reportes/consejo/:campusId
   });
 
   it("CON-06: administrador_general → 200", async () => {
-    const { status, body } = await get(`/api/reportes/consejo/${campusId}`, tokAdminGeneral);
+    const { status, body } = await get('/api/reportes/consejo', tokAdminGeneral);
     expect(status).toBe(200);
     expect(body).toHaveProperty("kpis");
   });
 
   it("CON-07: admisiones → 403 (no tiene FINANCIAL.READ)", async () => {
-    const { status } = await get(`/api/reportes/consejo/${campusId}`, tokAdmisiones);
+    const { status } = await get('/api/reportes/consejo', tokAdmisiones);
     expect(status).toBe(403);
   });
 
-  it("CON-08: alias /api/reportes/consejo → becas_aplicadas >= 1 para el campus del token", async () => {
-    // Alias sin :campusId — toma campus_id del JWT.
-    // Token de administrador_campus tiene campus_id = campusId del fixture,
-    // donde hay 1 beca vigente. Verifica que el alias usa la misma query
-    // corregida (sin campus_id ni activo directos en scholarships).
-    const { status, body } = await get(`/api/reportes/consejo`, tokAdminCampus);
+  it("CON-08: regresión POST-RPT05: canónico /api/reportes/consejo → becas_aplicadas >= 1", async () => {
+    // Verifica que RPT-05 mantiene la query corregida de becas (JOIN students +
+    // filtro vigencia), sin regresar al 0-por-catch del bug #135.
+    const { status, body } = await get('/api/reportes/consejo', tokAdminCampus);
     expect(status).toBe(200);
     expect(body).toHaveProperty("kpis");
     expect(body.kpis.becas_aplicadas).toBeGreaterThanOrEqual(1);

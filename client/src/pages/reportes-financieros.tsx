@@ -44,11 +44,46 @@ export default function ReportesFinancieros() {
   const [exportType, setExportType] = useState<'excel' | 'pdf'>('excel');
   const { toast } = useToast();
 
+  // Calcula fecha_desde / fecha_hasta según período y mes/año seleccionados
+  const getDateRange = () => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    switch (selectedPeriod) {
+      case 'trimestral': {
+        const qs = Math.floor((selectedMonth - 1) / 3) * 3 + 1;
+        const qe = qs + 2;
+        return {
+          fecha_desde: `${selectedYear}-${pad(qs)}-01`,
+          fecha_hasta: `${selectedYear}-${pad(qe)}-${new Date(selectedYear, qe, 0).getDate()}`,
+        };
+      }
+      case 'semestral': {
+        const ss = selectedMonth <= 6 ? 1 : 7;
+        const se = selectedMonth <= 6 ? 6 : 12;
+        return {
+          fecha_desde: `${selectedYear}-${pad(ss)}-01`,
+          fecha_hasta: `${selectedYear}-${pad(se)}-${new Date(selectedYear, se, 0).getDate()}`,
+        };
+      }
+      case 'anual':
+        return { fecha_desde: `${selectedYear}-01-01`, fecha_hasta: `${selectedYear}-12-31` };
+      default: { // mensual
+        const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
+        return {
+          fecha_desde: `${selectedYear}-${pad(selectedMonth)}-01`,
+          fecha_hasta:  `${selectedYear}-${pad(selectedMonth)}-${lastDay}`,
+        };
+      }
+    }
+  };
+
   // Cargar datos del reporte
   const loadReportData = async () => {
     setLoading(true);
     try {
-      const response = await createAuthenticatedRequest(`/api/reports/financial?period=${selectedPeriod}&month=${selectedMonth}&year=${selectedYear}`);
+      const { fecha_desde, fecha_hasta } = getDateRange();
+      const response = await createAuthenticatedRequest(
+        `/api/reportes/financiero?fecha_desde=${fecha_desde}&fecha_hasta=${fecha_hasta}`
+      );
       const data = await response.json();
       setReportData(data);
     } catch (error: any) {
@@ -73,70 +108,41 @@ export default function ReportesFinancieros() {
     setExportProgress(0);
 
     try {
-      // Simular progreso de exportación
       const progressInterval = setInterval(() => {
         setExportProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
+          if (prev >= 90) { clearInterval(progressInterval); return 90; }
           return prev + 10;
         });
       }, 200);
 
-      const response = await createAuthenticatedRequest(`/api/reports/financial/export`, {
+      const { fecha_desde, fecha_hasta } = getDateRange();
+      const response = await createAuthenticatedRequest(`/api/reportes/financiero/exportar`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          type,
-          period: selectedPeriod,
-          month: selectedMonth,
-          year: selectedYear,
-          data: reportData
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ formato: type, fecha_desde, fecha_hasta }),
       });
 
       if (response.ok) {
         clearInterval(progressInterval);
         setExportProgress(100);
 
-        if (type === 'excel') {
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `reporte_financiero_${selectedPeriod}_${selectedMonth}_${selectedYear}.xlsx`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          window.URL.revokeObjectURL(url);
-        } else if (type === 'pdf') {
-          // Para PDF, abrir en nueva ventana para imprimir
-          const htmlContent = await response.text();
-          const printWindow = window.open('', '_blank');
-          if (printWindow) {
-            printWindow.document.write(htmlContent);
-            printWindow.document.close();
-            // Esperar a que se cargue y luego mostrar diálogo de impresión
-            setTimeout(() => {
-              printWindow.print();
-            }, 1000);
-          }
-        }
+        // Excel y PDF se descargan como blob binario (el nuevo API devuelve binario real)
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `reporte_financiero_${fecha_desde}_${fecha_hasta}.${type === 'excel' ? 'xlsx' : 'pdf'}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
 
         toast({
           title: "Reporte exportado",
-          description: type === 'excel' 
-            ? "El reporte Excel ha sido descargado exitosamente"
-            : "El reporte PDF se ha abierto en una nueva ventana. Usa Ctrl+P para guardarlo como PDF",
+          description: `El reporte ${type === 'excel' ? 'Excel' : 'PDF'} ha sido descargado exitosamente`,
         });
 
-        setTimeout(() => {
-          setShowExportModal(false);
-          setExportProgress(0);
-        }, 1000);
+        setTimeout(() => { setShowExportModal(false); setExportProgress(0); }, 1000);
       }
     } catch (error: any) {
       toast({
@@ -307,7 +313,9 @@ export default function ReportesFinancieros() {
                     {reportData?.summary?.total_income ? formatCurrency(reportData.summary.total_income) : '$0.00'}
                   </div>
                   <p className="text-xs text-gray-600 mt-1">
-                    {reportData?.summary?.income_growth ? `+${reportData.summary.income_growth}%` : '0%'} vs mes anterior
+                    {reportData?.summary?.income_growth != null
+                      ? `${reportData.summary.income_growth >= 0 ? '+' : ''}${reportData.summary.income_growth}%`
+                      : 'N/D'} vs mes anterior
                   </p>
                 </CardContent>
               </Card>
@@ -319,10 +327,12 @@ export default function ReportesFinancieros() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-blue-600">
-                    {reportData?.summary?.payments_processed || 0}
+                    {reportData?.summary?.payments_count || 0}
                   </div>
                   <p className="text-xs text-gray-600 mt-1">
-                    {reportData?.summary?.payment_growth ? `+${reportData.summary.payment_growth}%` : '0%'} vs mes anterior
+                    {reportData?.summary?.payment_growth != null
+                      ? `${reportData.summary.payment_growth >= 0 ? '+' : ''}${reportData.summary.payment_growth}%`
+                      : 'N/D'} vs mes anterior
                   </p>
                 </CardContent>
               </Card>
@@ -334,25 +344,25 @@ export default function ReportesFinancieros() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-orange-600">
-                    {reportData?.summary?.accounts_receivable ? formatCurrency(reportData.summary.accounts_receivable) : '$0.00'}
+                    {reportData?.summary?.cuentas_por_cobrar ? formatCurrency(reportData.summary.cuentas_por_cobrar) : '$0.00'}
                   </div>
                   <p className="text-xs text-gray-600 mt-1">
-                    {reportData?.summary?.receivable_accounts || 0} cuentas pendientes
+                    {reportData?.summary?.num_cuentas || 0} cuentas pendientes
                   </p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Morosidad</CardTitle>
+                  <CardTitle className="text-sm font-medium">Monto Vencido</CardTitle>
                   <AlertCircle className="h-4 w-4 text-red-600" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-red-600">
-                    {reportData?.summary?.overdue_percentage ? `${reportData.summary.overdue_percentage}%` : '0%'}
+                    {reportData?.summary?.monto_vencido ? formatCurrency(reportData.summary.monto_vencido) : '$0.00'}
                   </div>
                   <p className="text-xs text-gray-600 mt-1">
-                    {reportData?.summary?.overdue_amount ? formatCurrency(reportData.summary.overdue_amount) : '$0.00'} vencido
+                    {reportData?.summary?.num_vencidos || 0} cargos vencidos
                   </p>
                 </CardContent>
               </Card>
@@ -374,11 +384,11 @@ export default function ReportesFinancieros() {
                             index === 1 ? 'bg-green-500' : 
                             index === 2 ? 'bg-yellow-500' : 'bg-gray-500'
                           }`}></div>
-                          <span className="text-sm font-medium">{item.concept}</span>
+                          <span className="text-sm font-medium">{item.concepto}</span>
                         </div>
                         <div className="text-right">
-                          <div className="text-sm font-bold">{formatCurrency(item.amount)}</div>
-                          <div className="text-xs text-gray-500">{item.percentage}%</div>
+                          <div className="text-sm font-bold">{formatCurrency(item.monto_centavos)}</div>
+                          <div className="text-xs text-gray-500">{item.porcentaje}%</div>
                         </div>
                       </div>
                     ))}
@@ -396,15 +406,15 @@ export default function ReportesFinancieros() {
                       <div key={index} className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className={`w-3 h-3 rounded-full ${
-                            item.method === 'tarjeta' ? 'bg-purple-500' : 
-                            item.method === 'spei' ? 'bg-green-500' : 
-                            item.method === 'efectivo' ? 'bg-blue-500' : 'bg-gray-500'
+                            item.metodo === 'tarjeta' ? 'bg-purple-500' : 
+                            item.metodo === 'spei' ? 'bg-green-500' : 
+                            item.metodo === 'efectivo' ? 'bg-blue-500' : 'bg-gray-500'
                           }`}></div>
-                          <span className="text-sm font-medium capitalize">{item.method}</span>
+                          <span className="text-sm font-medium capitalize">{item.metodo}</span>
                         </div>
                         <div className="text-right">
-                          <div className="text-sm font-bold">{formatCurrency(item.amount)}</div>
-                          <div className="text-xs text-gray-500">{item.count} pagos</div>
+                          <div className="text-sm font-bold">{formatCurrency(item.monto_centavos)}</div>
+                          <div className="text-xs text-gray-500">{item.num_pagos} pagos</div>
                         </div>
                       </div>
                     ))}
@@ -414,42 +424,39 @@ export default function ReportesFinancieros() {
             </div>
           </TabsContent>
 
-          {/* Otros tabs... */}
           <TabsContent value="ingresos" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Detalle de Ingresos</CardTitle>
+                <CardTitle>Tendencia de Ingresos por Mes</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse border border-gray-300">
                     <thead>
                       <tr className="bg-gray-50">
-                        <th className="border border-gray-300 p-2 text-left">Fecha</th>
-                        <th className="border border-gray-300 p-2 text-left">Concepto</th>
-                        <th className="border border-gray-300 p-2 text-left">Estudiante</th>
-                        <th className="border border-gray-300 p-2 text-left">Método</th>
+                        <th className="border border-gray-300 p-2 text-left">Mes</th>
+                        <th className="border border-gray-300 p-2 text-right">Pagos</th>
                         <th className="border border-gray-300 p-2 text-right">Monto</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {reportData?.income_details?.map((payment: any, index: number) => (
-                        <tr key={index} className="hover:bg-gray-50">
-                          <td className="border border-gray-300 p-2">
-                            {formatDate(payment.fecha_pago)}
-                          </td>
-                          <td className="border border-gray-300 p-2">{payment.concepto}</td>
-                          <td className="border border-gray-300 p-2">{payment.estudiante}</td>
-                          <td className="border border-gray-300 p-2">
-                            <Badge variant={payment.metodo === 'tarjeta' ? 'default' : 'secondary'}>
-                              {payment.metodo}
-                            </Badge>
-                          </td>
-                          <td className="border border-gray-300 p-2 text-right font-medium">
-                            {formatCurrency(payment.monto)}
+                      {reportData?.monthly_trend?.length > 0 ? (
+                        reportData.monthly_trend.map((row: any, index: number) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="border border-gray-300 p-2">{row.mes}</td>
+                            <td className="border border-gray-300 p-2 text-right">{row.num_pagos}</td>
+                            <td className="border border-gray-300 p-2 text-right font-medium">
+                              {formatCurrency(row.monto_centavos)}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={3} className="border border-gray-300 p-2 text-center text-gray-500">
+                            Sin datos para el período seleccionado
                           </td>
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -472,19 +479,19 @@ export default function ReportesFinancieros() {
                     <div className="bg-blue-50 p-4 rounded-lg">
                       <h4 className="font-medium text-blue-900">Pagos Exitosos</h4>
                       <p className="text-2xl font-bold text-blue-600">
-                        {reportData?.payments_analysis?.successful || 0}
+                        {reportData?.summary?.payments_count || 0}
                       </p>
                     </div>
                     <div className="bg-red-50 p-4 rounded-lg">
-                      <h4 className="font-medium text-red-900">Pagos Fallidos</h4>
+                      <h4 className="font-medium text-red-900">Cargos Vencidos</h4>
                       <p className="text-2xl font-bold text-red-600">
-                        {reportData?.payments_analysis?.failed || 0}
+                        {reportData?.summary?.num_vencidos || 0}
                       </p>
                     </div>
                     <div className="bg-yellow-50 p-4 rounded-lg">
-                      <h4 className="font-medium text-yellow-900">Pagos Pendientes</h4>
+                      <h4 className="font-medium text-yellow-900">Cargos Pendientes</h4>
                       <p className="text-2xl font-bold text-yellow-600">
-                        {reportData?.payments_analysis?.pending || 0}
+                        {reportData?.summary?.num_cuentas || 0}
                       </p>
                     </div>
                   </div>
@@ -507,13 +514,13 @@ export default function ReportesFinancieros() {
                     <div className="bg-red-50 p-4 rounded-lg">
                       <h4 className="font-medium text-red-900">Monto Vencido Total</h4>
                       <p className="text-2xl font-bold text-red-600">
-                        {reportData?.overdue_analysis?.total_amount ? formatCurrency(reportData.overdue_analysis.total_amount) : '$0.00'}
+                        {reportData?.summary?.monto_vencido ? formatCurrency(reportData.summary.monto_vencido) : '$0.00'}
                       </p>
                     </div>
                     <div className="bg-orange-50 p-4 rounded-lg">
                       <h4 className="font-medium text-orange-900">Cuentas Vencidas</h4>
                       <p className="text-2xl font-bold text-orange-600">
-                        {reportData?.overdue_analysis?.total_accounts || 0}
+                        {reportData?.summary?.num_vencidos || 0}
                       </p>
                     </div>
                   </div>
@@ -565,13 +572,13 @@ export default function ReportesFinancieros() {
                     <div className="bg-blue-50 p-4 rounded-lg">
                       <h4 className="font-medium text-blue-900">Proyección Mensual</h4>
                       <p className="text-2xl font-bold text-blue-600">
-                        {reportData?.projections?.monthly ? formatCurrency(reportData.projections.monthly) : '$0.00'}
+                        {reportData?.summary?.total_income ? formatCurrency(reportData.summary.total_income) : '$0.00'}
                       </p>
                     </div>
                     <div className="bg-purple-50 p-4 rounded-lg">
                       <h4 className="font-medium text-purple-900">Tasa de Cobranza</h4>
                       <p className="text-2xl font-bold text-purple-600">
-                        {reportData?.projections?.collection_rate || 0}%
+                        {reportData?.summary?.collection_rate || 0}%
                       </p>
                     </div>
                   </div>

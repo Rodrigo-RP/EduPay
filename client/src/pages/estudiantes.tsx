@@ -777,23 +777,25 @@ export default function Estudiantes() {
   };
   // ─────────────────────────────────────────────────────────────────────────
 
-  const handleExport = async (format: 'xlsx' | 'csv') => {
+  const handleExport = async (_format: 'xlsx' | 'csv') => {
+    // RPT-02: campus tomado del JWT (no de la URL); siempre exporta Excel binario real
     try {
-      const response = await apiRequest(`/api/admin/students/1/export?format=${format}`);
-      
+      const response = await apiRequest('/api/reportes/estudiantes/exportar', {
+        method: 'POST',
+        body: JSON.stringify({ formato: 'excel' }),
+      });
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `estudiantes_${new Date().toISOString().split('T')[0]}.${format}`;
+      a.download = `estudiantes_${new Date().toISOString().split('T')[0]}.xlsx`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      
       toast({
         title: "Exportación exitosa",
-        description: `Archivo ${format.toUpperCase()} descargado correctamente`
+        description: "Archivo Excel descargado correctamente"
       });
     } catch (error) {
       toast({

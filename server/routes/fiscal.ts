@@ -232,30 +232,11 @@ export function registerFiscalRoutes(app: Express): void {
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
-  app.get("/api/fiscal/reportes-contables", authenticateToken, async (req, res) => {
-    try {
-      const role = (req as any).user?.role;
-      if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.READ)) {
-        return res.status(403).json({ message: "Sin permisos para acceder a información fiscal" });
-      }
-      const campusId = (req as any).user?.campus_id;
-      const { periodo } = req.query;
-      const rows = await pool.query(`
-        SELECT DATE_TRUNC('month', p.created_at) AS mes,
-          COUNT(*) as total_pagos,
-          COALESCE(SUM(p.monto_centavos),0) as ingreso_centavos,
-          COUNT(i.id) as total_cfdis
-        FROM payments p
-        JOIN charges c ON c.id=p.charge_id
-        JOIN students s ON s.id=c.student_id
-        LEFT JOIN invoices i ON i.payment_id=p.id
-        WHERE s.campus_id=$1
-        GROUP BY DATE_TRUNC('month', p.created_at)
-        ORDER BY mes DESC LIMIT 12
-      `, [campusId]).catch(() => ({ rows: [] }));
-      res.json({ reportes: rows.rows });
-    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
-  });
+  // RPT-06 migrado a server/routes/reportes-contable.ts
+  // GET  /api/reportes/contable          — FISCAL.READ
+  // POST /api/reportes/contable/exportar — REPORTS.EXPORT
+  // Bug fix incluido: el filtro ?periodo ahora sí restringe la query SQL.
+  // R9 (/api/fiscal/reportes-contables) retirado; frontend y tests migrados.
 
   app.post("/api/fiscal/generar-reporte-contable", authenticateToken, async (req, res) => {
     try {

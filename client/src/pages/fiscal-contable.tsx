@@ -519,7 +519,7 @@ export default function FiscalContable() {
   // Integración con contadores
   const IntegracionContadores = () => {
     const { data: reportesContables } = useQuery({
-      queryKey: ["/api/fiscal/reportes-contables", selectedPeriod],
+      queryKey: [`/api/reportes/contable${selectedPeriod ? `?periodo=${selectedPeriod}` : ""}`],
     });
 
     const generarReporteContable = useMutation({

@@ -165,8 +165,8 @@ describe("FSC — Guards FISCAL.READ y FISCAL.CONFIGURE en rutas de fiscal.ts", 
       expect(r.status).toBe(403);
     });
 
-    it("FSC-06: asistente GET /api/fiscal/reportes-contables → 403", async () => {
-      const r = await GET("/api/fiscal/reportes-contables", tokenAsistente);
+    it("FSC-06: asistente GET /api/reportes/contable → 403 (RPT-06, migrado de R9)", async () => {
+      const r = await GET("/api/reportes/contable", tokenAsistente);
       expect(r.status).toBe(403);
     });
 
@@ -252,8 +252,8 @@ describe("FSC — Guards FISCAL.READ y FISCAL.CONFIGURE en rutas de fiscal.ts", 
       await expectRead200("/api/fiscal/estadisticas-cfdi", tokenAuxiliar, "auxiliar_contable");
     });
 
-    it("FSC-21: contador_general GET /api/fiscal/reportes-contables → 200", async () => {
-      await expectRead200("/api/fiscal/reportes-contables", tokenContador, "contador_general");
+    it("FSC-21: contador_general GET /api/reportes/contable → 200 (RPT-06, migrado de R9)", async () => {
+      await expectRead200("/api/reportes/contable", tokenContador, "contador_general");
     });
 
     it("FSC-22: administrador_campus GET /api/fiscal/estado-pac → 200", async () => {

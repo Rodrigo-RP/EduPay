@@ -283,6 +283,15 @@ export default function Sidebar() {
       module: MODULES.REPORTS,
       action: ACTIONS.READ
     },
+    {
+      icon: "fas fa-clock",
+      label: "Antigüedad de Saldos",
+      href: "/reporte-antiguedad-saldos",
+      active: location === "/reporte-antiguedad-saldos",
+      category: "contador",
+      module: MODULES.REPORTS,
+      action: ACTIONS.READ
+    },
 
   ];
 

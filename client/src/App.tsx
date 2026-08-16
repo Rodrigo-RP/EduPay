@@ -53,6 +53,7 @@ import SemaforoRiesgo from "@/pages/semaforo-riesgo";
 import PlanesPago from "@/pages/planes-pago";
 import CalendarioFinanciero from "@/pages/calendario-financiero";
 import ReporteConsejo from "@/pages/reporte-consejo";
+import ReporteAntiguedadSaldos from "@/pages/reporte-antiguedad-saldos";
 import ExcepcionesConciliacion from "@/pages/excepciones-conciliacion";
 import MagicLinkRedirect from "@/pages/magic-link-redirect";
 import AssistantWidget from "@/components/AssistantWidget";
@@ -113,6 +114,7 @@ function AuthenticatedRoutes() {
               <Route path="/planes-pago" component={PlanesPago} />
               <Route path="/calendario-financiero" component={CalendarioFinanciero} />
               <Route path="/reporte-consejo" component={ReporteConsejo} />
+              <Route path="/reporte-antiguedad-saldos" component={ReporteAntiguedadSaldos} />
               <Route path="/importacion-datos" component={ImportacionDatos} />
               <Route path="/migracion" component={MigrationRefeerence} />
               <Route path="/excepciones-conciliacion" component={ExcepcionesConciliacion} />
@@ -182,6 +184,7 @@ function AuthenticatedRoutes() {
               <Route path="/planes-pago" component={PlanesPago} />
               <Route path="/calendario-financiero" component={CalendarioFinanciero} />
               <Route path="/reporte-consejo" component={ReporteConsejo} />
+              <Route path="/reporte-antiguedad-saldos" component={ReporteAntiguedadSaldos} />
               <Route path="/excepciones-conciliacion" component={ExcepcionesConciliacion} />
               <Route component={NotFound} />
             </Switch>

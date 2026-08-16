@@ -444,4 +444,33 @@ describe("RPT-07 — GET /api/reportes/antiguedad-saldos + POST exportar", () =>
     const { status } = await postExportar(tokAsistente, "excel");
     expect(status).toBe(403);
   });
+
+  // ── Contrato frontend: shape y orden de buckets ──────────────────────────
+  //
+  // AGS-21 verifica que la respuesta tiene los 6 keys en el orden exacto que
+  // ReporteAntiguedadSaldos.tsx espera para renderizar las tarjetas de
+  // izquierda a derecha (verde → rojo). Fallo aquí = bug visible en la UI.
+
+  it("AGS-21 (frontend contract): buckets contienen 6 keys en orden correcto, con label y porcentaje", async () => {
+    const { body } = await getAGS("", tokAdmin);
+    expect(Array.isArray(body.buckets)).toBe(true);
+    expect(body.buckets.length).toBe(6);
+
+    const keys = body.buckets.map((b: any) => b.key);
+    expect(keys).toEqual(["al_corriente", "1_30", "31_60", "61_90", "91_120", "mas_120"]);
+
+    // Cada bucket expone los campos que el frontend renderiza
+    for (const b of body.buckets) {
+      expect(typeof b.label).toBe("string");
+      expect(b.label.length).toBeGreaterThan(0);
+      expect(typeof b.monto_centavos).toBe("number");
+      expect(typeof b.count_alumnos).toBe("number");
+      expect(typeof b.porcentaje).toBe("number");
+    }
+
+    // La respuesta incluye los campos de nivel superior que la UI necesita
+    expect(typeof body.total_cartera_centavos).toBe("number");
+    expect(Array.isArray(body.detalle)).toBe(true);
+    expect(body.filters).toBeDefined();
+  });
 });

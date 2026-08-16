@@ -55,7 +55,8 @@ export const APP_ROUTES: AppRoute[] = [
   { path: "/fiscal-contable",           label: "Fiscal y Contable",      keywords: ["factura", "cfdi", "facturacion", "fiscal", "timbrar", "sat", "xml"] },
   { path: "/reportes",                  label: "Reportes",               keywords: ["reporte", "reportes", "informe", "exportar", "excel", "pdf"] },
   { path: "/reportes-financieros",      label: "Reportes Financieros",   keywords: ["reporte financiero", "ingresos", "flujo de efectivo", "cierre mensual"] },
-  { path: "/reporte-consejo",           label: "Reporte para el Consejo", keywords: ["reporte consejo", "reporte directivo", "consejo escolar", "directivos", "informe consejo"] },
+  { path: "/reporte-consejo",              label: "Reporte para el Consejo",   keywords: ["reporte consejo", "reporte directivo", "consejo escolar", "directivos", "informe consejo"] },
+  { path: "/reporte-antiguedad-saldos",    label: "Antigüedad de Saldos",       keywords: ["antiguedad saldos", "cartera vencida", "dias vencido", "tramos cartera", "antigüedad de cartera", "vencidos", "morosidad por tramo"] },
   { path: "/semaforo-riesgo",           label: "Semáforo de Riesgo",     keywords: ["semaforo", "riesgo", "riesgo financiero", "indicador de riesgo", "cartera vencida"] },
   { path: "/calendario-financiero",     label: "Calendario Fiscal",      keywords: ["calendario", "fecha limite", "vencimiento", "plazo", "ciclo escolar"] },
 

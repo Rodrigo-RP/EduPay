@@ -84,7 +84,8 @@ export const MODULES = {
   FISCAL: 'fiscal',
   SYSTEM: 'system',
   CALENDAR: 'calendar',
-  ADMISSIONS: 'admissions'
+  ADMISSIONS: 'admissions',
+  WORKFLOW: 'workflow',   // Gestión de acciones/hallazgos de seguimiento
 } as const;
 
 export const ACTIONS = {
@@ -141,7 +142,11 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.SYSTEM, action: ACTIONS.CONFIGURE, scope: 'all', description: 'Configurar parámetros del sistema' },
       { module: MODULES.SYSTEM, action: ACTIONS.APPROVE, scope: 'all', description: 'Aprobar solicitudes del sistema' },
       { module: MODULES.CALENDAR, action: ACTIONS.READ, scope: 'all', description: 'Ver eventos del calendario financiero en toda la plataforma' },
-      { module: MODULES.CALENDAR, action: ACTIONS.CREATE, scope: 'all', description: 'Crear y completar eventos del calendario financiero en cualquier campus' }
+      { module: MODULES.CALENDAR, action: ACTIONS.CREATE, scope: 'all', description: 'Crear y completar eventos del calendario financiero en cualquier campus' },
+      { module: MODULES.WORKFLOW, action: ACTIONS.READ, scope: 'all', description: 'Ver bandeja de acciones de seguimiento de toda la plataforma' },
+      { module: MODULES.WORKFLOW, action: ACTIONS.ASSIGN, scope: 'all', description: 'Asignar responsable a cualquier acción de seguimiento' },
+      { module: MODULES.WORKFLOW, action: ACTIONS.UPDATE, scope: 'all', description: 'Cambiar estado de cualquier acción de seguimiento' },
+      { module: MODULES.WORKFLOW, action: ACTIONS.CONFIGURE, scope: 'all', description: 'Gestión avanzada de acciones (escalar entre campus, cerrar masivo)' },
     ],
     restrictions: []
   },
@@ -196,7 +201,11 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.SYSTEM, action: ACTIONS.CONFIGURE, scope: 'campus', description: 'Ejecutar operaciones de mantenimiento del sistema (optimize, cleanup, maintenance)' },
       { module: MODULES.SECURITY, action: ACTIONS.READ, scope: 'campus', description: 'Ver historial de auditoría del campus' },
       { module: MODULES.CALENDAR, action: ACTIONS.READ, scope: 'campus', description: 'Ver eventos del calendario financiero del campus' },
-      { module: MODULES.CALENDAR, action: ACTIONS.CREATE, scope: 'campus', description: 'Crear y completar eventos del calendario financiero del campus' }
+      { module: MODULES.CALENDAR, action: ACTIONS.CREATE, scope: 'campus', description: 'Crear y completar eventos del calendario financiero del campus' },
+      { module: MODULES.WORKFLOW, action: ACTIONS.READ, scope: 'campus', description: 'Ver bandeja de acciones de seguimiento del campus' },
+      { module: MODULES.WORKFLOW, action: ACTIONS.ASSIGN, scope: 'campus', description: 'Asignar responsable a acciones de seguimiento del campus' },
+      { module: MODULES.WORKFLOW, action: ACTIONS.UPDATE, scope: 'campus', description: 'Cambiar estado de acciones de seguimiento del campus' },
+      { module: MODULES.WORKFLOW, action: ACTIONS.CONFIGURE, scope: 'campus', description: 'Gestión avanzada de acciones (cerrar masivo, configurar reglas)' },
     ],
     restrictions: [
       'Control total sobre el instituto',
@@ -244,7 +253,10 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.FISCAL, action: ACTIONS.READ, scope: 'campus', description: 'Ver información fiscal y CFDI del campus' },
       { module: MODULES.FISCAL, action: ACTIONS.CONFIGURE, scope: 'campus', description: 'Timbrar, cancelar y configurar CFDI del campus' },
       { module: MODULES.CALENDAR, action: ACTIONS.READ, scope: 'campus', description: 'Ver eventos del calendario financiero del campus' },
-      { module: MODULES.CALENDAR, action: ACTIONS.CREATE, scope: 'campus', description: 'Crear y completar eventos del calendario financiero del campus' }
+      { module: MODULES.CALENDAR, action: ACTIONS.CREATE, scope: 'campus', description: 'Crear y completar eventos del calendario financiero del campus' },
+      { module: MODULES.WORKFLOW, action: ACTIONS.READ, scope: 'campus', description: 'Ver bandeja de acciones de seguimiento del campus' },
+      { module: MODULES.WORKFLOW, action: ACTIONS.ASSIGN, scope: 'campus', description: 'Asignar responsable a acciones del campus' },
+      { module: MODULES.WORKFLOW, action: ACTIONS.UPDATE, scope: 'campus', description: 'Cambiar estado de acciones del campus' },
     ],
     restrictions: [
       'Cambios financieros requieren aprobación del Administrador General',
@@ -275,7 +287,8 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.FISCAL, action: ACTIONS.CONFIGURE, scope: 'campus', description: 'Configurar aspectos fiscales' },
       { module: MODULES.SECURITY, action: ACTIONS.READ, scope: 'campus', description: 'Ver historial de auditoría financiera del campus' },
       { module: MODULES.CALENDAR, action: ACTIONS.READ, scope: 'campus', description: 'Ver eventos del calendario financiero del campus' },
-      { module: MODULES.CALENDAR, action: ACTIONS.CREATE, scope: 'campus', description: 'Crear y completar eventos del calendario financiero (función de tesorería)' }
+      { module: MODULES.CALENDAR, action: ACTIONS.CREATE, scope: 'campus', description: 'Crear y completar eventos del calendario financiero (función de tesorería)' },
+      { module: MODULES.WORKFLOW, action: ACTIONS.READ, scope: 'campus', description: 'Ver bandeja de acciones de seguimiento del campus (solo lectura)' },
     ],
     restrictions: [
       'No puede crear o eliminar estudiantes',

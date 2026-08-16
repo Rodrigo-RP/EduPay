@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, varchar, bigint, numeric, date, timestamp, primaryKey, jsonb, uniqueIndex, smallint } from "drizzle-orm/pg-core";
+import { pgTable, pgEnum, text, serial, integer, boolean, varchar, bigint, numeric, date, timestamp, primaryKey, jsonb, uniqueIndex, smallint } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -1238,6 +1238,46 @@ export type MagicLinkToken = typeof magic_link_tokens.$inferSelect;
  * RLS: solo INSERT; UPDATE y DELETE bloqueados a nivel de base de datos.
  * Nunca borres ni actualices registros de esta tabla desde el código.
  */
+// ── ACCIONES DE SEGUIMIENTO — Motor genérico de workflow ─────────────────────
+// Tabla polimórfica para rastrear hallazgos detectados por el sistema y su
+// resolución: desde excepciones de conciliación hasta riesgos financieros.
+// La fuente de verdad del estado real (ej. estado_conciliacion en bank_transactions)
+// no se duplica aquí; acciones_seguimiento es la capa de gestión encima.
+
+export const accion_status_enum = pgEnum("accion_status", [
+  "pendiente",    // detectado, sin responsable asignado
+  "asignado",     // responsable designado, aún no inicia
+  "en_progreso",  // responsable marcó inicio de trabajo
+  "resuelto",     // cierre exitoso con acción efectiva
+  "ignorado",     // cerrado deliberadamente sin resolver
+  "escalado",     // reasignado a nivel superior
+]);
+
+export const acciones_seguimiento = pgTable("acciones_seguimiento", {
+  id:               serial("id").primaryKey(),
+  tenant_id:        integer("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  campus_id:        integer("campus_id").notNull().references(() => campuses.id, { onDelete: "cascade" }),
+  // Referencia polimórfica (patrón audit_log, sin FK rígida para extensibilidad)
+  entity_type:      varchar("entity_type", { length: 50 }).notNull(),
+  entity_id:        integer("entity_id").notNull(),
+  // Tipo: varchar + check constraint en DB (extensible sin migrar el pgEnum)
+  tipo_hallazgo:    varchar("tipo_hallazgo", { length: 50 }).notNull(),
+  status:           accion_status_enum("status").notNull().default("pendiente"),
+  titulo:           varchar("titulo", { length: 255 }).notNull(),
+  descripcion:      text("descripcion"),
+  assigned_to:      integer("assigned_to").references(() => users.id, { onDelete: "set null" }),
+  resolution_notes: text("resolution_notes"),
+  metadata:         jsonb("metadata"),
+  created_by:       integer("created_by").references(() => users.id, { onDelete: "set null" }),
+  created_at:       timestamp("created_at").defaultNow().notNull(),
+  assigned_at:      timestamp("assigned_at"),
+  started_at:       timestamp("started_at"),
+  resolved_at:      timestamp("resolved_at"),
+  escalated_at:     timestamp("escalated_at"),
+});
+export type AccionSeguimiento       = typeof acciones_seguimiento.$inferSelect;
+export type InsertAccionSeguimiento = typeof acciones_seguimiento.$inferInsert;
+
 export const audit_log = pgTable("audit_log", {
   id:              serial("id").primaryKey(),
   tenant_id:       integer("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),

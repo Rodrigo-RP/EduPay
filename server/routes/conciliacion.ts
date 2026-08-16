@@ -320,6 +320,25 @@ export async function applyReconciliation(params: {
     ).catch((err) => { enqueueAuditLog(ap, err); });
   }
 
+  // ── Cerrar acción de seguimiento para auto-conciliación (score ≥ 90) ────────
+  // fire-and-forget — usa subquery para campus_id porque applyReconciliation no
+  // lo recibe como parámetro (campus_id no es operacionalmente necesario en Fase 1).
+  if (firstPaymentId !== null) {
+    pool.query(
+      `UPDATE acciones_seguimiento a
+       SET status           = 'resuelto'::accion_status,
+           resolved_at      = NOW(),
+           resolution_notes = 'Auto-conciliado (score ' || $1 || ')'
+       FROM bank_transactions bt
+       WHERE a.entity_type   = 'bank_transaction'
+         AND a.entity_id     = bt.id
+         AND bt.id           = $2
+         AND a.campus_id     = bt.campus_id
+         AND a.status NOT IN ('resuelto','ignorado')`,
+      [params.score, params.txId]
+    ).catch(() => {});
+  }
+
   return firstPaymentId;
 }
 
@@ -340,10 +359,11 @@ async function insertBankRows(
     clabe_ordenante:  string | null;
     nombre_ordenante: string | null;
   }>,
-): Promise<{ successful: number; skipped: number; failed: string[] }> {
+): Promise<{ successful: number; skipped: number; failed: string[]; inserted_ids: number[] }> {
   let successful = 0;
   let skipped    = 0;
-  const failed: string[] = [];
+  const failed:       string[] = [];
+  const inserted_ids: number[] = [];
 
   for (let i = 0; i < rows.length; i++) {
     const row    = rows[i];
@@ -358,6 +378,7 @@ async function insertBankRows(
            referencia, clabe_ordenante, nombre_ordenante, estado_conciliacion)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pendiente')
         ON CONFLICT DO NOTHING
+        RETURNING id
       `, [
         campusId,               tenantId,
         row.fecha,              row.descripcion      ?? null,
@@ -369,6 +390,7 @@ async function insertBankRows(
       await client.query(`RELEASE SAVEPOINT ${sp}`);
       if ((result.rowCount ?? 0) === 1) {
         successful++;
+        inserted_ids.push(result.rows[0].id);
       } else {
         skipped++;
       }
@@ -378,7 +400,63 @@ async function insertBankRows(
     }
   }
 
-  return { successful, skipped, failed };
+  return { successful, skipped, failed, inserted_ids };
+}
+
+// ── Helper compartido: crear acciones_seguimiento para bank_transactions ──────
+// Se llama en fire-and-forget después del COMMIT de importación CSV/PDF y de
+// la inserción manual de transferencias. ON CONFLICT DO NOTHING garantiza
+// idempotencia: doble importación del mismo estado de cuenta no crea duplicados.
+async function crearAccionesParaBankTx(
+  campusId: number,
+  tenantId: number,
+  txIds: number[],
+  createdBy: number | null,
+): Promise<void> {
+  if (!txIds.length) return;
+  pool.query(
+    `INSERT INTO acciones_seguimiento
+       (tenant_id, campus_id, entity_type, entity_id, tipo_hallazgo,
+        status, titulo, metadata, created_by)
+     SELECT
+       $1, $2, 'bank_transaction', bt.id, 'excepcion_conciliacion',
+       'pendiente',
+       'Transferencia sin conciliar — ' ||
+         TO_CHAR(bt.monto_centavos::numeric / 100, 'FM$999,999,990.00'),
+       jsonb_build_object(
+         'monto_centavos',   bt.monto_centavos,
+         'referencia',       bt.referencia,
+         'nombre_ordenante', bt.nombre_ordenante,
+         'fecha',            bt.fecha::text
+       ),
+       $3
+     FROM bank_transactions bt
+     WHERE bt.id = ANY($4::int[])
+     ON CONFLICT (entity_type, entity_id, campus_id) DO NOTHING`,
+    [tenantId, campusId, createdBy, txIds]
+  ).catch(() => {}); // fire-and-forget — no revierte el import ya commitado
+}
+
+// ── Helper compartido: cerrar acción de seguimiento de una bank_transaction ───
+// Se llama en fire-and-forget desde el resolver y applyReconciliation.
+// El status puede ser 'resuelto' o 'ignorado'; notes es opcional.
+function cerrarAccionBankTx(
+  txId: number,
+  campusId: number,
+  status: 'resuelto' | 'ignorado',
+  notes: string | null,
+): void {
+  pool.query(
+    `UPDATE acciones_seguimiento
+     SET status           = $1::accion_status,
+         resolved_at      = NOW(),
+         resolution_notes = $2
+     WHERE entity_type = 'bank_transaction'
+       AND entity_id   = $3
+       AND campus_id   = $4
+       AND status NOT IN ('resuelto','ignorado')`,
+    [status, notes, txId, campusId]
+  ).catch(() => {}); // fire-and-forget
 }
 
 // ── Fórmula canónica de scoring de riesgo ─────────────────────────────────────
@@ -748,6 +826,11 @@ export function registerConciliacionRoutes(app: Express): void {
       ]);
       const tx = (row.rows as any[])[0];
 
+      // ── Acción de seguimiento — fire-and-forget post-INSERT ───────────────
+      if (tx?.id && tenantId && campusId) {
+        crearAccionesParaBankTx(campusId, tenantId, [tx.id], userId ?? null);
+      }
+
       // Auditoría — fire-and-forget (ADR-001)
       const auditPayload = {
         tenant_id:   tenantId,
@@ -1003,18 +1086,20 @@ export function registerConciliacionRoutes(app: Express): void {
         });
       }
 
-      let successful = 0;
-      let skipped    = 0;
+      let successful    = 0;
+      let skipped       = 0;
       let failed: string[] = [...preFailed];
+      let insertedIds:  number[] = [];
 
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
 
         const ins = await insertBankRows(client, campusId, tenantId, rowsToInsert);
-        successful = ins.successful;
-        skipped    = ins.skipped;
-        failed     = [...preFailed, ...ins.failed];
+        successful  = ins.successful;
+        skipped     = ins.skipped;
+        failed      = [...preFailed, ...ins.failed];
+        insertedIds = ins.inserted_ids;
 
         if (isDryRun) {
           await client.query('ROLLBACK');
@@ -1034,6 +1119,13 @@ export function registerConciliacionRoutes(app: Express): void {
         return res.status(500).json({ message: "Error interno del servidor" });
       } finally {
         try { client.release(); } catch {}
+      }
+
+      // ── Acciones de seguimiento — fire-and-forget post-COMMIT ─────────────
+      // Crea una entrada en acciones_seguimiento por cada transacción nueva.
+      // ON CONFLICT DO NOTHING garantiza idempotencia: doble importación = sin duplicados.
+      if (insertedIds.length > 0 && tenantId && campusId) {
+        crearAccionesParaBankTx(campusId, tenantId, insertedIds, userId ?? null);
       }
 
       // ── Auditoría — fire-and-forget post-COMMIT (ADR-001) ─────────────────
@@ -1137,18 +1229,20 @@ export function registerConciliacionRoutes(app: Express): void {
         }
 
         // ── Inserción atómica ────────────────────────────────────────────────
-        let successful = 0;
-        let skipped    = 0;
+        let successful    = 0;
+        let skipped       = 0;
         let failed: string[] = [];
+        let insertedIds:  number[] = [];
 
         const client = await pool.connect();
         try {
           await client.query("BEGIN");
 
           const ins = await insertBankRows(client, campusId, tenantId, transactions);
-          successful = ins.successful;
-          skipped    = ins.skipped;
-          failed     = ins.failed;
+          successful  = ins.successful;
+          skipped     = ins.skipped;
+          failed      = ins.failed;
+          insertedIds = ins.inserted_ids;
 
           if (isDryRun) {
             await client.query("ROLLBACK");
@@ -1168,6 +1262,11 @@ export function registerConciliacionRoutes(app: Express): void {
           return res.status(500).json({ message: "Error interno del servidor" });
         } finally {
           try { client.release(); } catch {}
+        }
+
+        // ── Acciones de seguimiento — fire-and-forget post-COMMIT ─────────────
+        if (insertedIds.length > 0 && tenantId && campusId) {
+          crearAccionesParaBankTx(campusId, tenantId, insertedIds, userId ?? null);
         }
 
         // ── Auditoría post-COMMIT (ADR-001) ──────────────────────────────────
@@ -1509,6 +1608,10 @@ export function registerConciliacionRoutes(app: Express): void {
         await client.query('COMMIT');
         res.json({ message: "Pago aplicado correctamente al cargo seleccionado", payment_id: paymentId });
 
+        // ── Cerrar acción de seguimiento (fire-and-forget, ADR-001) ────────────
+        cerrarAccionBankTx(txId, campusId, 'resuelto',
+          nota?.trim() || 'Aplicado manualmente por administrador');
+
         // ── Fase 2: upsert CLABE aprendida + confianza_pct (ADR-001, fuera de txn) ──
         // Se ejecuta SIEMPRE en conciliación exitosa — incluso en aplicación manual.
         if (tx.clabe_ordenante) {
@@ -1553,6 +1656,10 @@ export function registerConciliacionRoutes(app: Express): void {
         // ── COMMIT primero — el UPDATE debe persistir incluso si el audit falla
         await client.query('COMMIT');
         res.json({ message: "Excepción descartada y registrada en auditoría" });
+
+        // ── Cerrar acción de seguimiento (fire-and-forget, ADR-001) ────────────
+        cerrarAccionBankTx(txId, campusId, 'ignorado',
+          motivo?.trim() || nota?.trim() || 'Descartado manualmente');
 
         // ── Audit log FUERA de la transacción ya commitada (fire-and-forget).
         // Usa pool.query() (conexión separada) para que un fallo de FK u otro

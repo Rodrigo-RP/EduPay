@@ -129,7 +129,7 @@ export default function DashboardContador() {
               {formatCurrency(financialData.total_income)}
             </div>
             <p className="text-xs text-muted-foreground">
-              +12% vs mes anterior
+              Ingresos del período actual
             </p>
           </CardContent>
         </Card>

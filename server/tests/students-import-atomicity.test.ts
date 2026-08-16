@@ -53,6 +53,16 @@ function mkCurp(ts: number, offset = 0): string {
   return `SIAT${yy}0101HNENNNA0`; // 18 chars, formato CURP oficial ✓
 }
 
+// Limpia cualquier residuo de corridas anteriores interrumpidas antes de arrancar.
+// afterAll cubre la corrida actual; beforeAll cubre el caso de que afterAll
+// no alcanzara a ejecutarse en la corrida previa (ej. worker interrumpido).
+beforeAll(async () => {
+  await pool.query(
+    `DELETE FROM students WHERE curp LIKE 'SIAT%' AND tenant_id = $1`,
+    [TENANT_ID],
+  );
+});
+
 afterAll(async () => {
   if (createdIds.length) {
     await pool.query(`DELETE FROM students WHERE id = ANY($1::int[])`, [createdIds]);

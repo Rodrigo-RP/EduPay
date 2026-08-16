@@ -1,5 +1,5 @@
-import { pgTable, pgEnum, text, serial, integer, boolean, varchar, bigint, numeric, date, timestamp, primaryKey, jsonb, uniqueIndex, smallint } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { pgTable, pgEnum, text, serial, integer, boolean, varchar, bigint, numeric, date, timestamp, primaryKey, jsonb, uniqueIndex, smallint, check } from "drizzle-orm/pg-core";
+import { relations, sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -426,7 +426,24 @@ export const invoices = pgTable("invoices", {
 
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
-});
+}, () => [
+  // ── CHECK constraints IEDU — definición exacta que ya existe en la DB real.
+  // Declaradas aquí para que drizzle-kit no proponga eliminarlas.
+  // Las constraints fueron creadas vía migración SQL cruda; este bloque solo
+  // las refleja declarativamente sin generar ninguna migración nueva.
+  check(
+    "invoices_curp_alumno_check",
+    sql`((curp_alumno IS NULL) OR ((curp_alumno)::text ~ '^[A-Z][AEIOUX][A-Z]{2}[0-9]{6}[HMX][A-Z]{5}[0-9A-Z][0-9]$'::text))`,
+  ),
+  check(
+    "invoices_nivel_educativo_check",
+    sql`((nivel_educativo IS NULL) OR ((nivel_educativo)::text = ANY ((ARRAY['Preescolar'::character varying, 'Primaria'::character varying, 'Secundaria'::character varying, 'Profesional técnico'::character varying, 'Bachillerato o su equivalente'::character varying])::text[])))`,
+  ),
+  check(
+    "invoices_forma_pago_check",
+    sql`((forma_pago IS NULL) OR ((forma_pago)::text = ANY ((ARRAY['01'::character varying, '02'::character varying, '03'::character varying, '04'::character varying, '05'::character varying, '06'::character varying, '08'::character varying, '12'::character varying, '13'::character varying, '17'::character varying, '23'::character varying, '24'::character varying, '25'::character varying, '28'::character varying, '29'::character varying, '30'::character varying, '99'::character varying])::text[])))`,
+  ),
+]);
 
 // DISCOUNTS
 export const discounts = pgTable("discounts", {

@@ -33,7 +33,7 @@ Playwright captura el download event aunque venga de un blob URL con `a.download
 
 Los tests de descarga pasan 4/4 en aislamiento (`npm run test:e2e -- e2e/12-...`) pero fallan en `npm run test:e2e` completo porque el rate limiter `/api/auth/login` (300 req/5min) se agota tras el run de Vitest previo. La raíz es la misma que afecta los otros 11 specs E2E: todos los `loginAsAdmin()` reciben 429 una vez agotado el limiter.
 
-La solución está documentada en `e2e-auth-session-pattern.md` (endpoint `/api/test/reset-rate-limits`), pero no se ha aplicado al global setup de Playwright.
+La solución correcta está documentada en `e2e-auth-session-pattern.md`: login UNA SOLA VEZ en `beforeAll` + restaurar `localStorage` en cada `beforeEach`, evitando llamadas repetidas a `/api/auth/login`. No existe ni debe existir un endpoint HTTP `/api/test/reset-rate-limits` — ver PROTOCOLO-AUDITORIA.md §5 y la sección "Por qué NO hay endpoint HTTP de reset" en ese archivo de memoria.
 
 ## Referencia
 

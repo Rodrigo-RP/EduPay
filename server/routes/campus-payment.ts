@@ -2,6 +2,7 @@
  * campus-payment.ts — Stripe Connect Express onboarding para campus
  *
  * Endpoints:
+ *   POST /api/webhooks/stripe                        — recibe eventos de Stripe (raw body, no auth)
  *   POST /api/admin/campus-payment/conectar-stripe   — crea o reutiliza cuenta Express
  *   POST /api/admin/campus-payment/refresh-link      — genera Account Link nuevo
  *   GET  /api/admin/campus-payment/estado            — estado actual del campus
@@ -9,22 +10,18 @@
  * Diseño:
  *   • Guard en escritura: SETTINGS.CONFIGURE + checkCampusTenant (cross-campus)
  *   • Guard en lectura:   SETTINGS.CONFIGURE (mínimo práctico incluye READ)
- *   • stripe_account_id (acct_…) se guarda en campus_payment_config — no es secreto.
- *   • La clave secreta (STRIPE_SECRET_KEY) vive en Replit Secrets, nunca en DB.
- *   • URL construction: patrón canónico de auth.ts (REPLIT_DEV_DOMAIN con fallback).
+ *   • Webhook: sin auth, con verificación de firma cuando STRIPE_WEBHOOK_SECRET está presente.
+ *   • Idempotencia: Stripe idempotency key `campus-connect-{campusId}` en accounts.create.
+ *   • Race condition: INSERT ... ON CONFLICT DO NOTHING + re-SELECT autoritative.
+ *   • Sincronización: /estado llama accounts.retrieve si stripe_account_id existe y los
+ *     flags están en false (fallback para webhooks perdidos).
  *   • Protocolo §5: sin rutas condicionadas por NODE_ENV.
  *   • Audit: fuera de transacción (ADR-001).
- *
- * Sub-casos en POST /conectar-stripe:
- *   null (sin fila)    → crear cuenta Express en Stripe, INSERT campus_payment_config
- *   incompleto (acct_, charges_enabled=false) → reutilizar cuenta, solo generar Account Link
- *   completo (charges_enabled=true)           → 409
  *
  * API Stripe verificada con stripe@18.2.1 — version: 2025-05-28.basil (agosto 2026).
  *
  * registerCampusPaymentRoutes acepta un stripeOverride opcional para inyectar un
- * cliente de prueba en tests de integración, sin exponer rutas adicionales ni
- * violar el Protocolo §5 (sin condicionales NODE_ENV).
+ * cliente de prueba en tests de integración.
  */
 
 import type { Express } from "express";
@@ -38,7 +35,6 @@ import {
 import { MODULES, ACTIONS } from "../../shared/permissions";
 
 // SDK inicializado una sola vez por módulo.
-// apiVersion cast a any porque el tipo literal cambia entre versiones del SDK.
 const defaultStripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-05-28.basil" as any,
 });
@@ -46,10 +42,19 @@ const defaultStripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 /** Tipo mínimo del cliente Stripe que este módulo necesita (facilita mocking en tests). */
 export type StripeClient = {
   accounts: {
-    create: (params: Stripe.AccountCreateParams) => Promise<{ id: string }>;
+    create:   (params: Stripe.AccountCreateParams, opts?: { idempotencyKey?: string }) => Promise<{ id: string }>;
+    retrieve: (id: string) => Promise<{
+      id: string;
+      charges_enabled:   boolean;
+      payouts_enabled:   boolean;
+      details_submitted: boolean;
+    }>;
   };
   accountLinks: {
     create: (params: Stripe.AccountLinkCreateParams) => Promise<{ url: string }>;
+  };
+  webhooks: {
+    constructEvent: (body: Buffer | string, sig: string, secret: string) => Stripe.Event;
   };
 };
 
@@ -71,15 +76,91 @@ export function registerCampusPaymentRoutes(
   app: Express,
   stripeOverride?: StripeClient
 ): void {
-  const s = stripeOverride ?? defaultStripe;
+  const s: StripeClient = stripeOverride ?? (defaultStripe as unknown as StripeClient);
+
+  // ── WEBHOOK: POST /api/webhooks/stripe ─────────────────────────────────────
+  /**
+   * Recibe eventos de Stripe. Esta ruta:
+   *   • No requiere auth (Stripe llama desde sus servidores).
+   *   • Verifica firma con STRIPE_WEBHOOK_SECRET si está configurado.
+   *   • Si no hay secret (dev/test), parsea el body directamente.
+   *   • El cuerpo raw (Buffer) debe ser proporcionado por express.raw() registrado en
+   *     routes.ts antes de los middlewares globales.
+   *   • Maneja: account.updated → persiste charges_enabled, payouts_enabled, details_submitted.
+   */
+  app.post(
+    "/api/webhooks/stripe",
+    async (req: any, res) => {
+      const sig           = req.headers["stripe-signature"] as string | undefined;
+      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+      let event: Stripe.Event;
+      try {
+        if (webhookSecret && sig) {
+          // Producción: verificar firma con el secret configurado.
+          event = s.webhooks.constructEvent(req.body, sig, webhookSecret);
+        } else if (!webhookSecret) {
+          // Sin secret configurado (dev/test): parsear directamente sin verificar.
+          const rawBody = req.body;
+          const parsed  = Buffer.isBuffer(rawBody)
+            ? JSON.parse(rawBody.toString())
+            : (typeof rawBody === "string" ? JSON.parse(rawBody) : rawBody);
+          event = parsed as Stripe.Event;
+        } else {
+          // Secret configurado pero falta el header stripe-signature: rechazar.
+          return res.status(400).json({ message: "Falta el header stripe-signature" });
+        }
+      } catch (err: any) {
+        console.error("[campus-payment] webhook signature:", err.message);
+        return res.status(400).json({ message: `Webhook inválido: ${err.message}` });
+      }
+
+      // Manejar el evento account.updated
+      if (event.type === "account.updated") {
+        const account = event.data.object as Stripe.Account;
+        try {
+          const result = await pool.query(
+            `UPDATE campus_payment_config
+                SET charges_enabled   = $1,
+                    payouts_enabled   = $2,
+                    details_submitted = $3,
+                    updated_at        = NOW()
+              WHERE stripe_account_id = $4`,
+            [
+              account.charges_enabled,
+              account.payouts_enabled,
+              account.details_submitted,
+              account.id,
+            ]
+          );
+          if (result.rowCount === 0) {
+            // Cuenta no registrada en esta plataforma — ignorar silenciosamente.
+            console.warn("[campus-payment] webhook: account.id no encontrado:", account.id);
+          }
+        } catch (err: any) {
+          console.error("[campus-payment] webhook DB error:", err.message);
+          // Devolver 200 para que Stripe no reintente (el error es nuestro, no de Stripe).
+        }
+      }
+
+      return res.json({ received: true });
+    }
+  );
 
   // ── A. POST /api/admin/campus-payment/conectar-stripe ─────────────────────
   /**
    * Tres sub-casos:
-   *   1. Sin fila en campus_payment_config          → crear cuenta Express + INSERT
+   *   1. Sin fila en campus_payment_config          → crear cuenta Express + UPSERT
    *   2. Fila existe, stripe_account_id, !charges_enabled → reutilizar cuenta
    *   3. Fila existe, charges_enabled=true          → 409
-   * Devuelve { onboarding_url, stripe_account_id, expires_in }
+   *
+   * Idempotencia:
+   *   • Stripe idempotency key = "campus-connect-{campusId}" → misma cuenta aunque
+   *     dos requests concurrent llamen a accounts.create simultáneamente.
+   *   • INSERT ON CONFLICT (campus_id) DO NOTHING → solo una fila por campus.
+   *   • Re-SELECT autoritativo después del upsert → ambos requests ven el mismo acct_.
+   *
+   * Devuelve: { onboarding_url, stripe_account_id, expires_in }
    */
   app.post(
     "/api/admin/campus-payment/conectar-stripe",
@@ -94,7 +175,7 @@ export function registerCampusPaymentRoutes(
         }
         if (!(await checkCampusTenant(campusId, tenantId, res))) return;
 
-        // Estado actual de campus_payment_config
+        // Leer estado actual (sin FOR UPDATE — la idempotencia se maneja via Stripe key + ON CONFLICT)
         const { rows: existing } = await pool.query(
           `SELECT id, stripe_account_id, charges_enabled, payouts_enabled, details_submitted
            FROM campus_payment_config WHERE campus_id = $1`,
@@ -102,7 +183,7 @@ export function registerCampusPaymentRoutes(
         );
         const cfg = existing[0] as any | undefined;
 
-        // Sub-caso completo: ya activo → 409
+        // Sub-caso completo: ya activo → 409 (cortocircuito; nunca llama Stripe)
         if (cfg?.charges_enabled) {
           return res.status(409).json({
             message: "Este campus ya tiene Stripe Connect activo. No se requiere re-onboarding.",
@@ -118,10 +199,11 @@ export function registerCampusPaymentRoutes(
         let stripeAccountId: string;
 
         if (cfg?.stripe_account_id) {
-          // Sub-caso incompleto: reutilizar cuenta existente sin crear una nueva
+          // Sub-caso incompleto: reutilizar cuenta existente
           stripeAccountId = cfg.stripe_account_id;
         } else {
           // Sub-caso null: crear cuenta Express nueva
+          // Leer datos institucionales del campus para pre-llenar el perfil
           const { rows: settingsRows } = await pool.query(
             `SELECT is2.nombre_legal,
                     is2.email_institucional,
@@ -160,27 +242,33 @@ export function registerCampusPaymentRoutes(
             accountParams.email = st.email_institucional;
           }
 
-          const account = await s.accounts.create(accountParams);
+          // Idempotency key: misma clave → misma cuenta aunque se llame dos veces.
+          // Stripe devuelve el mismo objeto Account si la clave ya fue usada.
+          const account = await s.accounts.create(accountParams, {
+            idempotencyKey: `campus-connect-${campusId}`,
+          });
           stripeAccountId = account.id;
 
-          // Persistir — INSERT si no hay fila, UPDATE si ya había fila sin stripe_account_id
-          if (cfg) {
-            await pool.query(
-              `UPDATE campus_payment_config
-                  SET stripe_account_id = $1, updated_at = NOW()
-                WHERE campus_id = $2`,
-              [stripeAccountId, campusId]
-            );
-          } else {
-            await pool.query(
-              `INSERT INTO campus_payment_config (campus_id, tenant_id, stripe_account_id)
-               VALUES ($1, $2, $3)`,
-              [campusId, tenantId, stripeAccountId]
-            );
-          }
+          // Upsert seguro contra race conditions:
+          // ON CONFLICT DO NOTHING: si dos requests insertan simultáneamente, solo uno gana.
+          // El re-SELECT posterior lee la fila autoritativa (sea propia o del otro request).
+          await pool.query(
+            `INSERT INTO campus_payment_config (campus_id, tenant_id, stripe_account_id)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (campus_id) DO NOTHING`,
+            [campusId, tenantId, stripeAccountId]
+          );
+
+          // Re-leer la fila autoritativa (puede diferir si otro request ganó el INSERT)
+          const { rows: fresh } = await pool.query(
+            `SELECT stripe_account_id FROM campus_payment_config WHERE campus_id = $1`,
+            [campusId]
+          );
+          // Si por alguna razón aún no hay fila (error de inserción), usar el de Stripe
+          stripeAccountId = fresh[0]?.stripe_account_id ?? stripeAccountId;
         }
 
-        // Construir Account Link
+        // Construir Account Link (siempre: tanto sub-caso null como sub-caso incompleto)
         const host       = buildHost(req);
         const return_url  = `${host}/configuracion-pagos-completa?stripe=completado`;
         const refresh_url = `${host}/configuracion-pagos-completa?stripe=refresco`;
@@ -264,6 +352,12 @@ export function registerCampusPaymentRoutes(
   // ── C. GET /api/admin/campus-payment/estado ─────────────────────────────────
   /**
    * Devuelve el estado actual de campus_payment_config para el campus del JWT.
+   *
+   * Sincronización activa (fallback para webhooks perdidos):
+   *   Si existe stripe_account_id y algún flag sigue en false, se llama
+   *   accounts.retrieve para obtener el estado en vivo de Stripe y actualizar la DB.
+   *   Si Stripe falla, se devuelve el estado cacheado en DB sin error.
+   *
    * Si no existe fila, todos los booleans son false y stripe_account_id es null.
    */
   app.get(
@@ -284,7 +378,44 @@ export function registerCampusPaymentRoutes(
            FROM campus_payment_config WHERE campus_id = $1`,
           [campusId]
         );
-        const cfg = rows[0] as any;
+        let cfg = rows[0] as any;
+
+        // Sincronización activa: si la cuenta existe pero los flags siguen en false,
+        // consultamos Stripe en vivo para capturar onboardings completados sin webhook.
+        if (cfg?.stripe_account_id && !cfg.charges_enabled) {
+          try {
+            const liveAccount = await s.accounts.retrieve(cfg.stripe_account_id);
+            if (
+              liveAccount.charges_enabled   !== cfg.charges_enabled   ||
+              liveAccount.payouts_enabled   !== cfg.payouts_enabled   ||
+              liveAccount.details_submitted !== cfg.details_submitted
+            ) {
+              await pool.query(
+                `UPDATE campus_payment_config
+                    SET charges_enabled   = $1,
+                        payouts_enabled   = $2,
+                        details_submitted = $3,
+                        updated_at        = NOW()
+                  WHERE campus_id = $4`,
+                [
+                  liveAccount.charges_enabled,
+                  liveAccount.payouts_enabled,
+                  liveAccount.details_submitted,
+                  campusId,
+                ]
+              );
+              cfg = {
+                ...cfg,
+                charges_enabled:   liveAccount.charges_enabled,
+                payouts_enabled:   liveAccount.payouts_enabled,
+                details_submitted: liveAccount.details_submitted,
+              };
+            }
+          } catch (syncErr: any) {
+            // Stripe no disponible: devolver estado cacheado sin fallar.
+            console.warn("[campus-payment] No se pudo sincronizar con Stripe:", syncErr.message);
+          }
+        }
 
         return res.json({
           conectado:          cfg?.charges_enabled    ?? false,

@@ -5,7 +5,7 @@
  * La lógica de cada dominio vive en server/routes/<módulo>.ts
  */
 
-import type { Express } from "express";
+import express, { type Express } from "express";
 import { createServer, type Server } from "http";
 import {
   rateLimits,
@@ -41,6 +41,12 @@ import { registerCampusPaymentRoutes }           from "./routes/campus-payment";
 export async function registerRoutes(app: Express): Promise<Server> {
   // ── Trust proxy (Replit reverse proxy) ──────────────────────────────────────
   app.set("trust proxy", 1);
+
+  // ── Stripe webhook — raw body ANTES de middlewares globales ──────────────────
+  // stripe.webhooks.constructEvent necesita el Buffer original para verificar la
+  // firma HMAC. Si express.json() o sanitizeInput lo parseara antes, la firma fallaría.
+  // Registrar aquí, antes de cualquier otro middleware, garantiza el cuerpo crudo.
+  app.use("/api/webhooks/stripe", express.raw({ type: "application/json" }));
 
   // ── Middlewares de seguridad globales ────────────────────────────────────────
   app.use(secureCors);

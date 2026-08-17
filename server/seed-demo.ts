@@ -1,9 +1,9 @@
 // @ts-nocheck
 import bcrypt from "bcrypt";
-import { db } from "./db";
+import { db, pool } from "./db";
 import {
   tenants, campuses, users, students, guardians,
-  student_guardian, concepts, charges, payments, payment_methods
+  student_guardian, concepts, charges, payments, payment_methods,
 } from "../shared/schema";
 import { eq, and } from "drizzle-orm";
 
@@ -32,16 +32,53 @@ export async function seedDemoData() {
   try {
     // ── Limpiar datos demo previos ──────────────────────────────────────────
     log("🧹 Limpiando datos demo previos...");
-    await db.delete(payments);
-    await db.delete(payment_methods);
-    await db.delete(charges);
-    await db.delete(student_guardian);
-    await db.delete(students);
-    await db.delete(guardians);
-    await db.delete(concepts);
-    await db.delete(users);
-    await db.delete(campuses);
-    await db.delete(tenants);
+    // TRUNCATE ... RESTART IDENTITY CASCADE propaga a todos los referenciantes
+    // independientemente de si tienen ON DELETE CASCADE o NO ACTION.
+    // Evita tener que mantener un orden topológico manual al agregar tablas.
+    const client = await pool.connect();
+    try {
+      await client.query(`
+        TRUNCATE TABLE
+          acciones_seguimiento,
+          bank_transactions,
+          late_fee_calculations,
+          payment_plan_installments,
+          payment_plans,
+          family_payment_sources,
+          family_credits,
+          family_students,
+          families,
+          magic_link_tokens,
+          payment_applications,
+          payment_events,
+          invoices,
+          payments,
+          payment_methods,
+          charges,
+          scholarships,
+          student_guardian,
+          students,
+          guardians,
+          discounts,
+          notifications,
+          payment_rules,
+          payment_surcharge_rules,
+          payment_due_dates,
+          campus_payment_config,
+          scholarship_auto_rules,
+          scholarship_types,
+          concepts,
+          pending_approvals,
+          approval_notifications,
+          approval_workflow_logs,
+          users,
+          campuses,
+          tenants
+        RESTART IDENTITY CASCADE
+      `);
+    } finally {
+      client.release();
+    }
     log("✅ Limpieza completada");
 
     const hash = await bcrypt.hash(DEMO_PASSWORD, 10);
@@ -259,6 +296,8 @@ export async function seedDemoData() {
         email: emailPadre,
         password_hash: hash,
         nombre_completo: `${f.padre.nombres} ${f.padre.ap} ${f.padre.am}`,
+        campus_id: f.campus.id,
+        tenant_id: tenant.id,
       }).returning();
 
       const [madre] = await db.insert(guardians).values({
@@ -273,6 +312,8 @@ export async function seedDemoData() {
         email: emailMadre,
         password_hash: hash,
         nombre_completo: `${f.madre.nombres} ${f.madre.ap} ${f.madre.am}`,
+        campus_id: f.campus.id,
+        tenant_id: tenant.id,
       }).returning();
 
       const [student] = await db.insert(students).values({
@@ -307,6 +348,7 @@ export async function seedDemoData() {
         const [charge] = await db.insert(charges).values({
           student_id: student.id,
           concept_id: f.concept.id,
+          tenant_id: tenant.id,
           ciclo_escolar: "2025-2026",
           fecha_emision: m.emision,
           fecha_vencimiento: m.venc,
@@ -333,6 +375,7 @@ export async function seedDemoData() {
         const [inscCharge] = await db.insert(charges).values({
           student_id: student.id,
           concept_id: concInsc.id,
+          tenant_id: tenant.id,
           ciclo_escolar: "2025-2026",
           fecha_emision: `${thisYear}-01-15`,
           fecha_vencimiento: `${thisYear}-02-28`,

@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { users } from "@shared/schema";
 import { storage } from "../storage";
 import { authenticateToken, esmRequire, JWT_SECRET, serializeUser } from "./shared";
+import { resetLoginRateLimitStore } from "../security-middleware";
 
 // Estado de enrolamiento 2FA — TTL 10 min, solo accesible dentro de este módulo
 const pendingTwofaEnrollment = new Map<number, { secret: string; expiresAt: number }>();
@@ -456,5 +457,16 @@ export function registerAuthRoutes(app: Express): void {
       res.status(500).json({ message: "Error interno del servidor" });
     }
   });
+
+  // ── Dev-only: resetear rate limiters de autenticación ────────────────────────
+  // Solo disponible en desarrollo (NODE_ENV !== "production").
+  // Usado por E2E tests para limpiar contadores entre runs consecutivos.
+  // Protocolo §5: ruta condicional con export de función, sin NODE_ENV en handlers.
+  if (process.env.NODE_ENV !== "production") {
+    app.post("/api/test/reset-auth-rate-limit", (_req, res) => {
+      resetLoginRateLimitStore();
+      res.json({ ok: true });
+    });
+  }
 
 }

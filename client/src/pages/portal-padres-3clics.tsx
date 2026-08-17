@@ -329,7 +329,10 @@ export default function PortalPadres3Clics() {
     const isDeclinedCard = cardNumber.replace(/\s/g, "") === "4000000000000002";
 
     const confirmarPago = useMutation({
-      mutationFn: (data: any) => apiRequest("/api/guardian/pagar", { method: "POST", body: JSON.stringify(data) }),
+      mutationFn: async (data: any) => {
+        const res = await apiRequest("/api/guardian/pagar", { method: "POST", body: JSON.stringify(data) });
+        return res.json();
+      },
       onSuccess: (data: any) => {
         setProcessing(false);
         setLastPaymentResult(data);

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -72,6 +73,7 @@ interface PaymentRuleFormData {
 export default function ReglasPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
   const [selectedRule, setSelectedRule] = useState<PaymentRule | null>(null);
@@ -171,7 +173,7 @@ export default function ReglasPage() {
     e.preventDefault();
     
     const ruleData = {
-      campus_id: 24, // Current campus
+      campus_id: user?.campus_id,
       name: formData.name,
       description: formData.description,
       rule_type: formData.rule_type,

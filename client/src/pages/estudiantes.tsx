@@ -481,7 +481,7 @@ export default function Estudiantes() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/students/1'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/students'] });
       toast({
         title: "Éxito",
         description: "Estudiante agregado correctamente"
@@ -546,7 +546,7 @@ export default function Estudiantes() {
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/students/1'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/students'] });
       toast({
         title: "Importación completada",
         description: `${data.successful} estudiantes importados exitosamente`

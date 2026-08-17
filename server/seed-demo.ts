@@ -406,11 +406,12 @@ export async function seedDemoData() {
 
     log(`✅ 10 familias creadas (10 padres, 10 madres, 10 estudiantes)`);
 
-    // ── Fixtures de vitest (tenant 29, campus 48) ────────────────────────────
-    // ~28 archivos de tests usan campus_id=48 / tenant_id=29 hardcodeados en
-    // JWTs sintéticos. El TRUNCATE RESTART IDENTITY los borra; los recreamos
-    // aquí con ON CONFLICT DO NOTHING para no interferir con el seed demo.
-    log("🔧 Restaurando fixtures de vitest (tenant 29, campus 48)...");
+    // ── Fixtures de vitest (tenant 29, campus 48, user 80) ──────────────────
+    // ~28 archivos de tests usan campus_id=48 / tenant_id=29 / user_id=80
+    // hardcodeados en JWTs sintéticos y consultas SQL.
+    // El TRUNCATE RESTART IDENTITY los borra; los recreamos aquí con
+    // ON CONFLICT DO NOTHING para no interferir con el seed demo.
+    log("🔧 Restaurando fixtures de vitest (tenant 29, campus 48, user 80)...");
     const client2 = await pool.connect();
     try {
       await client2.query(`
@@ -423,6 +424,22 @@ export async function seedDemoData() {
         VALUES (48, 29, 'Campus Norte (Vitest Fixtures)', '09DPR0048V')
         ON CONFLICT (id) DO NOTHING
       `);
+      // User 80: requerido por audit_log.user_id FK y por tests que lo
+      // consultan como "usuario administrador real del campus".
+      await client2.query(
+        `INSERT INTO users (id, campus_id, tenant_id, email, password_hash, name, role, is_active)
+         VALUES (80, 48, 29, 'admin.campus.vitest@jfr.edu.mx', $1,
+                 'Admin Campus Vitest', 'administrador_campus', true)
+         ON CONFLICT (id) DO NOTHING`,
+        [hash]   // hash ya computado arriba para DEMO_PASSWORD
+      );
+      // Concept de colegiatura: requerido por el import de adeudos migrados
+      // (el endpoint busca concepts por tipo para el campus del JWT).
+      await client2.query(`
+        INSERT INTO concepts (campus_id, tenant_id, nombre, tipo, periodicidad, monto_centavos, iva)
+        VALUES (48, 29, 'Colegiatura (Vitest)', 'colegiatura', 'mensual', 100000, false)
+        ON CONFLICT DO NOTHING
+      `);
       // Avanzar secuencias para que futuros INSERTs automáticos no colisionen
       await client2.query(`
         SELECT setval('tenants_id_seq', GREATEST((SELECT MAX(id) FROM tenants) + 1, 50))
@@ -430,10 +447,13 @@ export async function seedDemoData() {
       await client2.query(`
         SELECT setval('campuses_id_seq', GREATEST((SELECT MAX(id) FROM campuses) + 1, 50))
       `);
+      await client2.query(`
+        SELECT setval('users_id_seq', GREATEST((SELECT MAX(id) FROM users) + 1, 85))
+      `);
     } finally {
       client2.release();
     }
-    log("✅ Fixtures de vitest restaurados (tenant 29, campus 48)");
+    log("✅ Fixtures de vitest restaurados (tenant 29, campus 48, user 80)");
 
     log("🎉 Seed de datos demo completado exitosamente");
 

@@ -26,6 +26,7 @@
 - [E2E blob download pattern](e2e-blob-download.md) — Promise.all([waitForEvent("download"), btn.click()]) + download.path() + fs.readFile; verifica magic bytes PK (XLSX) y %PDF; falla en suite completa por rate limit 429.
 - [Teardown ledger transaccional](test-ledger-teardown.md) — afterAll del ledger en una sola txn; fixtures usan markChargeAsPaidForTest; /api/admin rate limit 50/5min causa 429 en corridas repetidas.
 - [audit_retry_queue contaminación](audit-retry-queue-contamination.md) — fuente: bug-audit-log-rollback.test.ts PASO 2; identificar con tenant_id NOT IN tenants; limpiar con DELETE directo (no hay FK en JSONB).
+- [Vitest DB fixtures requeridos](vitest-db-fixtures.md) — tenant_id=29, campus_id=48, user_id=80, concept(tipo=colegiatura,campus=48) deben existir en DB; seed-demo.ts los restaura tras TRUNCATE RESTART IDENTITY.
 - [E2E auth session pattern](e2e-auth-session-pattern.md) — login ONCE en beforeAll (browser fixture), restaurar localStorage en beforeEach; endpoint /api/test/reset-rate-limits para auth+payment limiters.
 - [Playwright E2E pitfalls](e2e-playwright-pitfalls.md) — strict-mode con aria-live/dialog text; h3 genérico captura sidebar; test.use storageState race; SPA wouter: pushState no goto.
 - [Audit log metadata check in tests](audit-log-meta-test.md) — pg puede devolver JSONB como objeto o como string según config; usar metadata::text AS meta_text + toContain('"key"') en vez de meta.key para evitar falsos undefined.

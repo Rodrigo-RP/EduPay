@@ -74,6 +74,7 @@ export default function ReglasPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const token = () => localStorage.getItem("auth_token");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
   const [selectedRule, setSelectedRule] = useState<PaymentRule | null>(null);
@@ -110,7 +111,7 @@ export default function ReglasPage() {
     mutationFn: async (data: any) => {
       const response = await fetch('/api/payment-rules', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
         body: JSON.stringify(data),
       });
       if (!response.ok) throw new Error('Failed to create rule');
@@ -139,7 +140,7 @@ export default function ReglasPage() {
     mutationFn: async (data: any) => {
       const response = await fetch('/api/payment-rules/test', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
         body: JSON.stringify(data),
       });
       if (!response.ok) throw new Error('Failed to test rule');

@@ -852,5 +852,166 @@ export async function resolveSuggestContext(
     };
   }
 
+  // ── asignar_beca ──────────────────────────────────────────────────────────
+  if (trigger.action === "asignar_beca" && trigger.nombre) {
+    // Porcentaje ausente o inválido → pedir clarificación antes de ir a DB
+    if (!trigger.porcentaje) {
+      return {
+        kind: "clarification",
+        reply: `¿Qué porcentaje de beca deseas asignar? Escríbelo así: **"beca de 15% a ${trigger.nombre}"**.`,
+      };
+    }
+    if (trigger.porcentaje <= 0 || trigger.porcentaje > 100) {
+      return {
+        kind: "clarification",
+        reply: `El porcentaje debe ser un número entre 1 y 100. ¿Cuánto quieres asignar?`,
+      };
+    }
+
+    const pattern = `%${trigger.nombre.trim()}%`;
+    const { rows } = await pool.query(
+      `SELECT id, nombre_completo FROM students
+       WHERE campus_id = $1 AND tenant_id = $2
+         AND nombre_completo ILIKE $3
+       ORDER BY nombre_completo ASC LIMIT 5`,
+      [campusId, tenantId, pattern]
+    );
+
+    if (rows.length === 0) return null;
+
+    if (rows.length > 1) {
+      const lista = (rows as any[])
+        .map((s: any, i: number) => `${i + 1}. ${s.nombre_completo}`)
+        .join("\n");
+      return {
+        kind: "clarification",
+        reply:
+          `Encontré ${rows.length} alumnos con ese nombre:\n\n${lista}\n\n` +
+          `Escribe el nombre completo para identificar al alumno correcto.`,
+      };
+    }
+
+    const student = rows[0] as any;
+
+    // Becas vigentes actuales (para overlap_warning informativo)
+    const { rows: vigentes } = await pool.query(
+      `SELECT id, porcentaje, vigencia_fin
+       FROM scholarships
+       WHERE student_id = $1 AND vigencia_fin >= CURRENT_DATE
+       ORDER BY porcentaje DESC`,
+      [student.id]
+    );
+
+    const hoy = new Date().toISOString().split("T")[0];
+    const d   = new Date(hoy);
+    d.setFullYear(d.getFullYear() + 1);
+    const vigenciaFin = d.toISOString().split("T")[0];
+
+    return {
+      kind: "signal",
+      signal: {
+        action:   "asignar_beca",
+        endpoint: `/api/admin/students/${student.id}/beca`,
+        body: {
+          porcentaje:      trigger.porcentaje,
+          motivo:          "(asignado vía asistente)",
+          vigencia_inicio: hoy,
+          vigencia_fin:    vigenciaFin,
+        },
+        label:    "Asignar beca",
+        contexto: {
+          alumno:          student.nombre_completo,
+          student_id:      student.id,
+          porcentaje:      trigger.porcentaje,
+          becas_vigentes:  vigentes.length,
+          vigencia_inicio: hoy,
+          vigencia_fin:    vigenciaFin,
+        },
+      },
+    };
+  }
+
+  // ── condonar_saldo ────────────────────────────────────────────────────────
+  if (trigger.action === "condonar_saldo" && trigger.nombre) {
+    const pattern = `%${trigger.nombre.trim()}%`;
+    const { rows: studentRows } = await pool.query(
+      `SELECT id, nombre_completo FROM students
+       WHERE campus_id = $1 AND tenant_id = $2
+         AND nombre_completo ILIKE $3
+       ORDER BY nombre_completo ASC LIMIT 5`,
+      [campusId, tenantId, pattern]
+    );
+
+    if (studentRows.length === 0) return null;
+
+    if (studentRows.length > 1) {
+      const lista = (studentRows as any[])
+        .map((s: any, i: number) => `${i + 1}. ${s.nombre_completo}`)
+        .join("\n");
+      return {
+        kind: "clarification",
+        reply:
+          `Encontré ${studentRows.length} alumnos con ese nombre:\n\n${lista}\n\n` +
+          `Escribe el nombre completo.`,
+      };
+    }
+
+    const student = studentRows[0] as any;
+
+    // Buscar plan activo con saldo pendiente
+    const { rows: planRows } = await pool.query(
+      `SELECT pp.id, pp.tipo_origen,
+              COALESCE(SUM(c.monto_base_centavos), 0)::bigint AS saldo_centavos,
+              COUNT(c.id) AS cuotas_pendientes
+       FROM payment_plans pp
+       LEFT JOIN charges c ON c.plan_id = pp.id AND c.estado = 'pendiente'
+       WHERE pp.student_id = $1
+         AND pp.tenant_id  = $2
+         AND pp.estado     = 'activo'
+       GROUP BY pp.id, pp.tipo_origen
+       ORDER BY pp.id DESC
+       LIMIT 1`,
+      [student.id, tenantId]
+    );
+
+    if (planRows.length === 0) {
+      return {
+        kind: "clarification",
+        reply:
+          `No encontré un plan de pago activo para **${student.nombre_completo}**. ` +
+          `Si deseas cancelar cargos sueltos, hazlo desde Cargos.`,
+      };
+    }
+
+    const plan  = planRows[0] as any;
+    const saldo = Number(plan.saldo_centavos);
+    const monto = `$${(saldo / 100).toLocaleString("es-MX")}`;
+
+    return {
+      kind: "signal",
+      signal: {
+        action:   "condonar_saldo",
+        endpoint: `/api/planes-pago/${plan.id}/cancelar`,
+        body: {
+          destino_saldo_pendiente: "condonar",
+          // motivo y motivo_condonacion se recogen a través de inputs_required
+        },
+        inputs_required: [
+          { key: "motivo",             label: "Motivo de cancelación del plan",  minLength: 10 },
+          { key: "motivo_condonacion", label: "Justificación de la condonación", minLength: 10 },
+        ],
+        label:    "Condonar saldo pendiente",
+        contexto: {
+          alumno:            student.nombre_completo,
+          student_id:        student.id,
+          plan_id:           Number(plan.id),
+          monto_pendiente:   monto,
+          cuotas_pendientes: Number(plan.cuotas_pendientes),
+          tipo_origen:       plan.tipo_origen,
+        },
+      },
+    };
+  }
+
   return null;
 }

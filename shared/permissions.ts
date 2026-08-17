@@ -293,7 +293,6 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
     restrictions: [
       'No puede crear o eliminar estudiantes',
       'No puede procesar pagos directamente',
-      'No puede asignar becas',
       'No puede crear usuarios',
       'Enfoque principal en análisis y reportes'
     ]

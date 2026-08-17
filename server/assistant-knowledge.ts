@@ -860,13 +860,16 @@ export function matchIntent(
  *  de escritura. El widget muestra el contexto al usuario y le pide confirmación
  *  ANTES de disparar cualquier llamada HTTP al endpoint real. */
 export interface SuggestActionSignal {
-  action: "pagar_manual" | "resolver_excepcion";
+  action: "pagar_manual" | "resolver_excepcion" | "asignar_beca" | "condonar_saldo";
   /** Endpoint completo con IDs embebidos, listo para el POST del widget */
   endpoint: string;
-  /** Body para el POST */
+  /** Body parcial para el POST — se mergea con inputs_required antes de enviar */
   body: Record<string, any>;
   /** Etiqueta de la acción para mostrar al usuario */
   label: string;
+  /** Campos que el frontend debe solicitar al usuario antes de habilitar Confirmar.
+   *  Cada campo se mergea en el body final. undefined = body ya está completo. */
+  inputs_required?: Array<{ key: string; label: string; minLength?: number }>;
   /** Contexto resuelto desde la DB — el usuario ve esto antes de confirmar */
   contexto: {
     alumno?: string;
@@ -876,14 +879,27 @@ export interface SuggestActionSignal {
     banco?: string;
     referencia?: string;
     tx_id?: number;
+    // asignar_beca
+    student_id?: number;
+    porcentaje?: number;
+    becas_vigentes?: number;
+    vigencia_inicio?: string;
+    vigencia_fin?: string;
+    // condonar_saldo
+    plan_id?: number;
+    cuotas_pendientes?: number;
+    tipo_origen?: string;
+    monto_pendiente?: string;
   };
 }
 
 /** Resultado interno del detector de disparadores (puro, sin DB). */
 export interface SuggestActionTrigger {
-  action: "pagar_manual" | "resolver_excepcion";
-  /** Nombre del alumno extraído del mensaje (para pagar_manual) */
+  action: "pagar_manual" | "resolver_excepcion" | "asignar_beca" | "condonar_saldo";
+  /** Nombre del alumno extraído del mensaje */
   nombre?: string;
+  /** Porcentaje de beca extraído del mensaje (para asignar_beca) */
+  porcentaje?: number;
   /** Monto en centavos extraído del mensaje (para resolver_excepcion) */
   monto_centavos?: number;
   /** Referencia bancaria extraída del mensaje (para resolver_excepcion) */
@@ -933,6 +949,66 @@ export function detectSuggestTrigger(message: string): SuggestActionTrigger | nu
     // Extraer referencia bancaria del original también (alfanumérico ≥6 chars)
     const refMatch = message.match(/referencia\s+([A-Z0-9]{6,})/i);
     return { action: "resolver_excepcion", monto_centavos, referencia: refMatch?.[1] };
+  }
+
+  // ── asignar_beca ──────────────────────────────────────────────────────────
+  // Triggers: "aplica una beca a X de 15%", "aplica beca de 20% a X",
+  //           "asigna beca de 20% a X", "da beca para X 10%", "beca a X de 15%"
+  // Detectar en normalizado; extraer nombre del mensaje ORIGINAL en dos pasadas:
+  //   1. Nombre DESPUÉS del porcentaje: "de 20% a [NOMBRE]"
+  //   2. Nombre ANTES del porcentaje:   "beca a/para [NOMBRE] de 20%"
+  const BECA_DETECT_RE =
+    /(?:aplica(?:r)?|asigna(?:r)?|da(?:r)?)\s+(?:una\s+)?beca|beca\s+(?:de\s+\d+\s*%\s+)?(?:a|para)\b/i;
+  if (BECA_DETECT_RE.test(n)) {
+    // Pasada 1: nombre tras porcentaje — "de X% a [NOMBRE]" / "de X% para [NOMBRE]"
+    const postPctMatch = message.match(
+      /\bde\s+(\d{1,3})\s*%\s+(?:a\s+|para\s+)(.{2,40})/i
+    );
+    // Pasada 2: nombre antes del porcentaje — "beca a/para [NOMBRE]"
+    const prePctMatch = message.match(
+      /(?:aplica(?:r)?\s+(?:una\s+)?beca|asigna(?:r)?\s+(?:una\s+)?beca|da(?:r)?\s+(?:una\s+)?beca|beca)\s+(?:a\s+|para\s+)(.{2,40})/i
+    );
+
+    let nombre = "";
+    let porcentaje: number | undefined;
+
+    if (postPctMatch) {
+      porcentaje = parseFloat(postPctMatch[1]);
+      nombre = (postPctMatch[2] ?? "")
+        .replace(/\s+con\b.*/i, "")
+        .replace(/\s+por\b.*/i, "")
+        .trim();
+    } else if (prePctMatch) {
+      nombre = (prePctMatch[1] ?? "")
+        .replace(/\s+de\s+\d+\s*%\b.*/i, "")
+        .replace(/\s+con\b.*/i, "")
+        .replace(/\s+\d+\s*%\s*$/i, "")
+        .trim();
+    }
+
+    // Porcentaje desde el mensaje original si aún no se capturó
+    if (!porcentaje) {
+      const pctMatch = message.match(/\b(\d{1,3})\s*%/);
+      porcentaje = pctMatch ? parseFloat(pctMatch[1]) : undefined;
+    }
+
+    if (nombre.length >= 2) {
+      return { action: "asignar_beca", nombre, porcentaje };
+    }
+  }
+
+  // ── condonar_saldo ────────────────────────────────────────────────────────
+  // Triggers: "condona el saldo de X", "perdona el plan de X",
+  //           "cancela y condona la deuda de X", "exonera el adeudo de X"
+  const COND_RE =
+    /(?:cond[oó]na(?:r)?|perdona(?:r)?|exonera(?:r)?|cancela(?:r)?\s+y\s+cond[oó]na(?:r)?)\s+(?:el\s+)?(?:saldo|plan|deuda|adeudo)?\s*(?:de(?:l?\s+alumno)?\s+)?(.{2,40})/i;
+  if (COND_RE.test(n)) {
+    const rawMatch = message.match(COND_RE);
+    const nombre = (rawMatch?.[1] ?? "")
+      .replace(/\s+con\b.*/i, "")
+      .replace(/\s+por\b.*/i, "")
+      .trim();
+    if (nombre.length >= 2) return { action: "condonar_saldo", nombre };
   }
 
   return null;

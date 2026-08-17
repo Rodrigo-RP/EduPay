@@ -1331,6 +1331,143 @@ export function registerAdminRoutes(app: Express): void {
   });
 
   /**
+   * POST /api/admin/students/:studentId/beca
+   * Asigna una beca individual a un alumno del campus del JWT.
+   *
+   * Guard:  SCHOLARSHIPS.ASSIGN
+   * Body:   { porcentaje (0<x≤100), motivo?, vigencia_inicio?, vigencia_fin? }
+   * 201:    { id, student_id, alumno, porcentaje, vigencia_inicio, vigencia_fin,
+   *           motivo, overlap_warning, becas_vigentes_previas }
+   * Columnas escritas: solo las reales de la DB (porcentaje, motivo,
+   *   vigencia_inicio, vigencia_fin, student_id, tenant_id). monto_fijo rechazado
+   *   explícitamente — esa columna no existe en la DB real (verificado agosto 2026).
+   * Overlap: se permiten múltiples becas vigentes simultáneas (el generador de cargos
+   *   ya elige la de mayor porcentaje). overlap_warning=true advierte al admin.
+   * Audit: fuera de transacción (ADR-001).
+   */
+  app.post("/api/admin/students/:studentId/beca", authenticateToken, async (req: any, res) => {
+    try {
+      if (!hasPermissionForUser(req.user, MODULES.SCHOLARSHIPS, ACTIONS.ASSIGN)) {
+        return res.status(403).json({ message: "Sin permisos para asignar becas" });
+      }
+
+      const tenantId  = req.user?.tenant_id as number;
+      const campusId  = req.user?.campus_id as number;
+      const userId    = req.user?.id ?? null;
+      const studentId = parseInt(req.params.studentId);
+
+      const { porcentaje, motivo, vigencia_inicio, vigencia_fin, monto_fijo } = req.body;
+
+      // Guardia explícita: monto_fijo no existe como columna en la DB real
+      if (monto_fijo !== undefined) {
+        return res.status(400).json({
+          message: "La columna monto_fijo no existe en DB — use porcentaje",
+        });
+      }
+
+      // Validar porcentaje
+      const pct = Number(porcentaje);
+      if (!porcentaje || isNaN(pct) || pct <= 0 || pct > 100) {
+        return res.status(400).json({
+          message: "porcentaje es requerido y debe ser un número entre 1 y 100",
+        });
+      }
+
+      // Resolver fechas con defaults
+      const hoy   = new Date().toISOString().split("T")[0];
+      const vinicio = vigencia_inicio ? String(vigencia_inicio).trim() : hoy;
+      let vfin: string;
+      if (vigencia_fin) {
+        vfin = String(vigencia_fin).trim();
+      } else {
+        const d = new Date(vinicio);
+        d.setFullYear(d.getFullYear() + 1);
+        vfin = d.toISOString().split("T")[0];
+      }
+
+      if (vfin <= vinicio) {
+        return res.status(400).json({
+          message: "vigencia_fin debe ser posterior a vigencia_inicio",
+        });
+      }
+
+      // Verificar que el alumno pertenece al campus/tenant del JWT
+      // (scholarships no tiene campus_id — el aislamiento se hace vía JOIN a students)
+      const alumnoRes = await pool.query(
+        `SELECT id, nombre_completo FROM students
+         WHERE id = $1 AND campus_id = $2 AND tenant_id = $3`,
+        [studentId, campusId, tenantId]
+      );
+      if ((alumnoRes.rows as any[]).length === 0) {
+        return res.status(404).json({ message: "Alumno no encontrado en este campus" });
+      }
+      const alumno = (alumnoRes.rows as any[])[0];
+
+      // Check de becas vigentes solapadas (antes del INSERT, sin txn)
+      const vigentesRes = await pool.query(
+        `SELECT id, porcentaje, vigencia_inicio, vigencia_fin
+         FROM scholarships
+         WHERE student_id = $1
+           AND vigencia_fin >= CURRENT_DATE
+         ORDER BY porcentaje DESC`,
+        [studentId]
+      );
+      const vigentes      = vigentesRes.rows as any[];
+      const overlapWarning = vigentes.length > 0;
+
+      // INSERT con solo las columnas reales de la DB
+      const insertRes = await pool.query(
+        `INSERT INTO scholarships
+           (student_id, tenant_id, porcentaje, motivo, vigencia_inicio, vigencia_fin)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id, student_id, tenant_id, porcentaje, motivo,
+                   vigencia_inicio, vigencia_fin, created_at`,
+        [studentId, tenantId, pct, motivo || null, vinicio, vfin]
+      );
+      const beca = (insertRes.rows as any[])[0];
+
+      // Audit FUERA de transacción (ADR-001)
+      const auditMeta = {
+        porcentaje:      pct,
+        motivo:          motivo || null,
+        vigencia_inicio: vinicio,
+        vigencia_fin:    vfin,
+        scholarship_id:  beca.id,
+        campus_id:       campusId,
+        overlap_warning: overlapWarning,
+      };
+      pool.query(
+        `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
+         VALUES ($1,$2,'beca_asignada','student',$3,$4)`,
+        [tenantId, userId, studentId, JSON.stringify(auditMeta)]
+      ).catch((err: any) =>
+        enqueueAuditLog({
+          tenant_id:   tenantId,
+          user_id:     userId,
+          action:      "beca_asignada",
+          entity_type: "student",
+          entity_id:   studentId,
+          metadata:    auditMeta,
+        }, err)
+      );
+
+      return res.status(201).json({
+        id:                    beca.id,
+        student_id:            beca.student_id,
+        alumno:                alumno.nombre_completo,
+        porcentaje:            Number(beca.porcentaje),
+        vigencia_inicio:       beca.vigencia_inicio,
+        vigencia_fin:          beca.vigencia_fin,
+        motivo:                beca.motivo,
+        overlap_warning:       overlapWarning,
+        becas_vigentes_previas: overlapWarning ? vigentes : null,
+      });
+    } catch (error: any) {
+      return res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
+  /**
    * POST /api/admin/families
    * Crea una familia con tutores y alumnos en una sola llamada atómica,
    * o agrega miembros a una familia existente si alguno de los alumnos

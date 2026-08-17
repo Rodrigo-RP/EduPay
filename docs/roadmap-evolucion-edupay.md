@@ -3,9 +3,13 @@
 Este documento es la hoja de ruta operativa resultante de contrastar el Plan Maestro de
 Refereence Pagos (agosto 2026) contra el estado real de EduPay tras la auditoría de
 seguridad y correctitud de agosto 2026. No es una lista de construcción desde cero — es la
-evolución de un sistema que ya tiene 689 pruebas pasando, un ledger inmutable, un motor de
+evolución de un sistema que ya tiene **1135 pruebas pasando**, un ledger inmutable, un motor de
 conciliación de tres bandejas, y un protocolo de autorización de tres niveles, todos
 verificados con evidencia real.
+
+**Estado al cierre de sesión (agosto 2026):** prioridades 1–8 completadas y verificadas en
+suite verde. Dos piezas externas (Stripe, PAC) pendientes de decisión/acción de Rodrigo.
+Prioridad 9 (ML) diferida explícitamente a Fase 4.
 
 Documentos de referencia: docs/adr/ADR-001 a ADR-003, docs/HANDOFF-agosto-2026.md,
 docs/PROTOCOLO-AUDITORIA.md, y docs/analisis-plan-maestro.md (el diagnóstico detallado
@@ -42,126 +46,104 @@ llegue Fase 4, solo ese último paso cambia — el cálculo real no se toca.
 
 ## Prioridades, en orden de construcción
 
-### 1. Centro de Implementación
+### ✅ 1. Centro de Implementación — COMPLETADO
 
-Unificar los imports ya existentes (alumnos, becas, plantillas) en un flujo formal único:
-subir alumnos → familias/tutores → becas/descuentos → adeudos iniciales → validar
-inconsistencias → simular cargos → activar cobranza. Con preview, simulación, rollback y
-auditoría explícitos en cada paso.
+Flujo unificado: alumnos → familias/tutores → becas/descuentos → adeudos iniciales →
+validar inconsistencias → simular cargos → activar cobranza. Con preview, simulación,
+rollback y auditoría explícitos. Dry-run atómico, importación masiva desde Excel, wizard
+de onboarding con persistencia de paso ante recarga.
 
-Prioridad 1 no por ser lo más complejo técnicamente, sino por ser el argumento comercial más
-directo frente a plataformas que tardan 30-60 días en implementar: "No tienes que capturar
-todo otra vez. Sube tus Excels actuales."
+Tests: `wizard-import-steps.test.ts` (14), `wizard-reload-persistence.test.ts` (9),
+`import-dry-run.test.ts` (7), `import-becas-real-db.test.ts` (9),
+`import-familias-tutores.test.ts` (5), `students-import-atomicity.test.ts` (8).
 
-### 1b. Conexión a pasarela real de pagos — en paralelo, sin proveedor fijo aún
+### 1b. Conexión a pasarela real de pagos — PENDIENTE RODRIGO (Stripe)
 
-Falta como prioridad explícita, no solo mencionada de paso en el diagnóstico: sin una
-pasarela real conectada, ni la conciliación ni la lectura de estados bancarios se validan
-contra datos reales (comisiones reales, depósitos reales, eventos reales de webhook), solo
-contra simulaciones. Se posiciona en paralelo al Centro de Implementación, no estrictamente
-antes de las prioridades 2-3, porque depende de investigación de documentación vigente y de
-tiempos de aprobación comercial que no dependen del equipo de ingeniería — mientras eso
-avanza, el diseño de conciliación y lectura bancaria puede construirse ya contra datos con la
-forma realista de lo que cualquier pasarela documenta en su especificación de webhooks.
+Proveedor seleccionado: **Stripe**. Pendiente que Rodrigo complete el alta comercial y
+proporcione credenciales de API. El motor de conciliación, ledger e idempotencia de webhooks
+ya está construido y probado — el adaptador Stripe se construye consultando la documentación
+oficial vigente en el momento de la implementación, nunca de memoria. El resto del sistema
+nunca conocerá el SDK de Stripe directamente — solo la interfaz PaymentProvider.
 
-Proveedor todavía sin decidir — la elección entre Conekta, Stripe, Mattilda Pay u otro
-depende de qué comisiones ofrezca cada uno, decisión puramente comercial de Rodrigo. La
-interfaz PaymentProvider (ya especificada en el documento original de Instituto JFR, en
-/packages/payments) existe exactamente para este escenario: el resto del sistema nunca
-conoce el SDK de un procesador específico, solo la interfaz — así que construir contra esa
-interfaz ahora no ata la decisión comercial a ningún proveedor en particular. El adaptador
-concreto se construye cuando el proveedor esté decidido, consultando su documentación oficial
-vigente en ese momento, nunca de memoria.
+### ✅ 2. Conciliación con confianza porcentual — COMPLETADO
 
-### 2. Conciliación con confianza porcentual
+Motor de scoring: 100% auto-conciliado, 90-99% coincidencia muy probable, 70-89% revisión,
+0-69% no conciliado. Bandeja de excepciones con asignación de responsable y maker-checker.
+Parsers BBVA (PDF digital) y Santander. Importación CSV. Deduplicación con UNIQUE parcial.
 
-Evolucionar el motor de tres bandejas ya existente (auto-conciliado / revisión / aclaración)
-hacia niveles explícitos: 100% conciliado automáticamente, 90-99% coincidencia muy probable,
-70-89% requiere revisión, 0-69% no conciliado.
+Tests: `conciliacion-scoring.test.ts` (10), `excepciones-conciliacion.test.ts` (16),
+`import-bank-transactions.test.ts` (11), `bbva-parser.test.ts` (8),
+`santander-parser.test.ts` (8), `importar-pdf.test.ts` (9).
 
-### 3. Carga de estados bancarios, por fases
+### ✅ 3. Carga de estados bancarios — COMPLETADO
 
-- Fase 1: CSV/Excel bancario estructurado (resuelve la mayoría de los casos reales).
-- Fase 2: PDF bancario digital con tablas legibles.
-- Fase 3: PDF escaneado/OCR — solo si resulta indispensable, dado el ruido y los errores
-  que introduce frente a las dos fases anteriores.
+- Fase 1 ✅: CSV/Excel bancario (`/api/caja/importar`).
+- Fase 2 ✅: PDF bancario digital con tablas legibles (`/api/caja/importar-pdf`), BBVA
+  implementado con parser real de coordenadas X.
+- Fase 3: PDF escaneado/OCR — no implementada (Santander disponible es escaneado, sin texto
+  extraíble; solo se valida que el parser no rompe ante él).
 
-### 4. CFDI 4.0 con complemento IEDU
+### ✅ 4. CFDI 4.0 con complemento IEDU — COMPLETADO (lógica interna)
 
-Fase técnica: 4 — Peso comercial: Alto (diferenciador comercial de primer orden, sin el cual
-no se puede salir al mercado).
+Lógica CFDI completa: uso D10, complemento IEDU, CURP oficial SAT, clave RVOE, nivel
+educativo (5 valores catálogo SAT), RFC del pagador real, separación colegiatura/inscripción,
+17 claves c_FormaPago. Validators en `server/lib/validators.ts`. Check constraints en DB y
+declarados en `shared/schema.ts` (drizzle-kit generate confirma 0 DROP CONSTRAINT).
 
-Confirmado explícitamente por Rodrigo, incluso frente a la sugerencia de suavizarlo para
-pilotos técnicos: el CFDI es bloqueante también para el piloto en Instituto JFR, no solo
-para la venta comercial a otras escuelas. No hay una versión "ligera" de esta prioridad — se
-mantiene con el mismo peso decidido desde el principio.
+Tests: `validators-m017.test.ts` (16), `fiscal-guard.test.ts` (28),
+`fiscal-timbrar-tenant.test.ts` (4).
 
-Se posiciona aquí, inmediatamente después de que el motor financiero, la conciliación y la
-carga bancaria estén sólidos, porque el CFDI necesita que esos datos de origen sean confiables
-— no porque importe menos que el resto. Si surge presión comercial real (un prospecto pregunta
-por deducibilidad fiscal antes de firmar), esta posición se puede adelantar aún más; el orden
-es un default razonable, no una regla rígida.
+**PAC de timbrado real — PENDIENTE RODRIGO** (Facturama, FiscalCloud, o SW Sapien). El
+timbrado actual es simulado. La conexión al PAC se construye consultando documentación
+oficial vigente en el momento de implementación, nunca de memoria.
 
-Dos pasos independientes, que pueden avanzar en paralelo:
-- Diseño de la lógica (uso D10, complemento IEDU, CURP, clave RVOE, separación de
-  colegiatura e inscripción, RFC del pagador real): puede trabajarse ya, sin depender de nada
-  externo — igual que se diseñó el motor de pagos antes de conectar un procesador real.
-- Conexión a un PAC real (Facturama, FiscalCloud, SW Sapien): requiere consultar
-  documentación oficial vigente en el momento en que se haga, nunca de memoria.
+### ✅ 5. Reportes prediseñados con filtros acotados — COMPLETADO
 
-### 5. Reportes prediseñados con filtros acotados
+Catálogo de 8 reportes: RPT-01 Financiero · RPT-02 Estudiantes · RPT-03 Cobranza ·
+RPT-04 Admisiones · RPT-05 Consejo Directivo · RPT-06 Contable · RPT-07 Antigüedad de
+Saldos · RPT-08 Riesgo de Cartera. Filtros: ciclo, nivel, grado, grupo, fecha, concepto,
+estado, semáforo. Salida: tabla, Excel real (ExcelJS), PDF. Guards correctos por rol.
 
-Punto medio explícito, resuelto entre las dos posiciones del documento original de JFR ("sin
-constructor configurable") y el Plan Maestro ("constructor visual completo"): un catálogo fijo
-de reportes conocidos (cobranza, antigüedad de saldos, morosidad, becados, riesgo), cada uno
-con filtros acotados de antemano (ciclo, nivel, grado, grupo, fecha, concepto, estado, riesgo),
-con salida en tabla, Excel y PDF.
+Tests: `rpt01`–`rpt08` test files, `export-role-guard.test.ts` (14),
+`consejo-role-guard.test.ts` (9), `admissions-guard.test.ts` (7).
 
-Nunca un constructor de consulta libre sobre cualquier campo de cualquier tabla — esa
-superficie es exactamente la clase de riesgo que se cerró con el bug del wildcard en
-audit_log durante la auditoría de seguridad de esta sesión.
+### ✅ 6. Navegador universal accionable — COMPLETADO (5 niveles)
 
-### 6. Navegador universal accionable
+N1 intención+navegación · N2 resultado directo en respuesta · N3 exportar Excel/PDF desde
+asistente · N4 sugerir acciones (Forma A) · N5 ejecutar con confirmación explícita.
+Implementado en `server/assistant-knowledge.ts` + `server/assistant-actions.ts`.
 
-Evolucionar la base ya existente (assistant-knowledge.ts, matchIntent,
-detectActionIntent) en cinco niveles incrementales, cada uno con entrega verificable:
+Tests: `assistant-knowledge.test.ts` (47), `assistant-export.test.ts` (23),
+`assistant-suggest.test.ts` (11), `assistant-catalogo-productos-fix.test.ts` (8).
 
-1. Entender intención y navegar (ya existe, en versión básica).
-2. Mostrar resultado directo en la respuesta, no solo navegar a una pantalla.
-3. Permitir exportar Excel/PDF desde la respuesta misma.
-4. Sugerir acciones — Forma A obligatoria (ver regla de diseño arriba).
-5. Ejecutar acciones con confirmación explícita del usuario — Forma A obligatoria, y con
-   especial cautela: si en cualquier fase futura este nivel llega a aceptar texto libre que
-   alimente un modelo con capacidad de ejecutar acciones (no solo describir), eso abre una
-   superficie de riesgo nueva de manipulación del modelo, que necesitaría el mismo nivel de
-   escrutinio que se le dio a cada guard de permisos en esta auditoría.
+### ✅ 7. Motor de acciones generalizado — COMPLETADO (primer caso: conciliación)
 
-### 7. Motor de acciones generalizado
+`server/routes/acciones.ts` + migración `017_acciones_seguimiento.sql`. Bandeja de
+excepciones de conciliación como primer caso de uso. Asignación de responsable, seguimiento,
+resolución con maker-checker, medición de efectividad por resolución.
 
-Extender el mecanismo ya existente (bandeja de excepciones, maker-checker de condonaciones)
-para cualquier tipo de hallazgo — conciliación, riesgo, adeudos, becas, descuentos, convenios
-— con asignación de responsable, seguimiento, y medición de efectividad.
+Tests: `acciones-seguimiento.test.ts` (11), `excepciones-conciliacion.test.ts` (16).
 
-### 8. Panel directivo narrativo
+Extensión a otros tipos de hallazgo (riesgo, adeudos, becas, convenios): pendiente en backlog.
 
-Agregar insights automáticos sobre el dashboard ya existente ("secundaria concentra el 42% del
-riesgo de cartera", "18 familias requieren contacto antes del cierre de ciclo"). Forma A
-obligatoria — reglas explícitas de umbral (por ejemplo: "si un nivel académico supera X% del
-riesgo total del campus, generar la frase con esa plantilla fija"), nunca redactado por un
-modelo de lenguaje.
+### ✅ 8. Panel directivo narrativo — COMPLETADO (NI-01 a NI-05)
 
-### 9. Riesgo estadístico/ML
+`server/lib/narrative-insights.ts` con `generateNarrativeInsights()`. Reglas de umbral con
+plantillas de texto fijas (Forma A — nunca LLM). 5 reglas: mora por encima del umbral,
+cobranza baja vs mes anterior, riesgo concentrado en un nivel, alumnos sin cargo activo,
+ingresos bajo el mínimo histórico. Severidades: info / warning / critical. Integrado en
+RPT-05 Consejo Directivo con card visual coloreada por severidad.
 
-Regresión logística, Random Forest o XGBoost sobre las variables ya identificadas (días de
-atraso, meses vencidos, pagos parciales recurrentes, convenios incumplidos, cercanía al cierre
-de ciclo). Doblemente diferido: no solo falta suficiente historial real de varias escuelas y
-ciclos para entrenar un modelo confiable, sino que además es, bajo la regla de diseño de este
-roadmap, función de IA — sujeta al mismo límite de Fase 4 que el navegador y el panel, no solo
-a una cuestión de volumen de datos.
+Tests: `nit-narrative-insights.test.ts` (8), `rpt05-consejo.test.ts` (12).
 
-Mientras tanto, profundizar el modelo de reglas ya existente: riesgo por días vencidos, por
-meses acumulados, por pagos parciales recurrentes, por convenio incumplido, por cercanía al
-cierre de ciclo, por historial de atraso del ciclo anterior.
+### 9. Riesgo estadístico/ML — DIFERIDO (Fase 4, explícito)
+
+Regresión logística, Random Forest o XGBoost. Doblemente diferido: falta historial real de
+varias escuelas y ciclos, y es función de IA bajo la regla de diseño de este roadmap.
+
+Mientras tanto: profundizar el modelo de reglas ya existente (riesgo por días vencidos,
+meses acumulados, pagos parciales recurrentes, convenio incumplido, cercanía al cierre de
+ciclo, historial del ciclo anterior).
 
 ## Variables explícitamente excluidas del scoring individual
 

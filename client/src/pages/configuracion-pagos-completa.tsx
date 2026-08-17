@@ -14,7 +14,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Calendar, Settings, Plus, Edit, Trash2, Percent, Clock, DollarSign } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { hasPermission, MODULES, ACTIONS, type UserRole } from "@shared/permissions";
+import { Calendar, Settings, Plus, Edit, Trash2, Percent, Clock, DollarSign, CreditCard, ExternalLink, CheckCircle2, AlertCircle } from "lucide-react";
 
 interface Concepto {
   id: number;
@@ -124,6 +126,79 @@ export default function ConfiguracionPagosCompleta() {
   });
 
   const [aplicaTodosMeses, setAplicaTodosMeses] = useState(true);
+
+  // ── Stripe Connect ──────────────────────────────────────────────────────────
+  const { user } = useAuth();
+  const [stripeMsg,     setStripeMsg]     = useState<string | null>(null);
+  const [stipeRefreshing, setStripeRefreshing] = useState(false);
+  const puedeConfigurar = hasPermission(
+    (user?.role ?? "") as UserRole, MODULES.SETTINGS, ACTIONS.CONFIGURE
+  );
+
+  // Fetch estado Stripe Connect
+  const { data: stripeEstado, refetch: refetchStripeEstado } = useQuery<{
+    conectado: boolean;
+    stripe_account_id: string | null;
+    charges_enabled: boolean;
+    payouts_enabled: boolean;
+    details_submitted: boolean;
+  }>({
+    queryKey: ["/api/admin/campus-payment/estado"],
+    enabled: !!user && puedeConfigurar,
+    retry: false,
+  });
+
+  // Mutation: conectar Stripe (redirige al onboarding_url devuelto)
+  const conectarStripeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("/api/admin/campus-payment/conectar-stripe", {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as any).message || "Error al conectar Stripe");
+      }
+      return res.json() as Promise<{ onboarding_url: string; stripe_account_id: string }>;
+    },
+    onSuccess: (data) => {
+      if (data.onboarding_url) {
+        window.location.href = data.onboarding_url;
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Efecto: manejar ?stripe=completado y ?stripe=refresco al montar
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const stripeParam = params.get("stripe");
+    if (stripeParam === "completado") {
+      setStripeMsg(
+        "Onboarding enviado a Stripe. La cuenta quedará activa cuando Stripe confirme los datos."
+      );
+      setActiveTab("stripe");
+    } else if (stripeParam === "refresco") {
+      // Auto-refrescar link y redirigir al usuario
+      setActiveTab("stripe");
+      setStripeRefreshing(true);
+      apiRequest("/api/admin/campus-payment/refresh-link", { method: "POST" })
+        .then(async (res) => {
+          if (res.ok) {
+            const data = await res.json() as { onboarding_url: string };
+            if (data.onboarding_url) {
+              window.location.href = data.onboarding_url;
+            }
+          }
+        })
+        .catch(() => {
+          toast({ title: "Error", description: "No se pudo refrescar el enlace de Stripe", variant: "destructive" });
+        })
+        .finally(() => setStripeRefreshing(false));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Fetch conceptos existentes
   const { data: conceptos = [] } = useQuery({
@@ -565,7 +640,7 @@ export default function ConfiguracionPagosCompleta() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="fechas" className="flex items-center gap-2">
             <Calendar className="w-4 h-4" />
             Fechas de Vencimiento
@@ -577,6 +652,10 @@ export default function ConfiguracionPagosCompleta() {
           <TabsTrigger value="conceptos" className="flex items-center gap-2">
             <DollarSign className="w-4 h-4" />
             Conceptos
+          </TabsTrigger>
+          <TabsTrigger value="stripe" className="flex items-center gap-2">
+            <CreditCard className="w-4 h-4" />
+            Stripe Connect
           </TabsTrigger>
         </TabsList>
 
@@ -1237,6 +1316,137 @@ export default function ConfiguracionPagosCompleta() {
                   </Card>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── TAB: Stripe Connect ─────────────────────────────────────────── */}
+        <TabsContent value="stripe" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5" />
+                Stripe Connect Express
+              </CardTitle>
+              <p className="text-sm text-slate-600 mt-1">
+                Conecta la cuenta Stripe de este campus para cobrar con tarjeta real.
+                El onboarding es gestionado directamente por Stripe.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Mensaje de estado (retorno de Stripe) */}
+              {stripeMsg && (
+                <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <CheckCircle2 className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+                  <p className="text-sm text-blue-800">{stripeMsg}</p>
+                </div>
+              )}
+
+              {stipeRefreshing && (
+                <div className="flex items-center gap-2 text-sm text-slate-500">
+                  <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                  Refrescando enlace de onboarding...
+                </div>
+              )}
+
+              {/* Estado actual */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <span className="text-sm font-medium text-slate-700">Cobros</span>
+                  {stripeEstado?.charges_enabled ? (
+                    <Badge className="bg-green-100 text-green-700 border-green-200">
+                      <CheckCircle2 className="w-3 h-3 mr-1" /> Activo
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary">Pendiente</Badge>
+                  )}
+                </div>
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <span className="text-sm font-medium text-slate-700">Transferencias</span>
+                  {stripeEstado?.payouts_enabled ? (
+                    <Badge className="bg-green-100 text-green-700 border-green-200">
+                      <CheckCircle2 className="w-3 h-3 mr-1" /> Activo
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary">Pendiente</Badge>
+                  )}
+                </div>
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <span className="text-sm font-medium text-slate-700">Datos enviados</span>
+                  {stripeEstado?.details_submitted ? (
+                    <Badge className="bg-green-100 text-green-700 border-green-200">
+                      <CheckCircle2 className="w-3 h-3 mr-1" /> Sí
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary">No</Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* ID de cuenta Stripe (si existe) */}
+              {stripeEstado?.stripe_account_id && (
+                <div className="p-3 bg-slate-50 border rounded-lg">
+                  <p className="text-xs text-slate-500 mb-1">ID de cuenta Stripe</p>
+                  <code className="text-sm font-mono text-slate-700">
+                    {stripeEstado.stripe_account_id}
+                  </code>
+                </div>
+              )}
+
+              {/* Información sobre estado del webhook */}
+              {stripeEstado?.stripe_account_id && !stripeEstado.charges_enabled && !stripeMsg && (
+                <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+                  <div className="text-sm text-amber-800">
+                    <p className="font-medium">Onboarding en progreso</p>
+                    <p className="mt-1">
+                      La cuenta existe en Stripe pero aún no está activa.
+                      Completa el proceso en Stripe para habilitar cobros.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Botón de acción (solo visible con SETTINGS.CONFIGURE) */}
+              {puedeConfigurar && (
+                <div className="flex flex-col sm:flex-row gap-3">
+                  {!stripeEstado?.charges_enabled && (
+                    <Button
+                      onClick={() => conectarStripeMutation.mutate()}
+                      disabled={conectarStripeMutation.isPending}
+                      className="flex items-center gap-2"
+                    >
+                      {conectarStripeMutation.isPending ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Conectando...
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard className="w-4 h-4" />
+                          {stripeEstado?.stripe_account_id
+                            ? "Continuar Onboarding en Stripe"
+                            : "Conectar Stripe"}
+                          <ExternalLink className="w-3 h-3 ml-1" />
+                        </>
+                      )}
+                    </Button>
+                  )}
+
+                  {stripeEstado?.charges_enabled && (
+                    <div className="flex items-center gap-2 text-sm text-green-700 font-medium">
+                      <CheckCircle2 className="w-5 h-5" />
+                      Cuenta Stripe activa y lista para cobrar
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!puedeConfigurar && (
+                <p className="text-sm text-slate-500 italic">
+                  Solo administradores pueden conectar o modificar la cuenta Stripe.
+                </p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

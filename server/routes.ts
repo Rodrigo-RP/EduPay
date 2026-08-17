@@ -36,6 +36,7 @@ import { registerReportesContableRoutes }          from "./routes/reportes-conta
 import { registerReportesAntiguedadSaldosRoutes } from "./routes/reportes-antiguedad-saldos";
 import { registerReportesRiesgoRoutes }           from "./routes/reportes-riesgo";
 import { registerAccionesRoutes }                from "./routes/acciones";
+import { registerCampusPaymentRoutes }           from "./routes/campus-payment";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // ── Trust proxy (Replit reverse proxy) ──────────────────────────────────────
@@ -97,6 +98,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerReportesAntiguedadSaldosRoutes(app);
   registerReportesRiesgoRoutes(app);
   registerAccionesRoutes(app);
+  registerCampusPaymentRoutes(app);
 
   // ── Servidor HTTP (devuelto a server/index.ts para WebSocket) ─────────────────
   const httpServer = createServer(app);

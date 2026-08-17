@@ -405,6 +405,36 @@ export async function seedDemoData() {
     }
 
     log(`✅ 10 familias creadas (10 padres, 10 madres, 10 estudiantes)`);
+
+    // ── Fixtures de vitest (tenant 29, campus 48) ────────────────────────────
+    // ~28 archivos de tests usan campus_id=48 / tenant_id=29 hardcodeados en
+    // JWTs sintéticos. El TRUNCATE RESTART IDENTITY los borra; los recreamos
+    // aquí con ON CONFLICT DO NOTHING para no interferir con el seed demo.
+    log("🔧 Restaurando fixtures de vitest (tenant 29, campus 48)...");
+    const client2 = await pool.connect();
+    try {
+      await client2.query(`
+        INSERT INTO tenants (id, nombre_legal, rfc)
+        VALUES (29, 'Instituto JFR (Vitest Fixtures)', 'IJF950101AA0')
+        ON CONFLICT (id) DO NOTHING
+      `);
+      await client2.query(`
+        INSERT INTO campuses (id, tenant_id, nombre, clave_sep)
+        VALUES (48, 29, 'Campus Norte (Vitest Fixtures)', '09DPR0048V')
+        ON CONFLICT (id) DO NOTHING
+      `);
+      // Avanzar secuencias para que futuros INSERTs automáticos no colisionen
+      await client2.query(`
+        SELECT setval('tenants_id_seq', GREATEST((SELECT MAX(id) FROM tenants) + 1, 50))
+      `);
+      await client2.query(`
+        SELECT setval('campuses_id_seq', GREATEST((SELECT MAX(id) FROM campuses) + 1, 50))
+      `);
+    } finally {
+      client2.release();
+    }
+    log("✅ Fixtures de vitest restaurados (tenant 29, campus 48)");
+
     log("🎉 Seed de datos demo completado exitosamente");
 
     return {

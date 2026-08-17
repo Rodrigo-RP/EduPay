@@ -5,7 +5,7 @@
  * La lógica de cada dominio vive en server/routes/<módulo>.ts
  */
 
-import express, { type Express } from "express";
+import type { Express } from "express";
 import { createServer, type Server } from "http";
 import {
   rateLimits,
@@ -36,17 +36,18 @@ import { registerReportesContableRoutes }          from "./routes/reportes-conta
 import { registerReportesAntiguedadSaldosRoutes } from "./routes/reportes-antiguedad-saldos";
 import { registerReportesRiesgoRoutes }           from "./routes/reportes-riesgo";
 import { registerAccionesRoutes }                from "./routes/acciones";
-import { registerCampusPaymentRoutes }           from "./routes/campus-payment";
+import { registerStripeWebhookRoute, registerCampusPaymentRoutes } from "./routes/campus-payment";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // ── Trust proxy (Replit reverse proxy) ──────────────────────────────────────
   app.set("trust proxy", 1);
 
-  // ── Stripe webhook — raw body ANTES de middlewares globales ──────────────────
-  // stripe.webhooks.constructEvent necesita el Buffer original para verificar la
-  // firma HMAC. Si express.json() o sanitizeInput lo parseara antes, la firma fallaría.
-  // Registrar aquí, antes de cualquier otro middleware, garantiza el cuerpo crudo.
-  app.use("/api/webhooks/stripe", express.raw({ type: "application/json" }));
+  // ── Stripe webhook — ANTES de sanitizeInput ──────────────────────────────────
+  // El body crudo (Buffer) ya está preservado gracias al express.raw() registrado
+  // en server/index.ts antes de express.json(). Registramos la ruta aquí, antes de
+  // sanitizeInput, para que el middleware de sanitización no transforme el Buffer en
+  // un objeto ordinario (sanitizeInput recorre typeof body === 'object').
+  registerStripeWebhookRoute(app);
 
   // ── Middlewares de seguridad globales ────────────────────────────────────────
   app.use(secureCors);

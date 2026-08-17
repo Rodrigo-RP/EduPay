@@ -17,6 +17,12 @@ process.on('uncaughtException', (error) => {
 });
 
 const app = express();
+
+// Stripe webhook — raw body ANTES de express.json().
+// stripe.webhooks.constructEvent necesita el Buffer original para verificar HMAC.
+// Si express.json() lo parsea primero, la firma fallaría (cuerpo mutado).
+app.use("/api/webhooks/stripe", express.raw({ type: "application/json" }));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 

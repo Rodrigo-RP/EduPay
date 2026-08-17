@@ -768,7 +768,58 @@ export function matchIntent(
     };
   }
 
-  // ── Caso: ya está en esa página ──────────────────────────────────────────────
+  // ── Caso: ambigüedad — empate estricto en el puntaje máximo ─────────────────
+  //
+  // Se dispara SOLO cuando 2+ módulos comparten exactamente el puntaje máximo.
+  // Un ganador único (aunque el segundo esté a 1 punto) navega directo, para
+  // evitar falsos positivos en mensajes con intención clara como
+  // "dónde registro un pago" (/pagos=4, segundo=3 → no hay empate → navega).
+  //
+  // Cuando SÍ hay empate, se amplía el pool con módulos a ≤1 punto del empate
+  // para incluir alternativas cercanas (ej. /asignacion-precios=2 cuando el
+  // empate es en 3).  Se muestran hasta 3 chips, excluyendo la página actual.
+
+  if (best && best.score >= THRESHOLD) {
+    const tiedWithBest = scored.filter((s) => s.score === best.score);
+
+    if (tiedWithBest.length >= 2) {
+      // Empate estricto: incluir empatados + módulos a ≤1 punto del empate
+      const ambiguousCandidates = scored.filter(
+        (s) => s.score >= THRESHOLD && s.score >= best.score - 1
+      );
+
+      // Excluir la página actual — el usuario ya está ahí
+      const options = ambiguousCandidates
+        .filter((s) => s.module.route !== currentPath)
+        .slice(0, 3)
+        .map((s) => ({ route: s.module.route, label: s.module.label }));
+
+      if (options.length >= 2) {
+        // 2-3 opciones reales → chips de desambiguación
+        return {
+          reply: "¿Buscabas alguna de estas pantallas?",
+          suggestions: options,
+        };
+      }
+
+      if (options.length === 1) {
+        // Una sola opción real tras excluir currentPath → navegar directo
+        const winner = ambiguousCandidates.find(
+          (s) => s.module.route === options[0].route
+        )!;
+        return {
+          reply: `**${winner.module.label}** — ${winner.module.description}`,
+          navigate: { route: winner.module.route, label: winner.module.label },
+        };
+      }
+
+      // options.length === 0: todos los empatados coinciden con currentPath
+      // (imposible cuando tiedWithBest.length >= 2 salvo un caso degenerado)
+      // → caer en "ya estás en X" a continuación
+    }
+  }
+
+  // ── Caso: ya está en esa página (ganador claro, sin ambigüedad) ──────────────
   if (
     best &&
     best.score >= THRESHOLD &&
@@ -782,21 +833,9 @@ export function matchIntent(
 
   // ── Caso: coincidencia clara ─────────────────────────────────────────────────
   if (best && best.score >= THRESHOLD) {
-    const secondBest = scored[1];
-    const suggestions =
-      secondBest && secondBest.score >= THRESHOLD
-        ? [
-            { route: secondBest.module.route, label: secondBest.module.label },
-            ...(scored[2]?.score >= THRESHOLD
-              ? [{ route: scored[2].module.route, label: scored[2].module.label }]
-              : []),
-          ]
-        : undefined;
-
     return {
       reply: `**${best.module.label}** — ${best.module.description}`,
       navigate: { route: best.module.route, label: best.module.label },
-      suggestions: suggestions?.length ? suggestions : undefined,
     };
   }
 

@@ -19,4 +19,4 @@ description: Credenciales reales de demo — rodrigorp NO existe, usar admin.cam
 
 ## Stripe Connect
 - Cuenta Express creada para campus_id=1: `acct_1U5eFqE4HOJNFIv4` (en `campus_payment_config`)
-- `STRIPE_SECRET_KEY` actual en Replit: **clave rotada / posiblemente inválida** — el usuario rotó la clave en el Stripe Dashboard de Refereence el 2026-08-17. Actualizar el secret antes de usar cualquier endpoint de Stripe.
+- `STRIPE_SECRET_KEY` actual en Replit: clave de prueba de Refereence, válida — verificada el 2026-08-17 con HTTP 200 real en `/api/admin/campus-payment/conectar-stripe`.

@@ -13,8 +13,19 @@ import {
   Download, FileText, AlertTriangle, CheckCircle, Calendar,
   Printer, ArrowUp, ArrowDown
 } from "lucide-react";
+import {
+  ComposedChart, Bar, Line,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+} from "recharts";
 
-const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const MESES       = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const MESES_CORTOS = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+
+/** "2026-08" → "Ago 26" */
+function fmtMes(mesStr: string): string {
+  const [y, m] = mesStr.split("-");
+  return `${MESES_CORTOS[Number(m) - 1]} ${y.slice(2)}`;
+}
 
 export default function ReporteConsejo() {
   const { user } = useAuth();
@@ -67,12 +78,20 @@ export default function ReporteConsejo() {
     }
   };
 
-  const r = reporte || {};
-  const kpis = r.kpis || {};
+  const r          = reporte || {};
+  const kpis       = r.kpis       || {};
   const tendencias = r.tendencias || [];
   const topDeudores = r.top_deudores || [];
-  const porNivel = r.por_nivel || [];
-  const mesNombre = MESES[Number(mes)];
+  const porNivel   = r.por_nivel  || [];
+  const mesNombre  = MESES[Number(mes)];
+
+  // Datos para recharts: centavos → pesos, añadir etiqueta corta de mes
+  const chartData = (tendencias as any[]).map((t) => ({
+    mes:       fmtMes(t.mes),
+    ingresos:  Math.round(t.ingresos_centavos / 100),
+    cobranza:  t.tasa_cobro,
+    mora:      t.mora,
+  }));
 
   const varPct = (actual: number, anterior: number) => {
     if (!anterior || anterior === 0) return 0;
@@ -250,6 +269,91 @@ export default function ReporteConsejo() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Evolución últimos 12 meses */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-indigo-600" />
+                Evolución últimos 12 meses
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {chartData.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-6">Sin datos históricos disponibles.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <ComposedChart data={chartData} margin={{ top: 4, right: 36, left: 8, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis
+                      dataKey="mes"
+                      tick={{ fontSize: 11, fill: "#64748b" }}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      yAxisId="pesos"
+                      orientation="left"
+                      tickFormatter={(v: number) =>
+                        v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(1)}M`
+                        : v >= 1_000   ? `$${(v / 1_000).toFixed(0)}k`
+                        : `$${v}`
+                      }
+                      tick={{ fontSize: 10, fill: "#64748b" }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      yAxisId="pct"
+                      orientation="right"
+                      unit="%"
+                      domain={[0, 100]}
+                      tick={{ fontSize: 10, fill: "#64748b" }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <Tooltip
+                      formatter={(value: number, name: string) => {
+                        if (name === "ingresos")  return [`$${value.toLocaleString("es-MX")}`, "Ingresos"];
+                        if (name === "cobranza")  return [`${value}%`, "Tasa cobro"];
+                        if (name === "mora")      return [`${value}%`, "Mora"];
+                        return [value, name];
+                      }}
+                      contentStyle={{ fontSize: 12, borderRadius: 6 }}
+                    />
+                    <Legend
+                      formatter={(v: string) =>
+                        v === "ingresos" ? "Ingresos" : v === "cobranza" ? "Tasa cobro" : "Mora"
+                      }
+                      wrapperStyle={{ fontSize: 12 }}
+                    />
+                    <Bar
+                      yAxisId="pesos"
+                      dataKey="ingresos"
+                      fill="#6366f1"
+                      opacity={0.8}
+                      radius={[3, 3, 0, 0]}
+                    />
+                    <Line
+                      yAxisId="pct"
+                      type="monotone"
+                      dataKey="cobranza"
+                      stroke="#22c55e"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                    <Line
+                      yAxisId="pct"
+                      type="monotone"
+                      dataKey="mora"
+                      stroke="#ef4444"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Top 10 deudores */}
           <Card>

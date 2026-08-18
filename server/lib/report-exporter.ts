@@ -39,6 +39,17 @@ export interface ReportColumn {
   align?: "left" | "right" | "center";
 }
 
+/**
+ * Hoja de datos adicional que se añade al Excel (y como sección en PDF)
+ * después del contenido principal.
+ */
+export interface AdditionalSheet {
+  /** Nombre de la pestaña en Excel / título de sección en PDF */
+  name: string;
+  columns: ReportColumn[];
+  rows: Record<string, unknown>[];
+}
+
 export interface ReportExportRequest {
   title: string;
   subtitle?: string;
@@ -50,6 +61,8 @@ export interface ReportExportRequest {
   filename: string;
   /** Usuario que generó el reporte (para Metadatos) */
   generatedBy?: string;
+  /** Hojas/secciones adicionales (e.g. tendencias históricas) */
+  additionalSheets?: AdditionalSheet[];
 }
 
 // ─── Helpers de formato ───────────────────────────────────────────────────────
@@ -244,6 +257,62 @@ async function buildExcel(req: ReportExportRequest): Promise<Buffer> {
   });
   wsMeta.columns = [{ width: 26 }, { width: 52 }];
 
+  // ── Hojas adicionales (e.g. tendencias históricas) ─────────────────────────
+  for (const extra of req.additionalSheets ?? []) {
+    const wsX = wb.addWorksheet(extra.name);
+    const xCols = extra.columns.length;
+
+    // Fila 1: nombre de hoja como título
+    wsX.mergeCells(1, 1, 1, xCols);
+    const xTitle = wsX.getRow(1).getCell(1);
+    xTitle.value = extra.name;
+    xTitle.font = { bold: true, size: 12, color: { argb: BLUE_ARGB } };
+    xTitle.alignment = { horizontal: "center", vertical: "middle" };
+    wsX.getRow(1).height = 24;
+
+    // Fila 2: encabezados de columna (fondo azul)
+    const xHeaderRow = wsX.getRow(2);
+    xHeaderRow.height = 20;
+    extra.columns.forEach((col, i) => {
+      const cell = xHeaderRow.getCell(i + 1);
+      cell.value = col.header;
+      cell.font = { bold: true, color: { argb: WHITE_ARGB }, size: 10 };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BLUE_ARGB } };
+      cell.alignment = {
+        horizontal: col.align ?? defaultAlign(col.format),
+        vertical: "middle",
+      };
+    });
+
+    wsX.columns = extra.columns.map((col) => ({
+      key: col.key,
+      width: col.width ?? Math.max(col.header.length + 6, 12),
+    }));
+
+    // Datos desde fila 3
+    extra.rows.forEach((row, ri) => {
+      const values = extra.columns.map((col) => {
+        const raw = row[col.key];
+        const num = numericCellValue(raw, col.format);
+        return num !== undefined ? num : formatCellValue(raw, col.format);
+      });
+      const wsRow = wsX.addRow(values);
+      wsRow.height = 18;
+      if (ri % 2 === 1) {
+        wsRow.eachCell((cell) => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: ALT_ROW_ARGB } };
+        });
+      }
+      extra.columns.forEach((col, ci) => {
+        const cell = wsRow.getCell(ci + 1);
+        cell.alignment = { horizontal: col.align ?? defaultAlign(col.format) };
+        if (col.format === "currency_mxn") cell.numFmt = '"$"#,##0.00';
+        else if (col.format === "integer") cell.numFmt = "#,##0";
+        else if (col.format === "percentage") cell.numFmt = '#,##0.0"%"';
+      });
+    });
+  }
+
   return (await wb.xlsx.writeBuffer()) as Buffer;
 }
 
@@ -430,6 +499,73 @@ async function buildPdf(req: ReportExportRequest): Promise<Buffer> {
 
       currentY += ROW_H;
     });
+
+    // ── Secciones adicionales (e.g. tendencias históricas) ────────────────────
+    for (const extra of req.additionalSheets ?? []) {
+      doc.addPage();
+      const xWeights = extra.columns.map(
+        (c) => c.width ?? Math.max(c.header.length * 7, 60)
+      );
+      const xTotalW  = xWeights.reduce((a, b) => a + b, 0);
+      const xColW    = xWeights.map((w) => (w / xTotalW) * pageW);
+
+      // Título de sección
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(12)
+        .fillColor(blueStr)
+        .text(extra.name, PAGE_MARGIN, PAGE_MARGIN, { width: pageW });
+      let xY = doc.y + 8;
+
+      // Encabezados
+      doc.rect(PAGE_MARGIN, xY, pageW, HEADER_ROW_H).fill(blueStr);
+      let xX = PAGE_MARGIN;
+      extra.columns.forEach((col, i) => {
+        doc
+          .font("Helvetica-Bold")
+          .fontSize(8)
+          .fillColor("#FFFFFF")
+          .text(col.header, xX + 3, xY + 7, {
+            width: xColW[i] - 6,
+            align: col.align ?? defaultAlign(col.format),
+            lineBreak: false,
+          });
+        xX += xColW[i];
+      });
+      xY += HEADER_ROW_H;
+
+      // Filas de datos
+      extra.rows.forEach((row, ri) => {
+        if (xY + ROW_H > maxDataY) {
+          doc.addPage();
+          xY = PAGE_MARGIN + 8;
+        }
+        if (ri % 2 === 1) {
+          doc.rect(PAGE_MARGIN, xY, pageW, ROW_H).fill(PDF_LIGHT_BLUE);
+        }
+        let xX2 = PAGE_MARGIN;
+        extra.columns.forEach((col, ci) => {
+          const text = formatCellValue(row[col.key], col.format);
+          doc
+            .font("Helvetica")
+            .fontSize(8)
+            .fillColor(PDF_DARK_GRAY)
+            .text(text, xX2 + 3, xY + 5, {
+              width: xColW[ci] - 6,
+              align: col.align ?? defaultAlign(col.format),
+              lineBreak: false,
+            });
+          xX2 += xColW[ci];
+        });
+        doc
+          .moveTo(PAGE_MARGIN, xY + ROW_H)
+          .lineTo(PAGE_MARGIN + pageW, xY + ROW_H)
+          .strokeColor("#E0E0E0")
+          .lineWidth(0.3)
+          .stroke();
+        xY += ROW_H;
+      });
+    }
 
     drawFooters();
     doc.end();

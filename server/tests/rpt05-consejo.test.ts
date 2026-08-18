@@ -49,8 +49,10 @@ let studentId:  number;
 let conceptId:  number;
 let charge1Id:  number;
 let charge2Id:  number;
+let charge3Id:  number;  // creado este mes → aparece en tendencias del mes actual
 let payment1Id: number;
 let payment2Id: number;
+let payment3Id: number;  // 55000 ¢ este mes → verifica valor en tendencias
 
 let tokAdmin:      string;  // administrador_campus  — FINANCIAL.READ + REPORTS.EXPORT
 let tokContador:   string;  // contador_general      — FINANCIAL.READ
@@ -112,13 +114,16 @@ beforeAll(async () => {
   );
   studentId = (sRow.rows[0] as any).id;
 
-  // charge1 — ciclo 2025-2026, pendiente, vencida hace tiempo
+  // charge1 — ciclo 2025-2026, pendiente; created_at explícito para que quede
+  //            fuera de la ventana de 12 meses (septiembre 2025 en adelante).
   const c1Row = await pool.query(
     `INSERT INTO charges
        (tenant_id, student_id, concept_id, ciclo_escolar,
         fecha_emision, fecha_vencimiento,
-        monto_base_centavos, beca_aplicada, recargo_aplicado_centavos, estado)
-     VALUES ($1,$2,$3,'2025-2026','2025-08-01','2025-01-31',60000,'0',0,'pendiente')
+        monto_base_centavos, beca_aplicada, recargo_aplicado_centavos, estado,
+        created_at)
+     VALUES ($1,$2,$3,'2025-2026','2025-08-01','2025-01-31',60000,'0',0,'pendiente',
+             '2025-08-01'::timestamp)
      RETURNING id`,
     [tenantId, studentId, conceptId],
   );
@@ -134,13 +139,15 @@ beforeAll(async () => {
   );
   payment1Id = (p1Row.rows[0] as any).id;
 
-  // charge2 — ciclo 2024-2025, pendiente
+  // charge2 — ciclo 2024-2025; created_at explícito (fuera de los 12 meses)
   const c2Row = await pool.query(
     `INSERT INTO charges
        (tenant_id, student_id, concept_id, ciclo_escolar,
         fecha_emision, fecha_vencimiento,
-        monto_base_centavos, beca_aplicada, recargo_aplicado_centavos, estado)
-     VALUES ($1,$2,$3,'2024-2025','2024-08-01','2024-06-30',50000,'0',0,'pendiente')
+        monto_base_centavos, beca_aplicada, recargo_aplicado_centavos, estado,
+        created_at)
+     VALUES ($1,$2,$3,'2024-2025','2024-08-01','2024-06-30',50000,'0',0,'pendiente',
+             '2024-08-01'::timestamp)
      RETURNING id`,
     [tenantId, studentId, conceptId],
   );
@@ -155,6 +162,29 @@ beforeAll(async () => {
     [tenantId, charge2Id],
   );
   payment2Id = (p2Row.rows[0] as any).id;
+
+  // charge3 — ciclo actual, fecha de este mes → queda dentro de los últimos 12 meses
+  const c3Row = await pool.query(
+    `INSERT INTO charges
+       (tenant_id, student_id, concept_id, ciclo_escolar,
+        fecha_emision, fecha_vencimiento,
+        monto_base_centavos, beca_aplicada, recargo_aplicado_centavos, estado)
+     VALUES ($1,$2,$3,'2026-2027',CURRENT_DATE,CURRENT_DATE + INTERVAL '30 days',
+             80000,'0',0,'pendiente')
+     RETURNING id`,
+    [tenantId, studentId, conceptId],
+  );
+  charge3Id = (c3Row.rows[0] as any).id;
+
+  // payment3 — para charge3, 55000 ¢ este mes → lo vemos en tendencias del mes actual
+  const p3Row = await pool.query(
+    `INSERT INTO payments
+       (tenant_id, charge_id, metodo, monto_centavos, fecha_pago, estado, created_at)
+     VALUES ($1,$2,'efectivo',55000,CURRENT_DATE,'exitoso',NOW())
+     RETURNING id`,
+    [tenantId, charge3Id],
+  );
+  payment3Id = (p3Row.rows[0] as any).id;
 
   // usuarios para tokens
   const hash = "x"; // password_hash ficticia (no se usa en los tests)
@@ -174,8 +204,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await pool.query(`DELETE FROM payments WHERE id = ANY($1::int[])`, [[payment1Id, payment2Id]]).catch(() => {});
-  await pool.query(`DELETE FROM charges  WHERE id = ANY($1::int[])`, [[charge1Id,  charge2Id]]).catch(() => {});
+  await pool.query(`DELETE FROM payments WHERE id = ANY($1::int[])`, [[payment1Id, payment2Id, payment3Id]]).catch(() => {});
+  await pool.query(`DELETE FROM charges  WHERE id = ANY($1::int[])`, [[charge1Id,  charge2Id,  charge3Id]]).catch(() => {});
   await pool.query(`DELETE FROM users    WHERE campus_id = $1`,       [campusId]).catch(() => {});
   await pool.query(`DELETE FROM concepts WHERE campus_id = $1`,       [campusId]).catch(() => {});
   await pool.query(`DELETE FROM students WHERE campus_id = $1`,       [campusId]).catch(() => {});
@@ -309,5 +339,48 @@ describe("CSJ — RPT-05 Reporte Consejo Directivo", () => {
       { formato: "excel" },
     );
     expect(status).toBe(403);
+  });
+
+  // ── Tendencias ────────────────────────────────────────────────────────────────
+
+  it("CSJ-13: tendencias → 12 entradas ordenadas, shape correcto, mes actual = payment3 (55000)", async () => {
+    const { status, body } = await get("/api/reportes/consejo", tokAdmin);
+    expect(status).toBe(200);
+
+    const t: any[] = body.tendencias;
+    expect(Array.isArray(t)).toBe(true);
+    expect(t).toHaveLength(12);
+
+    // Shape y rangos válidos en cada entrada
+    for (const entry of t) {
+      expect(typeof entry.mes,               `mes debe ser string`).toBe("string");
+      expect(entry.mes,                      `mes debe tener formato YYYY-MM`).toMatch(/^\d{4}-\d{2}$/);
+      expect(typeof entry.ingresos_centavos, `ingresos_centavos debe ser number`).toBe("number");
+      expect(typeof entry.tasa_cobro,        `tasa_cobro debe ser number`).toBe("number");
+      expect(typeof entry.mora,              `mora debe ser number`).toBe("number");
+      expect(entry.ingresos_centavos).toBeGreaterThanOrEqual(0);
+      expect(entry.tasa_cobro).toBeGreaterThanOrEqual(0);
+      expect(entry.tasa_cobro).toBeLessThanOrEqual(100);
+      expect(entry.mora).toBeGreaterThanOrEqual(0);
+      expect(entry.mora).toBeLessThanOrEqual(100);
+    }
+
+    // Orden cronológico estricto
+    for (let i = 1; i < t.length; i++) {
+      expect(t[i].mes > t[i - 1].mes,
+        `t[${i}].mes (${t[i].mes}) debe ser mayor que t[${i-1}].mes (${t[i-1].mes})`
+      ).toBe(true);
+    }
+
+    // El último elemento = mes actual
+    const mesActual = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+    expect(t[11].mes).toBe(mesActual);
+
+    // El mes actual debe contener payment3 (55000 ¢) como ingresos
+    expect(t[11].ingresos_centavos).toBe(55000);
+
+    // Con facturado=80000 y cobrado=55000: tasa=round(55000/80000×100)=69%, mora=31%
+    expect(t[11].tasa_cobro).toBe(69);
+    expect(t[11].mora).toBe(31);
   });
 });

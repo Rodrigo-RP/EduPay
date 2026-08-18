@@ -105,6 +105,64 @@ function prevMonthRange(fechaDesde?: string): { start: string; end: string } {
 
 // ─── núcleo de datos ──────────────────────────────────────────────────────────
 
+// ─── tendencias: últimos 12 meses ─────────────────────────────────────────────
+
+/**
+ * Devuelve un array de 12 entradas (mes más antiguo → mes actual) con
+ * ingresos cobrados, tasa_cobro y mora para el campus indicado.
+ * Siempre cubre los últimos 12 meses calendario desde NOW().
+ */
+async function fetchTendencias(campusId: number) {
+  const { rows } = await pool.query(`
+    WITH mes_range AS (
+      SELECT generate_series(
+        date_trunc('month', NOW() - INTERVAL '11 months'),
+        date_trunc('month', NOW()),
+        '1 month'::interval
+      ) AS mes_inicio
+    ),
+    ing AS (
+      SELECT date_trunc('month', p.created_at) AS mes_inicio,
+             SUM(p.monto_centavos)              AS total
+      FROM   payments p
+      JOIN   charges  c ON c.id = p.charge_id
+      JOIN   students s ON s.id = c.student_id
+      WHERE  s.campus_id = $1
+        AND  p.created_at >= date_trunc('month', NOW() - INTERVAL '11 months')
+      GROUP  BY 1
+    ),
+    fac AS (
+      SELECT date_trunc('month', c.created_at) AS mes_inicio,
+             SUM(c.monto_base_centavos)         AS total
+      FROM   charges  c
+      JOIN   students s ON s.id = c.student_id
+      WHERE  s.campus_id = $1
+        AND  c.created_at >= date_trunc('month', NOW() - INTERVAL '11 months')
+      GROUP  BY 1
+    )
+    SELECT
+      to_char(m.mes_inicio, 'YYYY-MM')  AS mes,
+      COALESCE(ing.total, 0)::bigint    AS ingresos_centavos,
+      COALESCE(fac.total, 0)::bigint    AS facturado_centavos
+    FROM   mes_range m
+    LEFT JOIN ing ON ing.mes_inicio = m.mes_inicio
+    LEFT JOIN fac ON fac.mes_inicio = m.mes_inicio
+    ORDER  BY m.mes_inicio ASC
+  `, [campusId]);
+
+  return (rows as any[]).map(r => {
+    const ingresos_centavos  = Number(r.ingresos_centavos);
+    const facturado_centavos = Number(r.facturado_centavos);
+    const tasa_cobro = facturado_centavos > 0
+      ? Math.round((ingresos_centavos / facturado_centavos) * 100)
+      : 0;
+    const mora = facturado_centavos > 0 ? 100 - tasa_cobro : 0;
+    return { mes: r.mes as string, ingresos_centavos, tasa_cobro, mora };
+  });
+}
+
+// ─── núcleo de datos ──────────────────────────────────────────────────────────
+
 async function fetchConsejoData(campusId: number, p: ConsejoParams) {
 
   // ── ingresos (pagos recibidos) ──────────────────────────────────────────────
@@ -130,7 +188,7 @@ async function fetchConsejoData(campusId: number, p: ConsejoParams) {
   const prev = prevMonthRange(p.fecha_desde);
 
   // ── consultas paralelas ─────────────────────────────────────────────────────
-  const [ingRows, estudRows, facRows, becasRows, conveniosRows, prevIngRows, prevFacRows] =
+  const [ingRows, estudRows, facRows, becasRows, conveniosRows, prevIngRows, prevFacRows, tendenciasData] =
     await Promise.all([
       pool.query(ingSQL, [campusId, ...ingF.vals]),
       pool.query(
@@ -175,6 +233,8 @@ async function fetchConsejoData(campusId: number, p: ConsejoParams) {
            AND  c.created_at::date <= $3`,
         [campusId, prev.start, prev.end],
       ).catch(() => ({ rows: [{ total: 0 }] })),
+      // Tendencias: últimos 12 meses (sin filtros de período — siempre desde NOW())
+      fetchTendencias(campusId).catch((): Awaited<ReturnType<typeof fetchTendencias>> => []),
     ]);
 
   const ingresos  = Number((ingRows.rows[0]  as any)?.total || 0);
@@ -253,7 +313,7 @@ async function fetchConsejoData(campusId: number, p: ConsejoParams) {
       cobrado: Number(r.cobrado || 0),
       total:   Number(r.total   || 0),
     })),
-    tendencias:          [],
+    tendencias:          tendenciasData as Awaited<ReturnType<typeof fetchTendencias>>,
     filters:             p,
     tasa_cobro_anterior,  // interno — el GET handler lo extrae antes de responder
   };
@@ -335,6 +395,18 @@ export function registerReportesConsejoRoutes(app: Express) {
         format:         formato as "excel" | "pdf",
         filename:       filenameFor("reporte-consejo", formato as "excel" | "pdf"),
         generatedBy:    (user as any)?.name || (user as any)?.email || "Sistema",
+        additionalSheets: [
+          {
+            name: "Tendencias 12 meses",
+            columns: [
+              { key: "mes",                header: "Mes",            format: "string",     width: 12 },
+              { key: "ingresos_centavos",  header: "Ingresos",       format: "currency_mxn", width: 16, align: "right" },
+              { key: "tasa_cobro",         header: "Tasa cobro (%)", format: "integer",    width: 16, align: "right" },
+              { key: "mora",               header: "Mora (%)",       format: "integer",    width: 12, align: "right" },
+            ],
+            rows: data.tendencias as Record<string, unknown>[],
+          },
+        ],
       };
 
       const buffer = await exportReport(exportReq);

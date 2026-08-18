@@ -289,15 +289,23 @@ export function registerCampusPaymentRoutes(
           });
           stripeAccountId = account.id;
 
-          // Upsert seguro: ON CONFLICT DO NOTHING si dos requests insertan simultáneamente.
+          // Upsert seguro:
+          //   • Si no existe fila → INSERT.
+          //   • Si existe fila con stripe_account_id NULL (p.ej. seed anterior sin
+          //     cuenta activa) → actualizar con la cuenta recién creada.
+          //   • Si existe fila con stripe_account_id ≠ NULL (otro request ganó la carrera)
+          //     → DO NOTHING y leer la fila ganadora.
           await pool.query(
             `INSERT INTO campus_payment_config (campus_id, tenant_id, stripe_account_id)
              VALUES ($1, $2, $3)
-             ON CONFLICT (campus_id) DO NOTHING`,
+             ON CONFLICT (campus_id) DO UPDATE
+               SET stripe_account_id = EXCLUDED.stripe_account_id,
+                   tenant_id         = EXCLUDED.tenant_id
+             WHERE campus_payment_config.stripe_account_id IS NULL`,
             [campusId, tenantId, stripeAccountId]
           );
 
-          // Re-leer la fila autoritativa (puede diferir si otro request ganó el INSERT)
+          // Re-leer la fila autoritativa (puede diferir si otro request ganó la carrera)
           const { rows: fresh } = await pool.query(
             `SELECT stripe_account_id FROM campus_payment_config WHERE campus_id = $1`,
             [campusId]

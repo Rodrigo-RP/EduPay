@@ -30,11 +30,52 @@ export async function seedDemoData() {
   const log = (msg: string) => { logs.push(msg); console.log(msg); };
 
   try {
+    // ── Preservar tablas de configuración externa (NO son dato demo) ────────
+    //
+    // Las siguientes tablas contienen configuración de integración real que
+    // debe sobrevivir al reset de datos demo.  NO deben agregarse al TRUNCATE.
+    //
+    //   • campus_payment_config — credenciales Stripe Connect (stripe_account_id,
+    //     flags de onboarding).  Borrarla implica perder la conexión entre el
+    //     campus y su cuenta Stripe Express, que solo puede restaurarse repitiendo
+    //     el flujo de onboarding desde el Dashboard de Stripe.
+    //
+    // Patrón: respaldo antes del TRUNCATE → restauración después de recrear
+    // campuses/tenants.  El TRUNCATE CASCADE sobre `campuses` (línea de abajo)
+    // alcanza campus_payment_config vía FK (campus_id → campuses.id ON DELETE
+    // CASCADE), por lo que el respaldo es necesario aunque la tabla no esté
+    // listada explícitamente.
+    const { rows: stripeConfigBackup } = await pool.query<{
+      campus_nombre:    string;
+      payment_provider: string;
+      stripe_account_id: string | null;
+      charges_enabled:  boolean;
+      payouts_enabled:  boolean;
+      details_submitted: boolean;
+    }>(`
+      SELECT c.nombre          AS campus_nombre,
+             cpc.payment_provider,
+             cpc.stripe_account_id,
+             cpc.charges_enabled,
+             cpc.payouts_enabled,
+             cpc.details_submitted
+      FROM   campus_payment_config cpc
+      JOIN   campuses c ON c.id = cpc.campus_id
+    `);
+    if (stripeConfigBackup.length > 0) {
+      log(`💾 Respaldo: config Stripe de ${stripeConfigBackup.length} campus guardada antes del TRUNCATE`);
+    }
+
     // ── Limpiar datos demo previos ──────────────────────────────────────────
     log("🧹 Limpiando datos demo previos...");
     // TRUNCATE ... RESTART IDENTITY CASCADE propaga a todos los referenciantes
     // independientemente de si tienen ON DELETE CASCADE o NO ACTION.
     // Evita tener que mantener un orden topológico manual al agregar tablas.
+    //
+    // ⚠️  TABLAS EXCLUIDAS INTENCIONALMENTE (configuración de integración externa):
+    //   - campus_payment_config: ver comentario al inicio de esta función.
+    //   Si agregan más tablas de configuración externa en el futuro, documentarlas
+    //   aquí Y agregar el patrón de respaldo/restauración correspondiente.
     const client = await pool.connect();
     try {
       await client.query(`
@@ -64,7 +105,6 @@ export async function seedDemoData() {
           payment_rules,
           payment_surcharge_rules,
           payment_due_dates,
-          campus_payment_config,
           scholarship_auto_rules,
           scholarship_types,
           concepts,
@@ -104,6 +144,40 @@ export async function seedDemoData() {
       clave_sep: "09DPR5678B",
     }).returning();
     log(`✅ Campus Norte (ID: ${campusNorte.id}), Campus Sur (ID: ${campusSur.id})`);
+
+    // ── Restaurar configuración de integración externa ───────────────────────
+    if (stripeConfigBackup.length > 0) {
+      // Mapa nombre-de-campus → IDs recién asignados por RESTART IDENTITY.
+      // Solo se restauran campus que el seed conoce; configs de campus que ya
+      // no existen se descartan en silencio (fueron eliminados intencionalmente).
+      const campusMap = new Map<string, { id: number; tenantId: number }>([
+        [campusNorte.nombre, { id: campusNorte.id, tenantId: tenant.id }],
+        [campusSur.nombre,   { id: campusSur.id,   tenantId: tenant.id }],
+      ]);
+      let restored = 0;
+      for (const cfg of stripeConfigBackup) {
+        const destino = campusMap.get(cfg.campus_nombre);
+        if (!destino) continue;
+        await pool.query(`
+          INSERT INTO campus_payment_config
+            (campus_id, tenant_id, payment_provider,
+             stripe_account_id, charges_enabled, payouts_enabled, details_submitted)
+          VALUES ($1,$2,$3,$4,$5,$6,$7)
+          ON CONFLICT (campus_id) DO UPDATE SET
+            stripe_account_id = EXCLUDED.stripe_account_id,
+            charges_enabled   = EXCLUDED.charges_enabled,
+            payouts_enabled   = EXCLUDED.payouts_enabled,
+            details_submitted = EXCLUDED.details_submitted,
+            updated_at        = NOW()
+        `, [
+          destino.id, destino.tenantId, cfg.payment_provider,
+          cfg.stripe_account_id, cfg.charges_enabled,
+          cfg.payouts_enabled,   cfg.details_submitted,
+        ]);
+        restored++;
+      }
+      log(`✅ Config Stripe Connect restaurada para ${restored} campus`);
+    }
 
     // ── Usuarios administrativos ─────────────────────────────────────────────
     log("👤 Creando usuarios administrativos...");

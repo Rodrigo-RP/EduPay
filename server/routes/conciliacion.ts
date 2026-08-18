@@ -198,6 +198,53 @@ function _buscarMejorCandidato(
   return mejor;
 }
 
+// ── Interfaz de cliente DB (compatible con pool.connect()) ───────────────────
+interface DbClient {
+  query(text: string, values?: any[]): Promise<{ rows: any[]; rowCount: number | null }>;
+}
+
+/**
+ * Núcleo atómico compartido: crea un pago SPEI, registra la payment_application
+ * y marca el cargo como 'pagado'. Debe llamarse DENTRO de una transacción ya
+ * abierta por el caller (el caller también es responsable de bloquear las filas
+ * antes de llamar y de actualizar bank_transactions después).
+ *
+ * Se extrae aquí para eliminar la duplicación entre applyReconciliation() (multi-
+ * cargo, auto-conciliación) y el resolver manual de excepciones (un solo cargo).
+ * Si la fórmula de monto_neto o los campos de payments cambian, solo se edita aquí.
+ *
+ * @returns payment_id creado
+ */
+async function insertarPagoYCerrarCargo(
+  client: DbClient,
+  params: {
+    tenantId: number;
+    chargeId: number;
+    montoNetoCentavos: number; // pre-calculado por el caller (beca + recargo ya aplicados)
+    metodo: 'spei';
+    referencia: string;
+  }
+): Promise<number> {
+  const payRow = await client.query(
+    `INSERT INTO payments
+       (tenant_id, charge_id, guardian_id, metodo, referencia_pasarela,
+        monto_centavos, fecha_pago, estado)
+     VALUES ($1,$2,NULL,'spei',$3,$4,NOW(),'exitoso') RETURNING id`,
+    [params.tenantId, params.chargeId, params.referencia, params.montoNetoCentavos]
+  );
+  const pid: number = payRow.rows[0].id;
+
+  await client.query(
+    `INSERT INTO payment_applications (payment_id, charge_id, amount_centavos, applied_at)
+     VALUES ($1,$2,$3,NOW())`,
+    [pid, params.chargeId, params.montoNetoCentavos]
+  );
+
+  await client.query(`UPDATE charges SET estado='pagado' WHERE id=$1`, [params.chargeId]);
+
+  return pid;
+}
+
 /**
  * Fase 1 (transacción atómica) + Fase 2 (fuera de txn, ADR-001).
  * Devuelve el primer payment_id creado, o null si no pudo adquirir los locks.
@@ -240,7 +287,7 @@ export async function applyReconciliation(params: {
       if (!lock.rows.length) { await client.query('ROLLBACK'); return null; }
     }
 
-    // Un payment + payment_application por cargo
+    // Un payment + payment_application por cargo (via helper compartido)
     const paymentIds: number[] = [];
     for (const chargeId of params.chargeIds) {
       const mnRow = await client.query(
@@ -249,20 +296,14 @@ export async function applyReconciliation(params: {
         [chargeId]
       );
       const montoNeto = Number(mnRow.rows[0]?.mn ?? 0);
-      const payRow = await client.query(
-        `INSERT INTO payments (tenant_id, charge_id, guardian_id, metodo, referencia_pasarela,
-                               monto_centavos, fecha_pago, estado)
-         VALUES ($1,$2,NULL,'spei',$3,$4,NOW(),'exitoso') RETURNING id`,
-        [params.tenantId, chargeId, params.referencia || `AUTO-${params.txId}`, montoNeto]
-      );
-      const pid = payRow.rows[0].id;
+      const pid = await insertarPagoYCerrarCargo(client, {
+        tenantId: params.tenantId,
+        chargeId,
+        montoNetoCentavos: montoNeto,
+        metodo: 'spei',
+        referencia: params.referencia || `AUTO-${params.txId}`,
+      });
       paymentIds.push(pid);
-      await client.query(
-        `INSERT INTO payment_applications (payment_id, charge_id, amount_centavos, applied_at)
-         VALUES ($1,$2,$3,NOW())`,
-        [pid, chargeId, montoNeto]
-      );
-      await client.query(`UPDATE charges SET estado='pagado' WHERE id=$1`, [chargeId]);
     }
 
     firstPaymentId = paymentIds[0];
@@ -1577,24 +1618,17 @@ export function registerConciliacionRoutes(app: Express): void {
           });
         }
 
-        // ── Crear el registro de pago (por el monto neto del cargo para cuadre contable)
-        const payResult = await client.query(
-          `INSERT INTO payments (tenant_id, charge_id, guardian_id, metodo, referencia_pasarela,
-                                 monto_centavos, fecha_pago, estado)
-           VALUES ($1,$2,NULL,'spei',$3,$4,NOW(),'exitoso') RETURNING id`,
-          [tenantId, charge_id, tx.referencia || `BANK-${txId}`, Number(cargo.monto_neto)]
-        );
-        const paymentId = payResult.rows[0].id;
-
-        // ── Registrar la aplicación del pago (ledger familiar — saldo calculado desde aquí)
-        await client.query(
-          `INSERT INTO payment_applications (payment_id, charge_id, amount_centavos, applied_at)
-           VALUES ($1, $2, $3, NOW())`,
-          [paymentId, charge_id, Number(cargo.monto_neto)]
-        );
-
-        // ── Marcar el cargo como pagado
-        await client.query(`UPDATE charges SET estado = 'pagado' WHERE id = $1`, [charge_id]);
+        // ── Crear pago + ledger + cerrar cargo (helper compartido, dentro de la txn) ──
+        // El helper hace: INSERT payments, INSERT payment_applications, UPDATE charges.
+        // La actualización de bank_transactions se hace abajo porque sus campos difieren
+        // de los de applyReconciliation() (sin confianza_pct en txn, nota distinta).
+        const paymentId = await insertarPagoYCerrarCargo(client, {
+          tenantId,
+          chargeId:           charge_id,
+          montoNetoCentavos:  Number(cargo.monto_neto),
+          metodo:             'spei',
+          referencia:         tx.referencia || `BANK-${txId}`,
+        });
 
         // ── Marcar la transacción como conciliada, enlazando charge_id y payment_id
         await client.query(
@@ -1611,6 +1645,41 @@ export function registerConciliacionRoutes(app: Express): void {
         // ── Cerrar acción de seguimiento (fire-and-forget, ADR-001) ────────────
         cerrarAccionBankTx(txId, campusId, 'resuelto',
           nota?.trim() || 'Aplicado manualmente por administrador');
+
+        // ── Audit log (fire-and-forget, ADR-001) ─────────────────────────────
+        // Bug corregido: la rama "aplicar" no registraba nada en audit_log.
+        // La acción 'resolver_excepcion_manual' distingue esta conciliación manual
+        // de 'conciliar_pago_spei' (auto-conciliación con score ≥ 90/100).
+        if (tenantId && user?.id) {
+          const auditPayloadAplicar = {
+            tenant_id:   tenantId,
+            user_id:     user.id,
+            action:      'resolver_excepcion_manual' as const,
+            entity_type: 'bank_transaction' as const,
+            entity_id:   txId,
+            metadata: {
+              charge_id:      charge_id,
+              payment_id:     paymentId,
+              monto_centavos: Number(tx.monto_centavos),
+              monto_neto:     Number(cargo.monto_neto),
+              referencia:     tx.referencia || null,
+              nota:           nota?.trim() || null,
+            },
+          };
+          pool.query(
+            `INSERT INTO audit_log
+               (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
+             VALUES ($1,$2,$3,$4,$5,$6::jsonb,NOW())`,
+            [
+              auditPayloadAplicar.tenant_id,
+              auditPayloadAplicar.user_id,
+              auditPayloadAplicar.action,
+              auditPayloadAplicar.entity_type,
+              auditPayloadAplicar.entity_id,
+              JSON.stringify(auditPayloadAplicar.metadata),
+            ]
+          ).catch((err) => { enqueueAuditLog(auditPayloadAplicar, err); });
+        }
 
         // ── Fase 2: upsert CLABE aprendida + confianza_pct (ADR-001, fuera de txn) ──
         // Se ejecuta SIEMPRE en conciliación exitosa — incluso en aplicación manual.

@@ -13,7 +13,7 @@
  * TRUNCATE RESTART IDENTITY CASCADE y cambia los IDs de la DB; correrlo al
  * final evita interferir con los fixtures de otros archivos de test.
  */
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { pool } from "../db";
 import { seedDemoData } from "../seed-demo";
 
@@ -97,4 +97,24 @@ describe("SEED-01: campus_payment_config sobrevive al seed de datos demo", () =>
     expect(despues[0].payouts_enabled,   "payouts_enabled no sobrevivió al seed").toBe(true);
     expect(despues[0].details_submitted, "details_submitted no sobrevivió al seed").toBe(true);
   }, 90_000);
+
+  afterAll(async () => {
+    // Limpiar el stripe_account_id de prueba que el it() insertó.
+    // El estado neutro correcto es NULL — Rodrigo conecta la cuenta
+    // real de Stripe desde la UI (Configuración de Pagos).
+    // Sin este afterAll el valor "acct_test_seed_preservation" quedaba
+    // visible en campus_payment_config como si fuera un dato real.
+    if (campusNorteId) {
+      await pool.query(
+        `UPDATE campus_payment_config
+            SET stripe_account_id = NULL,
+                charges_enabled   = false,
+                payouts_enabled   = false,
+                details_submitted = false,
+                updated_at        = NOW()
+          WHERE campus_id = $1`,
+        [campusNorteId],
+      );
+    }
+  }, 30_000);
 });

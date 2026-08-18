@@ -20,13 +20,22 @@ import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useOnboardingStatus } from "@/hooks/use-onboarding";
 
-// Paths that are always accessible regardless of onboarding state
+// Paths that are always accessible regardless of onboarding state.
+//
+// NOTA: quitar una ruta de aquí solo elimina la barrera del wizard de
+// onboarding. El guard de permisos real (SETTINGS.CONFIGURE, etc.) sigue
+// aplicando vía el propio componente de la página y los endpoints del backend.
+// Agregar una ruta aquí nunca otorga acceso a quien no tenga el permiso.
 const UNGUARDED_PATHS = new Set([
   "/configuracion-inicial",
   "/perfil",
   "/profile",
   "/demo-setup",
   "/migration-refeerence",
+  // La configuración de Stripe Connect es parte del setup del campus y no
+  // debe bloquearse por el wizard de onboarding incompleto. El guard de
+  // permisos (SETTINGS.CONFIGURE) sigue activo en el componente y el backend.
+  "/configuracion-pagos-completa",
 ]);
 
 interface OnboardingGuardProps {

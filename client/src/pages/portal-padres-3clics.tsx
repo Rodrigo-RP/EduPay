@@ -1,24 +1,92 @@
 // Módulo 3: Portal del padre/tutor - Pago en 3 clics máximo (móvil-first)
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { 
-  CreditCard, 
-  Smartphone, 
-  Clock, 
-  CheckCircle, 
-  DollarSign, 
-  AlertCircle,
+import {
+  CreditCard,
+  Smartphone,
+  Clock,
+  CheckCircle,
+  DollarSign,
   ArrowLeft,
   Receipt,
-  Shield
+  Shield,
 } from "lucide-react";
 
+// ── Stripe ────────────────────────────────────────────────────────────────────
+const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
+  ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string)
+  : null;
+
+// Tarjetas de prueba de Stripe (entorno de desarrollo)
+const TEST_CARDS = [
+  { number: "4242 4242 4242 4242", result: "success",  label: "Pago exitoso" },
+  { number: "4000 0000 0000 9995", result: "funds",    label: "Fondos insuficientes" },
+  { number: "4000 0000 0000 0002", result: "declined", label: "Tarjeta declinada" },
+];
+
+// Opciones visuales para CardElement (paleta de la app)
+const CARD_ELEMENT_OPTIONS: React.ComponentProps<typeof CardElement>["options"] = {
+  style: {
+    base: {
+      fontSize: "16px",
+      color: "#1e293b",
+      fontFamily: '"Inter", system-ui, sans-serif',
+      "::placeholder": { color: "#94a3b8" },
+    },
+    invalid: { color: "#dc2626", iconColor: "#dc2626" },
+  },
+};
+
+// Mapeo de errores de Stripe al español claro
+function stripeErrorToSpanish(error: {
+  code?: string;
+  decline_code?: string;
+  message?: string;
+}): string {
+  switch (error.decline_code) {
+    case "insufficient_funds":
+      return "El banco rechazó el pago por fondos insuficientes.";
+    case "lost_card":
+      return "Esta tarjeta está reportada como perdida. Usa otra tarjeta.";
+    case "stolen_card":
+      return "Esta tarjeta está reportada como robada. Usa otra tarjeta.";
+    case "do_not_honor":
+      return "El banco no autorizó el pago. Contacta a tu banco.";
+    case "fraudulent":
+      return "El pago fue rechazado por seguridad. Contacta a tu banco.";
+  }
+  switch (error.code) {
+    case "card_declined":
+      return "El banco rechazó la tarjeta. Intenta con otra.";
+    case "expired_card":
+      return "La tarjeta está vencida.";
+    case "incorrect_cvc":
+      return "El código de seguridad (CVV) es incorrecto.";
+    case "incorrect_number":
+      return "El número de tarjeta es incorrecto.";
+    case "invalid_expiry_year":
+    case "invalid_expiry_month":
+      return "La fecha de vencimiento no es válida.";
+    case "processing_error":
+      return "Error al procesar el pago. Intenta nuevamente.";
+    case "incomplete_number":
+      return "El número de tarjeta está incompleto.";
+    case "incomplete_expiry":
+      return "La fecha de vencimiento está incompleta.";
+    case "incomplete_cvc":
+      return "El código de seguridad (CVV) está incompleto.";
+  }
+  return error.message ?? "Error inesperado. Intenta nuevamente.";
+}
+
+// ── Tipos ─────────────────────────────────────────────────────────────────────
 interface PendingCharge {
   id: number;
   concept: { nombre: string };
@@ -30,21 +98,21 @@ interface PendingCharge {
   total_amount_centavos: number;
 }
 
-// Tarjetas de prueba simuladas
-const TEST_CARDS = [
-  { number: "4242 4242 4242 4242", result: "success", label: "Pago exitoso" },
-  { number: "4000 0000 0000 0002", result: "declined", label: "Tarjeta declinada" },
-];
-
-export default function PortalPadres3Clics() {
+// ── Componente interno (necesita estar dentro de <Elements>) ──────────────────
+function PortalPadres3ClicsInner() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Hooks de Stripe — llamados al nivel del componente que está dentro de <Elements>
+  const stripe = useStripe();
+  const elements = useElements();
+
+  // Estado de navegación y pago
   const [selectedCharges, setSelectedCharges] = useState<number[]>([]);
   const [step, setStep] = useState<"select" | "pay" | "confirm" | "success">("select");
   const [selectedMethod, setSelectedMethod] = useState<string>("");
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCVV, setCardCVV] = useState("");
+  const [cardComplete, setCardComplete] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [lastPaymentResult, setLastPaymentResult] = useState<any>(null);
 
   const { data: dashboardData, isLoading } = useQuery<any>({
@@ -56,15 +124,92 @@ export default function PortalPadres3Clics() {
     return total + (charge?.total_amount_centavos || 0);
   }, 0);
 
-  const formatCardNumber = (val: string) => {
-    const digits = val.replace(/\D/g, "").slice(0, 16);
-    return digits.replace(/(\d{4})(?=\d)/g, "$1 ");
-  };
+  // ── Mutation ────────────────────────────────────────────────────────────────
+  const confirmarPago = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("/api/guardian/pagar", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      setProcessing(false);
+      setLastPaymentResult(data);
+      setStep("success");
+      queryClient.invalidateQueries({ queryKey: ["/api/guardian/dashboard"] });
+    },
+    onError: (err: any) => {
+      setProcessing(false);
+      // apiRequest lanza Error("${status}: ${body_text}") en respuestas no-ok
+      const msg: string = err?.message ?? "";
+      if (msg.startsWith("402:")) {
+        try {
+          const body = JSON.parse(msg.slice(4).trim());
+          toast({
+            title: "Pago rechazado",
+            description: body.message ?? "El banco rechazó la tarjeta. Intenta con otra.",
+            variant: "destructive",
+          });
+        } catch {
+          toast({
+            title: "Pago rechazado",
+            description: "El banco rechazó la tarjeta. Intenta con otra.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Error en el pago",
+          description: "No se pudo procesar el pago. Intenta nuevamente.",
+          variant: "destructive",
+        });
+      }
+    },
+  });
 
-  const formatExpiry = (val: string) => {
-    const digits = val.replace(/\D/g, "").slice(0, 4);
-    if (digits.length >= 2) return digits.slice(0, 2) + "/" + digits.slice(2);
-    return digits;
+  // ── Función de pago ─────────────────────────────────────────────────────────
+  const procesarPagoFinal = async () => {
+    if (selectedMethod === "tarjeta") {
+      if (!stripe || !elements) {
+        toast({
+          title: "Error",
+          description: "El procesador de pagos no está listo. Recarga la página.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const cardEl = elements.getElement(CardElement);
+      if (!cardEl) return;
+
+      setProcessing(true);
+      const { error, paymentMethod } = await stripe.createPaymentMethod({
+        type: "card",
+        card: cardEl,
+      });
+
+      if (error) {
+        setProcessing(false);
+        toast({
+          title: "Error con la tarjeta",
+          description: stripeErrorToSpanish(error),
+          variant: "destructive",
+        });
+        return;
+      }
+
+      confirmarPago.mutate({
+        charge_ids: selectedCharges,
+        metodo_pago: "tarjeta",
+        payment_method_id: paymentMethod.id,
+      });
+    } else {
+      setProcessing(true);
+      confirmarPago.mutate({
+        charge_ids: selectedCharges,
+        metodo_pago: selectedMethod || "spei",
+      });
+    }
   };
 
   // ── Paso 1: Seleccionar cargos ────────────────────────────────────────────
@@ -82,14 +227,16 @@ export default function PortalPadres3Clics() {
 
     return (
       <div className="space-y-4">
-        {/* Resumen */}
         <Card className="border-green-200 bg-green-50">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-green-700 font-medium">Saldo pendiente total</p>
                 <p className="text-2xl font-bold text-green-800">
-                  ${((dashboardData?.totalPendingBalance || 0)).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+                  ${(dashboardData?.totalPendingBalance || 0).toLocaleString("es-MX", {
+                    minimumFractionDigits: 2,
+                  })}{" "}
+                  MXN
                 </p>
               </div>
               <DollarSign className="w-10 h-10 text-green-600 opacity-60" />
@@ -97,7 +244,6 @@ export default function PortalPadres3Clics() {
           </CardContent>
         </Card>
 
-        {/* Cargos pendientes */}
         <div className="space-y-3">
           {(dashboardData?.pendingCharges || []).length === 0 ? (
             <div className="text-center py-10 text-slate-500">
@@ -121,29 +267,39 @@ export default function PortalPadres3Clics() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <p className="font-semibold text-slate-900 truncate">{charge.concept?.nombre}</p>
+                          <p className="font-semibold text-slate-900 truncate">
+                            {charge.concept?.nombre}
+                          </p>
                           {isOverdue && (
-                            <Badge variant="destructive" className="text-xs shrink-0">Vencido</Badge>
+                            <Badge variant="destructive" className="text-xs shrink-0">
+                              Vencido
+                            </Badge>
                           )}
                         </div>
                         <p className="text-sm text-slate-500">{charge.student?.nombre_completo}</p>
                         <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          Vence: {new Date(charge.fecha_vencimiento).toLocaleDateString("es-MX")}
+                          Vence:{" "}
+                          {new Date(charge.fecha_vencimiento).toLocaleDateString("es-MX")}
                         </p>
                       </div>
                       <div className="text-right shrink-0">
                         <p className="font-bold text-slate-900">
-                          ${((charge.total_amount_centavos || 0) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                          $
+                          {((charge.total_amount_centavos || 0) / 100).toLocaleString("es-MX", {
+                            minimumFractionDigits: 2,
+                          })}
                         </p>
                         {charge.recargo_aplicado_centavos > 0 && (
                           <p className="text-xs text-red-500">
                             +${(charge.recargo_aplicado_centavos / 100).toLocaleString()} recargo
                           </p>
                         )}
-                        <div className={`w-5 h-5 mt-2 rounded border-2 ml-auto flex items-center justify-center ${
-                          isSelected ? "bg-blue-500 border-blue-500" : "border-slate-300"
-                        }`}>
+                        <div
+                          className={`w-5 h-5 mt-2 rounded border-2 ml-auto flex items-center justify-center ${
+                            isSelected ? "bg-blue-500 border-blue-500" : "border-slate-300"
+                          }`}
+                        >
                           {isSelected && <CheckCircle className="w-3 h-3 text-white" />}
                         </div>
                       </div>
@@ -157,13 +313,17 @@ export default function PortalPadres3Clics() {
 
         {(dashboardData?.pendingCharges || []).length > 0 && (
           <div className="flex gap-3 pt-2">
-            <Button variant="outline" className="flex-1" onClick={() => {
-              if (selectedCharges.length === 0) {
-                toast({ title: "Selecciona al menos un cargo", variant: "destructive" });
-              } else {
-                setStep("pay");
-              }
-            }}>
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => {
+                if (selectedCharges.length === 0) {
+                  toast({ title: "Selecciona al menos un cargo", variant: "destructive" });
+                } else {
+                  setStep("pay");
+                }
+              }}
+            >
               Pagar seleccionados ({selectedCharges.length})
             </Button>
             <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={pagarTodo}>
@@ -176,269 +336,244 @@ export default function PortalPadres3Clics() {
   };
 
   // ── Paso 2: Método de pago ─────────────────────────────────────────────────
-  const PaymentMethod = () => {
-    const cardIsTest = cardNumber.replace(/\s/g, "") === "4242424242424242";
-    const cardDeclined = cardNumber.replace(/\s/g, "") === "4000000000000002";
+  const PaymentMethod = () => (
+    <div className="space-y-5">
+      <div className="flex items-center gap-2 mb-2">
+        <button
+          onClick={() => setStep("select")}
+          className="text-slate-500 hover:text-slate-700"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <h2 className="text-xl font-bold text-slate-900">Método de pago</h2>
+      </div>
 
-    return (
-      <div className="space-y-5">
-        <div className="flex items-center gap-2 mb-2">
-          <button onClick={() => setStep("select")} className="text-slate-500 hover:text-slate-700">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h2 className="text-xl font-bold text-slate-900">Método de pago</h2>
-        </div>
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+        <p className="text-blue-800 font-semibold text-lg">
+          Total a pagar: $
+          {(totalSeleccionado / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+        </p>
+      </div>
 
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-          <p className="text-blue-800 font-semibold text-lg">
-            Total a pagar: ${(totalSeleccionado / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
-          </p>
-        </div>
-
-        {/* Selector de método */}
-        <div className="space-y-2">
-          {[
-            { id: "tarjeta", label: "Tarjeta de crédito/débito", icon: CreditCard },
-            { id: "spei", label: "Transferencia SPEI", icon: Smartphone },
-            { id: "oxxo", label: "Pago en OXXO", icon: Receipt },
-          ].map(m => (
-            <Card
-              key={m.id}
-              className={`cursor-pointer border-2 transition-all ${
-                selectedMethod === m.id ? "border-blue-500 bg-blue-50" : "border-slate-200"
-              }`}
-              onClick={() => setSelectedMethod(m.id)}
-            >
-              <CardContent className="p-3 flex items-center gap-3">
-                <m.icon className="w-5 h-5 text-slate-600" />
-                <span className="font-medium">{m.label}</span>
-                <div className={`ml-auto w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+      {/* Selector de método */}
+      <div className="space-y-2">
+        {[
+          { id: "tarjeta", label: "Tarjeta de crédito/débito", icon: CreditCard },
+          { id: "spei",    label: "Transferencia SPEI",        icon: Smartphone },
+          { id: "oxxo",   label: "Pago en OXXO",              icon: Receipt },
+        ].map(m => (
+          <Card
+            key={m.id}
+            className={`cursor-pointer border-2 transition-all ${
+              selectedMethod === m.id ? "border-blue-500 bg-blue-50" : "border-slate-200"
+            }`}
+            onClick={() => setSelectedMethod(m.id)}
+          >
+            <CardContent className="p-3 flex items-center gap-3">
+              <m.icon className="w-5 h-5 text-slate-600" />
+              <span className="font-medium">{m.label}</span>
+              <div
+                className={`ml-auto w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                   selectedMethod === m.id ? "border-blue-500" : "border-slate-300"
-                }`}>
-                  {selectedMethod === m.id && <div className="w-2.5 h-2.5 bg-blue-500 rounded-full" />}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Formulario tarjeta simulada */}
-        {selectedMethod === "tarjeta" && (
-          <Card className="border-slate-200 bg-slate-50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2 text-slate-700">
-                <Shield className="w-4 h-4 text-green-600" />
-                Datos de tarjeta (entorno de pruebas)
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <p className="text-xs text-slate-500 mb-1">Número de tarjeta</p>
-                <Input
-                  placeholder="0000 0000 0000 0000"
-                  value={cardNumber}
-                  onChange={e => setCardNumber(formatCardNumber(e.target.value))}
-                  className="font-mono tracking-widest"
-                  maxLength={19}
-                />
+                }`}
+              >
+                {selectedMethod === m.id && (
+                  <div className="w-2.5 h-2.5 bg-blue-500 rounded-full" />
+                )}
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs text-slate-500 mb-1">Vencimiento</p>
-                  <Input
-                    placeholder="MM/AA"
-                    value={cardExpiry}
-                    onChange={e => setCardExpiry(formatExpiry(e.target.value))}
-                    maxLength={5}
-                  />
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500 mb-1">CVV</p>
-                  <Input
-                    placeholder="123"
-                    value={cardCVV}
-                    onChange={e => setCardCVV(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                    maxLength={4}
-                  />
-                </div>
-              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-              {/* Tarjetas de prueba */}
-              <div className="bg-amber-50 border border-amber-200 rounded p-3 mt-1">
+      {/* Nota de tarjeta: los datos se ingresan en el paso siguiente */}
+      {selectedMethod === "tarjeta" && (
+        <Card className="border-blue-100 bg-blue-50">
+          <CardContent className="p-4 flex items-start gap-3">
+            <Shield className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-blue-800">Pago seguro con Stripe</p>
+              <p className="text-xs text-blue-600 mt-1">
+                Ingresarás los datos de tu tarjeta en el siguiente paso de forma segura.
+                Nunca almacenamos datos de tarjeta.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedMethod === "spei" && (
+        <Card className="bg-blue-50 border-blue-200">
+          <CardContent className="p-4 text-sm text-blue-800 space-y-2">
+            <p className="font-semibold">Datos para transferencia SPEI:</p>
+            <p>Banco: BANAMEX</p>
+            <p>
+              CLABE:{" "}
+              <code className="font-mono bg-white px-1 rounded">002180700508041375</code>
+            </p>
+            <p>
+              Concepto:{" "}
+              <code className="bg-white px-1 rounded">PAG-{selectedCharges.join("-")}</code>
+            </p>
+            <p className="text-xs text-blue-600 mt-2">
+              En entorno demo: el sistema simulará la recepción del SPEI automáticamente.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      <Button
+        className="w-full bg-green-600 hover:bg-green-700"
+        size="lg"
+        disabled={!selectedMethod}
+        onClick={() => setStep("confirm")}
+      >
+        Continuar
+      </Button>
+    </div>
+  );
+
+  // ── Paso 3: Confirmar y pagar ─────────────────────────────────────────────
+  const PaymentConfirm = () => (
+    <div className="space-y-5">
+      <div className="flex items-center gap-2 mb-2">
+        <button
+          onClick={() => setStep("pay")}
+          className="text-slate-500 hover:text-slate-700"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <h2 className="text-xl font-bold text-slate-900">Confirmar pago</h2>
+      </div>
+
+      <div className="text-center py-3">
+        <p className="text-4xl font-bold text-green-600">
+          $
+          {(totalSeleccionado / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+        </p>
+      </div>
+
+      {/* Resumen de cargos */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm text-slate-600">Resumen del pago</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {selectedCharges.map(chargeId => {
+            const charge = dashboardData?.pendingCharges?.find((c: any) => c.id === chargeId);
+            if (!charge) return null;
+            return (
+              <div
+                key={charge.id}
+                className="flex justify-between items-center py-2 border-b last:border-0 text-sm"
+              >
+                <div>
+                  <p className="font-medium">{charge.concept?.nombre}</p>
+                  <p className="text-slate-500 text-xs">{charge.student?.nombre_completo}</p>
+                </div>
+                <p className="font-semibold">
+                  $
+                  {((charge.total_amount_centavos || 0) / 100).toLocaleString("es-MX", {
+                    minimumFractionDigits: 2,
+                  })}
+                </p>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
+      {/* Formulario de tarjeta real con Stripe Elements */}
+      {selectedMethod === "tarjeta" && (
+        <Card className="border-slate-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2 text-slate-700">
+              <Shield className="w-4 h-4 text-green-600" />
+              Datos de tarjeta
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* CardElement: Stripe renderiza el campo dentro de un iframe seguro */}
+            <div className="border rounded-md px-3 py-3 bg-white focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition-shadow">
+              <CardElement
+                options={CARD_ELEMENT_OPTIONS}
+                onChange={e => setCardComplete(e.complete)}
+              />
+            </div>
+
+            {/* Tarjetas de prueba (solo en dev) */}
+            {import.meta.env.DEV && (
+              <div className="bg-amber-50 border border-amber-200 rounded p-3">
                 <p className="text-xs font-semibold text-amber-700 mb-2">🧪 Tarjetas de prueba:</p>
                 {TEST_CARDS.map(tc => (
-                  <div key={tc.number} className="flex items-center justify-between text-xs text-amber-800 mb-1">
+                  <div
+                    key={tc.number}
+                    className="flex items-center justify-between text-xs text-amber-800 mb-1"
+                  >
                     <code className="font-mono">{tc.number}</code>
-                    <span className={tc.result === "success" ? "text-green-700" : "text-red-600"}>
+                    <span
+                      className={
+                        tc.result === "success" ? "text-green-700" : "text-red-600"
+                      }
+                    >
                       → {tc.label}
                     </span>
                   </div>
                 ))}
-                <button
-                  className="text-xs text-blue-600 underline mt-1"
-                  onClick={() => { setCardNumber("4242 4242 4242 4242"); setCardExpiry("12/27"); setCardCVV("123"); }}
-                >
-                  Autocompletar tarjeta exitosa
-                </button>
+                <p className="text-xs text-amber-600 mt-1">CVV y vencimiento: cualquier valor válido</p>
               </div>
-
-              {cardIsTest && (
-                <div className="flex items-center gap-2 text-green-700 text-xs">
-                  <CheckCircle className="w-4 h-4" /> Tarjeta de prueba válida — pago será exitoso
-                </div>
-              )}
-              {cardDeclined && (
-                <div className="flex items-center gap-2 text-red-600 text-xs">
-                  <AlertCircle className="w-4 h-4" /> Esta tarjeta será declinada
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {selectedMethod === "spei" && (
-          <Card className="bg-blue-50 border-blue-200">
-            <CardContent className="p-4 text-sm text-blue-800 space-y-2">
-              <p className="font-semibold">Datos para transferencia SPEI:</p>
-              <p>Banco: BANAMEX</p>
-              <p>CLABE: <code className="font-mono bg-white px-1 rounded">002180700508041375</code></p>
-              <p>Concepto: <code className="bg-white px-1 rounded">PAG-{selectedCharges.join("-")}</code></p>
-              <p className="text-xs text-blue-600 mt-2">
-                En entorno demo: el sistema simulará la recepción del SPEI automáticamente.
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        <Button
-          className="w-full bg-green-600 hover:bg-green-700"
-          size="lg"
-          disabled={!selectedMethod || (selectedMethod === "tarjeta" && cardNumber.length < 19)}
-          onClick={() => setStep("confirm")}
-        >
-          Continuar
-        </Button>
-      </div>
-    );
-  };
-
-  // ── Paso 3: Confirmar y pagar ─────────────────────────────────────────────
-  const PaymentConfirm = () => {
-    const [processing, setProcessing] = useState(false);
-
-    const isDeclinedCard = cardNumber.replace(/\s/g, "") === "4000000000000002";
-
-    const confirmarPago = useMutation({
-      mutationFn: async (data: any) => {
-        const res = await apiRequest("/api/guardian/pagar", { method: "POST", body: JSON.stringify(data) });
-        return res.json();
-      },
-      onSuccess: (data: any) => {
-        setProcessing(false);
-        setLastPaymentResult(data);
-        setStep("success");
-        queryClient.invalidateQueries({ queryKey: ["/api/guardian/dashboard"] });
-      },
-      onError: () => {
-        setProcessing(false);
-        toast({
-          title: "Error en el pago",
-          description: "No se pudo procesar el pago. Intente nuevamente.",
-          variant: "destructive",
-        });
-      },
-    });
-
-    const procesarPagoFinal = () => {
-      if (isDeclinedCard) {
-        toast({ title: "Tarjeta declinada", description: "La tarjeta fue rechazada. Intente con otra.", variant: "destructive" });
-        return;
-      }
-      setProcessing(true);
-      confirmarPago.mutate({
-        charge_ids: selectedCharges,
-        metodo_pago: selectedMethod || "tarjeta",
-      });
-    };
-
-    return (
-      <div className="space-y-5">
-        <div className="flex items-center gap-2 mb-2">
-          <button onClick={() => setStep("pay")} className="text-slate-500 hover:text-slate-700">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h2 className="text-xl font-bold text-slate-900">Confirmar pago</h2>
-        </div>
-
-        <div className="text-center py-3">
-          <p className="text-4xl font-bold text-green-600">
-            ${(totalSeleccionado / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
-          </p>
-        </div>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-slate-600">Resumen del pago</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {selectedCharges.map(chargeId => {
-              const charge = dashboardData?.pendingCharges?.find((c: any) => c.id === chargeId);
-              if (!charge) return null;
-              return (
-                <div key={charge.id} className="flex justify-between items-center py-2 border-b last:border-0 text-sm">
-                  <div>
-                    <p className="font-medium">{charge.concept?.nombre}</p>
-                    <p className="text-slate-500 text-xs">{charge.student?.nombre_completo}</p>
-                  </div>
-                  <p className="font-semibold">${((charge.total_amount_centavos || 0) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</p>
-                </div>
-              );
-            })}
+            )}
           </CardContent>
         </Card>
+      )}
 
-        <div className="bg-slate-50 border rounded-lg p-3 text-sm text-slate-600 space-y-1">
-          <div className="flex items-center gap-2">
-            <CreditCard className="w-4 h-4" />
-            <span>
-              {selectedMethod === "tarjeta"
-                ? `Tarjeta •••• ${cardNumber.slice(-4) || "4242"}`
-                : selectedMethod === "spei"
-                ? "Transferencia SPEI"
-                : "Pago en OXXO"}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-green-700">
-            <Shield className="w-4 h-4" />
-            <span>Pago seguro con encriptación SSL</span>
-          </div>
+      {/* Método seleccionado */}
+      <div className="bg-slate-50 border rounded-lg p-3 text-sm text-slate-600 space-y-1">
+        <div className="flex items-center gap-2">
+          <CreditCard className="w-4 h-4" />
+          <span>
+            {selectedMethod === "tarjeta"
+              ? "Tarjeta de crédito/débito"
+              : selectedMethod === "spei"
+              ? "Transferencia SPEI"
+              : "Pago en OXXO"}
+          </span>
         </div>
-
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
-          <CheckCircle className="w-4 h-4 inline mr-1" />
-          Se generará factura CFDI automáticamente y será enviada a su email.
+        <div className="flex items-center gap-2 text-green-700">
+          <Shield className="w-4 h-4" />
+          <span>Pago seguro con encriptación SSL</span>
         </div>
-
-        <Button
-          className="w-full bg-green-600 hover:bg-green-700 text-lg"
-          size="lg"
-          onClick={procesarPagoFinal}
-          disabled={processing}
-        >
-          {processing ? (
-            <span className="flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Procesando pago...
-            </span>
-          ) : (
-            `Confirmar pago $${(totalSeleccionado / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`
-          )}
-        </Button>
       </div>
-    );
-  };
 
-  // ── Paso 4: Éxito ─────────────────────────────────────────────────────────
+      <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
+        <CheckCircle className="w-4 h-4 inline mr-1" />
+        Se generará factura CFDI automáticamente y será enviada a su email.
+      </div>
+
+      <Button
+        className="w-full bg-green-600 hover:bg-green-700 text-lg"
+        size="lg"
+        onClick={procesarPagoFinal}
+        disabled={
+          processing ||
+          (selectedMethod === "tarjeta" && !cardComplete)
+        }
+      >
+        {processing ? (
+          <span className="flex items-center gap-2">
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            Procesando pago...
+          </span>
+        ) : (
+          `Confirmar pago $${(totalSeleccionado / 100).toLocaleString("es-MX", {
+            minimumFractionDigits: 2,
+          })}`
+        )}
+      </Button>
+    </div>
+  );
+
+  // ── Paso 4: Éxito ──────────────────────────────────────────────────────────
   const PaymentSuccess = () => (
     <div className="text-center space-y-5 py-6">
       <div className="flex items-center justify-center">
@@ -449,7 +584,9 @@ export default function PortalPadres3Clics() {
       <div>
         <h2 className="text-2xl font-bold text-slate-900">¡Pago exitoso!</h2>
         <p className="text-slate-600 mt-1">
-          ${(totalSeleccionado / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN procesados
+          $
+          {(totalSeleccionado / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+          procesados
         </p>
       </div>
 
@@ -477,10 +614,8 @@ export default function PortalPadres3Clics() {
         className="w-full bg-blue-600 hover:bg-blue-700"
         onClick={() => {
           setSelectedCharges([]);
-          setCardNumber("");
-          setCardExpiry("");
-          setCardCVV("");
           setSelectedMethod("");
+          setCardComplete(false);
           setLastPaymentResult(null);
           setStep("select");
         }}
@@ -489,15 +624,6 @@ export default function PortalPadres3Clics() {
       </Button>
     </div>
   );
-
-  // ── Cargando ────────────────────────────────────────────────────────────────
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-spin w-8 h-8 border-4 border-green-600 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
 
   // ── Historial de pagos ──────────────────────────────────────────────────────
   const PaymentHistory = () => (
@@ -513,17 +639,26 @@ export default function PortalPadres3Clics() {
             <CardContent className="p-4">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="font-medium text-slate-900">{p.charge?.concept?.nombre || "Pago"}</p>
+                  <p className="font-medium text-slate-900">
+                    {p.charge?.concept?.nombre || "Pago"}
+                  </p>
                   <p className="text-sm text-slate-500">{p.charge?.student?.nombre_completo}</p>
                   <p className="text-xs text-slate-400 mt-1">
-                    {new Date(p.fecha_pago || p.created_at).toLocaleDateString("es-MX")} • {p.metodo}
+                    {new Date(p.fecha_pago || p.created_at).toLocaleDateString("es-MX")} •{" "}
+                    {p.metodo}
                   </p>
                 </div>
                 <div className="text-right">
                   <p className="font-bold text-slate-900">
-                    ${((p.monto_centavos || 0) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                    $
+                    {((p.monto_centavos || 0) / 100).toLocaleString("es-MX", {
+                      minimumFractionDigits: 2,
+                    })}
                   </p>
-                  <Badge variant="secondary" className="text-xs mt-1 bg-green-100 text-green-700">
+                  <Badge
+                    variant="secondary"
+                    className="text-xs mt-1 bg-green-100 text-green-700"
+                  >
                     {p.estado}
                   </Badge>
                 </div>
@@ -535,6 +670,16 @@ export default function PortalPadres3Clics() {
     </div>
   );
 
+  // ── Cargando ────────────────────────────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-spin w-8 h-8 border-4 border-green-600 border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-md mx-auto px-4 py-6">
@@ -564,24 +709,25 @@ export default function PortalPadres3Clics() {
           </button>
         </div>
 
-        {/* Stepper visual */}
+        {/* Stepper */}
         {step !== "success" && (
           <div className="flex items-center justify-center gap-1 mb-6 text-xs">
             {[
-              { key: "select", label: "1. Seleccionar" },
-              { key: "pay", label: "2. Método" },
+              { key: "select",  label: "1. Seleccionar" },
+              { key: "pay",     label: "2. Método" },
               { key: "confirm", label: "3. Confirmar" },
             ].map((s, i) => (
               <div key={s.key} className="flex items-center gap-1">
-                <span className={`px-2 py-0.5 rounded-full font-medium ${
-                  step === s.key
-                    ? "bg-blue-600 text-white"
-                    : ["pay", "confirm"].includes(step) && i === 0
-                    ? "bg-green-500 text-white"
-                    : step === "confirm" && i === 1
-                    ? "bg-green-500 text-white"
-                    : "bg-slate-200 text-slate-500"
-                }`}>
+                <span
+                  className={`px-2 py-0.5 rounded-full font-medium ${
+                    step === s.key
+                      ? "bg-blue-600 text-white"
+                      : (["pay", "confirm"].includes(step) && i === 0) ||
+                        (step === "confirm" && i === 1)
+                      ? "bg-green-500 text-white"
+                      : "bg-slate-200 text-slate-500"
+                  }`}
+                >
                   {s.label}
                 </span>
                 {i < 2 && <span className="text-slate-300">→</span>}
@@ -592,13 +738,13 @@ export default function PortalPadres3Clics() {
 
         {/* Contenido del paso */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
-          {step === "select" && <SelectCharges />}
-          {step === "pay" && <PaymentMethod />}
+          {step === "select"  && <SelectCharges />}
+          {step === "pay"     && <PaymentMethod />}
           {step === "confirm" && <PaymentConfirm />}
           {step === "success" && <PaymentSuccess />}
         </div>
 
-        {/* Historial (siempre visible debajo) */}
+        {/* Historial (visible en paso select) */}
         {step === "select" && dashboardData?.paymentHistory?.length > 0 && (
           <div className="mt-6">
             <h3 className="text-sm font-semibold text-slate-600 mb-3">Pagos recientes</h3>
@@ -607,5 +753,14 @@ export default function PortalPadres3Clics() {
         )}
       </div>
     </div>
+  );
+}
+
+// ── Exportación: envuelve con <Elements> para proveer contexto de Stripe ──────
+export default function PortalPadres3Clics() {
+  return (
+    <Elements stripe={stripePromise}>
+      <PortalPadres3ClicsInner />
+    </Elements>
   );
 }

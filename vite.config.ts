@@ -4,6 +4,13 @@ import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 export default defineConfig({
+  define: {
+    // Clave pública de Stripe — por diseño va en el bundle del navegador
+    "import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY": JSON.stringify(
+      process.env.VITE_STRIPE_PUBLISHABLE_KEY ??
+      "pk_test_51U5doxCa00hYnecNGgNSBjVer6LnHCVTTuYERZl6xgK9wj8VM2LvVLGleej9yHtm28ZEMMSWlpMxrgBezQNcHgQw006mCOJHPD"
+    ),
+  },
   plugins: [
     react(),
     runtimeErrorOverlay(),

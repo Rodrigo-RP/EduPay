@@ -196,32 +196,32 @@ export function registerAuthRoutes(app: Express): void {
         
         res.json({ token: newToken });
       } catch (jwtError) {
-        // Token is expired or invalid, try to decode without verification to get user info
-        const decoded = jwt.decode(token) as any;
-        
-        if (decoded && decoded.id) {
-          // Verify user still exists
+        // El único caso legítimo de refresh es un token con firma VÁLIDA pero expirado.
+        // jwt.verify con ignoreExpiration:true verifica la firma criptográfica pero
+        // tolera que el claim exp haya vencido — es el único camino que debe pasar.
+        // Cualquier otro error (firma inválida, token malformado, algoritmo incorrecto)
+        // lanza de nuevo y se rechaza con 401 — sin ningún camino alterno.
+        try {
+          const decoded = jwt.verify(token, JWT_SECRET, { ignoreExpiration: true }) as any;
+          // Verificar que el usuario aún existe y está activo en DB
           const user = await storage.getUser(decoded.id);
-          if (user) {
-            const newToken = jwt.sign(
-              { 
-                id: user.id, 
-                email: user.email, 
-                role: user.role, 
-                campus_id: user.campus_id,
-                tenant_id: user.tenant_id,
-                type: decoded.type || 'user' 
-              },
-              JWT_SECRET,
-              { expiresIn: '24h' }
-            );
-            
-            res.json({ token: newToken });
-          } else {
-            res.status(401).json({ message: 'Usuario no encontrado' });
-          }
-        } else {
-          res.status(401).json({ message: 'Token inválido' });
+          if (!user) return res.status(401).json({ message: 'Usuario no encontrado' });
+          const newToken = jwt.sign(
+            {
+              id:        user.id,
+              email:     user.email,
+              role:      user.role,
+              campus_id: user.campus_id,
+              tenant_id: user.tenant_id,
+              type:      decoded.type || 'user',
+            },
+            JWT_SECRET,
+            { expiresIn: '24h' }
+          );
+          return res.json({ token: newToken });
+        } catch {
+          // Firma inválida, token malformado o cualquier otro error JWT → 401
+          return res.status(401).json({ message: 'Token inválido' });
         }
       }
     } catch (error: any) {

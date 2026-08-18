@@ -53,3 +53,4 @@
 - [NIT Narrative Insights](nit-narrative-insights.md) — generateNarrativeInsights: NI-03 usa SQL idéntico a fetchRiesgoData + computeRiesgoScore; resumen de RPT-08 usa count_alumnos (no count); $N con tipos distintos en Neon fuerza índice separado.
 - [Portal Padres E2E lessons](portal-padres-e2e-lessons.md) — apiRequest devuelve Response no JSON; seed necesita tenant_id en guardians+charges; paymentHistory ordena ASC no DESC.
 - [Facturación infraestructura](facturacion-infra.md) — campus_invoicing_config (mig-019); InvoicingProvider interfaz; factory get-invoicing-provider; timbrar-lote → 503 honesto sin proveedor; adaptador facturapi pendiente.
+- [Schema drift reglas](schema-drift-rules.md) — patrón de alineación Drizzle↔DB; tablas huérfanas conocidas; columnas/CHECKs no declarados históricos ya corregidos.

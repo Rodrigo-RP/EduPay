@@ -17,7 +17,9 @@
  *     verifica firma HMAC con stripe.webhooks.constructEvent usando el Buffer crudo.
  *   • Guard admin: SETTINGS.CONFIGURE + checkCampusTenant.
  *   • Idempotencia: Stripe idempotency key "campus-connect-{campusId}".
- *   • Race condition: INSERT ON CONFLICT (campus_id) DO NOTHING + re-SELECT.
+ *   • Race condition: INSERT ON CONFLICT (campus_id) DO UPDATE SET stripe_account_id = EXCLUDED.stripe_account_id
+ *     WHERE campus_payment_config.stripe_account_id IS NULL + re-SELECT autoritativo.
+ *     (Si ya existe fila con cuenta activa, el WHERE no aplica y la fila ganadora no se toca.)
  *   • Sync activa: /estado llama accounts.retrieve si stripe_account_id existe y
  *     charges_enabled=false (fallback para webhooks perdidos).
  *   • Protocolo §5: sin rutas condicionadas por NODE_ENV.
@@ -201,7 +203,9 @@ export function registerCampusPaymentRoutes(
    * Idempotencia:
    *   • Stripe idempotency key = "campus-connect-{campusId}" → misma cuenta aunque
    *     dos requests concurrent llamen a accounts.create simultáneamente.
-   *   • INSERT ON CONFLICT (campus_id) DO NOTHING → solo una fila por campus.
+   *   • INSERT ON CONFLICT (campus_id) DO UPDATE SET stripe_account_id = EXCLUDED.stripe_account_id
+   *     WHERE campus_payment_config.stripe_account_id IS NULL → actualiza fila sin cuenta;
+   *     si ya existe cuenta activa, el WHERE no aplica y la fila ganadora no se toca.
    *   • Re-SELECT autoritativo después del upsert → ambos requests ven el mismo acct_.
    */
   app.post(

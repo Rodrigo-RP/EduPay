@@ -44,6 +44,14 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    // HMR en Replit: el proxy termina TLS en 443. Sin esto, el cliente HMR de Vite
+    // construye la URL como wss://localhost:undefined, que es inválida y llena la
+    // consola del navegador con SyntaxError en cada carga — aunque el WebSocket
+    // real de la app (RealTimeProvider, puerto 5000) funciona correctamente.
+    hmr: {
+      clientPort: 443,
+      protocol: "wss",
+    },
     fs: {
       strict: true,
       deny: ["**/.*"],

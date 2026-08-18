@@ -22,6 +22,19 @@ const TEST_STRIPE_ACCOUNT = "acct_test_seed_preservation";
 describe("SEED-01: campus_payment_config sobrevive al seed de datos demo", () => {
   let campusNorteId: number;
 
+  /**
+   * Estado de campus_payment_config ANTES de que el it() inserte el valor de prueba.
+   * Se captura en beforeAll (después del primer seed) y se restaura en afterAll.
+   * Esto garantiza que el test no deja residuos entre runs de suite — en particular,
+   * que charges_enabled no quede en false cuando la cuenta real ya estaba activa.
+   */
+  let originalConfig: {
+    stripe_account_id: string | null;
+    charges_enabled:   boolean;
+    payouts_enabled:   boolean;
+    details_submitted: boolean;
+  } | null = null;
+
   beforeAll(async () => {
     // Primer seed — garantiza estado limpio y Campus Norte existe
     const result = await seedDemoData();
@@ -35,6 +48,20 @@ describe("SEED-01: campus_payment_config sobrevive al seed de datos demo", () =>
     );
     expect(rows.length, "Campus Norte no encontrado después del primer seed").toBe(1);
     campusNorteId = rows[0].id;
+
+    // Guardar estado original de campus_payment_config para restaurarlo en afterAll.
+    // Tras el primer seed, la fila tiene los valores reales (backup/restore del seed).
+    const { rows: cfgRows } = await pool.query<{
+      stripe_account_id: string | null;
+      charges_enabled:   boolean;
+      payouts_enabled:   boolean;
+      details_submitted: boolean;
+    }>(
+      `SELECT stripe_account_id, charges_enabled, payouts_enabled, details_submitted
+         FROM campus_payment_config WHERE campus_id = $1`,
+      [campusNorteId],
+    );
+    originalConfig = cfgRows[0] ?? null;
   }, 90_000);
 
   it("SEED-01: stripe_account_id intacto tras seed completo", async () => {
@@ -99,21 +126,46 @@ describe("SEED-01: campus_payment_config sobrevive al seed de datos demo", () =>
   }, 90_000);
 
   afterAll(async () => {
-    // Limpiar el stripe_account_id de prueba que el it() insertó.
-    // El estado neutro correcto es NULL — Rodrigo conecta la cuenta
-    // real de Stripe desde la UI (Configuración de Pagos).
-    // Sin este afterAll el valor "acct_test_seed_preservation" quedaba
-    // visible en campus_payment_config como si fuera un dato real.
-    if (campusNorteId) {
+    // Restaurar el estado real de campus_payment_config que había ANTES del test.
+    // El it() insertó "acct_test_seed_preservation" para verificar la preservación del seed.
+    // Si no restauramos los valores reales, el siguiente run de suite arranca con
+    // charges_enabled=false y stripe_account_id=NULL — rompiendo tests que dependen
+    // de una cuenta Stripe activa (e.g., e2e-pay-01-stripe-connect.test.ts).
+    //
+    // Se re-busca Campus Norte por nombre en vez de usar campusNorteId porque el
+    // segundo seed del it() corre TRUNCATE RESTART IDENTITY y puede asignar un
+    // nuevo campus_id (aunque en la práctica es siempre el mismo al partir de 1).
+    const { rows: norteRows } = await pool.query<{ id: number }>(
+      `SELECT id FROM campuses WHERE nombre = 'Campus Norte' LIMIT 1`,
+    );
+    const actualNorteId = norteRows[0]?.id;
+
+    if (!actualNorteId) return; // Campus Norte no existe — seed no corrió correctamente
+
+    if (originalConfig) {
+      // Restaurar los valores exactos que había antes del test (los reales de Stripe)
       await pool.query(
         `UPDATE campus_payment_config
-            SET stripe_account_id = NULL,
-                charges_enabled   = false,
-                payouts_enabled   = false,
-                details_submitted = false,
+            SET stripe_account_id = $1,
+                charges_enabled   = $2,
+                payouts_enabled   = $3,
+                details_submitted = $4,
                 updated_at        = NOW()
-          WHERE campus_id = $1`,
-        [campusNorteId],
+          WHERE campus_id = $5`,
+        [
+          originalConfig.stripe_account_id,
+          originalConfig.charges_enabled,
+          originalConfig.payouts_enabled,
+          originalConfig.details_submitted,
+          actualNorteId,
+        ],
+      );
+    } else {
+      // No había fila antes del seed — borrar solo si sigue teniendo el valor de prueba
+      await pool.query(
+        `DELETE FROM campus_payment_config
+           WHERE campus_id = $1 AND stripe_account_id = $2`,
+        [actualNorteId, TEST_STRIPE_ACCOUNT],
       );
     }
   }, 30_000);

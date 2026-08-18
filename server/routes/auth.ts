@@ -244,12 +244,18 @@ export function registerAuthRoutes(app: Express): void {
       }
 
       const token = jwt.sign(
-        { id: guardian.id, email: guardian.email, tenant_id: (guardian as any).tenant_id, type: 'guardian' },
+        {
+          id:        guardian.id,
+          email:     guardian.email,
+          tenant_id: (guardian as any).tenant_id,
+          campus_id: (guardian as any).campus_id,   // requerido por /api/guardian/pagar → getActiveStripeAccountForCampus
+          type:      'guardian',
+        },
         JWT_SECRET,
         { expiresIn: '24h' }
       );
 
-      res.json({ token, guardian: { id: guardian.id, email: guardian.email, nombre_completo: guardian.nombre_completo, tenant_id: (guardian as any).tenant_id } });
+      res.json({ token, guardian: { id: guardian.id, email: guardian.email, nombre_completo: guardian.nombre_completo, tenant_id: (guardian as any).tenant_id, campus_id: (guardian as any).campus_id } });
     } catch (error: any) {
       res.status(500).json({ message: "Login failed" });
     }

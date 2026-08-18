@@ -29,6 +29,7 @@ export type StripeGuardianClient = {
       currency: string;
       payment_method?: string;
       confirm?: boolean;
+      automatic_payment_methods?: { enabled: boolean; allow_redirects?: "always" | "never" };
       transfer_data?: { destination: string };
       application_fee_amount?: number;
       metadata?: Record<string, string>;
@@ -142,9 +143,16 @@ export async function registerGuardianRoutes(
               currency: "mxn",
               payment_method: payment_method_id as string,
               confirm:  true,
+              // Requerido con confirm:true para no necesitar return_url.
+              // allow_redirects:"never" garantiza que solo se usen métodos no-redirect
+              // (tarjeta), que es el único método que soporta el portal de padres.
+              automatic_payment_methods: { enabled: true, allow_redirects: "never" },
               transfer_data: { destination: stripeConnectAccountId! },
-              // TODO: definir tarifa de plataforma Refereence — sin decisión de negocio tomada.
-              // Actualmente 0 MXN: Refereence no cobra comisión a los campus en esta versión.
+              // application_fee_amount = 0: decisión de arquitectura permanente.
+              // Refereence monetiza con cuota SaaS por número de alumnos, facturada
+              // directamente a la escuela y completamente fuera del flujo de Stripe Connect.
+              // Cobrar comisión por transacción encarecería el producto al padre, lo que
+              // contradice el modelo de negocio. Este campo NO es un placeholder olvidado.
               application_fee_amount: 0,
               metadata: {
                 charge_id:   chargeId.toString(),

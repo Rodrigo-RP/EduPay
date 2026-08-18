@@ -53,7 +53,8 @@ export const users = pgTable("users", {
   // Timestamp del último cambio de contraseña.
   // El middleware de autenticación compara iat del JWT contra este campo para
   // invalidar sesiones activas inmediatamente tras un cambio de contraseña.
-  password_changed_at: timestamp("password_changed_at"),
+  // DB: TIMESTAMPTZ (mig-018) — declarado con withTimezone:true para coincidir.
+  password_changed_at: timestamp("password_changed_at", { withTimezone: true }),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
@@ -171,7 +172,13 @@ export const students = pgTable("students", {
   status: varchar("status", { length: 50 }).default("activo"), // 'activo', 'baja', 'suspendido', 'egresado'
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
-});
+}, () => [
+  // Refleja el CHECK real de DB — no genera migración nueva, solo documenta.
+  check(
+    "students_nivel_educativo_check",
+    sql`((nivel_educativo IS NULL) OR ((nivel_educativo)::text = ANY ((ARRAY['Preescolar'::character varying, 'Primaria'::character varying, 'Secundaria'::character varying, 'Profesional técnico'::character varying, 'Bachillerato o su equivalente'::character varying])::text[])))`,
+  ),
+]);
 
 // GUARDIANS - Adaptado a estructura Excel "Concentrado_Estudiante y Padre" (columnas 1-7) + separación padre/madre
 export const guardians = pgTable("guardians", {
@@ -208,8 +215,13 @@ export const guardians = pgTable("guardians", {
   campus_id: integer("campus_id").references(() => campuses.id),
   tenant_id: integer("tenant_id").references(() => tenants.id),
 
+  // foto_url: columna real en DB (nullable, sin default). Documentada aquí para
+  // alinear Drizzle con information_schema; no existe en el insertGuardianSchema.
+  foto_url: text("foto_url"),
+
   // Timestamp del último cambio de contraseña (parallel con users.password_changed_at).
-  password_changed_at: timestamp("password_changed_at"),
+  // DB: TIMESTAMPTZ (mig-018) — declarado con withTimezone:true para coincidir.
+  password_changed_at: timestamp("password_changed_at", { withTimezone: true }),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
@@ -268,8 +280,9 @@ export const products = pgTable("products", {
   precio_primaria:     bigint("precio_primaria",     { mode: "number" }).notNull().default(0),
   precio_secundaria:   bigint("precio_secundaria",   { mode: "number" }).notNull().default(0),
   precio_bachillerato: bigint("precio_bachillerato", { mode: "number" }).notNull().default(0),
-  created_at:          timestamp("created_at").defaultNow(),
-  updated_at:          timestamp("updated_at").defaultNow(),
+  // DB: TIMESTAMPTZ — withTimezone:true para coincidir con information_schema
+  created_at:          timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updated_at:          timestamp("updated_at", { withTimezone: true }).defaultNow(),
 }, (table) => ({
   // código único por campus (no por tenant): el mismo código puede usarse en campus distintos del mismo tenant
   campusCodigoUnique: uniqueIndex("products_campus_codigo_unique").on(table.campus_id, table.codigo),
@@ -372,7 +385,13 @@ export const payments = pgTable("payments", {
   estado: varchar("estado", { length: 50 }).default("pendiente"), // 'pendiente' → 'exitoso' | 'fallido' → 'reversado'
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
-});
+}, () => [
+  // Refleja el CHECK real de DB — no genera migración nueva, solo documenta.
+  check(
+    "payments_subtipo_tarjeta_check",
+    sql`((subtipo_tarjeta IS NULL) OR ((subtipo_tarjeta)::text = ANY ((ARRAY['credito'::character varying, 'debito'::character varying])::text[])))`,
+  ),
+]);
 
 // PAYMENT METHODS (Tokenized)
 export const payment_methods = pgTable("payment_methods", {
@@ -399,8 +418,9 @@ export const campus_payment_config = pgTable("campus_payment_config", {
   charges_enabled:   boolean("charges_enabled").notNull().default(false),
   payouts_enabled:   boolean("payouts_enabled").notNull().default(false),
   details_submitted: boolean("details_submitted").notNull().default(false),
-  created_at:        timestamp("created_at").defaultNow(),
-  updated_at:        timestamp("updated_at").defaultNow(),
+  // DB: TIMESTAMPTZ — withTimezone:true para coincidir con information_schema
+  created_at:        timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updated_at:        timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
 // CAMPUS INVOICING CONFIG — configuración de timbrado por campus (multi-proveedor multi-RFC)
@@ -426,8 +446,9 @@ export const campus_invoicing_config = pgTable("campus_invoicing_config", {
   estado:                varchar("estado",          { length: 20  }).notNull().default("pendiente"),
   // 'pendiente' | 'activo' | 'error' | 'vencido'
   ultimo_error:          text("ultimo_error"),
-  created_at:            timestamp("created_at").defaultNow(),
-  updated_at:            timestamp("updated_at").defaultNow(),
+  // DB: TIMESTAMPTZ (mig-019 usó TIMESTAMPTZ) — withTimezone:true para coincidir
+  created_at:            timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updated_at:            timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
 // INVOICES (CFDI)
@@ -794,7 +815,13 @@ export const payment_surcharge_rules = pgTable("payment_surcharge_rules", {
   activo: boolean("activo").default(true).notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
-});
+}, () => [
+  // Refleja el CHECK real de DB — no genera migración nueva, solo documenta.
+  check(
+    "payment_surcharge_rules_tipo_check",
+    sql`((tipo)::text = ANY (ARRAY[('porcentaje'::character varying)::text, ('fijo'::character varying)::text, ('progresivo'::character varying)::text]))`,
+  ),
+]);
 
 // Relations
 export const paymentDueDatesRelations = relations(payment_due_dates, ({ one }) => ({
@@ -1126,7 +1153,10 @@ export const family_credits = pgTable("family_credits", {
   consumed_application_id: integer("consumed_application_id").references(() => payment_applications.id),
   consumed_at:     timestamp("consumed_at"),
   created_at:      timestamp("created_at").defaultNow(),
-});
+}, () => [
+  // Refleja el CHECK real de DB — no genera migración nueva, solo documenta.
+  check("family_credits_amount_centavos_check", sql`(amount_centavos > 0)`),
+]);
 export type FamilyCredit = typeof family_credits.$inferSelect;
 export type InsertFamilyCredit = typeof family_credits.$inferInsert;
 
@@ -1190,6 +1220,8 @@ export const bank_transactions = pgTable("bank_transactions", {
   // 0–69 = aclaración manual; 70–89 = revisión sugerida;
   // 90–99 = auto+auditoría; 100 = auto sin revisión.
   confianza_pct: smallint("confianza_pct"),
+  // Timestamp de conciliación. DB: TIMESTAMPTZ (nullable, sin default).
+  conciliado_at: timestamp("conciliado_at", { withTimezone: true }),
   created_at: timestamp("created_at").defaultNow(),
 });
 export type BankTransaction = typeof bank_transactions.$inferSelect;
@@ -1206,8 +1238,9 @@ export const family_payment_sources = pgTable("family_payment_sources", {
   clabe: varchar("clabe", { length: 18 }).notNull(),
   nombre_inferido: varchar("nombre_inferido", { length: 255 }),
   confirmaciones: integer("confirmaciones").notNull().default(1),
-  primera_vez_at: timestamp("primera_vez_at").defaultNow(),
-  ultima_vez_at: timestamp("ultima_vez_at").defaultNow(),
+  // DB: TIMESTAMPTZ — withTimezone:true para coincidir con information_schema
+  primera_vez_at: timestamp("primera_vez_at", { withTimezone: true }).defaultNow(),
+  ultima_vez_at: timestamp("ultima_vez_at", { withTimezone: true }).defaultNow(),
 });
 export type FamilyPaymentSource = typeof family_payment_sources.$inferSelect;
 
@@ -1281,11 +1314,12 @@ export const magic_link_tokens = pgTable("magic_link_tokens", {
   tenant_id:  integer("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
   guardian_id: integer("guardian_id").references(() => guardians.id, { onDelete: "cascade" }).notNull(),
   token:      varchar("token", { length: 128 }).notNull().unique(),
-  expires_at: timestamp("expires_at").notNull(),
+  // DB: TIMESTAMPTZ — withTimezone:true para coincidir con information_schema
+  expires_at: timestamp("expires_at", { withTimezone: true }).notNull(),
   uses:       integer("uses").default(0).notNull(),
   max_uses:   integer("max_uses").default(3).notNull(),
   created_by: integer("created_by").references(() => users.id, { onDelete: "set null" }),
-  created_at: timestamp("created_at").defaultNow().notNull(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 export type MagicLinkToken = typeof magic_link_tokens.$inferSelect;
 
@@ -1331,7 +1365,13 @@ export const acciones_seguimiento = pgTable("acciones_seguimiento", {
   started_at:       timestamp("started_at"),
   resolved_at:      timestamp("resolved_at"),
   escalated_at:     timestamp("escalated_at"),
-});
+}, () => [
+  // Refleja el CHECK real de DB — no genera migración nueva, solo documenta.
+  check(
+    "acciones_seguimiento_tipo_hallazgo_check",
+    sql`((tipo_hallazgo)::text = ANY ((ARRAY['excepcion_conciliacion'::character varying, 'riesgo_financiero'::character varying, 'override_condonacion'::character varying, 'pago_manual_sugerido'::character varying, 'cfdi_sin_timbrar'::character varying, 'otro'::character varying])::text[]))`,
+  ),
+]);
 export type AccionSeguimiento       = typeof acciones_seguimiento.$inferSelect;
 export type InsertAccionSeguimiento = typeof acciones_seguimiento.$inferInsert;
 
@@ -1352,4 +1392,32 @@ export const audit_log = pgTable("audit_log", {
 export type AuditLogEntry = typeof audit_log.$inferSelect;
 export type InsertAuditLogEntry = typeof audit_log.$inferInsert;
 
+// ── CRM PROSPECTOS (tabla existente en DB — creada en 001_create_missing_tables.sql) ──────
+// Usada por GET/POST /api/crm/prospects en server/routes/misc.ts.
+// Sin FK explícita en DB; campus_id filtra por campus del usuario autenticado.
+export const crm_prospects = pgTable("crm_prospects", {
+  id:            serial("id").primaryKey(),
+  campus_id:     integer("campus_id").notNull(),
+  nombre:        varchar("nombre", { length: 200 }).notNull(),
+  email:         varchar("email", { length: 200 }),
+  telefono:      varchar("telefono", { length: 30 }),
+  nivel_interes: varchar("nivel_interes", { length: 20 }).default("medio"),
+  nivel_escolar: varchar("nivel_escolar", { length: 50 }),
+  notas:         text("notas"),
+  status:        varchar("status", { length: 30 }).default("interested"),
+  created_at:    timestamp("created_at").defaultNow(),
+});
+export type CrmProspect = typeof crm_prospects.$inferSelect;
 
+// ── PROYECTOS DE MIGRACIÓN (tabla existente en DB — creada en 001_create_missing_tables.sql) ──
+// Usada por GET /api/migration/projects y GET /api/migration/project/:id en payments.ts.
+// Sin FK explícita en DB; campus_id filtra por campus del usuario autenticado.
+export const migration_projects = pgTable("migration_projects", {
+  id:         serial("id").primaryKey(),
+  campus_id:  integer("campus_id").notNull(),
+  nombre:     varchar("nombre", { length: 200 }).notNull(),
+  estado:     varchar("estado", { length: 30 }).default("pendiente"),
+  tipo:       varchar("tipo", { length: 50 }),
+  created_at: timestamp("created_at").defaultNow(),
+});
+export type MigrationProject = typeof migration_projects.$inferSelect;

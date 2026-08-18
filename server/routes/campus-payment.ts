@@ -456,3 +456,24 @@ export function registerCampusPaymentRoutes(
     }
   );
 }
+
+// ── HELPER EXPORTADO ──────────────────────────────────────────────────────────
+
+/**
+ * Devuelve el stripe_account_id del campus si tiene charges_enabled = true,
+ * o null si el campus no tiene Stripe Connect activo.
+ *
+ * Usado por guardian.ts para enrutar PaymentIntents via transfer_data.
+ */
+export async function getActiveStripeAccountForCampus(
+  campusId: number
+): Promise<string | null> {
+  const { rows } = await pool.query(
+    `SELECT stripe_account_id
+       FROM campus_payment_config
+      WHERE campus_id = $1
+        AND charges_enabled = true`,
+    [campusId]
+  );
+  return (rows[0]?.stripe_account_id as string) ?? null;
+}

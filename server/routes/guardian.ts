@@ -15,8 +15,39 @@ import * as XLSX from "xlsx";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 import { NotificationSystem as ServerNotificationSystem } from '../notification-system';
+import Stripe from "stripe";
+import { getActiveStripeAccountForCampus } from "./campus-payment";
 
-export async function registerGuardianRoutes(app: Express): Promise<void> {
+/**
+ * Subconjunto de la API de Stripe necesario para guardian/pagar.
+ * Permite inyectar un mock en tests sin tocar el singleton global.
+ */
+export type StripeGuardianClient = {
+  paymentIntents: {
+    create: (params: {
+      amount: number;
+      currency: string;
+      payment_method?: string;
+      confirm?: boolean;
+      transfer_data?: { destination: string };
+      application_fee_amount?: number;
+      metadata?: Record<string, string>;
+    }) => Promise<{ id: string; status: string }>;
+    cancel: (id: string) => Promise<{ id: string }>;
+  };
+};
+
+// SDK inicializado una sola vez por módulo (misma clave que campus-payment.ts).
+const defaultStripeGuardian: StripeGuardianClient = new Stripe(
+  process.env.STRIPE_SECRET_KEY!,
+  { apiVersion: "2025-05-28.basil" as any }
+) as unknown as StripeGuardianClient;
+
+export async function registerGuardianRoutes(
+  app: Express,
+  stripeOverride?: StripeGuardianClient
+): Promise<void> {
+  const sg = stripeOverride ?? defaultStripeGuardian;
   // ── DEMO DATA SEED — solo super_admin ───────────────────────────────────────
   app.post("/api/demo/seed", requireSuperAdmin, async (req, res) => {
     try {
@@ -46,12 +77,24 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
       const guardianId = req.guardian.id;
       const tenantId   = req.guardian.tenant_id;
 
-      const { charge_ids, metodo_pago = "tarjeta" } = req.body;
+      const { charge_ids, metodo_pago = "tarjeta", payment_method_id } = req.body;
       if (!charge_ids || !Array.isArray(charge_ids) || charge_ids.length === 0) {
         return res.status(400).json({ message: "Se requiere al menos un cargo" });
       }
 
-      const results: { charge_id: number; payment_id: number; cfdi: string }[] = [];
+      // ── Check Stripe Connect una vez por request (una query, todos los cargos) ───
+      const guardianCampusId: number = req.guardian.campus_id;
+      const stripeConnectAccountId = await getActiveStripeAccountForCampus(guardianCampusId);
+      // Cobro real via Connect solo si: campus activo + frontend envió payment_method_id.
+      const useStripeConnect = !!(stripeConnectAccountId && payment_method_id);
+
+      const results: {
+        charge_id: number;
+        payment_id: number;
+        cfdi: string;
+        via_stripe_connect: boolean;
+        needs_liquidacion_manual: boolean;
+      }[] = [];
 
       for (const chargeId of charge_ids) {
         // ── IDOR: el cargo debe pertenecer a un alumno del guardián (lectura, fuera de txn) ──
@@ -63,10 +106,71 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
         }
         const tenantIdLote = (chargeOwned as any).tenant_id ?? tenantId;
 
+        // ── Stripe PaymentIntent ANTES de la transacción DB ─────────────────
+        // Se crea fuera de la txn para no mantener locks DB durante red externa.
+        let piId: string | null = null;
+        let referencia: string;
+        let saldoPrevio: number | null = null; // usado para detectar race condition
+
+        if (useStripeConnect) {
+          // Pre-leer saldo (optimista, sin lock) solo para el monto del PaymentIntent.
+          // La txn DB lo reconfirma con FOR UPDATE antes de insertar el pago.
+          const preRes = await pool.query(
+            `SELECT c.monto_base_centavos, c.recargo_aplicado_centavos,
+                    COALESCE(SUM(pa.amount_centavos), 0)::bigint AS ya_pagado
+               FROM charges c
+               LEFT JOIN payment_applications pa ON pa.charge_id = c.id
+              WHERE c.id = $1 AND c.tenant_id = $2
+              GROUP BY c.monto_base_centavos, c.recargo_aplicado_centavos`,
+            [chargeId, tenantIdLote]
+          );
+          if (!preRes.rows.length) {
+            return res.status(404).json({ message: `Cargo ${chargeId} no encontrado` });
+          }
+          const pre = preRes.rows[0] as any;
+          saldoPrevio =
+            Number(pre.monto_base_centavos) +
+            Number(pre.recargo_aplicado_centavos || 0) -
+            Number(pre.ya_pagado);
+          if (saldoPrevio <= 0) {
+            return res.status(409).json({ message: `El cargo ${chargeId} ya tiene saldo cero` });
+          }
+
+          try {
+            const pi = await sg.paymentIntents.create({
+              amount:   saldoPrevio,
+              currency: "mxn",
+              payment_method: payment_method_id as string,
+              confirm:  true,
+              transfer_data: { destination: stripeConnectAccountId! },
+              // TODO: definir tarifa de plataforma Refereence — sin decisión de negocio tomada.
+              // Actualmente 0 MXN: Refereence no cobra comisión a los campus en esta versión.
+              application_fee_amount: 0,
+              metadata: {
+                charge_id:   chargeId.toString(),
+                guardian_id: guardianId.toString(),
+                campus_id:   guardianCampusId.toString(),
+              },
+            });
+            piId      = pi.id;
+            referencia = pi.id;
+          } catch (stripeErr: any) {
+            // Stripe rechazó: DB intacta, sin locks, sin transacciones abiertas.
+            console.error(`[guardian/pagar] Stripe rechazó cargo ${chargeId}:`, stripeErr.message);
+            return res.status(402).json({
+              message:   "El pago fue rechazado por el procesador de pagos",
+              detalle:   stripeErr.message,
+              charge_id: chargeId,
+            });
+          }
+        } else {
+          // Flujo de simulación: campus sin Connect activo o frontend sin payment_method_id.
+          referencia = `sim_${Date.now()}_${chargeId}`;
+        }
+
         // ── Transacción atómica ──────────────────────────────────────────────
         const client = await pool.connect();
         let paymentId!: number;
-        let referencia!: string;
         try {
           await client.query("BEGIN");
 
@@ -107,8 +211,23 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
             return res.status(409).json({ message: `El cargo ${chargeId} ya tiene saldo cero` });
           }
 
-          // 4. Crear pago directamente en 'exitoso' (atomicidad garantizada por la txn)
-          referencia = `sim_${Date.now()}_${chargeId}`;
+          // 4a. Guard race condition: si usamos Stripe Connect, verificar que el saldo
+          //     no cambió entre la pre-lectura (para el PI) y el lock FOR UPDATE.
+          //     Si cambió, el cargo fue parcialmente pagado por otra petición concurrente:
+          //     cancelamos el PI y rechazamos limpiamente.
+          if (piId && saldoPrevio !== null && saldo !== saldoPrevio) {
+            await client.query("ROLLBACK");
+            // Fire-and-forget: finally libera el client
+            sg.paymentIntents.cancel(piId).catch((e: any) =>
+              console.error("[guardian/pagar] No se pudo cancelar PI tras race condition:", e.message)
+            );
+            return res.status(409).json({
+              message:   `El monto del cargo ${chargeId} cambió mientras se procesaba. Intente de nuevo.`,
+              charge_id: chargeId,
+            });
+          }
+
+          // 4b. Crear pago directamente en 'exitoso' (atomicidad garantizada por la txn)
           const payRow = await client.query(
             `INSERT INTO payments
                (tenant_id, charge_id, guardian_id, metodo, referencia_pasarela,
@@ -134,6 +253,12 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
           await client.query("COMMIT");
         } catch (err) {
           await client.query("ROLLBACK");
+          // Si el PI de Stripe ya fue creado y la DB falla, cancelarlo (best-effort).
+          if (piId) {
+            sg.paymentIntents.cancel(piId).catch((ce: any) =>
+              console.error("[guardian/pagar] No se pudo cancelar PI tras error DB:", ce.message)
+            );
+          }
           throw err;
         } finally {
           client.release();
@@ -149,7 +274,14 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
           entity_id:      chargeId,
           previous_value: { estado: "pendiente" },
           new_value:      { estado: "pagado" },
-          metadata:       { flujo: "guardian_pagar_lote", payment_id: paymentId, monto_centavos: null },
+          metadata: {
+            flujo:                      "guardian_pagar_lote",
+            payment_id:                 paymentId,
+            monto_centavos:             null,
+            via_stripe_connect:         useStripeConnect,
+            stripe_payment_intent_id:   piId ?? undefined,
+            needs_liquidacion_manual:   !useStripeConnect && stripeConnectAccountId === null,
+          },
         };
         pool.query(
           `INSERT INTO audit_log
@@ -185,7 +317,13 @@ export async function registerGuardianRoutes(app: Express): Promise<void> {
           // Si el CFDI falla el pago ya está registrado — no revertir
         }
 
-        results.push({ charge_id: chargeId, payment_id: paymentId, cfdi: cfdiUUID });
+        results.push({
+          charge_id:                chargeId,
+          payment_id:               paymentId,
+          cfdi:                     cfdiUUID,
+          via_stripe_connect:       useStripeConnect,
+          needs_liquidacion_manual: !useStripeConnect && stripeConnectAccountId === null,
+        });
       }
 
       wsManager.notifyPaymentUpdate(results[0], "create", {

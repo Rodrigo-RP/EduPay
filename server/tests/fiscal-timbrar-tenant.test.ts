@@ -135,36 +135,34 @@ const POST = (path: string, token: string, body: any = {}) =>
 
 describe("FTT — fiscal.ts timbrar-lote escribe tenant_id desde JWT", () => {
 
-  it("FTT-01: timbrar-lote con payment_id válido → 200 con timbrados:1", async () => {
+  it("FTT-01: timbrar-lote sin campus_invoicing_config activo → 503 honesto (sin UUID simulado)", async () => {
+    // Post-mig019: timbrar-lote requiere campus_invoicing_config con estado='activo'.
+    // El campus de este test no tiene configuración → 503 honesto, nunca DEMO-...
     const r    = await POST("/api/fiscal/timbrar-lote", tokenAdmin, { payment_ids: [paymentId] });
     const body = await r.json() as any;
-    expect(r.status, `body: ${JSON.stringify(body)}`).toBe(200);
-    expect(body.timbrados).toBe(1);
-    expect(body.errores).toBe(0);
-    expect(body.resultados[0].status).toBe("ok");
+    expect(r.status, `body: ${JSON.stringify(body)}`).toBe(503);
+    expect(body.code).toBeDefined();
+    // Confirmar que NO hay UUID DEMO- en la respuesta (nunca simular éxito)
+    expect(JSON.stringify(body)).not.toMatch(/DEMO-/);
   });
 
-  it("FTT-02: la factura creada por timbrar-lote tiene tenant_id NOT NULL (bug pre-fix: era NULL)", async () => {
+  it("FTT-02: sin campus_invoicing_config activo no se crea ninguna factura en DB", async () => {
+    // El 503 debe ocurrir antes de cualquier INSERT en invoices
     const row = await pool.query(
-      `SELECT tenant_id, uuid_cfdi, estado FROM invoices WHERE payment_id = $1 LIMIT 1`,
+      `SELECT id FROM invoices WHERE payment_id = $1 LIMIT 1`,
       [paymentId]
     );
-    expect(row.rows.length).toBeGreaterThan(0);
-    const inv = row.rows[0] as any;
-    expect(
-      inv.tenant_id,
-      `tenant_id es ${inv.tenant_id} — el INSERT no escribió el tenant del JWT`
-    ).toBe(tenantId);
+    // No debe existir ninguna fila — el 503 cortó el flujo antes del INSERT
+    expect(row.rows.length).toBe(0);
   });
 
-  it("FTT-03: la factura tiene uuid_cfdi con prefijo DEMO- y estado emitido", async () => {
+  it("FTT-03: no existe ningún uuid_cfdi DEMO- en invoices para este pago (timbrado honesto)", async () => {
+    // Garantía de que el comportamiento antiguo de DEMO-... fue eliminado
     const row = await pool.query(
-      `SELECT uuid_cfdi, estado FROM invoices WHERE payment_id = $1 LIMIT 1`,
+      `SELECT uuid_cfdi FROM invoices WHERE payment_id = $1 AND uuid_cfdi LIKE 'DEMO-%' LIMIT 1`,
       [paymentId]
     );
-    const inv = row.rows[0] as any;
-    expect(inv.uuid_cfdi).toMatch(/^DEMO-/);
-    expect(inv.estado).toBe("emitido");
+    expect(row.rows.length).toBe(0);
   });
 
   it("FTT-04: backfill — facturas históricas con tenant_id NULL recuperables vía JOIN determinista", async () => {

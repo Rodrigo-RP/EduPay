@@ -403,6 +403,33 @@ export const campus_payment_config = pgTable("campus_payment_config", {
   updated_at:        timestamp("updated_at").defaultNow(),
 });
 
+// CAMPUS INVOICING CONFIG — configuración de timbrado por campus (multi-proveedor multi-RFC)
+// Principio de seguridad: EduPay NUNCA persiste bytes de .cer / .key.
+// Solo se guarda el organizacion_id devuelto por el proveedor tras registrar el CSD.
+export const campus_invoicing_config = pgTable("campus_invoicing_config", {
+  id:                    serial("id").primaryKey(),
+  campus_id:             integer("campus_id").notNull().references(() => campuses.id, { onDelete: "cascade" }),
+  tenant_id:             integer("tenant_id").notNull().references(() => tenants.id,  { onDelete: "cascade" }),
+  proveedor:             varchar("proveedor",      { length: 50  }).notNull().default("facturapi"),
+  // 'facturapi' | (futuro: 'fiscalapi', 'sw_sapien')
+  organizacion_id:       varchar("organizacion_id", { length: 255 }),
+  // ID opaco del proveedor — único dato persistido del proceso de registro CSD
+  rfc:                   varchar("rfc",            { length: 13  }),
+  razon_social:          varchar("razon_social",   { length: 255 }),
+  regimen_fiscal:        varchar("regimen_fiscal",  { length: 4   }).notNull().default("601"),
+  uso_cfdi_default:      varchar("uso_cfdi_default",{ length: 10  }).notNull().default("D10"),
+  timbrado_automatico:   boolean("timbrado_automatico").notNull().default(false),
+  ambiente:              varchar("ambiente",        { length: 20  }).notNull().default("sandbox"),
+  // 'sandbox' | 'produccion'
+  fecha_vencimiento_csd: date("fecha_vencimiento_csd"),
+  // El CSD dura 4 años — usada para alertas preventivas de renovación
+  estado:                varchar("estado",          { length: 20  }).notNull().default("pendiente"),
+  // 'pendiente' | 'activo' | 'error' | 'vencido'
+  ultimo_error:          text("ultimo_error"),
+  created_at:            timestamp("created_at").defaultNow(),
+  updated_at:            timestamp("updated_at").defaultNow(),
+});
+
 // INVOICES (CFDI)
 export const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),
@@ -429,6 +456,13 @@ export const invoices = pgTable("invoices", {
   // clave_prod_serv: 86121500 básica | 86121600 bachillerato/técnico — ver CLAVE_PROD_SERV en validators.ts
   clave_prod_serv: varchar("clave_prod_serv", { length: 20 }),
   clave_unidad:    varchar("clave_unidad",    { length: 10 }).default("E48"),
+
+  // ── Contenido real del CFDI timbrado (mig-019) ──────────────────────────────
+  // Null para CFDIs generados antes de mig-019 o en modo simulado (stubs).
+  // xml_url / pdf_url ya existían pero siempre son null — estos campos almacenan
+  // el contenido real cuando el adaptador concreto esté activo.
+  xml_content: text("xml_content"),  // XML timbrado completo (~5–15 KB, UTF-8)
+  pdf_base64:  text("pdf_base64"),   // PDF en base64 generado por el proveedor
 
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),

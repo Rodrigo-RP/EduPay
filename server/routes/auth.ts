@@ -5,7 +5,16 @@ import { db, pool } from "../db";
 import { eq } from "drizzle-orm";
 import { users } from "@shared/schema";
 import { storage } from "../storage";
-import { authenticateToken, esmRequire, JWT_SECRET, serializeUser } from "./shared";
+import {
+  authenticateToken,
+  esmRequire,
+  JWT_SECRET,
+  serializeUser,
+  loadUserAuthData,
+  loadGuardianPasswordChangedAt,
+  isSessionInvalidated,
+  MSG_SESSION_INVALIDATED,
+} from "./shared";
 import { resetLoginRateLimitStore } from "../security-middleware";
 
 // Estado de enrolamiento 2FA — TTL 10 min, solo accesible dentro de este módulo
@@ -179,40 +188,58 @@ export function registerAuthRoutes(app: Express): void {
       
       try {
         const decoded = jwt.verify(token, JWT_SECRET) as any;
-        
-        // Generate new token with same payload but fresh expiration
+
+        // Verificar que la contraseña no cambió después de que se emitió el token (#138).
+        const isGuardian = decoded.type === 'guardian';
+        const passwordChangedAt = isGuardian
+          ? await loadGuardianPasswordChangedAt(decoded.id)
+          : (await loadUserAuthData(decoded.id)).passwordChangedAt;
+        if (isSessionInvalidated(decoded.iat, passwordChangedAt)) {
+          return res.status(401).json({ message: MSG_SESSION_INVALIDATED, code: 'SESSION_INVALIDATED' });
+        }
+
         const newToken = jwt.sign(
-          { 
-            id: decoded.id, 
-            email: decoded.email, 
-            role: decoded.role, 
+          {
+            id:        decoded.id,
+            email:     decoded.email,
+            role:      decoded.role,
             campus_id: decoded.campus_id,
             tenant_id: decoded.tenant_id,
-            type: decoded.type || 'user' 
+            type:      decoded.type || 'user',
           },
           JWT_SECRET,
           { expiresIn: '24h' }
         );
-        
         res.json({ token: newToken });
       } catch (jwtError) {
         // El único caso legítimo de refresh es un token con firma VÁLIDA pero expirado.
         // jwt.verify con ignoreExpiration:true verifica la firma criptográfica pero
         // tolera que el claim exp haya vencido — es el único camino que debe pasar.
         // Cualquier otro error (firma inválida, token malformado, algoritmo incorrecto)
-        // lanza de nuevo y se rechaza con 401 — sin ningún camino alterno.
+        // lanza de nuevo y se rechaza con 401 — sin ningún camino alterno (fix bypass).
         try {
           const decoded = jwt.verify(token, JWT_SECRET, { ignoreExpiration: true }) as any;
-          // Verificar que el usuario aún existe y está activo en DB
-          const user = await storage.getUser(decoded.id);
-          if (!user) return res.status(401).json({ message: 'Usuario no encontrado' });
+
+          // Verificar que la contraseña no cambió después de que se emitió el token (#138).
+          const isGuardian = decoded.type === 'guardian';
+          const passwordChangedAt = isGuardian
+            ? await loadGuardianPasswordChangedAt(decoded.id)
+            : (await loadUserAuthData(decoded.id)).passwordChangedAt;
+          if (isSessionInvalidated(decoded.iat, passwordChangedAt)) {
+            return res.status(401).json({ message: MSG_SESSION_INVALIDATED, code: 'SESSION_INVALIDATED' });
+          }
+
+          // Verificar que el usuario aún existe en DB
+          const user = isGuardian ? null : await storage.getUser(decoded.id);
+          if (!isGuardian && !user) return res.status(401).json({ message: 'Usuario no encontrado' });
+
           const newToken = jwt.sign(
             {
-              id:        user.id,
-              email:     user.email,
-              role:      user.role,
-              campus_id: user.campus_id,
-              tenant_id: user.tenant_id,
+              id:        isGuardian ? decoded.id : user!.id,
+              email:     isGuardian ? decoded.email : user!.email,
+              role:      isGuardian ? decoded.role : user!.role,
+              campus_id: isGuardian ? decoded.campus_id : user!.campus_id,
+              tenant_id: isGuardian ? decoded.tenant_id : user!.tenant_id,
               type:      decoded.type || 'user',
             },
             JWT_SECRET,

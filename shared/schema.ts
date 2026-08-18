@@ -50,6 +50,10 @@ export const users = pgTable("users", {
   platform_permissions: text("platform_permissions").array(),
   custom_permissions: text("custom_permissions").array(), // Permisos personalizados asignados por el administrador general
   last_login_at: timestamp("last_login_at"),
+  // Timestamp del último cambio de contraseña.
+  // El middleware de autenticación compara iat del JWT contra este campo para
+  // invalidar sesiones activas inmediatamente tras un cambio de contraseña.
+  password_changed_at: timestamp("password_changed_at"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
@@ -204,6 +208,8 @@ export const guardians = pgTable("guardians", {
   campus_id: integer("campus_id").references(() => campuses.id),
   tenant_id: integer("tenant_id").references(() => tenants.id),
 
+  // Timestamp del último cambio de contraseña (parallel con users.password_changed_at).
+  password_changed_at: timestamp("password_changed_at"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });

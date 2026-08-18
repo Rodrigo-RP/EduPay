@@ -965,8 +965,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUserPassword(userId: number, password_hash: string): Promise<void> {
+    const now = new Date();
     await db.update(users)
-      .set({ password_hash, updated_at: new Date() })
+      .set({ password_hash, password_changed_at: now, updated_at: now })
       .where(eq(users.id, userId));
   }
 
@@ -976,9 +977,12 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId));
   }
 
-  async updateGuardianProfile(guardianId: number, updates: { nombre_completo?: string; email?: string; telefono?: string; foto_url?: string; password_hash?: string }): Promise<void> {
+  async updateGuardianProfile(guardianId: number, updates: { nombre_completo?: string; email?: string; telefono?: string; foto_url?: string; password_hash?: string; password_changed_at?: Date }): Promise<void> {
+    const now = new Date();
+    // Si se actualiza el hash de contraseña, marcar password_changed_at automáticamente.
+    const extra = updates.password_hash ? { password_changed_at: now } : {};
     await db.update(guardians)
-      .set({ ...updates, updated_at: new Date() })
+      .set({ ...updates, ...extra, updated_at: now })
       .where(eq(guardians.id, guardianId));
   }
 

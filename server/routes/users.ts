@@ -457,12 +457,6 @@ export function registerUserRoutes(app: Express): void {
   // El texto plano se devuelve UNA SOLA VEZ en la respuesta para que el admin
   // lo comunique al usuario; nunca se almacena ni se registra en audit_log.
   //
-  // LIMITACIÓN DOCUMENTADA (JWT stateless):
-  //   Cualquier JWT ya emitido para la cuenta objetivo sigue siendo válido hasta
-  //   su expiración natural (máx. 24 h). Este endpoint bloquea logins futuros
-  //   con la contraseña anterior pero NO invalida sesiones activas.
-  //   No existe mecanismo de force-logout en este sistema.
-  //
   // Guards: mismo orden que PUT /api/users/:id —
   //   1. hasPermission(MODULES.USERS, ACTIONS.UPDATE) — módulo primero
   //   2. canEditUser(actor.role, target.role)          — jerarquía después

@@ -538,7 +538,7 @@ export default function FiscalContable() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ format: "excel", periodo: selectedPeriod }),
+          body: JSON.stringify({ formato: "excel", periodo: selectedPeriod }),
         });
         if (!r.ok) throw new Error(await r.text());
         const blob = await r.blob();

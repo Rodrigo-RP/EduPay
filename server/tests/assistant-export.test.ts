@@ -102,15 +102,15 @@ describe("detectExportIntent — formato y filtros", () => {
     const r = detectExportIntent("exportar reporte de riesgo en pdf");
     expect(r!.format).toBe("pdf");
     expect(r!.suggestedFilename).toMatch(/\.pdf$/);
-    // clave correcta para el endpoint (riesgo usa "format")
-    expect(r!.body["format"]).toBe("pdf");
+    // todos los endpoints usan "formato" (nombre unificado)
+    expect(r!.body["formato"]).toBe("pdf");
   });
 
   it("EXP-10: formato excel explícito", () => {
     const r = detectExportIntent("exportar reporte financiero en excel");
     expect(r!.format).toBe("excel");
     expect(r!.suggestedFilename).toMatch(/\.xlsx$/);
-    // clave correcta para el endpoint (financiero usa "formato")
+    // todos los endpoints usan "formato" (nombre unificado)
     expect(r!.body["formato"]).toBe("excel");
   });
 
@@ -118,7 +118,7 @@ describe("detectExportIntent — formato y filtros", () => {
     const r = detectExportIntent("exportar cartera vencida");
     expect(r).not.toBeNull();
     expect(r!.format).toBe("excel");
-    expect(r!.body["format"]).toBe("excel");
+    expect(r!.body["formato"]).toBe("excel");
   });
 
   it("EXP-12: extrae ciclo_escolar del mensaje", () => {

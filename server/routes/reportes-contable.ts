@@ -139,13 +139,13 @@ export function registerReportesContableRoutes(app: Express): void {
       }
 
       const campusId = user.campus_id as number;
-      const { format = "excel", ciclo, periodo } = req.body as {
-        format?:  "excel" | "pdf";
+      const { formato = "excel", ciclo, periodo } = req.body as {
+        formato?: "excel" | "pdf";
         ciclo?:   string;
         periodo?: string;
       };
 
-      if (format !== "excel" && format !== "pdf") {
+      if (formato !== "excel" && formato !== "pdf") {
         return res
           .status(400)
           .json({ message: "Formato inválido. Use 'excel' o 'pdf'" });
@@ -173,13 +173,13 @@ export function registerReportesContableRoutes(app: Express): void {
         ],
         rows:           reportes,
         appliedFilters,
-        format,
-        filename:       filenameFor("reporte-contable", format),
+        format:         formato,
+        filename:       filenameFor("reporte-contable", formato),
         generatedBy:    user.email,
       });
 
-      const fname = filenameFor("reporte-contable", format);
-      res.setHeader("Content-Type",        contentTypeFor(format));
+      const fname = filenameFor("reporte-contable", formato);
+      res.setHeader("Content-Type",        contentTypeFor(formato));
       res.setHeader("Content-Disposition", `attachment; filename="${fname}"`);
       return res.send(buf);
     } catch (err: any) {

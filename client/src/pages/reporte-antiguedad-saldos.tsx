@@ -95,7 +95,7 @@ export default function ReporteAntiguedadSaldos() {
           Authorization:  `Bearer ${token}`,
         },
         body: JSON.stringify({
-          format:   formato,
+          formato,
           ciclo:    ciclo   || undefined,
           nivel:    nivel !== "todos" ? nivel : undefined,
           concepto: concepto || undefined,

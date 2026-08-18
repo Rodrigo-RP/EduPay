@@ -303,8 +303,8 @@ export function registerReportesConsejoRoutes(app: Express) {
     }
     const campusId = user?.campus_id as number;
     try {
-      const { format = "excel", ciclo, fecha_desde, fecha_hasta } = req.body as any;
-      if (format !== "excel" && format !== "pdf") {
+      const { formato = "excel", ciclo, fecha_desde, fecha_hasta } = req.body as any;
+      if (formato !== "excel" && formato !== "pdf") {
         return res.status(400).json({ message: "formato debe ser 'excel' o 'pdf'" });
       }
       const p: ConsejoParams = {
@@ -332,13 +332,13 @@ export function registerReportesConsejoRoutes(app: Express) {
         ],
         rows:           data.top_deudores,
         appliedFilters,
-        format:         format as "excel" | "pdf",
-        filename:       filenameFor("reporte-consejo", format as "excel" | "pdf"),
+        format:         formato as "excel" | "pdf",
+        filename:       filenameFor("reporte-consejo", formato as "excel" | "pdf"),
         generatedBy:    (user as any)?.name || (user as any)?.email || "Sistema",
       };
 
       const buffer = await exportReport(exportReq);
-      res.setHeader("Content-Type",        contentTypeFor(format as "excel" | "pdf"));
+      res.setHeader("Content-Type",        contentTypeFor(formato as "excel" | "pdf"));
       res.setHeader("Content-Disposition", `attachment; filename="${exportReq.filename}"`);
       res.send(buffer);
     } catch (error: any) {

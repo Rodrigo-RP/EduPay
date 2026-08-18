@@ -258,8 +258,8 @@ export function registerReportesRiesgoRoutes(app: Express): void {
       }
 
       const campusId = user.campus_id as number;
-      const { format = "excel", ciclo, nivel, grado, grupo, semaforo } = req.body as {
-        format?:   "excel" | "pdf";
+      const { formato = "excel", ciclo, nivel, grado, grupo, semaforo } = req.body as {
+        formato?:  "excel" | "pdf";
         ciclo?:    string;
         nivel?:    string;
         grado?:    string;
@@ -267,7 +267,7 @@ export function registerReportesRiesgoRoutes(app: Express): void {
         semaforo?: string;
       };
 
-      if (format !== "excel" && format !== "pdf") {
+      if (formato !== "excel" && formato !== "pdf") {
         return res.status(400).json({ message: "Formato inválido. Use 'excel' o 'pdf'" });
       }
 
@@ -306,13 +306,13 @@ export function registerReportesRiesgoRoutes(app: Express): void {
         ],
         rows:           detalle,
         appliedFilters,
-        format,
-        filename:       filenameFor("reporte-riesgo", format),
+        format:         formato,
+        filename:       filenameFor("reporte-riesgo", formato),
         generatedBy:    user.email,
       });
 
-      const fname = filenameFor("reporte-riesgo", format);
-      res.setHeader("Content-Type",        contentTypeFor(format));
+      const fname = filenameFor("reporte-riesgo", formato);
+      res.setHeader("Content-Type",        contentTypeFor(formato));
       res.setHeader("Content-Disposition", `attachment; filename="${fname}"`);
       return res.send(buf);
     } catch (err: any) {

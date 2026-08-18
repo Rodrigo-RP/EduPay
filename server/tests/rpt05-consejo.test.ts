@@ -277,7 +277,7 @@ describe("CSJ — RPT-05 Reporte Consejo Directivo", () => {
     const { status, r } = await post(
       "/api/reportes/consejo/exportar",
       tokAdmin,
-      { format: "excel" },
+      { formato: "excel" },
     );
     expect(status).toBe(200);
     expect(r.headers.get("content-type")).toContain(
@@ -293,7 +293,7 @@ describe("CSJ — RPT-05 Reporte Consejo Directivo", () => {
     const { status, r } = await post(
       "/api/reportes/consejo/exportar",
       tokAdmin,
-      { format: "pdf" },
+      { formato: "pdf" },
     );
     expect(status).toBe(200);
     expect(r.headers.get("content-type")).toContain("application/pdf");
@@ -306,7 +306,7 @@ describe("CSJ — RPT-05 Reporte Consejo Directivo", () => {
     const { status } = await post(
       "/api/reportes/consejo/exportar",
       tokAsistente,
-      { format: "excel" },
+      { formato: "excel" },
     );
     expect(status).toBe(403);
   });

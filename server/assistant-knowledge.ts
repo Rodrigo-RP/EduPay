@@ -1020,8 +1020,6 @@ export function detectSuggestTrigger(message: string): SuggestActionTrigger | nu
 
 interface ExportReportDef {
   endpoint: string;
-  /** Nombre del campo que el endpoint espera ("formato" vs "format") */
-  formatKey: "formato" | "format";
   /** Palabras clave para identificar el reporte en el mensaje del usuario */
   keywords: string[];
   /** Etiqueta legible para mostrar al usuario */
@@ -1035,7 +1033,6 @@ interface ExportReportDef {
 const EXPORT_REPORTS: ExportReportDef[] = [
   {
     endpoint: "/api/reportes/financiero/exportar",
-    formatKey: "formato",
     keywords: [
       "financiero", "ingresos", "egresos", "flujo de efectivo",
       "estado de resultados", "cierre mensual", "recaudacion",
@@ -1045,7 +1042,6 @@ const EXPORT_REPORTS: ExportReportDef[] = [
   },
   {
     endpoint: "/api/reportes/estudiantes/exportar",
-    formatKey: "formato",
     keywords: [
       "estudiantes", "padron", "padron de alumnos", "matricula",
       "alumnos inscritos",
@@ -1055,7 +1051,6 @@ const EXPORT_REPORTS: ExportReportDef[] = [
   },
   {
     endpoint: "/api/reportes/admisiones/exportar",
-    formatKey: "formato",
     keywords: [
       "admisiones", "captacion", "prospectos", "nuevos alumnos",
       "funnel admisiones",
@@ -1065,7 +1060,6 @@ const EXPORT_REPORTS: ExportReportDef[] = [
   },
   {
     endpoint: "/api/reportes/cobranza/exportar",
-    formatKey: "formato",
     keywords: [
       "cobranza", "cargos vencidos", "adeudos", "morosidad",
       "cuentas por cobrar", "alumnos morosos",
@@ -1075,7 +1069,6 @@ const EXPORT_REPORTS: ExportReportDef[] = [
   },
   {
     endpoint: "/api/reportes/consejo/exportar",
-    formatKey: "format",
     keywords: [
       "consejo", "consejo directivo", "consejo escolar",
       "informe directivo", "reporte del consejo",
@@ -1085,7 +1078,6 @@ const EXPORT_REPORTS: ExportReportDef[] = [
   },
   {
     endpoint: "/api/reportes/contable/exportar",
-    formatKey: "format",
     keywords: [
       "contable", "integracion contable", "auxiliar contable",
       "reportes contables", "contabilidad",
@@ -1095,7 +1087,6 @@ const EXPORT_REPORTS: ExportReportDef[] = [
   },
   {
     endpoint: "/api/reportes/antiguedad-saldos/exportar",
-    formatKey: "format",
     keywords: [
       "antiguedad", "antiguedad de saldos", "cartera vencida",
       "tramos", "dias vencido", "saldos vencidos",
@@ -1105,7 +1096,6 @@ const EXPORT_REPORTS: ExportReportDef[] = [
   },
   {
     endpoint: "/api/reportes/riesgo/exportar",
-    formatKey: "format",
     keywords: [
       "riesgo", "scoring", "riesgo de cobranza",
       "alumnos en riesgo", "score de riesgo",
@@ -1177,7 +1167,7 @@ export function detectExportIntent(message: string): ExportIntent | null {
   if (!bestReport || bestScore === 0) return null;
 
   // ── Extraer filtros del mensaje ───────────────────────────────────────────
-  const body: Record<string, string> = { [bestReport.formatKey]: format };
+  const body: Record<string, string> = { formato: format };
 
   // Ciclo escolar: "2025-2026", "2024-2025", "2025–2026" (guión largo)
   const cicloMatch = norm.match(/\b(20\d{2}[- ]\d{2,4})\b/);

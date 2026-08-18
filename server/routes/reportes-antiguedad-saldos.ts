@@ -271,14 +271,14 @@ export function registerReportesAntiguedadSaldosRoutes(app: Express): void {
       }
 
       const campusId = user.campus_id as number;
-      const { format = "excel", ciclo, nivel, concepto } = req.body as {
-        format?:   "excel" | "pdf";
+      const { formato = "excel", ciclo, nivel, concepto } = req.body as {
+        formato?:  "excel" | "pdf";
         ciclo?:    string;
         nivel?:    string;
         concepto?: string;
       };
 
-      if (format !== "excel" && format !== "pdf") {
+      if (formato !== "excel" && formato !== "pdf") {
         return res.status(400).json({ message: "Formato inválido. Use 'excel' o 'pdf'" });
       }
 
@@ -311,13 +311,13 @@ export function registerReportesAntiguedadSaldosRoutes(app: Express): void {
         ],
         rows:           exportRows,
         appliedFilters,
-        format,
-        filename:       filenameFor("antiguedad-saldos", format),
+        format:         formato,
+        filename:       filenameFor("antiguedad-saldos", formato),
         generatedBy:    user.email,
       });
 
-      const fname = filenameFor("antiguedad-saldos", format);
-      res.setHeader("Content-Type",        contentTypeFor(format));
+      const fname = filenameFor("antiguedad-saldos", formato);
+      res.setHeader("Content-Type",        contentTypeFor(formato));
       res.setHeader("Content-Disposition", `attachment; filename="${fname}"`);
       return res.send(buf);
     } catch (err: any) {

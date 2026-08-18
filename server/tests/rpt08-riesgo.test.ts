@@ -228,7 +228,7 @@ async function postExportar(token: string, format: string) {
   const r = await fetch(`${BASE}/api/reportes/riesgo/exportar`, {
     method:  "POST",
     headers: H(token),
-    body:    JSON.stringify({ format }),
+    body:    JSON.stringify({ formato: format }),
   });
   return { status: r.status, headers: r.headers, buf: Buffer.from(await r.arrayBuffer()) };
 }

@@ -112,7 +112,7 @@ export default function ReporteRiesgo() {
       const r = await fetch("/api/reportes/riesgo/exportar", {
         method:  "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body:    JSON.stringify({ format, ...params }),
+        body:    JSON.stringify({ formato: format, ...params }),
       });
       if (!r.ok) throw new Error(await r.text());
       const blob = await r.blob();

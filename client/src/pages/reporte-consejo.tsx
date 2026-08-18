@@ -50,7 +50,7 @@ export default function ReporteConsejo() {
           "Content-Type": "application/json",
           Authorization:  `Bearer ${token}`,
         },
-        body: JSON.stringify({ format: formato, fecha_desde: fechaDesde, fecha_hasta: fechaHasta }),
+        body: JSON.stringify({ formato, fecha_desde: fechaDesde, fecha_hasta: fechaHasta }),
       });
       if (!r.ok) throw new Error(await r.text());
       const blob = await r.blob();

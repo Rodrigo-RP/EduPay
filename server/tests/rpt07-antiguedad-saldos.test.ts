@@ -246,7 +246,7 @@ async function postExportar(
   const r = await fetch(`${BASE}/api/reportes/antiguedad-saldos/exportar`, {
     method:  "POST",
     headers: H(token),
-    body:    JSON.stringify({ format, ...extra }),
+    body:    JSON.stringify({ formato: format, ...extra }),
   });
   const buf = r.status === 200 ? Buffer.from(await r.arrayBuffer()) : null;
   return { status: r.status, buf };

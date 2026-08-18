@@ -5,11 +5,19 @@ import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 export default defineConfig({
   define: {
-    // Clave pública de Stripe — por diseño va en el bundle del navegador
-    "import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY": JSON.stringify(
-      process.env.VITE_STRIPE_PUBLISHABLE_KEY ??
-      "pk_test_51U5doxCa00hYnecNGgNSBjVer6LnHCVTTuYERZl6xgK9wj8VM2LvVLGleej9yHtm28ZEMMSWlpMxrgBezQNcHgQw006mCOJHPD"
-    ),
+    // Clave pública de Stripe — por diseño va en el bundle del navegador.
+    // VITE_STRIPE_PUBLISHABLE_KEY debe estar definida en el entorno.
+    // Si no existe, el build falla aquí de forma explícita.
+    "import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY": (() => {
+      const key = process.env.VITE_STRIPE_PUBLISHABLE_KEY;
+      if (!key) {
+        throw new Error(
+          "[vite.config] VITE_STRIPE_PUBLISHABLE_KEY no está definida en el entorno. " +
+          "Agrégala como variable de entorno antes de iniciar el servidor."
+        );
+      }
+      return JSON.stringify(key);
+    })(),
   },
   plugins: [
     react(),

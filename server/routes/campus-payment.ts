@@ -39,6 +39,7 @@
 import type { Express } from "express";
 import Stripe from "stripe";
 import { pool } from "../db";
+import { settleStripeSpeiPaymentIntent } from "../lib/stripe-spei-settlement";
 import {
   authenticateToken,
   checkCampusTenant,
@@ -108,7 +109,10 @@ export function registerStripeWebhookRoute(
    * POST /api/webhooks/stripe
    * Sin autenticación — Stripe llama desde sus servidores.
    * Verifica la firma HMAC con STRIPE_WEBHOOK_SECRET.
-   * Maneja: account.updated → persiste charges_enabled, payouts_enabled, details_submitted.
+   * Maneja:
+   *   • account.updated → persiste flags de Stripe Connect.
+   *   • payment_intent.succeeded → liquida el ledger de SPEI previamente
+   *     registrado como pendiente por el portal de padres.
    */
   app.post(
     "/api/webhooks/stripe",
@@ -169,6 +173,27 @@ export function registerStripeWebhookRoute(
           console.error("[campus-payment] webhook DB error:", dbErr.message);
           // Devolver 200 de todas formas: el error es nuestro, no de Stripe.
           // Stripe no debe reintentar por errores de DB internos.
+        }
+      }
+
+      if (event.type === "payment_intent.succeeded") {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        if (paymentIntent.metadata?.edupay_payment_flow === "spei_bank_transfer") {
+          try {
+            await settleStripeSpeiPaymentIntent(
+              paymentIntent.id,
+              event.id,
+              JSON.stringify(event),
+            );
+          } catch (dbErr: any) {
+            // 500 hace que Stripe reintente el evento firmado. No devolvemos 200
+            // antes de que el ledger haya sido aplicado de manera atómica.
+            console.error(
+              "[campus-payment] No se pudo liquidar SPEI " +
+                `${paymentIntent.id}: ${dbErr.message}`,
+            );
+            return res.status(500).json({ message: "No se pudo registrar el pago SPEI" });
+          }
         }
       }
 

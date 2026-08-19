@@ -1,8 +1,8 @@
 // Módulo 3: Portal del padre/tutor - Pago en 3 clics máximo (móvil-first)
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { loadStripe } from "@stripe/stripe-js";
-import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { loadStripe, type StripeElementsOptions } from "@stripe/stripe-js";
+import { Elements, CardElement, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -98,6 +98,78 @@ interface PendingCharge {
   total_amount_centavos: number;
 }
 
+interface SpeiIntent {
+  paymentIntentId: string;
+  clientSecret: string;
+}
+
+/**
+ * Formulario aislado porque PaymentElement necesita su propio ElementsProvider
+ * configurado con el clientSecret del PaymentIntent SPEI.
+ */
+function SpeiPaymentElementForm({
+  onConfirmed,
+}: {
+  onConfirmed: () => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const confirm = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!stripe || !elements) return;
+
+    setConfirming(true);
+    setError(null);
+    const result = await stripe.confirmPayment({
+      elements,
+      redirect: "if_required",
+    });
+    if (result.error) {
+      setError(stripeErrorToSpanish(result.error));
+      setConfirming(false);
+      return;
+    }
+
+    // Para SPEI, la confirmación muestra instrucciones/CLABE y el pago queda
+    // pendiente hasta que Stripe envía payment_intent.succeeded al webhook.
+    onConfirmed();
+  };
+
+  return (
+    <form onSubmit={confirm} className="space-y-4">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-900">
+        <p className="font-semibold">Transferencia SPEI</p>
+        <p className="mt-1">
+          Elige transferencia para ver la CLABE y las instrucciones de tu banco.
+          También puedes usar tarjeta como alternativa.
+        </p>
+      </div>
+      <PaymentElement
+        options={{
+          paymentMethodOrder: ["customer_balance", "card"],
+          layout: "tabs",
+        }}
+      />
+      {error && (
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+      <Button
+        className="w-full bg-green-600 hover:bg-green-700 text-lg"
+        size="lg"
+        type="submit"
+        disabled={!stripe || confirming}
+      >
+        {confirming ? "Preparando tu transferencia..." : "Ver datos para transferir"}
+      </Button>
+    </form>
+  );
+}
+
 // ── Componente interno (necesita estar dentro de <Elements>) ──────────────────
 function PortalPadres3ClicsInner() {
   const { toast } = useToast();
@@ -109,11 +181,12 @@ function PortalPadres3ClicsInner() {
 
   // Estado de navegación y pago
   const [selectedCharges, setSelectedCharges] = useState<number[]>([]);
-  const [step, setStep] = useState<"select" | "pay" | "confirm" | "success">("select");
+  const [step, setStep] = useState<"select" | "pay" | "confirm" | "spei-pending" | "success">("select");
   const [selectedMethod, setSelectedMethod] = useState<string>("");
   const [cardComplete, setCardComplete] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [lastPaymentResult, setLastPaymentResult] = useState<any>(null);
+  const [speiIntent, setSpeiIntent] = useState<SpeiIntent | null>(null);
 
   const { data: dashboardData, isLoading } = useQuery<any>({
     queryKey: ["/api/guardian/dashboard"],
@@ -212,6 +285,32 @@ function PortalPadres3ClicsInner() {
     }
   };
 
+  const iniciarPagoSpei = async () => {
+    setProcessing(true);
+    try {
+      const response = await apiRequest("/api/guardian/spei-intent", {
+        method: "POST",
+        body: JSON.stringify({ charge_ids: selectedCharges }),
+      });
+      const data = await response.json();
+      setSpeiIntent({
+        paymentIntentId: data.payment_intent_id,
+        clientSecret: data.client_secret,
+      });
+    } catch (error: any) {
+      const message = String(error?.message || "");
+      toast({
+        title: "No pudimos preparar la transferencia",
+        description: message.startsWith("409:")
+          ? "Tu plantel aún no tiene transferencias habilitadas o ya existe una transferencia pendiente."
+          : "Intenta nuevamente en un momento.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   // ── Paso 1: Seleccionar cargos ────────────────────────────────────────────
   const SelectCharges = () => {
     const toggleCharge = (chargeId: number) =>
@@ -222,6 +321,7 @@ function PortalPadres3ClicsInner() {
     const pagarTodo = () => {
       const allIds = dashboardData?.pendingCharges?.map((c: any) => c.id) || [];
       setSelectedCharges(allIds);
+      setSelectedMethod("spei");
       setStep("pay");
     };
 
@@ -320,6 +420,7 @@ function PortalPadres3ClicsInner() {
                 if (selectedCharges.length === 0) {
                   toast({ title: "Selecciona al menos un cargo", variant: "destructive" });
                 } else {
+                  setSelectedMethod("spei");
                   setStep("pay");
                 }
               }}
@@ -358,8 +459,8 @@ function PortalPadres3ClicsInner() {
       {/* Selector de método */}
       <div className="space-y-2">
         {[
-          { id: "tarjeta", label: "Tarjeta de crédito/débito", icon: CreditCard },
           { id: "spei",    label: "Transferencia SPEI",        icon: Smartphone },
+          { id: "tarjeta", label: "Tarjeta de crédito/débito", icon: CreditCard },
           { id: "oxxo",   label: "Pago en OXXO",              icon: Receipt },
         ].map(m => (
           <Card
@@ -405,18 +506,10 @@ function PortalPadres3ClicsInner() {
       {selectedMethod === "spei" && (
         <Card className="bg-blue-50 border-blue-200">
           <CardContent className="p-4 text-sm text-blue-800 space-y-2">
-            <p className="font-semibold">Datos para transferencia SPEI:</p>
-            <p>Banco: BANAMEX</p>
+            <p className="font-semibold">Transferencia segura por SPEI</p>
             <p>
-              CLABE:{" "}
-              <code className="font-mono bg-white px-1 rounded">002180700508041375</code>
-            </p>
-            <p>
-              Concepto:{" "}
-              <code className="bg-white px-1 rounded">PAG-{selectedCharges.join("-")}</code>
-            </p>
-            <p className="text-xs text-blue-600 mt-2">
-              En entorno demo: el sistema simulará la recepción del SPEI automáticamente.
+              En el siguiente paso te mostraremos la CLABE y las instrucciones
+              reales para completar tu transferencia.
             </p>
           </CardContent>
         </Card>
@@ -434,8 +527,39 @@ function PortalPadres3ClicsInner() {
   );
 
   // ── Paso 3: Confirmar y pagar ─────────────────────────────────────────────
-  const PaymentConfirm = () => (
-    <div className="space-y-5">
+  const PaymentConfirm = () => {
+    if (selectedMethod === "spei" && speiIntent) {
+      const options: StripeElementsOptions = {
+        clientSecret: speiIntent.clientSecret,
+        locale: "es",
+        appearance: {
+          theme: "stripe",
+          variables: { fontSizeBase: "16px", spacingUnit: "6px" },
+        },
+      };
+      return (
+        <div className="space-y-5">
+          <div className="flex items-center gap-2 mb-2">
+            <button
+              onClick={() => {
+                setSpeiIntent(null);
+                setStep("pay");
+              }}
+              className="text-slate-500 hover:text-slate-700"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h2 className="text-xl font-bold text-slate-900">Completa tu transferencia</h2>
+          </div>
+          <Elements stripe={stripePromise} options={options}>
+            <SpeiPaymentElementForm onConfirmed={() => setStep("spei-pending")} />
+          </Elements>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-5">
       <div className="flex items-center gap-2 mb-2">
         <button
           onClick={() => setStep("pay")}
@@ -553,7 +677,7 @@ function PortalPadres3ClicsInner() {
       <Button
         className="w-full bg-green-600 hover:bg-green-700 text-lg"
         size="lg"
-        onClick={procesarPagoFinal}
+        onClick={selectedMethod === "spei" ? iniciarPagoSpei : procesarPagoFinal}
         disabled={
           processing ||
           (selectedMethod === "tarjeta" && !cardComplete)
@@ -569,6 +693,36 @@ function PortalPadres3ClicsInner() {
             minimumFractionDigits: 2,
           })}`
         )}
+      </Button>
+      </div>
+    );
+  };
+
+  const SpeiPending = () => (
+    <div className="text-center space-y-5 py-6">
+      <div className="flex items-center justify-center">
+        <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center">
+          <Clock className="w-12 h-12 text-blue-600" />
+        </div>
+      </div>
+      <div>
+        <h2 className="text-2xl font-bold text-slate-900">Estamos confirmando tu transferencia</h2>
+        <p className="text-slate-600 mt-2">
+          Cuando tu banco complete el SPEI, actualizaremos tus cargos automáticamente.
+          Puede tomar unos minutos.
+        </p>
+      </div>
+      <Button
+        className="w-full bg-blue-600 hover:bg-blue-700"
+        onClick={() => {
+          setSpeiIntent(null);
+          setSelectedCharges([]);
+          setSelectedMethod("");
+          setStep("select");
+          queryClient.invalidateQueries({ queryKey: ["/api/guardian/dashboard"] });
+        }}
+      >
+        Volver al inicio
       </Button>
     </div>
   );
@@ -693,7 +847,7 @@ function PortalPadres3ClicsInner() {
         <div className="flex gap-2 mb-5 border-b">
           <button
             className={`pb-2 px-1 text-sm font-medium border-b-2 transition-colors ${
-              ["select", "pay", "confirm", "success"].includes(step)
+              ["select", "pay", "confirm", "spei-pending", "success"].includes(step)
                 ? "border-blue-600 text-blue-600"
                 : "border-transparent text-slate-500"
             }`}
@@ -710,7 +864,7 @@ function PortalPadres3ClicsInner() {
         </div>
 
         {/* Stepper */}
-        {step !== "success" && (
+        {step !== "success" && step !== "spei-pending" && (
           <div className="flex items-center justify-center gap-1 mb-6 text-xs">
             {[
               { key: "select",  label: "1. Seleccionar" },
@@ -741,6 +895,7 @@ function PortalPadres3ClicsInner() {
           {step === "select"  && <SelectCharges />}
           {step === "pay"     && <PaymentMethod />}
           {step === "confirm" && <PaymentConfirm />}
+          {step === "spei-pending" && <SpeiPending />}
           {step === "success" && <PaymentSuccess />}
         </div>
 

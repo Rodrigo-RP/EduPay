@@ -23,17 +23,33 @@ import { getActiveStripeAccountForCampus } from "./campus-payment";
  * Permite inyectar un mock en tests sin tocar el singleton global.
  */
 export type StripeGuardianClient = {
+  customers?: {
+    create: (params: {
+      name?: string;
+      email?: string;
+      phone?: string;
+      metadata?: Record<string, string>;
+    }) => Promise<{ id: string }>;
+  };
   paymentIntents: {
     create: (params: {
       amount: number;
       currency: string;
+      customer?: string;
       payment_method?: string;
       confirm?: boolean;
+      payment_method_types?: Array<"customer_balance" | "card">;
+      payment_method_options?: {
+        customer_balance?: {
+          funding_type: "bank_transfer";
+          bank_transfer: { type: "mx_bank_transfer" };
+        };
+      };
       automatic_payment_methods?: { enabled: boolean; allow_redirects?: "always" | "never" };
       transfer_data?: { destination: string };
       application_fee_amount?: number;
       metadata?: Record<string, string>;
-    }) => Promise<{ id: string; status: string }>;
+    }) => Promise<{ id: string; status: string; client_secret?: string | null }>;
     cancel: (id: string) => Promise<{ id: string }>;
   };
 };
@@ -57,6 +73,234 @@ export async function registerGuardianRoutes(
     } catch (error: any) {
       console.error("Error seeding demo data:", error);
       res.status(500).json({ success: false, error: "Error ejecutando seed" });
+    }
+  });
+
+  /**
+   * POST /api/guardian/spei-intent
+   *
+   * Crea un PaymentIntent SPEI pendiente; NO marca cargos como pagados. El
+   * webhook firmado payment_intent.succeeded completa después el mismo ledger
+   * atómico que los otros pagos (payment_application + charges = pagado).
+   *
+   * Tarjeta conserva el flujo existente POST /api/guardian/pagar sin cambios.
+   */
+  app.post("/api/guardian/spei-intent", authenticateGuardian, async (req: any, res: any) => {
+    try {
+      const guardianId = Number(req.guardian.id);
+      const tenantId = Number(req.guardian.tenant_id);
+      const campusId = Number(req.guardian.campus_id);
+      const { charge_ids } = req.body as { charge_ids?: unknown };
+
+      if (!Array.isArray(charge_ids) || charge_ids.length === 0) {
+        return res.status(400).json({ message: "Se requiere al menos un cargo" });
+      }
+
+      const uniqueChargeIds = Array.from(new Set(charge_ids.map(Number)));
+      if (uniqueChargeIds.some((id) => !Number.isInteger(id) || id <= 0)) {
+        return res.status(400).json({ message: "Los cargos seleccionados no son válidos" });
+      }
+
+      const stripeConnectAccountId = await getActiveStripeAccountForCampus(campusId);
+      if (!stripeConnectAccountId) {
+        return res.status(409).json({
+          message: "Tu plantel aún no tiene pagos por transferencia habilitados",
+        });
+      }
+
+      // IDOR: todos los cargos deben corresponder al tutor autenticado. Calculamos
+      // el monto de cada uno antes de la llamada remota; lo confirmamos de nuevo
+      // con FOR UPDATE antes de persistir los pagos pendientes.
+      const requestedCharges: Array<{ id: number; amount: number }> = [];
+      for (const chargeId of uniqueChargeIds) {
+        const charge = await storage.getChargeByGuardian(chargeId, guardianId);
+        if (!charge) {
+          return res.status(403).json({
+            message: `Acceso denegado: el cargo ${chargeId} no pertenece a tus alumnos`,
+          });
+        }
+
+        const balance = await pool.query(
+          `SELECT c.monto_base_centavos, c.recargo_aplicado_centavos,
+                  COALESCE(SUM(pa.amount_centavos), 0)::bigint AS ya_pagado
+             FROM charges c
+             LEFT JOIN payment_applications pa ON pa.charge_id = c.id
+            WHERE c.id = $1 AND c.tenant_id = $2
+            GROUP BY c.monto_base_centavos, c.recargo_aplicado_centavos`,
+          [chargeId, tenantId],
+        );
+        if (!balance.rows.length) {
+          return res.status(404).json({ message: `Cargo ${chargeId} no encontrado` });
+        }
+        const row = balance.rows[0] as any;
+        const amount =
+          Number(row.monto_base_centavos) +
+          Number(row.recargo_aplicado_centavos || 0) -
+          Number(row.ya_pagado);
+        if (amount <= 0) {
+          return res.status(409).json({ message: `El cargo ${chargeId} ya no tiene saldo pendiente` });
+        }
+        requestedCharges.push({ id: chargeId, amount });
+      }
+
+      const guardianResult = await pool.query(
+        `SELECT id, stripe_customer_id,
+                COALESCE(nombre_completo, CONCAT_WS(' ', nombres, apellido_paterno, apellido_materno)) AS nombre,
+                COALESCE(email, correo_institucional_familiar) AS email,
+                COALESCE(telefono, celular) AS telefono
+           FROM guardians
+          WHERE id = $1`,
+        [guardianId],
+      );
+      if (!guardianResult.rows.length) {
+        return res.status(401).json({ message: "Tutor no encontrado" });
+      }
+
+      const guardian = guardianResult.rows[0] as {
+        id: number;
+        stripe_customer_id: string | null;
+        nombre: string | null;
+        email: string | null;
+        telefono: string | null;
+      };
+      let customerId = guardian.stripe_customer_id;
+      if (!customerId) {
+        if (!sg.customers) {
+          throw new Error("El cliente Stripe no soporta creación de Customers");
+        }
+        const customer = await sg.customers.create({
+          name: guardian.nombre || undefined,
+          email: guardian.email || undefined,
+          phone: guardian.telefono || undefined,
+          metadata: { guardian_id: String(guardianId) },
+        });
+
+        // El WHERE evita reemplazar el Customer persistido por una petición
+        // concurrente. Si otra petición ganó, reutilizamos su id canónico.
+        const persisted = await pool.query(
+          `UPDATE guardians
+              SET stripe_customer_id = $1, updated_at = NOW()
+            WHERE id = $2 AND stripe_customer_id IS NULL
+          RETURNING stripe_customer_id`,
+          [customer.id, guardianId],
+        );
+        customerId =
+          (persisted.rows[0] as { stripe_customer_id?: string } | undefined)?.stripe_customer_id ??
+          (await pool.query(
+            `SELECT stripe_customer_id FROM guardians WHERE id = $1`,
+            [guardianId],
+          )).rows[0]?.stripe_customer_id;
+      }
+      if (!customerId) {
+        throw new Error("No se pudo asociar el Customer de Stripe al tutor");
+      }
+
+      const amount = requestedCharges.reduce((sum, charge) => sum + charge.amount, 0);
+      const paymentIntent = await sg.paymentIntents.create({
+        amount,
+        currency: "mxn",
+        customer: customerId,
+        payment_method_types: ["customer_balance", "card"],
+        payment_method_options: {
+          customer_balance: {
+            funding_type: "bank_transfer",
+            bank_transfer: { type: "mx_bank_transfer" },
+          },
+        },
+        transfer_data: { destination: stripeConnectAccountId },
+        // Regla de negocio: EduPay no descuenta comisión transaccional.
+        application_fee_amount: 0,
+        metadata: {
+          edupay_payment_flow: "spei_bank_transfer",
+          guardian_id: String(guardianId),
+          campus_id: String(campusId),
+          tenant_id: String(tenantId),
+          charge_ids: requestedCharges.map((charge) => charge.id).join(","),
+        },
+      });
+      if (!paymentIntent.client_secret) {
+        throw new Error("Stripe no devolvió el secreto del intento de pago");
+      }
+
+      // No sostenemos locks mientras hablamos con Stripe. La segunda lectura,
+      // con FOR UPDATE, hace que no guardemos un intento para un saldo cambiado.
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const persistedAmounts: Array<{ chargeId: number; amount: number }> = [];
+        for (const requested of [...requestedCharges].sort((a, b) => a.id - b.id)) {
+          const locked = await client.query(
+            `SELECT id, monto_base_centavos, recargo_aplicado_centavos, estado
+               FROM charges
+              WHERE id = $1 AND tenant_id = $2
+              FOR UPDATE`,
+            [requested.id, tenantId],
+          );
+          if (!locked.rows.length) {
+            throw new Error(`Cargo ${requested.id} no encontrado al registrar SPEI`);
+          }
+          const row = locked.rows[0] as any;
+          if (["pagado", "cancelado"].includes(row.estado)) {
+            throw new Error(`El cargo ${requested.id} ya fue ${row.estado}`);
+          }
+          const applied = await client.query(
+            `SELECT COALESCE(SUM(amount_centavos), 0)::bigint AS ya_pagado
+               FROM payment_applications
+              WHERE charge_id = $1`,
+            [requested.id],
+          );
+          const actualAmount =
+            Number(row.monto_base_centavos) +
+            Number(row.recargo_aplicado_centavos || 0) -
+            Number((applied.rows[0] as { ya_pagado: string | number }).ya_pagado);
+          if (actualAmount !== requested.amount || actualAmount <= 0) {
+            throw new Error(`El saldo del cargo ${requested.id} cambió; inicia el pago nuevamente`);
+          }
+          persistedAmounts.push({ chargeId: requested.id, amount: actualAmount });
+        }
+
+        const pending = await client.query(
+          `SELECT charge_id
+             FROM payments
+            WHERE charge_id = ANY($1::int[]) AND estado = 'pendiente'
+            FOR UPDATE`,
+          [persistedAmounts.map((entry) => entry.chargeId)],
+        );
+        if (pending.rows.length) {
+          throw new Error("Ya hay una transferencia pendiente para uno de los cargos seleccionados");
+        }
+
+        for (const entry of persistedAmounts) {
+          await client.query(
+            `INSERT INTO payments
+               (tenant_id, charge_id, guardian_id, metodo, referencia_pasarela,
+                monto_centavos, fecha_pago, estado)
+             VALUES ($1, $2, $3, 'spei', $4, $5, CURRENT_DATE, 'pendiente')`,
+            [tenantId, entry.chargeId, guardianId, paymentIntent.id, entry.amount],
+          );
+        }
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK");
+        sg.paymentIntents.cancel(paymentIntent.id).catch((cancelError: any) =>
+          console.error("[guardian/spei-intent] No se pudo cancelar PI:", cancelError.message),
+        );
+        throw error;
+      } finally {
+        client.release();
+      }
+
+      return res.status(201).json({
+        payment_intent_id: paymentIntent.id,
+        client_secret: paymentIntent.client_secret,
+        status: paymentIntent.status,
+        message: "Transferencia lista. Sigue las instrucciones de tu banco para completar el pago.",
+      });
+    } catch (error: any) {
+      console.error("[guardian/spei-intent] No se pudo crear intento:", error.message);
+      return res.status(422).json({
+        message: error.message || "No se pudo preparar la transferencia",
+      });
     }
   });
 

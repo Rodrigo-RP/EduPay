@@ -219,6 +219,10 @@ export const guardians = pgTable("guardians", {
   // alinear Drizzle con information_schema; no existe en el insertGuardianSchema.
   foto_url: text("foto_url"),
 
+  // Customer Stripe reutilizable del tutor. Necesario para customer_balance/SPEI;
+  // nullable para no alterar a los tutores que nunca han iniciado un pago Stripe.
+  stripe_customer_id: varchar("stripe_customer_id", { length: 255 }),
+
   // Timestamp del último cambio de contraseña (parallel con users.password_changed_at).
   // DB: TIMESTAMPTZ (mig-018) — declarado con withTimezone:true para coincidir.
   password_changed_at: timestamp("password_changed_at", { withTimezone: true }),

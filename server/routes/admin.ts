@@ -15,6 +15,27 @@ import { z } from "zod";
 import jwt from "jsonwebtoken";
 import { wsManager } from "../websocket-manager";
 
+/**
+ * Campos que el usuario puede modificar directamente en un alumno.
+ *
+ * La política de campus/tenant se deriva exclusivamente del JWT y nunca del
+ * body. `.strict()` hace que esa frontera sea explícita: cualquier campo nuevo
+ * o sensible enviado por el cliente debe agregarse aquí de forma deliberada.
+ */
+export const updateStudentSchema = z.object({
+  nombres: z.string().max(255).nullable().optional(),
+  apellido_paterno: z.string().max(255).nullable().optional(),
+  apellido_materno: z.string().max(255).nullable().optional(),
+  curp: z.string().max(18).nullable().optional(),
+  fecha_nacimiento: z.string().max(10).nullable().optional(),
+  correo_institucional: z.string().max(255).nullable().optional(),
+  nivel_escolar: z.string().max(100).nullable().optional(),
+  grado: z.string().max(50).nullable().optional(),
+  grupo: z.string().max(50).nullable().optional(),
+  turno: z.string().max(50).nullable().optional(),
+  status: z.string().max(50).nullable().optional(),
+}).strict();
+
 export function registerAdminRoutes(app: Express): void {
   // GUARDIAN PORTAL ROUTES
 
@@ -565,11 +586,26 @@ export function registerAdminRoutes(app: Express): void {
         return res.status(403).json({ message: "Alumno no encontrado en tu campus" });
       }
 
+      const parsedBody = updateStudentSchema.safeParse(req.body);
+      if (!parsedBody.success) {
+        const unknownFields = parsedBody.error.issues
+          .filter((issue) => issue.code === "unrecognized_keys")
+          .flatMap((issue) => issue.code === "unrecognized_keys" ? issue.keys : []);
+        const message = unknownFields.length > 0
+          ? `Campos no permitidos: ${unknownFields.join(", ")}`
+          : "Datos inválidos para actualizar el alumno";
+
+        return res.status(400).json({
+          message,
+          errors: parsedBody.error.flatten(),
+        });
+      }
+
       const {
         nombres, apellido_paterno, apellido_materno, curp,
         fecha_nacimiento, correo_institucional,
         nivel_escolar, grado, grupo, turno, status,
-      } = req.body;
+      } = parsedBody.data;
 
       // Validar CURP si viene en el body (edición individual — error bloqueante)
       if (curp) {

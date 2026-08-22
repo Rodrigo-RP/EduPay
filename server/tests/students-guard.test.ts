@@ -292,6 +292,31 @@ describe("STU — Guard MODULES.STUDENTS en endpoints de alumnos", () => {
       expect(row.rows[0].grupo).toBe("C");
     });
 
+    it("STU-12A: PATCH rechaza explícitamente campos fuera del schema estricto", async () => {
+      const before = await pool.query(
+        `SELECT campus_id, tenant_id, grupo FROM students WHERE id = $1`,
+        [baseStudentId]
+      );
+
+      const resp = await patchStudent(tokenAdmin, baseStudentId, {
+        campus_id: 999999,
+        tenant_id: 999999,
+        role: "administrador_general",
+      });
+      const body = await resp.json();
+
+      expect(resp.status, `got ${resp.status}: ${JSON.stringify(body)}`).toBe(400);
+      expect(body.message).toMatch(/campus_id/);
+      expect(body.message).toMatch(/tenant_id/);
+      expect(body.message).toMatch(/role/);
+
+      const after = await pool.query(
+        `SELECT campus_id, tenant_id, grupo FROM students WHERE id = $1`,
+        [baseStudentId]
+      );
+      expect(after.rows[0]).toEqual(before.rows[0]);
+    });
+
     it("STU-13: administrador_campus IMPORT con CSV → NO 403 (guard pasa, resultado variable)", async () => {
       const resp = await importStudents(tokenAdmin, true);
       const status = resp.status;

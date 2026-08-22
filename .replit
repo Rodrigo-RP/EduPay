@@ -52,3 +52,7 @@ integrations = ["javascript_sendgrid:1.0.0", "javascript_database:1.0.0"]
 
 [userenv.shared]
 VITE_STRIPE_PUBLISHABLE_KEY = "pk_test_51U5doxCa00hYnecNGgNSBjVer6LnHCVTTuYERZl6xgK9wj8VM2LvVLGleej9yHtm28ZEMMSWlpMxrgBezQNcHgQw006mCOJHPD"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 240000

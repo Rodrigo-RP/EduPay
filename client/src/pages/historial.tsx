@@ -53,6 +53,7 @@ export default function Historial() {
   // Filtros
   const [fechaInicio, setFechaInicio] = useState("");
   const [fechaFin, setFechaFin] = useState("");
+  const [filtroUsuario, setFiltroUsuario] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("todos");
   const [busqueda, setBusqueda] = useState("");
   const [pagina, setPagina] = useState(0);
@@ -64,6 +65,7 @@ export default function Historial() {
   params.set("offset", String(pagina * PAGE_SIZE));
   if (fechaInicio) params.set("desde", fechaInicio);
   if (fechaFin)    params.set("hasta", fechaFin);
+  if (filtroUsuario) params.set("user", filtroUsuario);
   if (filtroTipo !== "todos") params.set("action", filtroTipo);
   if (busqueda)    params.set("search", busqueda);
 
@@ -92,6 +94,7 @@ export default function Historial() {
   const limpiarFiltros = () => {
     setFechaInicio("");
     setFechaFin("");
+    setFiltroUsuario("");
     setFiltroTipo("todos");
     setBusqueda("");
     setPagina(0);
@@ -136,7 +139,7 @@ export default function Historial() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Buscar</label>
               <div className="relative">
@@ -148,6 +151,15 @@ export default function Historial() {
                   onChange={(e) => { setBusqueda(e.target.value); setPagina(0); }}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Usuario</label>
+              <Input
+                placeholder="Nombre o correo"
+                value={filtroUsuario}
+                onChange={(e) => { setFiltroUsuario(e.target.value); setPagina(0); }}
+              />
             </div>
 
             <div className="space-y-2">

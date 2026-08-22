@@ -878,9 +878,9 @@ export type InsertPaymentDueDate = z.infer<typeof insertPaymentDueDateSchema>;
 export type PaymentSurchargeRule = typeof payment_surcharge_rules.$inferSelect;
 export type InsertPaymentSurchargeRule = z.infer<typeof insertPaymentSurchargeRuleSchema>;
 
-// ========================================
+// ── SEGUIMIENTO DE ACCIONES ──────────────────────────────────────────────────
 // SUPER ADMIN PLATFORM MANAGEMENT TABLES
-// ========================================
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Platform metrics and monitoring
 export const platform_metrics = pgTable("platform_metrics", {
@@ -974,9 +974,9 @@ export const insertPlatformProfileSchema = createInsertSchema(platform_profiles)
 export type PlatformProfile = typeof platform_profiles.$inferSelect;
 export type InsertPlatformProfile = z.infer<typeof insertPlatformProfileSchema>;
 
-// ========================================
+// ── CONFIGURACIÓN INSTITUCIONAL ───────────────────────────────────────────────
 // SISTEMA DE VALIDACIÓN Y APROBACIÓN
-// ========================================
+// ─────────────────────────────────────────────────────────────────────────────
 
 // PENDING APPROVALS (Sistema de validación para cambios críticos)
 export const pending_approvals = pgTable("pending_approvals", {

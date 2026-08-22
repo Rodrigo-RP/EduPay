@@ -56,3 +56,4 @@
 - [Facturación infraestructura](facturacion-infra.md) — campus_invoicing_config (mig-019); InvoicingProvider interfaz; factory get-invoicing-provider; timbrar-lote → 503 honesto sin proveedor; adaptador facturapi pendiente.
 - [Liquidación SPEI](spei-settlement.md) — SPEI es asíncrono: un Intent pendiente nunca acredita cargos; sólo el webhook firmado e idempotente liquida el ledger.
 - [Schema drift reglas](schema-drift-rules.md) — patrón de alineación Drizzle↔DB; tablas huérfanas conocidas; columnas/CHECKs no declarados históricos ya corregidos.
+- [Audit log patterns](audit-log-patterns.md) — logAuditEvent(client,opts) propagates errors; student ops use BEGIN/COMMIT; payments use FOR UPDATE; storage.createStudent uses separate Drizzle connection (use raw SQL for transactions).

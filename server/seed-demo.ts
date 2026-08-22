@@ -4,10 +4,55 @@ import { db, pool } from "./db";
 import {
   tenants, campuses, users, students, guardians,
   student_guardian, concepts, charges, payments, payment_methods,
+  payment_applications,
 } from "../shared/schema";
 import { eq, and } from "drizzle-orm";
 
 const DEMO_PASSWORD = "Demo2025!";
+const DEMO_COUNT_TABLES = [
+  "bank_transactions",
+  "late_fee_calculations",
+  "payment_plan_installments",
+  "payment_plans",
+  "family_payment_sources",
+  "family_credits",
+  "invoices",
+  "scholarships",
+  "discounts",
+  "notifications",
+  "payment_rules",
+  "payment_surcharge_rules",
+  "payment_due_dates",
+  "scholarship_auto_rules",
+  "scholarship_types",
+  "pending_approvals",
+  "approval_notifications",
+  "approval_workflow_logs",
+  "acciones_seguimiento",
+  "magic_link_tokens",
+  "payment_applications",
+  "payment_events",
+  "scholarship_criteria",
+  "scholarship_benefits",
+  "families",
+  "products",
+] as const;
+
+function isoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function addDays(date: Date, days: number): Date {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
+function startOfDay(date: Date): Date {
+  const result = new Date(date);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
 
 // Normaliza texto para uso en emails (elimina acentos y caracteres especiales)
 function toEmailSlug(str: string): string {
@@ -97,10 +142,13 @@ export async function seedDemoData() {
           payment_methods,
           charges,
           scholarships,
+          scholarship_criteria,
+          scholarship_benefits,
           student_guardian,
           students,
           guardians,
           discounts,
+          products,
           notifications,
           payment_rules,
           payment_surcharge_rules,
@@ -350,8 +398,11 @@ export async function seedDemoData() {
       },
     ];
 
-    const now = new Date();
-    const thisYear = now.getFullYear();
+    const today = startOfDay(new Date());
+    const thisYear = today.getFullYear();
+    const demoStudents: Array<{ id: number; campusId: number; conceptId: number; padreId: number; madreId: number; becaPct: number }> = [];
+    const demoCharges: Array<{ id: number; studentId: number; conceptId: number; campusId: number; status: string; amount: number }> = [];
+    const demoPayments: Array<{ id: number; chargeId: number; guardianId: number; amount: number }> = [];
 
     for (let i = 0; i < familias.length; i++) {
       const f = familias[i];
@@ -406,16 +457,28 @@ export async function seedDemoData() {
       }).returning();
 
       await db.insert(student_guardian).values([
-        { student_id: student.id, guardian_id: padre.id, porcentaje_responsabilidad: "50.00" },
-        { student_id: student.id, guardian_id: madre.id, porcentaje_responsabilidad: "50.00" },
+        { student_id: student.id, guardian_id: padre.id, porcentaje_responsabilidad: "50.00", es_responsable_pago: true },
+        { student_id: student.id, guardian_id: madre.id, porcentaje_responsabilidad: "50.00", es_responsable_pago: false },
       ]);
 
-      // Cargos: 3 meses de colegiatura (abril pagado, mayo pagado, junio pendiente)
+      const becaPct = [50, 30, 20][i] ?? 0;
+      demoStudents.push({
+        id: student.id,
+        campusId: f.campus.id,
+        conceptId: f.concept.id,
+        padreId: padre.id,
+        madreId: madre.id,
+        becaPct,
+      });
+
+      // Cargos del ciclo actual: fechas variadas para cobranza, antigüedad y emisión programada.
       const months = [
-        { mes: "Abril 2025", emision: `${thisYear}-04-01`, venc: `${thisYear}-04-10`, estado: "pagado" },
-        { mes: "Mayo 2025", emision: `${thisYear}-05-01`, venc: `${thisYear}-05-10`, estado: "pagado" },
-        { mes: "Junio 2025", emision: `${thisYear}-06-01`, venc: `${thisYear}-06-10`, estado: "pendiente" },
-        { mes: "Julio 2025", emision: `${thisYear}-07-01`, venc: `${thisYear}-07-10`, estado: i < 3 ? "vencido" : "pendiente" },
+        { mes: "Colegiatura pagada", emision: isoDate(addDays(today, -45)), venc: isoDate(addDays(today, -35)), estado: "pagado" },
+        { mes: "Por vencer", emision: isoDate(addDays(today, -10)), venc: isoDate(addDays(today, 5)), estado: "pendiente" },
+        { mes: "Vence hoy", emision: isoDate(addDays(today, -15)), venc: isoDate(today), estado: "pendiente" },
+        { mes: "Vencida reciente", emision: isoDate(addDays(today, -25)), venc: isoDate(addDays(today, -4)), estado: i < 3 ? "vencido" : "pendiente" },
+        { mes: "Adeudo antiguo", emision: isoDate(addDays(today, -115)), venc: isoDate(addDays(today, -95)), estado: i < 3 ? "vencido" : "pendiente" },
+        { mes: "Programada", emision: isoDate(addDays(today, 10)), venc: isoDate(addDays(today, 20)), estado: "scheduled" },
       ];
 
       for (const m of months) {
@@ -423,24 +486,40 @@ export async function seedDemoData() {
           student_id: student.id,
           concept_id: f.concept.id,
           tenant_id: tenant.id,
-          ciclo_escolar: "2025-2026",
+          ciclo_escolar: "2026-2027",
           fecha_emision: m.emision,
           fecha_vencimiento: m.venc,
           monto_base_centavos: f.concept.monto_centavos,
-          beca_aplicada: "0.00",
+          beca_aplicada: String(becaPct),
           recargo_aplicado_centavos: m.estado === "vencido" ? Math.round(f.concept.monto_centavos * 0.05) : 0,
           estado: m.estado,
+          descripcion: m.mes,
         }).returning();
+        demoCharges.push({
+          id: charge.id,
+          studentId: student.id,
+          conceptId: f.concept.id,
+          campusId: f.campus.id,
+          status: m.estado,
+          amount: f.concept.monto_centavos,
+        });
 
         if (m.estado === "pagado") {
-          await db.insert(payments).values({
+          const [payment] = await db.insert(payments).values({
+            tenant_id: tenant.id,
             charge_id: charge.id,
             guardian_id: padre.id,
             metodo: "tarjeta",
             referencia_pasarela: `ref_demo_${charge.id}_${Date.now()}`,
             monto_centavos: f.concept.monto_centavos,
             estado: "exitoso",
+          }).returning();
+          await db.insert(payment_applications).values({
+            payment_id: payment.id,
+            charge_id: charge.id,
+            amount_centavos: f.concept.monto_centavos,
           });
+          demoPayments.push({ id: payment.id, chargeId: charge.id, guardianId: padre.id, amount: f.concept.monto_centavos });
         }
       }
 
@@ -450,22 +529,37 @@ export async function seedDemoData() {
           student_id: student.id,
           concept_id: concInsc.id,
           tenant_id: tenant.id,
-          ciclo_escolar: "2025-2026",
-          fecha_emision: `${thisYear}-01-15`,
-          fecha_vencimiento: `${thisYear}-02-28`,
+          ciclo_escolar: "2026-2027",
+          fecha_emision: isoDate(addDays(today, -60)),
+          fecha_vencimiento: isoDate(addDays(today, -45)),
           monto_base_centavos: concInsc.monto_centavos,
           beca_aplicada: "0.00",
           recargo_aplicado_centavos: 0,
           estado: "pagado",
         }).returning();
-        await db.insert(payments).values({
+        const [payment] = await db.insert(payments).values({
+          tenant_id: tenant.id,
           charge_id: inscCharge.id,
           guardian_id: padre.id,
           metodo: "spei",
           referencia_pasarela: `spei_demo_${inscCharge.id}`,
           monto_centavos: concInsc.monto_centavos,
           estado: "exitoso",
+        }).returning();
+        await db.insert(payment_applications).values({
+          payment_id: payment.id,
+          charge_id: inscCharge.id,
+          amount_centavos: concInsc.monto_centavos,
         });
+        demoCharges.push({
+          id: inscCharge.id,
+          studentId: student.id,
+          conceptId: concInsc.id,
+          campusId: f.campus.id,
+          status: "pagado",
+          amount: concInsc.monto_centavos,
+        });
+        demoPayments.push({ id: payment.id, chargeId: inscCharge.id, guardianId: padre.id, amount: concInsc.monto_centavos });
       }
 
       // Método de pago guardado (tarjeta simulada)
@@ -479,6 +573,456 @@ export async function seedDemoData() {
     }
 
     log(`✅ 10 familias creadas (10 padres, 10 madres, 10 estudiantes)`);
+
+    // ── Casos financieros y familiares para las pantallas reales ─────────────
+    const familiaPrincipal = demoStudents[0];
+    const estudianteConBeca = demoStudents[2];
+    const segundoEstudiante = demoStudents[1];
+    if (!familiaPrincipal || !estudianteConBeca || !segundoEstudiante) {
+      throw new Error("El seed requiere al menos tres estudiantes demo");
+    }
+
+    // La relación operativa de hermanos se resuelve por student_guardian. La fila
+    // en families existe solo como ancla requerida por family_credits y fuentes
+    // SPEI; no sustituye esa relación para las pantallas de alumnos/tutores.
+    const [hermano] = await db.insert(students).values({
+      campus_id: familiaPrincipal.campusId,
+      id_referencia: "MAT-0001-H",
+      nombres: "Emilia Guadalupe",
+      apellido_paterno: "López",
+      apellido_materno: "Hernández",
+      curp: "LOHE170620MDFPRM02",
+      nivel_escolar: "Primaria",
+      grado: "1°",
+      grupo: "B",
+      turno: "Matutino",
+      nombre_completo: "Emilia Guadalupe López Hernández",
+      status: "activo",
+    }).returning();
+    await db.insert(student_guardian).values([
+      { student_id: hermano.id, guardian_id: familiaPrincipal.padreId, porcentaje_responsabilidad: "50.00", es_responsable_pago: true },
+      { student_id: hermano.id, guardian_id: familiaPrincipal.madreId, porcentaje_responsabilidad: "50.00", es_responsable_pago: false },
+    ]);
+    demoStudents.push({
+      id: hermano.id,
+      campusId: familiaPrincipal.campusId,
+      conceptId: familiaPrincipal.conceptId,
+      padreId: familiaPrincipal.padreId,
+      madreId: familiaPrincipal.madreId,
+      becaPct: 0,
+    });
+
+    const [cargoHermano] = await db.insert(charges).values({
+      tenant_id: tenant.id,
+      student_id: hermano.id,
+      concept_id: familiaPrincipal.conceptId,
+      ciclo_escolar: "2026-2027",
+      fecha_emision: isoDate(addDays(today, -8)),
+      fecha_vencimiento: isoDate(addDays(today, 5)),
+      monto_base_centavos: 280000,
+      beca_aplicada: "0.00",
+      estado: "pendiente",
+      descripcion: "Colegiatura hermana para pago familiar",
+    }).returning();
+    demoCharges.push({
+      id: cargoHermano.id,
+      studentId: hermano.id,
+      conceptId: familiaPrincipal.conceptId,
+      campusId: familiaPrincipal.campusId,
+      status: "pendiente",
+      amount: 280000,
+    });
+
+    const { rows: familyRows } = await pool.query<{
+      id: number;
+    }>(
+      `INSERT INTO families (tenant_id, campus_id, nombre, guardian_id_principal)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id`,
+      [tenant.id, familiaPrincipal.campusId, "Familia López Hernández", familiaPrincipal.padreId],
+    );
+    const familyId = familyRows[0]?.id;
+    if (!familyId) throw new Error("No fue posible crear el ancla familiar demo");
+
+    const cargoPrimerHermano = demoCharges.find(
+      (charge) => charge.studentId === familiaPrincipal.id && charge.status === "pendiente",
+    );
+    if (!cargoPrimerHermano) throw new Error("No se encontró un cargo pendiente para el pago de hermanos");
+
+    const [pagoHermanos] = await db.insert(payments).values({
+      tenant_id: tenant.id,
+      charge_id: cargoPrimerHermano.id,
+      guardian_id: familiaPrincipal.padreId,
+      metodo: "spei",
+      referencia_pasarela: "spei_demo_hermanos_2026",
+      monto_centavos: cargoPrimerHermano.amount + cargoHermano.monto_base_centavos,
+      estado: "exitoso",
+    }).returning();
+    await db.insert(payment_applications).values([
+      { payment_id: pagoHermanos.id, charge_id: cargoPrimerHermano.id, amount_centavos: cargoPrimerHermano.amount },
+      { payment_id: pagoHermanos.id, charge_id: cargoHermano.id, amount_centavos: cargoHermano.monto_base_centavos },
+    ]);
+    await pool.query(
+      `UPDATE charges SET estado = 'pagado', updated_at = NOW() WHERE id = ANY($1::int[])`,
+      [[cargoPrimerHermano.id, cargoHermano.id]],
+    );
+    demoPayments.push({
+      id: pagoHermanos.id,
+      chargeId: cargoPrimerHermano.id,
+      guardianId: familiaPrincipal.padreId,
+      amount: cargoPrimerHermano.amount + cargoHermano.monto_base_centavos,
+    });
+
+    const cargoParcial = demoCharges.find(
+      (charge) => charge.studentId === segundoEstudiante.id && charge.status === "pendiente",
+    );
+    if (!cargoParcial) throw new Error("No se encontró un cargo para el pago parcial demo");
+    const montoParcial = Math.round(cargoParcial.amount * 0.4);
+    const [pagoParcial] = await db.insert(payments).values({
+      tenant_id: tenant.id,
+      charge_id: cargoParcial.id,
+      guardian_id: segundoEstudiante.padreId,
+      metodo: "efectivo",
+      referencia_pasarela: "caja_demo_pago_parcial_2026",
+      monto_centavos: montoParcial,
+      estado: "exitoso",
+    }).returning();
+    await db.insert(payment_applications).values({
+      payment_id: pagoParcial.id,
+      charge_id: cargoParcial.id,
+      amount_centavos: montoParcial,
+    });
+    await pool.query(`UPDATE charges SET estado = 'parcial', updated_at = NOW() WHERE id = $1`, [cargoParcial.id]);
+    demoPayments.push({ id: pagoParcial.id, chargeId: cargoParcial.id, guardianId: segundoEstudiante.padreId, amount: montoParcial });
+
+    const cargoExcedente = demoCharges.find(
+      (charge) => charge.studentId === estudianteConBeca.id && charge.status === "pendiente",
+    );
+    if (!cargoExcedente) throw new Error("No se encontró un cargo para el pago excedente demo");
+    const saldoFavorCentavos = 60000;
+    const [pagoExcedente] = await db.insert(payments).values({
+      tenant_id: tenant.id,
+      charge_id: cargoExcedente.id,
+      guardian_id: estudianteConBeca.padreId,
+      metodo: "efectivo",
+      referencia_pasarela: "caja_demo_excedente_2026",
+      monto_centavos: cargoExcedente.amount + saldoFavorCentavos,
+      estado: "exitoso",
+    }).returning();
+    const [aplicacionExcedente] = await db.insert(payment_applications).values({
+      payment_id: pagoExcedente.id,
+      charge_id: cargoExcedente.id,
+      amount_centavos: cargoExcedente.amount,
+    }).returning();
+    await pool.query(`UPDATE charges SET estado = 'pagado', updated_at = NOW() WHERE id = $1`, [cargoExcedente.id]);
+    await pool.query(
+      `INSERT INTO family_credits
+        (tenant_id, campus_id, family_id, student_id, payment_id, amount_centavos, origen, descripcion, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'excedente_caja', $7, 'activo')`,
+      [
+        tenant.id,
+        familiaPrincipal.campusId,
+        familyId,
+        estudianteConBeca.id,
+        pagoExcedente.id,
+        saldoFavorCentavos,
+        "Saldo a favor generado por pago demo excedente",
+      ],
+    );
+    demoPayments.push({ id: pagoExcedente.id, chargeId: cargoExcedente.id, guardianId: estudianteConBeca.padreId, amount: pagoExcedente.monto_centavos });
+    log("✅ Casos de pago familiar, parcial y saldo a favor creados");
+
+    // ── Productos, becas, reglas y descuentos ────────────────────────────────
+    const productDefinitions = [
+      ["COL-MENSUAL", "Colegiatura mensual", "COLEGIATURAS", "SERVICIO", "86121500", 220000, 280000, 350000, 420000],
+      ["INS-ANUAL", "Inscripción anual", "INSCRIPCIONES", "SERVICIO", "86121500", 380000, 450000, 520000, 620000],
+      ["SEG-ESCOLAR", "Seguro escolar anual", "SEGURO_ESCOLAR", "SERVICIO", "84131600", 45000, 50000, 55000, 60000],
+      ["LIB-PAQUETE", "Paquete de libros", "LIBROS", "PIEZA", "55101500", 90000, 110000, 130000, 150000],
+    ];
+    for (const campus of [campusNorte, campusSur]) {
+      for (const [codigo, nombre, categoria, unidad, claveSat, kinder, primaria, secundaria, bachillerato] of productDefinitions) {
+        await pool.query(
+          `INSERT INTO products
+            (campus_id, tenant_id, codigo, nombre, descripcion, categoria, unidad_medida, clave_sat,
+             activo, precio_kinder, precio_primaria, precio_secundaria, precio_bachillerato)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,true,$9,$10,$11,$12)`,
+          [
+            campus.id,
+            tenant.id,
+            codigo,
+            nombre,
+            `${nombre} configurado para ${campus.nombre}`,
+            categoria,
+            unidad,
+            claveSat,
+            kinder,
+            primaria,
+            secundaria,
+            bachillerato,
+          ],
+        );
+      }
+    }
+
+    const { rows: scholarshipTypeRows } = await pool.query<{ id: number; nombre: string }>(
+      `INSERT INTO scholarship_types (campus_id, nombre, categoria, descripcion, algoritmo, activo)
+       VALUES
+         ($1, 'Beca Excelencia Académica', 'academica', 'Reconoce alto desempeño académico', 'promedio', true),
+         ($1, 'Beca Hermanos', 'descuento', 'Apoyo para familias con más de un estudiante', 'hermanos', true),
+         ($1, 'Beca Deportiva', 'deportiva', 'Apoyo por representación deportiva', 'manual', true)
+       RETURNING id, nombre`,
+      [campusNorte.id],
+    );
+    const scholarshipTypeByName = new Map(scholarshipTypeRows.map((row) => [row.nombre, row.id]));
+    const excelenciaId = scholarshipTypeByName.get("Beca Excelencia Académica");
+    const hermanosId = scholarshipTypeByName.get("Beca Hermanos");
+    const deportivaId = scholarshipTypeByName.get("Beca Deportiva");
+    if (!excelenciaId || !hermanosId || !deportivaId) throw new Error("No se crearon los tipos de beca demo");
+
+    await pool.query(
+      `INSERT INTO scholarship_criteria (scholarship_type_id, criterio, valor_minimo, valor_maximo, obligatorio)
+       VALUES ($1, 'promedio_minimo', 9.00, NULL, true),
+              ($2, 'hermanos_min', 2.00, NULL, true),
+              ($3, 'promedio_minimo', 8.50, NULL, false)`,
+      [excelenciaId, hermanosId, deportivaId],
+    );
+    await pool.query(
+      `INSERT INTO scholarship_benefits
+        (scholarship_type_id, tipo_beneficio, porcentaje_descuento, aplica_conceptos, vigencia_meses)
+       VALUES ($1, 'porcentaje', 50, ARRAY['colegiatura'], 12),
+              ($2, 'porcentaje', 30, ARRAY['colegiatura'], 12),
+              ($3, 'porcentaje', 20, ARRAY['colegiatura'], 12)`,
+      [excelenciaId, hermanosId, deportivaId],
+    );
+    await pool.query(
+      `INSERT INTO scholarships
+        (tenant_id, student_id, scholarship_type_id, porcentaje, motivo, vigencia_inicio, vigencia_fin)
+       VALUES
+         ($1,$2,$3,50.00,'Excelencia académica demo','2026-08-01','2027-07-31'),
+         ($1,$4,$5,30.00,'Beneficio por hermanos demo','2026-08-01','2027-07-31'),
+         ($1,$6,$7,20.00,'Representación deportiva demo','2026-08-01','2027-07-31')`,
+      [tenant.id, demoStudents[0].id, excelenciaId, demoStudents[1].id, hermanosId, demoStudents[2].id, deportivaId],
+    );
+    await pool.query(
+      `INSERT INTO discounts (campus_id, tenant_id, nombre, regla_sql, monto_pct)
+       VALUES ($1,$2,'Pronto pago septiembre','Pago antes de fecha límite',5.00),
+              ($3,$2,'Convenio personal demo','Descuento administrativo autorizado',10.00)`,
+      [campusNorte.id, tenant.id, campusSur.id],
+    );
+
+    const { rows: paymentRuleRows } = await pool.query<{ id: number }>(
+      `INSERT INTO payment_rules
+        (campus_id, tenant_id, name, description, rule_type, late_fee_percentage,
+         grace_period_days, max_late_fee_centavos, applies_to_concepts)
+       VALUES ($1,$2,'Recargo mensual demo','5% después de tres días de gracia','percentage',5.00,3,35000,'["colegiatura"]')
+       RETURNING id`,
+      [campusNorte.id, tenant.id],
+    );
+    const paymentRuleId = paymentRuleRows[0]?.id;
+    if (!paymentRuleId) throw new Error("No se creó la regla de pago demo");
+    await pool.query(
+      `INSERT INTO payment_surcharge_rules
+        (campus_id, tenant_id, concepto, nombre, tipo, dias_gracia, porcentaje, activo)
+       VALUES ($1,$2,'Colegiatura Mensual Primaria','Recargo por atraso demo','porcentaje',3,5.00,true)`,
+      [campusNorte.id, tenant.id],
+    );
+    await pool.query(
+      `INSERT INTO payment_due_dates (campus_id, tenant_id, concepto, dia_vencimiento, mes_aplicacion, activo)
+       VALUES ($1,$2,'Colegiatura Mensual Primaria',10,'todos',true),
+              ($3,$2,'Colegiatura Mensual Kinder',10,'todos',true)`,
+      [campusNorte.id, tenant.id, campusSur.id],
+    );
+    await pool.query(
+      `INSERT INTO scholarship_auto_rules (campus_id, tenant_id, nombre, tipo, condicion_json, descuento_porcentaje, aplica_a, activo)
+       VALUES ($1,$2,'Regla hermanos demo','hermanos','{"minimo_hermanos":2}',10.00,'colegiatura',true)`,
+      [campusNorte.id, tenant.id],
+    );
+
+    // ── Conciliación, facturación, planes y automatizaciones ──────────────────
+    const cargoVencido = demoCharges.find(
+      (charge) => charge.studentId === familiaPrincipal.id && charge.status === "vencido",
+    );
+    if (!cargoVencido) throw new Error("No se encontró cargo vencido para el cálculo de recargo demo");
+    await pool.query(
+      `INSERT INTO late_fee_calculations
+        (charge_id, payment_rule_id, tenant_id, original_amount_centavos, due_date, adjusted_due_date,
+         calculation_date, days_late, late_fee_amount_centavos, calculation_details, is_applied)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,95,14000,'Recargo calculado para adeudo antiguo demo',true)`,
+      [
+        cargoVencido.id,
+        paymentRuleId,
+        tenant.id,
+        cargoVencido.amount,
+        addDays(today, -95),
+        addDays(today, -92),
+        today,
+      ],
+    );
+
+    const { rows: bankRows } = await pool.query<{ id: number }>(
+      `INSERT INTO bank_transactions
+        (campus_id, tenant_id, fecha, descripcion, monto_centavos, tipo, referencia, clabe_ordenante,
+         nombre_ordenante, estado_conciliacion, charge_id, confianza_pct)
+       VALUES
+         ($1,$2,$3,'SPEI pendiente - pago de hermanos',560000,'credito','SPEI-DEMO-HERMANOS',
+          '646180157000000001','Carlos Eduardo López Hernández','pendiente',$4,65),
+         ($5,$2,$6,'Depósito con coincidencia sugerida',140000,'credito','SPEI-DEMO-REVISION',
+          '646180157000000002','Javier Antonio García Ruiz','pendiente',$7,85),
+         ($1,$2,$8,'Abono sin referencia para aclaración',95000,'credito','SPEI-DEMO-SIN-REF',
+          '646180157000000003','Ordenante no identificado','pendiente',NULL,40)
+       RETURNING id`,
+      [
+        campusNorte.id,
+        tenant.id,
+        isoDate(addDays(today, -1)),
+        cargoPrimerHermano.id,
+        campusSur.id,
+        isoDate(today),
+        cargoParcial.id,
+        isoDate(addDays(today, -2)),
+      ],
+    );
+    const bankTransactionId = bankRows[0]?.id;
+    if (!bankTransactionId) throw new Error("No se crearon transacciones bancarias demo");
+
+    await pool.query(
+      `INSERT INTO family_payment_sources (tenant_id, family_id, clabe, nombre_inferido, confirmaciones)
+       VALUES ($1,$2,'646180157000000001','Carlos Eduardo López Hernández',2)`,
+      [tenant.id, familyId],
+    );
+    await pool.query(
+      `INSERT INTO payment_events (tenant_id, provider, provider_event_id, payload, processed_at, status)
+       VALUES
+         ($1,'spei','evt_demo_spei_hermanos_2026','{"reference":"SPEI-DEMO-HERMANOS"}',NOW(),'processed'),
+         ($1,'stripe','evt_demo_stripe_pago_2026','{"payment":"tarjeta demo"}',NOW(),'processed'),
+         ($1,'spei','evt_demo_spei_revision_2026','{"reference":"SPEI-DEMO-REVISION"}',NULL,'received')`,
+      [tenant.id],
+    );
+
+    const { rows: planRows } = await pool.query<{ id: number }>(
+      `INSERT INTO payment_plans
+        (campus_id, tenant_id, student_id, guardian_id, total_adeudo_centavos, monto_inicial_centavos,
+         numero_pagos, frecuencia, fecha_inicio, estado, tipo_origen, charge_ids_origen, observaciones, created_by)
+       SELECT $1,$2,$3,$4,420000,60000,3,'mensual',$5,'activo','reestructuracion',$6::jsonb,
+              'Convenio demo para probar cuotas',id
+       FROM users WHERE tenant_id = $2 AND role = 'administrador_general' LIMIT 1
+       RETURNING id`,
+      [
+        campusNorte.id,
+        tenant.id,
+        familiaPrincipal.id,
+        familiaPrincipal.padreId,
+        isoDate(today),
+        JSON.stringify([cargoVencido.id]),
+      ],
+    );
+    const planId = planRows[0]?.id;
+    if (!planId) throw new Error("No se creó el plan de pago demo");
+    await pool.query(
+      `INSERT INTO payment_plan_installments (plan_id, numero, monto_centavos, fecha_vencimiento, estado)
+       VALUES ($1,1,120000,$2,'pendiente'),
+              ($1,2,150000,$3,'pendiente'),
+              ($1,3,150000,$4,'pendiente')`,
+      [planId, isoDate(addDays(today, 15)), isoDate(addDays(today, 45)), isoDate(addDays(today, 75))],
+    );
+
+    const paidPayments = demoPayments.slice(0, 2);
+    if (paidPayments.length < 2) throw new Error("No hay pagos suficientes para facturas demo");
+    const demoPdf = Buffer.from("%PDF-1.4\n% CFDI simulado EduPay\n1 0 obj<</Type/Catalog>>endobj\n%%EOF").toString("base64");
+    await pool.query(
+      `INSERT INTO invoices
+        (tenant_id, payment_id, uuid_cfdi, xml_url, pdf_url, estado, uso_cfdi, forma_pago,
+         clave_prod_serv, clave_unidad, xml_content, pdf_base64)
+       VALUES
+         ($1,$2,'11111111-1111-4111-8111-111111111111','/demo/cfdi/11111111.xml','/demo/cfdi/11111111.pdf',
+          'emitido','D10','03','86121500','E48',$3,$4),
+         ($1,$5,'22222222-2222-4222-8222-222222222222','/demo/cfdi/22222222.xml','/demo/cfdi/22222222.pdf',
+          'emitido','D10','04','86121500','E48',$6,$4)`,
+      [
+        tenant.id,
+        paidPayments[0].id,
+        '<cfdi:Comprobante version="4.0" Serie="DEMO" Folio="11111111">CFDI simulado EduPay</cfdi:Comprobante>',
+        demoPdf,
+        paidPayments[1].id,
+        '<cfdi:Comprobante version="4.0" Serie="DEMO" Folio="22222222">CFDI simulado EduPay</cfdi:Comprobante>',
+      ],
+    );
+
+    const { rows: adminRows } = await pool.query<{ id: number; email: string; role: string; campus_id: number }>(
+      `SELECT id, email, role, campus_id
+       FROM users
+       WHERE tenant_id = $1
+       ORDER BY id`,
+      [tenant.id],
+    );
+    const directora = adminRows.find((user) => user.email === "directora@jfr.edu.mx");
+    const contador = adminRows.find((user) => user.email === "contador@jfr.edu.mx");
+    const caja = adminRows.find((user) => user.email === "caja@jfr.edu.mx");
+    if (!directora || !contador || !caja) throw new Error("No se encontraron usuarios administrativos demo");
+
+    await pool.query(
+      `INSERT INTO notifications
+        (tenant_id, user_id, guardian_id, student_id, canal, tipo, destinatario, asunto, mensaje, contenido, estado, intentos)
+       VALUES
+         ($1,$2,$3,$4,'EMAIL','RECORDATORIO_VENCIMIENTO','lopez.carlos@demo.mx','Pago próximo a vencer',
+          'Tu colegiatura vence en cinco días.','Tu colegiatura vence en cinco días.','pendiente',0),
+         ($1,$2,$5,$6,'WHATSAPP','AVISO_MORA','garcia.javier@demo.mx',NULL,
+          'Tienes un saldo parcial pendiente.','Tienes un saldo parcial pendiente.','enviado',1),
+         ($1,$7,$8,$9,'SMS','PAGO_CONFIRMADO','martinez.roberto@demo.mx',NULL,
+          'Se registró un pago con saldo a favor.','Se registró un pago con saldo a favor.','enviado',1),
+         ($1,$7,$3,$4,'EMAIL','CARGO_EMITIDO','lopez.carlos@demo.mx','Error de entrega demo',
+          'Ejemplo de notificación con error.','Ejemplo de notificación con error.','error',3)`,
+      [
+        tenant.id,
+        directora.id,
+        familiaPrincipal.padreId,
+        familiaPrincipal.id,
+        segundoEstudiante.padreId,
+        segundoEstudiante.id,
+        contador.id,
+        estudianteConBeca.padreId,
+        estudianteConBeca.id,
+      ],
+    );
+
+    const { rows: approvalRows } = await pool.query<{ id: number }>(
+      `INSERT INTO pending_approvals
+        (campus_id, tenant_id, requested_by, action_type, action_description, entity_type, entity_id,
+         original_data, requested_data, reason, status, priority, expires_at)
+       VALUES
+         ($1,$2,$3,'modify_scholarship','Aumentar beca de excelencia demo','scholarship',$4,
+          '{"porcentaje":50}','{"porcentaje":55}','Reconocimiento académico','pending','high',NOW() + INTERVAL '7 days'),
+         ($1,$2,$5,'modify_payment_rule','Cambiar periodo de gracia demo','payment_rule',$6,
+          '{"dias_gracia":3}','{"dias_gracia":5}','Apoyo temporal a familias','pending','medium',NOW() + INTERVAL '5 days')
+       RETURNING id`,
+      [campusNorte.id, tenant.id, caja.id, excelenciaId, directora.id, paymentRuleId],
+    );
+    if (approvalRows.length !== 2) throw new Error("No se crearon las aprobaciones demo");
+    await pool.query(
+      `INSERT INTO approval_notifications (approval_id, recipient_id, notification_type, title, message, is_read)
+       VALUES ($1,$2,'approval_request','Beca pendiente de aprobación','Revisa la solicitud de modificación de beca.',false),
+              ($3,$2,'approval_request','Regla de pago pendiente','Revisa el cambio de días de gracia.',false)`,
+      [approvalRows[0].id, directora.id, approvalRows[1].id],
+    );
+    await pool.query(
+      `INSERT INTO approval_workflow_logs (approval_id, user_id, action, notes, previous_status, new_status)
+       VALUES ($1,$2,'created','Solicitud creada por auxiliar de caja',NULL,'pending'),
+              ($3,$2,'created','Solicitud creada por dirección',NULL,'pending')`,
+      [approvalRows[0].id, caja.id, approvalRows[1].id],
+    );
+    await pool.query(
+      `INSERT INTO acciones_seguimiento
+        (tenant_id, campus_id, entity_type, entity_id, tipo_hallazgo, status, titulo, descripcion, assigned_to, created_by, metadata)
+       VALUES ($1,$2,'bank_transaction',$3,'excepcion_conciliacion','asignado',
+               'Validar SPEI pendiente demo','Transacción sin conciliación automática para pruebas de caja.',
+               $4,$5,'{"origen":"seed-demo","prioridad":"media"}'::jsonb)`,
+      [tenant.id, campusNorte.id, bankTransactionId, caja.id, directora.id],
+    );
+    await pool.query(
+      `INSERT INTO magic_link_tokens (tenant_id, guardian_id, token, expires_at, uses, max_uses, created_by)
+       VALUES ($1,$2,'demo_magic_link_lopez_2026',NOW() + INTERVAL '14 days',0,3,$3)`,
+      [tenant.id, familiaPrincipal.padreId, directora.id],
+    );
 
     // ── Fixtures de vitest (tenant 29, campus 48, user 80) ──────────────────
     // ~28 archivos de tests usan campus_id=48 / tenant_id=29 / user_id=80
@@ -529,11 +1073,50 @@ export async function seedDemoData() {
     }
     log("✅ Fixtures de vitest restaurados (tenant 29, campus 48, user 80)");
 
+    const tableCounts = Object.fromEntries(
+      await Promise.all(
+        DEMO_COUNT_TABLES.map(async (table) => {
+          const { rows } = await pool.query<{ count: number }>(
+            `SELECT COUNT(*)::int AS count FROM ${table}`,
+          );
+          return [table, rows[0]?.count ?? 0];
+        }),
+      ),
+    );
+    log("📊 Registros demo insertados por tabla:");
+    for (const table of DEMO_COUNT_TABLES) {
+      log(`   ${table}: ${tableCounts[table]}`);
+    }
+
     log("🎉 Seed de datos demo completado exitosamente");
 
     return {
       success: true,
       logs,
+      tableCounts,
+      casosPrueba: {
+        administradorCompleto: {
+          rol: "Administrador general",
+          email: "directora@jfr.edu.mx",
+          password: DEMO_PASSWORD,
+        },
+        tutorHermanos: {
+          nombre: "Carlos Eduardo López Hernández",
+          email: "lopez.carlos@demo.mx",
+          password: DEMO_PASSWORD,
+          estudiantes: [
+            "Sofía Valentina López Hernández",
+            "Emilia Guadalupe López Hernández",
+          ],
+        },
+        tutorBeca: {
+          nombre: "Roberto Miguel Martínez Torres",
+          email: "martinez.roberto@demo.mx",
+          password: DEMO_PASSWORD,
+          estudiante: "Valentina Isabel Martínez Torres",
+          beca: "Beca Deportiva (20%)",
+        },
+      },
       credenciales: {
         administradores: [
           { rol: "Super Admin", email: "superadmin@edupay.mx", password: DEMO_PASSWORD },

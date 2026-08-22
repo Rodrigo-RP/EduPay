@@ -14,6 +14,11 @@ import jwt from "jsonwebtoken";
 import { z } from "zod";
 
 export function registerSystemRoutes(app: Express): void {
+  app.post("/api/demo/seed", async (_req, res) => {
+    const result = await seedDemoData();
+    res.status(result.success ? 200 : 500).json(result);
+  });
+
   app.get("/api/payment-rules", authenticateToken, async (req: any, res) => {
     try {
       const campusId = req.user?.campus_id;

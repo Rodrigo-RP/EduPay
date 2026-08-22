@@ -4,7 +4,7 @@
       "/nix/store/jfar9wnj6kvr0gr6klh1gk7vgckkfr5j-nodejs-20.20.0/bin/node",
       "/home/runner/workspace/node_modules/.bin/playwright",
       "test",
-      "e2e/08-excepciones.spec.ts"
+      "e2e/17-demo-setup.spec.ts"
     ],
     "configFile": "/home/runner/workspace/playwright.config.ts",
     "rootDir": "/home/runner/workspace/e2e",
@@ -73,384 +73,53 @@
   },
   "suites": [
     {
-      "title": "08-excepciones.spec.ts",
-      "file": "08-excepciones.spec.ts",
+      "title": "17-demo-setup.spec.ts",
+      "file": "17-demo-setup.spec.ts",
       "column": 0,
       "line": 0,
-      "specs": [],
-      "suites": [
+      "specs": [
         {
-          "title": "API — /api/conciliacion/excepciones",
-          "file": "08-excepciones.spec.ts",
-          "line": 89,
-          "column": 6,
-          "specs": [
+          "title": "el setup demo muestra conteos y accesos destacados después de poblar",
+          "ok": true,
+          "tags": [],
+          "tests": [
             {
-              "title": "GET sin token → 401",
-              "ok": true,
-              "tags": [],
-              "tests": [
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
                 {
-                  "timeout": 30000,
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3763,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-22T22:18:56.945Z",
                   "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 10,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-08-06T02:23:35.225Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "attachments": []
                 }
               ],
-              "id": "0570615c7a2322fb331a-0501e389bb01fd7e554e",
-              "file": "08-excepciones.spec.ts",
-              "line": 96,
-              "column": 3
-            },
-            {
-              "title": "GET con token válido → 200 + estructura correcta",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 13,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-08-06T02:23:35.668Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "0570615c7a2322fb331a-0e0d1f69acc067d81633",
-              "file": "08-excepciones.spec.ts",
-              "line": 101,
-              "column": 3
-            },
-            {
-              "title": "POST sin token → 401",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 5,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-08-06T02:23:35.693Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "0570615c7a2322fb331a-1fc7007791a8998f95a4",
-              "file": "08-excepciones.spec.ts",
-              "line": 112,
-              "column": 3
-            },
-            {
-              "title": "API descartar: POST → 200 + bank_tx ya no aparece en lista de excepciones",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 168,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-08-06T02:23:35.712Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "0570615c7a2322fb331a-6ceb9bfb0edbdfea3935",
-              "file": "08-excepciones.spec.ts",
-              "line": 119,
-              "column": 3
-            },
-            {
-              "title": "API aplicar: monto que no coincide con ningún cargo → 422 o 404",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 42,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-08-06T02:23:35.888Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "0570615c7a2322fb331a-1d700b0e6243c79ea7dd",
-              "file": "08-excepciones.spec.ts",
-              "line": 146,
-              "column": 3
+              "status": "expected"
             }
-          ]
-        },
-        {
-          "title": "UI — /excepciones-conciliacion (sin datos propios)",
-          "file": "08-excepciones.spec.ts",
-          "line": 169,
-          "column": 6,
-          "specs": [
-            {
-              "title": "página carga sin errores de servidor (sin 500 en consola)",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 5736,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-08-06T02:23:35.939Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "0570615c7a2322fb331a-a34110ac04c03b5e818f",
-              "file": "08-excepciones.spec.ts",
-              "line": 175,
-              "column": 3
-            },
-            {
-              "title": "botón Actualizar es visible y clickeable",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1705,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-08-06T02:23:46.054Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "0570615c7a2322fb331a-a7f5455ad50c0506f51e",
-              "file": "08-excepciones.spec.ts",
-              "line": 186,
-              "column": 3
-            }
-          ]
-        },
-        {
-          "title": "UI — /excepciones-conciliacion (con datos reales)",
-          "file": "08-excepciones.spec.ts",
-          "line": 206,
-          "column": 6,
-          "specs": [
-            {
-              "title": "botón Resolver abre el modal de resolución",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1548,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-08-06T02:23:47.771Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "0570615c7a2322fb331a-e454134bf965fde77d4a",
-              "file": "08-excepciones.spec.ts",
-              "line": 215,
-              "column": 3
-            },
-            {
-              "title": "modal muestra las dos opciones reales: Aplicar a un cargo existente y Descartar",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1988,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-08-06T02:23:49.332Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "0570615c7a2322fb331a-75df800351f9cc27747b",
-              "file": "08-excepciones.spec.ts",
-              "line": 238,
-              "column": 3
-            },
-            {
-              "title": "flujo completo UI — Descartar → confirmar → excepción desaparece de la lista",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 4097,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-08-06T02:23:51.332Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "0570615c7a2322fb331a-fd475703d9d3ddd65892",
-              "file": "08-excepciones.spec.ts",
-              "line": 274,
-              "column": 3
-            }
-          ]
+          ],
+          "id": "3c5d77111eddee4a9aa0-6ab1c9e913f71e6fd809",
+          "file": "17-demo-setup.spec.ts",
+          "line": 3,
+          "column": 1
         }
       ]
     }
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-08-06T02:23:34.645Z",
-    "duration": 20882.303,
-    "expected": 10,
+    "startTime": "2026-08-22T22:18:55.953Z",
+    "duration": 5331.438999999999,
+    "expected": 1,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0

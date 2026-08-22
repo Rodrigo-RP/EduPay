@@ -54,8 +54,8 @@ export default function DemoSetup() {
               Poblar base de datos con datos demo
             </CardTitle>
             <CardDescription className="text-blue-700">
-              Esto creará: 1 escuela • 2 campus • 6 usuarios admin • 10 familias • 10 estudiantes •
-              5 conceptos de pago • ~50 cargos • pagos y CFDI simulados.
+              Esto creará datos financieros, becas, conciliación, CFDI simulados, aprobaciones,
+              planes de pago y productos para explorar todas las secciones del panel.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -99,6 +99,34 @@ export default function DemoSetup() {
         {/* Credenciales */}
         {result?.credenciales && (
           <>
+            {result.casosPrueba && (
+              <Card className="border-violet-200 bg-violet-50">
+                <CardHeader>
+                  <CardTitle className="text-violet-900">Casos destacados para probar</CardTitle>
+                  <CardDescription className="text-violet-700">
+                    Accesos creados específicamente para recorridos de administración, hermanos y becas.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-3 md:grid-cols-3 text-sm">
+                  <div className="rounded-lg border border-violet-200 bg-white p-3">
+                    <p className="font-semibold">{result.casosPrueba.administradorCompleto.rol}</p>
+                    <p className="font-mono text-xs mt-1">{result.casosPrueba.administradorCompleto.email}</p>
+                    <p className="text-slate-500 mt-1">pwd: <span className="font-mono">{result.casosPrueba.administradorCompleto.password}</span></p>
+                  </div>
+                  <div className="rounded-lg border border-violet-200 bg-white p-3">
+                    <p className="font-semibold">Pago de hermanos</p>
+                    <p className="font-mono text-xs mt-1">{result.casosPrueba.tutorHermanos.email}</p>
+                    <p className="text-slate-500 mt-1">{result.casosPrueba.tutorHermanos.estudiantes.join(" · ")}</p>
+                  </div>
+                  <div className="rounded-lg border border-violet-200 bg-white p-3">
+                    <p className="font-semibold">Beca aplicada</p>
+                    <p className="font-mono text-xs mt-1">{result.casosPrueba.tutorBeca.email}</p>
+                    <p className="text-slate-500 mt-1">{result.casosPrueba.tutorBeca.estudiante} · {result.casosPrueba.tutorBeca.beca}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Usuarios admin */}
             <Card>
               <CardHeader>
@@ -199,6 +227,25 @@ export default function DemoSetup() {
               </CardContent>
             </Card>
           </>
+        )}
+
+        {result?.tableCounts && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-slate-800">Registros generados por tabla</CardTitle>
+              <CardDescription>Conteo real posterior al seed, para verificar la cobertura de las pantallas.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {Object.entries(result.tableCounts).map(([table, count]) => (
+                  <div key={table} className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2 text-sm">
+                    <code className="text-xs text-slate-600">{table}</code>
+                    <Badge variant="secondary">{String(count)}</Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Log de seed */}

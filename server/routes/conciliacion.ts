@@ -1483,6 +1483,31 @@ export function registerConciliacionRoutes(app: Express): void {
     }
   });
 
+  // ── GET /api/conciliacion/excepciones/count ───────────────────────────────
+  // Conteo mínimo para la insignia de navegación. Evita descargar el dashboard
+  // completo sólo para saber cuántas excepciones bancarias hay.
+  app.get("/api/conciliacion/excepciones/count", authenticateToken, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const campusId = user?.campus_id;
+      const ROLES_OK = ['administrador_general','administrador_campus','super_admin','caja','auxiliar_caja','contador_general','asistente'];
+      if (!campusId) return res.status(400).json({ message: "Campus requerido" });
+      if (!user?.is_super_admin && !ROLES_OK.includes(user?.role)) {
+        return res.status(403).json({ message: "Sin permisos para ver excepciones de conciliación" });
+      }
+
+      const result = await pool.query(
+        `SELECT COUNT(*)::int AS total_pendiente
+         FROM bank_transactions
+         WHERE campus_id = $1 AND estado_conciliacion = 'pendiente'`,
+        [campusId],
+      );
+      res.json({ total_pendiente: Number(result.rows[0]?.total_pendiente ?? 0) });
+    } catch {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
   // ── GET /api/conciliacion/excepciones ─────────────────────────────────────
   // Devuelve transacciones bancarias sin conciliar del campus del usuario.
   // Requiere rol administrativo (no disponible para roles de sólo lectura).

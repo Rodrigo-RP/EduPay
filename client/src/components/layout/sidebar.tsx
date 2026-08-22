@@ -14,30 +14,25 @@ export default function Sidebar() {
 
   const userRole = (user?.role as UserRole) || 'asistente';
 
-  // ── Conteo de excepciones bancarias pendientes (polling cada 60 s) ───────────
+  // ── Conteo de excepciones bancarias pendientes ───────────────────────────────
+  // La barra lateral no debe descargar el dashboard completo ni mantener un
+  // polling: el conteo se carga una vez para esta sesión de navegación.
   const [excepcionesPendientes, setExcepcionesPendientes] = useState(0);
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
     if (!token) return;
 
-    const fetchCount = () => {
-      const campusId = (user as any)?.campus_id ?? 48;
-      fetch(`/api/admin/dashboard/${campusId}`, {
-        headers: { Authorization: `Bearer ${token}` },
+    fetch("/api/conciliacion/excepciones/count", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data && typeof data.total_pendiente === "number") {
+          setExcepcionesPendientes(data.total_pendiente);
+        }
       })
-        .then((r) => r.ok ? r.json() : null)
-        .then((data) => {
-          if (data && typeof data.excepciones_pendientes === "number") {
-            setExcepcionesPendientes(data.excepciones_pendientes);
-          }
-        })
-        .catch(() => {});
-    };
-
-    fetchCount();
-    const interval = setInterval(fetchCount, 60_000);
-    return () => clearInterval(interval);
-  }, [user]);
+      .catch(() => {});
+  }, [user?.id]);
 
   // Definir elementos del menú con permisos
   const getAllMenuItems = () => [

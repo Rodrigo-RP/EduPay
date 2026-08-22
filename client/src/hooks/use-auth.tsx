@@ -36,6 +36,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    const clearInvalidSession = () => {
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("auth_type");
+      localStorage.removeItem("auth_user");
+      setUser(null);
+      setGuardian(null);
+    };
+
+    window.addEventListener("auth:invalid-session", clearInvalidSession);
+
     // Check for existing token on mount
     const token = localStorage.getItem("auth_token");
     const userType = localStorage.getItem("auth_type");
@@ -58,6 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       setIsLoading(false);
     }
+
+    return () => window.removeEventListener("auth:invalid-session", clearInvalidSession);
   }, []);
 
   const login = async (email: string, password: string, totp_code?: string) => {

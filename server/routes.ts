@@ -37,6 +37,7 @@ import { registerReportesAntiguedadSaldosRoutes } from "./routes/reportes-antigu
 import { registerReportesRiesgoRoutes }           from "./routes/reportes-riesgo";
 import { registerAccionesRoutes }                from "./routes/acciones";
 import { registerStripeWebhookRoute, registerCampusPaymentRoutes } from "./routes/campus-payment";
+import { authenticateToken } from "./routes/shared";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // ── Trust proxy (Replit reverse proxy) ──────────────────────────────────────
@@ -66,16 +67,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   //   → rateLimits.auth: 10 req / 15 min (estricto).
   //
   // • /api/admin, /api/super-admin
-  //   → ya requieren JWT válido; la autenticación es la barrera primaria.
-  //   → Sin rate-limit adicional: no aporta protección real y causa 429
-  //     espurios en suites de integración (~32 req/corrida).
+  //   → validar JWT ANTES de contabilizar. Así un token vencido no puede
+  //     consumir el presupuesto de una sesión administrativa válida.
+  //   → rateLimits.apiAuth conserva 300 req / 5 min por usuario autenticado.
   //
   // • /api/security → conserva rateLimits.api (50 req / 5 min).
   app.use("/api/auth/login",          rateLimits.auth);    // 10/15min — endpoint público
   app.use("/api/auth/guardian-login", rateLimits.auth);    // 10/15min — endpoint público
   app.use("/api/auth/magic",          rateLimits.auth);    // 10/15min — endpoint público
-  app.use("/api/admin",               rateLimits.apiAuth); // 300/5min — ya requiere JWT
-  app.use("/api/super-admin",         rateLimits.apiAuth); // 300/5min — ya requiere JWT
+  app.use("/api/admin",               authenticateToken, rateLimits.apiAuth); // 300/5min — JWT primero
+  app.use("/api/super-admin",         authenticateToken, rateLimits.apiAuth); // 300/5min — JWT primero
   app.use("/api/security",            rateLimits.api);     // 50/5min
   // Endpoint de pago del portal de padres — mayor riesgo económico del portal.
   // Limiter específico para /api/guardian/pagar (no el prefijo completo) para no

@@ -121,6 +121,11 @@ export async function loadGuardianPasswordChangedAt(
 
 // ── Middleware: autenticación de usuarios (admin/staff) ──────────────────────
 export const authenticateToken = async (req: any, res: any, next: any) => {
+  // Los prefijos /api/admin y /api/super-admin se autentican antes de su
+  // rate-limiter. Las rutas internas conservan este middleware por defensa en
+  // profundidad; evitar verificar y consultar la DB dos veces en esa cadena.
+  if (req.user) return next();
+
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
   if (!token) return res.status(401).json({ message: "Token requerido" });

@@ -257,6 +257,16 @@ describe("Excepciones de Conciliación — motor financiero", () => {
     expect(typeof body.total_pendiente).toBe("number");
   });
 
+  it("GET /count con token válido → 200 con conteo ligero", async () => {
+    const res = await fetch(`${BASE}/api/conciliacion/excepciones/count`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(typeof body.total_pendiente).toBe("number");
+    expect(body.total_pendiente).toBeGreaterThanOrEqual(0);
+  });
+
   // ─── 3. VALIDACIONES DE PARÁMETROS ────────────────────────────────────────
 
   it("acción inválida → 400", async () => {

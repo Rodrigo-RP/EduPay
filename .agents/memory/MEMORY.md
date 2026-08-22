@@ -45,6 +45,7 @@
 - [Conciliacion scoring engine](conciliacion-scoring-engine.md) — applyReconciliation (export); score=100 vs 90-99 branching; cola revisión = query sobre bank_transactions.confianza_pct+conciliado_at; Neon usa WebSocket, psql falla con "endpoint disabled".
 - [Bank transactions importar blindaje](bank-tx-importar.md) — guard PAYMENTS.PROCESS; dedup mig-016 UNIQUE parcial (referencia IS NOT NULL); tenant_id desde JWT; rowCount===1 para contador real; skipped vs failed distintos.
 - [Rate limit acumulado entre runs de Vitest](rate-limit-vitest-runs.md) — el rate limiter del servidor (300 req/5min) acumula entre runs consecutivos sin reinicio; solución: WorkflowsRestart antes de cada npx vitest run completo.
+- [Admin rate-limit isolation](admin-rate-limit-isolation.md) — validar JWT antes del limiter y aislar el bucket por tenant/usuario evita que proxies o sesiones vencidas bloqueen el panel.
 - [PDF parser validation](pdf-parser-validation.md) — pdfjs-dist (no pdf-parse) para BBVA; CARGO x≤400 / ABONO x≥410; Santander disponible es escaneado (0 texto).
 - [Parser BBVA PDF](bank-parsers-bbva.md) — BBVAParser + parseFromLines + /importar-pdf; umbrales X, estructura SPEI, helper insertBankRows compartido con /importar.
 - [IEDU validators & CURP](iedu-curp-validators.md) — CURP_RE oficial SAT, path ../lib/validators, prefijos canónicos de test, CHECK constraint TEAT% para rollback tests.

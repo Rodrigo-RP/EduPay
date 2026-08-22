@@ -76,6 +76,7 @@ const createRateLimit = (
   max: number,
   message: string,
   store?: InstanceType<typeof MemoryStore>,
+  keyGenerator?: (req: Request, res: Response) => string,
 ) => {
   return rateLimit({
     windowMs,
@@ -84,6 +85,7 @@ const createRateLimit = (
     standardHeaders: true,
     legacyHeaders: false,
     ...(store ? { store } : {}),
+    ...(keyGenerator ? { keyGenerator } : {}),
     handler: (req: Request, res: Response) => {
       SecurityAudit.logSecurityEvent({
         userId: (req as any).user?.id,
@@ -116,6 +118,22 @@ const _paymentLimiterStore = new MemoryStore();
 const _authLimiterStore    = new MemoryStore();
 const _apiAuthLimiterStore = new MemoryStore();
 
+/**
+ * Los prefijos administrativos validan el JWT antes de llegar al limiter, de
+ * modo que req.user permite aislar el presupuesto por usuario y tenant. El
+ * fallback hash nunca expone un bearer token en el store, logs o headers.
+ */
+export function getApiAuthRateLimitKey(req: Request): string {
+  const user = (req as any).user;
+  if (user?.id) {
+    return `api-auth:user:${user.tenant_id ?? "global"}:${user.id}`;
+  }
+
+  const bearerToken = req.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+  const identity = bearerToken || req.ip || "unknown";
+  return `api-auth:${createHash("sha256").update(identity).digest("hex")}`;
+}
+
 /** Resetea el bucket del rate-limiter de /api/guardian/pagar para tests. */
 export function resetPaymentRateLimitStore(): void {
   // Express puede representar localhost como cualquiera de estas tres variantes
@@ -137,9 +155,7 @@ export function resetLoginRateLimitStore(): void {
  *  evitar que corridas consecutivas acumulen el contador y generen 429 inesperados.
  */
 export function resetApiAuthRateLimitStore(): void {
-  void _apiAuthLimiterStore.resetKey('::1');
-  void _apiAuthLimiterStore.resetKey('127.0.0.1');
-  void _apiAuthLimiterStore.resetKey('::ffff:127.0.0.1');
+  void _apiAuthLimiterStore.resetAll();
 }
 
 // Diferentes límites según el endpoint
@@ -156,7 +172,13 @@ export const rateLimits = {
   // encima del uso legítimo y de la suite (~32 req/corrida × 2 corridas = 64),
   // pero frenará cualquier script automatizado que abuse del mismo token.
   // store explícito → permite resetear el bucket en tests (resetApiAuthRateLimitStore).
-  apiAuth:   createRateLimit(5  * 60 * 1000, 300, 'Demasiadas solicitudes a la API autenticada', _apiAuthLimiterStore),
+  apiAuth:   createRateLimit(
+    5 * 60 * 1000,
+    300,
+    'Demasiadas solicitudes a la API autenticada',
+    _apiAuthLimiterStore,
+    getApiAuthRateLimitKey,
+  ),
 };
 
 // ========================================

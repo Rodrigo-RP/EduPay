@@ -15,7 +15,7 @@
 ### 👤 Administrador Real
 - **Nombre**: Rodrigo Ramos Pérez
 - **Email**: rodrigorp@institutojfr.edu.mx
-- **Contraseña**: [REDACTED]
+- **Contraseña**: Retirada por seguridad. Las contraseñas no deben almacenarse en código ni documentación.
 - **Teléfono**: +52 933 123 4567
 - **Rol**: Administrador
 
@@ -70,8 +70,6 @@
 
 ## 🔐 ACCESO AL SISTEMA
 
-**URL**: Acceder con las credenciales del administrador real
-**Email**: rodrigorp@institutojfr.edu.mx
-**Password**: [REDACTED]
+**URL**: Acceder con una cuenta provisionada mediante el flujo administrativo aprobado.
 
 El sistema está listo para recibir datos reales del Instituto JFR.

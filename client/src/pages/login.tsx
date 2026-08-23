@@ -12,7 +12,7 @@ type Step = "credentials" | "totp";
 
 export default function Login() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("[REDACTED]");
+  const [password, setPassword] = useState("");
   const [totpCode, setTotpCode] = useState("");
   const [step, setStep] = useState<Step>("credentials");
   const [isLoading, setIsLoading] = useState(false);

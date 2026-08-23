@@ -11,7 +11,7 @@ description: Credenciales reales de demo — rodrigorp NO existe, usar admin.cam
 | superadmin@edupay.mx | Demo2025! | super_admin | null |
 
 ## IMPORTANTE
-- `rodrigorp@institutojfr.edu.mx / [REDACTED]` — NO existe en la base de datos de demo. Este usuario aparece en la pantalla de login como placeholder visual pero no está en el seed.
+- `rodrigorp@institutojfr.edu.mx` no existe en la base de datos de demo y ya no aparece precargado en el login.
 - Para validaciones y pruebas de API, usar `admin.campus@jfr.edu.mx`.
 - El campus_id era 48 en sesiones anteriores, pero después de un TRUNCATE RESTART IDENTITY el campus quedó con campus_id=1. Siempre verificar con el login real antes de usar un campus_id hardcodeado.
 

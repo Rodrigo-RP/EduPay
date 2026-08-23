@@ -59,7 +59,7 @@ Sistema plugin interno para monitoreo automático y notificación de credenciale
 - Validación de estadísticas en tiempo real
 
 ### ✅ Datos de Prueba Activos
-- 3 credenciales configuradas para rodrigorp@institutojfr.edu.mx
+- 3 credenciales configuradas para la cuenta administrativa de prueba retirada
 - 2 credenciales urgencia ALTA (vencen en 2 días)
 - 1 credencial urgencia BAJA (vence en 8 días)
 

@@ -10,7 +10,7 @@
 ### 👤 **Administrador Real Activo**
 - **Nombre**: Rodrigo Ramos Pérez
 - **Email**: rodrigorp@institutojfr.edu.mx
-- **Contraseña**: [REDACTED]
+- **Contraseña**: Retirada por seguridad. No guardar contraseñas en archivos del repositorio.
 - **Campus**: Campus Principal - Comalcalco
 - **Rol**: admin
 

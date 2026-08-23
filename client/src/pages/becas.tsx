@@ -203,6 +203,7 @@ function BecasReglaAuto() {
 }
 
 export default function Becas() {
+  const { user } = useAuth();
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedTab, setSelectedTab] = useState("becas");
   const [showAsignarModal, setShowAsignarModal] = useState(false);
@@ -218,6 +219,11 @@ export default function Becas() {
   const [importResults, setImportResults] = useState<any>(null);
   const [showImportResults, setShowImportResults] = useState(false);
   const { toast } = useToast();
+  const campusId = user?.campus_id;
+  const { data: scholarshipAssignments = [] } = useQuery<any[]>({
+    queryKey: ["/api/scholarships", campusId],
+    enabled: Boolean(campusId),
+  });
 
   // Funciones para importación masiva de CSV - usando el mismo patrón que estudiantes
   const generateBecasTemplate = () => {
@@ -357,7 +363,7 @@ export default function Becas() {
   };
 
   // Sistema de gestión administrativa de becas y descuentos
-  const becasYDescuentos = [
+  const becasYDescuentosMock = [
     {
       id: 1,
       nombre: "Beca USEBEQ",
@@ -473,7 +479,7 @@ export default function Becas() {
   ];
 
   // Estudiantes para gestión de becas
-  const estudiantesParaBecas = [
+  const estudiantesParaBecasMock = [
     {
       id: 1,
       nombre_completo: "Ana García Pérez",
@@ -554,10 +560,58 @@ export default function Becas() {
     }
   ];
 
-  const totalTiposBecas = becasYDescuentos.filter(b => b.activa).length;
-  const totalEstudiantesBeneficiados = becasYDescuentos.reduce((sum, b) => sum + b.estudiantes_aplicados, 0);
-  const montoTotalDescuentos = becasYDescuentos.reduce((sum, b) => sum + b.monto_total_descuento, 0);
-  const promedioDescuento = becasYDescuentos.reduce((sum, b) => sum + (b.porcentaje_max || 0), 0) / becasYDescuentos.length;
+  // `vigente` se calcula en el backend con la misma regla que usa el asistente:
+  // alumno activo del campus actual y beca con vigencia válida hoy.
+  const becasVigentes = scholarshipAssignments.filter(
+    (beca) => beca.vigente && beca.student_status === "activo",
+  );
+  const estudiantesParaBecas = becasVigentes.map((beca) => ({
+    id: beca.id,
+    nombre_completo: beca.alumno,
+    grado: [beca.nivel_escolar, beca.grado, beca.grupo].filter(Boolean).join(" · "),
+    hermanos_inscritos: 0,
+    tipo_solicitud: beca.tipo_nombre || "Beca sin tipo",
+    porcentaje_asignado: Number(beca.porcentaje_aplicado || 0),
+    estado: "Activa",
+    fecha_asignacion: beca.vigencia_inicio,
+    observaciones: beca.observaciones || "Asignación vigente",
+  }));
+  const becasAgrupadas = new Map<string, any>();
+  for (const beca of becasVigentes) {
+    const key = String(beca.scholarship_type_id ?? beca.tipo_nombre ?? beca.id);
+    const actual = becasAgrupadas.get(key) ?? {
+      id: beca.scholarship_type_id ?? beca.id,
+      nombre: beca.tipo_nombre || "Beca sin tipo",
+      categoria: beca.tipo_categoria || "manual",
+      tipo: beca.tipo_algoritmo || "manual",
+      descripcion: beca.observaciones || "Beca asignada a estudiantes activos",
+      porcentaje_max: 0,
+      estudiantes: new Set<number>(),
+      monto_total_descuento: 0,
+      asignacion: "Asignación vigente registrada",
+      vigencia: "Vigente",
+      activa: true,
+    };
+    actual.porcentaje_max = Math.max(actual.porcentaje_max, Number(beca.porcentaje_aplicado || 0));
+    actual.estudiantes.add(Number(beca.student_id));
+    actual.monto_total_descuento += Number(beca.monto_descuento_centavos || 0);
+    becasAgrupadas.set(key, actual);
+  }
+  const becasYDescuentos = Array.from(becasAgrupadas.values()).map((beca) => ({
+    ...beca,
+    estudiantes_aplicados: beca.estudiantes.size,
+  }));
+  const totalTiposBecas = becasYDescuentos.length;
+  const totalEstudiantesBeneficiados = new Set(
+    becasVigentes.map((beca) => Number(beca.student_id)),
+  ).size;
+  const montoTotalDescuentos = becasYDescuentos.reduce(
+    (sum, beca) => sum + beca.monto_total_descuento,
+    0,
+  );
+  const promedioDescuento = becasVigentes.length
+    ? becasVigentes.reduce((sum, beca) => sum + Number(beca.porcentaje_aplicado || 0), 0) / becasVigentes.length
+    : 0;
 
   // Funciones para manejar acciones de botones
   const handleEditBeca = (beca: any) => {
@@ -685,50 +739,9 @@ ${b.nombre}:
   };
 
   const handleActivateAllBecas = () => {
-    // Contar becas inactivas antes de activar
-    const inactiveBecas = becasYDescuentos.filter(b => !b.activa);
-    const totalActivated = inactiveBecas.length;
-    
-    // Activar todas las becas inactivas
-    becasYDescuentos.forEach(beca => {
-      if (!beca.activa) {
-        beca.activa = true;
-      }
-    });
-
-    // Detectar y aplicar automáticamente descuentos por hermanos
-    const estudiantesConHermanos = estudiantesParaBecas.filter(e => e.hermanos_inscritos > 1);
-    const hermanosBeneficiados = estudiantesConHermanos.length;
-
-    // Activar algoritmos automáticos
-    const becasAutomaticas = becasYDescuentos.filter(b => b.tipo === 'automatico');
-    
-    // Procesar nuevas asignaciones automáticas
-    estudiantesConHermanos.forEach(estudiante => {
-      if (estudiante.tipo_solicitud !== 'familiar') {
-        // Aplicar descuento por hermanos automáticamente
-        const porcentajeDescuento = estudiante.hermanos_inscritos === 2 ? 20 :
-                                   estudiante.hermanos_inscritos === 3 ? 30 : 40;
-        estudiante.tipo_solicitud = 'familiar';
-        estudiante.porcentaje_asignado = porcentajeDescuento;
-        estudiante.estado = 'Automática';
-        estudiante.observaciones = `Descuento automático por ${estudiante.hermanos_inscritos} hermanos inscritos`;
-      }
-    });
-
-    // Activar becas suspendidas por renovación
-    const becasSuspendidas = estudiantesParaBecas.filter(e => e.estado === 'Pendiente Renovación');
-    becasSuspendidas.forEach(estudiante => {
-      estudiante.estado = 'Activa';
-    });
-
     toast({
-      title: "Sistema de Becas Completamente Activado",
-      description: `✓ ${totalActivated} tipos de becas reactivadas
-✓ ${hermanosBeneficiados} descuentos por hermanos aplicados automáticamente  
-✓ ${becasAutomaticas.length} algoritmos automáticos funcionando
-✓ ${becasSuspendidas.length} becas pendientes reactivadas
-✓ Todos los beneficios se aplicarán en próximos cargos`,
+      title: "Asignaciones vigentes mostradas",
+      description: "La información se consulta directamente de las becas vigentes. Para cambiar una asignación usa el flujo de alta o edición correspondiente.",
     });
   };
 

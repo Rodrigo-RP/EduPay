@@ -411,13 +411,33 @@ export function registerAdminRoutes(app: Express): void {
       //   sin estado, sin monto_fijo_aplicado_centavos.
       // Alias en el SELECT mantienen los nombres que espera el frontend.
       const rows = await pool.query(`
-        SELECT s.id, s.student_id,
+        SELECT s.id, s.student_id, s.scholarship_type_id,
                s.porcentaje               AS porcentaje_aplicado,
                s.motivo                   AS observaciones,
                s.vigencia_inicio, s.vigencia_fin,
                st.nombre                  AS tipo_nombre,
                st.categoria               AS tipo_categoria,
-               stu.nombre_completo        AS alumno
+               st.algoritmo                AS tipo_algoritmo,
+               stu.nombre_completo        AS alumno,
+               stu.nivel_escolar,
+               stu.grado,
+               stu.grupo,
+               stu.status                 AS student_status,
+               (
+                 s.vigencia_inicio <= CURRENT_DATE
+                 AND (s.vigencia_fin IS NULL OR s.vigencia_fin >= CURRENT_DATE)
+                 AND stu.status = 'activo'
+               )                          AS vigente,
+               COALESCE((
+                 SELECT SUM(
+                   (c.monto_base_centavos * COALESCE(c.beca_aplicada, 0) / 100)::bigint
+                 )
+                 FROM charges c
+                 WHERE c.student_id = s.student_id
+                   AND c.tenant_id = s.tenant_id
+                   AND c.beca_aplicada > 0
+                   AND c.fecha_emision <= CURRENT_DATE
+               ), 0)                      AS monto_descuento_centavos
         FROM scholarships s
         JOIN students stu ON stu.id = s.student_id
         LEFT JOIN scholarship_types st ON st.id = s.scholarship_type_id

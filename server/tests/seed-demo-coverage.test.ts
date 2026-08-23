@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { pool } from "../db";
 import { seedDemoData } from "../seed-demo";
+import { executeAction } from "../assistant-actions";
 
 const REQUIRED_TABLES = [
   "bank_transactions",
@@ -98,5 +99,67 @@ describe("SEED-02: datos demo completos para pantallas reales", () => {
       expect(campus.students, `${campus.campus_name} requiere alumnos demo`).toBeGreaterThan(0);
       expect(campus.products, `${campus.campus_name} requiere productos demo`).toBeGreaterThan(0);
     }
+  });
+
+  it("crea familias y alumnos en kinder, primaria, secundaria y bachillerato por campus", async () => {
+    const { rows } = await pool.query<{
+      campus_name: string;
+      niveles: string[];
+      familias: number;
+      alumnos_familia: number;
+    }>(`
+      SELECT c.nombre AS campus_name,
+             ARRAY_AGG(DISTINCT s.nivel_escolar) AS niveles,
+             COUNT(DISTINCT f.id)::int AS familias,
+             COUNT(DISTINCT fs.student_id)::int AS alumnos_familia
+      FROM campuses c
+      INNER JOIN students s ON s.campus_id = c.id AND s.status = 'activo'
+      INNER JOIN family_students fs ON fs.student_id = s.id
+      INNER JOIN families f ON f.id = fs.family_id AND f.campus_id = c.id
+      WHERE c.nombre IN ('Campus Norte', 'Campus Sur')
+      GROUP BY c.id, c.nombre
+      ORDER BY c.nombre
+    `);
+
+    expect(rows).toHaveLength(2);
+    for (const campus of rows) {
+      expect(campus.niveles, `${campus.campus_name} debe incluir Kinder`).toContain("Kinder");
+      expect(campus.niveles, `${campus.campus_name} debe incluir Primaria`).toContain("Primaria");
+      expect(campus.niveles, `${campus.campus_name} debe incluir Secundaria`).toContain("Secundaria");
+      expect(campus.niveles, `${campus.campus_name} debe incluir Bachillerato`).toContain("Bachillerato");
+      expect(campus.familias, `${campus.campus_name} requiere familias demo`).toBeGreaterThanOrEqual(4);
+      expect(campus.alumnos_familia, `${campus.campus_name} requiere alumnos relacionados a familias`).toBeGreaterThanOrEqual(4);
+    }
+  });
+
+  it("da al asistente el mismo número de beneficiarios vigentes que el panel", async () => {
+    const { rows: campusRows } = await pool.query<{ id: number; tenant_id: number }>(
+      `SELECT id, tenant_id FROM campuses WHERE nombre = 'Campus Norte'`,
+    );
+    const campus = campusRows[0];
+    expect(campus).toBeDefined();
+
+    const { rows: expectedRows } = await pool.query<{ asignaciones: number; beneficiarios: number }>(
+      `SELECT COUNT(*)::int AS asignaciones,
+              COUNT(DISTINCT sh.student_id)::int AS beneficiarios
+       FROM scholarships sh
+       INNER JOIN students s ON s.id = sh.student_id
+       WHERE s.campus_id = $1
+         AND s.status = 'activo'
+         AND sh.vigencia_inicio <= CURRENT_DATE
+         AND (sh.vigencia_fin IS NULL OR sh.vigencia_fin >= CURRENT_DATE)`,
+      [campus.id],
+    );
+
+    const result = await executeAction("query:contar", { entity: "becas" }, {
+      campusId: campus.id,
+      tenantId: campus.tenant_id,
+      userId: 0,
+    });
+    expect(result.success).toBe(true);
+    expect(Number(result.rows?.find((row) => row.label === "Asignaciones vigentes")?.value))
+      .toBe(expectedRows[0].asignaciones);
+    expect(Number(result.rows?.find((row) => row.label === "Alumnos beneficiados")?.value))
+      .toBe(expectedRows[0].beneficiarios);
   });
 });

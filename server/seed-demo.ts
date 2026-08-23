@@ -330,7 +330,39 @@ export async function seedDemoData() {
       monto_centavos: 220000,
       iva: false,
     }).returning();
-    log("✅ 5 conceptos de pago creados");
+    const [concColNorteKinder] = await db.insert(concepts).values({
+      campus_id: campusNorte.id,
+      nombre: "Colegiatura Mensual Kinder",
+      tipo: "colegiatura",
+      periodicidad: "mensual",
+      monto_centavos: 220000,
+      iva: false,
+    }).returning();
+    const [concColNorteBach] = await db.insert(concepts).values({
+      campus_id: campusNorte.id,
+      nombre: "Colegiatura Mensual Bachillerato",
+      tipo: "colegiatura",
+      periodicidad: "mensual",
+      monto_centavos: 420000,
+      iva: false,
+    }).returning();
+    const [concColSurSec] = await db.insert(concepts).values({
+      campus_id: campusSur.id,
+      nombre: "Colegiatura Mensual Secundaria",
+      tipo: "colegiatura",
+      periodicidad: "mensual",
+      monto_centavos: 350000,
+      iva: false,
+    }).returning();
+    const [concColSurBach] = await db.insert(concepts).values({
+      campus_id: campusSur.id,
+      nombre: "Colegiatura Mensual Bachillerato",
+      tipo: "colegiatura",
+      periodicidad: "mensual",
+      monto_centavos: 420000,
+      iva: false,
+    }).returning();
+    log("✅ 9 conceptos de pago creados");
 
     // ── Familias (padres, madres y estudiantes) ──────────────────────────────
     log("👨‍👩‍👧 Creando 10 familias con estudiantes...");
@@ -396,11 +428,44 @@ export async function seedDemoData() {
         estudiante: { nombres: "Rodrigo Maximiliano", ap: "Pedraza", am: "Lara", grado: "2°", grupo: "B", nivel: "Kinder", curp: "PELR200310HDFRRG10" },
         campus: campusSur, concept: concColSurPrim,
       },
+      {
+        padre: { nombres: "Raúl Esteban", ap: "Navarro", am: "Mendoza", celular: "5481234567", curp: "NAMR820401HDFVRL11" },
+        madre: { nombres: "Lucía Fernanda", ap: "Mendoza", am: "Soto", celular: "5488901234", curp: "MESL850710MDFNRC11" },
+        estudiante: { nombres: "Alma Sofía", ap: "Navarro", am: "Mendoza", grado: "3°", grupo: "A", nivel: "Kinder", curp: "NAMA210413MDFVRL11" },
+        campus: campusNorte, concept: concColNorteKinder,
+      },
+      {
+        padre: { nombres: "Iván Ricardo", ap: "Salazar", am: "Pineda", celular: "5471234567", curp: "SAPI790602HDFLNV12" },
+        madre: { nombres: "Teresa Alejandra", ap: "Pineda", am: "Cortés", celular: "5478901234", curp: "PICT820824MDFNRS12" },
+        estudiante: { nombres: "Daniela Marisol", ap: "Salazar", am: "Pineda", grado: "2°", grupo: "A", nivel: "Bachillerato", curp: "SAPD090912MDFLNN12" },
+        campus: campusNorte, concept: concColNorteBach,
+      },
+      {
+        padre: { nombres: "Óscar Manuel", ap: "Cervantes", am: "Ríos", celular: "5461234567", curp: "CERO800309HDFRSC13" },
+        madre: { nombres: "Mariana Isabel", ap: "Ríos", am: "Delgado", celular: "5468901234", curp: "RIDM830217MDFSLR13" },
+        estudiante: { nombres: "Jorge Emiliano", ap: "Cervantes", am: "Ríos", grado: "3°", grupo: "B", nivel: "Secundaria", curp: "CERJ110818HDFRMR13" },
+        campus: campusSur, concept: concColSurSec,
+      },
+      {
+        padre: { nombres: "Sergio Adrián", ap: "Beltrán", am: "Vargas", celular: "5451234567", curp: "BEVS780427HDFLRR14" },
+        madre: { nombres: "Karen Beatriz", ap: "Vargas", am: "Núñez", celular: "5458901234", curp: "VANK810614MDFRZR14" },
+        estudiante: { nombres: "Renata Ximena", ap: "Beltrán", am: "Vargas", grado: "1°", grupo: "C", nivel: "Bachillerato", curp: "BEVR100625MDFLRN14" },
+        campus: campusSur, concept: concColSurBach,
+      },
     ];
 
     const today = startOfDay(new Date());
     const thisYear = today.getFullYear();
-    const demoStudents: Array<{ id: number; campusId: number; conceptId: number; padreId: number; madreId: number; becaPct: number }> = [];
+    const demoStudents: Array<{
+      id: number;
+      campusId: number;
+      conceptId: number;
+      padreId: number;
+      madreId: number;
+      becaPct: number;
+      nivel: string;
+      familyId: number;
+    }> = [];
     const demoCharges: Array<{ id: number; studentId: number; conceptId: number; campusId: number; status: string; amount: number }> = [];
     const demoPayments: Array<{ id: number; chargeId: number; guardianId: number; amount: number }> = [];
 
@@ -460,8 +525,22 @@ export async function seedDemoData() {
         { student_id: student.id, guardian_id: padre.id, porcentaje_responsabilidad: "50.00", es_responsable_pago: true },
         { student_id: student.id, guardian_id: madre.id, porcentaje_responsabilidad: "50.00", es_responsable_pago: false },
       ]);
+      const { rows: createdFamilies } = await pool.query<{ id: number }>(
+        `INSERT INTO families (tenant_id, campus_id, nombre, guardian_id_principal)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id`,
+        [tenant.id, f.campus.id, `Familia ${f.padre.ap} ${f.madre.ap}`, padre.id],
+      );
+      const familyId = createdFamilies[0]?.id;
+      if (!familyId) throw new Error(`No se pudo crear la familia demo de ${f.padre.ap}`);
+      await pool.query(
+        `INSERT INTO family_students (family_id, student_id) VALUES ($1, $2)`,
+        [familyId, student.id],
+      );
 
-      const becaPct = [50, 30, 20][i] ?? 0;
+      // Los porcentajes corresponden a las asignaciones de scholarships que se
+      // crean más abajo. Así el ahorro mostrado en Becas sale de cargos reales.
+      const becaPct = [50, 30, 20, 0, 0, 0, 0, 40, 0, 30, 20, 25, 20, 25][i] ?? 0;
       demoStudents.push({
         id: student.id,
         campusId: f.campus.id,
@@ -469,6 +548,8 @@ export async function seedDemoData() {
         padreId: padre.id,
         madreId: madre.id,
         becaPct,
+        nivel: f.estudiante.nivel,
+        familyId,
       });
 
       // Cargos del ciclo actual: fechas variadas para cobranza, antigüedad y emisión programada.
@@ -572,7 +653,7 @@ export async function seedDemoData() {
       });
     }
 
-    log(`✅ 10 familias creadas (10 padres, 10 madres, 10 estudiantes)`);
+    log(`✅ ${familias.length} familias creadas (${familias.length} padres, ${familias.length} madres, ${familias.length} estudiantes)`);
 
     // ── Casos financieros y familiares para las pantallas reales ─────────────
     const familiaPrincipal = demoStudents[0];
@@ -610,7 +691,13 @@ export async function seedDemoData() {
       padreId: familiaPrincipal.padreId,
       madreId: familiaPrincipal.madreId,
       becaPct: 0,
+      nivel: "Primaria",
+      familyId: familiaPrincipal.familyId,
     });
+    await pool.query(
+      `INSERT INTO family_students (family_id, student_id) VALUES ($1, $2)`,
+      [familiaPrincipal.familyId, hermano.id],
+    );
 
     const [cargoHermano] = await db.insert(charges).values({
       tenant_id: tenant.id,
@@ -633,16 +720,7 @@ export async function seedDemoData() {
       amount: 280000,
     });
 
-    const { rows: familyRows } = await pool.query<{
-      id: number;
-    }>(
-      `INSERT INTO families (tenant_id, campus_id, nombre, guardian_id_principal)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id`,
-      [tenant.id, familiaPrincipal.campusId, "Familia López Hernández", familiaPrincipal.padreId],
-    );
-    const familyId = familyRows[0]?.id;
-    if (!familyId) throw new Error("No fue posible crear el ancla familiar demo");
+    const familyId = familiaPrincipal.familyId;
 
     const cargoPrimerHermano = demoCharges.find(
       (charge) => charge.studentId === familiaPrincipal.id && charge.status === "pendiente",
@@ -778,6 +856,22 @@ export async function seedDemoData() {
     const hermanosId = scholarshipTypeByName.get("Beca Hermanos");
     const deportivaId = scholarshipTypeByName.get("Beca Deportiva");
     if (!excelenciaId || !hermanosId || !deportivaId) throw new Error("No se crearon los tipos de beca demo");
+    const { rows: scholarshipTypeRowsSur } = await pool.query<{ id: number; nombre: string }>(
+      `INSERT INTO scholarship_types (campus_id, nombre, categoria, descripcion, algoritmo, activo)
+       VALUES
+         ($1, 'Beca Excelencia Académica', 'academica', 'Reconoce alto desempeño académico', 'promedio', true),
+         ($1, 'Beca Hermanos', 'descuento', 'Apoyo para familias con más de un estudiante', 'hermanos', true),
+         ($1, 'Beca Deportiva', 'deportiva', 'Apoyo por representación deportiva', 'manual', true)
+       RETURNING id, nombre`,
+      [campusSur.id],
+    );
+    const scholarshipTypeSurByName = new Map(scholarshipTypeRowsSur.map((row) => [row.nombre, row.id]));
+    const excelenciaSurId = scholarshipTypeSurByName.get("Beca Excelencia Académica");
+    const hermanosSurId = scholarshipTypeSurByName.get("Beca Hermanos");
+    const deportivaSurId = scholarshipTypeSurByName.get("Beca Deportiva");
+    if (!excelenciaSurId || !hermanosSurId || !deportivaSurId) {
+      throw new Error("No se crearon los tipos de beca demo de Campus Sur");
+    }
 
     await pool.query(
       `INSERT INTO scholarship_criteria (scholarship_type_id, criterio, valor_minimo, valor_maximo, obligatorio)
@@ -794,14 +888,52 @@ export async function seedDemoData() {
               ($3, 'porcentaje', 20, ARRAY['colegiatura'], 12)`,
       [excelenciaId, hermanosId, deportivaId],
     );
+    const northKinder = demoStudents.find(
+      (student) => student.campusId === campusNorte.id && student.nivel === "Kinder",
+    );
+    const northBachillerato = demoStudents.find(
+      (student) => student.campusId === campusNorte.id && student.nivel === "Bachillerato",
+    );
+    const southPrimaria = demoStudents.find(
+      (student) => student.campusId === campusSur.id && student.nivel === "Primaria",
+    );
+    const southKinder = demoStudents.find(
+      (student) => student.campusId === campusSur.id && student.nivel === "Kinder",
+    );
+    const southSecundaria = demoStudents.find(
+      (student) => student.campusId === campusSur.id && student.nivel === "Secundaria",
+    );
+    const southBachillerato = demoStudents.find(
+      (student) => student.campusId === campusSur.id && student.nivel === "Bachillerato",
+    );
+    if (!northKinder || !northBachillerato || !southPrimaria || !southKinder || !southSecundaria || !southBachillerato) {
+      throw new Error("El seed requiere estudiantes demo en los cuatro niveles de ambos campus");
+    }
     await pool.query(
       `INSERT INTO scholarships
         (tenant_id, student_id, scholarship_type_id, porcentaje, motivo, vigencia_inicio, vigencia_fin)
        VALUES
          ($1,$2,$3,50.00,'Excelencia académica demo','2026-08-01','2027-07-31'),
          ($1,$4,$5,30.00,'Beneficio por hermanos demo','2026-08-01','2027-07-31'),
-         ($1,$6,$7,20.00,'Representación deportiva demo','2026-08-01','2027-07-31')`,
-      [tenant.id, demoStudents[0].id, excelenciaId, demoStudents[1].id, hermanosId, demoStudents[2].id, deportivaId],
+         ($1,$6,$7,20.00,'Representación deportiva demo','2026-08-01','2027-07-31'),
+         ($1,$8,$7,20.00,'Talento deportivo en kinder demo','2026-08-01','2027-07-31'),
+         ($1,$9,$3,25.00,'Excelencia en bachillerato demo','2026-08-01','2027-07-31'),
+         ($1,$10,$11,40.00,'Excelencia académica Campus Sur','2026-08-01','2027-07-31'),
+         ($1,$12,$13,30.00,'Beneficio por hermanos Campus Sur','2026-08-01','2027-07-31'),
+         ($1,$14,$15,20.00,'Representación deportiva Campus Sur','2026-08-01','2027-07-31'),
+         ($1,$16,$11,25.00,'Excelencia en bachillerato Campus Sur','2026-08-01','2027-07-31')`,
+      [
+        tenant.id,
+        demoStudents[0].id, excelenciaId,
+        demoStudents[1].id, hermanosId,
+        demoStudents[2].id, deportivaId,
+        northKinder.id,
+        northBachillerato.id,
+        southPrimaria.id, excelenciaSurId,
+        southKinder.id, hermanosSurId,
+        southSecundaria.id, deportivaSurId,
+        southBachillerato.id,
+      ],
     );
     await pool.query(
       `INSERT INTO discounts (campus_id, tenant_id, nombre, regla_sql, monto_pct)

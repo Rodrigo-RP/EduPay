@@ -57,3 +57,4 @@
 - [Liquidación SPEI](spei-settlement.md) — SPEI es asíncrono: un Intent pendiente nunca acredita cargos; sólo el webhook firmado e idempotente liquida el ledger.
 - [Schema drift reglas](schema-drift-rules.md) — patrón de alineación Drizzle↔DB; tablas huérfanas conocidas; columnas/CHECKs no declarados históricos ya corregidos.
 - [Audit log patterns](audit-log-patterns.md) — logAuditEvent(client,opts) propagates errors; student ops use BEGIN/COMMIT; payments use FOR UPDATE; storage.createStudent uses separate Drizzle connection (use raw SQL for transactions).
+- [Scholarship dashboard definition](scholarship-dashboard.md) — panel y asistente cuentan beneficiarios distintos, activos y con beca vigente del campus actual.

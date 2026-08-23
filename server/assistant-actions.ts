@@ -75,14 +75,28 @@ async function queryDiscrepancia(_p: Record<string, any>, ctx: ActionContext): P
       `SELECT
          (SELECT COUNT(*) FROM students WHERE campus_id = $1)                          AS alumnos_total,
          (SELECT COUNT(*) FROM students WHERE campus_id = $1 AND status = 'activo')    AS alumnos_activos,
-         (SELECT COUNT(DISTINCT student_id) FROM scholarships WHERE tenant_id = $2)   AS alumnos_con_beca,
-         (SELECT COUNT(*) FROM scholarships WHERE tenant_id = $2)                      AS becas_total,
+         (SELECT COUNT(DISTINCT sh.student_id)
+            FROM scholarships sh
+            INNER JOIN students s ON s.id = sh.student_id
+            WHERE s.campus_id = $1
+              AND s.status = 'activo'
+              AND sh.vigencia_inicio <= CURRENT_DATE
+              AND (sh.vigencia_fin IS NULL OR sh.vigencia_fin >= CURRENT_DATE)
+         )                                                                              AS alumnos_con_beca,
+         (SELECT COUNT(*)
+            FROM scholarships sh
+            INNER JOIN students s ON s.id = sh.student_id
+            WHERE s.campus_id = $1
+              AND s.status = 'activo'
+              AND sh.vigencia_inicio <= CURRENT_DATE
+              AND (sh.vigencia_fin IS NULL OR sh.vigencia_fin >= CURRENT_DATE)
+         )                                                                              AS becas_total,
          (SELECT COUNT(DISTINCT c.student_id)
             FROM charges c INNER JOIN students s ON c.student_id = s.id
             WHERE s.campus_id = $1)                                                    AS alumnos_con_cargo,
          (SELECT COUNT(*) FROM charges c
             INNER JOIN students s ON c.student_id = s.id WHERE s.campus_id = $1)      AS cargos_total`,
-      [ctx.campusId, ctx.tenantId]
+       [ctx.campusId]
     );
 
     const r = rows[0];
@@ -155,17 +169,22 @@ async function queryContar(params: Record<string, any>, ctx: ActionContext): Pro
     if (entity.includes("beca")) {
       const { rows } = await pool.query(
         `SELECT COUNT(*) AS total,
-                COUNT(DISTINCT student_id) AS alumnos_becados
-         FROM scholarships WHERE tenant_id = $1`,
-        [ctx.tenantId]
+                COUNT(DISTINCT sh.student_id) AS alumnos_becados
+         FROM scholarships sh
+         INNER JOIN students s ON s.id = sh.student_id
+         WHERE s.campus_id = $1
+           AND s.status = 'activo'
+           AND sh.vigencia_inicio <= CURRENT_DATE
+           AND (sh.vigencia_fin IS NULL OR sh.vigencia_fin >= CURRENT_DATE)`,
+        [ctx.campusId]
       );
       const r = rows[0];
       return {
         success: true,
-        title: "Becas y descuentos",
-        summary: `Hay **${r.total} becas/descuentos** asignados a ${r.alumnos_becados} alumnos distintos.`,
+        title: "Becas vigentes",
+        summary: `Hay **${r.total} asignación(es) de beca vigente(s)** para ${r.alumnos_becados} alumno(s) activo(s) distintos en este campus.`,
         rows: [
-          { label: "Total becas/descuentos",  value: r.total,          highlight: true },
+          { label: "Asignaciones vigentes",   value: r.total,          highlight: true },
           { label: "Alumnos beneficiados",    value: r.alumnos_becados },
         ],
       };
@@ -339,7 +358,11 @@ async function queryBuscarAlumno(params: Record<string, any>, ctx: ActionContext
                 COALESCE((SELECT SUM(monto_base_centavos) FILTER(WHERE estado IN ('pendiente','vencido'))
                           FROM charges WHERE student_id = s.id), 0) AS saldo_pendiente
          FROM students s
-         WHERE s.campus_id = $1 AND LOWER(s.nombre_completo) LIKE LOWER($2)
+        WHERE s.campus_id = $1
+          AND s.status = 'activo'
+          AND sh.vigencia_inicio <= CURRENT_DATE
+          AND (sh.vigencia_fin IS NULL OR sh.vigencia_fin >= CURRENT_DATE)
+          AND LOWER(s.nombre_completo) LIKE LOWER($2)
          ORDER BY s.nombre_completo LIMIT 5`,
         [ctx.campusId, `%${nombre}%`]
       );
@@ -434,6 +457,7 @@ async function queryBecasNivel(params: Record<string, any>, ctx: ActionContext):
        FROM scholarships sh
        INNER JOIN students s ON sh.student_id = s.id
        WHERE s.campus_id = $1
+          AND s.status = 'activo'
          AND sh.vigencia_inicio <= CURRENT_DATE
          AND (sh.vigencia_fin IS NULL OR sh.vigencia_fin >= CURRENT_DATE)
          AND ($2 = '' OR LOWER(s.nivel_escolar) LIKE LOWER($2))

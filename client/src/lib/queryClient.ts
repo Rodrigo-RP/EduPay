@@ -1,9 +1,11 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 async function notifyInvalidSession(res: Response) {
-  if (res.status !== 401 || typeof window === "undefined") return;
-  const body = await res.clone().json().catch(() => null) as { code?: string } | null;
-  if (body?.code === "SESSION_INVALIDATED") {
+  if (typeof window === "undefined") return;
+  const body = await res.clone().json().catch(() => null) as { code?: string; message?: string } | null;
+  const invalidatedByServer = res.status === 401 && body?.code === "SESSION_INVALIDATED";
+  const invalidJwt = res.status === 403 && body?.message === "Token inválido";
+  if (invalidatedByServer || invalidJwt) {
     window.dispatchEvent(new Event("auth:invalid-session"));
   }
 }

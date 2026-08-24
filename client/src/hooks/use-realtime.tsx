@@ -180,6 +180,9 @@ export function useRealTime(options: UseRealTimeOptions = {}) {
 
       case 'auth_error':
         console.log('❌ Error de autenticación:', message.message);
+        // El servidor ya rechazó el JWT; no dejar la aplicación en un estado
+        // visualmente autenticado que seguirá reintentando con el mismo token.
+        window.dispatchEvent(new Event('auth:invalid-session'));
         toast({
           title: "Error de conexión",
           description: "Sesión expirada. Por favor, inicia sesión nuevamente.",

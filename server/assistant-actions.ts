@@ -650,7 +650,8 @@ async function queryAdeudosNivelPeriodo(params: Record<string, any>, ctx: Action
                + COALESCE(c.recargo_aplicado_centavos, 0)
                - COALESCE(SUM(pa.amount_centavos), 0),
              0
-           ) AS saldo
+           ) AS saldo,
+           MIN(c.fecha_vencimiento)::date AS fecha_vencimiento_mas_antigua
          FROM charges c
          INNER JOIN students s ON s.id = c.student_id
          LEFT JOIN payment_applications pa ON pa.charge_id = c.id
@@ -666,13 +667,15 @@ async function queryAdeudosNivelPeriodo(params: Record<string, any>, ctx: Action
          s.nivel_escolar,
          s.grado,
          COUNT(cs.id)::int AS cargos_pendientes,
-         SUM(cs.saldo)::bigint AS saldo_pendiente_centavos
+          SUM(cs.saldo)::bigint AS saldo_pendiente_centavos,
+          MIN(cs.fecha_vencimiento_mas_antigua)::date AS fecha_vencimiento_mas_antigua,
+          (CURRENT_DATE - MIN(cs.fecha_vencimiento_mas_antigua)::date)::int AS dias_atraso
        FROM cargo_saldo cs
        INNER JOIN students s ON s.id = cs.student_id
        WHERE cs.saldo > 0
          AND ($4 = '' OR LOWER(COALESCE(s.nivel_escolar, '')) LIKE LOWER($4))
        GROUP BY s.id, s.nombre_completo, s.nivel_escolar, s.grado
-       ORDER BY s.nivel_escolar NULLS LAST, s.nombre_completo
+        ORDER BY dias_atraso DESC, s.nombre_completo, s.nivel_escolar NULLS LAST
        LIMIT 100`,
       [ctx.tenantId, ctx.campusId, startDate, nivel ? `%${nivel}%` : ""],
     );
@@ -684,17 +687,46 @@ async function queryAdeudosNivelPeriodo(params: Record<string, any>, ctx: Action
     });
     const scopeLabel = nivel ? ` de ${nivel}` : " de todos los niveles";
     const totalCentavos = rows.reduce((sum: number, row: any) => sum + Number(row.saldo_pendiente_centavos || 0), 0);
+    const overdueCount = rows.filter((row: any) => Number(row.dias_atraso) > 0).length;
+    const dueSoonCount = rows.filter((row: any) => Number(row.dias_atraso) >= -7 && Number(row.dias_atraso) <= 0).length;
+    const laterCount = rows.filter((row: any) => Number(row.dias_atraso) < -7).length;
+
+    const formatDueDate = (value: string | Date | null | undefined): string => {
+      if (!value) return "fecha no disponible";
+      const dateValue = value instanceof Date
+        ? value
+        : new Date(`${String(value).slice(0, 10)}T00:00:00Z`);
+      return Number.isNaN(dateValue.getTime())
+        ? "fecha no disponible"
+        : dateValue.toLocaleDateString("es-MX", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            timeZone: "UTC",
+          });
+    };
 
     return {
       success: true,
       title: `Alumnos con adeudo${scopeLabel} — ${monthLabel}`,
       summary: rows.length
-        ? `Encontré **${rows.length} alumno(s)** con saldo pendiente por cargos con vencimiento en ${monthLabel}${scopeLabel}. El saldo pendiente suma **${fmt(totalCentavos)}**.`
+        ? `Encontré **${rows.length} alumno(s)** con saldo pendiente por cargos con vencimiento en ${monthLabel}${scopeLabel}: **${overdueCount} vencido(s)**, **${dueSoonCount}** que vencen en los próximos 7 días y **${laterCount}** con vencimiento posterior. El saldo pendiente suma **${fmt(totalCentavos)}**.`
         : `No encontré alumnos con saldo pendiente por cargos con vencimiento en ${monthLabel}${scopeLabel}.`,
       rows: rows.map((row: any) => ({
-        label: `${row.nombre_completo}${row.nivel_escolar ? ` · ${row.nivel_escolar}` : ""}${row.grado ? ` · grado ${row.grado}` : ""}`,
+        label: (() => {
+          const daysLate = Number(row.dias_atraso);
+          const dueDate = formatDueDate(row.fecha_vencimiento_mas_antigua);
+          const urgency = daysLate > 0
+            ? `🔴 Vencido hace ${daysLate} ${daysLate === 1 ? "día" : "días"}`
+            : daysLate === 0
+              ? "🟡 Vence hoy"
+              : daysLate >= -7
+                ? `🟡 Vence en ${Math.abs(daysLate)} ${Math.abs(daysLate) === 1 ? "día" : "días"}`
+                : `Vence el ${dueDate}`;
+          return `${row.nombre_completo}${row.nivel_escolar ? ` · ${row.nivel_escolar}` : ""}${row.grado ? ` · grado ${row.grado}` : ""} · ${urgency}`;
+        })(),
         value: `${fmt(row.saldo_pendiente_centavos)} · ${row.cargos_pendientes} cargo(s)`,
-        highlight: true,
+        highlight: Number(row.dias_atraso) >= -7,
       })),
     };
   } catch (e: any) {

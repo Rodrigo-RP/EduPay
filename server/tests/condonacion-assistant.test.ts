@@ -19,7 +19,8 @@ import { resolveSuggestContext } from "../assistant-actions";
 import jwt from "jsonwebtoken";
 
 const BASE       = "http://localhost:5000";
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET;
+if (!JWT_SECRET) throw new Error("Se requiere JWT_SECRET o SESSION_SECRET para las pruebas.");
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 let tenantId:  number;

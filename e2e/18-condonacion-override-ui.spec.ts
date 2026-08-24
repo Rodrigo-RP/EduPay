@@ -8,7 +8,8 @@ import jwt from "jsonwebtoken";
 import { pool } from "../server/db";
 
 const BASE = "http://localhost:5000";
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET;
+if (!JWT_SECRET) throw new Error("Se requiere JWT_SECRET o SESSION_SECRET para E2E.");
 let tenantId: number;
 let campusId: number;
 let studentId: number;

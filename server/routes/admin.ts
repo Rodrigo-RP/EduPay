@@ -5,7 +5,7 @@ import { getFamilyGuardianIds, getGuardiansWithoutActiveFamilies } from "../lib/
 import { enqueueAuditLog } from "../audit-retry";
 import { eq, and, gte, lt } from "drizzle-orm";
 import { storage } from "../storage";
-import { authenticateToken, requireAuth, requireSuperAdmin, checkCampusTenant, serializeUser, upload, esmRequire, authenticateGuardian, hasPermissionForUser} from "./shared";
+import { authenticateToken, requireAuth, requireSuperAdmin, checkCampusTenant, serializeUser, upload, esmRequire, authenticateGuardian, hasPermissionForUser, JWT_SECRET} from "./shared";
 import { MODULES, ACTIONS } from "@shared/permissions";
 import { students, guardians, student_guardian, charges, payments, concepts, scholarships, invoices, institutional_info, institutional_credentials, payment_due_dates, payment_surcharge_rules } from "@shared/schema";
 import { insertInstitutionalInfoSchema } from "@shared/schema";
@@ -1346,7 +1346,6 @@ export function registerAdminRoutes(app: Express): void {
 
       // Generar token con todo lo necesario para la validación exacta en el PATCH cancelar.
       // campus_id y tenant_id incluidos: un token de un plantel no puede usarse en otro.
-      const JWT_SECRET_KEY = process.env.JWT_SECRET || "fallback-secret-key";
       const token = jwt.sign(
         {
           action:     'override_condonacion',
@@ -1356,7 +1355,7 @@ export function registerAdminRoutes(app: Express): void {
           campus_id:  Number(plan.campus_id),
           alerta_id:  Number(alerta_id),
         },
-        JWT_SECRET_KEY,
+        JWT_SECRET,
         { expiresIn: '30m' }
       );
 

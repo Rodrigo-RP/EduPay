@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { pool, db } from "../db";
 import { eq, and } from "drizzle-orm";
 import { storage } from "../storage";
-import { authenticateToken, requireAuth, checkCampusTenant, hasPermissionForUser} from "./shared";
+import { authenticateToken, requireAuth, checkCampusTenant, hasPermissionForUser, JWT_SECRET} from "./shared";
 import { MODULES, ACTIONS } from "@shared/permissions";
 import { students, guardians, charges, payments, concepts, invoices, families, family_students, payment_applications, payment_events, audit_log } from "@shared/schema";
 import { enqueueAuditLog } from "../audit-retry";
@@ -457,9 +457,8 @@ export function registerMiscRoutes(app: Express): void {
           }
 
           // Validar el override_token
-          const JWT_SECRET_KEY = process.env.JWT_SECRET || "fallback-secret-key";
           try {
-            overridePayload = jwt.verify(rawToken, JWT_SECRET_KEY) as any;
+            overridePayload = jwt.verify(rawToken, JWT_SECRET) as any;
           } catch (err: any) {
             if (err.name === 'TokenExpiredError') {
               return res.status(409).json({ message: "El token de autorización ha expirado" });

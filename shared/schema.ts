@@ -210,6 +210,16 @@ export const guardians = pgTable("guardians", {
   telefono: varchar("telefono", { length: 20 }),
   nombre_completo: varchar("nombre_completo", { length: 300 }),
   rfc: varchar("rfc", { length: 13 }),
+  calle: varchar("calle", { length: 255 }),
+  numero_exterior: varchar("numero_exterior", { length: 30 }),
+  numero_interior: varchar("numero_interior", { length: 30 }),
+  colonia: varchar("colonia", { length: 255 }),
+  codigo_postal: varchar("codigo_postal", { length: 5 }),
+  municipio: varchar("municipio", { length: 255 }),
+  estado: varchar("estado", { length: 100 }),
+  contacto_emergencia_nombre: varchar("contacto_emergencia_nombre", { length: 255 }),
+  contacto_emergencia_telefono: varchar("contacto_emergencia_telefono", { length: 20 }),
+  contacto_emergencia_relacion: varchar("contacto_emergencia_relacion", { length: 100 }),
 
   // Multi-tenancy: campus_id derivado del primer alumno vinculado
   campus_id: integer("campus_id").references(() => campuses.id),
@@ -1118,6 +1128,9 @@ export const families = pgTable("families", {
   nombre: varchar("nombre", { length: 300 }).notNull(),
   clabe_virtual: varchar("clabe_virtual", { length: 18 }), // Placeholder; CLABE real en fase posterior
   guardian_id_principal: integer("guardian_id_principal").references(() => guardians.id),
+  status: varchar("status", { length: 20 }).default("activo").notNull(),
+  archived_at: timestamp("archived_at", { withTimezone: true }),
+  archived_by: integer("archived_by").references(() => users.id, { onDelete: "set null" }),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
@@ -1322,6 +1335,7 @@ export const magic_link_tokens = pgTable("magic_link_tokens", {
   expires_at: timestamp("expires_at", { withTimezone: true }).notNull(),
   uses:       integer("uses").default(0).notNull(),
   max_uses:   integer("max_uses").default(3).notNull(),
+  revoked_at: timestamp("revoked_at", { withTimezone: true }),
   created_by: integer("created_by").references(() => users.id, { onDelete: "set null" }),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });

@@ -33,6 +33,10 @@ interface DbClient {
   query(text: string, values?: any[]): Promise<{ rows: any[]; rowCount: number | null }>;
 }
 
+interface ReleasableDbClient extends DbClient {
+  release(): void;
+}
+
 // ── Tipos públicos ─────────────────────────────────────────────────────────────
 
 export interface TutorInput {
@@ -48,6 +52,16 @@ export interface TutorInput {
   email?: string;         // alias reconocido de correo_institucional_familiar
   curp?: string;
   celular?: string;
+  calle?: string;
+  numero_exterior?: string;
+  numero_interior?: string;
+  colonia?: string;
+  codigo_postal?: string;
+  municipio?: string;
+  estado?: string;
+  contacto_emergencia_nombre?: string;
+  contacto_emergencia_telefono?: string;
+  contacto_emergencia_relacion?: string;
 
   /** Relación con el(los) alumno(s). */
   es_responsable_pago: boolean;
@@ -127,14 +141,32 @@ export async function createFamily(
     throw err;
   }
 
+  for (const tutor of tutores) {
+    for (const [field, value] of [
+      ["celular", tutor.celular],
+      ["contacto_emergencia_telefono", tutor.contacto_emergencia_telefono],
+    ] as const) {
+      if (value && !/^\+[1-9]\d{7,14}$/.test(value)) {
+        const err = new Error(`${field} debe estar normalizado en formato E.164`) as any;
+        err.status = 422;
+        throw err;
+      }
+    }
+    if (tutor.codigo_postal && !/^\d{5}$/.test(tutor.codigo_postal)) {
+      const err = new Error("codigo_postal debe tener exactamente 5 dígitos") as any;
+      err.status = 422;
+      throw err;
+    }
+  }
+
   // ── Determinar cliente y modo de transacción ─────────────────────────────────
 
   const ownConnection = externalClient == null;
   let client: DbClient;
-  let poolClient: Awaited<ReturnType<typeof pool.connect>> | null = null;
+  let poolClient: ReleasableDbClient | null = null;
 
   if (ownConnection) {
-    poolClient = await pool.connect();
+    poolClient = await pool.connect() as unknown as ReleasableDbClient;
     client = poolClient;
   } else {
     client = externalClient!;
@@ -313,10 +345,12 @@ export async function createFamily(
           // Se duplica correo_institucional_familiar en email ($5 usado dos veces).
           const ins = await client.query(
             `INSERT INTO guardians
-               (tipo_guardian, nombres, apellido_paterno, apellido_materno,
-                correo_institucional_familiar, email, curp, celular,
-                nombre_completo, tenant_id, campus_id)
-             VALUES ($1,$2,$3,$4,$5,$5,$6,$7,$8,$9,$10)
+                (tipo_guardian, nombres, apellido_paterno, apellido_materno,
+                 correo_institucional_familiar, email, curp, celular,
+                 calle, numero_exterior, numero_interior, colonia, codigo_postal, municipio, estado,
+                 contacto_emergencia_nombre, contacto_emergencia_telefono, contacto_emergencia_relacion,
+                 nombre_completo, tenant_id, campus_id)
+             VALUES ($1,$2,$3,$4,$5,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
              RETURNING id`,
             [
               tutor.tipo_guardian || "tutor",
@@ -326,6 +360,16 @@ export async function createFamily(
               emailFinal,
               tutor.curp              || null,
               tutor.celular           || null,
+               tutor.calle             || null,
+               tutor.numero_exterior   || null,
+               tutor.numero_interior   || null,
+               tutor.colonia           || null,
+               tutor.codigo_postal     || null,
+               tutor.municipio         || null,
+               tutor.estado            || null,
+               tutor.contacto_emergencia_nombre   || null,
+               tutor.contacto_emergencia_telefono || null,
+               tutor.contacto_emergencia_relacion || null,
               nombreCompleto,
               tenantId,
               campusId,

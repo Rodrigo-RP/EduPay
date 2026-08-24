@@ -111,7 +111,7 @@ export default function Familias() {
 
   const [familias, setFamilias] = useState<any[]>([]);
 
-  // Normalizar familia del servidor al shape de la UI
+  // Normalizar solamente campos reales del servidor; nunca inventar domicilio ni estatus.
   const normalizeFamilia = (f: any) => ({
     ...f,
     numero_familia: `FAM${String(f.id).padStart(3, "0")}`,
@@ -122,11 +122,11 @@ export default function Familias() {
     madre_telefono: "",
     madre_email: "",
     direccion: "",
-    ciudad: "Querétaro",
+    ciudad: "",
     codigo_postal: f.codigo_postal || f.cp || "",
     razon_social: f.nombre,
     rfc: "",
-    estatus: "activo",
+    estatus: f.status || "activo",
     estudiantes_vinculados: (f.estudiantes || []).map((s: any) => ({
       id: s.id,
       nombre: s.nombre_completo,
@@ -970,23 +970,34 @@ export default function Familias() {
     }
   };
 
-  const handleDelete = (familiaId: number) => {
-    const familia = familias.find(f => f.id === familiaId);
-    if (familia && familia.estudiantes_vinculados.length > 0) {
-      toast({
-        title: "No se puede eliminar",
-        description: "Esta familia tiene estudiantes vinculados. Primero desvincule los estudiantes.",
-        variant: "destructive"
+  const updateFamilyStatus = async (familiaId: number, status: "activo" | "archivada") => {
+    try {
+      const token = localStorage.getItem("auth_token");
+      const response = await fetch(`/api/admin/families/${familiaId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ status }),
       });
-      return;
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.message || `Error ${response.status}`);
+      await loadFamilias();
+      toast({
+        title: status === "archivada" ? "Familia archivada" : "Familia reactivada",
+        description: payload.message || "El cambio se guardó correctamente.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "No se pudo actualizar la familia",
+        description: error.message || "Intenta de nuevo.",
+        variant: "destructive",
+      });
     }
-
-    setFamilias(prev => prev.filter(f => f.id !== familiaId));
-    toast({
-      title: "Familia eliminada",
-      description: "La familia ha sido eliminada exitosamente."
-    });
   };
+
+  const handleDelete = (familiaId: number) => updateFamilyStatus(familiaId, "archivada");
 
   // ── Opciones derivadas de los datos reales ─────────────────────────────────
   const seccionesBD = Array.from(new Set(
@@ -1832,10 +1843,27 @@ export default function Familias() {
                       }} title="Vincular estudiantes">
                         <Link2 className="w-4 h-4" />
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleDelete(familia.id)} title="Eliminar familia"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50">
-                        <UserX className="w-4 h-4" />
-                      </Button>
+                      {familia.estatus === "archivada" ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => updateFamilyStatus(familia.id, "activo")}
+                          title="Reactivar familia"
+                          className="text-green-700 hover:text-green-800 hover:bg-green-50"
+                        >
+                          <UserCheck className="w-4 h-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDelete(familia.id)}
+                          title="Archivar familia"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <UserX className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>

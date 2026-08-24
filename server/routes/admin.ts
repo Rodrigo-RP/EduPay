@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { pool, db } from "../db";
 import { createFamily } from "../lib/family-service";
+import { getFamilyGuardianIds, getGuardiansWithoutActiveFamilies } from "../lib/family-access";
 import { enqueueAuditLog } from "../audit-retry";
 import { eq, and, gte, lt } from "drizzle-orm";
 import { storage } from "../storage";
@@ -1567,6 +1568,118 @@ export function registerAdminRoutes(app: Express): void {
       const status  = typeof error.status === "number" ? error.status : 500;
       const message = error.message || "Error interno del servidor";
       res.status(status).json({ message });
+    }
+  });
+
+  /**
+   * PATCH /api/admin/families/:familyId/status
+   * Archivado lógico o reactivación. Archivar invalida sesiones y magic links
+   * únicamente de tutores que ya no conservan otra familia activa.
+   */
+  app.patch("/api/admin/families/:familyId/status", authenticateToken, async (req: any, res) => {
+    const familyId = Number(req.params.familyId);
+    const requestedStatus = req.body?.status;
+    if (!Number.isInteger(familyId) || !["activo", "archivada"].includes(requestedStatus)) {
+      return res.status(400).json({ message: "familyId y status ('activo' o 'archivada') son requeridos" });
+    }
+    // Archivar/reactivar cambia el acceso al portal; se reserva a roles
+    // administrativos, no a perfiles operativos que sólo editan datos.
+    const administrativeRoles = ["super_admin", "administrador_general", "administrador_campus"];
+    if (
+      !hasPermissionForUser(req.user, MODULES.FAMILIES, ACTIONS.UPDATE) ||
+      !administrativeRoles.includes(req.user?.role)
+    ) {
+      return res.status(403).json({ message: "Sin permisos para archivar o reactivar familias" });
+    }
+
+    const tenantId = Number(req.user?.tenant_id);
+    const campusId = Number(req.user?.campus_id);
+    const userId = Number(req.user?.id);
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const familyResult = await client.query(
+        `SELECT id, nombre, status
+           FROM families
+          WHERE id = $1 AND tenant_id = $2 AND campus_id = $3
+          FOR UPDATE`,
+        [familyId, tenantId, campusId],
+      );
+      const family = familyResult.rows[0] as any;
+      if (!family) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ message: "Familia no encontrada en este campus" });
+      }
+
+      await client.query(
+        `UPDATE families
+            SET status = $1::varchar,
+                archived_at = CASE WHEN $1::varchar = 'archivada' THEN NOW() ELSE NULL END,
+                archived_by = CASE WHEN $1::varchar = 'archivada' THEN $2::integer ELSE NULL END,
+                updated_at = NOW()
+          WHERE id = $3`,
+        [requestedStatus, userId, familyId],
+      );
+
+      let guardianIdsRevoked: number[] = [];
+      if (requestedStatus === "archivada") {
+        const linkedGuardianIds = await getFamilyGuardianIds(client, familyId, tenantId);
+        guardianIdsRevoked = await getGuardiansWithoutActiveFamilies(client, linkedGuardianIds, tenantId);
+        if (guardianIdsRevoked.length) {
+          // Reutiliza la invalidación canónica de sesiones de tutor.
+          await client.query(
+            `UPDATE guardians
+                -- JWT.iat tiene precisión de segundos. El margen evita que un
+                -- token emitido en el mismo segundo sobreviva al archivado.
+                SET password_changed_at = NOW() + INTERVAL '1 second', updated_at = NOW()
+              WHERE id = ANY($1::int[]) AND tenant_id = $2`,
+            [guardianIdsRevoked, tenantId],
+          );
+          await client.query(
+            `UPDATE magic_link_tokens
+                SET revoked_at = NOW()
+              WHERE guardian_id = ANY($1::int[])
+                AND tenant_id = $2
+                AND revoked_at IS NULL`,
+            [guardianIdsRevoked, tenantId],
+          );
+        }
+      }
+      await client.query("COMMIT");
+
+      const auditPayload = {
+        tenant_id: tenantId,
+        user_id: userId || null,
+        action: requestedStatus === "archivada" ? "archive" : "reactivate",
+        entity_type: "family",
+        entity_id: familyId,
+        metadata: {
+          family_nombre: family.nombre,
+          previous_status: family.status,
+          new_status: requestedStatus,
+          guardian_ids_revoked: guardianIdsRevoked,
+        },
+      };
+      pool.query(
+        `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
+         VALUES ($1,$2,$3,$4,$5,$6::jsonb)`,
+        [auditPayload.tenant_id, auditPayload.user_id, auditPayload.action, auditPayload.entity_type,
+         auditPayload.entity_id, JSON.stringify(auditPayload.metadata)],
+      ).catch((error) => enqueueAuditLog(auditPayload, error));
+
+      return res.json({
+        id: familyId,
+        status: requestedStatus,
+        guardian_ids_revoked: guardianIdsRevoked,
+        message: requestedStatus === "archivada"
+          ? "Familia archivada y accesos de tutores revocados cuando correspondía."
+          : "Familia reactivada. Los tutores pueden iniciar una nueva sesión.",
+      });
+    } catch (error: any) {
+      await client.query("ROLLBACK").catch(() => {});
+      return res.status(500).json({ message: error.message || "No se pudo cambiar el estatus de la familia" });
+    } finally {
+      client.release();
     }
   });
 }

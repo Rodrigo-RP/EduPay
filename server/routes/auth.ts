@@ -5,6 +5,7 @@ import { db, pool } from "../db";
 import { eq } from "drizzle-orm";
 import { users } from "@shared/schema";
 import { storage } from "../storage";
+import { guardianHasActiveFamily } from "../lib/family-access";
 import {
   authenticateToken,
   esmRequire,
@@ -269,6 +270,12 @@ export function registerAuthRoutes(app: Express): void {
       if (!guardian || !guardian.password_hash || !await bcrypt.compare(password, guardian.password_hash)) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
+      if (!await guardianHasActiveFamily(guardian.id, Number((guardian as any).tenant_id))) {
+        return res.status(403).json({
+          message: "El acceso de este tutor está suspendido porque no pertenece a una familia activa.",
+          code: "GUARDIAN_FAMILY_ARCHIVED",
+        });
+      }
 
       const token = jwt.sign(
         {
@@ -317,6 +324,12 @@ export function registerAuthRoutes(app: Express): void {
         return res.status(404).json({ message: "Tutor no encontrado" });
       }
       const guardian = guardianCheck.rows[0] as any;
+      if (!await guardianHasActiveFamily(guardian.id, tenantId)) {
+        return res.status(409).json({
+          message: "No se puede emitir una liga para un tutor sin familia activa.",
+          code: "GUARDIAN_FAMILY_ARCHIVED",
+        });
+      }
 
       // Crear tabla si no existe (idempotente — migración puede no haberse corrido)
       await pool.query(`
@@ -324,6 +337,7 @@ export function registerAuthRoutes(app: Express): void {
           id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL, guardian_id INTEGER NOT NULL,
           token VARCHAR(128) NOT NULL UNIQUE, expires_at TIMESTAMPTZ NOT NULL,
           uses INTEGER NOT NULL DEFAULT 0, max_uses INTEGER NOT NULL DEFAULT 3,
+          revoked_at TIMESTAMPTZ,
           created_by INTEGER, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
       `).catch(() => {});
@@ -375,6 +389,7 @@ export function registerAuthRoutes(app: Express): void {
           id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL, guardian_id INTEGER NOT NULL,
           token VARCHAR(128) NOT NULL UNIQUE, expires_at TIMESTAMPTZ NOT NULL,
           uses INTEGER NOT NULL DEFAULT 0, max_uses INTEGER NOT NULL DEFAULT 3,
+          revoked_at TIMESTAMPTZ,
           created_by INTEGER, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
       `).catch(() => {});
@@ -393,6 +408,7 @@ export function registerAuthRoutes(app: Express): void {
          WHERE token = $1
            AND expires_at > NOW()
            AND uses < max_uses
+            AND revoked_at IS NULL
          RETURNING id, guardian_id, expires_at, uses, max_uses, tenant_id`,
         [tokenHash]
       );
@@ -400,13 +416,16 @@ export function registerAuthRoutes(app: Express): void {
       if (!redeemResult.rows.length) {
         // Determinar si el token existe pero está agotado/expirado, o no existe
         const check = await pool.query(
-          `SELECT expires_at, uses, max_uses FROM magic_link_tokens WHERE token = $1`,
+          `SELECT expires_at, uses, max_uses, revoked_at FROM magic_link_tokens WHERE token = $1`,
           [tokenHash]
         );
         if (!check.rows.length) {
           return res.status(404).json({ message: "Liga de acceso no encontrada o inválida" });
         }
         const r = check.rows[0] as any;
+        if (r.revoked_at) {
+          return res.status(410).json({ message: "Esta liga fue revocada. Solicita una nueva al plantel." });
+        }
         if (new Date() > new Date(r.expires_at)) {
           return res.status(410).json({ message: "Esta liga expiró. Solicita una nueva al plantel." });
         }
@@ -427,6 +446,11 @@ export function registerAuthRoutes(app: Express): void {
       if (!gResult.rows.length) {
         // Guardian no encontrado en el tenant del token — no emitir JWT
         return res.status(410).json({ message: "El acceso de este tutor ya no está disponible. Solicita una nueva liga al plantel." });
+      }
+      if (!await guardianHasActiveFamily(row.guardian_id, row.tenant_id)) {
+        return res.status(410).json({
+          message: "Esta liga ya no se puede usar porque la familia del tutor está archivada.",
+        });
       }
       const g = gResult.rows[0] as any;
 

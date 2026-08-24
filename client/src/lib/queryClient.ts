@@ -1,7 +1,16 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+async function notifyInvalidSession(res: Response) {
+  if (res.status !== 401 || typeof window === "undefined") return;
+  const body = await res.clone().json().catch(() => null) as { code?: string } | null;
+  if (body?.code === "SESSION_INVALIDATED") {
+    window.dispatchEvent(new Event("auth:invalid-session"));
+  }
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
+    await notifyInvalidSession(res);
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
   }
@@ -62,10 +71,12 @@ export const getQueryFn: <T>(options: {
     // Query response processed
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+      await notifyInvalidSession(res);
       return null;
     }
 
     if (res.status === 401) {
+      await notifyInvalidSession(res);
       // Session expired or invalid — clear and redirect to login.
       // NEVER auto-reauthenticate: doing so with stored credentials is a
       // privilege-escalation risk (e.g. a guardian JWT expiring could silently

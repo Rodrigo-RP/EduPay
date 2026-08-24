@@ -22,10 +22,14 @@ Misma trampa para label/desc: "que" (de "qué") aparece como subcadena en "busqu
 Agregar frases completas con "no + verbo": "no me deja", "no descarga", "no se genero".
 Sin estas frases los reportes de fallo se clasifican como navegación.
 
-## Guarda financiera dura (§5.6)
-`FINANCIAL_PROTECTED_ACTIONS` en `assistant-actions.ts` — cualquier `action:*` que toque
-Charge/Payment/Invoice/PaymentApplication debe estar en este set; `executeAction` bloquea
-automáticamente sin confirmación.
+## Límite financiero del asistente
+El chat del asistente es estrictamente de solo lectura: no devuelve señales, endpoints ni
+payloads confirmables para modificar cargos, pagos, becas, facturas o conciliaciones.
+
+**Why:** La conversación nunca debe convertirse en una vía alterna de ejecución administrativa.
+
+**How to apply:** Una solicitud de escritura se rechaza y dirige a la pantalla correspondiente;
+las guías sólo explican pasos locales y nunca preparan una llamada HTTP de modificación.
 
 ## Logging de interacciones (§4.3)
 Cada POST /api/assistant/chat inserta en `audit_log` con action `assistant_chat_interaction`.

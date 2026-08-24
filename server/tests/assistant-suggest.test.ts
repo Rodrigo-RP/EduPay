@@ -2,11 +2,8 @@
  * assistant-suggest.test.ts — N4/N5: acciones con confirmación desde el asistente
  *
  * SAC-01..SAC-06  detectSuggestTrigger (unit — Forma A, sin DB, sin servidor)
- * SAC-07          integración: pagar_manual genera señal con chargeId resuelto
- * SAC-08          integración: ambigüedad (alumno con ≥2 cargos) → clarification
- * SAC-09          integración: confirmar → DB charge.estado = 'pagado' + payment
- * SAC-10          integración: NO confirmar → DB sin cambios
- * SAC-11          integración: rol sin permiso en endpoint real → 403
+ * SAC-07..SAC-11  regresiones: solicitudes de escritura nunca producen señal
+ *                  ejecutable ni modifican la DB desde el asistente.
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -187,7 +184,7 @@ async function chatPost(message: string, token: string) {
 
 describe("detectSuggestTrigger — integración con servidor", () => {
 
-  it("SAC-07: pagar_manual con alumno de test → señal con chargeId resuelto", async () => {
+  it("SAC-07: pago manual → el asistente rechaza preparar una acción", async () => {
     // Alumno tiene 2 cargos pendientes → ambigüedad → clarification, no señal
     // Primero marcamos chargeId2 como pagado para dejar solo 1 pendiente
     await pool.query("UPDATE charges SET estado='pagado' WHERE id=$1", [chargeId2]);
@@ -195,55 +192,42 @@ describe("detectSuggestTrigger — integración con servidor", () => {
     const res  = await chatPost(`pago manual de ${TEST_NOMBRE}`, adminToken);
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.suggest).toBeDefined();
-    expect(data.suggest.action).toBe("pagar_manual");
-    expect(data.suggest.endpoint).toContain(`/api/admin/charges/${chargeId1}/pagar-manual`);
-    expect(data.suggest.contexto.alumno).toMatch(/Sac/i);
-    expect(data.suggest.contexto.cargo_id).toBe(chargeId1);
+    expect(data.suggest).toBeUndefined();
+    expect(data.reply).toMatch(/sólo puede consultar/i);
 
     // Restaurar chargeId2 para SAC-08
     await pool.query("UPDATE charges SET estado='pendiente' WHERE id=$1", [chargeId2]);
   });
 
-  it("SAC-08: alumno con ≥2 cargos pendientes → clarification, sin señal", async () => {
+  it("SAC-08: solicitud de pago ambigua tampoco produce señal", async () => {
     // chargeId1 y chargeId2 están ambos 'pendiente' aquí
     const res  = await chatPost(`marcar como pagado a ${TEST_NOMBRE}`, adminToken);
     expect(res.status).toBe(200);
     const data = await res.json();
     // No debe devolver una señal ejecutable — eso sería adivinar
     expect(data.suggest).toBeUndefined();
-    // La respuesta debe mencionar las opciones disponibles
-    expect(data.reply).toMatch(/carg/i);
+    expect(data.reply).toMatch(/sólo puede consultar/i);
   });
 
-  it("SAC-09: confirmar pago → DB actualiza charge a pagado y crea payment", async () => {
+  it("SAC-09: solicitud de pago no modifica el cargo ni crea payments", async () => {
     // Asegurar que solo hay 1 cargo pendiente
     await pool.query("UPDATE charges SET estado='pagado' WHERE id=$1", [chargeId2]);
 
     // 1. Obtener la señal del asistente
     const chatRes  = await chatPost(`pago manual de ${TEST_NOMBRE}`, adminToken);
     const chatData = await chatRes.json();
-    expect(chatData.suggest?.endpoint).toBeTruthy();
+    expect(chatData.suggest).toBeUndefined();
 
-    // 2. Confirmar — llamar directamente al endpoint del signal
-    const token   = adminToken;
-    const confRes = await fetch(`${BASE}${chatData.suggest.endpoint}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify(chatData.suggest.body),
-    });
-    expect(confRes.status).toBe(200);
-
-    // 3. Verificar en DB
+    // Verificar en DB que la sola conversación no escribió nada
     const { rows: cRows } = await pool.query(
       "SELECT estado FROM charges WHERE id=$1", [chargeId1]
     );
-    expect(cRows[0].estado).toBe("pagado");
+    expect(cRows[0].estado).toBe("pendiente");
 
     const { rows: pRows } = await pool.query(
       "SELECT id FROM payments WHERE charge_id=$1 AND estado='exitoso'", [chargeId1]
     );
-    expect(pRows.length).toBeGreaterThan(0);
+    expect(pRows.length).toBe(0);
 
     // Restaurar para el siguiente test
     await pool.query("UPDATE charges SET estado='pendiente' WHERE id=$1", [chargeId1]);
@@ -252,15 +236,15 @@ describe("detectSuggestTrigger — integración con servidor", () => {
     await pool.query("UPDATE charges SET estado='pendiente' WHERE id=$1", [chargeId2]);
   });
 
-  it("SAC-10: NO confirmar → DB sin cambios (la señal por sí sola no ejecuta nada)", async () => {
+  it("SAC-10: una solicitud financiera no devuelve una señal confirmable", async () => {
     await pool.query("UPDATE charges SET estado='pendiente' WHERE id=$1", [chargeId1]);
     await pool.query("UPDATE charges SET estado='pagado' WHERE id=$1", [chargeId2]);
 
-    // Obtener la señal — esto no debe modificar nada en DB
+    // El chat no entrega endpoint/body para escribir
     const res = await chatPost(`pago manual de ${TEST_NOMBRE}`, adminToken);
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.suggest).toBeDefined();
+    expect(data.suggest).toBeUndefined();
 
     // Verificar que el cargo sigue pendiente sin que hayamos llamado al endpoint
     const { rows } = await pool.query(
@@ -271,23 +255,13 @@ describe("detectSuggestTrigger — integración con servidor", () => {
     await pool.query("UPDATE charges SET estado='pendiente' WHERE id=$1", [chargeId2]);
   });
 
-  it("SAC-11: rol sin permiso en el endpoint real → 403 (la sugerencia no otorga permisos)", async () => {
+  it("SAC-11: ningún rol obtiene una señal de escritura por el asistente", async () => {
     await pool.query("UPDATE charges SET estado='pagado' WHERE id=$1", [chargeId2]);
 
-    // 1. Obtener señal con token admin
-    const chatRes  = await chatPost(`pago manual de ${TEST_NOMBRE}`, adminToken);
+    const chatRes = await chatPost(`pago manual de ${TEST_NOMBRE}`, asistenteToken);
     const chatData = await chatRes.json();
-    const endpoint = chatData.suggest?.endpoint;
-    expect(endpoint).toBeTruthy();
-
-    // 2. Intentar confirmar con token de asistente (sin CHARGES.UPDATE)
-    const confRes = await fetch(`${BASE}${endpoint}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${asistenteToken}` },
-      body: JSON.stringify({ metodo: "efectivo" }),
-    });
-    // El guard del endpoint real debe bloquear
-    expect(confRes.status).toBe(403);
+    expect(chatRes.status).toBe(200);
+    expect(chatData.suggest).toBeUndefined();
 
     await pool.query("UPDATE charges SET estado='pendiente' WHERE id=$1", [chargeId2]);
   });

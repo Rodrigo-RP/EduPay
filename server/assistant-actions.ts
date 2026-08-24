@@ -311,7 +311,7 @@ async function queryBuscarAlumno(params: Record<string, any>, ctx: ActionContext
 
   try {
     const { rows } = await pool.query(
-      `SELECT s.nombre_completo, s.grado, s.grupo, s.status,
+      `SELECT s.nombre_completo, s.grado, s.grupo, s.id_referencia, s.status,
               COALESCE(
                 (SELECT SUM(monto_base_centavos) FILTER(WHERE estado IN ('pendiente','vencido'))
                  FROM charges WHERE student_id = s.id), 0
@@ -329,6 +329,19 @@ async function queryBuscarAlumno(params: Record<string, any>, ctx: ActionContext
         success: false,
         title: "Sin resultados",
         summary: `No encontré alumnos con "${nombre}" en este campus. Verifica el nombre o revisa el módulo Estudiantes.`,
+      };
+    }
+    if (rows.length > 1) {
+      return {
+        success: false,
+        title: "Necesito desambiguar al alumno",
+        summary:
+          `Encontré ${rows.length} coincidencias para "${nombre}". ` +
+          "Indica el grado, grupo o matrícula del alumno correcto.",
+        rows: rows.map((r: any, i: number) => ({
+          label: `${i + 1}. ${r.nombre_completo}`,
+          value: `Grado: ${r.grado || "—"} · Grupo: ${r.grupo || "—"} · Matrícula: ${r.id_referencia || "—"}`,
+        })),
       };
     }
 
@@ -354,20 +367,30 @@ async function queryBuscarAlumno(params: Record<string, any>, ctx: ActionContext
     // Fallback sin UNACCENT por si la extensión no está instalada
     try {
       const { rows } = await pool.query(
-        `SELECT s.nombre_completo, s.grado, s.grupo, s.status,
+        `SELECT s.nombre_completo, s.grado, s.grupo, s.id_referencia, s.status,
                 COALESCE((SELECT SUM(monto_base_centavos) FILTER(WHERE estado IN ('pendiente','vencido'))
                           FROM charges WHERE student_id = s.id), 0) AS saldo_pendiente
          FROM students s
         WHERE s.campus_id = $1
-          AND s.status = 'activo'
-          AND sh.vigencia_inicio <= CURRENT_DATE
-          AND (sh.vigencia_fin IS NULL OR sh.vigencia_fin >= CURRENT_DATE)
           AND LOWER(s.nombre_completo) LIKE LOWER($2)
          ORDER BY s.nombre_completo LIMIT 5`,
         [ctx.campusId, `%${nombre}%`]
       );
       if (rows.length === 0) {
         return { success: false, title: "Sin resultados", summary: `No encontré alumnos con "${nombre}".` };
+      }
+      if (rows.length > 1) {
+        return {
+          success: false,
+          title: "Necesito desambiguar al alumno",
+          summary:
+            `Encontré ${rows.length} coincidencias para "${nombre}". ` +
+            "Indica grado, grupo o matrícula.",
+          rows: rows.map((r: any, i: number) => ({
+            label: `${i + 1}. ${r.nombre_completo}`,
+            value: `Grado: ${r.grado || "—"} · Grupo: ${r.grupo || "—"} · Matrícula: ${r.id_referencia || "—"}`,
+          })),
+        };
       }
       const resultRows: ActionResultRow[] = rows.flatMap((r: any, i: number) => [
         { label: `${i + 1}. ${r.nombre_completo}`, value: `${r.grado || ""} ${r.grupo || ""} · ${r.status}`.trim() },

@@ -8,13 +8,45 @@
  */
 
 import type { Express } from "express";
-import { authenticateToken } from "./shared";
+import { authenticateToken, hasPermissionForUser } from "./shared";
+import { MODULES, ACTIONS } from "@shared/permissions";
 import { matchIntent, detectExportIntent, detectSuggestTrigger } from "../assistant-knowledge";
 import { runDiagnostic, runFullDiagnostic, MODULE_CHECKS } from "../assistant-health-checks";
-import { executeAction, resolveSuggestContext } from "../assistant-actions";
+import { executeAction } from "../assistant-actions";
 import { pool } from "../db";
 
 export function registerAssistantRoutes(app: Express): void {
+  const permissionForAssistantAction = (actionId: string) => {
+    if (actionId === "query:resumen_financiero" || actionId === "query:discrepancia") {
+      return [MODULES.FINANCIAL, ACTIONS.READ] as const;
+    }
+    if (actionId === "query:buscar_alumno" || actionId === "query:saldo_alumno") {
+      return [MODULES.STUDENTS, ACTIONS.READ] as const;
+    }
+    if (actionId === "query:becas_alumno" || actionId === "query:becas_nivel") {
+      return [MODULES.SCHOLARSHIPS, ACTIONS.READ] as const;
+    }
+    if (actionId === "query:cargos_alumno") return [MODULES.CHARGES, ACTIONS.READ] as const;
+    if (actionId === "query:familias_hijos") return [MODULES.FAMILIES, ACTIONS.READ] as const;
+    if (actionId === "query:verificar_sistema") return [MODULES.SYSTEM, ACTIONS.READ] as const;
+    if (actionId === "query:contar") return [MODULES.REPORTS, ACTIONS.READ] as const;
+    return null;
+  };
+
+  const auditAssistantDenied = async (req: any, actionId: string, reason: string) => {
+    await pool.query(
+      `INSERT INTO audit_log
+        (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
+       VALUES ($1, $2, 'assistant_access_denied', 'system', $3, $4, NOW())`,
+      [
+        req.user?.tenant_id || null,
+        req.user?.id || null,
+        req.user?.campus_id || null,
+        JSON.stringify({ actionId, reason, messageLength: String(req.body?.message || "").length }),
+      ],
+    );
+  };
+
   // ── POST /api/assistant/chat ─────────────────────────────────────────────────
   app.post("/api/assistant/chat", authenticateToken, async (req: any, res) => {
     try {
@@ -43,6 +75,16 @@ export function registerAssistantRoutes(app: Express): void {
       // ── N3: intención de exportación — tiene prioridad sobre matchIntent ─────
       const exportIntent = detectExportIntent(message.trim());
       if (exportIntent) {
+        const exportPermission = exportIntent.endpoint.includes("financiero") || exportIntent.endpoint.includes("cobranza")
+          ? [MODULES.FINANCIAL, ACTIONS.READ] as const
+          : [MODULES.REPORTS, ACTIONS.READ] as const;
+        if (!hasPermissionForUser(req.user, exportPermission[0], exportPermission[1])) {
+          await auditAssistantDenied(req, "export:" + exportIntent.format, "missing_read_permission");
+          return res.status(403).json({
+            error: "Sin permiso",
+            reply: "No tienes permiso para consultar este reporte desde el asistente.",
+          });
+        }
         const fmtLabel = exportIntent.format === "pdf" ? "PDF" : "Excel";
         pool.query(
           `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
@@ -61,42 +103,41 @@ export function registerAssistantRoutes(app: Express): void {
         });
       }
 
-      // ── N4/N5: acción con confirmación — tiene prioridad sobre matchIntent ───
-      if (campusId && tenantId) {
-        const suggestTrigger = detectSuggestTrigger(message.trim());
-        if (suggestTrigger) {
-          const suggestResult = await resolveSuggestContext(suggestTrigger, { campusId, tenantId });
-          if (suggestResult) {
-            pool.query(
-              `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
-               VALUES ($1, $2, 'assistant_chat_interaction', 'system', $3, $4, NOW())`,
-              [
-                tenantId || null,
-                userId   || null,
-                campusId || null,
-                JSON.stringify({ intentType: suggestResult.kind === "signal" ? "suggest" : "clarification",
-                                 action: suggestTrigger.action }),
-              ]
-            ).catch(() => {});
-
-            if (suggestResult.kind === "signal") {
-              return res.json({
-                reply:   "Encontré lo siguiente. Revisa el detalle y confirma si quieres proceder.",
-                suggest: suggestResult.signal,
-              });
-            } else {
-              // clarification: la respuesta ya contiene el texto con opciones
-              return res.json({ reply: suggestResult.reply });
-            }
-          }
-          // null: trigger detectado pero sin coincidencias → cae a matchIntent
-        }
+      // ── Límite duro: el asistente no puede ejecutar ni preparar escrituras ───
+      // Los endpoints administrativos continúan disponibles desde sus pantallas,
+      // pero el chat nunca devuelve señales/URLs/body para modificar registros.
+      const suggestTrigger = detectSuggestTrigger(message.trim());
+      if (suggestTrigger) {
+        pool.query(
+          `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
+           VALUES ($1, $2, 'assistant_chat_interaction', 'system', $3, $4, NOW())`,
+          [
+            tenantId || null, userId || null, campusId || null,
+            JSON.stringify({ intentType: "write_request_refused", requestedAction: suggestTrigger.action, messageLength: message.trim().length }),
+          ],
+        ).catch(() => {});
+        return res.json({
+          reply:
+            "El asistente sólo puede consultar y orientar. No puede modificar becas, cargos, pagos, facturas ni configuraciones. " +
+            "Realiza esta acción manualmente desde la pantalla correspondiente.",
+        });
       }
 
       const result = matchIntent(message.trim(), userRole, decodedPath);
 
       // Si el intent es una acción/consulta de datos, ejecutarla en el servidor
       if (result.action && campusId && tenantId) {
+        const requiredPermission = permissionForAssistantAction(result.action.actionId);
+        if (
+          requiredPermission &&
+          !hasPermissionForUser(req.user, requiredPermission[0], requiredPermission[1])
+        ) {
+          await auditAssistantDenied(req, result.action.actionId, "missing_read_permission");
+          return res.status(403).json({
+            error: "Sin permiso",
+            reply: "No tienes permiso para consultar esta información desde el asistente.",
+          });
+        }
         const actionResult = await executeAction(
           result.action.actionId,
           result.action.params,

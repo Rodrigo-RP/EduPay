@@ -39,6 +39,8 @@ export interface IntentResult {
   diagnose?: { moduleId: string; label: string };
   /** Presente cuando el usuario hace una consulta de datos → el route la ejecuta */
   action?: ActionDescriptor;
+  /** Presente para instrucciones locales; nunca produce una acción ejecutable. */
+  guide?: { id: string; route: string; label: string; steps: string[] };
 }
 
 // ── Base de conocimiento ──────────────────────────────────────────────────────
@@ -656,6 +658,72 @@ export function detectActionIntent(message: string): ActionDescriptor | null {
   return null;
 }
 
+// ── Guías locales ─────────────────────────────────────────────────────────────
+// Catálogo cerrado y determinista. Este detector debe permanecer independiente
+// de cualquier proveedor LLM: responder una guía jamás requiere una API externa.
+export function detectGuideIntent(message: string): IntentResult | null {
+  const n = normalize(message);
+  const how = /\b(como|cómo|donde|dónde|pasos|instrucciones|configurar)\b/.test(n);
+  if (!how) return null;
+
+  if (/(importar|cargar|subir).*(excel|csv|archivo|alumnos|familias)|excel.*(alumnos|familias)/.test(n)) {
+    return {
+      reply: "Para importar datos masivos, sigue estos pasos:",
+      guide: {
+        id: "importar-excel",
+        route: "/importacion-datos",
+        label: "Importación de Datos",
+        steps: [
+          "Abre Importación de Datos.",
+          "Descarga la plantilla correspondiente.",
+          "Completa el Excel sin cambiar los encabezados.",
+          "Súbelo y revisa la previsualización y los errores.",
+          "Confirma la importación sólo cuando la previsualización sea correcta.",
+        ],
+      },
+      navigate: { route: "/importacion-datos", label: "Importación de Datos" },
+    };
+  }
+
+  if (/(alta|dar de alta|registrar|asignar).*(beca|descuento)|beca.*(25|porcentaje|alta)/.test(n)) {
+    return {
+      reply: "Para dar de alta una beca, hazlo manualmente desde Becas:",
+      guide: {
+        id: "alta-beca",
+        route: "/becas",
+        label: "Becas y Descuentos",
+        steps: [
+          "Abre Becas y Descuentos.",
+          "Busca y selecciona al alumno.",
+          "Captura el porcentaje y la vigencia.",
+          "Revisa el resumen y guarda desde esa pantalla.",
+        ],
+      },
+      navigate: { route: "/becas", label: "Becas y Descuentos" },
+    };
+  }
+
+  if (/(colegiatura|cobro|cobrar|mensualidad).*(12 meses|anual|todo el ano|todo el año)|12 meses.*(cobro|colegiatura)/.test(n)) {
+    return {
+      reply: "Para configurar el cobro durante los 12 meses, hazlo manualmente en Configuración de Pagos:",
+      guide: {
+        id: "cobro-anual",
+        route: "/configuracion-pagos-completa",
+        label: "Configuración de Pagos",
+        steps: [
+          "Abre Configuración de Pagos.",
+          "Selecciona la regla o concepto de colegiatura.",
+          "Configura los 12 periodos de cobro del ciclo.",
+          "Revisa fechas, vencimientos y recargos.",
+          "Guarda la configuración desde la pantalla.",
+        ],
+      },
+      navigate: { route: "/configuracion-pagos-completa", label: "Configuración de Pagos" },
+    };
+  }
+  return null;
+}
+
 /** Palabras clave que indican que el usuario reporta un fallo */
 const FAULT_KEYWORDS = [
   // Negaciones directas
@@ -687,6 +755,19 @@ export function matchIntent(
     return {
       reply: "No entendí tu mensaje. Puedes preguntarme dónde está una función, por ejemplo: _\"¿dónde registro un pago?\"_ o _\"quiero ver las becas\"_.",
     };
+  }
+
+  // Las guías locales tienen prioridad sobre cualquier acción o consulta.
+  // Una orden como "cómo asigno una beca" sigue siendo sólo una guía.
+  const guide = detectGuideIntent(message);
+  if (guide) {
+    const guideModule = KNOWLEDGE_BASE.find((module) => module.route === guide.guide?.route);
+    if (guideModule?.roles.length && !guideModule.roles.includes(userRole)) {
+      return {
+        reply: "No tienes permiso para acceder a esa configuración. Pide a un administrador que realice el trámite desde el módulo correspondiente.",
+      };
+    }
+    return guide;
   }
 
   // ── Detectar acción / consulta de datos PRIMERO ───────────────────────────

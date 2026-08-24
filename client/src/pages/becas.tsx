@@ -1878,7 +1878,7 @@ ${b.nombre}:
                               {estudiante.porcentaje_asignado}% descuento
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              ${((estudiante.monto_mensual_descuento || 0) / 100).toLocaleString()} mensual
+                              ${((estudiante.monto_mensual_descuento || 0) / 100).toLocaleString()} acumulado
                             </div>
                           </div>
                           <Badge 
@@ -1913,7 +1913,7 @@ ${b.nombre}:
                 <DropdownMenuContent>
                   <DropdownMenuItem onClick={() => {
                     const csvContent = [
-                      'Nombre,Grado,Grupo,Porcentaje,Descuento Mensual,Estado',
+                      'Nombre,Grado,Grupo,Porcentaje,Descuento Acumulado,Estado',
                       ...estudiantesDeBecaSeleccionada
                         .map(e => `${e.nombre_completo},${e.grado},${e.grupo || 'N/A'},${e.porcentaje_asignado}%,$${((e.monto_mensual_descuento || 0)/100).toLocaleString()},${e.estado}`)
                     ].join('\n');

@@ -579,6 +579,15 @@ export default function Becas() {
   const becasAgrupadas = new Map<string, any>();
   for (const beca of becasVigentes) {
     const key = String(beca.scholarship_type_id ?? beca.tipo_nombre ?? beca.id);
+    const estudianteAsignado = {
+      id: beca.student_id,
+      nombre_completo: beca.alumno,
+      grado: beca.grado || beca.nivel_escolar || "Sin grado",
+      grupo: beca.grupo || "",
+      porcentaje_asignado: Number(beca.porcentaje_aplicado || 0),
+      estado: "Activa",
+      monto_mensual_descuento: Number(beca.monto_descuento_centavos || 0),
+    };
     const actual = becasAgrupadas.get(key) ?? {
       id: beca.scholarship_type_id ?? beca.id,
       nombre: beca.tipo_nombre || "Beca sin tipo",
@@ -587,6 +596,7 @@ export default function Becas() {
       descripcion: beca.observaciones || "Beca asignada a estudiantes activos",
       porcentaje_max: 0,
       estudiantes: new Set<number>(),
+      estudiantes_detalle: [],
       monto_total_descuento: 0,
       asignacion: "Asignación vigente registrada",
       vigencia: "Vigente",
@@ -594,12 +604,14 @@ export default function Becas() {
     };
     actual.porcentaje_max = Math.max(actual.porcentaje_max, Number(beca.porcentaje_aplicado || 0));
     actual.estudiantes.add(Number(beca.student_id));
+    actual.estudiantes_detalle.push(estudianteAsignado);
     actual.monto_total_descuento += Number(beca.monto_descuento_centavos || 0);
     becasAgrupadas.set(key, actual);
   }
   const becasYDescuentos = Array.from(becasAgrupadas.values()).map((beca) => ({
     ...beca,
     estudiantes_aplicados: beca.estudiantes.size,
+    estudiantes: beca.estudiantes_detalle,
   }));
   const totalTiposBecas = becasYDescuentos.length;
   const totalEstudiantesBeneficiados = new Set(
@@ -749,6 +761,8 @@ ${b.nombre}:
     setSelectedBeca(beca);
     setShowStudentsModal(true);
   };
+
+  const estudiantesDeBecaSeleccionada = selectedBeca?.estudiantes || [];
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -1841,12 +1855,8 @@ ${b.nombre}:
                 <h4 className="font-medium">Lista de Estudiantes</h4>
               </div>
               <div className="divide-y">
-                {estudiantesParaBecas
-                  .filter(e => 
-                    e.tipo_solicitud === selectedBeca?.categoria || 
-                    (selectedBeca?.categoria === 'usebeq' && e.tipo_solicitud === 'socioeconomica')
-                  )
-                  .map((estudiante, index) => (
+                {estudiantesDeBecaSeleccionada.length > 0 ? (
+                  estudiantesDeBecaSeleccionada.map((estudiante: any, index: number) => (
                     <div key={index} className="p-4 hover:bg-muted/50">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
@@ -1881,7 +1891,11 @@ ${b.nombre}:
                       </div>
                     </div>
                   ))
-                }
+                ) : (
+                  <div className="p-6 text-center text-muted-foreground">
+                    No hay estudiantes asociados a esta asignación vigente.
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1900,11 +1914,7 @@ ${b.nombre}:
                   <DropdownMenuItem onClick={() => {
                     const csvContent = [
                       'Nombre,Grado,Grupo,Porcentaje,Descuento Mensual,Estado',
-                      ...estudiantesParaBecas
-                        .filter(e => 
-                          e.tipo_solicitud === selectedBeca?.categoria || 
-                          (selectedBeca?.categoria === 'usebeq' && e.tipo_solicitud === 'socioeconomica')
-                        )
+                      ...estudiantesDeBecaSeleccionada
                         .map(e => `${e.nombre_completo},${e.grado},${e.grupo || 'N/A'},${e.porcentaje_asignado}%,$${((e.monto_mensual_descuento || 0)/100).toLocaleString()},${e.estado}`)
                     ].join('\n');
                     

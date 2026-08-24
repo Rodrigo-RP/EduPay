@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -33,6 +33,17 @@ export default function PlanesPago() {
   const campusId = user?.campus_id || 1;
   const [showModal, setShowModal] = useState(false);
   const [expandedPlan, setExpandedPlan] = useState<number | null>(null);
+  const [planParaCancelar, setPlanParaCancelar] = useState<any | null>(null);
+  const [destinoCancelacion, setDestinoCancelacion] = useState<"condonar" | "reinstalar">("condonar");
+  const [motivoCancelacion, setMotivoCancelacion] = useState("");
+  const [motivoCondonacion, setMotivoCondonacion] = useState("");
+  const [bloqueoOverride, setBloqueoOverride] = useState<string | null>(null);
+  const [overridePendiente, setOverridePendiente] = useState<{
+    planId: number;
+    alertaId: number;
+    cancelacion: Record<string, string>;
+  } | null>(null);
+  const [motivoOverride, setMotivoOverride] = useState("");
 
   const [form, setForm] = useState({
     student_id:             "",
@@ -82,6 +93,105 @@ export default function PlanesPago() {
     },
     onError: () => toast({ title: "Error al registrar el pago", variant: "destructive" }),
   });
+
+  const requestJson = async (url: string, method: "PATCH" | "POST", body: Record<string, string>) => {
+    const response = await fetch(url, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        ...(localStorage.getItem("auth_token") ? { Authorization: `Bearer ${localStorage.getItem("auth_token")}` } : {}),
+      },
+      body: JSON.stringify(body),
+      credentials: "include",
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(data.message || `Error ${response.status}`);
+      Object.assign(error, { status: response.status, data });
+      throw error;
+    }
+    return data;
+  };
+
+  const resetCancelar = () => {
+    setPlanParaCancelar(null);
+    setDestinoCancelacion("condonar");
+    setMotivoCancelacion("");
+    setMotivoCondonacion("");
+    setBloqueoOverride(null);
+  };
+
+  const cancelarPlan = useMutation({
+    mutationFn: ({ planId, body }: { planId: number; body: Record<string, string> }) =>
+      requestJson(`/api/planes-pago/${planId}/cancelar`, "PATCH", body),
+    onSuccess: (_data, variables) => {
+      toast({
+        title: variables.body.destino_saldo_pendiente === "condonar" ? "Saldo condonado" : "Saldo reinstalado",
+        description: variables.body.destino_saldo_pendiente === "condonar"
+          ? "El plan y sus cuotas pendientes fueron cancelados."
+          : "El plan fue cancelado y el saldo pendiente se registró de nuevo.",
+      });
+      resetCancelar();
+      setOverridePendiente(null);
+      setMotivoOverride("");
+      queryClient.invalidateQueries({ queryKey: ["/api/planes-pago"] });
+    },
+    onError: (error: any, variables) => {
+      const data = error?.data;
+      if (error?.status === 409 && data?.requiere_override) {
+        const message =
+          "Esta condonación requiere autorización adicional porque existe una condonación reciente para este alumno o un hermano.";
+        if (["administrador_general", "super_admin"].includes(user?.role || "") && Number.isFinite(Number(data.alerta_id))) {
+          setOverridePendiente({ planId: variables.planId, alertaId: Number(data.alerta_id), cancelacion: variables.body });
+          setMotivoOverride("");
+          setBloqueoOverride(null);
+        } else {
+          setBloqueoOverride(
+            `${message} Solicita a un administrador general o super administrador que la autorice.`,
+          );
+        }
+        return;
+      }
+      toast({ title: "No se pudo cancelar el plan", description: error?.message || "Intenta nuevamente.", variant: "destructive" });
+    },
+  });
+
+  const autorizarYCondonar = useMutation({
+    mutationFn: async () => {
+      if (!overridePendiente) throw new Error("No hay una autorización pendiente.");
+      const tokenResult = await requestJson(
+        `/api/admin/alertas/condonaciones/${overridePendiente.planId}/override-token`,
+        "POST",
+        { motivo: motivoOverride.trim(), alerta_id: String(overridePendiente.alertaId) },
+      );
+      if (!tokenResult.token) throw new Error("No se recibió el token de autorización.");
+      return requestJson(
+        `/api/planes-pago/${overridePendiente.planId}/cancelar`,
+        "PATCH",
+        { ...overridePendiente.cancelacion, override_token: tokenResult.token },
+      );
+    },
+    onSuccess: () => {
+      toast({ title: "Condonación autorizada y aplicada", description: "La autorización quedó registrada en el historial." });
+      resetCancelar();
+      setOverridePendiente(null);
+      setMotivoOverride("");
+      queryClient.invalidateQueries({ queryKey: ["/api/planes-pago"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "No se pudo autorizar la condonación", description: error?.message || "Intenta nuevamente.", variant: "destructive" });
+    },
+  });
+
+  const enviarCancelacion = () => {
+    if (!planParaCancelar) return;
+    const body: Record<string, string> = {
+      motivo: motivoCancelacion.trim(),
+      destino_saldo_pendiente: destinoCancelacion,
+    };
+    if (destinoCancelacion === "condonar") body.motivo_condonacion = motivoCondonacion.trim();
+    cancelarPlan.mutate({ planId: planParaCancelar.id, body });
+  };
 
   // ── Cálculo del preview ───────────────────────────────────────────────────
   const selectedConcept = (conceptos || []).find((c: any) => String(c.id) === form.concept_id);
@@ -332,14 +442,32 @@ export default function PlanesPago() {
                         <span className="text-xs text-slate-500 w-8">{progreso}%</span>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="ml-2"
-                      onClick={() => setExpandedPlan(isExpanded ? null : plan.id)}
-                    >
-                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    </Button>
+                     <div className="flex items-center gap-1 ml-2">
+                       {plan.estado === "activo" && plan.tipo_origen === "reestructuracion" && (
+                         <Button
+                           size="sm"
+                           variant="outline"
+                           className="border-orange-300 text-orange-800 hover:bg-orange-50"
+                           data-plan-id={plan.id}
+                           onClick={() => {
+                             setPlanParaCancelar(plan);
+                             setDestinoCancelacion("condonar");
+                             setMotivoCancelacion("");
+                             setMotivoCondonacion("");
+                             setBloqueoOverride(null);
+                           }}
+                         >
+                           Cancelar reestructuración
+                         </Button>
+                       )}
+                       <Button
+                         variant="ghost"
+                         size="sm"
+                         onClick={() => setExpandedPlan(isExpanded ? null : plan.id)}
+                       >
+                         {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                       </Button>
+                     </div>
                   </div>
 
                   {/* Cuotas expandidas — son charges reales */}
@@ -423,6 +551,115 @@ export default function PlanesPago() {
           })}
         </div>
       )}
+
+      <Dialog open={!!planParaCancelar} onOpenChange={open => !open && resetCancelar()}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Cancelar reestructuración</DialogTitle>
+            <DialogDescription>
+              {planParaCancelar?.student_nombre || "Este alumno"} tiene un convenio activo. Elige qué debe pasar con el saldo pendiente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Destino del saldo pendiente</Label>
+              <Select value={destinoCancelacion} onValueChange={(value: "condonar" | "reinstalar") => {
+                setDestinoCancelacion(value);
+                setBloqueoOverride(null);
+              }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="condonar">Condonar saldo pendiente</SelectItem>
+                  <SelectItem value="reinstalar">Reinstalar saldo como cargo pendiente</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-slate-500">
+                {destinoCancelacion === "condonar"
+                  ? "Cancela las cuotas pendientes sin generar un nuevo cargo."
+                  : "Cancela el plan y vuelve a crear el saldo pendiente como un cargo por cobrar."}
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="motivo-cancelacion">Motivo de la cancelación</Label>
+              <Textarea
+                id="motivo-cancelacion"
+                value={motivoCancelacion}
+                onChange={event => setMotivoCancelacion(event.target.value)}
+                placeholder="Explica por qué se cancela el convenio..."
+                rows={3}
+              />
+              <p className="mt-1 text-xs text-slate-500">Mínimo 10 caracteres.</p>
+            </div>
+            {destinoCancelacion === "condonar" && (
+              <div>
+                <Label htmlFor="motivo-condonacion">Justificación de la condonación</Label>
+                <Textarea
+                  id="motivo-condonacion"
+                  value={motivoCondonacion}
+                  onChange={event => setMotivoCondonacion(event.target.value)}
+                  placeholder="Documenta la razón de la condonación..."
+                  rows={3}
+                />
+                <p className="mt-1 text-xs text-slate-500">Mínimo 10 caracteres.</p>
+              </div>
+            )}
+            {bloqueoOverride && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                <p className="font-semibold">Autorización adicional requerida</p>
+                <p className="mt-1">{bloqueoOverride}</p>
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={resetCancelar} disabled={cancelarPlan.isPending}>Cancelar</Button>
+              <Button
+                className={destinoCancelacion === "condonar" ? "bg-orange-600 hover:bg-orange-700" : ""}
+                disabled={
+                  cancelarPlan.isPending ||
+                  motivoCancelacion.trim().length < 10 ||
+                  (destinoCancelacion === "condonar" && motivoCondonacion.trim().length < 10)
+                }
+                onClick={enviarCancelacion}
+              >
+                {cancelarPlan.isPending ? "Procesando..." : destinoCancelacion === "condonar" ? "Condonar y cancelar plan" : "Cancelar y reinstalar saldo"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!overridePendiente} onOpenChange={open => !open && !autorizarYCondonar.isPending && setOverridePendiente(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Autorizar condonación repetida</DialogTitle>
+            <DialogDescription>
+              Existe una condonación registrada en los últimos 90 días para este alumno o un hermano. Esta autorización quedará registrada.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="motivo-override">Motivo de autorización</Label>
+              <Textarea
+                id="motivo-override"
+                value={motivoOverride}
+                onChange={event => setMotivoOverride(event.target.value)}
+                placeholder="Explica por qué se autoriza una condonación adicional..."
+                rows={4}
+              />
+              <p className="mt-1 text-xs text-slate-500">Mínimo 10 caracteres.</p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setOverridePendiente(null)} disabled={autorizarYCondonar.isPending}>Cancelar</Button>
+              <Button
+                className="bg-orange-600 hover:bg-orange-700"
+                disabled={autorizarYCondonar.isPending || motivoOverride.trim().length < 10}
+                onClick={() => autorizarYCondonar.mutate()}
+              >
+                {autorizarYCondonar.isPending ? "Autorizando..." : "Autorizar y aplicar condonación"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

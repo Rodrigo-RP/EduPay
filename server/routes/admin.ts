@@ -1572,6 +1572,107 @@ export function registerAdminRoutes(app: Express): void {
   });
 
   /**
+   * PATCH /api/admin/families/:familyId
+   * Actualiza en una transacción los datos de la familia y sus tutores.
+   * Los tutores deben estar vinculados a la familia; no se permite cambiar
+   * relaciones de otro tenant/campus desde este endpoint.
+   */
+  app.patch("/api/admin/families/:familyId", authenticateToken, async (req: any, res) => {
+    const familyId = Number(req.params.familyId);
+    const { nombre, tutores } = req.body || {};
+    if (!Number.isInteger(familyId) || !Array.isArray(tutores) || tutores.length === 0) {
+      return res.status(400).json({ message: "familyId y tutores son requeridos" });
+    }
+    const administrativeRoles = ["super_admin", "administrador_general", "administrador_campus"];
+    if (
+      !hasPermissionForUser(req.user, MODULES.FAMILIES, ACTIONS.UPDATE) ||
+      !administrativeRoles.includes(req.user?.role)
+    ) {
+      return res.status(403).json({ message: "Sin permisos para editar familias" });
+    }
+
+    const tenantId = Number(req.user?.tenant_id);
+    const campusId = Number(req.user?.campus_id);
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const family = await client.query(
+        `SELECT id, nombre FROM families
+          WHERE id = $1 AND tenant_id = $2 AND campus_id = $3
+          FOR UPDATE`,
+        [familyId, tenantId, campusId],
+      );
+      if (!family.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ message: "Familia no encontrada en este campus" });
+      }
+
+      if (nombre?.trim()) {
+        await client.query(
+          `UPDATE families SET nombre = $1, updated_at = NOW() WHERE id = $2`,
+          [nombre.trim(), familyId],
+        );
+      }
+
+      const linked = await client.query(
+        `SELECT DISTINCT g.id
+           FROM family_students fs
+           JOIN student_guardian sg ON sg.student_id = fs.student_id
+           JOIN guardians g ON g.id = sg.guardian_id
+          WHERE fs.family_id = $1 AND g.tenant_id = $2`,
+        [familyId, tenantId],
+      );
+      const linkedIds = new Set(linked.rows.map((row: any) => Number(row.id)));
+      for (const tutor of tutores) {
+        const guardianId = Number(tutor.guardian_id);
+        if (!Number.isInteger(guardianId) || !linkedIds.has(guardianId)) {
+          throw Object.assign(new Error("Tutor no vinculado a esta familia"), { status: 422 });
+        }
+        for (const [field, value] of [
+          ["celular", tutor.celular],
+          ["contacto_emergencia_telefono", tutor.contacto_emergencia_telefono],
+        ] as const) {
+          if (!value || !/^\+[1-9]\d{7,14}$/.test(value)) {
+            throw Object.assign(new Error(`${field} debe estar en formato E.164`), { status: 422 });
+          }
+        }
+        if (!tutor.calle || !tutor.numero_exterior || !tutor.colonia ||
+            !tutor.codigo_postal || !/^\d{5}$/.test(tutor.codigo_postal) ||
+            !tutor.municipio || !tutor.estado ||
+            !tutor.contacto_emergencia_nombre || !tutor.contacto_emergencia_relacion) {
+          throw Object.assign(
+            new Error("Domicilio y contacto de emergencia completos son obligatorios para cada tutor"),
+            { status: 422 },
+          );
+        }
+        await client.query(
+          `UPDATE guardians
+              SET calle = $1, numero_exterior = $2, numero_interior = $3,
+                  colonia = $4, codigo_postal = $5, municipio = $6, estado = $7,
+                  contacto_emergencia_nombre = $8,
+                  contacto_emergencia_telefono = $9,
+                  contacto_emergencia_relacion = $10,
+                  updated_at = NOW()
+            WHERE id = $11 AND tenant_id = $12`,
+          [
+            tutor.calle, tutor.numero_exterior, tutor.numero_interior || null,
+            tutor.colonia, tutor.codigo_postal, tutor.municipio, tutor.estado,
+            tutor.contacto_emergencia_nombre, tutor.contacto_emergencia_telefono,
+            tutor.contacto_emergencia_relacion, guardianId, tenantId,
+          ],
+        );
+      }
+      await client.query("COMMIT");
+      return res.json({ id: familyId, nombre: nombre?.trim() || family.rows[0].nombre, tutores });
+    } catch (error: any) {
+      await client.query("ROLLBACK").catch(() => {});
+      return res.status(error.status || 500).json({ message: error.message || "No se pudo actualizar la familia" });
+    } finally {
+      client.release();
+    }
+  });
+
+  /**
    * PATCH /api/admin/families/:familyId/status
    * Archivado lógico o reactivación. Archivar invalida sesiones y magic links
    * únicamente de tutores que ya no conservan otra familia activa.

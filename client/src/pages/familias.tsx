@@ -63,6 +63,11 @@ export default function Familias() {
     madre_email: "",
     madre_ocupacion: "",
     madre_empresa: "",
+    student_ids: "",
+    padre_calle: "", padre_numero_exterior: "", padre_numero_interior: "", padre_colonia: "", padre_codigo_postal: "", padre_municipio: "", padre_estado: "",
+    padre_contacto_emergencia_nombre: "", padre_contacto_emergencia_telefono: "", padre_contacto_emergencia_relacion: "",
+    madre_calle: "", madre_numero_exterior: "", madre_numero_interior: "", madre_colonia: "", madre_codigo_postal: "", madre_municipio: "", madre_estado: "",
+    madre_contacto_emergencia_nombre: "", madre_contacto_emergencia_telefono: "", madre_contacto_emergencia_relacion: "",
     // Dirección
     direccion: "",
     colonia: "",
@@ -112,18 +117,21 @@ export default function Familias() {
   const [familias, setFamilias] = useState<any[]>([]);
 
   // Normalizar solamente campos reales del servidor; nunca inventar domicilio ni estatus.
-  const normalizeFamilia = (f: any) => ({
+  const normalizeFamilia = (f: any) => {
+    const padre = (f.tutores || []).find((t: any) => t.tipo_guardian === "padre") || f.tutores?.[0] || {};
+    const madre = (f.tutores || []).find((t: any) => t.tipo_guardian === "madre") || f.tutores?.[1] || {};
+    return ({
     ...f,
     numero_familia: `FAM${String(f.id).padStart(3, "0")}`,
-    padre_nombre: f.nombre,
-    padre_telefono: "",
-    padre_email: "",
-    madre_nombre: "",
-    madre_telefono: "",
-    madre_email: "",
-    direccion: "",
-    ciudad: "",
-    codigo_postal: f.codigo_postal || f.cp || "",
+    padre_nombre: padre.nombre_completo || "",
+    padre_telefono: padre.celular || "",
+    padre_email: padre.correo_institucional_familiar || padre.email || "",
+    madre_nombre: madre.nombre_completo || "",
+    madre_telefono: madre.celular || "",
+    madre_email: madre.correo_institucional_familiar || madre.email || "",
+    direccion: padre.calle || "",
+    ciudad: padre.municipio || "",
+    codigo_postal: padre.codigo_postal || "",
     razon_social: f.nombre,
     rfc: "",
     estatus: f.status || "activo",
@@ -137,7 +145,8 @@ export default function Familias() {
     })),
     saldo_total: f.saldo_pendiente_centavos ?? 0,
     fecha_registro: f.created_at ? f.created_at.split("T")[0] : "",
-  });
+    });
+  };
 
   // Cargar familias desde la API — llamado en mount Y después de import exitoso.
   const loadFamilias = async () => {
@@ -400,6 +409,24 @@ export default function Familias() {
     }));
   };
 
+  const TutorContactFields = ({ prefix, title }: { prefix: "padre" | "madre"; title: string }) => (
+    <div className="border rounded-lg p-4 space-y-3">
+      <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <Input value={formData[`${prefix}_calle`]} onChange={(e) => handleInputChange(`${prefix}_calle`, e.target.value)} placeholder="Calle *" required />
+        <Input value={formData[`${prefix}_numero_exterior`]} onChange={(e) => handleInputChange(`${prefix}_numero_exterior`, e.target.value)} placeholder="Número exterior *" required />
+        <Input value={formData[`${prefix}_numero_interior`]} onChange={(e) => handleInputChange(`${prefix}_numero_interior`, e.target.value)} placeholder="Número interior" />
+        <Input value={formData[`${prefix}_colonia`]} onChange={(e) => handleInputChange(`${prefix}_colonia`, e.target.value)} placeholder="Colonia *" required />
+        <Input value={formData[`${prefix}_codigo_postal`]} onChange={(e) => handleInputChange(`${prefix}_codigo_postal`, e.target.value.replace(/\D/g, ""))} placeholder="Código postal *" maxLength={5} required />
+        <Input value={formData[`${prefix}_municipio`]} onChange={(e) => handleInputChange(`${prefix}_municipio`, e.target.value)} placeholder="Municipio *" required />
+        <Input value={formData[`${prefix}_estado`]} onChange={(e) => handleInputChange(`${prefix}_estado`, e.target.value)} placeholder="Estado *" required />
+        <Input value={formData[`${prefix}_contacto_emergencia_nombre`]} onChange={(e) => handleInputChange(`${prefix}_contacto_emergencia_nombre`, e.target.value)} placeholder="Contacto de emergencia *" required />
+        <Input value={formData[`${prefix}_contacto_emergencia_telefono`]} onChange={(e) => handleInputChange(`${prefix}_contacto_emergencia_telefono`, e.target.value)} placeholder="Teléfono de emergencia *" required />
+        <Input value={formData[`${prefix}_contacto_emergencia_relacion`]} onChange={(e) => handleInputChange(`${prefix}_contacto_emergencia_relacion`, e.target.value)} placeholder="Relación de emergencia *" required />
+      </div>
+    </div>
+  );
+
   // Funciones para manejar múltiples datos fiscales
   const handleFiscalDataChange = (index: number, field: string, value: string) => {
     setDatosFiscales(prev => 
@@ -462,6 +489,11 @@ export default function Familias() {
       madre_email: "",
       madre_ocupacion: "",
       madre_empresa: "",
+      student_ids: "",
+      padre_calle: "", padre_numero_exterior: "", padre_numero_interior: "", padre_colonia: "", padre_codigo_postal: "", padre_municipio: "", padre_estado: "",
+      padre_contacto_emergencia_nombre: "", padre_contacto_emergencia_telefono: "", padre_contacto_emergencia_relacion: "",
+      madre_calle: "", madre_numero_exterior: "", madre_numero_interior: "", madre_colonia: "", madre_codigo_postal: "", madre_municipio: "", madre_estado: "",
+      madre_contacto_emergencia_nombre: "", madre_contacto_emergencia_telefono: "", madre_contacto_emergencia_relacion: "",
       direccion: "",
       colonia: "",
       ciudad: "",
@@ -771,6 +803,8 @@ export default function Familias() {
   };
 
   const loadFamilyForEdit = (familia: any) => {
+    const padre = familia.tutores?.find((t: any) => t.tipo_guardian === "padre") || familia.tutores?.[0] || {};
+    const madre = familia.tutores?.find((t: any) => t.tipo_guardian === "madre") || familia.tutores?.[1] || {};
     // Separar nombres existentes para el formulario
     const padreNombreParts = familia.padre_nombre?.split(' ') || [];
     const madreNombreParts = familia.madre_nombre?.split(' ') || [];
@@ -791,6 +825,13 @@ export default function Familias() {
       madre_email: familia.madre_email || "",
       madre_ocupacion: familia.madre_ocupacion || "",
       madre_empresa: familia.madre_empresa || "",
+      student_ids: (familia.estudiantes_vinculados || []).map((s: any) => s.id).join(", "),
+      padre_calle: padre.calle || "", padre_numero_exterior: padre.numero_exterior || "", padre_numero_interior: padre.numero_interior || "",
+      padre_colonia: padre.colonia || "", padre_codigo_postal: padre.codigo_postal || "", padre_municipio: padre.municipio || "", padre_estado: padre.estado || "",
+      padre_contacto_emergencia_nombre: padre.contacto_emergencia_nombre || "", padre_contacto_emergencia_telefono: padre.contacto_emergencia_telefono || "", padre_contacto_emergencia_relacion: padre.contacto_emergencia_relacion || "",
+      madre_calle: madre.calle || "", madre_numero_exterior: madre.numero_exterior || "", madre_numero_interior: madre.numero_interior || "",
+      madre_colonia: madre.colonia || "", madre_codigo_postal: madre.codigo_postal || "", madre_municipio: madre.municipio || "", madre_estado: madre.estado || "",
+      madre_contacto_emergencia_nombre: madre.contacto_emergencia_nombre || "", madre_contacto_emergencia_telefono: madre.contacto_emergencia_telefono || "", madre_contacto_emergencia_relacion: madre.contacto_emergencia_relacion || "",
       direccion: familia.direccion || "",
       colonia: familia.colonia || "",
       ciudad: familia.ciudad || "",
@@ -967,6 +1008,69 @@ export default function Familias() {
 
       resetForm();
       setShowAddModal(false);
+    }
+  };
+
+  const normalizeMexicanPhone = (value: string) => {
+    const digits = value.replace(/\D/g, "");
+    return digits.startsWith("52") && digits.length === 12 ? `+${digits}` : `+52${digits}`;
+  };
+
+  const saveIndividualFamily = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const buildTutor = (prefix: "padre" | "madre", tipo_guardian: "padre" | "madre", existing: any = {}) => ({
+      guardian_id: existing.id,
+      tipo_guardian,
+      nombres: formData[`${prefix}_nombres`],
+      apellido_paterno: formData[`${prefix}_primer_apellido`],
+      apellido_materno: formData[`${prefix}_segundo_apellido`],
+      correo_institucional_familiar: formData[`${prefix}_email`],
+      celular: normalizeMexicanPhone(formData[`${prefix}_telefono`]),
+      calle: formData[`${prefix}_calle`],
+      numero_exterior: formData[`${prefix}_numero_exterior`],
+      numero_interior: formData[`${prefix}_numero_interior`],
+      colonia: formData[`${prefix}_colonia`],
+      codigo_postal: formData[`${prefix}_codigo_postal`],
+      municipio: formData[`${prefix}_municipio`],
+      estado: formData[`${prefix}_estado`],
+      contacto_emergencia_nombre: formData[`${prefix}_contacto_emergencia_nombre`],
+      contacto_emergencia_telefono: normalizeMexicanPhone(formData[`${prefix}_contacto_emergencia_telefono`]),
+      contacto_emergencia_relacion: formData[`${prefix}_contacto_emergencia_relacion`],
+      es_responsable_pago: prefix === "padre",
+      porcentaje_responsabilidad: prefix === "padre" ? "100" : "0",
+    });
+    const padre = buildTutor("padre", "padre", editingFamily?.tutores?.find((t: any) => t.tipo_guardian === "padre") || editingFamily?.tutores?.[0]);
+    const madreCapturada = Boolean(formData.madre_nombres || formData.madre_email || formData.madre_telefono);
+    const madre = buildTutor("madre", "madre", editingFamily?.tutores?.find((t: any) => t.tipo_guardian === "madre") || editingFamily?.tutores?.[1]);
+    const required = [padre, ...(madreCapturada ? [madre] : [])];
+    if (required.some((t) => !t.nombres || !t.apellido_paterno || !t.celular ||
+      !t.calle || !t.numero_exterior || !t.colonia || !/^\d{5}$/.test(t.codigo_postal) ||
+      !t.municipio || !t.estado || !t.contacto_emergencia_nombre ||
+      !t.contacto_emergencia_telefono || !t.contacto_emergencia_relacion)) {
+      toast({ title: "Información incompleta", description: "Completa domicilio y contacto de emergencia de cada tutor capturado.", variant: "destructive" });
+      return;
+    }
+    const studentIds = formData.student_ids.split(",").map((id) => Number(id.trim())).filter(Number.isInteger);
+    if (!editingFamily && studentIds.length === 0) {
+      toast({ title: "Selecciona alumnos", description: "Captura al menos un ID de alumno vinculado.", variant: "destructive" });
+      return;
+    }
+    try {
+      const token = localStorage.getItem("auth_token");
+      const payload = editingFamily
+        ? { nombre: combineNames(formData.padre_nombres, formData.padre_primer_apellido, formData.padre_segundo_apellido), tutores: required }
+        : { nombre: combineNames(formData.padre_nombres, formData.padre_primer_apellido, formData.padre_segundo_apellido), student_ids: studentIds, tutores: required };
+      const response = await fetch(
+        editingFamily ? `/api/admin/families/${editingFamily.id}` : "/api/admin/families",
+        { method: editingFamily ? "PATCH" : "POST", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(payload) },
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message || "No se pudo guardar la familia");
+      await loadFamilias();
+      toast({ title: editingFamily ? "Familia actualizada" : "Familia registrada", description: "Los datos fueron guardados y recargados desde el servidor." });
+      resetForm(); setShowAddModal(false); setShowEditModal(false); setEditingFamily(null);
+    } catch (error: any) {
+      toast({ title: "No se pudo guardar", description: error.message, variant: "destructive" });
     }
   };
 
@@ -1895,7 +1999,7 @@ export default function Familias() {
               </TabsList>
 
               <TabsContent value="individual" className="space-y-4">
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={saveIndividualFamily}>
                   <Tabs defaultValue="generales" className="space-y-4">
                     <TabsList className="grid w-full grid-cols-5">
                       <TabsTrigger value="generales">Datos Generales</TabsTrigger>
@@ -1906,6 +2010,11 @@ export default function Familias() {
                     </TabsList>
 
                     <TabsContent value="generales" className="space-y-4">
+                      <div>
+                        <Label htmlFor="student_ids">IDs de alumnos vinculados *</Label>
+                        <Input id="student_ids" value={formData.student_ids} onChange={(e) => handleInputChange("student_ids", e.target.value)} placeholder="Ejemplo: 12, 27" required />
+                        <p className="mt-1 text-xs text-slate-500">Separa varios IDs con coma.</p>
+                      </div>
                       <div>
                         <h3 className="text-lg font-semibold text-slate-900 mb-4">Padre/Tutor Principal</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -2053,6 +2162,10 @@ export default function Familias() {
                     </TabsContent>
 
                     <TabsContent value="contacto" className="space-y-4">
+                      <TutorContactFields prefix="padre" title="Domicilio y emergencia — Padre/Tutor principal" />
+                      {Boolean(formData.madre_nombres || formData.madre_email || formData.madre_telefono) && (
+                        <TutorContactFields prefix="madre" title="Domicilio y emergencia — Madre/Tutora" />
+                      )}
                       <div>
                         <h3 className="text-lg font-semibold text-slate-900 mb-4">Dirección</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2561,7 +2674,7 @@ export default function Familias() {
               </TabsContent>
             </Tabs>
           ) : (
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={saveIndividualFamily}>
               <Tabs defaultValue="generales" className="space-y-4">
                 <TabsList className="grid w-full grid-cols-5">
                   <TabsTrigger value="generales">Datos Generales</TabsTrigger>
@@ -2704,6 +2817,10 @@ export default function Familias() {
               </TabsContent>
 
               <TabsContent value="contacto" className="space-y-4">
+                  <TutorContactFields prefix="padre" title="Domicilio y emergencia — Padre/Tutor principal" />
+                  {Boolean(formData.madre_nombres || formData.madre_email || formData.madre_telefono) && (
+                    <TutorContactFields prefix="madre" title="Domicilio y emergencia — Madre/Tutora" />
+                  )}
                 <div>
                   <h3 className="text-lg font-semibold text-slate-900 mb-4">Dirección</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

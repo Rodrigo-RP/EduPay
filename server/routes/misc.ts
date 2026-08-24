@@ -1223,7 +1223,23 @@ export function registerMiscRoutes(app: Express): void {
              WHERE fs.family_id = $1`,
             [f.id]
           );
-          return { ...f, estudiantes: rows.rows };
+          const guardians = await pool.query(
+            `SELECT DISTINCT g.id, g.tipo_guardian, g.nombres, g.apellido_paterno,
+                    g.apellido_materno, g.nombre_completo, g.email,
+                    g.correo_institucional_familiar, g.celular, g.calle,
+                    g.numero_exterior, g.numero_interior, g.colonia,
+                    g.codigo_postal, g.municipio, g.estado,
+                    g.contacto_emergencia_nombre, g.contacto_emergencia_telefono,
+                    g.contacto_emergencia_relacion, sg.es_responsable_pago,
+                    sg.porcentaje_responsabilidad
+               FROM family_students fs
+               JOIN student_guardian sg ON sg.student_id = fs.student_id
+               JOIN guardians g ON g.id = sg.guardian_id
+              WHERE fs.family_id = $1
+              ORDER BY g.id`,
+            [f.id],
+          );
+          return { ...f, estudiantes: rows.rows, tutores: guardians.rows };
         })
       );
 

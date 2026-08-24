@@ -7,7 +7,9 @@
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { BotMessageSquare, X, Send, ChevronRight, CheckCircle2, XCircle, AlertTriangle, Wrench, Loader2, FileDown } from "lucide-react";
+import { BotMessageSquare, X, Minus, Send, ChevronRight, CheckCircle2, XCircle, AlertTriangle, Wrench, Loader2, FileDown, Maximize2 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { apiRequest } from "@/lib/queryClient";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -148,10 +150,41 @@ const PAGE_LABELS: Record<string, string> = {
   "/historial": "Historial de Movimientos",
 };
 
-function renderMarkdown(text: string) {
-  return text
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/_(.+?)_/g, "<em>$1</em>");
+function MarkdownMessage({ text, role }: { text: string; role: ChatMessage["role"] }) {
+  const isUser = role === "user";
+
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        p: ({ node: _node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+        strong: ({ node: _node, ...props }) => <strong className="font-semibold" {...props} />,
+        ul: ({ node: _node, ...props }) => <ul className="list-disc pl-4 mb-2 last:mb-0 space-y-0.5" {...props} />,
+        ol: ({ node: _node, ...props }) => <ol className="list-decimal pl-4 mb-2 last:mb-0 space-y-0.5" {...props} />,
+        li: ({ node: _node, ...props }) => <li className="leading-relaxed" {...props} />,
+        table: ({ node: _node, ...props }) => (
+          <div className="my-2 max-w-full overflow-x-auto rounded-lg border border-slate-200">
+            <table className="w-full min-w-[420px] border-collapse text-[11px]" {...props} />
+          </div>
+        ),
+        thead: ({ node: _node, ...props }) => (
+          <thead className={isUser ? "bg-blue-700/80" : "bg-slate-100"} {...props} />
+        ),
+        th: ({ node: _node, ...props }) => (
+          <th className="whitespace-nowrap border-b border-slate-200 px-2.5 py-2 text-left font-semibold" {...props} />
+        ),
+        td: ({ node: _node, ...props }) => (
+          <td className="border-b border-slate-100 px-2.5 py-1.5 align-top last:border-b-0" {...props} />
+        ),
+        tr: ({ node: _node, ...props }) => <tr className="even:bg-slate-50" {...props} />,
+        a: ({ node: _node, ...props }) => (
+          <a className="underline underline-offset-2" target="_blank" rel="noreferrer" {...props} />
+        ),
+      }}
+    >
+      {text}
+    </ReactMarkdown>
+  );
 }
 
 // ── Subcomponente: ExportCard (N3) ───────────────────────────────────────────
@@ -498,6 +531,7 @@ export default function AssistantWidget() {
   const [location, setLocation] = useLocation();
 
   const [open, setOpen] = useState(false);
+  const [minimized, setMinimized] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -509,7 +543,15 @@ export default function AssistantWidget() {
 
   // Escuchar el botón del header
   useEffect(() => {
-    const handler = () => setOpen((v) => !v);
+    const handler = () => {
+      setOpen((v) => {
+        if (v) {
+          return false;
+        }
+        setMinimized(false);
+        return true;
+      });
+    };
     window.addEventListener('assistant:toggle', handler);
     return () => window.removeEventListener('assistant:toggle', handler);
   }, []);
@@ -732,10 +774,9 @@ export default function AssistantWidget() {
   return (
     <>
       {/* ── Panel de chat ─────────────────────────────────────────────────── */}
-      {open && (
+      {open && !minimized && (
         <div
-          className="fixed top-16 right-4 z-50 flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200"
-          style={{ width: 332, height: 460 }}
+          className="fixed top-16 right-3 sm:right-4 z-50 flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200 w-[calc(100vw-24px)] sm:w-[min(620px,calc(100vw-32px))] h-[min(620px,calc(100dvh-96px))] max-h-[calc(100dvh-96px)] sm:h-[min(620px,70vh)] sm:max-h-[70vh]"
           role="dialog"
           aria-label="Asistente EduPay"
         >
@@ -750,13 +791,24 @@ export default function AssistantWidget() {
                 <p className="text-blue-200 text-xs mt-0.5">Navegación · diagnóstico · consultas</p>
               </div>
             </div>
-            <button
-              onClick={() => setOpen(false)}
-              className="text-white/70 hover:text-white transition-colors"
-              aria-label="Cerrar asistente"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setMinimized(true)}
+                className="rounded-lg p-1.5 text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+                aria-label="Minimizar chat"
+                title="Minimizar chat"
+              >
+                <Minus className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setOpen(false)}
+                className="rounded-lg p-1.5 text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+                aria-label="Cerrar asistente"
+                title="Cerrar asistente"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           {/* Mensajes */}
@@ -773,16 +825,17 @@ export default function AssistantWidget() {
                   </div>
                 )}
 
-                <div className={`max-w-[240px] space-y-1.5 ${msg.role === "user" ? "items-end" : "items-start"} flex flex-col`}>
+                <div className={`min-w-0 space-y-1.5 ${msg.role === "user" ? "max-w-[75%] items-end" : "w-[calc(100%-36px)] max-w-[560px] items-start"} flex flex-col`}>
                   {/* Burbuja de texto */}
                   <div
-                    className={`px-3 py-2 rounded-2xl text-xs leading-relaxed ${
+                    className={`max-w-full min-w-0 overflow-hidden px-3 py-2 rounded-2xl text-xs leading-relaxed ${
                       msg.role === "user"
                         ? "bg-blue-600 text-white rounded-tr-sm"
                         : "bg-white border border-slate-200 text-slate-700 rounded-tl-sm shadow-sm"
                     }`}
-                    dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.text) }}
-                  />
+                  >
+                    <MarkdownMessage text={msg.text} role={msg.role} />
+                  </div>
 
                   {/* Indicador de diagnóstico en curso */}
                   {msg.diagnosing && (
@@ -899,6 +952,31 @@ export default function AssistantWidget() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Barra compacta al minimizar: conserva el historial ─────────────── */}
+      {open && minimized && (
+        <button
+          type="button"
+          onClick={() => setMinimized(false)}
+          className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3.5 py-3 shadow-xl transition-all hover:-translate-y-0.5 hover:shadow-2xl focus:outline-none focus:ring-2 focus:ring-blue-400"
+          aria-label="Reabrir asistente"
+          aria-expanded="false"
+        >
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600">
+            <BotMessageSquare className="h-4 w-4 text-white" />
+          </span>
+          <span className="text-left">
+            <span className="block text-sm font-semibold leading-tight text-slate-800">Asistente EduPay</span>
+            <span className="block text-[11px] text-slate-500">Reabrir conversación</span>
+          </span>
+          {unread > 0 && (
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-semibold text-white">
+              {unread > 9 ? "9+" : unread}
+            </span>
+          )}
+          <Maximize2 className="h-4 w-4 text-slate-400" />
+        </button>
       )}
 
       {/* FAB eliminado — el botón vive ahora en el header */}

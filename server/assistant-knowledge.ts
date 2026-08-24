@@ -549,7 +549,7 @@ export function isClaudeReadOnlyFallbackCandidate(message: string): boolean {
   const tokens = normalized.split(" ");
   const domainTerms = [
     "alumno", "alumnos", "estudiante", "estudiantes",
-    "colegiatura", "adeudo", "adeudos", "saldo", "saldos",
+    "colegiatura", "colegiaturas", "adeudo", "adeudos", "deudor", "deudores", "saldo", "saldos",
     "cargo", "cargos", "cobranza", "pago", "pagos",
     "beca", "becas", "descuento", "descuentos",
     "familia", "familias", "tutor", "tutores",
@@ -559,7 +559,7 @@ export function isClaudeReadOnlyFallbackCandidate(message: string): boolean {
   ];
   const queryTerms = [
     "que", "cual", "cuales", "quien", "quienes", "cuanto", "cuantos",
-    "cuanta", "cuantas", "faltan", "deben", "adeudan", "pendiente",
+    "cuanta", "cuantas", "falta", "faltan", "deben", "adeudan", "pendiente",
     "pendientes", "vencido", "vencidos", "total",
   ];
   const navigationTerms = [
@@ -625,6 +625,38 @@ interface ScoredModule {
  */
 export function detectActionIntent(message: string): ActionDescriptor | null {
   const n = normalize(message);
+
+  // ── Lista general de deudores ─────────────────────────────────────────────
+  // Frases operativas cortas como "quién falta de pagar colegiaturas" y
+  // "dame la lista de deudores" deben dar datos reales, no una sugerencia de
+  // navegación. Se resuelven localmente para mantener la respuesta rápida y
+  // determinista; las preguntas analíticas más amplias siguen siendo candidatas
+  // del fallback read-only de Claude.
+  const genericDebtList = (
+    /\bdeudor(?:es)?\b/.test(n)
+    || /\bquien(?:es)?\s+(?:falta[n]?|debe[n]?|adeuda[n]?)\b/.test(n)
+  ) && !/\b(?:alumno|alumnos|estudiante|estudiantes)\b/.test(n);
+  if (genericDebtList) {
+    const now = new Date();
+    let month = now.getMonth() + 1;
+    let year = now.getFullYear();
+    const monthNames = [
+      "enero", "febrero", "marzo", "abril", "mayo", "junio",
+      "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+    ];
+    const namedMonth = monthNames.findIndex((name) => new RegExp(`\\b${name}\\b`).test(n));
+    const namedYear = n.match(/\b(20\d{2})\b/);
+    if (namedMonth >= 0) month = namedMonth + 1;
+    if (namedYear) year = Number(namedYear[1]);
+    if (/\b(?:ultimo|pasado|anterior)\s+mes\b/.test(n)) {
+      month -= 1;
+      if (month === 0) {
+        month = 12;
+        year -= 1;
+      }
+    }
+    return { actionId: "query:adeudos_nivel_periodo", params: { mes: month, anio: year, nivel: "" } };
+  }
 
   // ── Discrepancia / inconsistencia de números ──────────────────────────────
   // "solo tengo 8 alumnos pero 78 becas", "no coincide", "por qué hay más becas"

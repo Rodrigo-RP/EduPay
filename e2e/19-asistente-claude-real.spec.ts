@@ -12,6 +12,11 @@ const BASE = "http://localhost:5000";
 const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET;
 if (!JWT_SECRET) throw new Error("Se requiere JWT_SECRET o SESSION_SECRET para E2E.");
 const CURRENT_YEAR = new Date().getFullYear();
+const CURRENT_MONTH = new Date().getMonth() + 1;
+const CURRENT_MONTH_NAME = new Date(Date.UTC(CURRENT_YEAR, CURRENT_MONTH - 1, 1)).toLocaleDateString("es-MX", {
+  month: "long",
+  timeZone: "UTC",
+});
 
 let tenantId: number;
 let campusId: number;
@@ -66,7 +71,7 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
         ($1, $2, $4::date, $4::date, 125000, 'pendiente'),
         ($1, $3, $4::date, $4::date, 98000, 'vencido')
        RETURNING id`,
-      [tenantId, studentIds[0], studentIds[1], `${CURRENT_YEAR}-08-15`],
+      [tenantId, studentIds[0], studentIds[1], `${CURRENT_YEAR}-${String(CURRENT_MONTH).padStart(2, "0")}-15`],
     );
     chargeIds = charges.rows.map((row: any) => row.id);
     token = jwt.sign(
@@ -87,10 +92,10 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
     await pool.query("DELETE FROM tenants WHERE id = $1", [tenantId]);
   });
 
-  test("la pregunta amplia usa Claude y la herramienta de adeudos real", async ({ request }) => {
+  test("la pregunta natural de deudores usa Claude y la herramienta de adeudos real", async ({ request }) => {
     const directToolResult = await executeAction(
       "query:adeudos_nivel_periodo",
-      { mes: 8, anio: CURRENT_YEAR, nivel: "" },
+      { mes: CURRENT_MONTH, anio: CURRENT_YEAR, nivel: "" },
       { campusId, tenantId, userId: 0 },
     );
     expect(directToolResult.rows?.map((row) => row.label).join("\n")).toContain(fixtureNames[0]);
@@ -108,7 +113,7 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
         Authorization: `Bearer ${token}`,
       },
       data: {
-        message: "qué alumnos faltan de pagar la colegiatura de agosto de todos los niveles",
+        message: `qué alumnos faltan de pagar la colegiatura de ${CURRENT_MONTH_NAME} de todos los niveles`,
       },
       failOnStatusCode: false,
       timeout: 60_000,
@@ -122,7 +127,7 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
     });
     expect(body.claude.toolCalls).toContain("query_adeudos_nivel_periodo");
     expect(body.claude.adeudosPeriodos).toContainEqual({
-      mes: 8,
+      mes: CURRENT_MONTH,
       anio: CURRENT_YEAR,
       nivel: "todos",
     });

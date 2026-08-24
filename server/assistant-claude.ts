@@ -276,7 +276,7 @@ function currentSystemPrompt(): string {
     "Nunca solicites, reveles ni infieras CURP, RFC, contraseñas, tokens o datos de autenticación.",
     "Nunca propongas ni ejecutes pagos, cargos, becas, facturas, conciliaciones, configuraciones o cualquier modificación.",
     `La fecha de referencia del servidor está en el año ${currentYear}. Si indican un mes sin año, usa ${currentYear}.`,
-    "Si no indican ningún periodo y es indispensable, pide la aclaración.",
+    "Para preguntas sobre quién debe, deudores o quién falta de pagar sin periodo explícito, consulta los adeudos del mes en curso y menciona el periodo usado. Para otros tipos de consulta, pide aclaración sólo si el periodo es indispensable.",
   ].join(" ");
 }
 

@@ -131,6 +131,34 @@ describe("fallback de Claude con herramientas read-only", () => {
   });
 
   it.each([
+    "dime quiénes son los deudores",
+    "quien falta de pagar colegiaturas",
+  ])("resuelve una consulta natural de deudores con datos locales: %s", (message) => {
+    expect(isClaudeReadOnlyFallbackCandidate(message)).toBe(true);
+    const intent = matchIntent(message, "super_admin");
+    expect(intent.navigate).toBeUndefined();
+    expect(intent.action).toMatchObject({
+      actionId: "query:adeudos_nivel_periodo",
+      params: {
+        mes: new Date().getMonth() + 1,
+        anio: new Date().getFullYear(),
+        nivel: "",
+      },
+    });
+  });
+
+  it("usa el mes anterior cuando se pide la lista de deudores del último mes", () => {
+    const now = new Date();
+    const expectedMonth = now.getMonth() === 0 ? 12 : now.getMonth();
+    const expectedYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+
+    expect(matchIntent("dame la lista de deudores del último mes", "super_admin").action).toMatchObject({
+      actionId: "query:adeudos_nivel_periodo",
+      params: { mes: expectedMonth, anio: expectedYear, nivel: "" },
+    });
+  });
+
+  it.each([
     "¿cuál es el CURP de MARI010101HDFRRL09?",
     "revisa esta clave sk-ant-api03-abcdefghijklmnopqrstuv",
     "usa el token ghp_abcdefghijklmnopqrstuvwxyz1234567890",

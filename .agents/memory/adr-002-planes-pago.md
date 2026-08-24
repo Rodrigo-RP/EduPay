@@ -25,6 +25,13 @@ Los planes de pago generan `charges` reales con `concept.tipo='cuota_plan'` y `c
 - Para futuro: sin destino_saldo_pendiente
 - `payment_plans` NO tiene columna `updated_at` — no incluirla en UPDATE
 
+## Decisión de interfaz para reestructuraciones
+Las dos salidas de cancelación —reinstalar y condonar— viven en el mismo diálogo de Planes de Pago. Sólo una condonación repetida dentro de 90 días requiere el flujo de override; reinstalar nunca solicita ese token.
+
+**Why:** Ambas opciones resuelven el mismo cierre de una reestructuración, pero únicamente la condonación elimina saldo y requiere control reforzado.
+
+**How to apply:** Mostrar el diálogo únicamente para planes activos de reestructuración. Ante `409 requiere_override`, los roles administrador_general y super_admin pueden pedir el token con motivo; los demás sólo ven el bloqueo y a quién solicitar autorización.
+
 ## Helpers en server/routes/misc.ts
 - `getOrCreateCuotaPlanConcept(campusId, tenantId)` — concepto sentinel, idempotente
 - `generarCuotaCharges(client, opts)` — genera N charges dentro de BEGIN/COMMIT

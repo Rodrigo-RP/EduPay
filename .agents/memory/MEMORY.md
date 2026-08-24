@@ -59,3 +59,4 @@
 - [Audit log patterns](audit-log-patterns.md) — logAuditEvent(client,opts) propagates errors; student ops use BEGIN/COMMIT; payments use FOR UPDATE; storage.createStudent uses separate Drizzle connection (use raw SQL for transactions).
 - [Scholarship dashboard definition](scholarship-dashboard.md) — panel y asistente cuentan beneficiarios distintos, activos y con beca vigente del campus actual.
 - [PostgreSQL CASE parameter typing](postgres-case-parameter-typing.md) — al reutilizar parámetros SQL en CASE con Neon, castear cada uso evita inferencias text/varchar incompatibles.
+- [Anthropic strict tool schemas](anthropic-strict-tool-schemas.md) — Anthropic strict tools rechaza límites numéricos JSON Schema; validar rangos en el dispatcher.

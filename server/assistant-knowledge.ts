@@ -509,6 +509,68 @@ function tokenize(text: string): string[] {
   return normalize(text).split(" ").filter(t => t.length > 1);
 }
 
+/**
+ * Estas solicitudes nunca pueden abandonar el proceso hacia un proveedor LLM,
+ * aun cuando contengan términos del dominio escolar.
+ */
+export function containsSensitiveAssistantData(text: string): boolean {
+  const normalized = normalize(text);
+  const sensitiveTerms = [
+    "curp", "rfc", "contrasena", "password", "token", "api key",
+    "clave api", "authorization", "autorizacion", "credencial", "credenciales",
+    "secreto", "secretos",
+  ];
+  const hasSensitiveTerm = sensitiveTerms.some((term) => normalized.includes(term));
+  const valuePatterns = [
+    /\b[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d\b/i, // CURP
+    /\b[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}\b/i, // RFC
+    /\bsk-ant-[A-Za-z0-9_-]{12,}\b/i,
+    /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}\b/i,
+    /\bgithub_pat_[A-Za-z0-9_]{20,}\b/i,
+    /\bsk_(?:live|test)_[A-Za-z0-9]{16,}\b/i,
+    /\bAIza[A-Za-z0-9_-]{20,}\b/,
+    /\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/,
+    /\bBearer\s+[A-Za-z0-9._~+/=-]{12,}\b/i,
+    /\bhttps?:\/\/[^/\s:@]+:[^/\s@]+@/i,
+    /\b(?:api[_ -]?key|secret|token|password|passwd|authorization)\s*[:=]\s*\S{8,}/i,
+  ];
+  return hasSensitiveTerm || valuePatterns.some((pattern) => pattern.test(text));
+}
+
+/**
+ * Sólo las consultas claramente relacionadas con la operación escolar pueden
+ * escalar al proveedor externo cuando el motor determinista no las reconoce.
+ * Las guías, navegación y solicitudes de escritura se resuelven antes de llegar
+ * a esta guarda en la ruta HTTP.
+ */
+export function isClaudeReadOnlyFallbackCandidate(message: string): boolean {
+  if (containsSensitiveAssistantData(message)) return false;
+  const normalized = normalize(message);
+  const tokens = normalized.split(" ");
+  const domainTerms = [
+    "alumno", "alumnos", "estudiante", "estudiantes",
+    "colegiatura", "adeudo", "adeudos", "saldo", "saldos",
+    "cargo", "cargos", "cobranza", "pago", "pagos",
+    "beca", "becas", "descuento", "descuentos",
+    "familia", "familias", "tutor", "tutores",
+    "nivel", "niveles", "grado", "grupos", "grupo",
+    "vencido", "vencidos", "pendiente", "pendientes",
+    "inscripcion", "inscripciones", "factura", "facturas",
+  ];
+  const queryTerms = [
+    "que", "cual", "cuales", "quien", "quienes", "cuanto", "cuantos",
+    "cuanta", "cuantas", "faltan", "deben", "adeudan", "pendiente",
+    "pendientes", "vencido", "vencidos", "total",
+  ];
+  const navigationTerms = [
+    "donde", "pagina", "pantalla", "modulo", "seccion", "navegar",
+    "ir", "abrir", "acceder", "ver", "veo", "encuentro", "encuentran",
+  ];
+  return domainTerms.some((term) => tokens.includes(term))
+    && queryTerms.some((term) => tokens.includes(term))
+    && !navigationTerms.some((term) => tokens.includes(term));
+}
+
 // Mapeo de páginas actuales a nombres legibles
 const ROUTE_LABELS: Record<string, string> = {
   "/admin": "Dashboard",
@@ -774,6 +836,14 @@ export function matchIntent(
   const action = detectActionIntent(message);
   if (action) {
     return { reply: "Consultando los datos…", action };
+  }
+
+  // El motor local no tiene una consulta equivalente. Dejarlo como no resuelto
+  // permite que la ruta use el fallback read-only, sin degradarlo a navegación.
+  if (isClaudeReadOnlyFallbackCandidate(message)) {
+    return {
+      reply: "No entendí qué datos necesitas consultar.",
+    };
   }
 
   // Detectar intención de fallo

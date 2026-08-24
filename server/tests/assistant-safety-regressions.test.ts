@@ -10,7 +10,8 @@ import { matchIntent } from "../assistant-knowledge";
 import { pool } from "../db";
 
 const BASE = "http://localhost:5000";
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET;
+if (!JWT_SECRET) throw new Error("Se requiere JWT_SECRET o SESSION_SECRET para las pruebas.");
 let campusId: number;
 let tenantId: number;
 let studentIds: number[] = [];
@@ -25,6 +26,18 @@ async function chat(message: string, role: string) {
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token(role)}` },
     body: JSON.stringify({ message }),
   });
+}
+
+async function claudeFallbackAuditCount() {
+  const result = await pool.query(
+    `SELECT COUNT(*)::int AS total
+       FROM audit_log
+      WHERE tenant_id = $1
+        AND action = 'assistant_chat_interaction'
+        AND metadata::text LIKE '%"intentType":"claude_fallback"%'`,
+    [tenantId],
+  );
+  return result.rows[0].total as number;
 }
 
 beforeAll(async () => {
@@ -50,12 +63,37 @@ afterAll(async () => {
 });
 
 describe("seguridad del asistente", () => {
-  it("guía local: un cliente Anthropic falso recibe cero llamadas", () => {
+  it("guía local: no deja ninguna llamada de fallback a Claude", async () => {
     const anthropicFake = { messages: { create: vi.fn() } };
+    const before = await claudeFallbackAuditCount();
     const result = matchIntent("¿cómo cargo el Excel masivo de alumnos?", "administrador_general");
     expect(result.guide?.id).toBe("importar-excel");
     expect(result.action).toBeUndefined();
     expect(anthropicFake.messages.create).not.toHaveBeenCalled();
+    const response = await chat("¿cómo cargo el Excel masivo de alumnos?", "administrador_general");
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.reply).toMatch(/paso|excel/i);
+    expect(await claudeFallbackAuditCount()).toBe(before);
+  });
+
+  it("filtro de dominio: una consulta ajena no deja ninguna llamada de fallback a Claude", async () => {
+    const before = await claudeFallbackAuditCount();
+    const response = await chat("¿me das una receta de pasta?", "administrador_general");
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.claude).toBeUndefined();
+    expect(await claudeFallbackAuditCount()).toBe(before);
+  });
+
+  it("navegación local: no deja ninguna llamada de fallback a Claude", async () => {
+    const before = await claudeFallbackAuditCount();
+    const response = await chat("¿dónde veo a los alumnos?", "administrador_general");
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.navigate?.route).toBe("/estudiantes");
+    expect(body.claude).toBeUndefined();
+    expect(await claudeFallbackAuditCount()).toBe(before);
   });
 
   it("rol limitado: rechaza reporte financiero y registra el rechazo en audit_log", async () => {
@@ -75,6 +113,15 @@ describe("seguridad del asistente", () => {
     );
     expect(audit.rows).toHaveLength(1);
     expect(audit.rows[0].metadata).toContain("missing_read_permission");
+  });
+
+  it("admisiones no puede contar familias ni pagos por medio del asistente", async () => {
+    for (const message of ["¿cuántas familias hay?", "¿cuántos pagos hay?"]) {
+      const response = await chat(message, "admisiones");
+      expect(response.status).toBe(403);
+      const body = await response.json();
+      expect(body.reply).toMatch(/no tienes permiso/i);
+    }
   });
 
   it("nombre duplicado: pide grado, grupo o matrícula y no expone CURP/RFC", async () => {

@@ -10,29 +10,19 @@
 import type { Express } from "express";
 import { authenticateToken, hasPermissionForUser } from "./shared";
 import { MODULES, ACTIONS } from "@shared/permissions";
-import { matchIntent, detectExportIntent, detectSuggestTrigger } from "../assistant-knowledge";
+import {
+  matchIntent,
+  detectExportIntent,
+  detectSuggestTrigger,
+  containsSensitiveAssistantData,
+  isClaudeReadOnlyFallbackCandidate,
+} from "../assistant-knowledge";
 import { runDiagnostic, runFullDiagnostic, MODULE_CHECKS } from "../assistant-health-checks";
 import { executeAction } from "../assistant-actions";
+import { answerWithClaude, getAssistantActionPermission } from "../assistant-claude";
 import { pool } from "../db";
 
 export function registerAssistantRoutes(app: Express): void {
-  const permissionForAssistantAction = (actionId: string) => {
-    if (actionId === "query:resumen_financiero" || actionId === "query:discrepancia") {
-      return [MODULES.FINANCIAL, ACTIONS.READ] as const;
-    }
-    if (actionId === "query:buscar_alumno" || actionId === "query:saldo_alumno") {
-      return [MODULES.STUDENTS, ACTIONS.READ] as const;
-    }
-    if (actionId === "query:becas_alumno" || actionId === "query:becas_nivel") {
-      return [MODULES.SCHOLARSHIPS, ACTIONS.READ] as const;
-    }
-    if (actionId === "query:cargos_alumno") return [MODULES.CHARGES, ACTIONS.READ] as const;
-    if (actionId === "query:familias_hijos") return [MODULES.FAMILIES, ACTIONS.READ] as const;
-    if (actionId === "query:verificar_sistema") return [MODULES.SYSTEM, ACTIONS.READ] as const;
-    if (actionId === "query:contar") return [MODULES.REPORTS, ACTIONS.READ] as const;
-    return null;
-  };
-
   const auditAssistantDenied = async (req: any, actionId: string, reason: string) => {
     await pool.query(
       `INSERT INTO audit_log
@@ -124,10 +114,18 @@ export function registerAssistantRoutes(app: Express): void {
       }
 
       const result = matchIntent(message.trim(), userRole, decodedPath);
+      if (containsSensitiveAssistantData(message)) {
+        return res.json({
+          reply: "No puedo consultar ni compartir CURP, RFC, contraseñas, tokens, credenciales o secretos.",
+        });
+      }
 
       // Si el intent es una acción/consulta de datos, ejecutarla en el servidor
       if (result.action && campusId && tenantId) {
-        const requiredPermission = permissionForAssistantAction(result.action.actionId);
+        const requiredPermission = getAssistantActionPermission(
+          result.action.actionId,
+          result.action.params,
+        );
         if (
           requiredPermission &&
           !hasPermissionForUser(req.user, requiredPermission[0], requiredPermission[1])
@@ -147,6 +145,61 @@ export function registerAssistantRoutes(app: Express): void {
         result.reply = actionResult.summary;
         (result as any).actionResult = actionResult;
         delete result.action;
+      }
+
+      const canUseClaude = isClaudeReadOnlyFallbackCandidate(message)
+        && !result.diagnose
+        && !result.guide
+        && !result.navigate
+        && !result.suggestions
+        && !(result as any).actionResult;
+      if (canUseClaude && campusId && tenantId) {
+        const claude = await answerWithClaude(
+          message.trim(),
+          { campusId, tenantId, userId: userId || 0, role: userRole },
+          {
+            canRead: (actionId, params) => {
+              const permission = getAssistantActionPermission(actionId, params);
+              return Boolean(
+                permission &&
+                hasPermissionForUser(req.user, permission[0], permission[1]),
+              );
+            },
+          },
+        );
+
+        if (claude.handled) {
+          pool.query(
+            `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
+             VALUES ($1, $2, 'assistant_chat_interaction', 'system', $3, $4, NOW())`,
+            [
+              tenantId || null,
+              userId || null,
+              campusId || null,
+              JSON.stringify({
+                intentType: "claude_fallback",
+                provider: "anthropic",
+                model: claude.trace.model,
+                toolCalls: claude.trace.toolCalls,
+                adeudosPeriodos: claude.trace.adeudosPeriodos,
+                rounds: claude.trace.rounds,
+                stopReason: claude.trace.stopReason,
+                success: !claude.error,
+                messageLength: message.trim().length,
+              }),
+            ],
+          ).catch(() => {});
+          return res.json({
+            reply: claude.reply,
+            claude: {
+              provider: "anthropic",
+              model: claude.trace.model,
+              toolCalls: claude.trace.toolCalls,
+              adeudosPeriodos: claude.trace.adeudosPeriodos,
+              rounds: claude.trace.rounds,
+            },
+          });
+        }
       }
 
       // ── §4.3 Registro estructurado de interacción (sin PII de familias) ─────

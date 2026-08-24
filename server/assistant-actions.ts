@@ -238,13 +238,15 @@ async function queryContar(params: Record<string, any>, ctx: ActionContext): Pro
 
     if (entity.includes("familia")) {
       const { rows } = await pool.query(
-        `SELECT COUNT(*) AS total FROM families WHERE tenant_id = $1`,
-        [ctx.tenantId]
+        `SELECT COUNT(*) AS total
+           FROM families
+          WHERE tenant_id = $1 AND campus_id = $2`,
+        [ctx.tenantId, ctx.campusId]
       );
       return {
         success: true,
         title: "Familias registradas",
-        summary: `Hay **${rows[0].total} familias** en el sistema.`,
+        summary: `Hay **${rows[0].total} familias** en este campus.`,
         rows: [{ label: "Total familias", value: rows[0].total, highlight: true }],
       };
     }
@@ -621,6 +623,85 @@ async function queryFamiliasHijos(p: Record<string, any>, ctx: ActionContext): P
   }
 }
 
+/** Lista alumnos con saldo pendiente por mes de vencimiento y nivel escolar. */
+async function queryAdeudosNivelPeriodo(params: Record<string, any>, ctx: ActionContext): Promise<ActionResult> {
+  const month = Number(params.mes);
+  const year = Number(params.anio) || new Date().getFullYear();
+  const nivelRaw = typeof params.nivel === "string" ? params.nivel.trim() : "";
+  const nivel = /^(todos?|todas?)\b|^all\b/i.test(nivelRaw) ? "" : nivelRaw;
+
+  if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 2000 || year > 2100) {
+    return {
+      success: false,
+      title: "Periodo inválido",
+      summary: "Indica un mes entre 1 y 12 y un año válido para consultar los adeudos.",
+    };
+  }
+
+  const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+  try {
+    const { rows } = await pool.query(
+      `WITH cargo_saldo AS (
+         SELECT
+           c.student_id,
+           c.id,
+           GREATEST(
+             c.monto_base_centavos
+               + COALESCE(c.recargo_aplicado_centavos, 0)
+               - COALESCE(SUM(pa.amount_centavos), 0),
+             0
+           ) AS saldo
+         FROM charges c
+         INNER JOIN students s ON s.id = c.student_id
+         LEFT JOIN payment_applications pa ON pa.charge_id = c.id
+         WHERE c.tenant_id = $1
+           AND s.campus_id = $2
+           AND c.fecha_vencimiento >= $3::date
+           AND c.fecha_vencimiento < ($3::date + INTERVAL '1 month')
+           AND c.estado IN ('pendiente', 'vencido', 'parcial')
+         GROUP BY c.id, c.student_id, c.monto_base_centavos, c.recargo_aplicado_centavos
+       )
+       SELECT
+         s.nombre_completo,
+         s.nivel_escolar,
+         s.grado,
+         COUNT(cs.id)::int AS cargos_pendientes,
+         SUM(cs.saldo)::bigint AS saldo_pendiente_centavos
+       FROM cargo_saldo cs
+       INNER JOIN students s ON s.id = cs.student_id
+       WHERE cs.saldo > 0
+         AND ($4 = '' OR LOWER(COALESCE(s.nivel_escolar, '')) LIKE LOWER($4))
+       GROUP BY s.id, s.nombre_completo, s.nivel_escolar, s.grado
+       ORDER BY s.nivel_escolar NULLS LAST, s.nombre_completo
+       LIMIT 100`,
+      [ctx.tenantId, ctx.campusId, startDate, nivel ? `%${nivel}%` : ""],
+    );
+
+    const monthLabel = new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("es-MX", {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+    const scopeLabel = nivel ? ` de ${nivel}` : " de todos los niveles";
+    const totalCentavos = rows.reduce((sum: number, row: any) => sum + Number(row.saldo_pendiente_centavos || 0), 0);
+
+    return {
+      success: true,
+      title: `Alumnos con adeudo${scopeLabel} — ${monthLabel}`,
+      summary: rows.length
+        ? `Encontré **${rows.length} alumno(s)** con saldo pendiente por cargos con vencimiento en ${monthLabel}${scopeLabel}. El saldo pendiente suma **${fmt(totalCentavos)}**.`
+        : `No encontré alumnos con saldo pendiente por cargos con vencimiento en ${monthLabel}${scopeLabel}.`,
+      rows: rows.map((row: any) => ({
+        label: `${row.nombre_completo}${row.nivel_escolar ? ` · ${row.nivel_escolar}` : ""}${row.grado ? ` · grado ${row.grado}` : ""}`,
+        value: `${fmt(row.saldo_pendiente_centavos)} · ${row.cargos_pendientes} cargo(s)`,
+        highlight: true,
+      })),
+    };
+  } catch (e: any) {
+    return { success: false, title: "Error en adeudos", summary: `No pude consultar los adeudos del periodo: ${e.message}` };
+  }
+}
+
 /** Verifica todas las queries del asistente contra la DB real */
 async function queryVerificarSistema(_p: Record<string, any>, _ctx: ActionContext): Promise<ActionResult> {
   const report = await runAllProbes();
@@ -697,6 +778,7 @@ export async function executeAction(
     case "query:saldo_alumno":     return querySaldoAlumno(params, ctx);
     case "query:becas_alumno":     return queryBecasAlumno(params, ctx);
     case "query:cargos_alumno":    return queryCargosAlumno(params, ctx);
+    case "query:adeudos_nivel_periodo": return queryAdeudosNivelPeriodo(params, ctx);
     case "query:familias_hijos":   return queryFamiliasHijos(params, ctx);
     case "query:becas_nivel":        return queryBecasNivel(params, ctx);
     case "query:verificar_sistema":  return queryVerificarSistema(params, ctx);

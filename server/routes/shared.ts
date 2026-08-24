@@ -15,7 +15,15 @@ import { hasPermission } from "@shared/permissions";
 // "type":"module" en package.json rompe require(); usar esmRequire en su lugar.
 export const esmRequire = createRequire(import.meta.url);
 
-export const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+export function resolveJwtSecret(env: NodeJS.ProcessEnv = process.env): string {
+  const secret = env.JWT_SECRET || env.SESSION_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET o SESSION_SECRET debe estar configurado.");
+  }
+  return secret;
+}
+
+export const JWT_SECRET = resolveJwtSecret();
 
 // ── Multer (upload de archivos) ───────────────────────────────────────────────
 
@@ -277,7 +285,7 @@ export function hasPermissionForUser(
   user: any,
   module: string,
   action: string,
-  scope?: string,
+  scope?: Parameters<typeof hasPermission>[3],
 ): boolean {
   if (hasPermission(user?.role, module, action, scope)) return true;
   const key = `${module}.${action}`;

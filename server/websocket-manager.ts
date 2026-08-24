@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { db } from './db';
 import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import { JWT_SECRET } from './routes/shared';
 
 interface AuthenticatedSocket extends WebSocket {
   user?: {
@@ -143,7 +144,6 @@ class WebSocketManager {
         throw new Error('Token no proporcionado');
       }
 
-      const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key';
       const decoded = jwt.verify(token, JWT_SECRET) as any;
       
       // Validar estructura del token

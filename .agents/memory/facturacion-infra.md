@@ -32,10 +32,15 @@ EduPay **nunca** persiste bytes de `.cer`/`.key` en DB. Solo guarda el `organiza
 - `estado-pac` → lee desde DB; `config-automatica` → `PUT campus_invoicing_config`
 - Alias `GET /api/becas-auto/reglas` tiene guard `SCHOLARSHIPS.ASSIGN` (igual que el canonical)
 
-## Estado del adaptador
-- `facturapi-adapter.ts` → **pendiente** (no implementado aún)
-- La factory lanza error descriptivo → los endpoints devuelven 503 → correcto por diseño
-- Variable de entorno a agregar cuando se implemente: `FACTURAPI_SECRET_KEY`
+## Facturapi: alcance sandbox actual
+- El adaptador usa HTTP nativo contra `/v2/invoices?async=false`; exige una clave `sk_test_`, confirma `status=valid` con UUID y `stamp`, y descarga XML/PDF binarios.
+- Los complementos IEDU personalizados se envían como `{ type: "custom", data: "<nodo XML raíz>" }`; una cadena XML directa en `complements` es rechazada por Facturapi.
+- La factory usa import ESM estático para que el bundle de producción contenga el adaptador.
+- El adaptador sólo acepta `organizacion_id="sandbox"` y rechaza claves Live o configuraciones de campus antes de emitir.
+
+**Why:** La validación técnica debía probar un CFDI real sin activar Live ni arriesgar que una sola clave de organización facture para el RFC de otro campus.
+
+**How to apply:** Mantener esta restricción mientras se prepara la integración de producción. Para multi-RFC/Live se necesitan User Keys para alta/configuración, una clave aislada por organización y datos fiscales completos del receptor; no quitar el guard de sandbox como atajo.
 
 ## Neon: aplicar migraciones fuera de tests
 - `neon()` (cliente HTTP) falla con "The endpoint has been disabled" si no hay conexión activa

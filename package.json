@@ -12,6 +12,7 @@
     "test": "cd server && npx vitest run --config vitest.config.ts",
     "check:routes": "tsx scripts/check-route-registry.ts",
     "validate:assistant": "tsx scripts/validate-assistant-queries.ts",
+    "test:facturapi:sandbox": "tsx server/scripts/facturapi-sandbox-smoke.mts",
     "test:unit": "cd server && npx vitest run --config vitest.config.ts",
     "test:e2e": "npx playwright test",
     "test:e2e:ui": "npx playwright test --ui",

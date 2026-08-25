@@ -14,6 +14,7 @@
  */
 
 import type { InvoicingProvider } from './invoicing-provider';
+import { FacturapiAdapter } from './adapters/facturapi-adapter';
 
 // Mapa de overrides para tests — las claves son los nombres de proveedor
 type ProviderOverrides = Partial<Record<string, InvoicingProvider>>;
@@ -39,10 +40,9 @@ export function getInvoicingProvider(
   switch (proveedor) {
     case 'facturapi': {
       // ── Facturapi ─────────────────────────────────────────────────────────
-      // Modelo multi-RFC: EduPay tiene una cuenta de plataforma en Facturapi.
-      // Cada escuela es una "organización" dentro de esa cuenta.
-      // EduPay almacena solo el organization.id devuelto por Facturapi.
-      // Documentación: https://developers.facturapi.io/docs/organizations
+      // Esta entrega sólo permite la organización literal "sandbox" y una
+      // sk_test_. La habilitación multi-RFC/Live requiere una integración
+      // posterior con User Keys y claves por organización.
       const apiKey = process.env.FACTURAPI_SECRET_KEY;
       if (!apiKey) {
         throw new Error(
@@ -51,10 +51,6 @@ export function getInvoicingProvider(
           'como variable de entorno antes de activar el timbrado real.',
         );
       }
-      // Importación diferida para que el import no falle si el módulo
-      // del adaptador aún no existe (se implementa cuando Rodrigo elija el PAC)
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { FacturapiAdapter } = require('./adapters/facturapi-adapter');
       return new FacturapiAdapter(apiKey) as InvoicingProvider;
     }
 

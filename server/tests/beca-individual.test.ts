@@ -14,6 +14,7 @@ import { db, pool } from "../db";
 import { tenants, campuses, students } from "../../shared/schema";
 import { detectSuggestTrigger } from "../assistant-knowledge";
 import { resolveSuggestContext } from "../assistant-actions";
+import { resolveEffectiveScholarship } from "../lib/scholarship-engine";
 import jwt from "jsonwebtoken";
 
 const BASE       = "http://localhost:5000";
@@ -24,6 +25,7 @@ let tenantId:  number;
 let campusId:  number;
 let studentId: number;
 let studentNombre: string;
+let lifecycleStudentId: number;
 
 // Tokens
 let tokenAsignar: string;    // administrador_campus — tiene SCHOLARSHIPS.ASSIGN
@@ -31,6 +33,7 @@ let tokenSinPermiso: string; // asistente — NO tiene SCHOLARSHIPS.ASSIGN
 
 // IDs de becas creadas en los tests (para limpieza en afterAll)
 const becasCreadas: number[] = [];
+const tiposCreados: number[] = [];
 
 // ── Helper de request ─────────────────────────────────────────────────────────
 async function postBeca(
@@ -44,6 +47,40 @@ async function postBeca(
     body:    JSON.stringify(body),
   });
   return { status: r.status, body: await r.json().catch(() => ({})) };
+}
+
+async function scholarshipApi(
+  method: string,
+  path: string,
+  body: object | undefined,
+  tok: string,
+): Promise<{ status: number; body: any }> {
+  const response = await fetch(`${BASE}${path}`, {
+    method,
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  return { status: response.status, body: await response.json().catch(() => ({})) };
+}
+
+async function waitForAudit(
+  action: string,
+  entityId: number,
+  matches: (row: any) => boolean = () => true,
+): Promise<any> {
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const result = await pool.query(
+      `SELECT previous_value::text AS previous_value, new_value::text AS new_value, metadata::text AS metadata
+         FROM audit_log
+        WHERE tenant_id = $1 AND action = $2 AND entity_id = $3
+        ORDER BY id DESC`,
+      [tenantId, action, entityId],
+    );
+    const row = result.rows.find(matches);
+    if (row) return row;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`No llegó el registro de auditoría ${action} para ${entityId}`);
 }
 
 async function chatAssistant(
@@ -87,6 +124,18 @@ beforeAll(async () => {
     })
     .returning();
   studentId = s.id;
+  const [lifecycleStudent] = await db
+    .insert(students)
+    .values({
+      campus_id: campusId,
+      tenant_id: tenantId,
+      nombres: "Lifecycle",
+      apellido_paterno: ts,
+      nombre_completo: `Lifecycle Beca ${ts}`,
+      status: "activo",
+    })
+    .returning();
+  lifecycleStudentId = lifecycleStudent.id;
 
   // Token con SCHOLARSHIPS.ASSIGN (administrador_campus)
   tokenAsignar = jwt.sign(
@@ -113,11 +162,17 @@ afterAll(async () => {
       [becasCreadas]
     );
   }
-  // Limpiar audit_log beca_asignada del tenant de test
+  // Limpiar auditorías de asignaciones y catálogo del tenant de test.
   await pool.query(
-    `DELETE FROM audit_log WHERE tenant_id = $1 AND action = 'beca_asignada'`,
+    `DELETE FROM audit_log
+      WHERE tenant_id = $1
+        AND action IN ('beca_asignada', 'beca_editada', 'beca_estado_actualizado',
+                       'tipo_beca_creado', 'tipo_beca_editado')`,
     [tenantId]
   );
+  if (tiposCreados.length > 0) {
+    await pool.query(`DELETE FROM scholarship_types WHERE id = ANY($1::int[])`, [tiposCreados]);
+  }
   // Limpiar fixtures (orden de FK)
   await pool.query(`DELETE FROM students  WHERE tenant_id = $1`, [tenantId]);
   await pool.query(`DELETE FROM campuses  WHERE tenant_id = $1`, [tenantId]);
@@ -238,6 +293,153 @@ describe("POST /api/admin/students/:studentId/beca — Suite A", () => {
       expect(confirm.status).toBe(403);
     }
     // Si no llegó signal (alumno no encontrado, etc.) el test es vacío pero no falla
+  });
+});
+
+describe("ciclo administrativo de becas y catálogo", () => {
+  let scholarshipTypeId: number;
+  let lifecycleScholarshipId: number;
+
+  it("crea y consulta un tipo con beneficio y criterios persistidos", async () => {
+    const created = await scholarshipApi("POST", "/api/admin/scholarship-types", {
+      nombre: `Beca catálogo ${studentNombre}`,
+      categoria: "academica",
+      descripcion: "Definición para validar el ciclo administrativo.",
+      algoritmo: "manual",
+      activo: true,
+      beneficio: {
+        porcentaje_descuento: 35,
+        aplica_conceptos: ["colegiatura"],
+        vigencia_meses: 12,
+      },
+      criterios: [{ criterio: "promedio_minimo", valor_minimo: 9, obligatorio: true }],
+    }, tokenAsignar);
+
+    expect(created.status).toBe(201);
+    scholarshipTypeId = Number(created.body.id);
+    tiposCreados.push(scholarshipTypeId);
+    expect(Number(created.body.beneficio.porcentaje_descuento)).toBe(35);
+    expect(created.body.criterios).toHaveLength(1);
+
+    const listed = await scholarshipApi("GET", "/api/admin/scholarship-types", undefined, tokenAsignar);
+    expect(listed.status).toBe(200);
+    const type = listed.body.find((item: any) => Number(item.id) === scholarshipTypeId);
+    expect(type.nombre).toMatch(/Beca catálogo/);
+    expect(Number(type.beneficio.porcentaje_descuento)).toBe(35);
+    expect(type.criterios[0].criterio).toBe("promedio_minimo");
+  });
+
+  it("vincula la asignación al tipo, exige motivo de edición y guarda auditoría", async () => {
+    const assigned = await postBeca(lifecycleStudentId, {
+      porcentaje: 35,
+      scholarship_type_id: scholarshipTypeId,
+      motivo: "Asignación inicial del ciclo administrativo",
+      vigencia_inicio: "2026-08-01",
+      vigencia_fin: "2027-07-31",
+    }, tokenAsignar);
+    expect(assigned.status).toBe(201);
+    lifecycleScholarshipId = Number(assigned.body.id);
+    becasCreadas.push(lifecycleScholarshipId);
+
+    const missingReason = await scholarshipApi(
+      "PATCH",
+      `/api/admin/scholarships/${lifecycleScholarshipId}`,
+      { porcentaje: 36, motivo_cambio: "corto" },
+      tokenAsignar,
+    );
+    expect(missingReason.status).toBe(400);
+
+    const updated = await scholarshipApi(
+      "PATCH",
+      `/api/admin/scholarships/${lifecycleScholarshipId}`,
+      {
+        porcentaje: 36,
+        motivo: "Corrección administrativa validada",
+        vigencia_inicio: "2026-08-01",
+        vigencia_fin: "2027-07-31",
+        motivo_cambio: "Se corrigió el porcentaje autorizado por dirección.",
+      },
+      tokenAsignar,
+    );
+    expect(updated.status).toBe(200);
+    expect(Number(updated.body.porcentaje)).toBe(36);
+
+    const audit = await waitForAudit(
+      "beca_editada",
+      lifecycleScholarshipId,
+      (row) => Number(JSON.parse(row.new_value).porcentaje) === 36,
+    );
+    expect(Number(JSON.parse(audit.previous_value).porcentaje)).toBe(35);
+    expect(Number(JSON.parse(audit.new_value).porcentaje)).toBe(36);
+    expect(audit.metadata).toContain("Se corrigió el porcentaje");
+  });
+
+  it("suspende y reactiva de forma auditable; el resolvedor ignora la suspendida", async () => {
+    const suspended = await scholarshipApi(
+      "PATCH",
+      `/api/admin/scholarships/${lifecycleScholarshipId}/estado`,
+      { estado: "suspendida", motivo: "La autorización está temporalmente en revisión." },
+      tokenAsignar,
+    );
+    expect(suspended.status).toBe(200);
+    expect(suspended.body.estado).toBe("suspendida");
+
+    const today = new Date().toISOString().slice(0, 10);
+    const resolution = await resolveEffectiveScholarship(
+      pool, lifecycleStudentId, tenantId, campusId, today,
+    );
+    expect(resolution.source).toBe("ninguna");
+    expect(resolution.effectivePercentage).toBe(0);
+
+    const reactivated = await scholarshipApi(
+      "PATCH",
+      `/api/admin/scholarships/${lifecycleScholarshipId}/estado`,
+      { estado: "activa", motivo: "La autorización fue validada nuevamente." },
+      tokenAsignar,
+    );
+    expect(reactivated.status).toBe(200);
+    expect(reactivated.body.estado).toBe("activa");
+
+    const audit = await waitForAudit(
+      "beca_estado_actualizado",
+      lifecycleScholarshipId,
+      (row) => JSON.parse(row.new_value).estado === "activa",
+    );
+    expect(JSON.parse(audit.previous_value).estado).toBe("suspendida");
+    expect(JSON.parse(audit.new_value).estado).toBe("activa");
+  });
+
+  it("edita el tipo de forma transaccional y conserva las asignaciones existentes", async () => {
+    const updated = await scholarshipApi(
+      "PATCH",
+      `/api/admin/scholarship-types/${scholarshipTypeId}`,
+      {
+        nombre: `Beca catálogo ajustada ${studentNombre}`,
+        categoria: "academica",
+        descripcion: "Beneficio corregido para siguiente asignación.",
+        algoritmo: "manual",
+        activo: false,
+        beneficio: {
+          porcentaje_descuento: 40,
+          aplica_conceptos: ["colegiatura"],
+          vigencia_meses: 6,
+        },
+        criterios: [{ criterio: "promedio_minimo", valor_minimo: 9.5, obligatorio: true }],
+        motivo_cambio: "Se actualizó el beneficio autorizado para el próximo periodo.",
+      },
+      tokenAsignar,
+    );
+    expect(updated.status).toBe(200);
+    expect(Number(updated.body.beneficio.porcentaje_descuento)).toBe(40);
+    expect(updated.body.activo).toBe(false);
+
+    const assignment = await pool.query(
+      `SELECT scholarship_type_id, porcentaje::numeric AS porcentaje
+         FROM scholarships WHERE id = $1`,
+      [lifecycleScholarshipId],
+    );
+    expect(Number(assignment.rows[0].scholarship_type_id)).toBe(scholarshipTypeId);
+    expect(Number(assignment.rows[0].porcentaje)).toBe(36);
   });
 });
 

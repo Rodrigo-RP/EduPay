@@ -346,9 +346,12 @@ export const scholarships = pgTable("scholarships", {
   scholarship_type_id: integer("scholarship_type_id").references(() => scholarship_types.id),
   // Columnas reales verificadas directamente en la DB (2026-08-10).
   // Columnas ELIMINADAS que no existen en la DB: porcentaje_aplicado, monto_fijo_aplicado_centavos,
-  // score_evaluacion, metodo_asignacion, estado, observaciones, created_by.
+  // score_evaluacion, metodo_asignacion, observaciones, created_by.
   porcentaje: numeric("porcentaje").notNull(),
   motivo: varchar("motivo", { length: 500 }),
+  // Nullable por compatibilidad con registros históricos; la migración usa
+  // default 'activa' y las consultas tratan NULL histórico como activa.
+  estado: varchar("estado", { length: 20 }).default("activa"),
   vigencia_inicio: date("vigencia_inicio").notNull(),
   vigencia_fin: date("vigencia_fin").notNull(),
   created_at: timestamp("created_at").defaultNow(),

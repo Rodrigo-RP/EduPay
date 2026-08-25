@@ -103,8 +103,8 @@ describe("SDR — Drizzle ORM sobre scholarships con schema corregido", () => {
     expect((row as any).observaciones).toBeUndefined();
   });
 
-  it("SDR-07: fila Drizzle NO tiene campo 'estado' (eliminado del schema)", async () => {
+  it("SDR-07: fila Drizzle expone estado y conserva el default activa", async () => {
     const [row] = await db.select().from(scholarships).where(eq(scholarships.id, scholarshipId));
-    expect((row as any).estado).toBeUndefined();
+    expect((row as any).estado).toBe("activa");
   });
 });

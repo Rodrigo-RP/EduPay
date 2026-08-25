@@ -234,7 +234,27 @@ export default function Becas() {
   const [showStudentsModal, setShowStudentsModal] = useState(false);
   const [selectedBeca, setSelectedBeca] = useState<any>(null);
   const [selectedEstudiante, setSelectedEstudiante] = useState<any>(null);
-  const [tipoDescuento, setTipoDescuento] = useState<'porcentaje' | 'cantidad'>('porcentaje');
+  const [editingType, setEditingType] = useState<any>(null);
+  const [statusChange, setStatusChange] = useState<{ assignment: any; estado: "activa" | "suspendida" } | null>(null);
+  const [statusReason, setStatusReason] = useState("");
+  const [assignmentEdit, setAssignmentEdit] = useState({
+    porcentaje: "",
+    motivo: "",
+    vigenciaInicio: "",
+    vigenciaFin: "",
+    motivoCambio: "",
+  });
+  const [typeForm, setTypeForm] = useState({
+    nombre: "",
+    categoria: "socioeconomica",
+    descripcion: "",
+    algoritmo: "manual",
+    porcentaje: "",
+    vigenciaMeses: "12",
+    activo: true,
+    criterios: "",
+    motivoCambio: "",
+  });
   const [activeAssignTab, setActiveAssignTab] = useState("individual");
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importProgress, setImportProgress] = useState(0);
@@ -245,6 +265,10 @@ export default function Becas() {
   const campusId = user?.campus_id;
   const { data: scholarshipAssignments = [] } = useQuery<any[]>({
     queryKey: ["/api/scholarships", campusId],
+    enabled: Boolean(campusId),
+  });
+  const { data: scholarshipTypes = [] } = useQuery<any[]>({
+    queryKey: ["/api/admin/scholarship-types", campusId],
     enabled: Boolean(campusId),
   });
   const { data: students = [], isLoading: studentsLoading } = useQuery<any[]>({
@@ -271,7 +295,8 @@ export default function Becas() {
         method: "POST",
         body: JSON.stringify({
           porcentaje: Number(manualAssignment.porcentaje),
-          motivo: [manualAssignment.tipoBeca, manualAssignment.motivo].filter(Boolean).join(" — ") || undefined,
+          scholarship_type_id: Number(manualAssignment.tipoBeca),
+          motivo: manualAssignment.motivo || undefined,
           vigencia_inicio: manualAssignment.vigenciaInicio || undefined,
           vigencia_fin: manualAssignment.vigenciaFin || undefined,
         }),
@@ -300,6 +325,100 @@ export default function Becas() {
       }
       toast({ title: "Error al asignar beca", description: message, variant: "destructive" });
     },
+  });
+
+  const refreshScholarshipData = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/scholarships"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/scholarship-types"] });
+  };
+
+  const updateAssignment = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest(`/api/admin/scholarships/${selectedBeca.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          porcentaje: Number(assignmentEdit.porcentaje),
+          motivo: assignmentEdit.motivo || null,
+          vigencia_inicio: assignmentEdit.vigenciaInicio,
+          vigencia_fin: assignmentEdit.vigenciaFin,
+          motivo_cambio: assignmentEdit.motivoCambio,
+        }),
+      });
+      return response.json();
+    },
+    onSuccess: (result: any) => {
+      setShowEditModal(false);
+      refreshScholarshipData();
+      toast({ title: "Beca actualizada", description: result.message });
+    },
+    onError: (error: any) => toast({
+      title: "No se pudo actualizar la beca",
+      description: String(error?.message || "").replace(/^\d+:\s*/, ""),
+      variant: "destructive",
+    }),
+  });
+
+  const changeAssignmentStatus = useMutation({
+    mutationFn: async () => {
+      if (!statusChange) throw new Error("No hay una beca seleccionada");
+      const response = await apiRequest(`/api/admin/scholarships/${statusChange.assignment.id}/estado`, {
+        method: "PATCH",
+        body: JSON.stringify({ estado: statusChange.estado, motivo: statusReason }),
+      });
+      return response.json();
+    },
+    onSuccess: (result: any) => {
+      setStatusChange(null);
+      setStatusReason("");
+      refreshScholarshipData();
+      toast({ title: "Estado actualizado", description: result.message });
+    },
+    onError: (error: any) => toast({
+      title: "No se pudo cambiar el estado",
+      description: String(error?.message || "").replace(/^\d+:\s*/, ""),
+      variant: "destructive",
+    }),
+  });
+
+  const saveScholarshipType = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        nombre: typeForm.nombre,
+        categoria: typeForm.categoria,
+        descripcion: typeForm.descripcion || null,
+        algoritmo: typeForm.algoritmo,
+        activo: typeForm.activo,
+        beneficio: {
+          porcentaje_descuento: Number(typeForm.porcentaje),
+          aplica_conceptos: ["colegiatura"],
+          vigencia_meses: Number(typeForm.vigenciaMeses),
+        },
+        criterios: typeForm.criterios
+          .split(",")
+          .map((criterio) => criterio.trim())
+          .filter(Boolean)
+          .map((criterio) => ({ criterio, obligatorio: true })),
+        ...(editingType ? { motivo_cambio: typeForm.motivoCambio } : {}),
+      };
+      const response = await apiRequest(
+        editingType
+          ? `/api/admin/scholarship-types/${editingType.id}`
+          : "/api/admin/scholarship-types",
+        { method: editingType ? "PATCH" : "POST", body: JSON.stringify(payload) },
+      );
+      return response.json();
+    },
+    onSuccess: () => {
+      setShowAddModal(false);
+      setEditingType(null);
+      refreshScholarshipData();
+      toast({ title: "Tipo de beca guardado", description: "La definición se actualizó sin alterar asignaciones existentes." });
+    },
+    onError: (error: any) => toast({
+      title: "No se pudo guardar el tipo de beca",
+      description: String(error?.message || "").replace(/^\d+:\s*/, ""),
+      variant: "destructive",
+    }),
   });
 
   // Funciones para importación masiva de CSV - usando el mismo patrón que estudiantes
@@ -555,21 +674,24 @@ export default function Becas() {
     }
   ];
 
-  // `vigente` se calcula en el backend con la misma regla que usa el asistente:
-  // alumno activo del campus actual y beca con vigencia válida hoy.
+  // `vigente` se calcula en el backend con la misma regla que usa el asistente.
+  // Las suspendidas permanecen en pantalla, pero no cuentan como activas.
   const becasVigentes = scholarshipAssignments.filter(
-    (beca) => beca.vigente && beca.student_status === "activo",
+    (beca) => beca.vigente && beca.student_status === "activo" && beca.estado === "activa",
   );
-  const estudiantesParaBecas = becasVigentes.map((beca) => ({
+  const estudiantesParaBecas = scholarshipAssignments
+    .filter((beca) => beca.student_status === "activo")
+    .map((beca) => ({
     id: beca.id,
     nombre_completo: beca.alumno,
     grado: [beca.nivel_escolar, beca.grado, beca.grupo].filter(Boolean).join(" · "),
     hermanos_inscritos: 0,
     tipo_solicitud: beca.tipo_nombre || "Beca sin tipo",
     porcentaje_asignado: Number(beca.porcentaje_aplicado || 0),
-    estado: "Activa",
+    estado: beca.estado === "suspendida" ? "Suspendida" : "Activa",
     fecha_asignacion: beca.vigencia_inicio,
     observaciones: beca.observaciones || "Asignación vigente",
+    vigencia_fin: beca.vigencia_fin,
   }));
   const becasAgrupadas = new Map<string, any>();
   for (const beca of becasVigentes) {
@@ -608,7 +730,40 @@ export default function Becas() {
     estudiantes_aplicados: beca.estudiantes.size,
     estudiantes: beca.estudiantes_detalle,
   }));
-  const totalTiposBecas = becasYDescuentos.length;
+  const tiposCatalogo = scholarshipTypes.map((type) => {
+    const typeAssignments = scholarshipAssignments.filter(
+      (assignment) => Number(assignment.scholarship_type_id) === Number(type.id),
+    );
+    const activeAssignments = typeAssignments.filter(
+      (assignment) => assignment.estado === "activa" && assignment.vigente,
+    );
+    return {
+      id: type.id,
+      nombre: type.nombre,
+      categoria: type.categoria,
+      tipo: type.algoritmo,
+      descripcion: type.descripcion || "Sin descripción",
+      porcentaje_max: Number(type.beneficio?.porcentaje_descuento || 0),
+      estudiantes_aplicados: activeAssignments.length,
+      estudiantes: activeAssignments.map((assignment) => ({
+        id: assignment.id,
+        nombre_completo: assignment.alumno,
+        grado: assignment.grado || assignment.nivel_escolar || "Sin grado",
+        porcentaje_asignado: Number(assignment.porcentaje_aplicado || 0),
+      })),
+      monto_total_descuento: activeAssignments.reduce(
+        (sum, assignment) => sum + Number(assignment.monto_descuento_centavos || 0),
+        0,
+      ),
+      asignacion: type.algoritmo === "automatico"
+        ? "Disponible para reglas automáticas explícitamente configuradas"
+        : "Asignación manual caso por caso",
+      criterios: (type.criterios || []).map((criterion: any) => criterion.criterio).join(", "),
+      activa: Boolean(type.activo),
+      raw: type,
+    };
+  });
+  const totalTiposBecas = tiposCatalogo.length;
   const totalEstudiantesBeneficiados = new Set(
     becasVigentes.map((beca) => Number(beca.student_id)),
   ).size;
@@ -623,21 +778,31 @@ export default function Becas() {
   // Funciones para manejar acciones de botones
   const handleEditBeca = (beca: any) => {
     setSelectedBeca(beca);
+    setAssignmentEdit({
+      porcentaje: String(beca.porcentaje_asignado || beca.porcentaje_aplicado || ""),
+      motivo: beca.observaciones || "",
+      vigenciaInicio: String(beca.fecha_asignacion || beca.vigencia_inicio || "").slice(0, 10),
+      vigenciaFin: String(beca.vigencia_fin || "").slice(0, 10),
+      motivoCambio: "",
+    });
     setShowEditModal(true);
   };
 
-  const handleSuspendEstudiante = (estudiante: any) => {
-    toast({
-      title: "Beca Suspendida",
-      description: `La beca de ${estudiante.nombre_completo} ha sido suspendida temporalmente.`,
+  const openTypeEditor = (type: any) => {
+    const raw = type.raw || type;
+    setEditingType(raw);
+    setTypeForm({
+      nombre: raw.nombre || "",
+      categoria: raw.categoria || "socioeconomica",
+      descripcion: raw.descripcion || "",
+      algoritmo: raw.algoritmo || "manual",
+      porcentaje: String(raw.beneficio?.porcentaje_descuento || ""),
+      vigenciaMeses: String(raw.beneficio?.vigencia_meses || 12),
+      activo: Boolean(raw.activo),
+      criterios: (raw.criterios || []).map((criterion: any) => criterion.criterio).join(", "),
+      motivoCambio: "",
     });
-  };
-
-  const handleActivateBeca = (becaId: number) => {
-    toast({
-      title: "Beca Activada",
-      description: "La beca ha sido activada exitosamente.",
-    });
+    setShowAddModal(true);
   };
 
   const handleViewDocuments = (estudiante: any) => {
@@ -820,17 +985,28 @@ ${b.nombre}:
                         value={manualAssignment.tipoBeca}
                         onValueChange={(tipoBeca) => {
                           setAssignmentResult(null);
-                          setManualAssignment((current) => ({ ...current, tipoBeca }));
+                            const type = scholarshipTypes.find((item) => String(item.id) === tipoBeca);
+                            setManualAssignment((current) => ({
+                              ...current,
+                              tipoBeca,
+                              porcentaje: current.porcentaje || String(type?.beneficio?.porcentaje_descuento || ""),
+                            }));
                         }}
                       >
                         <SelectTrigger id="tipo_beca">
                           <SelectValue placeholder="Seleccionar motivo..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Beca USEBEQ">Beca USEBEQ</SelectItem>
-                          <SelectItem value="Beca por Convenio">Beca por Convenio</SelectItem>
-                          <SelectItem value="Beca Deportiva">Beca Deportiva</SelectItem>
-                          <SelectItem value="Beca Cultural">Beca Cultural</SelectItem>
+                          {scholarshipTypes.filter((type) => type.activo).map((type) => (
+                            <SelectItem key={type.id} value={String(type.id)}>
+                              {type.nombre}
+                            </SelectItem>
+                          ))}
+                          {scholarshipTypes.length === 0 && (
+                            <SelectItem value="sin-tipos" disabled>
+                              Primero crea un tipo de beca
+                            </SelectItem>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
@@ -1081,26 +1257,45 @@ ${b.nombre}:
             </DialogContent>
           </Dialog>
 
-          <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+          <Dialog open={showAddModal} onOpenChange={(open) => {
+            setShowAddModal(open);
+            if (!open) setEditingType(null);
+          }}>
             <DialogTrigger asChild>
-              <Button>
+              <Button onClick={() => {
+                setEditingType(null);
+                setTypeForm({
+                  nombre: "",
+                  categoria: "socioeconomica",
+                  descripcion: "",
+                  algoritmo: "manual",
+                  porcentaje: "",
+                  vigenciaMeses: "12",
+                  activo: true,
+                  criterios: "",
+                  motivoCambio: "",
+                });
+              }}>
                 <Plus className="mr-2 h-4 w-4" />
                 Nuevo Tipo de Beca
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Configurar Nuevo Tipo de Beca</DialogTitle>
+                <DialogTitle>{editingType ? "Editar Tipo de Beca" : "Configurar Nuevo Tipo de Beca"}</DialogTitle>
+                <DialogDescription>
+                  Guardar esta definición no modifica asignaciones ni cargos ya emitidos.
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="nombre">Nombre de la Beca/Descuento</Label>
-                    <Input id="nombre" placeholder="Ej: Beca Excelencia Académica" />
+                    <Input id="nombre" value={typeForm.nombre} onChange={(event) => setTypeForm((form) => ({ ...form, nombre: event.target.value }))} placeholder="Ej: Beca Excelencia Académica" />
                   </div>
                   <div>
                     <Label htmlFor="categoria">Categoría</Label>
-                    <Select>
+                    <Select value={typeForm.categoria} onValueChange={(categoria) => setTypeForm((form) => ({ ...form, categoria }))}>
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar categoría" />
                       </SelectTrigger>
@@ -1118,7 +1313,7 @@ ${b.nombre}:
 
                 <div>
                   <Label htmlFor="tipo">Método de Asignación</Label>
-                  <Select>
+                  <Select value={typeForm.algoritmo} onValueChange={(algoritmo) => setTypeForm((form) => ({ ...form, algoritmo }))}>
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccionar método" />
                     </SelectTrigger>
@@ -1131,40 +1326,64 @@ ${b.nombre}:
 
                 <div>
                   <Label htmlFor="descripcion">Descripción</Label>
-                  <Textarea id="descripcion" placeholder="Describe los criterios y objetivos de esta beca..." />
+                  <Textarea id="descripcion" value={typeForm.descripcion} onChange={(event) => setTypeForm((form) => ({ ...form, descripcion: event.target.value }))} placeholder="Describe los criterios y objetivos de esta beca..." />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="porcentaje_max">Porcentaje Máximo (%)</Label>
-                    <Input id="porcentaje_max" type="number" min="0" max="100" placeholder="50" />
+                    <Input id="porcentaje_max" type="number" min="1" max="100" value={typeForm.porcentaje} onChange={(event) => setTypeForm((form) => ({ ...form, porcentaje: event.target.value }))} placeholder="50" />
                   </div>
                   <div>
                     <Label htmlFor="vigencia_default">Vigencia por Defecto</Label>
-                    <Select>
+                    <Select value={typeForm.vigenciaMeses} onValueChange={(vigenciaMeses) => setTypeForm((form) => ({ ...form, vigenciaMeses }))}>
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar vigencia" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="semestre">Un semestre</SelectItem>
-                        <SelectItem value="anual">Ciclo completo</SelectItem>
-                        <SelectItem value="permanente">Permanente</SelectItem>
+                        <SelectItem value="6">Un semestre</SelectItem>
+                        <SelectItem value="12">Ciclo completo</SelectItem>
+                        <SelectItem value="120">10 años</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
 
                 <div className="flex items-center space-x-2">
-                  <Switch id="activa" />
+                  <Switch id="activa" checked={typeForm.activo} onCheckedChange={(activo) => setTypeForm((form) => ({ ...form, activo }))} />
                   <Label htmlFor="activa">Activar inmediatamente</Label>
                 </div>
+                <div>
+                  <Label htmlFor="criterios">Criterios (opcional)</Label>
+                  <Input
+                    id="criterios"
+                    value={typeForm.criterios}
+                    onChange={(event) => setTypeForm((form) => ({ ...form, criterios: event.target.value }))}
+                    placeholder="Promedio mínimo, comprobante de ingresos"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">Separa cada criterio con una coma.</p>
+                </div>
+                {editingType && (
+                  <div>
+                    <Label htmlFor="motivo_cambio_tipo">Motivo del cambio</Label>
+                    <Textarea
+                      id="motivo_cambio_tipo"
+                      value={typeForm.motivoCambio}
+                      onChange={(event) => setTypeForm((form) => ({ ...form, motivoCambio: event.target.value }))}
+                      placeholder="Explica la razón del cambio (mínimo 10 caracteres)"
+                    />
+                  </div>
+                )}
 
                 <div className="flex justify-end space-x-2">
                   <Button variant="outline" onClick={() => setShowAddModal(false)}>
                     Cancelar
                   </Button>
-                  <Button onClick={() => setShowAddModal(false)}>
-                    Crear Tipo de Beca
+                  <Button
+                    disabled={!typeForm.nombre || !typeForm.porcentaje || (Boolean(editingType) && typeForm.motivoCambio.trim().length < 10) || saveScholarshipType.isPending}
+                    onClick={() => saveScholarshipType.mutate()}
+                  >
+                    {saveScholarshipType.isPending ? "Guardando..." : editingType ? "Guardar cambios" : "Crear Tipo de Beca"}
                   </Button>
                 </div>
               </div>
@@ -1231,7 +1450,7 @@ ${b.nombre}:
 
         <TabsContent value="becas" className="space-y-4">
           <div className="grid gap-4">
-            {becasYDescuentos.map((beca) => (
+            {tiposCatalogo.map((beca) => (
               <Card key={beca.id} className="hover:shadow-md transition-shadow">
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -1297,19 +1516,13 @@ ${b.nombre}:
                   </div>
 
                   <div className="flex justify-end space-x-2 mt-4">
-                    <Button variant="outline" size="sm" onClick={() => handleEditBeca(beca)}>
+                    <Button variant="outline" size="sm" onClick={() => openTypeEditor(beca)}>
                       <Edit className="h-4 w-4 mr-2" />
                       Editar
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => handleViewStudents(beca)}>
                       Ver Estudiantes
                     </Button>
-                    {!beca.activa && (
-                      <Button variant="default" size="sm" onClick={() => handleActivateBeca(beca.id)}>
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Activar
-                      </Button>
-                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -1369,35 +1582,24 @@ ${b.nombre}:
                       <FileText className="h-4 w-4 mr-2" />
                       Documentos
                     </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm">
-                          <XCircle className="h-4 w-4 mr-2" />
-                          Suspender
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle className="flex items-center gap-2 text-red-600">
-                            <AlertTriangle className="h-5 w-5" />
-                            Suspender Beca
-                          </AlertDialogTitle>
-                          <AlertDialogDescription>
-                            ¿Estás seguro de que deseas suspender la beca de {estudiante.nombre_completo}? 
-                            Esta acción suspenderá temporalmente el descuento aplicado.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction 
-                            className="bg-red-600 hover:bg-red-700"
-                            onClick={() => handleSuspendEstudiante(estudiante)}
-                          >
-                            Suspender Beca
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    <Button
+                      variant={estudiante.estado === "Suspendida" ? "default" : "destructive"}
+                      size="sm"
+                      onClick={() => {
+                        setStatusReason("");
+                        setStatusChange({
+                          assignment: estudiante,
+                          estado: estudiante.estado === "Suspendida" ? "activa" : "suspendida",
+                        });
+                      }}
+                    >
+                      {estudiante.estado === "Suspendida" ? (
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                      ) : (
+                        <XCircle className="h-4 w-4 mr-2" />
+                      )}
+                      {estudiante.estado === "Suspendida" ? "Reactivar" : "Suspender"}
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -1540,117 +1742,71 @@ ${b.nombre}:
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Modificar Beca/Descuento</DialogTitle>
+            <DialogTitle>Modificar asignación de beca</DialogTitle>
             <DialogDescription>
-              Editar configuración y asignación de beca para estudiante
+              Los cambios aplican sólo a cargos generados después de guardarlos. Los cargos ya emitidos no se recalculan.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="edit_estudiante">Estudiante</Label>
-                <Input 
-                  id="edit_estudiante" 
-                  value={selectedBeca?.nombre_completo || selectedBeca?.nombre || ''} 
-                  disabled 
-                />
+                <Input id="edit_estudiante" value={selectedBeca?.nombre_completo || ""} disabled />
               </div>
               <div>
                 <Label htmlFor="edit_tipo">Tipo de Beca</Label>
-                <Select defaultValue={selectedBeca?.tipo_solicitud || selectedBeca?.categoria}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="usebeq">Beca USEBEQ</SelectItem>
-                    <SelectItem value="convenio">Beca por Convenio</SelectItem>
-                    <SelectItem value="deportiva">Beca Deportiva</SelectItem>
-                    <SelectItem value="cultural">Beca Cultural</SelectItem>
-                    <SelectItem value="familiar">Descuento Familiar</SelectItem>
-                    <SelectItem value="empleado">Descuento Empleados</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Input id="edit_tipo" value={selectedBeca?.tipo_solicitud || "Beca sin tipo"} disabled />
               </div>
             </div>
 
-            {/* Selector de tipo de descuento en edición */}
-            <div>
-              <Label>Tipo de Descuento</Label>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <Button 
-                  variant={tipoDescuento === 'porcentaje' ? 'default' : 'outline'}
-                  onClick={() => setTipoDescuento('porcentaje')}
-                  className="w-full"
-                  size="sm"
-                >
-                  <Percent className="h-4 w-4 mr-2" />
-                  Porcentaje (%)
-                </Button>
-                <Button 
-                  variant={tipoDescuento === 'cantidad' ? 'default' : 'outline'}
-                  onClick={() => setTipoDescuento('cantidad')}
-                  className="w-full"
-                  size="sm"
-                >
-                  <DollarSign className="h-4 w-4 mr-2" />
-                  Cantidad Fija ($)
-                </Button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              {tipoDescuento === 'porcentaje' ? (
-                <div>
-                  <Label htmlFor="edit_porcentaje">Porcentaje de Descuento (%)</Label>
-                  <Input 
-                    id="edit_porcentaje" 
-                    type="number" 
-                    min="0" 
-                    max="100" 
-                    defaultValue={selectedBeca?.porcentaje_asignado || selectedBeca?.porcentaje_max}
-                    className="text-center font-bold"
-                  />
-                  <div className="text-xs text-gray-500 mt-1">Entre 0% y 100%</div>
-                </div>
-              ) : (
-                <div>
-                  <Label htmlFor="edit_cantidad">Cantidad Fija de Descuento ($)</Label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input 
-                      id="edit_cantidad" 
-                      type="number" 
-                      min="0" 
-                      placeholder="1500"
-                      defaultValue={selectedBeca?.monto_fijo || ''}
-                      className="pl-10 text-center font-bold"
-                    />
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">Monto fijo en pesos</div>
-                </div>
-              )}
+            <div className="grid grid-cols-3 gap-4">
               <div>
-                <Label htmlFor="edit_estado">Estado</Label>
-                <Select defaultValue={selectedBeca?.estado || (selectedBeca?.activa ? "Activa" : "Inactiva")}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Activa">Activa</SelectItem>
-                    <SelectItem value="Suspendida">Suspendida</SelectItem>
-                    <SelectItem value="Pendiente Renovación">Pendiente Renovación</SelectItem>
-                    <SelectItem value="Inactiva">Inactiva</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="edit_porcentaje">Porcentaje (%)</Label>
+                <Input
+                  id="edit_porcentaje"
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={assignmentEdit.porcentaje}
+                  onChange={(event) => setAssignmentEdit((form) => ({ ...form, porcentaje: event.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit_inicio">Inicio de vigencia</Label>
+                <Input
+                  id="edit_inicio"
+                  type="date"
+                  value={assignmentEdit.vigenciaInicio}
+                  onChange={(event) => setAssignmentEdit((form) => ({ ...form, vigenciaInicio: event.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit_fin">Fin de vigencia</Label>
+                <Input
+                  id="edit_fin"
+                  type="date"
+                  value={assignmentEdit.vigenciaFin}
+                  onChange={(event) => setAssignmentEdit((form) => ({ ...form, vigenciaFin: event.target.value }))}
+                />
               </div>
             </div>
 
             <div>
-              <Label htmlFor="edit_observaciones">Observaciones</Label>
-              <Textarea 
-                id="edit_observaciones" 
-                defaultValue={selectedBeca?.observaciones || selectedBeca?.descripcion}
-                placeholder="Actualizar motivos, condiciones o comentarios..."
+              <Label htmlFor="edit_observaciones">Motivo de la beca</Label>
+              <Textarea
+                id="edit_observaciones"
+                value={assignmentEdit.motivo}
+                onChange={(event) => setAssignmentEdit((form) => ({ ...form, motivo: event.target.value }))}
+                placeholder="Condiciones o comentarios de la asignación..."
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_motivo_cambio">Motivo del cambio</Label>
+              <Textarea
+                id="edit_motivo_cambio"
+                value={assignmentEdit.motivoCambio}
+                onChange={(event) => setAssignmentEdit((form) => ({ ...form, motivoCambio: event.target.value }))}
+                placeholder="Explica la razón del cambio (mínimo 10 caracteres)"
               />
             </div>
 
@@ -1658,16 +1814,60 @@ ${b.nombre}:
               <Button variant="outline" onClick={() => setShowEditModal(false)}>
                 Cancelar
               </Button>
-              <Button onClick={() => {
-                setShowEditModal(false);
-                toast({
-                  title: "Beca Actualizada",
-                  description: "Los cambios han sido guardados exitosamente.",
-                });
-              }}>
-                Guardar Cambios
+              <Button
+                disabled={
+                  !assignmentEdit.porcentaje
+                  || !assignmentEdit.vigenciaInicio
+                  || !assignmentEdit.vigenciaFin
+                  || assignmentEdit.motivoCambio.trim().length < 10
+                  || updateAssignment.isPending
+                }
+                onClick={() => updateAssignment.mutate()}
+              >
+                {updateAssignment.isPending ? "Guardando..." : "Guardar cambios"}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(statusChange)} onOpenChange={(open) => {
+        if (!open) {
+          setStatusChange(null);
+          setStatusReason("");
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {statusChange?.estado === "suspendida" ? "Suspender beca" : "Reactivar beca"}
+            </DialogTitle>
+            <DialogDescription>
+              {statusChange?.estado === "suspendida"
+                ? "La suspensión evitará que se use esta beca en cargos futuros; no cambia pagos ni cargos existentes."
+                : "La reactivación permitirá usar la beca en cargos futuros dentro de su vigencia."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Label htmlFor="motivo_estado">Motivo</Label>
+            <Textarea
+              id="motivo_estado"
+              value={statusReason}
+              onChange={(event) => setStatusReason(event.target.value)}
+              placeholder="Explica el motivo (mínimo 10 caracteres)"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setStatusChange(null)}>Cancelar</Button>
+            <Button
+              variant={statusChange?.estado === "suspendida" ? "destructive" : "default"}
+              disabled={statusReason.trim().length < 10 || changeAssignmentStatus.isPending}
+              onClick={() => changeAssignmentStatus.mutate()}
+            >
+              {changeAssignmentStatus.isPending
+                ? "Guardando..."
+                : statusChange?.estado === "suspendida" ? "Suspender" : "Reactivar"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

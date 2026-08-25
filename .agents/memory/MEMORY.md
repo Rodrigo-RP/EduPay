@@ -70,3 +70,4 @@
 - [Cash closure E2E fixtures](cash-closure-e2e-fixtures.md) — El snapshot diario suma todo pago exitoso del campus; capturar el ID de cierre antes de asertar para limpiar con seguridad.
 - [Generación de cargos](charge-generation-contract.md) — Normalizar niveles de UI y resolver fechas requeridas en servidor para que previews y extraordinarios no queden vacíos ni fallen.
 - [Motor de becas automáticas](automatic-scholarship-engine.md) — las asignaciones automáticas se identifican por su vínculo, priorizan siempre la manual por ciclo y las nuevas reglas se validan sin invalidar datos históricos.
+- [Estado manual de becas](scholarship-manual-state.md) — suspender/reactivar sólo cambia la elegibilidad de cargos futuros; el ledger emitido permanece intacto y el cambio exige auditoría.

@@ -37,6 +37,95 @@ export const updateStudentSchema = z.object({
   status: z.string().max(50).nullable().optional(),
 }).strict();
 
+const scholarshipCriterionSchema = z.object({
+  criterio: z.string().trim().min(1).max(100),
+  valor_minimo: z.coerce.number().finite().nullable().optional(),
+  valor_maximo: z.coerce.number().finite().nullable().optional(),
+  obligatorio: z.boolean().optional().default(true),
+}).superRefine((criterion, ctx) => {
+  if (
+    criterion.valor_minimo !== null && criterion.valor_minimo !== undefined
+    && criterion.valor_maximo !== null && criterion.valor_maximo !== undefined
+    && criterion.valor_minimo > criterion.valor_maximo
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "valor_minimo no puede ser mayor que valor_maximo",
+      path: ["valor_maximo"],
+    });
+  }
+});
+
+const scholarshipBenefitSchema = z.object({
+  porcentaje_descuento: z.coerce.number().int().min(1).max(100),
+  aplica_conceptos: z.array(z.string().trim().min(1).max(100)).min(1).max(20).optional()
+    .default(["colegiatura"]),
+  vigencia_meses: z.coerce.number().int().min(1).max(120).nullable().optional().default(12),
+}).strict();
+
+const scholarshipTypePayloadSchema = z.object({
+  nombre: z.string().trim().min(1).max(100),
+  categoria: z.enum([
+    "academica", "socioeconomica", "deportiva", "cultural",
+    "familiar", "empleado", "convenio", "descuento",
+  ]),
+  descripcion: z.string().trim().max(5000).nullable().optional(),
+  algoritmo: z.enum(["manual", "automatico", "promedio", "hermanos", "ingresos"]),
+  activo: z.boolean().optional().default(true),
+  beneficio: scholarshipBenefitSchema,
+  criterios: z.array(scholarshipCriterionSchema).max(30).optional().default([]),
+}).strict();
+
+const scholarshipTypeUpdateSchema = scholarshipTypePayloadSchema.extend({
+  motivo_cambio: z.string().trim().min(10).max(500),
+}).strict();
+
+const scholarshipAssignmentUpdateSchema = z.object({
+  porcentaje: z.coerce.number().finite().gt(0).lte(100).optional(),
+  motivo: z.string().trim().max(500).nullable().optional(),
+  vigencia_inicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  vigencia_fin: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  motivo_cambio: z.string().trim().min(10).max(500),
+}).strict().superRefine((value, ctx) => {
+  if (
+    value.porcentaje === undefined
+    && value.motivo === undefined
+    && value.vigencia_inicio === undefined
+    && value.vigencia_fin === undefined
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Indica al menos un campo de la beca para actualizar",
+    });
+  }
+});
+
+const scholarshipStateChangeSchema = z.object({
+  estado: z.enum(["activa", "suspendida"]),
+  motivo: z.string().trim().min(10).max(500),
+}).strict();
+
+function toDateOnly(value: unknown): string {
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  const text = String(value ?? "");
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text.slice(0, 10);
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? text : parsed.toISOString().slice(0, 10);
+}
+
+function scholarshipAssignmentSnapshot(row: any) {
+  return {
+    id: Number(row.id),
+    student_id: Number(row.student_id),
+    scholarship_type_id: row.scholarship_type_id === null ? null : Number(row.scholarship_type_id),
+    porcentaje: Number(row.porcentaje),
+    motivo: row.motivo ?? null,
+    estado: row.estado ?? "activa",
+    vigencia_inicio: toDateOnly(row.vigencia_inicio),
+    vigencia_fin: toDateOnly(row.vigencia_fin),
+  };
+}
+
 async function getStudentInCurrentScope(studentId: number, user: any): Promise<any | undefined> {
   const campusId = Number(user?.campus_id);
   const tenantId = Number(user?.tenant_id);
@@ -438,15 +527,16 @@ export function registerAdminRoutes(app: Express): void {
         return res.status(400).json({ message: "Campus ID requerido" });
       }
       
-      // Becas reales del campus con tipo de beca incluido.
-      // Columnas reales de la tabla scholarships (DB real difiere del schema Drizzle):
-      //   porcentaje (no porcentaje_aplicado), motivo (no observaciones),
-      //   sin estado, sin monto_fijo_aplicado_centavos.
+       // Becas reales del campus con tipo de beca incluido.
+       // Columnas reales de la tabla scholarships (DB real difiere del schema Drizzle):
+       //   porcentaje (no porcentaje_aplicado), motivo (no observaciones),
+       //   sin monto_fijo_aplicado_centavos.
       // Alias en el SELECT mantienen los nombres que espera el frontend.
       const rows = await pool.query(`
         SELECT s.id, s.student_id, s.scholarship_type_id,
                s.porcentaje               AS porcentaje_aplicado,
                s.motivo                   AS observaciones,
+               COALESCE(s.estado, 'activa') AS estado,
                s.vigencia_inicio, s.vigencia_fin,
                st.nombre                  AS tipo_nombre,
                st.categoria               AS tipo_categoria,
@@ -459,6 +549,7 @@ export function registerAdminRoutes(app: Express): void {
                (
                  s.vigencia_inicio <= CURRENT_DATE
                  AND (s.vigencia_fin IS NULL OR s.vigencia_fin >= CURRENT_DATE)
+                  AND COALESCE(s.estado, 'activa') = 'activa'
                  AND stu.status = 'activo'
                )                          AS vigente,
                COALESCE((
@@ -474,9 +565,10 @@ export function registerAdminRoutes(app: Express): void {
         FROM scholarships s
         JOIN students stu ON stu.id = s.student_id
         LEFT JOIN scholarship_types st ON st.id = s.scholarship_type_id
-        WHERE stu.campus_id = $1
+         WHERE stu.campus_id = $1
+           AND s.tenant_id = $2
         ORDER BY stu.nombre_completo
-      `, [campusId]).catch((err: any) => {
+       `, [campusId, (req as any).user?.tenant_id]).catch((err: any) => {
         // Catch visible: un error real de DB se registra en logs. El catch
         // silencioso anterior ocultó la ausencia de scholarship_types durante
         // tiempo indeterminado. Mantenemos degradación elegante (array vacío)
@@ -1446,7 +1538,7 @@ export function registerAdminRoutes(app: Express): void {
       const userId    = req.user?.id ?? null;
       const studentId = parseInt(req.params.studentId);
 
-      const { porcentaje, motivo, vigencia_inicio, vigencia_fin, monto_fijo } = req.body;
+      const { porcentaje, motivo, vigencia_inicio, vigencia_fin, monto_fijo, scholarship_type_id } = req.body;
 
       // Guardia explícita: monto_fijo no existe como columna en la DB real
       if (monto_fijo !== undefined) {
@@ -1493,6 +1585,21 @@ export function registerAdminRoutes(app: Express): void {
       }
       const alumno = (alumnoRes.rows as any[])[0];
 
+      let scholarshipTypeId: number | null = null;
+      if (scholarship_type_id !== undefined && scholarship_type_id !== null && scholarship_type_id !== "") {
+        scholarshipTypeId = Number(scholarship_type_id);
+        if (!Number.isSafeInteger(scholarshipTypeId) || scholarshipTypeId <= 0) {
+          return res.status(400).json({ message: "scholarship_type_id debe ser un entero positivo" });
+        }
+        const typeResult = await pool.query(
+          `SELECT id FROM scholarship_types WHERE id = $1 AND campus_id = $2`,
+          [scholarshipTypeId, campusId],
+        );
+        if (!typeResult.rows.length) {
+          return res.status(404).json({ message: "Tipo de beca no encontrado en este campus" });
+        }
+      }
+
       // Comparte el bloqueo del motor automático: la decisión manual/automática
       // queda serializada por alumno incluso si ambas solicitudes llegan a la vez.
       const client = await pool.connect();
@@ -1515,12 +1622,12 @@ export function registerAdminRoutes(app: Express): void {
         );
         vigentes = vigentesRes.rows as any[];
         const insertRes = await client.query(
-          `INSERT INTO scholarships
-             (student_id, tenant_id, porcentaje, motivo, vigencia_inicio, vigencia_fin)
-           VALUES ($1, $2, $3, $4, $5, $6)
-           RETURNING id, student_id, tenant_id, porcentaje, motivo,
-                     vigencia_inicio, vigencia_fin, created_at`,
-          [studentId, tenantId, pct, motivo || null, vinicio, vfin],
+           `INSERT INTO scholarships
+              (student_id, tenant_id, scholarship_type_id, porcentaje, motivo, vigencia_inicio, vigencia_fin)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING id, student_id, tenant_id, scholarship_type_id, porcentaje, motivo,
+                      estado, vigencia_inicio, vigencia_fin, created_at`,
+           [studentId, tenantId, scholarshipTypeId, pct, motivo || null, vinicio, vfin],
         );
         beca = (insertRes.rows as any[])[0];
         await client.query("COMMIT");
@@ -1539,6 +1646,7 @@ export function registerAdminRoutes(app: Express): void {
         vigencia_inicio: vinicio,
         vigencia_fin:    vfin,
         scholarship_id:  beca.id,
+        scholarship_type_id: scholarshipTypeId,
         campus_id:       campusId,
         overlap_warning: overlapWarning,
       };
@@ -1571,6 +1679,501 @@ export function registerAdminRoutes(app: Express): void {
     } catch (error: any) {
       return res.status(500).json({ message: "Error interno del servidor" });
     }
+  });
+
+  /**
+   * PATCH /api/admin/scholarships/:id
+   * Corrige una asignación individual sin tocar cargos ya emitidos. El cambio
+   * sólo será considerado por el resolvedor al generar cargos posteriores.
+   */
+  app.patch("/api/admin/scholarships/:id", authenticateToken, async (req: any, res) => {
+    if (!hasPermissionForUser(req.user, MODULES.SCHOLARSHIPS, ACTIONS.ASSIGN)) {
+      return res.status(403).json({ message: "Sin permisos para editar becas" });
+    }
+
+    const scholarshipId = Number(req.params.id);
+    if (!Number.isSafeInteger(scholarshipId) || scholarshipId <= 0) {
+      return res.status(400).json({ message: "ID de beca inválido" });
+    }
+    const parsed = scholarshipAssignmentUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: parsed.error.issues[0]?.message || "Datos de beca inválidos",
+      });
+    }
+
+    const tenantId = Number(req.user?.tenant_id);
+    const campusId = Number(req.user?.campus_id);
+    const userId = req.user?.id ?? null;
+    const input = parsed.data;
+    const client = await pool.connect();
+    let previousValue: ReturnType<typeof scholarshipAssignmentSnapshot>;
+    let newValue: ReturnType<typeof scholarshipAssignmentSnapshot>;
+    try {
+      await client.query("BEGIN");
+      const currentResult = await client.query(
+        `SELECT s.*, stu.nombre_completo AS alumno
+           FROM scholarships s
+           JOIN students stu ON stu.id = s.student_id
+          WHERE s.id = $1
+            AND s.tenant_id = $2
+            AND stu.campus_id = $3
+            AND stu.tenant_id = $2
+          FOR UPDATE OF s`,
+        [scholarshipId, tenantId, campusId],
+      );
+      const current = currentResult.rows[0] as any;
+      if (!current) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ message: "Beca no encontrada en este campus" });
+      }
+
+      await client.query(
+        `SELECT pg_advisory_xact_lock(($1::bigint * 1000000) + $2::bigint)`,
+        [campusId, Number(current.student_id)],
+      );
+      previousValue = scholarshipAssignmentSnapshot(current);
+      const vigenciaInicio = input.vigencia_inicio ?? previousValue.vigencia_inicio;
+      const vigenciaFin = input.vigencia_fin ?? previousValue.vigencia_fin;
+      if (vigenciaFin <= vigenciaInicio) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          message: "vigencia_fin debe ser posterior a vigencia_inicio",
+        });
+      }
+
+      const updateResult = await client.query(
+        `UPDATE scholarships
+            SET porcentaje = $1,
+                motivo = $2,
+                vigencia_inicio = $3,
+                vigencia_fin = $4,
+                updated_at = NOW()
+          WHERE id = $5 AND tenant_id = $6
+          RETURNING *`,
+        [
+          input.porcentaje ?? previousValue.porcentaje,
+          input.motivo === undefined ? previousValue.motivo : input.motivo,
+          vigenciaInicio,
+          vigenciaFin,
+          scholarshipId,
+          tenantId,
+        ],
+      );
+      newValue = scholarshipAssignmentSnapshot(updateResult.rows[0]);
+      await client.query("COMMIT");
+    } catch (error: any) {
+      await client.query("ROLLBACK").catch(() => {});
+      return res.status(500).json({ message: error.message || "No se pudo editar la beca" });
+    } finally {
+      client.release();
+    }
+
+    const auditPayload = {
+      tenant_id: tenantId,
+      user_id: userId,
+      action: "beca_editada",
+      entity_type: "scholarship",
+      entity_id: scholarshipId,
+      previous_value: previousValue!,
+      new_value: newValue!,
+      metadata: {
+        campus_id: campusId,
+        motivo_cambio: input.motivo_cambio,
+        recalculate_existing_charges: false,
+      },
+    };
+    pool.query(
+      `INSERT INTO audit_log
+        (tenant_id, user_id, action, entity_type, entity_id, previous_value, new_value, metadata)
+       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb)`,
+      [
+        auditPayload.tenant_id, auditPayload.user_id, auditPayload.action,
+        auditPayload.entity_type, auditPayload.entity_id,
+        JSON.stringify(auditPayload.previous_value), JSON.stringify(auditPayload.new_value),
+        JSON.stringify(auditPayload.metadata),
+      ],
+    ).catch((error) => enqueueAuditLog(auditPayload, error));
+
+    return res.json({
+      ...newValue!,
+      message: "La beca fue actualizada. Los cargos ya emitidos no cambiaron.",
+    });
+  });
+
+  /**
+   * PATCH /api/admin/scholarships/:id/estado
+   * Suspender/reactivar es una decisión manual y nunca recalcula el ledger.
+   */
+  app.patch("/api/admin/scholarships/:id/estado", authenticateToken, async (req: any, res) => {
+    if (!hasPermissionForUser(req.user, MODULES.SCHOLARSHIPS, ACTIONS.ASSIGN)) {
+      return res.status(403).json({ message: "Sin permisos para cambiar el estado de becas" });
+    }
+
+    const scholarshipId = Number(req.params.id);
+    if (!Number.isSafeInteger(scholarshipId) || scholarshipId <= 0) {
+      return res.status(400).json({ message: "ID de beca inválido" });
+    }
+    const parsed = scholarshipStateChangeSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: parsed.error.issues[0]?.message || "Cambio de estado inválido",
+      });
+    }
+
+    const tenantId = Number(req.user?.tenant_id);
+    const campusId = Number(req.user?.campus_id);
+    const userId = req.user?.id ?? null;
+    const { estado, motivo } = parsed.data;
+    const client = await pool.connect();
+    let previousValue: ReturnType<typeof scholarshipAssignmentSnapshot>;
+    let newValue: ReturnType<typeof scholarshipAssignmentSnapshot>;
+    try {
+      await client.query("BEGIN");
+      const currentResult = await client.query(
+        `SELECT s.*
+           FROM scholarships s
+           JOIN students stu ON stu.id = s.student_id
+          WHERE s.id = $1
+            AND s.tenant_id = $2
+            AND stu.campus_id = $3
+            AND stu.tenant_id = $2
+          FOR UPDATE OF s`,
+        [scholarshipId, tenantId, campusId],
+      );
+      const current = currentResult.rows[0] as any;
+      if (!current) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ message: "Beca no encontrada en este campus" });
+      }
+
+      previousValue = scholarshipAssignmentSnapshot(current);
+      if (previousValue.estado === estado) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ message: `La beca ya está ${estado}` });
+      }
+
+      await client.query(
+        `SELECT pg_advisory_xact_lock(($1::bigint * 1000000) + $2::bigint)`,
+        [campusId, Number(current.student_id)],
+      );
+      const updateResult = await client.query(
+        `UPDATE scholarships
+            SET estado = $1, updated_at = NOW()
+          WHERE id = $2 AND tenant_id = $3
+          RETURNING *`,
+        [estado, scholarshipId, tenantId],
+      );
+      newValue = scholarshipAssignmentSnapshot(updateResult.rows[0]);
+      await client.query("COMMIT");
+    } catch (error: any) {
+      await client.query("ROLLBACK").catch(() => {});
+      return res.status(500).json({ message: error.message || "No se pudo cambiar el estado de la beca" });
+    } finally {
+      client.release();
+    }
+
+    const auditPayload = {
+      tenant_id: tenantId,
+      user_id: userId,
+      action: "beca_estado_actualizado",
+      entity_type: "scholarship",
+      entity_id: scholarshipId,
+      previous_value: previousValue!,
+      new_value: newValue!,
+      metadata: {
+        campus_id: campusId,
+        motivo,
+        recalculate_existing_charges: false,
+      },
+    };
+    pool.query(
+      `INSERT INTO audit_log
+        (tenant_id, user_id, action, entity_type, entity_id, previous_value, new_value, metadata)
+       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb)`,
+      [
+        auditPayload.tenant_id, auditPayload.user_id, auditPayload.action,
+        auditPayload.entity_type, auditPayload.entity_id,
+        JSON.stringify(auditPayload.previous_value), JSON.stringify(auditPayload.new_value),
+        JSON.stringify(auditPayload.metadata),
+      ],
+    ).catch((error) => enqueueAuditLog(auditPayload, error));
+
+    return res.json({
+      ...newValue!,
+      message: estado === "suspendida"
+        ? "Beca suspendida. Los cargos ya emitidos no fueron modificados."
+        : "Beca reactivada para cargos futuros dentro de su vigencia.",
+    });
+  });
+
+  /**
+   * Catálogo de tipos de beca. El catálogo no modifica asignaciones ya
+   * otorgadas ni activa automatismos por sí mismo.
+   */
+  app.get("/api/admin/scholarship-types", authenticateToken, async (req: any, res) => {
+    if (!hasPermissionForUser(req.user, MODULES.SCHOLARSHIPS, ACTIONS.ASSIGN)) {
+      return res.status(403).json({ message: "Sin permisos para administrar tipos de beca" });
+    }
+    const campusId = Number(req.user?.campus_id);
+    try {
+      const typesResult = await pool.query(
+        `SELECT * FROM scholarship_types WHERE campus_id = $1 ORDER BY nombre ASC`,
+        [campusId],
+      );
+      const types = typesResult.rows as any[];
+      const ids = types.map((type) => Number(type.id));
+      if (!ids.length) return res.json([]);
+      const [benefitsResult, criteriaResult] = await Promise.all([
+        pool.query(
+          `SELECT * FROM scholarship_benefits
+            WHERE scholarship_type_id = ANY($1::int[])
+            ORDER BY id ASC`,
+          [ids],
+        ),
+        pool.query(
+          `SELECT * FROM scholarship_criteria
+            WHERE scholarship_type_id = ANY($1::int[])
+            ORDER BY id ASC`,
+          [ids],
+        ),
+      ]);
+      const benefitsByType = new Map<number, any>();
+      for (const benefit of benefitsResult.rows as any[]) {
+        if (!benefitsByType.has(Number(benefit.scholarship_type_id))) {
+          benefitsByType.set(Number(benefit.scholarship_type_id), benefit);
+        }
+      }
+      const criteriaByType = new Map<number, any[]>();
+      for (const criterion of criteriaResult.rows as any[]) {
+        const typeId = Number(criterion.scholarship_type_id);
+        criteriaByType.set(typeId, [...(criteriaByType.get(typeId) ?? []), criterion]);
+      }
+      return res.json(types.map((type) => ({
+        ...type,
+        beneficio: benefitsByType.get(Number(type.id)) ?? null,
+        criterios: criteriaByType.get(Number(type.id)) ?? [],
+      })));
+    } catch (error: any) {
+      return res.status(500).json({ message: error.message || "No se pudieron consultar los tipos de beca" });
+    }
+  });
+
+  app.post("/api/admin/scholarship-types", authenticateToken, async (req: any, res) => {
+    if (!hasPermissionForUser(req.user, MODULES.SCHOLARSHIPS, ACTIONS.ASSIGN)) {
+      return res.status(403).json({ message: "Sin permisos para crear tipos de beca" });
+    }
+    const parsed = scholarshipTypePayloadSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: parsed.error.issues[0]?.message || "Datos de tipo de beca inválidos",
+      });
+    }
+    const campusId = Number(req.user?.campus_id);
+    const tenantId = Number(req.user?.tenant_id);
+    const userId = req.user?.id ?? null;
+    const input = parsed.data;
+    const client = await pool.connect();
+    let created: any;
+    try {
+      await client.query("BEGIN");
+      const typeResult = await client.query(
+        `INSERT INTO scholarship_types (campus_id, nombre, categoria, descripcion, algoritmo, activo)
+         VALUES ($1,$2,$3,$4,$5,$6)
+         RETURNING *`,
+        [campusId, input.nombre, input.categoria, input.descripcion ?? null, input.algoritmo, input.activo],
+      );
+      const type = typeResult.rows[0] as any;
+      const benefitResult = await client.query(
+        `INSERT INTO scholarship_benefits
+          (scholarship_type_id, tipo_beneficio, porcentaje_descuento, aplica_conceptos, vigencia_meses)
+         VALUES ($1,'porcentaje',$2,$3,$4)
+         RETURNING *`,
+        [
+          type.id,
+          input.beneficio.porcentaje_descuento,
+          input.beneficio.aplica_conceptos,
+          input.beneficio.vigencia_meses,
+        ],
+      );
+      const criterios: any[] = [];
+      for (const criterion of input.criterios) {
+        const criterionResult = await client.query(
+          `INSERT INTO scholarship_criteria
+            (scholarship_type_id, criterio, valor_minimo, valor_maximo, obligatorio)
+           VALUES ($1,$2,$3,$4,$5)
+           RETURNING *`,
+          [
+            type.id, criterion.criterio,
+            criterion.valor_minimo ?? null, criterion.valor_maximo ?? null,
+            criterion.obligatorio,
+          ],
+        );
+        criterios.push(criterionResult.rows[0]);
+      }
+      created = { ...type, beneficio: benefitResult.rows[0], criterios };
+      await client.query("COMMIT");
+    } catch (error: any) {
+      await client.query("ROLLBACK").catch(() => {});
+      return res.status(500).json({ message: error.message || "No se pudo crear el tipo de beca" });
+    } finally {
+      client.release();
+    }
+
+    const auditPayload = {
+      tenant_id: tenantId,
+      user_id: userId,
+      action: "tipo_beca_creado",
+      entity_type: "scholarship_type",
+      entity_id: Number(created.id),
+      previous_value: {},
+      new_value: created,
+      metadata: { campus_id: campusId },
+    };
+    pool.query(
+      `INSERT INTO audit_log
+        (tenant_id, user_id, action, entity_type, entity_id, previous_value, new_value, metadata)
+       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb)`,
+      [
+        auditPayload.tenant_id, auditPayload.user_id, auditPayload.action,
+        auditPayload.entity_type, auditPayload.entity_id,
+        JSON.stringify(auditPayload.previous_value), JSON.stringify(auditPayload.new_value),
+        JSON.stringify(auditPayload.metadata),
+      ],
+    ).catch((error) => enqueueAuditLog(auditPayload, error));
+
+    return res.status(201).json(created);
+  });
+
+  app.patch("/api/admin/scholarship-types/:id", authenticateToken, async (req: any, res) => {
+    if (!hasPermissionForUser(req.user, MODULES.SCHOLARSHIPS, ACTIONS.ASSIGN)) {
+      return res.status(403).json({ message: "Sin permisos para editar tipos de beca" });
+    }
+    const typeId = Number(req.params.id);
+    if (!Number.isSafeInteger(typeId) || typeId <= 0) {
+      return res.status(400).json({ message: "ID de tipo de beca inválido" });
+    }
+    const parsed = scholarshipTypeUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: parsed.error.issues[0]?.message || "Datos de tipo de beca inválidos",
+      });
+    }
+    const campusId = Number(req.user?.campus_id);
+    const tenantId = Number(req.user?.tenant_id);
+    const userId = req.user?.id ?? null;
+    const input = parsed.data;
+    const client = await pool.connect();
+    let previousValue: any;
+    let newValue: any;
+    try {
+      await client.query("BEGIN");
+      const typeResult = await client.query(
+        `SELECT * FROM scholarship_types
+          WHERE id = $1 AND campus_id = $2
+          FOR UPDATE`,
+        [typeId, campusId],
+      );
+      const existing = typeResult.rows[0] as any;
+      if (!existing) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ message: "Tipo de beca no encontrado en este campus" });
+      }
+      const [oldBenefits, oldCriteria] = await Promise.all([
+        client.query(
+          `SELECT * FROM scholarship_benefits WHERE scholarship_type_id = $1 ORDER BY id ASC`,
+          [typeId],
+        ),
+        client.query(
+          `SELECT * FROM scholarship_criteria WHERE scholarship_type_id = $1 ORDER BY id ASC`,
+          [typeId],
+        ),
+      ]);
+      previousValue = {
+        ...existing,
+        beneficio: oldBenefits.rows[0] ?? null,
+        criterios: oldCriteria.rows,
+      };
+
+      const updatedTypeResult = await client.query(
+        `UPDATE scholarship_types
+            SET nombre = $1, categoria = $2, descripcion = $3, algoritmo = $4,
+                activo = $5, updated_at = NOW()
+          WHERE id = $6 AND campus_id = $7
+          RETURNING *`,
+        [
+          input.nombre, input.categoria, input.descripcion ?? null, input.algoritmo,
+          input.activo, typeId, campusId,
+        ],
+      );
+      await client.query(`DELETE FROM scholarship_benefits WHERE scholarship_type_id = $1`, [typeId]);
+      const newBenefitResult = await client.query(
+        `INSERT INTO scholarship_benefits
+          (scholarship_type_id, tipo_beneficio, porcentaje_descuento, aplica_conceptos, vigencia_meses)
+         VALUES ($1,'porcentaje',$2,$3,$4)
+         RETURNING *`,
+        [
+          typeId,
+          input.beneficio.porcentaje_descuento,
+          input.beneficio.aplica_conceptos,
+          input.beneficio.vigencia_meses,
+        ],
+      );
+      await client.query(`DELETE FROM scholarship_criteria WHERE scholarship_type_id = $1`, [typeId]);
+      const criterios: any[] = [];
+      for (const criterion of input.criterios) {
+        const criterionResult = await client.query(
+          `INSERT INTO scholarship_criteria
+            (scholarship_type_id, criterio, valor_minimo, valor_maximo, obligatorio)
+           VALUES ($1,$2,$3,$4,$5)
+           RETURNING *`,
+          [
+            typeId, criterion.criterio,
+            criterion.valor_minimo ?? null, criterion.valor_maximo ?? null,
+            criterion.obligatorio,
+          ],
+        );
+        criterios.push(criterionResult.rows[0]);
+      }
+      newValue = {
+        ...updatedTypeResult.rows[0],
+        beneficio: newBenefitResult.rows[0],
+        criterios,
+      };
+      await client.query("COMMIT");
+    } catch (error: any) {
+      await client.query("ROLLBACK").catch(() => {});
+      return res.status(500).json({ message: error.message || "No se pudo editar el tipo de beca" });
+    } finally {
+      client.release();
+    }
+
+    const auditPayload = {
+      tenant_id: tenantId,
+      user_id: userId,
+      action: "tipo_beca_editado",
+      entity_type: "scholarship_type",
+      entity_id: typeId,
+      previous_value: previousValue,
+      new_value: newValue,
+      metadata: {
+        campus_id: campusId,
+        motivo_cambio: input.motivo_cambio,
+      },
+    };
+    pool.query(
+      `INSERT INTO audit_log
+        (tenant_id, user_id, action, entity_type, entity_id, previous_value, new_value, metadata)
+       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb)`,
+      [
+        auditPayload.tenant_id, auditPayload.user_id, auditPayload.action,
+        auditPayload.entity_type, auditPayload.entity_id,
+        JSON.stringify(auditPayload.previous_value), JSON.stringify(auditPayload.new_value),
+        JSON.stringify(auditPayload.metadata),
+      ],
+    ).catch((error) => enqueueAuditLog(auditPayload, error));
+
+    return res.json(newValue);
   });
 
   /**

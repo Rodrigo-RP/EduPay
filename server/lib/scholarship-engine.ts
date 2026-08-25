@@ -90,6 +90,7 @@ export async function resolveEffectiveScholarship(
       WHERE sh.student_id = $1
         AND sh.tenant_id = $2
         AND stu.campus_id = $3
+         AND COALESCE(sh.estado, 'activa') = 'activa'
         AND sh.vigencia_inicio <= $4::date
         AND sh.vigencia_fin >= $4::date
       ORDER BY sh.porcentaje DESC, sh.id ASC`,
@@ -178,6 +179,7 @@ export async function applyAutomaticRuleForStudent(
     `SELECT sh.id, sh.porcentaje
        FROM scholarships sh
       WHERE sh.student_id = $1 AND sh.tenant_id = $2
+         AND COALESCE(sh.estado, 'activa') = 'activa'
         AND sh.vigencia_inicio <= $4::date
         AND sh.vigencia_fin >= $3::date
         AND NOT EXISTS (
@@ -196,6 +198,7 @@ export async function applyAutomaticRuleForStudent(
        JOIN scholarship_auto_assignments saa ON saa.scholarship_id = sh.id
       WHERE saa.student_id = $1 AND saa.tenant_id = $2
         AND saa.campus_id = $3 AND saa.estado = 'aplicada'
+         AND COALESCE(sh.estado, 'activa') = 'activa'
         AND sh.vigencia_inicio <= $5::date
         AND sh.vigencia_fin >= $4::date
       ORDER BY sh.porcentaje DESC, sh.id ASC

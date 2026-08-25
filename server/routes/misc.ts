@@ -1155,7 +1155,15 @@ export function registerMiscRoutes(app: Express): void {
   app.get("/api/admin/charges", authenticateToken, async (req, res) => {
     try {
       const campusId = (req as any).user?.campus_id;
-      const rows = await pool.query(`SELECT c.*, CONCAT(s.nombres,' ',s.apellido_paterno) AS estudiante FROM charges c JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 ORDER BY c.created_at DESC LIMIT 500`, [campusId]).catch(()=>({rows:[]}));
+      const rows = await pool.query(`
+        SELECT c.*,
+               COALESCE(NULLIF(s.nombre_completo, ''), TRIM(CONCAT_WS(' ', s.nombres, s.apellido_paterno))) AS estudiante
+          FROM charges c
+          JOIN students s ON s.id = c.student_id
+         WHERE s.campus_id = $1
+         ORDER BY c.created_at DESC
+         LIMIT 500
+      `, [campusId]).catch(()=>({rows:[]}));
       res.json(rows.rows);
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });

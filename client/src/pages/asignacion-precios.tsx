@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,103 +8,69 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { getAcademicLevel, getPriceForStudent, NIVEL_NAMES } from "@/../../shared/academic-levels";
+import { getAcademicLevel, NIVEL_NAMES } from "@/../../shared/academic-levels";
 import { Package, Users, DollarSign, CheckCircle, ArrowRight } from "lucide-react";
+
+type CatalogProduct = {
+  id: number;
+  codigo: string;
+  nombre: string;
+  categoria: string;
+  activo: boolean;
+  precio_kinder: number | string;
+  precio_primaria: number | string;
+  precio_secundaria: number | string;
+  precio_bachillerato: number | string;
+};
+
+type Student = {
+  id: number;
+  nombre_completo: string;
+  grado: string;
+  grupo: string | null;
+  status: string;
+};
+
+const priceForLevel = (product: CatalogProduct, level: string) => {
+  const priceKey: Record<string, keyof CatalogProduct> = {
+    KINDER: "precio_kinder",
+    PRIMARIA: "precio_primaria",
+    SECUNDARIA: "precio_secundaria",
+    BACHILLERATO: "precio_bachillerato",
+  };
+  return Number(product[priceKey[level]] ?? 0);
+};
+
+const formatMoney = (amount: number) => new Intl.NumberFormat("es-MX", {
+  style: "currency",
+  currency: "MXN",
+  maximumFractionDigits: 2,
+}).format(amount / 100);
+
+const defaultDueDate = () => {
+  const date = new Date();
+  date.setDate(date.getDate() + 30);
+  return date.toISOString().slice(0, 10);
+};
 
 export default function AsignacionPrecios() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedProduct, setSelectedProduct] = useState("");
   const [showAssignment, setShowAssignment] = useState(false);
-  const [fechaVencimiento, setFechaVencimiento] = useState("2025-02-15");
+  const [fechaVencimiento, setFechaVencimiento] = useState(defaultDueDate);
 
-  // Productos del catálogo completo con precios diferenciados
-  const productos = [
-    { 
-      id: 1, 
-      codigo: "COL-2025", 
-      nombre: "Colegiatura Mensual", 
-      categoria: "COLEGIATURAS",
-      precios_por_nivel: {
-        KINDER: 350000,
-        PRIMARIA: 450000,
-        SECUNDARIA: 550000,
-        BACHILLERATO: 650000
-      }
-    },
-    { 
-      id: 2, 
-      codigo: "INS-2025", 
-      nombre: "Inscripción Anual", 
-      categoria: "INSCRIPCIONES",
-      precios_por_nivel: {
-        KINDER: 250000,
-        PRIMARIA: 300000,
-        SECUNDARIA: 350000,
-        BACHILLERATO: 400000
-      }
-    },
-    { 
-      id: 3, 
-      codigo: "REINS-2025", 
-      nombre: "Reinscripción", 
-      categoria: "REINSCRIPCIONES",
-      precios_por_nivel: {
-        KINDER: 150000,
-        PRIMARIA: 180000,
-        SECUNDARIA: 220000,
-        BACHILLERATO: 280000
-      }
-    },
-    { 
-      id: 4, 
-      codigo: "SEG-ESC-2025", 
-      nombre: "Seguro Escolar", 
-      categoria: "SEGURO_ESCOLAR",
-      precios_por_nivel: {
-        KINDER: 60000,
-        PRIMARIA: 70000,
-        SECUNDARIA: 80000,
-        BACHILLERATO: 90000
-      }
-    },
-    { 
-      id: 5, 
-      codigo: "LIB-2025", 
-      nombre: "Paquete de Libros", 
-      categoria: "LIBROS",
-      precios_por_nivel: {
-        KINDER: 80000,
-        PRIMARIA: 120000,
-        SECUNDARIA: 180000,
-        BACHILLERATO: 250000
-      }
-    },
-    { 
-      id: 6, 
-      codigo: "UNI-2025", 
-      nombre: "Uniforme Escolar", 
-      categoria: "OTROS",
-      precios_por_nivel: {
-        KINDER: 95000,
-        PRIMARIA: 110000,
-        SECUNDARIA: 125000,
-        BACHILLERATO: 140000
-      }
-    }
-  ];
+  const productsQuery = useQuery<CatalogProduct[]>({
+    queryKey: ["/api/products"],
+    queryFn: async () => (await apiRequest("/api/products")).json(),
+  });
+  const studentsQuery = useQuery<Student[]>({
+    queryKey: ["/api/admin/students"],
+    queryFn: async () => (await apiRequest("/api/admin/students")).json(),
+  });
 
-  // Estudiantes de ejemplo con diferentes grados
-  const estudiantes = [
-    { id: 1, nombre: "Ana García López", grado: "K2", grupo: "A" },
-    { id: 2, nombre: "Luis Rodríguez Pérez", grado: "3° PRIMARIA", grupo: "B" },
-    { id: 3, nombre: "María López González", grado: "1° SECUNDARIA", grupo: "A" },
-    { id: 4, nombre: "Carlos Mendoza Silva", grado: "2° BACHILLERATO", grupo: "C" },
-    { id: 5, nombre: "Sofia Hernández Cruz", grado: "5° PRIMARIA", grupo: "A" },
-    { id: 6, nombre: "Diego Morales Ruiz", grado: "3° SECUNDARIA", grupo: "B" },
-    { id: 7, nombre: "Valentina Torres", grado: "K3", grupo: "B" },
-    { id: 8, nombre: "Sebastián Vázquez", grado: "1° BACHILLERATO", grupo: "A" }
-  ];
+  const productos = (productsQuery.data ?? []).filter((product) => product.activo);
+  const estudiantes = (studentsQuery.data ?? []).filter((student) => student.status === "activo");
 
   const generateAssignments = () => {
     if (!selectedProduct) return;
@@ -112,11 +78,17 @@ export default function AsignacionPrecios() {
   };
 
   const applyCharges = useMutation({
-    mutationFn: (data: any) => apiRequest("/api/admin/cargos/desde-catalogo", { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: async (data: { producto_id: number; fecha_vencimiento: string }) => {
+      const response = await apiRequest("/api/admin/cargos/desde-catalogo", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      return response.json();
+    },
     onSuccess: (response: any) => {
       toast({
         title: "Cargos aplicados correctamente",
-        description: `Se generaron ${response.charges_created} cargos reales con precios automáticos por nivel académico`
+        description: `Se generaron ${response.charges_created} cargos reales con precios por nivel académico`,
       });
       setShowAssignment(false);
       setSelectedProduct("");
@@ -132,6 +104,30 @@ export default function AsignacionPrecios() {
   });
 
   const selectedProductData = productos.find(p => p.id.toString() === selectedProduct);
+  const assignments = useMemo(() => {
+    if (!selectedProductData) return [];
+    return estudiantes.map((student) => {
+      const level = getAcademicLevel(student.grado);
+      return {
+        ...student,
+        level,
+        price: priceForLevel(selectedProductData, level),
+      };
+    });
+  }, [estudiantes, selectedProductData]);
+  const assignmentsWithPrice = assignments.filter((assignment) => assignment.price > 0);
+  const missingPriceAssignments = assignments.filter((assignment) => assignment.price <= 0);
+  const summaryByLevel = assignmentsWithPrice.reduce((summary, assignment) => {
+    const current = summary[assignment.level] ?? {
+      count: 0,
+      total: 0,
+      levelName: NIVEL_NAMES[assignment.level as keyof typeof NIVEL_NAMES] ?? assignment.level,
+    };
+    current.count += 1;
+    current.total += assignment.price;
+    summary[assignment.level] = current;
+    return summary;
+  }, {} as Record<string, { count: number; total: number; levelName: string }>);
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
@@ -141,7 +137,7 @@ export default function AsignacionPrecios() {
             Asignación automática de precios por nivel académico
           </h1>
           <p className="text-slate-600">
-            Demostración de cómo los productos del catálogo se asignan automáticamente a estudiantes con precios específicos según su nivel académico
+            Selecciona un producto activo del catálogo para revisar y confirmar los cargos de alumnos activos de este campus.
           </p>
         </div>
 
@@ -154,10 +150,11 @@ export default function AsignacionPrecios() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
+                <Label htmlFor="catalog-product">Producto</Label>
                 <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                  <SelectTrigger>
+                  <SelectTrigger id="catalog-product" data-testid="catalog-product-select">
                     <SelectValue placeholder="Seleccionar producto del catálogo..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -169,16 +166,38 @@ export default function AsignacionPrecios() {
                   </SelectContent>
                 </Select>
               </div>
-              
+              <div>
+                <Label htmlFor="fecha-vencimiento">Fecha de vencimiento</Label>
+                <Input
+                  id="fecha-vencimiento"
+                  type="date"
+                  value={fechaVencimiento}
+                  onChange={(event) => setFechaVencimiento(event.target.value)}
+                />
+              </div>
               <Button 
                 onClick={generateAssignments}
-                disabled={!selectedProduct}
+                disabled={!selectedProduct || productsQuery.isLoading || studentsQuery.isLoading}
                 className="flex items-center gap-2"
+                data-testid="preview-price-assignment"
               >
                 <ArrowRight className="w-4 h-4" />
                 Generar asignaciones automáticas
               </Button>
             </div>
+            {(productsQuery.isLoading || studentsQuery.isLoading) && (
+              <p className="mt-3 text-sm text-slate-500">Cargando catálogo y alumnos del campus…</p>
+            )}
+            {(productsQuery.isError || studentsQuery.isError) && (
+              <p className="mt-3 text-sm text-destructive">
+                No fue posible cargar el catálogo o los alumnos. Intenta recargar la página.
+              </p>
+            )}
+            {!productsQuery.isLoading && !productsQuery.isError && productos.length === 0 && (
+              <p className="mt-3 text-sm text-slate-500">
+                No hay productos activos en el catálogo. Crea o activa uno antes de asignar cargos.
+              </p>
+            )}
 
             {/* Mostrar precios del producto seleccionado */}
             {selectedProductData && (
@@ -187,15 +206,18 @@ export default function AsignacionPrecios() {
                   Precios configurados para: {selectedProductData.nombre}
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {Object.entries(selectedProductData.precios_por_nivel).map(([nivel, precio]) => (
+                  {["KINDER", "PRIMARIA", "SECUNDARIA", "BACHILLERATO"].map((nivel) => {
+                    const precio = priceForLevel(selectedProductData, nivel);
+                    return (
                     <div key={nivel} className="text-center p-2 bg-white rounded">
                       <div className="text-sm font-medium">{NIVEL_NAMES[nivel as keyof typeof NIVEL_NAMES]}</div>
                       <div className="text-lg font-bold text-blue-600">
-                        ${(precio / 100).toLocaleString()}
+                        {formatMoney(precio)}
                       </div>
-                      <div className="text-xs text-slate-500">MXN</div>
+                      <div className="text-xs text-slate-500">por alumno</div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -216,14 +238,12 @@ export default function AsignacionPrecios() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {estudiantes.map((estudiante) => {
-                  const nivel = getAcademicLevel(estudiante.grado);
-                  const precio = selectedProductData.precios_por_nivel[nivel];
+                {assignments.map((estudiante) => {
                   
                   return (
                     <div key={estudiante.id} className="flex items-center justify-between p-4 bg-white rounded-lg border shadow-sm">
                       <div className="flex-1">
-                        <div className="font-medium text-slate-900">{estudiante.nombre}</div>
+                        <div className="font-medium text-slate-900">{estudiante.nombre_completo}</div>
                         <div className="text-sm text-slate-600">
                           Grado: {estudiante.grado} - Grupo: {estudiante.grupo}
                         </div>
@@ -231,45 +251,41 @@ export default function AsignacionPrecios() {
                       
                       <div className="flex items-center gap-4">
                         <div className="text-center">
-                          <Badge variant="secondary">{NIVEL_NAMES[nivel]}</Badge>
+                          <Badge variant="secondary">{NIVEL_NAMES[estudiante.level as keyof typeof NIVEL_NAMES] ?? estudiante.level}</Badge>
                           <div className="text-xs text-slate-500 mt-1">Nivel detectado</div>
                         </div>
                         
                         <div className="text-right">
-                          <div className="text-lg font-bold text-green-600">
-                            ${(precio / 100).toLocaleString()}
+                          <div className={estudiante.price > 0 ? "text-lg font-bold text-green-600" : "text-sm font-semibold text-amber-700"}>
+                            {estudiante.price > 0 ? formatMoney(estudiante.price) : "Sin precio configurado"}
                           </div>
-                          <div className="text-xs text-slate-500">MXN</div>
+                          <div className="text-xs text-slate-500">precio del catálogo</div>
                         </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
+              {estudiantes.length === 0 && (
+                <p className="py-8 text-center text-sm text-slate-500">No hay alumnos activos en este campus.</p>
+              )}
+              {missingPriceAssignments.length > 0 && (
+                <p className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+                  {missingPriceAssignments.length} alumno(s) no tienen precio configurado para su nivel y se omitirán al confirmar.
+                </p>
+              )}
 
               {/* Resumen */}
               <div className="mt-6 p-4 bg-slate-50 rounded-lg">
                 <h3 className="font-semibold text-slate-900 mb-3">Resumen de asignaciones</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {Object.entries(
-                    estudiantes.reduce((acc, estudiante) => {
-                      const nivel = getAcademicLevel(estudiante.grado);
-                      const precio = selectedProductData.precios_por_nivel[nivel];
-                      
-                      if (!acc[nivel]) {
-                        acc[nivel] = { count: 0, total: 0, nivel_name: NIVEL_NAMES[nivel] };
-                      }
-                      acc[nivel].count++;
-                      acc[nivel].total += precio;
-                      return acc;
-                    }, {} as Record<string, {count: number, total: number, nivel_name: string}>)
-                  ).map(([nivel, data]) => (
+                  {Object.entries(summaryByLevel).map(([nivel, data]) => (
                     <div key={nivel} className="text-center p-3 bg-white rounded">
-                      <div className="text-sm font-medium text-slate-700">{data.nivel_name}</div>
+                      <div className="text-sm font-medium text-slate-700">{data.levelName}</div>
                       <div className="text-lg font-bold">{data.count}</div>
                       <div className="text-xs text-slate-500">estudiantes</div>
                       <div className="text-sm font-semibold text-green-600 mt-1">
-                        ${(data.total / 100).toLocaleString()}
+                        {formatMoney(data.total)}
                       </div>
                     </div>
                   ))}
@@ -279,10 +295,7 @@ export default function AsignacionPrecios() {
                   <div className="flex justify-between items-center">
                     <span className="font-semibold">Total general:</span>
                     <span className="text-xl font-bold text-green-700">
-                      ${(estudiantes.reduce((total, estudiante) => {
-                        const nivel = getAcademicLevel(estudiante.grado);
-                        return total + selectedProductData.precios_por_nivel[nivel];
-                      }, 0) / 100).toLocaleString()} MXN
+                      {formatMoney(assignmentsWithPrice.reduce((total, assignment) => total + assignment.price, 0))}
                     </span>
                   </div>
                 </div>
@@ -292,18 +305,19 @@ export default function AsignacionPrecios() {
                 <Button 
                   onClick={() => {
                     applyCharges.mutate({ 
-                      producto_id: selectedProduct, 
+                      producto_id: Number(selectedProduct),
                       fecha_vencimiento: fechaVencimiento
                     });
                   }}
-                  disabled={applyCharges.isPending}
+                   disabled={applyCharges.isPending || assignmentsWithPrice.length === 0}
                   className="flex items-center gap-2" 
                   size="lg"
+                   data-testid="apply-price-assignment"
                 >
                   <CheckCircle className="w-5 h-5" />
                   {applyCharges.isPending 
                     ? "Aplicando cargos..." 
-                    : `Aplicar cargos reales a ${estudiantes.length} estudiantes`
+                     : `Aplicar cargos reales a ${assignmentsWithPrice.length} estudiantes`
                   }
                 </Button>
               </div>

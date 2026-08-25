@@ -628,6 +628,7 @@ export async function registerGuardianRoutes(
         descripcion,         // para cargos extraordinarios
         monto_manual,        // monto en centavos para cargos extraordinarios manuales
         product_id,          // ID de producto del catálogo → precio derivado por nivel; gana sobre monto_manual
+        student_id,          // alumno puntual opcional para cargos extraordinarios
         es_adeudo_migrado,   // bandera de adeudo heredado — exime de recargo sin importar el concepto
       } = req.body;
       const esAdeudoMigrado = !!es_adeudo_migrado;
@@ -656,7 +657,7 @@ export async function registerGuardianRoutes(
       let productForPricing: any = null;
       if (product_id !== undefined && product_id !== null) {
         const productRow = await pool.query(
-          `SELECT id, campus_id, nombre,
+          `SELECT id, campus_id, tenant_id, nombre, categoria,
                   precio_kinder, precio_primaria, precio_secundaria, precio_bachillerato
            FROM products WHERE id = $1`,
           [Number(product_id)],
@@ -665,7 +666,10 @@ export async function registerGuardianRoutes(
           return res.status(404).json({ message: "Producto no encontrado en el catálogo" });
         }
         const prod = productRow.rows[0] as any;
-        if (Number(prod.campus_id) !== Number(userCampusId)) {
+        if (
+          Number(prod.campus_id) !== Number(userCampusId) ||
+          Number(prod.tenant_id) !== Number(userTenantId)
+        ) {
           return res.status(403).json({ message: "El producto pertenece a otro campus" });
         }
         productForPricing = prod;
@@ -695,13 +699,49 @@ export async function registerGuardianRoutes(
           concept = { id: (newConcept.rows as any[])[0].id, monto_centavos: montoNum };
         }
       }
+      if (!concept && productForPricing && !isDryRun) {
+        const existingConcept = await pool.query(
+          `SELECT id FROM concepts WHERE campus_id = $1 AND nombre = $2 LIMIT 1`,
+          [userCampusId, productForPricing.nombre],
+        );
+        if (existingConcept.rows.length > 0) {
+          concept = { id: (existingConcept.rows[0] as any).id };
+        } else {
+          const highestProductPrice = Math.max(
+            Number(productForPricing.precio_kinder || 0),
+            Number(productForPricing.precio_primaria || 0),
+            Number(productForPricing.precio_secundaria || 0),
+            Number(productForPricing.precio_bachillerato || 0),
+          );
+          const newConcept = await pool.query(
+            `INSERT INTO concepts (campus_id, tenant_id, nombre, tipo, periodicidad, monto_centavos, iva)
+             VALUES ($1, $2, $3, $4, 'unica', $5, false)
+             RETURNING id`,
+            [
+              userCampusId,
+              userTenantId,
+              productForPricing.nombre,
+              String(productForPricing.categoria || "OTROS").toLowerCase(),
+              highestProductPrice,
+            ],
+          );
+          concept = { id: (newConcept.rows[0] as any).id };
+        }
+      }
 
       // Filtrar alumnos
       const allStudents = await storage.getStudentsByCampus(userCampusId);
       let targetStudents = allStudents.filter((s: any) => s.status === 'activo');
-      if (nivel_academico && nivel_academico !== 'todos') {
+      if (student_id !== undefined && student_id !== null && student_id !== "") {
+        const targetStudent = targetStudents.find((student: any) => Number(student.id) === Number(student_id));
+        if (!targetStudent) {
+          return res.status(404).json({ message: "Alumno activo no encontrado en este campus" });
+        }
+        targetStudents = [targetStudent];
+      } else if (nivel_academico && String(nivel_academico).toLowerCase() !== "todos") {
+        const requestedAcademicLevel = String(nivel_academico).toUpperCase();
         targetStudents = targetStudents.filter((student: any) => {
-          return getAcademicLevel(student.grado) === nivel_academico;
+          return getAcademicLevel(student.grado) === requestedAcademicLevel;
         });
       }
 
@@ -736,6 +776,12 @@ export async function registerGuardianRoutes(
 
       const chargesCreated: any[] = [];
       const chargesSummary: any[] = [];
+      const defaultIssueDate = new Date().toISOString().split("T")[0];
+      const defaultDueDate = (() => {
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 30);
+        return dueDate.toISOString().split("T")[0];
+      })();
 
       for (const student of targetStudents) {
         const academicLevel = getAcademicLevel((student as any).grado);
@@ -816,8 +862,8 @@ export async function registerGuardianRoutes(
             concept_id:                concept?.id ?? null,
             tenant_id:                 userTenantId ?? (student as any).tenant_id,
             ciclo_escolar:             ciclo_escolar || (() => { const y = new Date().getFullYear(); const m = new Date().getMonth() + 1; return m >= 8 ? `${y}-${y+1}` : `${y-1}-${y}`; })(),
-            fecha_emision:             fecha_emision,
-            fecha_vencimiento:         fecha_vencimiento,
+            fecha_emision:             fecha_emision || defaultIssueDate,
+            fecha_vencimiento:         fecha_vencimiento || defaultDueDate,
             monto_base_centavos:       baseAmount,
             beca_aplicada:             discountPct.toFixed(2),
             recargo_aplicado_centavos: lateFee,

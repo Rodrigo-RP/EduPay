@@ -127,7 +127,18 @@ export function registerChargesRoutes(app: Express): void {
         return res.status(403).json({ message: "Sin permisos para ver cargos" });
       }
       const campusId = req.user?.campus_id;
-      const rows = await pool.query(`SELECT c.*, CONCAT(s.nombres,' ',s.apellido_paterno) AS estudiante FROM charges c JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 ORDER BY c.created_at DESC LIMIT 200`, [campusId]).catch(()=>({rows:[]}));
+      const rows = await pool.query(`
+        SELECT c.*,
+               COALESCE(NULLIF(s.nombre_completo, ''), TRIM(CONCAT_WS(' ', s.nombres, s.apellido_paterno))) AS estudiante,
+               con.nombre AS concepto_nombre,
+               con.tipo AS concepto_tipo
+          FROM charges c
+          JOIN students s ON s.id = c.student_id
+          LEFT JOIN concepts con ON con.id = c.concept_id
+         WHERE s.campus_id = $1
+         ORDER BY c.created_at DESC
+         LIMIT 200
+      `, [campusId]).catch(()=>({rows:[]}));
       res.json(rows.rows);
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
@@ -328,122 +339,120 @@ export function registerChargesRoutes(app: Express): void {
     }
   });
 
-  // Apply charges from catalog with automatic academic level pricing
+  // Apply charges from the persisted catalog with automatic academic level pricing.
   app.post("/api/admin/cargos/desde-catalogo", authenticateToken, async (req: any, res: any) => {
     try {
       if (!hasPermissionForUser(req.user, MODULES.CHARGES, ACTIONS.CREATE)) {
         return res.status(403).json({ message: "Sin permisos para aplicar cargos desde catálogo" });
       }
-      const { producto_id, fecha_vencimiento } = req.body;
-      const userCampusId = req.user.campus_id; // Use authenticated user's campus
-      
-      
-      // Catalog products with differentiated pricing
-      const catalogProducts = {
-        "1": { 
-          nombre: "Colegiatura Mensual", 
-          categoria: "COLEGIATURAS",
-          precios_por_nivel: { KINDER: 350000, PRIMARIA: 450000, SECUNDARIA: 550000, BACHILLERATO: 650000 }
-        },
-        "2": { 
-          nombre: "Inscripción Anual", 
-          categoria: "INSCRIPCIONES",
-          precios_por_nivel: { KINDER: 250000, PRIMARIA: 300000, SECUNDARIA: 350000, BACHILLERATO: 400000 }
-        },
-        "3": { 
-          nombre: "Reinscripción", 
-          categoria: "REINSCRIPCIONES",
-          precios_por_nivel: { KINDER: 150000, PRIMARIA: 180000, SECUNDARIA: 220000, BACHILLERATO: 280000 }
-        },
-        "4": { 
-          nombre: "Seguro Escolar", 
-          categoria: "SEGURO_ESCOLAR",
-          precios_por_nivel: { KINDER: 60000, PRIMARIA: 70000, SECUNDARIA: 80000, BACHILLERATO: 90000 }
-        },
-        "5": { 
-          nombre: "Paquete de Libros", 
-          categoria: "LIBROS",
-          precios_por_nivel: { KINDER: 80000, PRIMARIA: 120000, SECUNDARIA: 180000, BACHILLERATO: 250000 }
-        },
-        "6": { 
-          nombre: "Uniforme Escolar", 
-          categoria: "OTROS",
-          precios_por_nivel: { KINDER: 95000, PRIMARIA: 110000, SECUNDARIA: 125000, BACHILLERATO: 140000 }
-        }
+
+      const { producto_id, fecha_emision, fecha_vencimiento, ciclo_escolar } = req.body ?? {};
+      const campusId = Number(req.user?.campus_id);
+      const tenantId = Number(req.user?.tenant_id);
+      const productId = Number(producto_id);
+      if (!Number.isSafeInteger(productId) || productId <= 0) {
+        return res.status(400).json({ message: "producto_id es obligatorio" });
+      }
+      if (fecha_emision && fecha_vencimiento && fecha_vencimiento < fecha_emision) {
+        return res.status(400).json({ message: "La fecha de vencimiento no puede ser anterior a la fecha de emisión" });
+      }
+
+      const productResult = await pool.query(
+        `SELECT id, campus_id, tenant_id, nombre, categoria, activo,
+                precio_kinder, precio_primaria, precio_secundaria, precio_bachillerato
+           FROM products WHERE id = $1`,
+        [productId],
+      );
+      if (!productResult.rows.length) {
+        return res.status(404).json({ message: "Producto no encontrado en el catálogo" });
+      }
+      const product = productResult.rows[0] as any;
+      if (Number(product.campus_id) !== campusId || Number(product.tenant_id) !== tenantId) {
+        return res.status(403).json({ message: "El producto no pertenece a este campus" });
+      }
+      if (!product.activo) {
+        return res.status(422).json({ message: "El producto está inactivo y no puede generar cargos" });
+      }
+
+      const pricesByLevel: Record<string, number> = {
+        KINDER: Number(product.precio_kinder),
+        PRIMARIA: Number(product.precio_primaria),
+        SECUNDARIA: Number(product.precio_secundaria),
+        BACHILLERATO: Number(product.precio_bachillerato),
       };
-
-      const product = catalogProducts[producto_id as keyof typeof catalogProducts];
-      if (!product) {
-        return res.status(404).json({ message: "Product not found in catalog" });
+      const defaultConceptAmount = Math.max(0, ...Object.values(pricesByLevel));
+      let concept = (await storage.getConceptsByCampus(campusId))
+        .find((item: any) => item.nombre === product.nombre);
+      if (!concept) {
+        concept = await storage.createConcept({
+          campus_id: campusId,
+          tenant_id: tenantId,
+          nombre: product.nombre,
+          tipo: String(product.categoria).toLowerCase(),
+          periodicidad: "unica",
+          monto_centavos: defaultConceptAmount,
+        });
       }
 
-      // Get students from campus
-      const students = await storage.getStudentsByCampus(userCampusId);
-      
-      // Create or get concept for this product
-      let concept;
-      try {
-        const concepts = await storage.getConceptsByCampus(userCampusId);
-        concept = concepts.find(c => c.nombre === product.nombre);
-        
-        if (!concept) {
-          concept = await storage.createConcept({
-            campus_id: userCampusId,
-            tenant_id: (req as any).user?.tenant_id,  // tenant_id SIEMPRE del JWT
-            nombre: product.nombre,
-            tipo: product.categoria.toLowerCase(),
-            periodicidad: "unica",
-            monto_centavos: 100000 // Default, will be overridden by academic level
-          });
-        }
-      } catch (error) {
-        console.error("Error managing concept:", error);
-        return res.status(500).json({ message: "Error managing concept" });
-      }
+      const today = new Date().toISOString().split("T")[0];
+      const dueDate = fecha_vencimiento || (() => {
+        const date = new Date();
+        date.setDate(date.getDate() + 30);
+        return date.toISOString().split("T")[0];
+      })();
+      const schoolYear = ciclo_escolar || (() => {
+        const year = new Date().getFullYear();
+        return new Date().getMonth() + 1 >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+      })();
 
-      const charges = [];
-      const chargesSummary = [];
+      const students = await storage.getStudentsByCampus(campusId);
+      const summary: Array<{ student_id: number; student_name: string; grade: string; academic_level: string; amount: number }> = [];
+      const skippedWithoutPrice: Array<{ student_id: number; student_name: string; academic_level: string }> = [];
 
       for (const student of students) {
-        if (student.status === 'activo') {
-          // Determine academic level from student grade
-          const academicLevel = getAcademicLevel(student.grado);
-          const specificPrice = product.precios_por_nivel[academicLevel];
-
-          // Create charge with academic level-specific pricing
-          const productUser = (req as any).user;
-          const charge = await storage.createCharge({
+        if (student.status !== "activo") continue;
+        const academicLevel = getAcademicLevel(student.grado);
+        const amount = pricesByLevel[academicLevel] || 0;
+        if (amount <= 0) {
+          skippedWithoutPrice.push({
             student_id: student.id,
-            concept_id: concept.id,
-            tenant_id: productUser?.tenant_id ?? (student as any).tenant_id,
-            ciclo_escolar: (() => { const y = new Date().getFullYear(); const m = new Date().getMonth() + 1; return m >= 8 ? `${y}-${y+1}` : `${y-1}-${y}`; })(),
-            fecha_emision: new Date().toISOString().split('T')[0],
-            fecha_vencimiento: fecha_vencimiento || (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().split('T')[0]; })(),
-            monto_base_centavos: specificPrice,
-            beca_aplicada: "0.00",
-            recargo_aplicado_centavos: 0,
-            estado: "pendiente"
-          });
-
-          charges.push(charge);
-          chargesSummary.push({
-            student_name: student.nombre_completo,
-            grade: student.grado,
+            student_name: student.nombre_completo || "Alumno sin nombre",
             academic_level: academicLevel,
-            amount: specificPrice
           });
+          continue;
         }
+        await storage.createCharge({
+          student_id: student.id,
+          concept_id: concept.id,
+          tenant_id: tenantId,
+          ciclo_escolar: schoolYear,
+          fecha_emision: fecha_emision || today,
+          fecha_vencimiento: dueDate,
+          monto_base_centavos: amount,
+          beca_aplicada: "0.00",
+          recargo_aplicado_centavos: 0,
+          estado: "pendiente",
+        });
+        summary.push({
+          student_id: student.id,
+          student_name: student.nombre_completo || "Alumno sin nombre",
+          grade: student.grado || "",
+          academic_level: academicLevel,
+          amount,
+        });
       }
 
-      res.status(201).json({ 
-        message: `Applied ${charges.length} charges with automatic academic level pricing`,
-        charges_created: charges.length,
+      res.status(201).json({
+        message: `Se aplicaron ${summary.length} cargos con precios por nivel`,
+        charges_created: summary.length,
+        skipped_without_price: skippedWithoutPrice.length,
         product_name: product.nombre,
-        summary: chargesSummary
+        summary,
+        skipped: skippedWithoutPrice,
       });
     } catch (error: any) {
       console.error("Error applying catalog charges:", error);
-      res.status(500).json({ message: "Error applying charges" });
+      res.status(500).json({ message: "Error aplicando cargos desde catálogo" });
     }
   });
 

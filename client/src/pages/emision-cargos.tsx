@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Calendar, Clock, DollarSign, Users, AlertTriangle, CheckCircle, Plus } from "lucide-react";
-import { getAcademicLevel, getPriceForStudent, NIVEL_NAMES } from "@/../../shared/academic-levels";
+import { NIVEL_NAMES } from "@/../../shared/academic-levels";
 
 export default function EmisionCargos() {
   const { toast } = useToast();
@@ -23,15 +23,20 @@ export default function EmisionCargos() {
     const { data: estadisticas } = useQuery({
       queryKey: ["/api/admin/cargos/estadisticas", selectedPeriod],
     });
+    const { data: recentCharges = [] } = useQuery<any[]>({
+      queryKey: ["/api/admin/cargos"],
+    });
 
     const generarCargosMensuales = useMutation({
-      mutationFn: (data: any) => apiRequest("/api/admin/cargos/generar-mensual", { method: "POST", body: JSON.stringify(data) }),
+      mutationFn: async (data: any) =>
+        (await apiRequest("/api/admin/cargos/generar-mensual", { method: "POST", body: JSON.stringify(data) })).json(),
       onSuccess: () => {
         toast({
           title: "Cargos generados",
           description: "Los cargos mensuales se generaron correctamente"
         });
         queryClient.invalidateQueries({ queryKey: ["/api/admin/cargos"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/cargos/estadisticas", selectedPeriod] });
       }
     });
 
@@ -110,22 +115,23 @@ export default function EmisionCargos() {
           </CardHeader>
           <CardContent>
         <div className="space-y-2">
-              {[
-                { fecha: "2025-01-15", concepto: "Colegiatura Enero", alumnos: 156, monto: 780000 },
-                { fecha: "2025-01-10", concepto: "Materiales", alumnos: 156, monto: 234000 },
-                { fecha: "2025-01-05", concepto: "Inscripción Anual", alumnos: 12, monto: 36000 }
-              ].map((cargo, index) => (
-            <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded">
+              {recentCharges.slice(0, 5).map((cargo) => (
+            <div key={cargo.id} className="flex items-center justify-between p-3 bg-slate-50 rounded">
               <div>
-                <div className="font-medium">{cargo.concepto}</div>
-                <div className="text-sm text-slate-600">{cargo.fecha} • {cargo.alumnos} alumnos</div>
+                <div className="font-medium">{cargo.concepto_nombre || "Cargo sin concepto"}</div>
+                <div className="text-sm text-slate-600">
+                  {cargo.fecha_emision} • {cargo.estudiante || "Alumno no disponible"}
+                </div>
                   </div>
               <div className="text-right">
-                <div className="font-semibold">${(cargo.monto / 100).toLocaleString()} MXN</div>
-                    <Badge variant="secondary">Generado</Badge>
+                <div className="font-semibold">${(Number(cargo.monto_base_centavos || 0) / 100).toLocaleString()} MXN</div>
+                    <Badge variant="secondary">{cargo.estado}</Badge>
                   </div>
                 </div>
               ))}
+              {recentCharges.length === 0 && (
+                <p className="py-4 text-center text-sm text-slate-500">No hay cargos emitidos todavía.</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -139,15 +145,32 @@ export default function EmisionCargos() {
       concepto: "",
       descripcion: "",
       monto: "",
-      aplicar_a: "TODOS", // TODOS, GRUPO, INDIVIDUAL
-      grado: "",
-      grupo: "",
       estudiante_id: "",
       fecha_vencimiento: ""
     });
+    const { data: students = [] } = useQuery<any[]>({
+      queryKey: ["/api/admin/students"],
+    });
+    const { data: recentCharges = [] } = useQuery<any[]>({
+      queryKey: ["/api/admin/cargos"],
+    });
+    const recentExtraordinary = recentCharges.filter(
+      (charge) => charge.concepto_tipo === "extra" || charge.concepto_tipo === "extraordinario",
+    );
 
     const crearCargoExtraordinario = useMutation({
-      mutationFn: (data: any) => apiRequest("/api/admin/cargos/extraordinario", { method: "POST", body: JSON.stringify(data) }),
+      mutationFn: async (data: typeof nuevoCargoForm) => {
+        const response = await apiRequest("/api/charges/generate", {
+          method: "POST",
+          body: JSON.stringify({
+            descripcion: data.concepto || data.descripcion,
+            monto_manual: Math.round(Number(data.monto) * 100),
+            student_id: Number(data.estudiante_id),
+            fecha_vencimiento: data.fecha_vencimiento || undefined,
+          }),
+        });
+        return response.json();
+      },
       onSuccess: () => {
         toast({
           title: "Cargo extraordinario creado",
@@ -157,12 +180,10 @@ export default function EmisionCargos() {
           concepto: "",
           descripcion: "",
           monto: "",
-          aplicar_a: "TODOS",
-          grado: "",
-          grupo: "",
           estudiante_id: "",
           fecha_vencimiento: ""
         });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/cargos"] });
       }
     });
 
@@ -197,16 +218,20 @@ export default function EmisionCargos() {
                 />
               </div>
           <div>
-                <Label>Aplicar a</Label>
-                <Select value={nuevoCargoForm.aplicar_a} onValueChange={(value) => setNuevoCargoForm({...nuevoCargoForm, aplicar_a: value})}>
+                <Label>Alumno</Label>
+                <Select
+                  value={nuevoCargoForm.estudiante_id}
+                  onValueChange={(value) => setNuevoCargoForm({...nuevoCargoForm, estudiante_id: value})}
+                >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Seleccionar alumno activo…" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="TODOS">Todos los alumnos</SelectItem>
-                    <SelectItem value="GRADO">Por grado</SelectItem>
-                    <SelectItem value="GRUPO">Por grupo específico</SelectItem>
-                    <SelectItem value="INDIVIDUAL">Alumno individual</SelectItem>
+                    {students.filter((student) => student.status === "activo").map((student) => (
+                      <SelectItem key={student.id} value={String(student.id)}>
+                        {student.nombre_completo} — {student.grado}{student.grupo ? ` ${student.grupo}` : ""}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -235,7 +260,12 @@ export default function EmisionCargos() {
 
             <Button 
               onClick={() => crearCargoExtraordinario.mutate(nuevoCargoForm)}
-              disabled={crearCargoExtraordinario.isPending}
+              disabled={
+                crearCargoExtraordinario.isPending ||
+                !nuevoCargoForm.concepto.trim() ||
+                !nuevoCargoForm.estudiante_id ||
+                Number(nuevoCargoForm.monto) <= 0
+              }
               className="w-full mt-4"
             >
               Crear cargo extraordinario
@@ -250,26 +280,25 @@ export default function EmisionCargos() {
           </CardHeader>
           <CardContent>
         <div className="space-y-3">
-              {[
-                { concepto: "Excursión 3ro A", fecha: "2025-01-20", alumnos: 25, monto: 50000, estado: "Activo" },
-                { concepto: "Material deportivo", fecha: "2025-01-18", alumnos: 156, monto: 78000, estado: "Activo" },
-                { concepto: "Ceremonia graduación", fecha: "2025-01-15", alumnos: 30, monto: 90000, estado: "Pagado" }
-              ].map((cargo, index) => (
-            <div key={index} className="flex items-center justify-between p-3 border rounded">
+              {recentExtraordinary.slice(0, 5).map((cargo) => (
+            <div key={cargo.id} className="flex items-center justify-between p-3 border rounded">
               <div>
-                <div className="font-medium">{cargo.concepto}</div>
-                <div className="text-sm text-slate-600">{cargo.fecha} • {cargo.alumnos} alumnos</div>
+                <div className="font-medium">{cargo.concepto_nombre || "Cargo extraordinario"}</div>
+                <div className="text-sm text-slate-600">{cargo.fecha_emision} • {cargo.estudiante}</div>
                   </div>
               <div className="flex items-center gap-3">
                 <div className="text-right">
-                  <div className="font-semibold">${(cargo.monto / 100).toLocaleString()} MXN</div>
+                  <div className="font-semibold">${(Number(cargo.monto_base_centavos || 0) / 100).toLocaleString()} MXN</div>
                     </div>
-                    <Badge variant={cargo.estado === "Pagado" ? "default" : "secondary"}>
+                    <Badge variant={cargo.estado === "pagado" ? "default" : "secondary"}>
                       {cargo.estado}
                     </Badge>
                   </div>
                 </div>
               ))}
+              {recentExtraordinary.length === 0 && (
+                <p className="py-4 text-center text-sm text-slate-500">No hay cargos extraordinarios emitidos todavía.</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -282,15 +311,20 @@ export default function EmisionCargos() {
     const { data: morosos } = useQuery({
       queryKey: ["/api/admin/cargos/morosos"],
     });
+    const overdueStudents = Array.isArray(morosos) ? morosos : [];
+    const totalOverdue = overdueStudents.reduce((total: number, student: any) => total + Number(student.adeudo_centavos || 0), 0);
+    const overdueCharges = overdueStudents.reduce((total: number, student: any) => total + Number(student.cargos_vencidos || 0), 0);
 
     const aplicarRecargos = useMutation({
-      mutationFn: () => apiRequest("/api/admin/cargos/aplicar-recargos", { method: "POST", body: JSON.stringify({}) }),
+      mutationFn: async () =>
+        (await apiRequest("/api/admin/cargos/aplicar-recargos", { method: "POST", body: JSON.stringify({}) })).json(),
       onSuccess: () => {
         toast({
           title: "Recargos aplicados",
           description: "Se aplicaron recargos por mora a los pagos vencidos"
         });
         queryClient.invalidateQueries({ queryKey: ["/api/admin/cargos/morosos"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/cargos"] });
       }
     });
 
@@ -307,21 +341,21 @@ export default function EmisionCargos() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="text-center">
             <div className="text-2xl font-bold text-red-600">
-                  {(morosos as any)?.total_morosos || 0}
+                  {overdueStudents.length}
                 </div>
             <div className="text-sm text-red-700">Alumnos morosos</div>
               </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-orange-600">
-                  ${(((morosos as any)?.monto_vencido || 0) / 100).toLocaleString()}
+                  ${(totalOverdue / 100).toLocaleString()}
                 </div>
             <div className="text-sm text-orange-700">Monto vencido MXN</div>
               </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-purple-600">
-                  {(morosos as any)?.dias_promedio_mora || 0}
+                  {overdueCharges}
                 </div>
-            <div className="text-sm text-purple-700">Días promedio mora</div>
+             <div className="text-sm text-purple-700">Cargos vencidos</div>
               </div>
             </div>
 
@@ -350,25 +384,23 @@ export default function EmisionCargos() {
           </CardHeader>
           <CardContent>
         <div className="space-y-2">
-              {[
-                { estudiante: "Carlos Pérez", concepto: "Colegiatura Diciembre", vencimiento: "2024-12-15", monto: 500000, dias_mora: 15 },
-                { estudiante: "Ana García", concepto: "Materiales", vencimiento: "2024-12-20", monto: 150000, dias_mora: 10 },
-                { estudiante: "Luis Martínez", concepto: "Colegiatura Enero", vencimiento: "2025-01-15", monto: 500000, dias_mora: 5 }
-              ].map((moroso, index) => (
-            <div key={index} className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded">
+              {overdueStudents.map((moroso: any) => (
+            <div key={moroso.id} className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded">
               <div>
-                <div className="font-medium text-red-800">{moroso.estudiante}</div>
-                <div className="text-sm text-red-600">{moroso.concepto} • Vencía: {moroso.vencimiento}</div>
+                <div className="font-medium text-red-800">{moroso.nombre_completo}</div>
+                <div className="text-sm text-red-600">{moroso.cargos_vencidos} cargo(s) vencido(s)</div>
                   </div>
               <div className="flex items-center gap-3">
                 <div className="text-right">
-                  <div className="font-semibold">${(moroso.monto / 100).toLocaleString()} MXN</div>
-                  <div className="text-sm text-red-600">{moroso.dias_mora} días de mora</div>
+                  <div className="font-semibold">${(Number(moroso.adeudo_centavos || 0) / 100).toLocaleString()} MXN</div>
                     </div>
                     <Badge variant="destructive">Vencido</Badge>
                   </div>
                 </div>
               ))}
+              {overdueStudents.length === 0 && (
+                <p className="py-4 text-center text-sm text-slate-500">No hay pagos vencidos en este campus.</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -390,7 +422,7 @@ export default function EmisionCargos() {
     const { data: productosData, isLoading: productosLoading } = useQuery<any[]>({
       queryKey: ["/api/products"],
     });
-    const productos: any[] = productosData ?? [];
+    const productos: any[] = (productosData ?? []).filter((product: any) => product.activo);
 
     // Producto seleccionado — para mostrar los precios por nivel antes de confirmar
     const productoSeleccionado = productos.find(
@@ -427,11 +459,11 @@ export default function EmisionCargos() {
         : null;
 
     const aplicarCargos = useMutation({
-      mutationFn: (data: any) =>
-        apiRequest("/api/charges/generate", {
+      mutationFn: async (data: any) =>
+        (await apiRequest("/api/charges/generate", {
           method: "POST",
           body: JSON.stringify(data),
-        }),
+        })).json(),
       onSuccess: (response: any) => {
         toast({
           title: "Cargos aplicados correctamente",

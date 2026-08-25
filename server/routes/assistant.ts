@@ -291,6 +291,7 @@ export function registerAssistantRoutes(app: Express): void {
         );
         result.reply = actionResult.summary;
         (result as any).actionResult = actionResult;
+        (result as any).studentTargets = actionResult.studentTargets;
         delete result.action;
       }
       // ── §4.3 Registro estructurado de interacción (sin PII de familias) ─────

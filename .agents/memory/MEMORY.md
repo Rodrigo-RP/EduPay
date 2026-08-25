@@ -62,4 +62,5 @@
 - [Anthropic strict tool schemas](anthropic-strict-tool-schemas.md) — Anthropic strict tools rechaza límites numéricos JSON Schema; validar rangos en el dispatcher.
 - [Assistant conversation memory](assistant-conversation-memory.md) — El contexto canónico de Claude vive sólo en servidor y se invalida al cambiar sesión o acceso efectivo.
 - [Assistant figure associations](assistant-figure-associations.md) — En resúmenes financieros, validar cada cifra junto con su indicador antes de aceptar texto de un LLM.
+- [Assistant student navigation](assistant-student-navigation.md) — Las respuestas del asistente deben conservar studentTargets en todos sus caminos; el widget los muestra sólo con STUDENTS.READ.
 - [Reporte de commits](commit-reporting.md) — Todo reporte de trabajo terminado debe incluir hash real del commit y verificación con git ls-remote.

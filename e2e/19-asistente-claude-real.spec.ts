@@ -302,6 +302,10 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
     ]));
     await expect(dialog).toContainText(fixtureNames[0]);
     await expect(dialog).toContainText(fixtureNames[1]);
+    const expedienteButtons = dialog.getByRole("button", { name: /^Abrir expediente de / });
+    await expect(expedienteButtons).toHaveCount(2);
+    await expect(expedienteButtons.nth(0)).toBeVisible();
+    await expect(expedienteButtons.nth(1)).toBeVisible();
 
     await dialog.getByPlaceholder("¿Dónde está...? / No funciona...").fill(followUp);
     const secondWidgetResponse = page.waitForResponse(

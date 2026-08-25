@@ -14,6 +14,232 @@ import * as XLSX from "xlsx";
 import { z } from "zod";
 
 export function registerPaymentRoutes(app: Express): void {
+  app.get("/api/payments/manual-options", authenticateToken, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!hasPermissionForUser(user, MODULES.PAYMENTS, ACTIONS.PROCESS)) {
+        return res.status(403).json({ message: "Sin permisos para registrar pagos" });
+      }
+      const campusId = Number(user?.campus_id);
+      const tenantId = Number(user?.tenant_id);
+      if (!Number.isSafeInteger(campusId) || !Number.isSafeInteger(tenantId)) {
+        return res.status(400).json({ message: "Campus y tenant son requeridos" });
+      }
+
+      const result = await pool.query(
+        `SELECT
+           s.id AS student_id,
+           s.nombre_completo AS student_name,
+           s.grado AS student_grade,
+           s.id_referencia AS student_reference,
+           c.id AS charge_id,
+           c.concept_id,
+           co.nombre AS concept_name,
+           c.monto_base_centavos,
+           c.recargo_aplicado_centavos,
+           COALESCE(SUM(pa.amount_centavos), 0)::bigint AS paid_centavos
+         FROM students s
+         JOIN charges c ON c.student_id = s.id
+         JOIN concepts co ON co.id = c.concept_id
+         LEFT JOIN payment_applications pa ON pa.charge_id = c.id
+         WHERE s.campus_id = $1
+           AND c.tenant_id = $2
+           AND c.estado NOT IN ('pagado', 'cancelado')
+         GROUP BY s.id, c.id, co.id
+         HAVING c.monto_base_centavos + COALESCE(c.recargo_aplicado_centavos, 0)
+              - COALESCE(SUM(pa.amount_centavos), 0) > 0
+         ORDER BY s.nombre_completo, c.fecha_vencimiento, c.id`,
+        [campusId, tenantId],
+      );
+
+      res.json({
+        students: result.rows.reduce((items: any[], row: any) => {
+          if (!items.some((student) => student.id === row.student_id)) {
+            items.push({
+              id: row.student_id,
+              nombre_completo: row.student_name,
+              grado: row.student_grade,
+              id_referencia: row.student_reference,
+            });
+          }
+          return items;
+        }, []),
+        charges: result.rows.map((row: any) => ({
+          id: row.charge_id,
+          student_id: row.student_id,
+          concept_id: row.concept_id,
+          concept_name: row.concept_name,
+          saldo_centavos:
+            Number(row.monto_base_centavos) +
+            Number(row.recargo_aplicado_centavos || 0) -
+            Number(row.paid_centavos || 0),
+        })),
+      });
+    } catch (error: any) {
+      console.error("Error cargando opciones de pago manual:", error);
+      res.status(500).json({ message: "No se pudieron cargar las opciones de pago" });
+    }
+  });
+
+  app.post("/api/payments/manual", authenticateToken, async (req: any, res) => {
+    const user = req.user;
+    if (!hasPermissionForUser(user, MODULES.PAYMENTS, ACTIONS.PROCESS)) {
+      return res.status(403).json({ message: "Sin permisos para registrar pagos" });
+    }
+
+    const parsed = z.object({
+      student_id: z.coerce.number().int().positive(),
+      charge_id: z.coerce.number().int().positive(),
+      amount_centavos: z.coerce.number().int().positive(),
+      idempotency_key: z.string().min(16).max(100),
+      recibido_por: z.string().trim().min(1).max(255),
+      observaciones: z.string().trim().max(2000).optional().default(""),
+    }).safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Datos de pago manual inválidos" });
+    }
+
+    const campusId = Number(user?.campus_id);
+    const tenantId = Number(user?.tenant_id);
+    if (!Number.isSafeInteger(campusId) || !Number.isSafeInteger(tenantId)) {
+      return res.status(400).json({ message: "Campus y tenant son requeridos" });
+    }
+
+    const { student_id, charge_id, amount_centavos, idempotency_key } = parsed.data;
+    const client = await pool.connect();
+    const findExistingManualPayment = () => client.query(
+      `SELECT p.id, p.charge_id, p.monto_centavos, p.fecha_pago,
+              s.id AS student_id, s.nombre_completo AS student_name, s.grado AS student_grade,
+              s.id_referencia AS student_reference, co.nombre AS concept_name
+         FROM payments p
+         JOIN charges c ON c.id = p.charge_id
+         JOIN students s ON s.id = c.student_id
+         JOIN concepts co ON co.id = c.concept_id
+        WHERE p.tenant_id = $1
+          AND p.referencia_pasarela = $2
+          AND s.campus_id = $3
+          AND p.charge_id = $4
+          AND c.student_id = $5
+        FOR UPDATE`,
+      [tenantId, idempotency_key, campusId, charge_id, student_id],
+    );
+    const respondWithExistingPayment = (row: any) => res.status(200).json({
+      success: true,
+      idempotent: true,
+      payment: { id: row.id, charge_id: row.charge_id, monto_centavos: Number(row.monto_centavos) },
+      student: {
+        id: row.student_id,
+        nombre_completo: row.student_name,
+        grado: row.student_grade,
+        id_referencia: row.student_reference,
+      },
+      concept: row.concept_name,
+    });
+    try {
+      await client.query("BEGIN");
+
+      const existing = await findExistingManualPayment();
+      if (existing.rows.length) {
+        await client.query("COMMIT");
+        return respondWithExistingPayment(existing.rows[0]);
+      }
+
+      const locked = await client.query(
+        `SELECT c.id, c.student_id, c.monto_base_centavos, c.recargo_aplicado_centavos,
+                c.estado, s.nombre_completo AS student_name, s.grado AS student_grade,
+                s.id_referencia AS student_reference, co.nombre AS concept_name
+           FROM charges c
+           JOIN students s ON s.id = c.student_id
+           JOIN concepts co ON co.id = c.concept_id
+          WHERE c.id = $1 AND c.student_id = $2 AND s.campus_id = $3 AND c.tenant_id = $4
+          FOR UPDATE`,
+        [charge_id, student_id, campusId, tenantId],
+      );
+      if (!locked.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ message: "El cargo no pertenece al estudiante o campus seleccionado" });
+      }
+      const charge = locked.rows[0] as any;
+      if (["pagado", "cancelado"].includes(charge.estado)) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ message: "El cargo ya fue pagado o está cancelado" });
+      }
+
+      const applied = await client.query(
+        `SELECT COALESCE(SUM(amount_centavos), 0)::bigint AS paid_centavos
+           FROM payment_applications
+          WHERE charge_id = $1`,
+        [charge_id],
+      );
+      const balance =
+        Number(charge.monto_base_centavos) +
+        Number(charge.recargo_aplicado_centavos || 0) -
+        Number(applied.rows[0].paid_centavos || 0);
+      if (balance <= 0) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ message: "El cargo ya tiene saldo cero" });
+      }
+      if (amount_centavos > balance) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ message: "El monto excede el saldo pendiente real del cargo" });
+      }
+
+      const payment = await client.query(
+        `INSERT INTO payments
+          (tenant_id, charge_id, guardian_id, metodo, referencia_pasarela,
+           monto_centavos, fecha_pago, estado)
+         VALUES ($1, $2, NULL, 'efectivo', $3, $4, NOW(), 'exitoso')
+         RETURNING id, charge_id, monto_centavos, fecha_pago`,
+        [tenantId, charge_id, idempotency_key, amount_centavos],
+      );
+      const paymentRow = payment.rows[0];
+
+      await client.query(
+        `INSERT INTO payment_applications (payment_id, charge_id, amount_centavos, applied_at)
+         VALUES ($1, $2, $3, NOW())`,
+        [paymentRow.id, charge_id, amount_centavos],
+      );
+      await client.query(
+        `UPDATE charges
+            SET estado = CASE WHEN $2 = $3 THEN 'pagado' ELSE 'parcial' END,
+                updated_at = NOW()
+          WHERE id = $1`,
+        [charge_id, amount_centavos, balance],
+      );
+      await client.query("COMMIT");
+
+      res.status(201).json({
+        success: true,
+        payment: {
+          id: paymentRow.id,
+          charge_id: charge_id,
+          monto_centavos: Number(paymentRow.monto_centavos),
+          fecha_pago: paymentRow.fecha_pago,
+        },
+        student: {
+          id: student_id,
+          nombre_completo: charge.student_name,
+          grado: charge.student_grade,
+          id_referencia: charge.student_reference,
+        },
+        concept: charge.concept_name,
+      });
+    } catch (error: any) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      if (error?.code === "23505") {
+        const concurrentPayment = await findExistingManualPayment();
+        if (concurrentPayment.rows.length) {
+          return respondWithExistingPayment(concurrentPayment.rows[0]);
+        }
+        return res.status(409).json({ message: "La clave de pago ya está asociada a otra operación" });
+      }
+      console.error("Error registrando pago manual:", error);
+      res.status(500).json({ message: "No se pudo registrar el pago" });
+    } finally {
+      client.release();
+    }
+  });
+
   app.post("/api/payments/create-intent", authenticateGuardian, async (req: any, res) => {
     try {
       const { charge_id } = req.body;

@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect, useRef } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,23 @@ import { PieChartComponent } from "@/components/PieChartComponent";
 import { hasPermission, MODULES, ACTIONS, type UserRole } from "@shared/permissions";
 import { useAuth } from "@/hooks/use-auth";
 import { useInstitution } from "@/hooks/use-institution";
+import { apiRequest } from "@/lib/queryClient";
+
+type ManualPaymentOptions = {
+  students: Array<{
+    id: number;
+    nombre_completo: string;
+    grado: string | null;
+    id_referencia: string | null;
+  }>;
+  charges: Array<{
+    id: number;
+    student_id: number;
+    concept_id: number;
+    concept_name: string;
+    saldo_centavos: number;
+  }>;
+};
 
 export default function Pagos() {
   const [selectedMethod, setSelectedMethod] = useState("all");
@@ -38,10 +55,12 @@ export default function Pagos() {
     recibido_por: "",
     observaciones: ""
   });
+  const manualPaymentAttemptKey = useRef<string | null>(null);
   
   const { toast } = useToast();
   const { user } = useAuth();
   const { logoUrl, institutionName } = useInstitution();
+  const queryClient = useQueryClient();
   
   // Función para obtener el nombre completo del usuario basado en su perfil
   const getUserDisplayName = () => {
@@ -98,6 +117,26 @@ export default function Pagos() {
     enabled: !!user?.campus_id,
     retry: 1,
     staleTime: 0
+  });
+  const { data: manualOptions } = useQuery<ManualPaymentOptions>({
+    queryKey: ["/api/payments/manual-options"],
+    enabled: !!user?.campus_id,
+    staleTime: 0,
+  });
+  const manualStudents = manualOptions?.students || [];
+  const manualCharges = manualOptions?.charges || [];
+  const selectedStudentId = Number(pagoManualForm.estudiante_id);
+  const availableManualCharges = manualCharges.filter(
+    (charge: any) => charge.student_id === selectedStudentId,
+  );
+  const manualPaymentMutation = useMutation({
+    mutationFn: async (body: Record<string, unknown>) => {
+      const response = await apiRequest("/api/payments/manual", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      return response.json();
+    },
   });
   
   // Si no hay campus_id, mostrar mensaje de error
@@ -728,6 +767,21 @@ export default function Pagos() {
   };
 
   const generateFiscalReceiptHTML = (pagoData: any) => {
+    const escapeHtml = (value: unknown) => String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+    const receiptData = {
+      estudiante: escapeHtml(pagoData.estudiante),
+      grado: escapeHtml(pagoData.grado),
+      matricula: escapeHtml(pagoData.matricula),
+      concepto: escapeHtml(pagoData.concepto),
+      metodo: escapeHtml(pagoData.metodo || "Efectivo"),
+      forma: escapeHtml(pagoData.forma || "Pago en una sola exhibición"),
+      monto: String(pagoData.monto || "0"),
+    };
     const fechaEmision = new Date().toLocaleDateString('es-MX', {
       year: 'numeric',
       month: 'long',
@@ -927,7 +981,7 @@ export default function Pagos() {
         <div class="header">
             <div class="logo-container">
                 ${logoUrl 
-                  ? `<img class="institution-logo" src="${logoUrl}" alt="Logo de la institución" />` 
+                  ? `<img class="institution-logo" src="${escapeHtml(logoUrl)}" alt="Logo de la institución" />`
                   : `<div class="logo-circle">
                         <div class="logo-text">ISP</div>
                         <div class="logo-subtext">EDUCACIÓN</div>
@@ -935,7 +989,7 @@ export default function Pagos() {
                 }
             </div>
             <h1>RECIBO FISCAL</h1>
-            <p>${institutionName || 'Instituto San Patricio'}</p>
+            <p>${escapeHtml(institutionName || 'Instituto San Patricio')}</p>
             <p>RFC: ISP850101ABC</p>
             <p>Calle Principal #123, Col. Centro, CP 44100</p>
             <p>Guadalajara, Jalisco, México</p>
@@ -951,9 +1005,9 @@ export default function Pagos() {
             </div>
             <div class="info-block">
                 <h3>INFORMACIÓN DEL ESTUDIANTE</h3>
-                <p><strong>Nombre:</strong> ${pagoData.estudiante || 'Estudiante Demo'}</p>
-                <p><strong>Grado:</strong> ${pagoData.grado || '3ro A'}</p>
-                <p><strong>Matrícula:</strong> ${pagoData.matricula || 'EST-001'}</p>
+                <p><strong>Nombre:</strong> ${receiptData.estudiante}</p>
+                <p><strong>Grado:</strong> ${receiptData.grado}</p>
+                <p><strong>Matrícula:</strong> ${receiptData.matricula}</p>
             </div>
         </div>
 
@@ -961,29 +1015,21 @@ export default function Pagos() {
             <h3>DETALLES DEL PAGO</h3>
             <div class="detail-row">
                 <span class="detail-label">Concepto:</span>
-                <span class="detail-value">${pagoData.concepto || 'Colegiatura'}</span>
+                <span class="detail-value">${receiptData.concepto}</span>
             </div>
             <div class="detail-row">
                 <span class="detail-label">Método de Pago:</span>
-                <span class="detail-value">${pagoData.metodo || 'Efectivo'}</span>
+                <span class="detail-value">${receiptData.metodo}</span>
             </div>
             <div class="detail-row">
                 <span class="detail-label">Forma de Pago:</span>
-                <span class="detail-value">${pagoData.forma || 'Pago en una sola exhibición'}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Recibido por:</span>
-                <span class="detail-value">${pagoData.recibido_por}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Observaciones:</span>
-                <span class="detail-value">${pagoData.observaciones || 'Ninguna'}</span>
+                <span class="detail-value">${receiptData.forma}</span>
             </div>
         </div>
 
         <div class="amount-total">
-            <h3>TOTAL: $${pagoData.monto ? parseFloat(pagoData.monto).toLocaleString() : '0.00'} MXN</h3>
-            <p>SON: ${convertirNumeroALetras(pagoData.monto || '0')} PESOS MEXICANOS</p>
+            <h3>TOTAL: $${parseFloat(receiptData.monto).toLocaleString()} MXN</h3>
+            <p>SON: ${convertirNumeroALetras(receiptData.monto)} PESOS MEXICANOS</p>
         </div>
 
         <div class="fiscal-info">
@@ -1003,7 +1049,7 @@ export default function Pagos() {
             </div>
             <div class="signature-block">
                 <div><strong>Autorizado por</strong></div>
-                <div>${pagoData.recibido_por}</div>
+                <div>Registro administrativo confirmado</div>
             </div>
         </div>
 
@@ -1119,7 +1165,7 @@ export default function Pagos() {
     return `${Math.floor(num / 1000000)} MILLONES ${Math.floor((num % 1000000) / 1000)} MIL ${Math.floor(num % 1000)}`;
   };
 
-  const handleRegistrarPago = () => {
+  const handleRegistrarPago = async () => {
     // Validar que los campos requeridos estén completos
     if (!pagoManualForm.estudiante_id || !pagoManualForm.concepto_id || !pagoManualForm.monto) {
       toast({
@@ -1130,38 +1176,49 @@ export default function Pagos() {
       return;
     }
 
-    // Generar el recibo fiscal
-    const pagoData = {
-      estudiante: "Carlos Pérez Méndez", // En producción vendría de la selección
-      grado: "3ro A",
-      matricula: "EST-001",
-      concepto: "Colegiatura Enero",
-      metodo: "Efectivo",
-      forma: "Pago en una sola exhibición",
-      monto: pagoManualForm.monto,
-      recibido_por: pagoManualForm.recibido_por,
-      observaciones: pagoManualForm.observaciones
-    };
-
-    const receiptHTML = generateFiscalReceiptHTML(pagoData);
-    setCurrentReceiptHTML(receiptHTML);
-    
-    // Mostrar opciones de descarga
-    setShowReceiptOptions(true);
-
-    toast({
-      title: "Pago registrado exitosamente",
-      description: "Selecciona cómo deseas descargar o compartir el recibo fiscal",
-    });
-    
-    // Limpiar formulario pero mantener el nombre del usuario
-    setPagoManualForm({
-      estudiante_id: "",
-      concepto_id: "",
-      monto: "",
-      recibido_por: getUserDisplayName(),
-      observaciones: ""
-    });
+    const idempotencyKey = manualPaymentAttemptKey.current || crypto.randomUUID();
+    manualPaymentAttemptKey.current = idempotencyKey;
+    try {
+      const saved = await manualPaymentMutation.mutateAsync({
+        student_id: Number(pagoManualForm.estudiante_id),
+        charge_id: Number(pagoManualForm.concepto_id),
+        amount_centavos: Math.round(Number(pagoManualForm.monto) * 100),
+        idempotency_key: idempotencyKey,
+        recibido_por: pagoManualForm.recibido_por,
+        observaciones: pagoManualForm.observaciones,
+      });
+      const receiptHTML = generateFiscalReceiptHTML({
+        estudiante: saved.student.nombre_completo,
+        grado: saved.student.grado,
+        matricula: saved.student.id_referencia,
+        concepto: saved.concept,
+        metodo: "Efectivo",
+        forma: "Pago en una sola exhibición",
+        monto: (Number(saved.payment.monto_centavos) / 100).toFixed(2),
+      });
+      setCurrentReceiptHTML(receiptHTML);
+      setShowReceiptOptions(true);
+      toast({
+        title: "Pago registrado exitosamente",
+        description: "El pago fue confirmado y el recibo está listo.",
+      });
+      manualPaymentAttemptKey.current = null;
+      setPagoManualForm({
+        estudiante_id: "",
+        concepto_id: "",
+        monto: "",
+        recibido_por: getUserDisplayName(),
+        observaciones: ""
+      });
+      await queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/payments/manual-options"] });
+    } catch (error: any) {
+      toast({
+        title: "No se pudo registrar el pago",
+        description: error?.message?.replace(/^\d+:\s*/, "") || "El pago no fue guardado. Tus datos se conservaron.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Mostrar estado de carga
@@ -1771,17 +1828,25 @@ export default function Pagos() {
                 <Label htmlFor="estudiante">Estudiante</Label>
                 <Select 
                   value={pagoManualForm.estudiante_id}
-                  onValueChange={(value) => setPagoManualForm(prev => ({ ...prev, estudiante_id: value }))}
+                  onValueChange={(value) => setPagoManualForm(prev => ({
+                    ...prev,
+                    estudiante_id: value,
+                    concepto_id: "",
+                  }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger aria-label="Estudiante">
                     <SelectValue placeholder="Buscar estudiante..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1">Carlos Pérez Méndez</SelectItem>
-                    <SelectItem value="2">Andrea García Luna</SelectItem>
-                    <SelectItem value="3">Luis Martínez Gil</SelectItem>
-                    <SelectItem value="4">María Fernández Castro</SelectItem>
-                    <SelectItem value="5">Diego Morales Ruiz</SelectItem>
+                    {manualStudents.map((student: any) => (
+                      <SelectItem
+                        key={student.id}
+                        value={String(student.id)}
+                        data-testid={`manual-payment-student-${student.id}`}
+                      >
+                        {student.nombre_completo}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -1792,15 +1857,19 @@ export default function Pagos() {
                   value={pagoManualForm.concepto_id}
                   onValueChange={(value) => setPagoManualForm(prev => ({ ...prev, concepto_id: value }))}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar concepto..." />
+                  <SelectTrigger aria-label="Cargo pendiente">
+                    <SelectValue placeholder="Seleccionar cargo pendiente..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1">Colegiatura Enero - $5,000</SelectItem>
-                    <SelectItem value="2">Materiales - $1,500</SelectItem>
-                    <SelectItem value="3">Inscripción - $3,000</SelectItem>
-                    <SelectItem value="4">Uniformes - $2,500</SelectItem>
-                    <SelectItem value="5">Seguro Escolar - $800</SelectItem>
+                    {availableManualCharges.map((charge: any) => (
+                      <SelectItem
+                        key={charge.id}
+                        value={String(charge.id)}
+                        data-testid={`manual-payment-charge-${charge.id}`}
+                      >
+                        {charge.concept_name} — ${(Number(charge.saldo_centavos) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -1842,10 +1911,11 @@ export default function Pagos() {
             <div className="flex gap-3">
               <Button 
                 onClick={handleRegistrarPago}
+                disabled={manualPaymentMutation.isPending}
                 className="flex-1 bg-green-600 hover:bg-green-700"
               >
                 <Banknote className="w-4 h-4 mr-2" />
-                Registrar pago y emitir recibo
+                {manualPaymentMutation.isPending ? "Registrando pago..." : "Registrar pago y emitir recibo"}
               </Button>
               
               <Button
@@ -1869,6 +1939,12 @@ export default function Pagos() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <iframe
+              title="Vista previa del recibo"
+              srcDoc={currentReceiptHTML}
+              className="h-72 w-full rounded border bg-white"
+              sandbox=""
+            />
             <div className="grid grid-cols-1 gap-3">
               <Button
                 onClick={() => shareReceipt(currentReceiptHTML, 'download')}

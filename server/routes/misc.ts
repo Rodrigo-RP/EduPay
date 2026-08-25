@@ -133,6 +133,10 @@ export function registerMiscRoutes(app: Express): void {
       if (!['mensual', 'quincenal', 'semanal'].includes(frecuencia)) {
         return res.status(400).json({ message: "frecuencia debe ser 'mensual', 'quincenal' o 'semanal'" });
       }
+      const montoInicialNumerico = Number(monto_inicial_centavos ?? 0);
+      if (!Number.isFinite(montoInicialNumerico) || montoInicialNumerico < 0) {
+        return res.status(400).json({ message: "monto_inicial_centavos no puede ser negativo" });
+      }
 
       if (esModoA) {
         // ── MODO A: Reestructuración de Charges existentes ───────────────────
@@ -142,64 +146,83 @@ export function registerMiscRoutes(app: Express): void {
           });
         }
 
-        // Calcular saldo pendiente real (monto_base − SUM(payment_applications))
-        const saldoRes = await pool.query(`
-          SELECT c.id, c.student_id, c.estado,
-                 c.monto_base_centavos
-                   - COALESCE(SUM(pa.amount_centavos), 0) AS saldo_pendiente_centavos
-          FROM charges c
-          LEFT JOIN payment_applications pa ON pa.charge_id = c.id
-          WHERE c.id = ANY($1) AND c.tenant_id = $2
-          GROUP BY c.id, c.monto_base_centavos, c.student_id, c.estado
-        `, [charge_ids, tenantId]);
-
-        if ((saldoRes.rows as any[]).length !== charge_ids.length) {
-          return res.status(403).json({
-            message: "Acceso denegado: uno o más cargos no pertenecen a este tenant",
-          });
-        }
-        const saldoRows = saldoRes.rows as any[];
-
-        // Todos deben tener estado pendiente o parcial
-        const estadoInvalido = saldoRows.find(r => !['pendiente', 'parcial'].includes(r.estado));
-        if (estadoInvalido) {
-          return res.status(422).json({
-            message: `El cargo ${estadoInvalido.id} tiene estado '${estadoInvalido.estado}' y no puede reestructurarse`,
-          });
-        }
-
-        // Todos deben pertenecer al mismo alumno
-        const uniqueStudents = [...new Set(saldoRows.map(r => r.student_id))];
-        if (uniqueStudents.length > 1) {
-          return res.status(422).json({ message: "Todos los cargos deben pertenecer al mismo alumno" });
-        }
-        const resolvedStudentId = Number(uniqueStudents[0]);
-
-        // Ningún saldo debe ser ≤ 0
-        const saldoCero = saldoRows.find(r => Number(r.saldo_pendiente_centavos) <= 0);
-        if (saldoCero) {
-          return res.status(422).json({
-            message: `El cargo ${saldoCero.id} tiene saldo pendiente ≤ 0`,
-          });
-        }
-
-        const sumSaldos = saldoRows.reduce((acc, r) => acc + Number(r.saldo_pendiente_centavos), 0);
-        const totalAdeudo = sumSaldos + Number(recargo_centavos || 0);
-        const montoInicial = Number(monto_inicial_centavos || 0);
-
-        if (montoInicial >= totalAdeudo && totalAdeudo > 0) {
-          return res.status(422).json({ message: "monto_inicial_centavos no puede superar el total adeudado" });
-        }
-
-        const conceptoId = await getOrCreateCuotaPlanConcept(campusId, tenantId);
-
-        // Transacción: cancelar charges originales + crear cuotas en ledger
+        // Bloquear los cargos antes de calcular su saldo: reestructuración y
+        // pagos manuales quedan serializados sobre la misma fila de charges.
         const client = await pool.connect();
         let plan: any;
         let cuotas: any[];
+        let saldoRows: any[] = [];
         try {
           await client.query('BEGIN');
+          const lockedCharges = await client.query(
+            `SELECT c.id
+               FROM charges c
+               JOIN students s ON s.id = c.student_id
+              WHERE c.id = ANY($1)
+                AND c.tenant_id = $2
+                AND s.tenant_id = $2
+                AND s.campus_id = $3
+              FOR UPDATE OF c`,
+            [charge_ids, tenantId, campusId],
+          );
+          if ((lockedCharges.rows as any[]).length !== charge_ids.length) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({
+              message: "Acceso denegado: uno o más cargos no pertenecen a este campus",
+            });
+          }
 
+          // Calcular saldo real bajo el lock (monto base + recargo - aplicaciones).
+          const saldoRes = await client.query(`
+          SELECT c.id, c.student_id, c.estado,
+                 c.monto_base_centavos + COALESCE(c.recargo_aplicado_centavos, 0)
+                   - COALESCE(SUM(pa.amount_centavos), 0) AS saldo_pendiente_centavos
+          FROM charges c
+          LEFT JOIN payment_applications pa ON pa.charge_id = c.id
+          WHERE c.id = ANY($1)
+          GROUP BY c.id, c.monto_base_centavos, c.recargo_aplicado_centavos, c.student_id, c.estado
+        `, [charge_ids]);
+
+          if ((saldoRes.rows as any[]).length !== charge_ids.length) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({
+              message: "Acceso denegado: uno o más cargos no pertenecen a este campus",
+            });
+          }
+          saldoRows = saldoRes.rows as any[];
+
+          const estadoInvalido = saldoRows.find(r => !['pendiente', 'parcial'].includes(r.estado));
+          if (estadoInvalido) {
+            await client.query('ROLLBACK');
+            return res.status(422).json({
+              message: `El cargo ${estadoInvalido.id} tiene estado '${estadoInvalido.estado}' y no puede reestructurarse`,
+            });
+          }
+
+          const uniqueStudents = [...new Set(saldoRows.map(r => r.student_id))];
+          if (uniqueStudents.length > 1) {
+            await client.query('ROLLBACK');
+            return res.status(422).json({ message: "Todos los cargos deben pertenecer al mismo alumno" });
+          }
+          const resolvedStudentId = Number(uniqueStudents[0]);
+
+          const saldoCero = saldoRows.find(r => Number(r.saldo_pendiente_centavos) <= 0);
+          if (saldoCero) {
+            await client.query('ROLLBACK');
+            return res.status(422).json({
+              message: `El cargo ${saldoCero.id} tiene saldo pendiente ≤ 0`,
+            });
+          }
+
+          const sumSaldos = saldoRows.reduce((acc, r) => acc + Number(r.saldo_pendiente_centavos), 0);
+          const totalAdeudo = sumSaldos + Number(recargo_centavos || 0);
+          const montoInicial = montoInicialNumerico;
+          if (montoInicial >= totalAdeudo && totalAdeudo > 0) {
+            await client.query('ROLLBACK');
+            return res.status(422).json({ message: "monto_inicial_centavos no puede superar el total adeudado" });
+          }
+
+          const conceptoId = await getOrCreateCuotaPlanConcept(campusId, tenantId);
           const planRow = await client.query(`
             INSERT INTO payment_plans
               (campus_id, tenant_id, student_id, total_adeudo_centavos, monto_inicial_centavos,
@@ -211,11 +234,18 @@ export function registerMiscRoutes(app: Express): void {
               userId || null, JSON.stringify(charge_ids)]);
           plan = (planRow.rows as any[])[0];
 
-          await client.query(
+          const cancelados = await client.query(
             `UPDATE charges SET estado = 'cancelado', updated_at = NOW()
-             WHERE id = ANY($1) AND tenant_id = $2`,
-            [charge_ids, tenantId]
+             WHERE id = ANY($1)
+               AND tenant_id = $2
+               AND estado IN ('pendiente', 'parcial')
+               AND student_id IN (SELECT id FROM students WHERE campus_id = $3 AND tenant_id = $2)
+             RETURNING id`,
+            [charge_ids, tenantId, campusId]
           );
+          if ((cancelados.rows as any[]).length !== charge_ids.length) {
+            throw new Error("Los cargos cambiaron de estado durante la reestructuración");
+          }
 
           cuotas = await generarCuotaCharges(client, {
             plan, studentId: resolvedStudentId, conceptId: conceptoId,
@@ -259,6 +289,9 @@ export function registerMiscRoutes(app: Express): void {
       if (!concept) {
         return res.status(403).json({ message: "Acceso denegado: concepto no pertenece a este tenant" });
       }
+      if (Number((concept as any).campus_id) !== Number(campusId)) {
+        return res.status(403).json({ message: "Acceso denegado: concepto no pertenece a este campus" });
+      }
       if (concept.tipo === 'cuota_plan') {
         return res.status(422).json({
           message: "Un plan no puede originarse en otro plan (concept.tipo='cuota_plan' prohibido)",
@@ -270,6 +303,9 @@ export function registerMiscRoutes(app: Express): void {
       const student = await storage.getStudentScoped(parseInt(student_id), tenantId);
       if (!student) {
         return res.status(403).json({ message: "Acceso denegado: alumno no pertenece a este tenant" });
+      }
+      if (Number((student as any).campus_id) !== Number(campusId)) {
+        return res.status(403).json({ message: "Acceso denegado: alumno no pertenece a este campus" });
       }
       if (guardian_id) {
         const g = await storage.getGuardianScoped(parseInt(guardian_id), tenantId);
@@ -346,7 +382,11 @@ export function registerMiscRoutes(app: Express): void {
       }
 
       const planRes = await pool.query(
-        `SELECT * FROM payment_plans WHERE id = $1`, [planId]
+        `SELECT pp.*, s.campus_id AS student_campus_id
+           FROM payment_plans pp
+           JOIN students s ON s.id = pp.student_id
+          WHERE pp.id = $1`,
+        [planId]
       );
       if ((planRes.rows as any[]).length === 0) {
         return res.status(404).json({ message: "Plan no encontrado" });
@@ -355,6 +395,12 @@ export function registerMiscRoutes(app: Express): void {
 
       if (Number(plan.tenant_id) !== Number(tenantId)) {
         return res.status(403).json({ message: "Acceso denegado: plan no pertenece a este tenant" });
+      }
+      if (
+        Number(plan.campus_id) !== Number(req.user?.campus_id) ||
+        Number(plan.student_campus_id) !== Number(req.user?.campus_id)
+      ) {
+        return res.status(403).json({ message: "Acceso denegado: plan no pertenece a este campus" });
       }
       if (plan.estado !== 'activo') {
         return res.status(409).json({ message: "El plan ya está cancelado" });
@@ -384,7 +430,13 @@ export function registerMiscRoutes(app: Express): void {
       let incluyeHermanosPreCheck  = false;
       let overridePayload: any     = null;
 
-      if (destino_saldo_pendiente === 'condonar' && tenantId) {
+      if (destino_saldo_pendiente === 'condonar') {
+        if (!tenantId) {
+          return res.status(503).json({
+            message: "No se pudo verificar el historial de condonaciones; solicita revisión manual antes de continuar",
+            requiere_revision_manual: true,
+          });
+        }
         try {
           // Paso 1: todos los alumnos de la misma familia (incluye al alumno actual)
           const familyRes = await pool.query(
@@ -409,7 +461,12 @@ export function registerMiscRoutes(app: Express): void {
             [tenantId, familyIdsPreCheck]
           );
           alertaPreCheck = (prevCond.rows as any[]).length > 0;
-        } catch (_) { /* no bloquear el flujo */ }
+        } catch (_) {
+          return res.status(503).json({
+            message: "No se pudo verificar el historial de condonaciones; solicita revisión manual antes de continuar",
+            requiere_revision_manual: true,
+          });
+        }
 
         if (alertaPreCheck) {
           const rawToken = (req.body.override_token as string | undefined);
@@ -480,37 +537,82 @@ export function registerMiscRoutes(app: Express): void {
         }
       }
 
-      // Calcular cuotas pendientes antes del BEGIN
-      const pendientesRes = await pool.query(
-        `SELECT id, monto_base_centavos FROM charges WHERE plan_id = $1 AND estado = 'pendiente'`, [planId]
-      );
-      const pendientes = pendientesRes.rows as any[];
-      const saldoPendiente = pendientes.reduce((acc: number, r: any) => acc + Number(r.monto_base_centavos), 0);
-
-      const pagadasRes = await pool.query(
-        `SELECT COUNT(*) AS cnt FROM charges WHERE plan_id = $1 AND estado = 'pagado'`, [planId]
-      );
-      const cuotasPagadas = Number((pagadasRes.rows as any[])[0]?.cnt || 0);
-
       const client = await pool.connect();
       let newChargeId: number | null = null;
+      let pendientes: any[] = [];
+      let saldoPendiente = 0;
+      let cuotasPagadas = 0;
       try {
         await client.query('BEGIN');
 
-        const upd = await client.query(
-          `UPDATE payment_plans SET estado = 'cancelado'
-           WHERE id = $1 AND tenant_id = $2 AND estado = 'activo' RETURNING id`,
-          [planId, tenantId]
+        const lockedPlanRes = await client.query(
+          `SELECT pp.*
+             FROM payment_plans pp
+             JOIN students s ON s.id = pp.student_id
+            WHERE pp.id = $1
+              AND pp.tenant_id = $2
+              AND pp.campus_id = $3
+              AND s.tenant_id = $2
+              AND s.campus_id = $3
+            FOR UPDATE OF pp`,
+          [planId, tenantId, req.user?.campus_id],
         );
-        if ((upd.rows as any[]).length === 0) {
+        if ((lockedPlanRes.rows as any[]).length === 0) {
+          await client.query('ROLLBACK');
+          return res.status(403).json({ message: "Acceso denegado: plan no pertenece a este campus" });
+        }
+        const lockedPlan = (lockedPlanRes.rows as any[])[0];
+        if (lockedPlan.estado !== 'activo') {
           await client.query('ROLLBACK');
           return res.status(409).json({ message: "El plan ya está cancelado" });
         }
 
+        const lockedChargesRes = await client.query(
+          `SELECT id, estado
+             FROM charges
+            WHERE plan_id = $1 AND student_id = $2
+            FOR UPDATE`,
+          [planId, lockedPlan.student_id],
+        );
+        const lockedCharges = lockedChargesRes.rows as any[];
+        cuotasPagadas = lockedCharges.filter((charge: any) => charge.estado === 'pagado').length;
+
+        const pendientesRes = await client.query(
+          `SELECT c.id, c.monto_base_centavos, c.recargo_aplicado_centavos,
+                  c.monto_base_centavos + COALESCE(c.recargo_aplicado_centavos, 0)
+                    - COALESCE(SUM(pa.amount_centavos), 0) AS saldo_pendiente_centavos
+             FROM charges c
+             LEFT JOIN payment_applications pa ON pa.charge_id = c.id
+            WHERE c.plan_id = $1
+              AND c.student_id = $2
+              AND c.estado = 'pendiente'
+            GROUP BY c.id, c.monto_base_centavos, c.recargo_aplicado_centavos`,
+          [planId, lockedPlan.student_id],
+        );
+        pendientes = pendientesRes.rows as any[];
+        saldoPendiente = pendientes.reduce(
+          (acc: number, cuota: any) => acc + Number(cuota.saldo_pendiente_centavos),
+          0,
+        );
+
+        const upd = await client.query(
+          `UPDATE payment_plans
+              SET estado = 'cancelado'
+            WHERE id = $1
+              AND tenant_id = $2
+              AND campus_id = $3
+              AND estado = 'activo'
+            RETURNING id`,
+          [planId, tenantId, req.user?.campus_id]
+        );
+        if ((upd.rows as any[]).length === 0) {
+          throw new Error("El plan cambió de estado durante la cancelación");
+        }
+
         await client.query(
           `UPDATE charges SET estado = 'cancelado', updated_at = NOW()
-           WHERE plan_id = $1 AND estado = 'pendiente'`,
-          [planId]
+           WHERE plan_id = $1 AND student_id = $2 AND estado = 'pendiente'`,
+          [planId, lockedPlan.student_id]
         );
 
         // Reinstalar: crear nuevo charge con el saldo pendiente

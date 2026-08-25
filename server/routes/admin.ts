@@ -1369,8 +1369,10 @@ export function registerAdminRoutes(app: Express): void {
         `SELECT id FROM audit_log
          WHERE id = $1
            AND tenant_id = $2
-           AND action = 'ALERTA_CONDONACION_REPETIDA'`,
-        [Number(alerta_id), tenantId]
+           AND action = 'ALERTA_CONDONACION_REPETIDA'
+           AND entity_type = 'payment_plan'
+           AND entity_id = $3`,
+        [Number(alerta_id), tenantId, planId]
       );
       if ((alertaRes.rows as any[]).length === 0) {
         return res.status(404).json({ message: "Alerta no encontrada o no corresponde a este tenant" });

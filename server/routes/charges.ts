@@ -465,44 +465,59 @@ export function registerChargesRoutes(app: Express): void {
       }
       const tenantId = req.user?.tenant_id;
       const userId   = req.user?.id;
+      const campusId = req.user?.campus_id;
       const chargeId = parseInt(req.params.chargeId);
       const { metodo = "efectivo", observaciones } = req.body;
 
-      // Validar que el cargo pertenece al tenant
-      const chargeRes = await pool.query(
-        `SELECT id, monto_base_centavos, estado, student_id, plan_id
-         FROM charges WHERE id = $1 AND tenant_id = $2`,
-        [chargeId, tenantId]
-      );
-      if ((chargeRes.rows as any[]).length === 0) {
-        return res.status(403).json({ message: "Acceso denegado: cargo no encontrado o no pertenece a este tenant" });
-      }
-      const charge = (chargeRes.rows as any[])[0];
-
-      if (charge.estado === "pagado") {
-        return res.status(409).json({ message: "El cargo ya está pagado" });
-      }
-      if (charge.estado === "cancelado") {
-        return res.status(422).json({ message: "No se puede pagar un cargo cancelado" });
-      }
-
-      // Calcular saldo pendiente real
-      const saldoRes = await pool.query(
-        `SELECT COALESCE(SUM(pa.amount_centavos), 0) AS aplicado
-         FROM payment_applications pa WHERE pa.charge_id = $1`,
-        [chargeId]
-      );
-      const aplicado = Number((saldoRes.rows as any[])[0].aplicado);
-      const saldo = Number(charge.monto_base_centavos) - aplicado;
-
-      if (saldo <= 0) {
-        return res.status(409).json({ message: "El cargo ya tiene saldo cero" });
-      }
-
       const client = await pool.connect();
       let paymentId: number;
+      let saldo = 0;
       try {
         await client.query("BEGIN");
+
+        // El cargo y su saldo se leen bajo el mismo lock que protege la escritura.
+        // Así dos pagos manuales concurrentes no pueden cobrar el mismo saldo.
+        const chargeRes = await client.query(
+          `SELECT c.id, c.monto_base_centavos, c.recargo_aplicado_centavos,
+                  c.estado, c.student_id, c.plan_id
+             FROM charges c
+             JOIN students s ON s.id = c.student_id
+            WHERE c.id = $1
+              AND c.tenant_id = $2
+              AND s.campus_id = $3
+            FOR UPDATE OF c`,
+          [chargeId, tenantId, campusId]
+        );
+        if ((chargeRes.rows as any[]).length === 0) {
+          await client.query("ROLLBACK");
+          return res.status(403).json({ message: "Acceso denegado: cargo no encontrado o no pertenece a este campus" });
+        }
+        const charge = (chargeRes.rows as any[])[0];
+
+        if (charge.estado === "pagado") {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ message: "El cargo ya está pagado" });
+        }
+        if (charge.estado === "cancelado") {
+          await client.query("ROLLBACK");
+          return res.status(422).json({ message: "No se puede pagar un cargo cancelado" });
+        }
+
+        const saldoRes = await client.query(
+          `SELECT COALESCE(SUM(pa.amount_centavos), 0) AS aplicado
+             FROM payment_applications pa
+            WHERE pa.charge_id = $1`,
+          [chargeId]
+        );
+        const aplicado = Number((saldoRes.rows as any[])[0].aplicado);
+        saldo = Number(charge.monto_base_centavos)
+          + Number(charge.recargo_aplicado_centavos || 0)
+          - aplicado;
+
+        if (saldo <= 0) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ message: "El cargo ya tiene saldo cero" });
+        }
 
         const payRow = await client.query(
           `INSERT INTO payments (tenant_id, charge_id, metodo, monto_centavos, fecha_pago, estado)
@@ -518,8 +533,10 @@ export function registerChargesRoutes(app: Express): void {
         );
 
         await client.query(
-          `UPDATE charges SET estado = 'pagado', updated_at = NOW() WHERE id = $1`,
-          [chargeId]
+          `UPDATE charges
+              SET estado = 'pagado', updated_at = NOW()
+            WHERE id = $1 AND tenant_id = $2`,
+          [chargeId, tenantId]
         );
 
         await client.query("COMMIT");

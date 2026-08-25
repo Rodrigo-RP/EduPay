@@ -267,6 +267,9 @@ export default function PlanesPago() {
                 <div>
                   <Label>Enganche inicial ($)</Label>
                   <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
                     placeholder="0.00"
                     value={form.monto_inicial_centavos}
                     onChange={e => setForm(f => ({ ...f, monto_inicial_centavos: e.target.value }))}

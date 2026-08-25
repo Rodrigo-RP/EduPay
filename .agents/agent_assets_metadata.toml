@@ -14,3 +14,10 @@ uri = "file://screenshots/assistant-executive-summary-real.png"
 type = "image"
 title = "Asistente financiero — prueba real"
 description = "Captura E2E del widget con resumen ejecutivo conversacional y detalle de deudores verificado."
+
+[[outputs]]
+id = "UoPJrcagd5X3OMrm4llCI"
+uri = "file://screenshots/portal-padres-pago-completo-real.png"
+type = "image"
+title = "Prueba 14 — Portal de Padres con Stripe real"
+description = "Captura generada por Playwright después de completar el CardElement real de Stripe con la tarjeta de prueba 4242 4242 4242 4242 y validar el pago exitoso, folio y UUID CFDI."

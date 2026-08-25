@@ -212,6 +212,8 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
     });
     expect(body.reply).toContain(fixtureNames[0]);
     expect(body.reply).toContain(fixtureNames[1]);
+    expect(body.reply).toMatch(/Alumno.*\|.*Saldo.*\|.*Cargos/i);
+    expect(body.reply).not.toContain("Estos son los adeudos que conviene revisar");
     expect(body.studentTargets).toEqual(expect.arrayContaining([
       { id: studentIds[0], name: fixtureNames[0] },
       { id: studentIds[1], name: fixtureNames[1] },
@@ -302,7 +304,10 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
     await expect(dialog).toContainText(fixtureNames[1]);
 
     await dialog.getByPlaceholder("¿Dónde está...? / No funciona...").fill(followUp);
-    const secondWidgetResponse = page.waitForResponse((res) => res.url().includes("/api/assistant/chat") && res.request().postData()?.includes(followUp));
+    const secondWidgetResponse = page.waitForResponse(
+      (res) => res.url().includes("/api/assistant/chat") && res.request().postData()?.includes(followUp),
+      { timeout: 90_000 },
+    );
     await dialog.getByRole("button", { name: "Enviar mensaje" }).click();
     await expect((await secondWidgetResponse).status()).toBe(200);
     await expect(dialog).toContainText(followUp);
@@ -423,6 +428,8 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
     await dialog.getByRole("button", { name: "Enviar mensaje" }).click();
     const debtorsBody = await (await debtorsResponse).json();
     expect(debtorsBody.claude?.toolCalls).toContain("query_adeudos_nivel_periodo");
+    expect(debtorsBody.reply).toMatch(/Alumno.*\|.*Saldo.*\|.*Cargos/i);
+    expect(debtorsBody.reply).not.toContain("Estos son los adeudos que conviene revisar");
     await expect(dialog).toContainText(fixtureNames[0]);
     await expect(dialog).toContainText(fixtureNames[1]);
     await page.screenshot({ path: "screenshots/assistant-executive-summary-real.png" });

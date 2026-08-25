@@ -244,7 +244,9 @@ describe("fallback de Claude con herramientas read-only", () => {
         stop_reason: "end_turn",
         content: [{
           type: "text",
-          text: "En agosto hay dos alumnos con adeudo; Alumno de prueba tiene **$1,000** pendiente.",
+          text: "| Alumno | Nivel/Grado | Saldo | Cargos |\n" +
+            "| --- | --- | ---: | ---: |\n" +
+            "| Alumno de prueba | Primaria / 1 | **$1,000** | **1** |",
         }],
       },
     ]);
@@ -252,7 +254,7 @@ describe("fallback de Claude con herramientas read-only", () => {
       success: true,
       title: "Alumnos con adeudo",
       summary: "Encontré dos alumnos.",
-      rows: [{ label: "Alumno de prueba", value: "$1,000" }],
+      rows: [{ label: "Alumno de prueba · Primaria · grado 1", value: "$1,000 · 1 cargo(s)" }],
       studentTargets: [{ id: 321, name: "Alumno de prueba" }],
     });
 
@@ -262,8 +264,11 @@ describe("fallback de Claude con herramientas read-only", () => {
       { client, canRead: () => true, runAction },
     );
 
-    expect(result.reply).toContain("Estos son los adeudos que conviene revisar");
-    expect(result.reply).toContain("Alumno de prueba: **$1,000**");
+    expect(result.reply).toContain("| Alumno | Nivel/Grado | Saldo | Cargos |");
+    expect(result.reply).toContain("| Alumno de prueba |");
+    expect(result.reply).toContain("**$1,000**");
+    expect(result.reply).toContain("| Primaria / 1 |");
+    expect(result.reply).not.toContain("Estos son los adeudos que conviene revisar");
     expect(result.trace.toolCalls).toEqual(["query_adeudos_nivel_periodo"]);
     expect(runAction).toHaveBeenCalledWith(
       "query:adeudos_nivel_periodo",
@@ -274,6 +279,49 @@ describe("fallback de Claude con herramientas read-only", () => {
     expect(result.studentTargets).toEqual([{ id: 321, name: "Alumno de prueba" }]);
     const toolResult = (client.messages.create as any).mock.calls[1][0].messages.at(-1).content[0].content;
     expect(JSON.parse(toolResult).students).toBeUndefined();
+  });
+
+  it("usa el fallback de adeudos si Claude omite un alumno o inventa una cifra", async () => {
+    const client = clientWith([
+      {
+        stop_reason: "tool_use",
+        content: [{
+          type: "tool_use",
+          id: "tool-adeudos-inseguros",
+          name: "query_adeudos_nivel_periodo",
+          input: { mes: 8, anio: 2026, nivel: "" },
+        }],
+      },
+      {
+        stop_reason: "end_turn",
+        content: [{
+          type: "text",
+          text: "| Alumno | Saldo | Cargos |\n| --- | ---: | ---: |\n| Alumno de prueba | **$1,001** | **1** |",
+        }],
+      },
+    ]);
+    const result = await answerWithClaude(
+      "qué alumnos faltan de pagar la colegiatura de agosto de todos los niveles",
+      context,
+      {
+        client,
+        canRead: () => true,
+        runAction: vi.fn().mockResolvedValue({
+          success: true,
+          title: "Alumnos con adeudo",
+          summary: "Encontré dos alumnos.",
+          rows: [
+            { label: "Alumno de prueba", value: "$1,000 · 1 cargo(s)" },
+            { label: "Otra alumna", value: "$500 · 1 cargo(s)" },
+          ],
+        }),
+      },
+    );
+
+    expect(result.reply).toContain("Estos son los adeudos que conviene revisar");
+    expect(result.reply).toContain("Alumno de prueba: **$1,000** · 1 cargo(s)");
+    expect(result.reply).toContain("Otra alumna: **$500** · 1 cargo(s)");
+    expect(result.reply).not.toContain("$1,001");
   });
 
   it("reconstruye un turno histórico con tool_use y tool_result validados", async () => {

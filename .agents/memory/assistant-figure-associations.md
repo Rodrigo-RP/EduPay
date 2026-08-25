@@ -7,7 +7,7 @@ Un resumen financiero generado por un LLM sólo se puede conservar si cada impor
 
 **Why:** Un modelo puede intercambiar dos valores reales entre indicadores y pasar una validación que sólo compare tokens numéricos; eso convierte una respuesta aparentemente exacta en información financiera materialmente falsa.
 
-**How to apply:** Para resultados ejecutivos estructurados, conservar filas etiquetadas y verificar que cada valor aparezca en el contexto inmediato de sus términos semánticos antes de usar la redacción generativa. Para listas de adeudos, mantener siempre el detalle de alumno y saldo verificado por el backend; las pruebas deben cubrir omisiones, cifras inventadas e importes intercambiados.
+**How to apply:** Para resultados ejecutivos estructurados, conservar filas etiquetadas y verificar que cada valor aparezca en el contexto inmediato de sus términos semánticos antes de usar la redacción generativa. Para tablas de adeudos, cada alumno debe conservar sus cifras de saldo y cargos en su misma fila; los agregados verificados son permitidos pero no obligatorios. Una tabla válida se muestra literalmente; una omisión, cifra nueva o importe asociado al alumno equivocado usa fallback. Las pruebas deben cubrir ambos caminos.
 
 La combinación de tono cálido, formato conversacional y esta frontera de precisión quedó validada como la experiencia deseada para el asistente financiero.
 

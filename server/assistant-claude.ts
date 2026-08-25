@@ -538,6 +538,36 @@ function preservesToolFigures(reply: string, sources: string[]): boolean {
     && replyTokens.every((token) => sourceTokens.has(token));
 }
 
+function preservesAdeudosDetails(
+  reply: string,
+  rows: Array<{ label: string; value: string }>,
+): boolean {
+  if (!rows.length) return true;
+  const replyLines = reply.split(/\r?\n/);
+  return rows.every(({ label, value }) => {
+    // El nombre es la parte estable del label; nivel, grado y urgencia
+    // pueden aparecer en columnas distintas de la tabla generada por Claude.
+    const separator = label.indexOf(" · ");
+    const studentName = (separator >= 0 ? label.slice(0, separator) : label).trim();
+    const studentLine = replyLines.find((line) =>
+      line.toLocaleLowerCase("es-MX").includes(studentName.toLocaleLowerCase("es-MX")),
+    );
+    return Boolean(studentLine)
+      && numericTokens(value)
+        .every((token) => containsExactToken(studentLine!, token));
+  });
+}
+
+function preservesAdeudosReply(
+  reply: string,
+  allSources: string[],
+  rows: Array<{ label: string; value: string }>,
+): boolean {
+  const verifiedTokens = new Set(allSources.flatMap(numericTokens));
+  return numericTokens(reply).every((token) => verifiedTokens.has(token))
+    && preservesAdeudosDetails(reply, rows);
+}
+
 function containsOnlyToolFigures(reply: string, sources: string[]): boolean {
   const sourceTokens = new Set(sources.flatMap(numericTokens));
   return numericTokens(reply).every((token) => sourceTokens.has(token));
@@ -642,7 +672,7 @@ function currentSystemPrompt(): string {
     `La fecha de referencia del servidor está en el año ${currentYear}. Si indican un mes sin año, usa ${currentYear}.`,
     `Para un resumen ejecutivo o estado financiero mensual, usa siempre query_resumen_ejecutivo_mes. “Este mes” corresponde a mes ${currentMonth} de ${currentYear}.`,
     "Para preguntas sobre quién debe, deudores o quién falta de pagar sin periodo explícito, consulta los adeudos del mes en curso y menciona el periodo usado. Para otros tipos de consulta, pide aclaración sólo si el periodo es indispensable.",
-    "Habla como un asistente cercano que ayuda al director de la escuela: usa un tono cálido, natural y conversacional, no una tabla de Excel narrada. No uses emojis. Prefiere frases corridas y usa listas sólo cuando el usuario pida una lista o haya varios alumnos que enumerar.",
+    "Habla como un asistente cercano que ayuda al director de la escuela: usa un tono cálido, natural y conversacional, no una tabla de Excel narrada. No uses emojis. Prefiere frases corridas y usa listas sólo cuando el usuario pida una lista o haya varios alumnos que enumerar. Excepción: si una consulta de adeudos devuelve alumnos, presenta una tabla Markdown con Alumno, Nivel/Grado, Saldo y Cargos.",
     "Las cifras de las herramientas son una frontera estricta: conserva cada monto y cifra exacta tal como aparece, incluyendo el signo $, separadores y negritas Markdown. No redondees, aproximes, conviertas a palabras ni inventes cifras nuevas. Si no puedes reformular sin cambiar una cifra, usa el texto verificado de la herramienta.",
     "En un resumen ejecutivo menciona explícitamente cobrado, por cobrar no vencido, vencido, alumnos con beca activa y descuentos aplicados, con la cifra asociada a cada indicador aunque dos importes coincidan.",
     "Cuando una herramienta ya entregó todos los datos, responde con ellos directamente en un mensaje breve y natural; no vuelvas a llamar herramientas innecesariamente.",
@@ -758,7 +788,9 @@ export async function answerWithClaude(
               "Responde ahora con tono cercano y natural; no vuelvas a llamar una herramienta salvo que falte un dato indispensable.",
               options.prefetchedTool.name === "query_resumen_ejecutivo_mes"
                 ? "Para este resumen usa 2 o 3 frases corridas, sin viñetas ni emojis."
-                : "Para este resultado usa frases breves y naturales; enumera alumnos sólo si el detalle lo requiere.",
+                : options.prefetchedTool.name === "query_adeudos_nivel_periodo"
+                  ? "Si hay alumnos, usa una tabla Markdown con las columnas Alumno | Nivel/Grado | Saldo | Cargos, una fila por alumno. Conserva cada nombre, saldo y número de cargos; no agregues cifras."
+                  : "Para este resultado usa frases breves y naturales; enumera alumnos sólo si el detalle lo requiere.",
               `Incluye literalmente todos estos valores verificados: ${Array.from(new Set(toolFactSources.flatMap(numericTokens))).join(", ") || "ninguno"}.`,
               `Menciona cada indicador verificado, sin fusionarlos: ${toolFactRequirements.join(" | ") || "usa el summary de la herramienta"}.`,
               "No agregues ninguna cifra distinta.",
@@ -817,8 +849,15 @@ export async function answerWithClaude(
           reply,
           executiveSummaryRows,
         );
+        const adeudosFactSources = [
+          ...toolFactSources,
+          ...toolFallbackRows.map((row) => row.label),
+        ];
         const finalReply = hasAdeudosResult
-          ? boldVerifiedFigures(verifiedFallback, toolFactSources)
+          ? reply
+            && preservesAdeudosReply(reply, adeudosFactSources, toolFallbackRows)
+            ? reply
+            : boldVerifiedFigures(verifiedFallback, toolFactSources)
           : reply && preservesToolFigures(reply, toolFactSources) && hasVerifiedExecutiveAssociations
           ? boldVerifiedFigures(reply, toolFactSources)
           : reply && executiveSummaryRows.length === 0 && containsOnlyToolFigures(reply, toolFactSources) && verifiedDetails
@@ -900,7 +939,10 @@ export async function answerWithClaude(
         });
       }
 
-      messages.push({
+        const usedAdeudosTool = toolUses.some(
+          (toolUse: any) => toolUse?.name === "query_adeudos_nivel_periodo",
+        );
+        messages.push({
         role: "user",
         content: [
           ...toolResults,
@@ -909,6 +951,9 @@ export async function answerWithClaude(
             text: [
               "Los resultados de las herramientas ya contienen los datos disponibles.",
               "Responde ahora con tono cercano y natural; no vuelvas a llamar una herramienta salvo que falte un dato indispensable.",
+              usedAdeudosTool
+                ? "Si hay alumnos en los adeudos, usa una tabla Markdown con las columnas Alumno | Nivel/Grado | Saldo | Cargos, una fila por alumno. Conserva cada nombre, saldo y número de cargos; no agregues cifras."
+                : "",
               `Incluye literalmente todos estos valores verificados: ${Array.from(new Set(toolFactSources.flatMap(numericTokens))).join(", ") || "ninguno"}.`,
               `Menciona cada indicador verificado, sin fusionarlos: ${toolFactRequirements.join(" | ") || "usa el summary de la herramienta"}.`,
               "No agregues ninguna cifra distinta.",

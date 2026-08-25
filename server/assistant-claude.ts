@@ -723,6 +723,15 @@ export async function answerWithClaude(
   );
   const conversationTools: ClaudeConversationTool[] = [];
   const studentTargets = new Map<number, StudentNavigationTarget>();
+  const addStudentTargets = (targets: ActionResult["studentTargets"]) => {
+    for (const target of targets ?? []) {
+      const id = Number(target.id);
+      const name = typeof target.name === "string" ? target.name.trim() : "";
+      if (Number.isSafeInteger(id) && id > 0 && name) {
+        studentTargets.set(id, { id, name });
+      }
+    }
+  };
   const toolFactSources: string[] = [];
   const toolFallbackReplies: string[] = [];
   const toolFactRequirements: string[] = [];
@@ -762,6 +771,7 @@ export async function answerWithClaude(
     const toolUseId = "prefetched-current-query";
     trace.toolCalls.push(options.prefetchedTool.name);
     conversationTools.push({ name: options.prefetchedTool.name, input: safeInput });
+    addStudentTargets(options.prefetchedTool.result.studentTargets);
     addVerifiedToolFacts(options.prefetchedTool.name, options.prefetchedTool.result);
     messages.push(
       {
@@ -918,13 +928,7 @@ export async function answerWithClaude(
         }
 
         const result = await runAction(actionId, toolInput, context);
-        for (const target of result.studentTargets ?? []) {
-          const id = Number(target.id);
-          const name = typeof target.name === "string" ? target.name.trim() : "";
-          if (Number.isSafeInteger(id) && id > 0 && name) {
-            studentTargets.set(id, { id, name });
-          }
-        }
+        addStudentTargets(result.studentTargets);
         const safeToolInput = normalizeHistoricalToolInput(toolUse.name, toolInput);
         if (safeToolInput) {
           conversationTools.push({ name: toolUse.name, input: safeToolInput });

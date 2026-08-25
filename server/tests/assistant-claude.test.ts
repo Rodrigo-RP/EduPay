@@ -215,6 +215,49 @@ describe("fallback de Claude con herramientas read-only", () => {
     expect(result.reply).toContain("Agosto avanza bien");
   });
 
+  it("conserva los expedientes de adeudos en una consulta prevalidada", async () => {
+    const client = clientWith([{
+      stop_reason: "end_turn",
+      content: [{
+        type: "text",
+        text: "| Alumno | Nivel/Grado | Saldo | Cargos |\n" +
+          "| --- | --- | ---: | ---: |\n" +
+          "| Ana Ejemplo | Primaria · grado 1 | $1,000 | 1 cargo(s) |\n" +
+          "| Luis Ejemplo | Secundaria · grado 2 | $500 | 1 cargo(s) |",
+      }],
+    }]);
+    const result = await answerWithClaude(
+      "dame la lista de deudores",
+      context,
+      {
+        client,
+        canRead: () => true,
+        prefetchedTool: {
+          name: "query_adeudos_nivel_periodo",
+          input: { mes: 8, anio: 2026, nivel: "" },
+          result: {
+            success: true,
+            title: "Alumnos con adeudo",
+            summary: "Encontré **2 alumno(s)** con saldo pendiente por **$1,500**.",
+            rows: [
+              { label: "Ana Ejemplo · Primaria · grado 1", value: "$1,000 · 1 cargo(s)" },
+              { label: "Luis Ejemplo · Secundaria · grado 2", value: "$500 · 1 cargo(s)" },
+            ],
+            studentTargets: [
+              { id: 101, name: "Ana Ejemplo" },
+              { id: 102, name: "Luis Ejemplo" },
+            ],
+          },
+        },
+      },
+    );
+
+    expect(result.studentTargets).toEqual([
+      { id: 101, name: "Ana Ejemplo" },
+      { id: 102, name: "Luis Ejemplo" },
+    ]);
+  });
+
   it("rechaza un periodo ejecutivo inválido sin consultar ni modificar datos", async () => {
     const result = await executeAction(
       "query:resumen_ejecutivo_mes",

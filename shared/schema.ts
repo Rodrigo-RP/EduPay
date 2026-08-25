@@ -1366,9 +1366,41 @@ export const scholarship_auto_rules = pgTable("scholarship_auto_rules", {
   descuento_porcentaje: numeric("descuento_porcentaje", { precision: 5, scale: 2 }).notNull(),
   aplica_a: varchar("aplica_a", { length: 50 }).default("todos"),
   activo: boolean("activo").default(true),
+  ciclo_escolar: varchar("ciclo_escolar", { length: 50 }),
+  vigencia_inicio: date("vigencia_inicio"),
+  vigencia_fin: date("vigencia_fin"),
   created_at: timestamp("created_at").defaultNow(),
 });
 export type ScholarshipAutoRule = typeof scholarship_auto_rules.$inferSelect;
+
+export const scholarship_auto_assignments = pgTable("scholarship_auto_assignments", {
+  id: serial("id").primaryKey(),
+  rule_id: integer("rule_id").notNull().references(() => scholarship_auto_rules.id, { onDelete: "cascade" }),
+  scholarship_id: integer("scholarship_id").references(() => scholarships.id, { onDelete: "set null" }),
+  student_id: integer("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
+  campus_id: integer("campus_id").notNull().references(() => campuses.id),
+  tenant_id: integer("tenant_id").notNull().references(() => tenants.id),
+  ciclo_escolar: varchar("ciclo_escolar", { length: 50 }).notNull(),
+  porcentaje_aplicado: numeric("porcentaje_aplicado", { precision: 5, scale: 2 }).notNull(),
+  porcentaje_manual: numeric("porcentaje_manual", { precision: 5, scale: 2 }),
+  estado: varchar("estado", { length: 40 }).notNull().default("aplicada"),
+  motivo_resultado: varchar("motivo_resultado", { length: 255 }),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+export type ScholarshipAutoAssignment = typeof scholarship_auto_assignments.$inferSelect;
+
+export const charge_scholarship_applications = pgTable("charge_scholarship_applications", {
+  id: serial("id").primaryKey(),
+  charge_id: integer("charge_id").notNull().references(() => charges.id, { onDelete: "cascade" }),
+  scholarship_id: integer("scholarship_id").notNull().references(() => scholarships.id, { onDelete: "cascade" }),
+  tenant_id: integer("tenant_id").notNull().references(() => tenants.id),
+  effective_percentage: numeric("effective_percentage", { precision: 5, scale: 2 }).notNull(),
+  source: varchar("source", { length: 20 }).notNull().default("automatico"),
+  applied_at: timestamp("applied_at").defaultNow(),
+  recalculated_at: timestamp("recalculated_at").defaultNow(),
+});
+export type ChargeScholarshipApplication = typeof charge_scholarship_applications.$inferSelect;
 
 // ── CALENDARIO FINANCIERO ─────────────────────────────────────────────────────
 export const financial_events = pgTable("financial_events", {

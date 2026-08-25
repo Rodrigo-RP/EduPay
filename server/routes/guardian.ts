@@ -17,6 +17,7 @@ import bcrypt from "bcrypt";
 import { NotificationSystem as ServerNotificationSystem } from '../notification-system';
 import Stripe from "stripe";
 import { getActiveStripeAccountForCampus } from "./campus-payment";
+import { resolveEffectiveScholarship } from "../lib/scholarship-engine";
 
 /**
  * Subconjunto de la API de Stripe necesario para guardian/pagar.
@@ -745,35 +746,6 @@ export async function registerGuardianRoutes(
         });
       }
 
-      // Cargar becas activas del campus — vigencia_inicio <= hoy <= vigencia_fin
-      // Columnas reales: porcentaje (numeric, NOT NULL). Sin columna 'estado' en la DB.
-      // vigencia_fin es NOT NULL en la DB — no se necesita IS NULL check.
-      const becasRows = aplicar_becas
-        ? await pool.query(
-            `SELECT s.student_id, s.porcentaje
-             FROM scholarships s
-             JOIN students stu ON stu.id = s.student_id
-             WHERE stu.campus_id = $1
-               AND s.vigencia_inicio <= CURRENT_DATE
-               AND s.vigencia_fin >= CURRENT_DATE`,
-            [userCampusId]
-          ).catch((err: any) => {
-            console.error("[guardian charges/generate] becas DB error:", err.message);
-            return { rows: [] };
-          })
-        : { rows: [] };
-
-      // Índice student_id → beca (la más beneficiosa si hay varias).
-      // monto_fijo siempre 0: la columna monto_fijo_aplicado_centavos no existe en la DB actual.
-      // La rama `else if (beca.monto_fijo > 0)` queda como placeholder para implementación futura.
-      const becaMap: Record<number, { porcentaje_exacto: number; monto_fijo: number }> = {};
-      for (const b of (becasRows.rows as any[])) {
-        const pct = Number(b.porcentaje || 0);
-        if (!becaMap[b.student_id] || pct > becaMap[b.student_id].porcentaje_exacto) {
-          becaMap[b.student_id] = { porcentaje_exacto: pct, monto_fijo: 0 };
-        }
-      }
-
       const chargesCreated: any[] = [];
       const chargesSummary: any[] = [];
       const defaultIssueDate = new Date().toISOString().split("T")[0];
@@ -813,24 +785,19 @@ export async function registerGuardianRoutes(
         // Beca real — precisión a 2 decimales para no perder centavos
         let discountPct     = 0;   // porcentaje exacto con 2 decimales
         let discountCentavos = 0;  // fuente de verdad para el monto descontado
-        if (aplicar_becas && becaMap[student.id]) {
-          const beca = becaMap[student.id];
-          if (beca.porcentaje_exacto > 0) {
-            discountPct      = beca.porcentaje_exacto;
-            discountCentavos = Math.round(baseAmount * beca.porcentaje_exacto / 100);
-          } else if (beca.monto_fijo > 0) {
-            // Monto fijo: calcular porcentaje exacto con 2 decimales
-            discountCentavos = Math.min(beca.monto_fijo, baseAmount);
-            // Guardar hasta 2 decimales para poder recuperar el descuento
-            discountPct = parseFloat((discountCentavos / baseAmount * 100).toFixed(2));
-            // Verificar que el porcentaje reconstruya exactamente el descuento
-            // Si hay error de redondeo, ajustar el centavo
-            const reconstructed = Math.round(baseAmount * discountPct / 100);
-            if (reconstructed !== discountCentavos) {
-              // Usar 4 decimales para mayor precisión
-              discountPct = parseFloat((discountCentavos / baseAmount * 100).toFixed(4));
-            }
-          }
+        const chargeDate = fecha_emision || defaultIssueDate;
+        const scholarship = aplicar_becas
+          ? await resolveEffectiveScholarship(pool, {
+              studentId: Number(student.id),
+              campusId: Number(userCampusId),
+              tenantId: Number(userTenantId),
+              chargeDate,
+              conceptType: concept?.tipo ?? productForPricing?.categoria ?? null,
+            })
+          : null;
+        if (scholarship && scholarship.effectivePercentage > 0) {
+          discountPct = scholarship.effectivePercentage;
+          discountCentavos = Math.round(baseAmount * discountPct / 100);
         }
 
         // Exención de recargo para adeudos migrados: un charge importado de sistemas
@@ -870,6 +837,15 @@ export async function registerGuardianRoutes(
             estado:                    "pendiente",
             es_adeudo_migrado:         esAdeudoMigrado,
           });
+          if (scholarship?.scholarshipId && discountPct > 0) {
+            await pool.query(
+              `INSERT INTO charge_scholarship_applications
+                (charge_id, scholarship_id, tenant_id, effective_percentage, source)
+               VALUES ($1,$2,$3,$4,$5)
+               ON CONFLICT (charge_id, scholarship_id) DO NOTHING`,
+              [charge.id, scholarship.scholarshipId, userTenantId, discountPct, scholarship.source],
+            );
+          }
           chargesCreated.push(charge);
         }
       }

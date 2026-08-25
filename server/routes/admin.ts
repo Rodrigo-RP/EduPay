@@ -1493,28 +1493,44 @@ export function registerAdminRoutes(app: Express): void {
       }
       const alumno = (alumnoRes.rows as any[])[0];
 
-      // Check de becas vigentes solapadas (antes del INSERT, sin txn)
-      const vigentesRes = await pool.query(
-        `SELECT id, porcentaje, vigencia_inicio, vigencia_fin
-         FROM scholarships
-         WHERE student_id = $1
-           AND vigencia_fin >= CURRENT_DATE
-         ORDER BY porcentaje DESC`,
-        [studentId]
-      );
-      const vigentes      = vigentesRes.rows as any[];
+      // Comparte el bloqueo del motor automático: la decisión manual/automática
+      // queda serializada por alumno incluso si ambas solicitudes llegan a la vez.
+      const client = await pool.connect();
+      let vigentes: any[] = [];
+      let beca: any;
+      try {
+        await client.query("BEGIN");
+        await client.query(
+          `SELECT pg_advisory_xact_lock(($1::bigint * 1000000) + $2::bigint)`,
+          [campusId, studentId],
+        );
+        const vigentesRes = await client.query(
+          `SELECT id, porcentaje, vigencia_inicio, vigencia_fin
+             FROM scholarships
+            WHERE student_id = $1 AND tenant_id = $2
+              AND vigencia_fin >= CURRENT_DATE
+            ORDER BY porcentaje DESC
+            FOR UPDATE`,
+          [studentId, tenantId],
+        );
+        vigentes = vigentesRes.rows as any[];
+        const insertRes = await client.query(
+          `INSERT INTO scholarships
+             (student_id, tenant_id, porcentaje, motivo, vigencia_inicio, vigencia_fin)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           RETURNING id, student_id, tenant_id, porcentaje, motivo,
+                     vigencia_inicio, vigencia_fin, created_at`,
+          [studentId, tenantId, pct, motivo || null, vinicio, vfin],
+        );
+        beca = (insertRes.rows as any[])[0];
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK").catch(() => {});
+        throw error;
+      } finally {
+        client.release();
+      }
       const overlapWarning = vigentes.length > 0;
-
-      // INSERT con solo las columnas reales de la DB
-      const insertRes = await pool.query(
-        `INSERT INTO scholarships
-           (student_id, tenant_id, porcentaje, motivo, vigencia_inicio, vigencia_fin)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         RETURNING id, student_id, tenant_id, porcentaje, motivo,
-                   vigencia_inicio, vigencia_fin, created_at`,
-        [studentId, tenantId, pct, motivo || null, vinicio, vfin]
-      );
-      const beca = (insertRes.rows as any[])[0];
 
       // Audit FUERA de transacción (ADR-001)
       const auditMeta = {

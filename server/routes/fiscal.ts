@@ -20,6 +20,12 @@ import {
   ProviderStampError,
 } from "../lib/invoicing/invoicing-provider";
 import { enqueueAuditLog, type AuditLogPayload } from "../audit-retry";
+import {
+  applyAutomaticRuleForStudent,
+  currentSchoolYear,
+  schoolYearDates,
+  type AutomaticRule,
+} from "../lib/scholarship-engine";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -627,11 +633,17 @@ export function registerFiscalRoutes(app: Express): void {
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
-  // ── 14. Motor de becas automáticas (sin cambios) ─────────────────────────
+  // ── 14. Motor de becas automáticas ────────────────────────────────────────
   app.get("/api/becas-auto/reglas/:campusId", authenticateToken, async (req: any, res) => {
     try {
-      const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
-      if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
+      const requestedCampusId = parseInt(req.params.campusId);
+      const campusId = Number(req.user?.campus_id);
+      if (!Number.isSafeInteger(requestedCampusId) || requestedCampusId !== campusId) {
+        return res.status(403).json({ message: "El campus solicitado no coincide con tu sesión" });
+      }
+      if (!hasPermissionForUser(req.user, MODULES.SCHOLARSHIPS, ACTIONS.ASSIGN)) {
+        return res.status(403).json({ message: "Sin permisos para gestionar becas" });
+      }
       const rows = await pool.query(`SELECT * FROM scholarship_auto_rules WHERE campus_id = $1 ORDER BY created_at DESC`, [campusId]);
       res.json(rows.rows);
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
@@ -657,12 +669,35 @@ export function registerFiscalRoutes(app: Express): void {
       const campusId = req.user?.campus_id;
       const tenantId = req.user?.tenant_id;
       const { nombre, tipo, descuento_porcentaje, condicion_json, aplica_a } = req.body;
+      const validDestinations = new Set(["todos", "segundo_hijo", "tercer_hijo"]);
+      const percentage = Number(descuento_porcentaje);
+      if (tipo !== "hermanos") {
+        return res.status(422).json({ message: "El motor automático sólo admite reglas de hermanos por ahora" });
+      }
+      if (!Number.isFinite(percentage) || percentage <= 0 || percentage > 100) {
+        return res.status(400).json({ message: "descuento_porcentaje debe ser un número entre 0 y 100" });
+      }
+      if (!validDestinations.has(aplica_a || "todos")) {
+        return res.status(422).json({ message: "aplica_a no está soportado por el motor de hermanos" });
+      }
+      const cicloEscolar = String(req.body.ciclo_escolar || currentSchoolYear());
+      if (!/^\d{4}-\d{4}$/.test(cicloEscolar)) {
+        return res.status(400).json({ message: "ciclo_escolar debe usar el formato AAAA-AAAA" });
+      }
+      const fechas = schoolYearDates(cicloEscolar);
+      const start = String(req.body.vigencia_inicio || fechas.start);
+      const end = String(req.body.vigencia_fin || fechas.end);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || end < start) {
+        return res.status(400).json({ message: "La vigencia de la regla no es válida" });
+      }
       const row = await pool.query(
         `INSERT INTO scholarship_auto_rules
-           (campus_id, tenant_id, nombre, tipo, descuento_porcentaje, condicion_json, aplica_a)
-         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-        [campusId, tenantId, nombre, tipo, Number(descuento_porcentaje),
-         condicion_json || null, aplica_a || 'todos'],
+           (campus_id, tenant_id, nombre, tipo, descuento_porcentaje, condicion_json, aplica_a,
+            ciclo_escolar, vigencia_inicio, vigencia_fin)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+        [campusId, tenantId, nombre, tipo, percentage,
+         condicion_json || null, aplica_a || 'todos', cicloEscolar,
+         start, end],
       );
       res.json((row.rows as any[])[0]);
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
@@ -682,30 +717,197 @@ export function registerFiscalRoutes(app: Express): void {
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
-  app.post("/api/becas-auto/ejecutar/:campusId", authenticateToken, async (req: any, res) => {
+  app.get("/api/becas-auto/alertas", authenticateToken, async (req: any, res) => {
     try {
       if (!hasPermissionForUser(req.user, MODULES.SCHOLARSHIPS, ACTIONS.ASSIGN)) {
         return res.status(403).json({ message: "Sin permisos para gestionar becas" });
       }
-      const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
-      if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
-      const reglas = await pool.query(
-        `SELECT * FROM scholarship_auto_rules WHERE campus_id = $1 AND activo = true`,
-        [campusId],
+      const cicloEscolar = String(req.query.ciclo_escolar || currentSchoolYear());
+      const rows = await pool.query(
+        `SELECT saa.id, saa.rule_id, saa.student_id, saa.ciclo_escolar,
+                saa.porcentaje_aplicado, saa.porcentaje_manual,
+                sar.nombre AS regla_nombre, s.nombre_completo AS alumno
+           FROM scholarship_auto_assignments saa
+           JOIN scholarship_auto_rules sar ON sar.id = saa.rule_id
+           JOIN students s ON s.id = saa.student_id
+          WHERE saa.tenant_id = $1 AND saa.campus_id = $2
+            AND saa.ciclo_escolar = $3
+            AND saa.estado = 'omitida_manual_prioridad'
+          ORDER BY s.nombre_completo`,
+        [req.user.tenant_id, req.user.campus_id, cicloEscolar],
       );
-      let aplicadas = 0;
-      for (const regla of (reglas.rows as any[])) {
-        if (regla.tipo === 'hermanos') {
-          const familias = await pool.query(`
-            SELECT guardian_id, COUNT(*) as total_hijos
-            FROM student_guardian sg JOIN students s ON s.id = sg.student_id
-            WHERE s.campus_id = $1 AND s.status = 'activo'
-            GROUP BY guardian_id HAVING COUNT(*) >= 2
-          `, [campusId]);
-          aplicadas += (familias.rows as any[]).length;
+      res.json(rows.rows);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
+  const executeAutomaticScholarships = async (req: any, res: any) => {
+    try {
+      if (!hasPermissionForUser(req.user, MODULES.SCHOLARSHIPS, ACTIONS.ASSIGN)) {
+        return res.status(403).json({ message: "Sin permisos para ejecutar becas" });
+      }
+      const campusId = Number(req.user.campus_id);
+      const tenantId = Number(req.user.tenant_id);
+      const cicloEscolar = String(req.body?.ciclo_escolar || currentSchoolYear());
+      if (!/^\d{4}-\d{4}$/.test(cicloEscolar)) {
+        return res.status(400).json({ message: "ciclo_escolar debe usar el formato AAAA-AAAA" });
+      }
+      const cycleDates = schoolYearDates(cicloEscolar);
+      const rulesResult = await pool.query(
+        `SELECT id, nombre, descuento_porcentaje, aplica_a, ciclo_escolar,
+                vigencia_inicio, vigencia_fin
+           FROM scholarship_auto_rules
+          WHERE campus_id = $1 AND tenant_id = $2 AND activo = true
+            AND tipo = 'hermanos'
+            AND (ciclo_escolar IS NULL OR ciclo_escolar = $3)
+            AND (vigencia_inicio IS NULL OR vigencia_inicio <= $5::date)
+            AND (vigencia_fin IS NULL OR vigencia_fin >= $4::date)
+          ORDER BY id`,
+        [campusId, tenantId, cicloEscolar, cycleDates.start, cycleDates.end],
+      );
+      const summary = {
+        ciclo_escolar: cicloEscolar,
+        reglas_procesadas: 0,
+        alumnos_evaluados: 0,
+        becas_creadas: 0,
+        asignaciones_existentes: 0,
+        omitidas_prioridad_manual: 0,
+        omitidas_automatica_mayor: 0,
+        cargos_actualizados: 0,
+        cargos_excluidos: 0,
+        alertas: [] as Array<{
+          student_id: number;
+          porcentaje_manual: number;
+          porcentaje_automatico: number;
+          mensaje: string;
+        }>,
+      };
+
+      for (const rawRule of rulesResult.rows as any[]) {
+        summary.reglas_procesadas++;
+        const rule: AutomaticRule = {
+          id: Number(rawRule.id),
+          nombre: rawRule.nombre,
+          descuento_porcentaje: rawRule.descuento_porcentaje,
+          aplica_a: rawRule.aplica_a,
+          ciclo_escolar: rawRule.ciclo_escolar,
+          vigencia_inicio: rawRule.vigencia_inicio,
+          vigencia_fin: rawRule.vigencia_fin,
+        };
+        const studentsResult = await pool.query(
+          `WITH sibling_rows AS (
+             SELECT sg.student_id,
+                    COUNT(*) OVER (PARTITION BY sg.guardian_id) AS sibling_count,
+                    ROW_NUMBER() OVER (PARTITION BY sg.guardian_id ORDER BY sg.student_id) AS sibling_order
+               FROM student_guardian sg
+               JOIN students s ON s.id = sg.student_id
+              WHERE s.campus_id = $1 AND s.tenant_id = $2 AND s.status = 'activo'
+           )
+           SELECT DISTINCT student_id
+             FROM sibling_rows
+            WHERE sibling_count >= 2
+              AND (
+                $3 = 'todos'
+                OR ($3 = 'segundo_hijo' AND sibling_order = 2)
+                OR ($3 = 'tercer_hijo' AND sibling_order >= 3)
+              )`,
+          [campusId, tenantId, rule.aplica_a || "todos"],
+        );
+        for (const student of studentsResult.rows as Array<{ student_id: number }>) {
+          summary.alumnos_evaluados++;
+          const client = await pool.connect();
+          try {
+            await client.query("BEGIN");
+            const result = await applyAutomaticRuleForStudent(client, {
+              rule,
+              studentId: Number(student.student_id),
+              campusId,
+              tenantId,
+              cicloEscolar,
+            });
+            await client.query("COMMIT");
+            if (result.status === "aplicada") {
+              summary.becas_creadas++;
+              summary.cargos_actualizados += result.chargesUpdated;
+              summary.cargos_excluidos += result.chargesExcluded;
+            } else if (result.status === "existente") {
+              summary.asignaciones_existentes++;
+            } else if (result.status === "omitida_manual_prioridad") {
+              summary.omitidas_prioridad_manual++;
+            } else {
+              summary.omitidas_automatica_mayor++;
+            }
+            if (result.alert) {
+              summary.alertas.push({
+                student_id: result.alert.studentId,
+                porcentaje_manual: result.alert.manualPercentage,
+                porcentaje_automatico: result.alert.automaticPercentage,
+                mensaje: result.alert.message,
+              });
+            }
+            const auditAction = result.status === "aplicada"
+              ? "beca_automatica_aplicada"
+              : result.status === "omitida_manual_prioridad"
+                ? "beca_automatica_omitida_manual"
+                : "beca_automatica_omitida";
+            pool.query(
+              `INSERT INTO audit_log
+                (tenant_id, user_id, action, entity_type, entity_id, metadata)
+               VALUES ($1,$2,$3,'student',$4,$5)`,
+              [
+                tenantId,
+                req.user.id ?? null,
+                auditAction,
+                Number(student.student_id),
+                JSON.stringify({
+                  rule_id: rule.id,
+                  rule_name: rule.nombre,
+                  ciclo_escolar: cicloEscolar,
+                  status: result.status,
+                  scholarship_id: result.scholarshipId,
+                  automatic_percentage: result.automaticPercentage,
+                  manual_percentage: result.manualPercentage,
+                  charges_updated: result.chargesUpdated,
+                  alert: result.alert,
+                }),
+              ],
+            ).catch((auditError: any) =>
+              enqueueAuditLog({
+                tenant_id: tenantId,
+                user_id: req.user.id,
+                action: auditAction,
+                entity_type: "student",
+                entity_id: Number(student.student_id),
+                metadata: {
+                  rule_id: rule.id,
+                  status: result.status,
+                  scholarship_id: result.scholarshipId,
+                  charges_updated: result.chargesUpdated,
+                },
+              }, auditError),
+            );
+          } catch (error) {
+            await client.query("ROLLBACK");
+            throw error;
+          } finally {
+            client.release();
+          }
         }
       }
-      res.json({ aplicadas, mensaje: `Se aplicaron/calcularon becas automáticas para ${aplicadas} estudiantes` });
-    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
-  });
+
+      res.json({
+        ...summary,
+        mensaje: `Motor ejecutado: ${summary.becas_creadas} becas nuevas y ${summary.cargos_actualizados} cargos actualizados`,
+      });
+    } catch (error: any) {
+      console.error("[POST /api/becas-auto/ejecutar] error:", error.message);
+      res.status(500).json({ message: "Error ejecutando el motor de becas" });
+    }
+  };
+
+  // Ruta canónica: campus y tenant provienen exclusivamente del JWT.
+  app.post("/api/becas-auto/ejecutar", authenticateToken, executeAutomaticScholarships);
+  // Compatibilidad temporal: ignora cualquier campusId de la URL y ejecuta sólo el campus del JWT.
+  app.post("/api/becas-auto/ejecutar/:campusId", authenticateToken, executeAutomaticScholarships);
 }

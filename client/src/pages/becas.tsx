@@ -32,6 +32,9 @@ function BecasReglaAuto() {
   const { data: reglas, isLoading } = useQuery<any[]>({
     queryKey: ["/api/becas-auto/reglas", campusId],
   });
+  const { data: alertas = [] } = useQuery<any[]>({
+    queryKey: ["/api/becas-auto/alertas", campusId],
+  });
 
   const crearRegla = useMutation({
     mutationFn: (data: any) => apiRequest("/api/becas-auto/reglas", { method: "POST", body: JSON.stringify(data) }),
@@ -50,16 +53,18 @@ function BecasReglaAuto() {
   });
 
   const ejecutarBecas = useMutation({
-    mutationFn: () => apiRequest(`/api/becas-auto/ejecutar/${campusId}`, { method: "POST", body: JSON.stringify({}) }),
-    onSuccess: (r: any) => toast({ title: "Motor ejecutado", description: r?.mensaje || "Becas automáticas aplicadas" }),
+    mutationFn: () => apiRequest("/api/becas-auto/ejecutar", { method: "POST", body: JSON.stringify({}) }),
+    onSuccess: (r: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/becas-auto/alertas"] });
+      toast({
+        title: "Motor ejecutado",
+        description: r?.mensaje || "Becas automáticas procesadas",
+      });
+    },
   });
 
   const TIPOS: Record<string, { label: string; desc: string; icon: string }> = {
     hermanos: { label: "Descuento por hermanos", desc: "Se aplica a familias con 2+ estudiantes activos", icon: "👨‍👩‍👧‍👦" },
-    academica: { label: "Beca académica", desc: "Requiere promedio mínimo configurable", icon: "🏆" },
-    empleado: { label: "Hijo de empleado", desc: "Aplica a hijos de trabajadores de la institución", icon: "🏫" },
-    socioeconomica: { label: "Apoyo socioeconómico", desc: "Basado en estudio socioeconómico", icon: "🤝" },
-    deportiva: { label: "Beca deportiva", desc: "Para estudiantes de alto rendimiento deportivo", icon: "⚽" },
   };
 
   return (
@@ -135,7 +140,6 @@ function BecasReglaAuto() {
                     <SelectItem value="todos">Todos los hijos</SelectItem>
                     <SelectItem value="segundo_hijo">Segundo hijo</SelectItem>
                     <SelectItem value="tercer_hijo">Tercer hijo en adelante</SelectItem>
-                    <SelectItem value="nuevo_ingreso">Solo nuevos ingresos</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -153,6 +157,24 @@ function BecasReglaAuto() {
       )}
 
       {/* Lista de reglas activas */}
+      {alertas.length > 0 && (
+        <Card className="border-amber-300 bg-amber-50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2 text-amber-900">
+              <AlertTriangle className="w-4 h-4" />
+              Revisión administrativa requerida
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {alertas.map((alerta: any) => (
+              <div key={alerta.id} className="text-sm text-amber-900">
+                <strong>{alerta.alumno}</strong>: {alerta.mensaje ||
+                  `La beca automática de ${alerta.porcentaje_aplicado}% supera la beca manual vigente de ${alerta.porcentaje_manual}%.`}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
       {isLoading ? (
         <div className="flex items-center justify-center py-10">
           <div className="animate-spin w-6 h-6 border-4 border-green-600 border-t-transparent rounded-full" />
@@ -1915,7 +1937,7 @@ ${b.nombre}:
                     const csvContent = [
                       'Nombre,Grado,Grupo,Porcentaje,Descuento Acumulado,Estado',
                       ...estudiantesDeBecaSeleccionada
-                        .map(e => `${e.nombre_completo},${e.grado},${e.grupo || 'N/A'},${e.porcentaje_asignado}%,$${((e.monto_mensual_descuento || 0)/100).toLocaleString()},${e.estado}`)
+                        .map((e: any) => `${e.nombre_completo},${e.grado},${e.grupo || 'N/A'},${e.porcentaje_asignado}%,$${((e.monto_mensual_descuento || 0)/100).toLocaleString()},${e.estado}`)
                     ].join('\n');
                     
                     const blob = new Blob([csvContent], { type: 'text/csv' });

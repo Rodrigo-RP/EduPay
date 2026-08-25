@@ -10,6 +10,7 @@ import { insertChargeSchema } from "@shared/schema";
 import { getAcademicLevel } from "@shared/academic-levels";
 import { wsManager } from "../websocket-manager";
 import { z } from "zod";
+import { resolveEffectiveScholarship } from "../lib/scholarship-engine";
 
 export function registerChargesRoutes(app: Express): void {
   app.get("/api/admin/concepts/:campusId", authenticateToken, async (req: any, res) => {
@@ -58,18 +59,17 @@ export function registerChargesRoutes(app: Express): void {
         return res.status(403).json({ message: "Sin permisos para crear cargos en masa" });
       }
       const { campus_id, concept_id, ciclo_escolar, fecha_vencimiento } = req.body;
-      const tenantId = (req as any).user?.tenant_id;
+      const user = (req as any).user;
+      const tenantId = user?.tenant_id;
+      const campusId = Number(user?.campus_id);
 
-      // IDOR PROTECTION: verificar que el campus pertenece al tenant del usuario autenticado
-      if (tenantId && campus_id) {
-        const ownedCampus = await storage.getCampusScoped(parseInt(campus_id), tenantId);
-        if (!ownedCampus) {
-          return res.status(403).json({ message: "Acceso denegado: el campus no pertenece a este tenant" });
-        }
+      // El campus efectivo es el de la sesión: no basta que pertenezca al mismo tenant.
+      if (!Number.isSafeInteger(Number(campus_id)) || Number(campus_id) !== campusId) {
+        return res.status(403).json({ message: "El campus solicitado no coincide con tu sesión" });
       }
 
-      const students = await storage.getStudentsByCampus(campus_id);
-      const concepts = await storage.getConceptsByCampus(campus_id);
+      const students = await storage.getStudentsByCampus(campusId);
+      const concepts = await storage.getConceptsByCampus(campusId);
       const concept = concepts.find(c => c.id === concept_id);
       
       if (!concept) {
@@ -79,7 +79,12 @@ export function registerChargesRoutes(app: Express): void {
       const charges = [];
       for (const student of students) {
         if (student.status === 'activo') {
-          const user = (req as any).user;
+          const scholarship = await resolveEffectiveScholarship(pool, {
+            studentId: Number(student.id),
+            campusId,
+            tenantId: Number(user.tenant_id ?? student.tenant_id),
+            conceptType: concept.tipo,
+          });
           const charge = await storage.createCharge({
             student_id: student.id,
             concept_id: concept.id,
@@ -88,22 +93,30 @@ export function registerChargesRoutes(app: Express): void {
             fecha_emision: new Date().toISOString().split('T')[0],
             fecha_vencimiento,
             monto_base_centavos: concept.monto_centavos,
-            beca_aplicada: "0.00",
+            beca_aplicada: scholarship.effectivePercentage.toFixed(2),
             recargo_aplicado_centavos: 0,
             estado: "pendiente",
           });
+          if (scholarship.scholarshipId && scholarship.effectivePercentage > 0) {
+            await pool.query(
+              `INSERT INTO charge_scholarship_applications
+                (charge_id, scholarship_id, tenant_id, effective_percentage, source)
+               VALUES ($1,$2,$3,$4,$5)
+               ON CONFLICT (charge_id, scholarship_id) DO NOTHING`,
+              [charge.id, scholarship.scholarshipId, user.tenant_id ?? student.tenant_id, scholarship.effectivePercentage, scholarship.source],
+            );
+          }
           charges.push(charge);
         }
       }
 
       // Notify real-time update for bulk charges
-      const user = (req as any).user;
       if (charges.length > 0) {
         wsManager.notifyPaymentUpdate(
           { bulk_operation: true, charges_created: charges.length }, 
           'create', 
           {
-            campus_id: campus_id,
+            campus_id: campusId,
             tenant_id: user.tenant_id,
             created_by: user.id
           }
@@ -185,6 +198,13 @@ export function registerChargesRoutes(app: Express): void {
       let created = 0;
       const monthlyUser = (req as any).user;
       for (const student of activeStudents) {
+        const scholarship = await resolveEffectiveScholarship(pool, {
+          studentId: Number(student.id),
+          campusId: Number(campusId),
+          tenantId: Number(monthlyUser?.tenant_id ?? (student as any).tenant_id),
+          chargeDate: fechaEmision,
+          conceptType: concept.tipo,
+        });
         await storage.createCharge({
           student_id: student.id,
           concept_id: concept.id,
@@ -193,7 +213,7 @@ export function registerChargesRoutes(app: Express): void {
           fecha_emision: fechaEmision,
           fecha_vencimiento: fechaVencimiento,
           monto_base_centavos: concept.monto_centavos || 450000,
-          beca_aplicada: '0.00',
+          beca_aplicada: scholarship.effectivePercentage.toFixed(2),
           recargo_aplicado_centavos: 0,
           estado: 'pendiente'
         });
@@ -421,7 +441,14 @@ export function registerChargesRoutes(app: Express): void {
           });
           continue;
         }
-        await storage.createCharge({
+        const scholarship = await resolveEffectiveScholarship(pool, {
+          studentId: Number(student.id),
+          campusId,
+          tenantId,
+          chargeDate: fecha_emision || today,
+          conceptType: concept.tipo,
+        });
+        const charge = await storage.createCharge({
           student_id: student.id,
           concept_id: concept.id,
           tenant_id: tenantId,
@@ -429,10 +456,19 @@ export function registerChargesRoutes(app: Express): void {
           fecha_emision: fecha_emision || today,
           fecha_vencimiento: dueDate,
           monto_base_centavos: amount,
-          beca_aplicada: "0.00",
+          beca_aplicada: scholarship.effectivePercentage.toFixed(2),
           recargo_aplicado_centavos: 0,
           estado: "pendiente",
         });
+        if (scholarship.scholarshipId && scholarship.effectivePercentage > 0) {
+          await pool.query(
+            `INSERT INTO charge_scholarship_applications
+              (charge_id, scholarship_id, tenant_id, effective_percentage, source)
+             VALUES ($1,$2,$3,$4,$5)
+             ON CONFLICT (charge_id, scholarship_id) DO NOTHING`,
+            [charge.id, scholarship.scholarshipId, tenantId, scholarship.effectivePercentage, scholarship.source],
+          );
+        }
         summary.push({
           student_id: student.id,
           student_name: student.nombre_completo || "Alumno sin nombre",

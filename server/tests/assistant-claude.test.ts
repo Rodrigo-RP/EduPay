@@ -70,6 +70,129 @@ describe("fallback de Claude con herramientas read-only", () => {
     expect(client.messages.create).toHaveBeenCalledTimes(2);
   });
 
+  it("reconstruye un turno histórico con tool_use y tool_result validados", async () => {
+    const firstQuestion = "qué alumnos faltan de pagar la colegiatura de agosto";
+    const firstAnswer = "Alma Claude y Bruno Claude tienen adeudo.";
+    const client = clientWith([
+      {
+        stop_reason: "end_turn",
+        content: [{ type: "text", text: "De esos alumnos, sólo Alma Claude tiene una beca vigente." }],
+      },
+    ]);
+    const runAction = vi.fn().mockResolvedValue({
+      success: true,
+      title: "Alumnos con adeudo",
+      summary: "Encontré dos alumnos.",
+      rows: [
+        { label: "Alma Claude", value: "$1,250" },
+        { label: "Bruno Claude", value: "$980" },
+      ],
+    });
+    const canRead = vi.fn(() => true);
+
+    await answerWithClaude(
+      "¿y de esos, cuáles ya tienen beca?",
+      context,
+      {
+        client,
+        canRead,
+        runAction,
+        history: {
+          messages: [
+            { role: "user", content: firstQuestion },
+            { role: "assistant", content: firstAnswer },
+            { role: "user", content: "¿y de esos, cuáles ya tienen beca?" },
+          ],
+          claudeTurns: [{
+            user: firstQuestion,
+            assistant: firstAnswer,
+            tools: [{
+              name: "query_adeudos_nivel_periodo",
+              input: { mes: 8, anio: 2026, nivel: "" },
+            }],
+          }],
+        },
+      },
+    );
+
+    const request = (client.messages.create as any).mock.calls[0][0];
+    expect(request.messages).toHaveLength(5);
+    expect(request.messages[0]).toMatchObject({ role: "user", content: firstQuestion });
+    expect(request.messages[1].content[0]).toMatchObject({
+      type: "tool_use",
+      name: "query_adeudos_nivel_periodo",
+      id: "history-0-0",
+    });
+    expect(request.messages[2].content[0]).toMatchObject({
+      type: "tool_result",
+      tool_use_id: "history-0-0",
+    });
+    expect(request.messages[3]).toMatchObject({ role: "assistant", content: firstAnswer });
+    expect(request.messages[4]).toMatchObject({ role: "user", content: "¿y de esos, cuáles ya tienen beca?" });
+    expect(canRead).toHaveBeenCalledWith(
+      "query:adeudos_nivel_periodo",
+      { mes: 8, anio: 2026, nivel: "" },
+    );
+    expect(runAction).toHaveBeenCalledWith(
+      "query:adeudos_nivel_periodo",
+      { mes: 8, anio: 2026, nivel: "" },
+      context,
+    );
+  });
+
+  it("no reutiliza datos históricos si el permiso actual ya no permite la consulta", async () => {
+    const client = clientWith([
+      { stop_reason: "end_turn", content: [{ type: "text", text: "No tengo permiso actual para ver esa beca." }] },
+    ]);
+    const runAction = vi.fn();
+
+    await answerWithClaude("¿y de esos, cuáles tienen beca?", context, {
+      client,
+      canRead: () => false,
+      runAction,
+      history: {
+        messages: [
+          { role: "user", content: "qué alumnos tienen adeudo" },
+          { role: "assistant", content: "Alma tiene adeudo." },
+        ],
+        claudeTurns: [{
+          user: "qué alumnos tienen adeudo",
+          assistant: "Alma tiene adeudo.",
+          tools: [{ name: "query_adeudos_nivel_periodo", input: { mes: 8, anio: 2026, nivel: "" } }],
+        }],
+      },
+    });
+
+    const request = (client.messages.create as any).mock.calls[0][0];
+    expect(request.messages[2].content[0]).toMatchObject({
+      type: "tool_result",
+      is_error: true,
+      content: "No tienes permiso para consultar esta información en la sesión actual.",
+    });
+    expect(runAction).not.toHaveBeenCalled();
+  });
+
+  it("acota el historial a los últimos ocho intercambios", async () => {
+    const history = Array.from({ length: 9 }, (_, index) => ([
+      { role: "user", content: `pregunta ${index}` },
+      { role: "assistant", content: `respuesta ${index}` },
+    ])).flat();
+    const client = clientWith([
+      { stop_reason: "end_turn", content: [{ type: "text", text: "Respuesta final." }] },
+    ]);
+
+    await answerWithClaude("pregunta actual", context, {
+      client,
+      canRead: () => true,
+      history: { messages: history },
+    });
+
+    const messages = (client.messages.create as any).mock.calls[0][0].messages;
+    expect(messages).toHaveLength(17);
+    expect(messages[0]).toMatchObject({ content: "pregunta 1" });
+    expect(messages.at(-1)).toMatchObject({ content: "pregunta actual" });
+  });
+
   it("rechaza una herramienta no registrada sin ejecutar ninguna consulta", async () => {
     const client = clientWith([
       {

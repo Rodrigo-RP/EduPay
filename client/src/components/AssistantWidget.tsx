@@ -107,6 +107,11 @@ interface ChatMessage {
   ts: number;
 }
 
+interface ConversationHistoryMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 interface AssistantResponse {
   reply: string;
   navigate?: NavTarget;
@@ -540,6 +545,29 @@ export default function AssistantWidget() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const accountKey = user
+    ? JSON.stringify({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      tenant: (user as any).tenant_id ?? (user as any).tenantId,
+      campus: (user as any).campus_id ?? (user as any).campusId,
+      permissions: (user as any).custom_permissions ?? (user as any).customPermissions ?? [],
+    })
+    : "signed-out";
+  const accountKeyRef = useRef(accountKey);
+
+  // Una conversación pertenece únicamente a la cuenta actualmente autenticada.
+  // También protege contra una respuesta tardía de una sesión anterior.
+  useEffect(() => {
+    accountKeyRef.current = accountKey;
+    setMessages([]);
+    setInput("");
+    setUnread(0);
+    setWelcomed(false);
+    setMinimized(false);
+    setOpen(false);
+  }, [accountKey]);
 
   // Escuchar el botón del header
   useEffect(() => {
@@ -694,16 +722,26 @@ export default function AssistantWidget() {
       text,
       ts: Date.now(),
     };
+    const history: ConversationHistoryMessage[] = [...messages, userMsg].map((item) => ({
+      role: item.role,
+      content: item.text,
+    }));
+    const requestAccountKey = accountKeyRef.current;
     setMessages((prev) => [...prev, userMsg]);
     setLoading(true);
 
     try {
       const res = await apiRequest("/api/assistant/chat", {
         method: "POST",
-        body: JSON.stringify({ message: text, currentPath: location }),
+        body: JSON.stringify({
+          message: text,
+          currentPath: location,
+          history,
+        }),
       });
 
       const data: AssistantResponse = await res.json();
+      if (accountKeyRef.current !== requestAccountKey) return;
 
       // Si hay señal de diagnóstico, crear mensaje con diagnosePending
       const assistantMsg: ChatMessage = {
@@ -730,6 +768,7 @@ export default function AssistantWidget() {
 
       if (!open) setUnread((n) => n + 1);
     } catch {
+      if (accountKeyRef.current !== requestAccountKey) return;
       setMessages((prev) => [
         ...prev,
         {

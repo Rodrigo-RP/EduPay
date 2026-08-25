@@ -19,8 +19,28 @@ import {
 } from "../assistant-knowledge";
 import { runDiagnostic, runFullDiagnostic, MODULE_CHECKS } from "../assistant-health-checks";
 import { executeAction } from "../assistant-actions";
-import { answerWithClaude, getAssistantActionPermission } from "../assistant-claude";
+import {
+  answerWithClaude,
+  getAssistantActionPermission,
+} from "../assistant-claude";
+import {
+  appendTrustedConversationTurn,
+  getAssistantConversationSession,
+  getTrustedConversationHistory,
+} from "../assistant-conversation-store";
 import { pool } from "../db";
+
+function isContextualFollowUp(message: string, history: unknown): boolean {
+  if (!Array.isArray(history)) return false;
+  const hasAssistantContext = history.some(
+    (turn) => turn
+      && typeof turn === "object"
+      && (turn as any).role === "assistant"
+      && typeof (turn as any).content === "string",
+  );
+  return hasAssistantContext
+    && /\bde\s+(?:esos|esas|ellos|ellas)\b|\b(?:los|las)\s+anteriores\b/i.test(message);
+}
 
 export function registerAssistantRoutes(app: Express): void {
   const auditAssistantDenied = async (req: any, actionId: string, reason: string) => {
@@ -56,6 +76,11 @@ export function registerAssistantRoutes(app: Express): void {
       const campusId: number = req.user?.campus_id;
       const tenantId: number = req.user?.tenant_id;
       const userId: number   = req.user?.id;
+      const conversationSession = getAssistantConversationSession(
+        req.header("authorization"),
+        req.user,
+      );
+      const trustedHistory = getTrustedConversationHistory(conversationSession);
 
       // Decodificar entidades HTML que puede introducir algún middleware de sanitización
       const decodedPath = currentPath
@@ -119,9 +144,10 @@ export function registerAssistantRoutes(app: Express): void {
           reply: "No puedo consultar ni compartir CURP, RFC, contraseñas, tokens, credenciales o secretos.",
         });
       }
+      const contextualFollowUp = isContextualFollowUp(message, trustedHistory.messages);
 
       // Si el intent es una acción/consulta de datos, ejecutarla en el servidor
-      if (result.action && campusId && tenantId) {
+      if (result.action && campusId && tenantId && !contextualFollowUp) {
         const requiredPermission = getAssistantActionPermission(
           result.action.actionId,
           result.action.params,
@@ -147,12 +173,20 @@ export function registerAssistantRoutes(app: Express): void {
         delete result.action;
       }
 
-      const canUseClaude = isClaudeReadOnlyFallbackCandidate(message)
+      const canUseClaude = (isClaudeReadOnlyFallbackCandidate(message)
         && !result.diagnose
         && !result.guide
         && !result.navigate
         && !result.suggestions
-        && !(result as any).actionResult;
+        && !(result as any).actionResult)
+        || (
+          contextualFollowUp
+          && isClaudeReadOnlyFallbackCandidate(message)
+          && !result.diagnose
+          && !result.guide
+          && !result.navigate
+          && !result.suggestions
+        );
       if (canUseClaude && campusId && tenantId) {
         const claude = await answerWithClaude(
           message.trim(),
@@ -165,10 +199,14 @@ export function registerAssistantRoutes(app: Express): void {
                 hasPermissionForUser(req.user, permission[0], permission[1]),
               );
             },
+            history: trustedHistory,
           },
         );
 
         if (claude.handled) {
+          if (claude.conversationTurn) {
+            appendTrustedConversationTurn(conversationSession, claude.conversationTurn);
+          }
           pool.query(
             `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
              VALUES ($1, $2, 'assistant_chat_interaction', 'system', $3, $4, NOW())`,

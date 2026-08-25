@@ -12,6 +12,9 @@ import { containsSensitiveAssistantData } from "./assistant-knowledge";
 export const CLAUDE_MODEL = "claude-sonnet-5";
 const MAX_TOOL_ROUNDS = 4;
 const MAX_TOKENS = 900;
+export const MAX_CONVERSATION_TURNS = 8;
+const MAX_HISTORY_TEXT_LENGTH = 4_000;
+const MAX_HISTORICAL_TOOLS_PER_TURN = 4;
 
 export type AssistantClaudeContext = ActionContext & {
   role: string;
@@ -31,11 +34,38 @@ export type ClaudeTrace = {
   stopReason: string | null;
 };
 
+export type AssistantConversationMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+export type ClaudeConversationTool = {
+  name: string;
+  input: Record<string, unknown>;
+};
+
+/**
+ * El cliente conserva sólo este resumen de un turno de Claude. No conserva
+ * resultados de herramientas: al reutilizarlo, el servidor vuelve a comprobar
+ * permisos y a ejecutar cada lectura en el tenant/campus actual.
+ */
+export type ClaudeConversationTurn = {
+  user: string;
+  assistant: string;
+  tools: ClaudeConversationTool[];
+};
+
+export type AssistantConversationHistory = {
+  messages?: unknown;
+  claudeTurns?: unknown;
+};
+
 export type ClaudeAnswer = {
   handled: boolean;
   reply?: string;
   trace: ClaudeTrace;
   error?: string;
+  conversationTurn?: ClaudeConversationTurn;
 };
 
 type ToolDefinition = Anthropic.Tool;
@@ -204,6 +234,237 @@ function inputObject(input: unknown): Record<string, any> {
     : {};
 }
 
+function safeHistoryText(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const text = value.trim().slice(0, MAX_HISTORY_TEXT_LENGTH);
+  return text && !containsSensitiveAssistantData(text) ? text : null;
+}
+
+function normalizeVisibleHistory(
+  value: unknown,
+  currentMessage: string,
+): Array<{ user: string; assistant: string }> {
+  if (!Array.isArray(value)) return [];
+
+  const messages: AssistantConversationMessage[] = value.flatMap((candidate) => {
+    if (!candidate || typeof candidate !== "object") return [];
+    const role = (candidate as any).role;
+    const content = safeHistoryText((candidate as any).content);
+    return (role === "user" || role === "assistant") && content
+      ? [{ role, content }]
+      : [];
+  });
+
+  // El widget incluye la pregunta actual en history para que el backend reciba
+  // toda la conversación. Evitamos duplicarla antes de añadirla al final.
+  if (
+    messages.at(-1)?.role === "user"
+    && messages.at(-1)?.content === currentMessage.trim()
+  ) {
+    messages.pop();
+  }
+
+  const exchanges: Array<{ user: string; assistant: string }> = [];
+  let pendingUser: string | null = null;
+  for (const item of messages) {
+    if (item.role === "user") {
+      pendingUser = item.content;
+    } else if (pendingUser) {
+      exchanges.push({ user: pendingUser, assistant: item.content });
+      pendingUser = null;
+    }
+  }
+  return exchanges.slice(-MAX_CONVERSATION_TURNS);
+}
+
+function normalizeHistoricalToolInput(
+  toolName: string,
+  rawInput: unknown,
+): Record<string, unknown> | null {
+  const input = inputObject(rawInput);
+  const safeText = (value: unknown, allowEmpty = false): string | null => {
+    if (typeof value !== "string") return null;
+    const text = value.trim().slice(0, 100);
+    return (allowEmpty || text.length > 0) && !containsSensitiveAssistantData(text) ? text : null;
+  };
+  const safeInteger = (value: unknown, min: number, max: number): number | null => {
+    const number = Number(value);
+    return Number.isInteger(number) && number >= min && number <= max ? number : null;
+  };
+
+  switch (toolName) {
+    case "query_contar": {
+      const entity = safeText(input.entity);
+      return entity && ["alumnos", "becas", "pagos", "cargos", "familias"].includes(entity)
+        ? { entity }
+        : null;
+    }
+    case "query_adeudos_nivel_periodo": {
+      const mes = safeInteger(input.mes, 1, 12);
+      const anio = safeInteger(input.anio, 2000, 2100);
+      const nivel = safeText(input.nivel, true);
+      return mes !== null && anio !== null && nivel !== null ? { mes, anio, nivel } : null;
+    }
+    case "query_buscar_alumno":
+    case "query_saldo_alumno":
+    case "query_becas_alumno":
+    case "query_cargos_alumno": {
+      const nombre = safeText(input.nombre);
+      return nombre && nombre.length >= 2 ? { nombre } : null;
+    }
+    case "query_becas_nivel": {
+      const nivel = safeText(input.nivel, true);
+      return nivel !== null ? { nivel } : null;
+    }
+    case "query_familias_hijos": {
+      const minHijos = safeInteger(input.minHijos, 1, 20);
+      return minHijos !== null ? { minHijos } : null;
+    }
+    case "query_resumen_financiero":
+    case "query_discrepancia":
+      return {};
+    default:
+      return null;
+  }
+}
+
+function normalizeClaudeTurns(value: unknown): ClaudeConversationTurn[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((candidate) => {
+    if (!candidate || typeof candidate !== "object") return [];
+    const user = safeHistoryText((candidate as any).user);
+    const assistant = safeHistoryText((candidate as any).assistant);
+    if (!user || !assistant) return [];
+    const tools = Array.isArray((candidate as any).tools)
+      ? (candidate as any).tools
+        .slice(0, MAX_HISTORICAL_TOOLS_PER_TURN)
+        .flatMap((tool: unknown) => {
+          if (!tool || typeof tool !== "object" || typeof (tool as any).name !== "string") return [];
+          const input = normalizeHistoricalToolInput((tool as any).name, (tool as any).input);
+          return input ? [{ name: (tool as any).name, input }] : [];
+        })
+      : [];
+    return [{ user, assistant, tools }];
+  }).slice(-MAX_CONVERSATION_TURNS);
+}
+
+async function appendRevalidatedHistoricalTurn(
+  messages: Anthropic.MessageParam[],
+  exchange: { user: string; assistant: string },
+  storedTurn: ClaudeConversationTurn | undefined,
+  index: number,
+  context: AssistantClaudeContext,
+  options: {
+    canRead: (actionId: string, params: Record<string, any>) => boolean;
+  },
+  runAction: (actionId: string, params: Record<string, any>, ctx: ActionContext) => Promise<ActionResult>,
+): Promise<void> {
+  if (!storedTurn?.tools.length) {
+    messages.push(
+      { role: "user", content: exchange.user },
+      { role: "assistant", content: exchange.assistant },
+    );
+    return;
+  }
+
+  const toolUses: any[] = [];
+  const toolResults: Anthropic.ToolResultBlockParam[] = [];
+  for (let toolIndex = 0; toolIndex < storedTurn.tools.length; toolIndex++) {
+    const storedTool = storedTurn.tools[toolIndex];
+    const actionId = TOOL_TO_ACTION[storedTool.name];
+    const input = normalizeHistoricalToolInput(storedTool.name, storedTool.input);
+    if (!actionId || !input) continue;
+
+    const toolUseId = `history-${index}-${toolIndex}`;
+    toolUses.push({
+      type: "tool_use",
+      id: toolUseId,
+      name: storedTool.name,
+      input,
+    });
+
+    if (!options.canRead(actionId, input)) {
+      toolResults.push({
+        type: "tool_result",
+        tool_use_id: toolUseId,
+        is_error: true,
+        content: "No tienes permiso para consultar esta información en la sesión actual.",
+      });
+      continue;
+    }
+
+    try {
+      const result = await runAction(actionId, input, context);
+      toolResults.push({
+        type: "tool_result",
+        tool_use_id: toolUseId,
+        content: JSON.stringify(serializeToolResult(storedTool.name, result)),
+      });
+    } catch {
+      toolResults.push({
+        type: "tool_result",
+        tool_use_id: toolUseId,
+        is_error: true,
+        content: "No fue posible reconstruir esta consulta con los permisos actuales.",
+      });
+    }
+  }
+
+  if (toolUses.length === 0) {
+    messages.push(
+      { role: "user", content: exchange.user },
+      { role: "assistant", content: exchange.assistant },
+    );
+    return;
+  }
+
+  // Formato oficial de Anthropic: user → assistant/tool_use → user/tool_result
+  // → assistant. Los resultados se regeneran arriba, nunca se aceptan del cliente.
+  messages.push(
+    { role: "user", content: exchange.user },
+    { role: "assistant", content: toolUses },
+    { role: "user", content: toolResults },
+    { role: "assistant", content: exchange.assistant },
+  );
+}
+
+async function buildConversationMessages(
+  currentMessage: string,
+  history: AssistantConversationHistory | undefined,
+  context: AssistantClaudeContext,
+  options: {
+    canRead: (actionId: string, params: Record<string, any>) => boolean;
+  },
+  runAction: (actionId: string, params: Record<string, any>, ctx: ActionContext) => Promise<ActionResult>,
+): Promise<Anthropic.MessageParam[]> {
+  const exchanges = normalizeVisibleHistory(history?.messages, currentMessage);
+  const storedTurns = normalizeClaudeTurns(history?.claudeTurns);
+  const usedTurnIndexes = new Set<number>();
+  const messages: Anthropic.MessageParam[] = [];
+
+  for (let index = 0; index < exchanges.length; index++) {
+    const exchange = exchanges[index];
+    const storedIndex = storedTurns.findIndex(
+      (turn, turnIndex) => !usedTurnIndexes.has(turnIndex)
+        && turn.user === exchange.user
+        && turn.assistant === exchange.assistant,
+    );
+    if (storedIndex >= 0) usedTurnIndexes.add(storedIndex);
+    await appendRevalidatedHistoricalTurn(
+      messages,
+      exchange,
+      storedIndex >= 0 ? storedTurns[storedIndex] : undefined,
+      index,
+      context,
+      options,
+      runAction,
+    );
+  }
+
+  messages.push({ role: "user", content: currentMessage });
+  return messages;
+}
+
 function textFromContent(content: unknown): string {
   if (!Array.isArray(content)) return "";
   return content
@@ -277,6 +538,7 @@ function currentSystemPrompt(): string {
     "Nunca propongas ni ejecutes pagos, cargos, becas, facturas, conciliaciones, configuraciones o cualquier modificación.",
     `La fecha de referencia del servidor está en el año ${currentYear}. Si indican un mes sin año, usa ${currentYear}.`,
     "Para preguntas sobre quién debe, deudores o quién falta de pagar sin periodo explícito, consulta los adeudos del mes en curso y menciona el periodo usado. Para otros tipos de consulta, pide aclaración sólo si el periodo es indispensable.",
+    "Si el usuario pregunta por “esos”, “esas” o resultados anteriores, limita la respuesta a las personas ya mencionadas en el historial y verifica cualquier dato nuevo con herramientas de sólo lectura.",
   ].join(" ");
 }
 
@@ -287,6 +549,7 @@ export async function answerWithClaude(
     client?: ClaudeClient | null;
     canRead: (actionId: string, params: Record<string, any>) => boolean;
     runAction?: (actionId: string, params: Record<string, any>, ctx: ActionContext) => Promise<ActionResult>;
+    history?: AssistantConversationHistory;
   },
 ): Promise<ClaudeAnswer> {
   const trace: ClaudeTrace = {
@@ -306,8 +569,15 @@ export async function answerWithClaude(
   const client = options.client === undefined ? createClient() : options.client;
   if (!client) return { handled: false, trace, error: "missing_api_key" };
 
-  const messages: Anthropic.MessageParam[] = [{ role: "user", content: message }];
   const runAction = options.runAction ?? executeAction;
+  const messages = await buildConversationMessages(
+    message,
+    options.history,
+    context,
+    options,
+    runAction,
+  );
+  const conversationTools: ClaudeConversationTool[] = [];
 
   try {
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
@@ -334,7 +604,17 @@ export async function answerWithClaude(
             trace,
           };
         }
-        return { handled: Boolean(reply), reply: reply || "No pude obtener una respuesta de Claude.", trace };
+        const finalReply = reply || "No pude obtener una respuesta de Claude.";
+        return {
+          handled: Boolean(reply),
+          reply: finalReply,
+          trace,
+          conversationTurn: {
+            user: message,
+            assistant: finalReply,
+            tools: conversationTools,
+          },
+        };
       }
 
       messages.push({ role: "assistant", content: response.content as any });
@@ -379,6 +659,10 @@ export async function answerWithClaude(
         }
 
         const result = await runAction(actionId, toolInput, context);
+        const safeToolInput = normalizeHistoricalToolInput(toolUse.name, toolInput);
+        if (safeToolInput) {
+          conversationTools.push({ name: toolUse.name, input: safeToolInput });
+        }
         toolResults.push({
           type: "tool_result",
           tool_use_id: toolUse.id,

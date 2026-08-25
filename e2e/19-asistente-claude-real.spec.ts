@@ -23,9 +23,11 @@ let campusId: number;
 let otherCampusId: number;
 let studentIds: number[] = [];
 let chargeIds: number[] = [];
+let scholarshipIds: number[] = [];
 let familyIds: number[] = [];
 let token: string;
 let fixtureNames: string[] = [];
+let outOfContextStudentName: string;
 
 test.describe("Claude real — consulta de adeudos con tool use", () => {
   test.skip(!process.env.ANTHROPIC_API_KEY, "Requiere ANTHROPIC_API_KEY configurada.");
@@ -63,6 +65,15 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
       [tenantId, campusId, fixtureNames[0], `CLAUDE-${suffix}-A`, fixtureNames[1], `CLAUDE-${suffix}-B`],
     );
     studentIds = students.rows.map((row: any) => row.id);
+    outOfContextStudentName = `Carla Fuera ${suffix}`;
+    const extraStudent = await pool.query(
+      `INSERT INTO students
+        (tenant_id, campus_id, nombres, apellido_paterno, nombre_completo, nivel_escolar, grado, grupo, status, id_referencia)
+       VALUES ($1, $2, 'Carla', 'Fuera', $3, 'Primaria', 5, 'C', 'activo', $4)
+       RETURNING id`,
+      [tenantId, campusId, outOfContextStudentName, `CLAUDE-${suffix}-C`],
+    );
+    studentIds.push(extraStudent.rows[0].id);
 
     const charges = await pool.query(
       `INSERT INTO charges
@@ -74,8 +85,17 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
       [tenantId, studentIds[0], studentIds[1], `${CURRENT_YEAR}-${String(CURRENT_MONTH).padStart(2, "0")}-15`],
     );
     chargeIds = charges.rows.map((row: any) => row.id);
+    const scholarships = await pool.query(
+      `INSERT INTO scholarships (student_id, tenant_id, porcentaje, motivo, vigencia_inicio, vigencia_fin)
+       VALUES
+         ($1, $2, 50, 'Beca E2E de Alma', CURRENT_DATE, CURRENT_DATE + INTERVAL '1 year'),
+         ($3, $2, 25, 'Beca E2E fuera de contexto', CURRENT_DATE, CURRENT_DATE + INTERVAL '1 year')
+       RETURNING id`,
+      [studentIds[0], tenantId, studentIds[2]],
+    );
+    scholarshipIds = scholarships.rows.map((row: any) => row.id);
     token = jwt.sign(
-      { role: "super_admin", tenant_id: tenantId, campus_id: campusId },
+      { id: 1, userId: 1, role: "super_admin", tenant_id: tenantId, campus_id: campusId },
       JWT_SECRET,
       { expiresIn: "10m" },
     );
@@ -84,6 +104,7 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
   test.afterAll(async () => {
     if (!tenantId) return;
     await pool.query("DELETE FROM audit_log WHERE tenant_id = $1", [tenantId]);
+    if (scholarshipIds.length) await pool.query("DELETE FROM scholarships WHERE id = ANY($1::int[])", [scholarshipIds]);
     if (chargeIds.length) await pool.query("DELETE FROM charges WHERE id = ANY($1::int[])", [chargeIds]);
     if (studentIds.length) await pool.query("DELETE FROM students WHERE id = ANY($1::int[])", [studentIds]);
     if (familyIds.length) await pool.query("DELETE FROM families WHERE id = ANY($1::int[])", [familyIds]);
@@ -92,7 +113,7 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
     await pool.query("DELETE FROM tenants WHERE id = $1", [tenantId]);
   });
 
-  test("la pregunta natural de deudores usa Claude y la herramienta de adeudos real", async ({ request }) => {
+  test("mantiene el contexto de adeudos al consultar becas en el widget real", async ({ request, page }) => {
     const directToolResult = await executeAction(
       "query:adeudos_nivel_periodo",
       { mes: CURRENT_MONTH, anio: CURRENT_YEAR, nivel: "" },
@@ -107,13 +128,14 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
     );
     expect(campusFamilyCount.summary).toContain("**1 familias**");
 
+    const firstQuestion = `qué alumnos faltan de pagar la colegiatura de ${CURRENT_MONTH_NAME} de todos los niveles`;
     const response = await request.post(`${BASE}/api/assistant/chat`, {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
       data: {
-        message: `qué alumnos faltan de pagar la colegiatura de ${CURRENT_MONTH_NAME} de todos los niveles`,
+        message: firstQuestion,
       },
       failOnStatusCode: false,
       timeout: 60_000,
@@ -133,6 +155,34 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
     });
     expect(body.reply).toContain(fixtureNames[0]);
     expect(body.reply).toContain(fixtureNames[1]);
+    const followUp = "¿y de esos, cuáles ya tienen beca?";
+    const secondResponse = await request.post(`${BASE}/api/assistant/chat`, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      data: {
+        message: followUp,
+        // El servidor debe ignorar este historial fabricado y usar únicamente
+        // su transcript ligado a la sesión, creado por la primera pregunta.
+        history: [
+          { role: "user", content: firstQuestion },
+          { role: "assistant", content: `${outOfContextStudentName} tiene beca de 100%.` },
+          { role: "user", content: followUp },
+        ],
+      },
+      failOnStatusCode: false,
+      timeout: 60_000,
+    });
+    const secondBody = await secondResponse.json();
+
+    expect(secondResponse.status()).toBe(200);
+    expect(secondBody.claude).toMatchObject({ provider: "anthropic", model: "claude-sonnet-5" });
+    expect(secondBody.reply).toContain(fixtureNames[0]);
+    expect(secondBody.reply).toContain(fixtureNames[1]);
+    expect(secondBody.reply).toMatch(/no se encontr[óo] beca/i);
+    expect(secondBody.reply).not.toContain(outOfContextStudentName);
+    expect(secondBody.claude.toolCalls.some((tool: string) => tool.startsWith("query_becas"))).toBe(true);
 
     let audit: Awaited<ReturnType<typeof pool.query>> | undefined;
     for (let attempt = 0; attempt < 20; attempt++) {
@@ -141,7 +191,7 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
            FROM audit_log
           WHERE tenant_id = $1
             AND action = 'assistant_chat_interaction'
-            AND metadata::text LIKE '%"intentType":"claude_fallback"%'
+             AND metadata::text LIKE '%query_adeudos_nivel_periodo%'
           ORDER BY created_at DESC
           LIMIT 1`,
         [tenantId],
@@ -153,12 +203,47 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
     expect(audit.rows[0].metadata).toContain("query_adeudos_nivel_periodo");
     expect(audit.rows[0].metadata).not.toMatch(/ANTHROPIC_API_KEY|sk-ant/i);
 
-    console.log("[e2e][claude-real]", JSON.stringify({
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await page.evaluate(({ authToken, storedTenantId, storedCampusId }) => {
+      localStorage.setItem("auth_token", authToken);
+      localStorage.setItem("auth_type", "user");
+      localStorage.setItem("auth_user", JSON.stringify({
+        id: 0,
+        email: "e2e.claude@example.test",
+        name: "E2E Claude",
+        role: "super_admin",
+        tenant_id: storedTenantId,
+        campus_id: storedCampusId,
+      }));
+    }, { authToken: token, storedTenantId: tenantId, storedCampusId: campusId });
+    await page.reload({ waitUntil: "networkidle" });
+    const assistantButton = page.getByRole("button", { name: "Abrir asistente EduPay" });
+    await expect(assistantButton).toBeVisible();
+    await assistantButton.click();
+    const dialog = page.getByRole("dialog", { name: "Asistente EduPay" });
+
+    await dialog.getByPlaceholder("¿Dónde está...? / No funciona...").fill(firstQuestion);
+    const firstWidgetResponse = page.waitForResponse((res) => res.url().includes("/api/assistant/chat") && res.request().postData()?.includes(firstQuestion));
+    await dialog.getByRole("button", { name: "Enviar mensaje" }).click();
+    await expect((await firstWidgetResponse).status()).toBe(200);
+    await expect(dialog).toContainText(fixtureNames[0]);
+    await expect(dialog).toContainText(fixtureNames[1]);
+
+    await dialog.getByPlaceholder("¿Dónde está...? / No funciona...").fill(followUp);
+    const secondWidgetResponse = page.waitForResponse((res) => res.url().includes("/api/assistant/chat") && res.request().postData()?.includes(followUp));
+    await dialog.getByRole("button", { name: "Enviar mensaje" }).click();
+    await expect((await secondWidgetResponse).status()).toBe(200);
+    await expect(dialog).toContainText(followUp);
+    await expect(dialog).toContainText(fixtureNames[0]);
+    await page.screenshot({ path: "screenshots/assistant-memory-claude-real.png" });
+
+    console.log("[e2e][claude-memory-real]", JSON.stringify({
       request: {
         model: body.claude.model,
         toolCalls: body.claude.toolCalls,
       },
-      response: body.reply,
+      firstResponse: body.reply,
+      secondResponse: secondBody.reply,
     }));
   });
 });

@@ -61,3 +61,4 @@
 - [PostgreSQL CASE parameter typing](postgres-case-parameter-typing.md) — al reutilizar parámetros SQL en CASE con Neon, castear cada uso evita inferencias text/varchar incompatibles.
 - [Anthropic strict tool schemas](anthropic-strict-tool-schemas.md) — Anthropic strict tools rechaza límites numéricos JSON Schema; validar rangos en el dispatcher.
 - [Assistant conversation memory](assistant-conversation-memory.md) — El contexto canónico de Claude vive sólo en servidor y se invalida al cambiar sesión o acceso efectivo.
+- [Assistant figure associations](assistant-figure-associations.md) — En resúmenes financieros, validar cada cifra junto con su indicador antes de aceptar texto de un LLM.

@@ -34,7 +34,7 @@ describe("fallback de Claude con herramientas read-only", () => {
     expect(names).not.toContain("ejecutar_sql");
   });
 
-  it("devuelve el resumen ejecutivo determinista en una sola respuesta", async () => {
+  it("reformula el resumen ejecutivo con tono natural sin alterar sus cifras", async () => {
     const client = clientWith([
       {
         stop_reason: "tool_use",
@@ -43,6 +43,15 @@ describe("fallback de Claude con herramientas read-only", () => {
           id: "tool-resumen-ejecutivo",
           name: "query_resumen_ejecutivo_mes",
           input: { mes: 8, anio: 2026 },
+        }],
+      },
+      {
+        stop_reason: "end_turn",
+        content: [{
+          type: "text",
+          text: "Agosto va bien: ya llevamos **$1,500** cobrados. " +
+            "Todavía falta recuperar **$625** y atender **$980** vencido. " +
+            "Hay **2 alumnos** con beca activa, que representan **$625** en descuentos.",
         }],
       },
     ]);
@@ -59,24 +68,151 @@ describe("fallback de Claude con herramientas read-only", () => {
     const result = await answerWithClaude(
       "dame un resumen del estado financiero de este mes",
       context,
-      { client, canRead: () => true, runAction },
+      {
+        client,
+        canRead: () => true,
+        runAction,
+        requiredTool: "query_resumen_ejecutivo_mes",
+      },
     );
 
     expect(result.handled).toBe(true);
+    expect(result.reply).toContain("Agosto va bien");
     expect(result.reply).toContain("**$1,500**");
-    expect(result.reply).toContain("**$625** por cobrar");
-    expect(result.reply).toContain("**$980** vencido");
-    expect(result.reply).toContain("**2 alumnos** tienen beca activa");
+    expect(result.reply).toContain("**$625**");
+    expect(result.reply).toContain("**$980**");
+    expect(result.reply).toContain("**2 alumnos**");
     expect(result.trace.toolCalls).toEqual(["query_resumen_ejecutivo_mes"]);
     expect(runAction).toHaveBeenCalledWith(
       "query:resumen_ejecutivo_mes",
       { mes: 8, anio: 2026 },
       context,
     );
-    expect(client.messages.create).toHaveBeenCalledTimes(1);
+    expect(client.messages.create).toHaveBeenCalledTimes(2);
+    expect((client.messages.create as any).mock.calls[0][0].system).toContain("tono cálido");
+    expect((client.messages.create as any).mock.calls[0][0].system).toContain("No redondees");
+    expect((client.messages.create as any).mock.calls[0][0].tool_choice).toEqual({
+      type: "tool",
+      name: "query_resumen_ejecutivo_mes",
+    });
     expect(getAssistantActionPermission("query:resumen_ejecutivo_mes")).toEqual(
       getAssistantActionPermission("query:resumen_financiero"),
     );
+  });
+
+  it("usa el resumen verificado si Claude omite o inventa una cifra", async () => {
+    const client = clientWith([
+      {
+        stop_reason: "tool_use",
+        content: [{
+          type: "tool_use",
+          id: "tool-resumen-inseguro",
+          name: "query_resumen_ejecutivo_mes",
+          input: { mes: 8, anio: 2026 },
+        }],
+      },
+      {
+        stop_reason: "end_turn",
+        content: [{ type: "text", text: "Agosto va bien: ya se recuperó **$1,500**." }],
+      },
+    ]);
+    const verifiedSummary =
+      "En **Agosto 2026** se han cobrado **$1,500**. " +
+      "Quedan **$625** por cobrar y **$980** vencido. " +
+      "Actualmente **2 alumnos** tienen beca activa, con **$625** en descuentos aplicados al periodo.";
+
+    const result = await answerWithClaude(
+      "dame un resumen del estado financiero de agosto",
+      context,
+      {
+        client,
+        canRead: () => true,
+        runAction: vi.fn().mockResolvedValue({
+          success: true,
+          title: "Resumen ejecutivo — Agosto 2026",
+          summary: verifiedSummary,
+          rows: [],
+        }),
+      },
+    );
+
+    expect(result.reply).toBe(verifiedSummary);
+  });
+
+  it("usa el resumen verificado si Claude intercambia cifras entre indicadores", async () => {
+    const client = clientWith([{
+      stop_reason: "end_turn",
+      content: [{
+        type: "text",
+        text:
+          "Este mes se han cobrado **$980** y quedan **$625** por cobrar. " +
+          "Hay **$1,500** vencido, **2 alumnos** con beca activa y **$625** en descuentos.",
+      }],
+    }]);
+    const result = await answerWithClaude(
+      "dame un resumen del estado financiero de agosto",
+      context,
+      {
+        client,
+        canRead: () => true,
+        prefetchedTool: {
+          name: "query_resumen_ejecutivo_mes",
+          input: { mes: 8, anio: 2026 },
+          result: {
+            success: true,
+            title: "Resumen ejecutivo — Agosto 2026",
+            summary: "Resumen verificado.",
+            rows: [
+              { label: "Cobrado en el mes", value: "$1,500" },
+              { label: "Por cobrar (no vencido)", value: "$625" },
+              { label: "Vencido", value: "$980" },
+              { label: "Alumnos con beca activa", value: "2" },
+              { label: "Descuentos del periodo", value: "$625" },
+            ],
+          },
+        },
+      },
+    );
+
+    expect(result.reply).toContain("ya se han cobrado **$1,500**");
+    expect(result.reply).toContain("**$980** ya vencido");
+    expect(result.reply).not.toContain("se han cobrado **$980**");
+  });
+
+  it("redacta un resultado prevalidado sin dejar que Claude cambie la consulta", async () => {
+    const client = clientWith([{
+      stop_reason: "end_turn",
+      content: [{
+        type: "text",
+        text: "Agosto avanza bien: ya se han cobrado **$1,500**. " +
+          "Siguen pendientes **$625** y hay **$980** vencido; **2 alumnos** mantienen beca activa con **$625** de descuento.",
+      }],
+    }]);
+    const result = await answerWithClaude(
+      "dame un resumen del estado financiero de agosto",
+      context,
+      {
+        client,
+        canRead: () => true,
+        prefetchedTool: {
+          name: "query_resumen_ejecutivo_mes",
+          input: { mes: 8, anio: 2026 },
+          result: {
+            success: true,
+            title: "Resumen ejecutivo — Agosto 2026",
+            summary:
+              "En **Agosto 2026** se han cobrado **$1,500**. " +
+              "Quedan **$625** por cobrar y **$980** vencido. " +
+              "Actualmente **2 alumnos** tienen beca activa, con **$625** en descuentos aplicados al periodo.",
+            rows: [],
+          },
+        },
+      },
+    );
+
+    expect(client.messages.create).toHaveBeenCalledTimes(1);
+    expect(result.trace.toolCalls).toEqual(["query_resumen_ejecutivo_mes"]);
+    expect(result.reply).toContain("Agosto avanza bien");
   });
 
   it("rechaza un periodo ejecutivo inválido sin consultar ni modificar datos", async () => {
@@ -93,7 +229,7 @@ describe("fallback de Claude con herramientas read-only", () => {
     expect(result.summary).toMatch(/mes entre 1 y 12/i);
   });
 
-  it("ejecuta la consulta permitida y devuelve la respuesta final de Claude", async () => {
+  it("ejecuta la consulta permitida y conserva el detalle verificado de adeudos", async () => {
     const client = clientWith([
       {
         stop_reason: "tool_use",
@@ -106,7 +242,10 @@ describe("fallback de Claude con herramientas read-only", () => {
       },
       {
         stop_reason: "end_turn",
-        content: [{ type: "text", text: "Hay dos alumnos con adeudo en agosto." }],
+        content: [{
+          type: "text",
+          text: "En agosto hay dos alumnos con adeudo; Alumno de prueba tiene **$1,000** pendiente.",
+        }],
       },
     ]);
     const runAction = vi.fn().mockResolvedValue({
@@ -123,7 +262,8 @@ describe("fallback de Claude con herramientas read-only", () => {
       { client, canRead: () => true, runAction },
     );
 
-    expect(result.reply).toBe("Hay dos alumnos con adeudo en agosto.");
+    expect(result.reply).toContain("Estos son los adeudos que conviene revisar");
+    expect(result.reply).toContain("Alumno de prueba: **$1,000**");
     expect(result.trace.toolCalls).toEqual(["query_adeudos_nivel_periodo"]);
     expect(runAction).toHaveBeenCalledWith(
       "query:adeudos_nivel_periodo",

@@ -347,9 +347,10 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
     }));
   });
 
-  test("muestra un resumen ejecutivo mensual combinado en el widget real", async ({ request, page }) => {
-    test.setTimeout(150_000);
+  test("muestra un resumen ejecutivo y deudores con tono natural en el widget real", async ({ request, page }) => {
+    test.setTimeout(200_000);
     const question = "dame un resumen del estado financiero de este mes";
+    const debtorsQuestion = `dame los deudores de ${CURRENT_MONTH_NAME}`;
     const direct = await executeAction(
       "query:resumen_ejecutivo_mes",
       { mes: CURRENT_MONTH, anio: CURRENT_YEAR },
@@ -373,12 +374,13 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
     });
     const body = await response.json();
     expect(response.status()).toBe(200);
-    expect(body.claude).toBeUndefined();
+    expect(body.claude?.toolCalls).toContain("query_resumen_ejecutivo_mes");
+    expect(body.reply).not.toBe(direct.summary);
     expect(body.reply).toContain("**$2,000**");
-    expect(body.reply).toContain("**$625** por cobrar");
-    expect(body.reply).toContain("**$980** vencido");
-    expect(body.reply).toContain("**2 alumnos** tienen beca activa");
-    expect(body.reply).toContain("**$625** en descuentos");
+    expect(body.reply).toContain("**$625**");
+    expect(body.reply).toContain("**$980**");
+    expect(body.reply).toMatch(/\*\*2\*\*\s+alumnos/i);
+    expect(body.reply).toMatch(/descuentos?.*\*\*\$625\*\*|\*\*\$625\*\*.*descuentos?/i);
 
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
     await page.evaluate(({ authToken, storedTenantId, storedCampusId, storedWidgetUserId }) => {
@@ -407,12 +409,22 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
     );
     await dialog.getByRole("button", { name: "Enviar mensaje" }).click();
     const widgetBody = await (await widgetResponse).json();
-    expect(widgetBody.claude).toBeUndefined();
-    await expect(dialog).toContainText("se han cobrado");
+    expect(widgetBody.claude?.toolCalls).toContain("query_resumen_ejecutivo_mes");
+    expect(widgetBody.reply).not.toBe(direct.summary);
     await expect(dialog).toContainText("$2,000");
     await expect(dialog).toContainText("$625");
     await expect(dialog).toContainText("$980");
     await expect(dialog).toContainText("2 alumnos");
+    await dialog.getByPlaceholder("¿Dónde está...? / No funciona...").fill(debtorsQuestion);
+    const debtorsResponse = page.waitForResponse(
+      (res) => res.url().includes("/api/assistant/chat") && res.request().postData()?.includes(debtorsQuestion),
+      { timeout: 90_000 },
+    );
+    await dialog.getByRole("button", { name: "Enviar mensaje" }).click();
+    const debtorsBody = await (await debtorsResponse).json();
+    expect(debtorsBody.claude?.toolCalls).toContain("query_adeudos_nivel_periodo");
+    await expect(dialog).toContainText(fixtureNames[0]);
+    await expect(dialog).toContainText(fixtureNames[1]);
     await page.screenshot({ path: "screenshots/assistant-executive-summary-real.png" });
   });
 });

@@ -145,9 +145,37 @@ export function registerAssistantRoutes(app: Express): void {
         });
       }
       const contextualFollowUp = isContextualFollowUp(message, trustedHistory.messages);
+      const naturalClaudeActionId = result.action
+        && ["query:resumen_ejecutivo_mes", "query:adeudos_nivel_periodo"].includes(result.action.actionId)
+        ? result.action.actionId
+        : null;
+      const naturalClaudeAction = Boolean(naturalClaudeActionId) && !contextualFollowUp;
+      let prefetchedActionResult: Awaited<ReturnType<typeof executeAction>> | undefined;
+
+      if (naturalClaudeAction && campusId && tenantId && result.action) {
+        const requiredPermission = getAssistantActionPermission(
+          result.action.actionId,
+          result.action.params,
+        );
+        if (
+          requiredPermission
+          && !hasPermissionForUser(req.user, requiredPermission[0], requiredPermission[1])
+        ) {
+          await auditAssistantDenied(req, result.action.actionId, "missing_read_permission");
+          return res.status(403).json({
+            error: "Sin permiso",
+            reply: "No tienes permiso para consultar esta información desde el asistente.",
+          });
+        }
+        prefetchedActionResult = await executeAction(
+          result.action.actionId,
+          result.action.params,
+          { campusId, tenantId, userId },
+        );
+      }
 
       // Si el intent es una acción/consulta de datos, ejecutarla en el servidor
-      if (result.action && campusId && tenantId && !contextualFollowUp) {
+      if (result.action && campusId && tenantId && !contextualFollowUp && !naturalClaudeAction) {
         const requiredPermission = getAssistantActionPermission(
           result.action.actionId,
           result.action.params,
@@ -173,7 +201,7 @@ export function registerAssistantRoutes(app: Express): void {
         delete result.action;
       }
 
-      const canUseClaude = (isClaudeReadOnlyFallbackCandidate(message)
+      const canUseClaude = Boolean(naturalClaudeAction) || (isClaudeReadOnlyFallbackCandidate(message)
         && !result.diagnose
         && !result.guide
         && !result.navigate
@@ -200,10 +228,25 @@ export function registerAssistantRoutes(app: Express): void {
               );
             },
             history: trustedHistory,
+            prefetchedTool: naturalClaudeAction && result.action && prefetchedActionResult
+              ? {
+                name: naturalClaudeActionId === "query:resumen_ejecutivo_mes"
+                  ? "query_resumen_ejecutivo_mes"
+                  : "query_adeudos_nivel_periodo",
+                input: result.action.params,
+                result: prefetchedActionResult,
+              }
+              : undefined,
           },
         );
 
-        if (claude.handled) {
+        const expectedToolWasUsed = !naturalClaudeAction
+          || claude.trace.toolCalls.includes(
+            naturalClaudeActionId === "query:resumen_ejecutivo_mes"
+              ? "query_resumen_ejecutivo_mes"
+              : "query_adeudos_nivel_periodo",
+          );
+        if (claude.handled && !claude.error && expectedToolWasUsed) {
           if (claude.conversationTurn) {
             appendTrustedConversationTurn(conversationSession, claude.conversationTurn);
           }
@@ -239,6 +282,16 @@ export function registerAssistantRoutes(app: Express): void {
             },
           });
         }
+      }
+      if (naturalClaudeAction && result.action && campusId && tenantId) {
+        const actionResult = prefetchedActionResult ?? await executeAction(
+          result.action.actionId,
+          result.action.params,
+          { campusId, tenantId, userId },
+        );
+        result.reply = actionResult.summary;
+        (result as any).actionResult = actionResult;
+        delete result.action;
       }
       // ── §4.3 Registro estructurado de interacción (sin PII de familias) ─────
       // Determinar qué tipo de intención se resolvió

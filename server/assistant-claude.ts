@@ -517,6 +517,77 @@ function safeProviderField(value: string | number): string | number {
   return containsSensitiveAssistantData(text) ? "[dato protegido]" : text;
 }
 
+function numericTokens(value: string): string[] {
+  return value.match(/(?:\$\s*)?\d[\d,.]*(?:%?)/g) ?? [];
+}
+
+function containsExactToken(text: string, token: string): boolean {
+  const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?<!\\d)${escaped}(?!\\d)`).test(text);
+}
+
+function preservesToolFigures(reply: string, sources: string[]): boolean {
+  const sourceTokens = new Set(sources.flatMap(numericTokens));
+  const replyTokens = numericTokens(reply);
+  const requiredFigures = Array.from(sourceTokens).filter((token) => {
+    if (token.includes("$") || token.includes("%")) return true;
+    const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return sources.some((source) => new RegExp(`\\*\\*\\s*${escaped}(?=\\s|\\*)`).test(source));
+  });
+  return requiredFigures.every((token) => containsExactToken(reply, token))
+    && replyTokens.every((token) => sourceTokens.has(token));
+}
+
+function containsOnlyToolFigures(reply: string, sources: string[]): boolean {
+  const sourceTokens = new Set(sources.flatMap(numericTokens));
+  return numericTokens(reply).every((token) => sourceTokens.has(token));
+}
+
+function preservesExecutiveMetricAssociations(
+  reply: string,
+  rows: Array<{ label: string; value: string }>,
+): boolean {
+  if (rows.length < 5) return true;
+  const expectedMetrics = [
+    { label: /cobrad/i, terms: /cobrad|recaud|ingres/i },
+    { label: /por cobrar|no vencid/i, terms: /por cobrar|pendient|no vencid/i },
+    { label: /^vencido$/i, terms: /vencid|atrasad/i },
+    { label: /beca/i, terms: /beca/i },
+    { label: /descuent/i, terms: /descuent/i },
+  ];
+  return expectedMetrics.every(({ label, terms }) => {
+    const row = rows.find((candidate) => label.test(candidate.label));
+    if (!row) return false;
+    const escapedValue = row.value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const valuePattern = new RegExp(`(?<!\\d)${escapedValue}(?!\\d)`, "g");
+    const matches = Array.from(reply.matchAll(valuePattern));
+    return matches.some((match) => {
+      const index = match.index ?? 0;
+      const context = reply.slice(Math.max(0, index - 45), index + row.value.length + 45);
+      return terms.test(context);
+    });
+  });
+}
+
+function boldVerifiedFigures(reply: string, sources: string[]): string {
+  const sourceTokens = new Set(sources.flatMap(numericTokens));
+  const requiredFigures = Array.from(sourceTokens).filter((token) => {
+    if (token.includes("$") || token.includes("%")) return true;
+    const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return sources.some((source) => new RegExp(`\\*\\*\\s*${escaped}(?=\\s|\\*)`).test(source));
+  });
+  return requiredFigures.reduce((text, token) => {
+    const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return text.replace(
+      new RegExp(`(?<!\\d)${escaped}(?!\\d)`, "g"),
+      (match, offset, fullText) => {
+        const boldMarkersBefore = (fullText.slice(0, offset).match(/\*\*/g) ?? []).length;
+        return boldMarkersBefore % 2 === 1 ? match : `**${match}**`;
+      },
+    );
+  }, reply);
+}
+
 /**
  * Convierte el resultado interno a un DTO explícito antes de cruzar el límite
  * hacia Anthropic. Nunca se envían errores SQL ni texto libre de motivos de beca.
@@ -569,8 +640,12 @@ function currentSystemPrompt(): string {
     "Nunca solicites, reveles ni infieras CURP, RFC, contraseñas, tokens o datos de autenticación.",
     "Nunca propongas ni ejecutes pagos, cargos, becas, facturas, conciliaciones, configuraciones o cualquier modificación.",
     `La fecha de referencia del servidor está en el año ${currentYear}. Si indican un mes sin año, usa ${currentYear}.`,
-    `Para un resumen ejecutivo o estado financiero mensual, usa siempre query_resumen_ejecutivo_mes. “Este mes” corresponde a mes ${currentMonth} de ${currentYear}; devuelve el summary de esa herramienta sin alterar sus cifras.`,
+    `Para un resumen ejecutivo o estado financiero mensual, usa siempre query_resumen_ejecutivo_mes. “Este mes” corresponde a mes ${currentMonth} de ${currentYear}.`,
     "Para preguntas sobre quién debe, deudores o quién falta de pagar sin periodo explícito, consulta los adeudos del mes en curso y menciona el periodo usado. Para otros tipos de consulta, pide aclaración sólo si el periodo es indispensable.",
+    "Habla como un asistente cercano que ayuda al director de la escuela: usa un tono cálido, natural y conversacional, no una tabla de Excel narrada. No uses emojis. Prefiere frases corridas y usa listas sólo cuando el usuario pida una lista o haya varios alumnos que enumerar.",
+    "Las cifras de las herramientas son una frontera estricta: conserva cada monto y cifra exacta tal como aparece, incluyendo el signo $, separadores y negritas Markdown. No redondees, aproximes, conviertas a palabras ni inventes cifras nuevas. Si no puedes reformular sin cambiar una cifra, usa el texto verificado de la herramienta.",
+    "En un resumen ejecutivo menciona explícitamente cobrado, por cobrar no vencido, vencido, alumnos con beca activa y descuentos aplicados, con la cifra asociada a cada indicador aunque dos importes coincidan.",
+    "Cuando una herramienta ya entregó todos los datos, responde con ellos directamente en un mensaje breve y natural; no vuelvas a llamar herramientas innecesariamente.",
     "Si el usuario pregunta por “esos”, “esas” o resultados anteriores, limita la respuesta a las personas ya mencionadas en el historial y verifica cualquier dato nuevo con herramientas de sólo lectura.",
   ].join(" ");
 }
@@ -583,6 +658,12 @@ export async function answerWithClaude(
     canRead: (actionId: string, params: Record<string, any>) => boolean;
     runAction?: (actionId: string, params: Record<string, any>, ctx: ActionContext) => Promise<ActionResult>;
     history?: AssistantConversationHistory;
+    requiredTool?: "query_resumen_ejecutivo_mes" | "query_adeudos_nivel_periodo";
+    prefetchedTool?: {
+      name: "query_resumen_ejecutivo_mes" | "query_adeudos_nivel_periodo";
+      input: Record<string, unknown>;
+      result: ActionResult;
+    };
   },
 ): Promise<ClaudeAnswer> {
   const trace: ClaudeTrace = {
@@ -612,17 +693,96 @@ export async function answerWithClaude(
   );
   const conversationTools: ClaudeConversationTool[] = [];
   const studentTargets = new Map<number, StudentNavigationTarget>();
+  const toolFactSources: string[] = [];
+  const toolFallbackReplies: string[] = [];
+  const toolFactRequirements: string[] = [];
+  const toolFallbackRows: Array<{ label: string; value: string }> = [];
+  const toolNaturalFallbacks: string[] = [];
+  let executiveSummaryRows: Array<{ label: string; value: string }> = [];
+  const addVerifiedToolFacts = (toolName: string, result: ActionResult) => {
+    if (!result.success) return;
+    const rows = (result.rows ?? []).map((row) => ({
+      label: String(row.label),
+      value: String(row.value),
+    }));
+    toolFactSources.push(result.summary);
+    toolFactSources.push(...rows.map((row) => row.value));
+    toolFactRequirements.push(...rows.map((row) => `${row.label}: ${row.value}`));
+    toolFallbackRows.push(...rows);
+    toolFallbackReplies.push(result.summary);
+    if (toolName === "query_resumen_ejecutivo_mes" && rows.length >= 5) {
+      executiveSummaryRows = rows;
+      toolNaturalFallbacks.push(
+        `El mes va avanzando: ya se han cobrado **${rows[0].value}**. ` +
+        `Aún quedan **${rows[1].value}** por recuperar antes de vencer y **${rows[2].value}** ya vencido, que conviene atender. ` +
+        `Actualmente **${rows[3].value}** alumnos tienen beca activa, con **${rows[4].value}** en descuentos aplicados.`,
+      );
+    }
+  };
+
+  if (options.prefetchedTool) {
+    const safeInput = normalizeHistoricalToolInput(options.prefetchedTool.name, options.prefetchedTool.input);
+    if (!safeInput) {
+      return {
+        handled: false,
+        trace,
+        error: "invalid_prefetched_tool",
+      };
+    }
+    const toolUseId = "prefetched-current-query";
+    trace.toolCalls.push(options.prefetchedTool.name);
+    conversationTools.push({ name: options.prefetchedTool.name, input: safeInput });
+    addVerifiedToolFacts(options.prefetchedTool.name, options.prefetchedTool.result);
+    messages.push(
+      {
+        role: "assistant",
+        content: [{
+          type: "tool_use",
+          id: toolUseId,
+          name: options.prefetchedTool.name,
+          input: safeInput,
+        }],
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "tool_result",
+            tool_use_id: toolUseId,
+            content: JSON.stringify(serializeToolResult(options.prefetchedTool.name, options.prefetchedTool.result)),
+          },
+          {
+            type: "text",
+            text: [
+              "Los resultados de las herramientas ya contienen los datos disponibles.",
+              "Responde ahora con tono cercano y natural; no vuelvas a llamar una herramienta salvo que falte un dato indispensable.",
+              options.prefetchedTool.name === "query_resumen_ejecutivo_mes"
+                ? "Para este resumen usa 2 o 3 frases corridas, sin viñetas ni emojis."
+                : "Para este resultado usa frases breves y naturales; enumera alumnos sólo si el detalle lo requiere.",
+              `Incluye literalmente todos estos valores verificados: ${Array.from(new Set(toolFactSources.flatMap(numericTokens))).join(", ") || "ninguno"}.`,
+              `Menciona cada indicador verificado, sin fusionarlos: ${toolFactRequirements.join(" | ") || "usa el summary de la herramienta"}.`,
+              "No agregues ninguna cifra distinta.",
+            ].join(" "),
+          },
+        ],
+      },
+    );
+  }
 
   try {
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       trace.rounds = round + 1;
-      const response = await client.messages.create({
+      const request: Record<string, unknown> = {
         model: CLAUDE_MODEL,
         max_tokens: MAX_TOKENS,
         system: currentSystemPrompt(),
         tools: TOOLS,
         messages,
-      });
+      };
+      if (round === 0 && options.requiredTool) {
+        request.tool_choice = { type: "tool", name: options.requiredTool };
+      }
+      const response = await client.messages.create(request);
       trace.stopReason = response.stop_reason ?? null;
 
       const toolUses = Array.isArray(response.content)
@@ -638,7 +798,32 @@ export async function answerWithClaude(
             trace,
           };
         }
-        const finalReply = reply || "No pude obtener una respuesta de Claude.";
+        const verifiedDetails = toolFallbackRows.length
+          ? `\n\nDetalle verificado:\n${toolFallbackRows.map((row) => `- ${row.label}: ${row.value}`).join("\n")}`
+          : "";
+        const verifiedFallbackBase = (toolNaturalFallbacks.length
+          ? toolNaturalFallbacks
+          : toolFallbackReplies
+        ).filter(Boolean).join("\n\n");
+        const verifiedFallback = toolNaturalFallbacks.length
+          ? verifiedFallbackBase
+          : verifiedDetails
+            ? `Estos son los adeudos que conviene revisar este mes. ${verifiedFallbackBase}${verifiedDetails}`
+            : verifiedFallbackBase;
+        const hasAdeudosResult = conversationTools.some(
+          (tool) => tool.name === "query_adeudos_nivel_periodo",
+        );
+        const hasVerifiedExecutiveAssociations = preservesExecutiveMetricAssociations(
+          reply,
+          executiveSummaryRows,
+        );
+        const finalReply = hasAdeudosResult
+          ? boldVerifiedFigures(verifiedFallback, toolFactSources)
+          : reply && preservesToolFigures(reply, toolFactSources) && hasVerifiedExecutiveAssociations
+          ? boldVerifiedFigures(reply, toolFactSources)
+          : reply && executiveSummaryRows.length === 0 && containsOnlyToolFigures(reply, toolFactSources) && verifiedDetails
+            ? boldVerifiedFigures(`${reply}${verifiedDetails}`, toolFactSources)
+            : boldVerifiedFigures(verifiedFallback, toolFactSources) || "No pude obtener una respuesta de Claude.";
         return {
           handled: Boolean(reply),
           reply: finalReply,
@@ -705,21 +890,8 @@ export async function answerWithClaude(
         if (safeToolInput) {
           conversationTools.push({ name: toolUse.name, input: safeToolInput });
         }
-        if (
-          toolUses.length === 1
-          && toolUse.name === "query_resumen_ejecutivo_mes"
-          && result.success
-        ) {
-          return {
-            handled: true,
-            reply: result.summary,
-            trace,
-            conversationTurn: {
-              user: message,
-              assistant: result.summary,
-              tools: conversationTools,
-            },
-          };
+        if (result.success) {
+          addVerifiedToolFacts(toolUse.name, result);
         }
         toolResults.push({
           type: "tool_result",
@@ -734,7 +906,13 @@ export async function answerWithClaude(
           ...toolResults,
           {
             type: "text",
-            text: "Los resultados de las herramientas ya contienen los datos disponibles. Responde ahora con esos datos; no vuelvas a llamar una herramienta salvo que falte un dato indispensable.",
+            text: [
+              "Los resultados de las herramientas ya contienen los datos disponibles.",
+              "Responde ahora con tono cercano y natural; no vuelvas a llamar una herramienta salvo que falte un dato indispensable.",
+              `Incluye literalmente todos estos valores verificados: ${Array.from(new Set(toolFactSources.flatMap(numericTokens))).join(", ") || "ninguno"}.`,
+              `Menciona cada indicador verificado, sin fusionarlos: ${toolFactRequirements.join(" | ") || "usa el summary de la herramienta"}.`,
+              "No agregues ninguna cifra distinta.",
+            ].join(" "),
           },
         ],
       });

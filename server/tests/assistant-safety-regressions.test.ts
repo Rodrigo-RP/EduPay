@@ -106,7 +106,7 @@ describe("seguridad del asistente", () => {
          FROM audit_log
         WHERE tenant_id = $1
           AND action = 'assistant_access_denied'
-          AND metadata::text LIKE '%query:resumen_financiero%'
+         AND metadata::text LIKE '%query:resumen_ejecutivo_mes%'
         ORDER BY created_at DESC
         LIMIT 1`,
       [tenantId],

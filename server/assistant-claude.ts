@@ -78,6 +78,7 @@ type ToolDefinition = Anthropic.Tool;
 
 const READ_PERMISSIONS: Record<string, readonly [string, string]> = {
   "query:resumen_financiero": [MODULES.FINANCIAL, ACTIONS.READ],
+  "query:resumen_ejecutivo_mes": [MODULES.FINANCIAL, ACTIONS.READ],
   "query:discrepancia": [MODULES.FINANCIAL, ACTIONS.READ],
   "query:adeudos_nivel_periodo": [MODULES.FINANCIAL, ACTIONS.READ],
   "query:buscar_alumno": [MODULES.STUDENTS, ACTIONS.READ],
@@ -133,6 +134,20 @@ const TOOLS: ToolDefinition[] = [
     name: "query_resumen_financiero",
     description: "Obtiene cobrado, pendiente, vencido y cantidad de cargos del campus actual.",
     input_schema: { type: "object", properties: {}, additionalProperties: false },
+    strict: true,
+  },
+  {
+    name: "query_resumen_ejecutivo_mes",
+    description: "Genera un resumen financiero ejecutivo de un mes: cobrado, por cobrar no vencido, vencido y becas activas con descuentos. Úsala para preguntas de resumen, estado financiero o cómo va el mes. Usa mes 1-12 y año actual cuando no indiquen otro periodo.",
+    input_schema: {
+      type: "object",
+      properties: {
+        mes: { type: "integer", description: "Mes calendario de 1 a 12." },
+        anio: { type: "integer", description: "Año de cuatro dígitos." },
+      },
+      required: ["mes", "anio"],
+      additionalProperties: false,
+    },
     strict: true,
   },
   {
@@ -216,6 +231,7 @@ const TOOLS: ToolDefinition[] = [
 const TOOL_TO_ACTION: Record<string, string> = {
   query_contar: "query:contar",
   query_resumen_financiero: "query:resumen_financiero",
+  query_resumen_ejecutivo_mes: "query:resumen_ejecutivo_mes",
   query_adeudos_nivel_periodo: "query:adeudos_nivel_periodo",
   query_buscar_alumno: "query:buscar_alumno",
   query_becas_alumno: "query:becas_alumno",
@@ -311,6 +327,11 @@ function normalizeHistoricalToolInput(
       const nivel = safeText(input.nivel, true);
       return mes !== null && anio !== null && nivel !== null ? { mes, anio, nivel } : null;
     }
+    case "query_resumen_ejecutivo_mes": {
+      const mes = safeInteger(input.mes, 1, 12);
+      const anio = safeInteger(input.anio, 2000, 2100);
+      return mes !== null && anio !== null ? { mes, anio } : null;
+    }
     case "query_buscar_alumno":
     case "query_saldo_alumno":
     case "query_becas_alumno":
@@ -375,11 +396,15 @@ async function appendRevalidatedHistoricalTurn(
 
   const toolUses: any[] = [];
   const toolResults: Anthropic.ToolResultBlockParam[] = [];
+  let omitHistoricalTurn = false;
   for (let toolIndex = 0; toolIndex < storedTurn.tools.length; toolIndex++) {
     const storedTool = storedTurn.tools[toolIndex];
     const actionId = TOOL_TO_ACTION[storedTool.name];
     const input = normalizeHistoricalToolInput(storedTool.name, storedTool.input);
-    if (!actionId || !input) continue;
+    if (!actionId || !input) {
+      omitHistoricalTurn = true;
+      break;
+    }
 
     const toolUseId = `history-${index}-${toolIndex}`;
     toolUses.push({
@@ -390,31 +415,30 @@ async function appendRevalidatedHistoricalTurn(
     });
 
     if (!options.canRead(actionId, input)) {
-      toolResults.push({
-        type: "tool_result",
-        tool_use_id: toolUseId,
-        is_error: true,
-        content: "No tienes permiso para consultar esta información en la sesión actual.",
-      });
-      continue;
+      omitHistoricalTurn = true;
+      break;
     }
 
     try {
       const result = await runAction(actionId, input, context);
+      if (!result.success) {
+        omitHistoricalTurn = true;
+        break;
+      }
       toolResults.push({
         type: "tool_result",
         tool_use_id: toolUseId,
         content: JSON.stringify(serializeToolResult(storedTool.name, result)),
       });
     } catch {
-      toolResults.push({
-        type: "tool_result",
-        tool_use_id: toolUseId,
-        is_error: true,
-        content: "No fue posible reconstruir esta consulta con los permisos actuales.",
-      });
+      omitHistoricalTurn = true;
+      break;
     }
   }
+
+  // Si una consulta histórica ya no es visible en la sesión actual, no mandamos
+  // tampoco el texto antiguo a Anthropic: podría contener cifras protegidas.
+  if (omitHistoricalTurn) return;
 
   if (toolUses.length === 0) {
     messages.push(
@@ -535,7 +559,9 @@ function serializeToolResult(toolName: string, result: ActionResult): Record<str
 }
 
 function currentSystemPrompt(): string {
+  const now = new Date();
   const currentYear = new Date().getFullYear();
+  const currentMonth = now.getMonth() + 1;
   return [
     "Eres el asistente de EduPay para consultas administrativas de solo lectura.",
     "Responde en español claro y breve. Usa una herramienta read-only cuando necesites datos; no inventes cifras.",
@@ -543,6 +569,7 @@ function currentSystemPrompt(): string {
     "Nunca solicites, reveles ni infieras CURP, RFC, contraseñas, tokens o datos de autenticación.",
     "Nunca propongas ni ejecutes pagos, cargos, becas, facturas, conciliaciones, configuraciones o cualquier modificación.",
     `La fecha de referencia del servidor está en el año ${currentYear}. Si indican un mes sin año, usa ${currentYear}.`,
+    `Para un resumen ejecutivo o estado financiero mensual, usa siempre query_resumen_ejecutivo_mes. “Este mes” corresponde a mes ${currentMonth} de ${currentYear}; devuelve el summary de esa herramienta sin alterar sus cifras.`,
     "Para preguntas sobre quién debe, deudores o quién falta de pagar sin periodo explícito, consulta los adeudos del mes en curso y menciona el periodo usado. Para otros tipos de consulta, pide aclaración sólo si el periodo es indispensable.",
     "Si el usuario pregunta por “esos”, “esas” o resultados anteriores, limita la respuesta a las personas ya mencionadas en el historial y verifica cualquier dato nuevo con herramientas de sólo lectura.",
   ].join(" ");
@@ -677,6 +704,22 @@ export async function answerWithClaude(
         const safeToolInput = normalizeHistoricalToolInput(toolUse.name, toolInput);
         if (safeToolInput) {
           conversationTools.push({ name: toolUse.name, input: safeToolInput });
+        }
+        if (
+          toolUses.length === 1
+          && toolUse.name === "query_resumen_ejecutivo_mes"
+          && result.success
+        ) {
+          return {
+            handled: true,
+            reply: result.summary,
+            trace,
+            conversationTurn: {
+              user: message,
+              assistant: result.summary,
+              tools: conversationTools,
+            },
+          };
         }
         toolResults.push({
           type: "tool_result",

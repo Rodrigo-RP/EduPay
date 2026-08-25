@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   answerWithClaude,
+  getAssistantActionPermission,
   getClaudeToolDefinitions,
   type ClaudeClient,
 } from "../assistant-claude";
+import { executeAction } from "../assistant-actions";
 import { isClaudeReadOnlyFallbackCandidate, matchIntent } from "../assistant-knowledge";
 import { resolveJwtSecret } from "../routes/shared";
 
@@ -26,9 +28,69 @@ describe("fallback de Claude con herramientas read-only", () => {
   it("publica únicamente herramientas de consulta cerradas", () => {
     const names = getClaudeToolDefinitions().map((tool) => tool.name);
     expect(names).toContain("query_adeudos_nivel_periodo");
+    expect(names).toContain("query_resumen_ejecutivo_mes");
     expect(names.every((name) => name.startsWith("query_"))).toBe(true);
     expect(names).not.toContain("crear_pago");
     expect(names).not.toContain("ejecutar_sql");
+  });
+
+  it("devuelve el resumen ejecutivo determinista en una sola respuesta", async () => {
+    const client = clientWith([
+      {
+        stop_reason: "tool_use",
+        content: [{
+          type: "tool_use",
+          id: "tool-resumen-ejecutivo",
+          name: "query_resumen_ejecutivo_mes",
+          input: { mes: 8, anio: 2026 },
+        }],
+      },
+    ]);
+    const runAction = vi.fn().mockResolvedValue({
+      success: true,
+      title: "Resumen ejecutivo — Agosto 2026",
+      summary:
+        "En **Agosto 2026** se han cobrado **$1,500**. " +
+        "Quedan **$625** por cobrar y **$980** vencido. " +
+        "Actualmente **2 alumnos** tienen beca activa, con **$625** en descuentos aplicados al periodo.",
+      rows: [],
+    });
+
+    const result = await answerWithClaude(
+      "dame un resumen del estado financiero de este mes",
+      context,
+      { client, canRead: () => true, runAction },
+    );
+
+    expect(result.handled).toBe(true);
+    expect(result.reply).toContain("**$1,500**");
+    expect(result.reply).toContain("**$625** por cobrar");
+    expect(result.reply).toContain("**$980** vencido");
+    expect(result.reply).toContain("**2 alumnos** tienen beca activa");
+    expect(result.trace.toolCalls).toEqual(["query_resumen_ejecutivo_mes"]);
+    expect(runAction).toHaveBeenCalledWith(
+      "query:resumen_ejecutivo_mes",
+      { mes: 8, anio: 2026 },
+      context,
+    );
+    expect(client.messages.create).toHaveBeenCalledTimes(1);
+    expect(getAssistantActionPermission("query:resumen_ejecutivo_mes")).toEqual(
+      getAssistantActionPermission("query:resumen_financiero"),
+    );
+  });
+
+  it("rechaza un periodo ejecutivo inválido sin consultar ni modificar datos", async () => {
+    const result = await executeAction(
+      "query:resumen_ejecutivo_mes",
+      { mes: 13, anio: 2026 },
+      context,
+    );
+
+    expect(result).toMatchObject({
+      success: false,
+      title: "Periodo inválido",
+    });
+    expect(result.summary).toMatch(/mes entre 1 y 12/i);
   });
 
   it("ejecuta la consulta permitida y devuelve la respuesta final de Claude", async () => {
@@ -168,11 +230,37 @@ describe("fallback de Claude con herramientas read-only", () => {
     });
 
     const request = (client.messages.create as any).mock.calls[0][0];
-    expect(request.messages[2].content[0]).toMatchObject({
-      type: "tool_result",
-      is_error: true,
-      content: "No tienes permiso para consultar esta información en la sesión actual.",
+    expect(JSON.stringify(request.messages)).not.toContain("Alma tiene adeudo.");
+    expect(JSON.stringify(request.messages)).not.toContain("query_adeudos_nivel_periodo");
+    expect(runAction).not.toHaveBeenCalled();
+  });
+
+  it("revalida el permiso de un resumen ejecutivo histórico antes de exponerlo", async () => {
+    const client = clientWith([
+      { stop_reason: "end_turn", content: [{ type: "text", text: "No tengo permiso actual para ese resumen." }] },
+    ]);
+    const runAction = vi.fn();
+
+    await answerWithClaude("¿y cómo cambió desde entonces?", context, {
+      client,
+      canRead: () => false,
+      runAction,
+      history: {
+        messages: [
+          { role: "user", content: "dame un resumen del estado financiero de agosto" },
+          { role: "assistant", content: "Resumen de agosto." },
+        ],
+        claudeTurns: [{
+          user: "dame un resumen del estado financiero de agosto",
+          assistant: "Resumen de agosto.",
+          tools: [{ name: "query_resumen_ejecutivo_mes", input: { mes: 8, anio: 2026 } }],
+        }],
+      },
     });
+
+    const request = (client.messages.create as any).mock.calls[0][0];
+    expect(JSON.stringify(request.messages)).not.toContain("Resumen de agosto.");
+    expect(JSON.stringify(request.messages)).not.toContain("query_resumen_ejecutivo_mes");
     expect(runAction).not.toHaveBeenCalled();
   });
 

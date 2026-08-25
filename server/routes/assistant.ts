@@ -240,7 +240,6 @@ export function registerAssistantRoutes(app: Express): void {
           });
         }
       }
-
       // ── §4.3 Registro estructurado de interacción (sin PII de familias) ─────
       // Determinar qué tipo de intención se resolvió
       const intentType = (result as any).actionResult

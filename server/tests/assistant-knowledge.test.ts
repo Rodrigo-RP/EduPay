@@ -106,7 +106,7 @@ describe("matchIntent — consultas de datos (detectActionIntent)", () => {
 
   it("detecta consulta de resumen financiero", () => {
     const r = matchIntent("cuánto se ha cobrado este mes", "administrador_campus");
-    expect((r as any).action?.actionId).toBe("query:resumen_financiero");
+    expect((r as any).action?.actionId).toBe("query:resumen_ejecutivo_mes");
   });
 
   it("detecta discrepancia de números", () => {
@@ -207,9 +207,9 @@ describe("detectActionIntent — casos directos", () => {
     expect(a).toBeNull();
   });
 
-  it("detecta correctamente query:resumen_financiero", () => {
+  it("detecta correctamente query:resumen_ejecutivo_mes", () => {
     const a = detectActionIntent("cuánto llevamos cobrado");
-    expect(a?.actionId).toBe("query:resumen_financiero");
+    expect(a?.actionId).toBe("query:resumen_ejecutivo_mes");
   });
 
   it("detecta query:contar para 'pagos'", () => {

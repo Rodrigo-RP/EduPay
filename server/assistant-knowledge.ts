@@ -669,9 +669,20 @@ export function detectActionIntent(message: string): ActionDescriptor | null {
   if (/(discrepancia|no coincide|diferencia entre|inconsistencia|por que (hay|tengo|aparecen?) (mas|menos|mas|solo))/.test(n))
     return { actionId: "query:discrepancia", params: {} };
 
-  // ── Resumen financiero ────────────────────────────────────────────────────
-  if (/(cuanto (se ha|hemos|lleva[ms]?) cobrado|resumen financiero|resumen del mes|total cobrado|cuanto llevamos|cuanto hay cobrado|cuanto tenemos cobrado)/.test(n))
-    return { actionId: "query:resumen_financiero", params: {} };
+  // ── Resumen ejecutivo financiero ──────────────────────────────────────────
+  // El resumen agrega cobranza, cartera vencida y becas en una sola consulta.
+  if (/(cuanto (se ha|hemos|lleva[ms]?) cobrado|resumen (?:del )?(?:estado )?financiero|resumen del mes|estado financiero|como vamos (?:este )?mes|total cobrado|cuanto llevamos|cuanto hay cobrado|cuanto tenemos cobrado)/.test(n)) {
+    const now = new Date();
+    const monthNames = [
+      "enero", "febrero", "marzo", "abril", "mayo", "junio",
+      "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+    ];
+    const namedMonth = monthNames.findIndex((name) => new RegExp(`\\b${name}\\b`).test(n));
+    const namedYear = n.match(/\b(20\d{2})\b/);
+    const month = namedMonth >= 0 ? namedMonth + 1 : now.getMonth() + 1;
+    const year = namedYear ? Number(namedYear[1]) : now.getFullYear();
+    return { actionId: "query:resumen_ejecutivo_mes", params: { mes: month, anio: year } };
+  }
 
   // ── Contar entidades ──────────────────────────────────────────────────────
   // Acepta masculino (cuántos) y femenino (cuántas)

@@ -103,14 +103,33 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
 
     const charges = await pool.query(
       `INSERT INTO charges
-        (tenant_id, student_id, fecha_emision, fecha_vencimiento, monto_base_centavos, estado)
+        (tenant_id, student_id, fecha_emision, fecha_vencimiento, monto_base_centavos, beca_aplicada, estado)
        VALUES
-        ($1, $2, $4::date, $4::date, 125000, 'pendiente'),
-        ($1, $3, $4::date, $4::date, 98000, 'vencido')
+         ($1, $2, $4::date, $5::date, 125000, 50, 'pendiente'),
+         ($1, $3, $4::date, $4::date, 98000, 0, 'vencido'),
+         ($1, $2, $4::date, $4::date, 150000, 0, 'pagado'),
+         ($1, $3, $4::date, $4::date, 50000, 0, 'pagado')
        RETURNING id`,
-      [tenantId, studentIds[0], studentIds[1], `${CURRENT_YEAR}-${String(CURRENT_MONTH).padStart(2, "0")}-15`],
+      [
+        tenantId,
+        studentIds[0],
+        studentIds[1],
+        `${CURRENT_YEAR}-${String(CURRENT_MONTH).padStart(2, "0")}-15`,
+        `${CURRENT_YEAR}-${String(CURRENT_MONTH).padStart(2, "0")}-28`,
+      ],
     );
     chargeIds = charges.rows.map((row: any) => row.id);
+    const payment = await pool.query(
+      `INSERT INTO payments (tenant_id, charge_id, metodo, monto_centavos, fecha_pago, estado)
+       VALUES ($1, $2, 'efectivo', 200000, $3::timestamp, 'exitoso')
+       RETURNING id`,
+      [tenantId, chargeIds[2], `${CURRENT_YEAR}-${String(CURRENT_MONTH).padStart(2, "0")}-10 12:00:00`],
+    );
+    await pool.query(
+      `INSERT INTO payment_applications (payment_id, charge_id, amount_centavos)
+       VALUES ($1, $2, 150000), ($1, $3, 50000)`,
+      [payment.rows[0].id, chargeIds[2], chargeIds[3]],
+    );
     const scholarships = await pool.query(
       `INSERT INTO scholarships (student_id, tenant_id, porcentaje, motivo, vigencia_inicio, vigencia_fin)
        VALUES
@@ -136,6 +155,8 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
     if (!tenantId) return;
     await pool.query("DELETE FROM audit_log WHERE tenant_id = $1", [tenantId]);
     if (scholarshipIds.length) await pool.query("DELETE FROM scholarships WHERE id = ANY($1::int[])", [scholarshipIds]);
+    if (chargeIds.length) await pool.query("DELETE FROM payment_applications WHERE charge_id = ANY($1::int[])", [chargeIds]);
+    if (chargeIds.length) await pool.query("DELETE FROM payments WHERE charge_id = ANY($1::int[])", [chargeIds]);
     if (chargeIds.length) await pool.query("DELETE FROM charges WHERE id = ANY($1::int[])", [chargeIds]);
     if (studentIds.length) await pool.query("DELETE FROM students WHERE id = ANY($1::int[])", [studentIds]);
     if (foreignStudentId) await pool.query("DELETE FROM students WHERE id = $1", [foreignStudentId]);
@@ -324,5 +345,74 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
       studentTarget: studentIds[0],
       blockedStudentTarget: foreignStudentId,
     }));
+  });
+
+  test("muestra un resumen ejecutivo mensual combinado en el widget real", async ({ request, page }) => {
+    test.setTimeout(150_000);
+    const question = "dame un resumen del estado financiero de este mes";
+    const direct = await executeAction(
+      "query:resumen_ejecutivo_mes",
+      { mes: CURRENT_MONTH, anio: CURRENT_YEAR },
+      { campusId, tenantId, userId: 0 },
+    );
+    expect(direct.success).toBe(true);
+    expect(direct.summary).toContain("**$2,000**");
+    expect(direct.summary).toContain("**$625** por cobrar");
+    expect(direct.summary).toContain("**$980** vencido");
+    expect(direct.summary).toContain("**2 alumnos** tienen beca activa");
+    expect(direct.summary).toContain("**$625** en descuentos");
+
+    const response = await request.post(`${BASE}/api/assistant/chat`, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      data: { message: question },
+      failOnStatusCode: false,
+      timeout: 60_000,
+    });
+    const body = await response.json();
+    expect(response.status()).toBe(200);
+    expect(body.claude).toBeUndefined();
+    expect(body.reply).toContain("**$2,000**");
+    expect(body.reply).toContain("**$625** por cobrar");
+    expect(body.reply).toContain("**$980** vencido");
+    expect(body.reply).toContain("**2 alumnos** tienen beca activa");
+    expect(body.reply).toContain("**$625** en descuentos");
+
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await page.evaluate(({ authToken, storedTenantId, storedCampusId, storedWidgetUserId }) => {
+      localStorage.setItem("auth_token", authToken);
+      localStorage.setItem("auth_type", "user");
+      localStorage.setItem("auth_user", JSON.stringify({
+        id: storedWidgetUserId,
+        email: "e2e.claude@example.test",
+        name: "E2E Claude",
+        role: "super_admin",
+        tenant_id: storedTenantId,
+        campus_id: storedCampusId,
+      }));
+    }, {
+      authToken: widgetToken,
+      storedTenantId: tenantId,
+      storedCampusId: campusId,
+      storedWidgetUserId: widgetUserId,
+    });
+    await page.reload({ waitUntil: "networkidle" });
+    await page.getByRole("button", { name: "Abrir asistente EduPay" }).click();
+    const dialog = page.getByRole("dialog", { name: "Asistente EduPay" });
+    await dialog.getByPlaceholder("¿Dónde está...? / No funciona...").fill(question);
+    const widgetResponse = page.waitForResponse((res) =>
+      res.url().includes("/api/assistant/chat") && res.request().postData()?.includes(question),
+    );
+    await dialog.getByRole("button", { name: "Enviar mensaje" }).click();
+    const widgetBody = await (await widgetResponse).json();
+    expect(widgetBody.claude).toBeUndefined();
+    await expect(dialog).toContainText("se han cobrado");
+    await expect(dialog).toContainText("$2,000");
+    await expect(dialog).toContainText("$625");
+    await expect(dialog).toContainText("$980");
+    await expect(dialog).toContainText("2 alumnos");
+    await page.screenshot({ path: "screenshots/assistant-executive-summary-real.png" });
   });
 });

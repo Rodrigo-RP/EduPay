@@ -320,6 +320,182 @@ async function queryResumenFinanciero(_p: Record<string, any>, ctx: ActionContex
   }
 }
 
+/**
+ * Resumen ejecutivo financiero de un mes calendario.
+ * Todos los indicadores son agregados: nunca devuelve alumnos, IDs ni datos sensibles.
+ */
+async function queryResumenEjecutivoMes(params: Record<string, any>, ctx: ActionContext): Promise<ActionResult> {
+  const now = new Date();
+  const month = params.mes === undefined ? now.getMonth() + 1 : Number(params.mes);
+  const year = params.anio === undefined ? now.getFullYear() : Number(params.anio);
+
+  if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 2000 || year > 2100) {
+    return {
+      success: false,
+      title: "Periodo inválido",
+      summary: "Indica un mes entre 1 y 12 y un año válido para generar el resumen financiero.",
+    };
+  }
+
+  const periodStart = `${year}-${String(month).padStart(2, "0")}-01`;
+  const periodEnd = month === 12
+    ? `${year + 1}-01-01`
+    : `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  const monthLabel = new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric" })
+    .format(new Date(year, month - 1, 1))
+    .replace(/^./, (letter) => letter.toUpperCase());
+
+  try {
+    const { rows } = await pool.query(
+      `WITH pagos_aplicados AS (
+         SELECT COALESCE(SUM(pa.amount_centavos), 0)::bigint AS cobrado_centavos
+           FROM payment_applications pa
+           INNER JOIN payments p ON p.id = pa.payment_id
+           INNER JOIN charges c ON c.id = pa.charge_id
+           INNER JOIN students s ON s.id = c.student_id
+          WHERE p.tenant_id = $1
+            AND c.tenant_id = $1
+            AND s.tenant_id = $1
+            AND s.campus_id = $2
+            AND p.estado = 'exitoso'
+            AND p.fecha_pago >= $3::date
+            AND p.fecha_pago < $4::date
+       ),
+       pagos_legado AS (
+         SELECT COALESCE(SUM(p.monto_centavos), 0)::bigint AS cobrado_centavos
+           FROM payments p
+           INNER JOIN charges c ON c.id = p.charge_id
+           INNER JOIN students s ON s.id = c.student_id
+          WHERE p.tenant_id = $1
+            AND c.tenant_id = $1
+            AND s.tenant_id = $1
+            AND s.campus_id = $2
+            AND p.estado = 'exitoso'
+            AND p.fecha_pago >= $3::date
+            AND p.fecha_pago < $4::date
+            AND NOT EXISTS (
+              SELECT 1 FROM payment_applications pa WHERE pa.payment_id = p.id
+            )
+       ),
+       pagos_mes AS (
+         SELECT (pagos_aplicados.cobrado_centavos + pagos_legado.cobrado_centavos)::bigint
+           AS cobrado_centavos
+         FROM pagos_aplicados
+         CROSS JOIN pagos_legado
+       ),
+       saldo_cargos_periodo AS (
+         SELECT
+           c.id,
+           c.fecha_vencimiento,
+           GREATEST(
+             ROUND(c.monto_base_centavos
+               * (1 - COALESCE(c.beca_aplicada::numeric, 0) / 100.0))
+             + COALESCE(c.recargo_aplicado_centavos, 0)
+             - COALESCE(SUM(pa.amount_centavos), 0),
+             0
+           )::bigint AS saldo_centavos
+         FROM charges c
+         INNER JOIN students s ON s.id = c.student_id
+         LEFT JOIN payment_applications pa ON pa.charge_id = c.id
+        WHERE c.tenant_id = $1
+          AND s.tenant_id = $1
+          AND s.campus_id = $2
+          AND c.fecha_vencimiento >= $3::date
+          AND c.fecha_vencimiento < $4::date
+          AND c.estado IN ('pendiente', 'parcial', 'vencido')
+        GROUP BY
+          c.id,
+          c.fecha_vencimiento,
+          c.monto_base_centavos,
+          c.beca_aplicada,
+          c.recargo_aplicado_centavos
+       ),
+       adeudos_mes AS (
+         SELECT
+           COALESCE(SUM(saldo_centavos) FILTER (
+             WHERE fecha_vencimiento >= CURRENT_DATE
+           ), 0)::bigint AS por_cobrar_centavos,
+           COALESCE(SUM(saldo_centavos) FILTER (
+             WHERE fecha_vencimiento < CURRENT_DATE
+           ), 0)::bigint AS vencido_centavos
+         FROM saldo_cargos_periodo
+         WHERE saldo_centavos > 0
+       ),
+       becas_activas AS (
+         SELECT COUNT(DISTINCT b.student_id)::int AS alumnos_becados
+         FROM scholarships b
+         INNER JOIN students s ON s.id = b.student_id
+         WHERE b.tenant_id = $1
+           AND s.tenant_id = $1
+           AND s.campus_id = $2
+           AND b.vigencia_inicio < $4::date
+           AND b.vigencia_fin >= $3::date
+       ),
+       descuentos_periodo AS (
+         SELECT COALESCE(SUM(
+           ROUND(c.monto_base_centavos * COALESCE(c.beca_aplicada::numeric, 0) / 100.0)
+         ), 0)::bigint AS descuento_centavos
+         FROM charges c
+         INNER JOIN students s ON s.id = c.student_id
+         WHERE c.tenant_id = $1
+           AND s.tenant_id = $1
+           AND s.campus_id = $2
+           AND c.fecha_emision >= $3::date
+           AND c.fecha_emision < $4::date
+           AND c.beca_aplicada > 0
+           AND EXISTS (
+             SELECT 1
+             FROM scholarships b
+             WHERE b.tenant_id = $1
+               AND b.student_id = c.student_id
+               AND b.vigencia_inicio < $4::date
+               AND b.vigencia_fin >= $3::date
+           )
+       )
+       SELECT
+         pagos_mes.cobrado_centavos,
+         adeudos_mes.por_cobrar_centavos,
+         adeudos_mes.vencido_centavos,
+         becas_activas.alumnos_becados,
+         descuentos_periodo.descuento_centavos
+       FROM pagos_mes
+       CROSS JOIN adeudos_mes
+       CROSS JOIN becas_activas
+       CROSS JOIN descuentos_periodo`,
+      [ctx.tenantId, ctx.campusId, periodStart, periodEnd],
+    );
+    const result = rows[0] ?? {};
+    const cobrado = Number(result.cobrado_centavos ?? 0);
+    const porCobrar = Number(result.por_cobrar_centavos ?? 0);
+    const vencido = Number(result.vencido_centavos ?? 0);
+    const alumnosBecados = Number(result.alumnos_becados ?? 0);
+    const descuento = Number(result.descuento_centavos ?? 0);
+
+    return {
+      success: true,
+      title: `Resumen ejecutivo — ${monthLabel}`,
+      summary:
+        `En **${monthLabel}** se han cobrado **${fmt(cobrado)}**. ` +
+        `Quedan **${fmt(porCobrar)}** por cobrar y **${fmt(vencido)}** vencido. ` +
+        `Actualmente **${alumnosBecados} alumno${alumnosBecados === 1 ? "" : "s"}** tienen beca activa, ` +
+        `con **${fmt(descuento)}** en descuentos aplicados al periodo.`,
+      rows: [
+        { label: "✅ Cobrado en el mes", value: fmt(cobrado) },
+        { label: "⏳ Por cobrar (no vencido)", value: fmt(porCobrar), highlight: porCobrar > 0 },
+        { label: "⚠️ Vencido", value: fmt(vencido), highlight: vencido > 0 },
+        { label: "🎓 Alumnos con beca activa", value: alumnosBecados, highlight: alumnosBecados > 0 },
+        { label: "Descuentos del periodo", value: fmt(descuento) },
+      ],
+    };
+  } catch (e: any) {
+    return {
+      success: false,
+      title: "Error en resumen ejecutivo",
+      summary: "No pude generar el resumen financiero del periodo solicitado.",
+    };
+  }
+}
+
 /** Busca alumnos por nombre */
 async function queryBuscarAlumno(params: Record<string, any>, ctx: ActionContext): Promise<ActionResult> {
   const nombre = (params.nombre || "").trim();
@@ -840,6 +1016,7 @@ export async function executeAction(
     case "query:discrepancia":     return queryDiscrepancia(params, ctx);
     case "query:contar":           return queryContar(params, ctx);
     case "query:resumen_financiero": return queryResumenFinanciero(params, ctx);
+    case "query:resumen_ejecutivo_mes": return queryResumenEjecutivoMes(params, ctx);
     case "query:buscar_alumno":    return queryBuscarAlumno(params, ctx);
     case "query:saldo_alumno":     return querySaldoAlumno(params, ctx);
     case "query:becas_alumno":     return queryBecasAlumno(params, ctx);

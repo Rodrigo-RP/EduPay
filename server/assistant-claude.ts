@@ -568,6 +568,40 @@ function preservesAdeudosReply(
     && preservesAdeudosDetails(reply, rows);
 }
 
+/**
+ * Diagnóstico temporal para respuestas de adeudos extensas. No participa en la
+ * decisión: permite identificar si el modelo omitió una fila, movió una cifra
+ * o introdujo un número no verificado antes de usar el fallback seguro.
+ */
+function diagnoseAdeudosReply(
+  reply: string,
+  allSources: string[],
+  rows: Array<{ label: string; value: string }>,
+) {
+  const replyLines = reply.split(/\r?\n/);
+  const verifiedTokens = new Set(allSources.flatMap(numericTokens));
+  return {
+    accepted: preservesAdeudosReply(reply, allSources, rows),
+    rawReply: reply,
+    unexpectedNumericTokens: numericTokens(reply).filter((token) => !verifiedTokens.has(token)),
+    rows: rows.map(({ label, value }) => {
+      const separator = label.indexOf(" · ");
+      const studentName = (separator >= 0 ? label.slice(0, separator) : label).trim();
+      const matchingLines = replyLines.filter((line) =>
+        line.toLocaleLowerCase("es-MX").includes(studentName.toLocaleLowerCase("es-MX")),
+      );
+      const expectedTokens = numericTokens(value);
+      const matchingLine = matchingLines[0] ?? "";
+      return {
+        studentName,
+        expectedTokens,
+        matchingLines,
+        missingTokens: expectedTokens.filter((token) => !containsExactToken(matchingLine, token)),
+      };
+    }),
+  };
+}
+
 function containsOnlyToolFigures(reply: string, sources: string[]): boolean {
   const sourceTokens = new Set(sources.flatMap(numericTokens));
   return numericTokens(reply).every((token) => sourceTokens.has(token));
@@ -863,9 +897,16 @@ export async function answerWithClaude(
           ...toolFactSources,
           ...toolFallbackRows.map((row) => row.label),
         ];
+        const adeudosDiagnostic = hasAdeudosResult && toolFallbackRows.length >= 9
+          ? diagnoseAdeudosReply(reply, adeudosFactSources, toolFallbackRows)
+          : undefined;
+        if (adeudosDiagnostic) {
+          console.info("[assistant] adeudos validation diagnostic", adeudosDiagnostic);
+        }
         const finalReply = hasAdeudosResult
           ? reply
-            && preservesAdeudosReply(reply, adeudosFactSources, toolFallbackRows)
+            && (adeudosDiagnostic?.accepted
+              ?? preservesAdeudosReply(reply, adeudosFactSources, toolFallbackRows))
             ? reply
             : boldVerifiedFigures(verifiedFallback, toolFactSources)
           : reply && preservesToolFigures(reply, toolFactSources) && hasVerifiedExecutiveAssociations

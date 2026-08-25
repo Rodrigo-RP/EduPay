@@ -37,6 +37,21 @@ export const updateStudentSchema = z.object({
   status: z.string().max(50).nullable().optional(),
 }).strict();
 
+async function getStudentInCurrentScope(studentId: number, user: any): Promise<any | undefined> {
+  const campusId = Number(user?.campus_id);
+  const tenantId = Number(user?.tenant_id);
+  if (!Number.isSafeInteger(studentId) || studentId <= 0
+    || !Number.isSafeInteger(campusId) || campusId <= 0
+    || !Number.isSafeInteger(tenantId) || tenantId <= 0) {
+    return undefined;
+  }
+  const result = await pool.query(
+    `SELECT * FROM students WHERE id = $1 AND campus_id = $2 AND tenant_id = $3 LIMIT 1`,
+    [studentId, campusId, tenantId],
+  );
+  return result.rows[0];
+}
+
 export function registerAdminRoutes(app: Express): void {
   // GUARDIAN PORTAL ROUTES
 
@@ -267,16 +282,33 @@ export function registerAdminRoutes(app: Express): void {
   // Get students for authenticated user's campus (no campusId in URL)
   app.get("/api/admin/students", authenticateToken, async (req, res) => {
     try {
-      const role = (req as any).user?.role;
-      if (!hasPermissionForUser((req as any).user, MODULES.STUDENTS, ACTIONS.READ)) {
+      const user = (req as any).user;
+      if (!hasPermissionForUser(user, MODULES.STUDENTS, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para ver alumnos" });
       }
-      const campusId = (req as any).user?.campus_id;
-      if (!campusId) {
+      const campusId = Number(user?.campus_id);
+      const tenantId = Number(user?.tenant_id);
+      if (!Number.isSafeInteger(campusId) || campusId <= 0 || !Number.isSafeInteger(tenantId) || tenantId <= 0) {
         return res.status(400).json({ message: "Campus ID requerido" });
       }
-      const students = await storage.getStudentsByCampus(campusId);
-      res.json(students);
+
+      const rawStudentId = req.query.studentId;
+      if (rawStudentId !== undefined) {
+        if (typeof rawStudentId !== "string" || !/^[1-9]\d*$/.test(rawStudentId)) {
+          return res.status(400).json({ message: "ID de alumno inválido" });
+        }
+        const student = await getStudentInCurrentScope(Number(rawStudentId), user);
+        if (!student) {
+          return res.status(403).json({ message: "Alumno no disponible en tu campus" });
+        }
+        return res.json(student);
+      }
+
+      const students = await pool.query(
+        `SELECT * FROM students WHERE campus_id = $1 AND tenant_id = $2`,
+        [campusId, tenantId],
+      );
+      res.json(students.rows);
     } catch (error: any) {
       res.status(500).json({ message: "Error fetching students" });
     }
@@ -599,11 +631,8 @@ export function registerAdminRoutes(app: Express): void {
       const tenantId  = req.user?.tenant_id;
 
       // Verificar que el alumno pertenece al campus del token
-      const check = await pool.query(
-        `SELECT id FROM students WHERE id = $1 AND campus_id = $2`,
-        [studentId, campusId]
-      );
-      if (check.rows.length === 0) {
+      const student = await getStudentInCurrentScope(studentId, req.user);
+      if (!student) {
         return res.status(403).json({ message: "Alumno no encontrado en tu campus" });
       }
 
@@ -684,11 +713,13 @@ export function registerAdminRoutes(app: Express): void {
       }
       const studentId = parseInt(req.params.studentId);
       const tenantId  = req.user?.tenant_id;
+      const campusId  = req.user?.campus_id;
 
-      // Verificar que el alumno pertenece al tenant del usuario
+      // Verificar tenant y campus: pertenecer al mismo tenant no concede acceso
+      // al expediente de otro campus.
       const studentCheck = await pool.query(
-        `SELECT id FROM students WHERE id = $1 AND tenant_id = $2`,
-        [studentId, tenantId]
+        `SELECT id FROM students WHERE id = $1 AND tenant_id = $2 AND campus_id = $3`,
+        [studentId, tenantId, campusId]
       );
       if (studentCheck.rows.length === 0) {
         return res.status(404).json({ message: "Alumno no encontrado" });
@@ -736,12 +767,13 @@ export function registerAdminRoutes(app: Express): void {
       const studentId  = parseInt(req.params.studentId);
       const guardianId = parseInt(req.params.guardianId);
       const tenantId   = req.user?.tenant_id;
+      const campusId   = req.user?.campus_id;
       const { es_responsable_pago, porcentaje_responsabilidad } = req.body;
 
-      // Verificar tenant
+      // Verificar tenant y campus antes de tocar una relación alumno-tutor.
       const studentCheck = await pool.query(
-        `SELECT id FROM students WHERE id = $1 AND tenant_id = $2`,
-        [studentId, tenantId]
+        `SELECT id FROM students WHERE id = $1 AND tenant_id = $2 AND campus_id = $3`,
+        [studentId, tenantId, campusId]
       );
       if (studentCheck.rows.length === 0) {
         return res.status(404).json({ message: "Alumno no encontrado" });

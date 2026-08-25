@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useLocation } from "wouter";
 import { getCurrentCiclo, generateCiclosList } from "@/hooks/use-academic-filter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -369,6 +370,7 @@ function TutoresPanel({ studentId, isOpen }: { studentId?: number; isOpen: boole
 export default function Estudiantes() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [location, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedGrado, setSelectedGrado] = useState("all");
   const [selectedGrupo, setSelectedGrupo] = useState("all");
@@ -418,6 +420,49 @@ export default function Estudiantes() {
       return response.json();
     }
   });
+
+  const requestedStudentId = (() => {
+    const value = new URLSearchParams(window.location.search).get("studentId");
+    return value && /^[1-9]\d*$/.test(value) ? Number(value) : null;
+  })();
+
+  const {
+    data: deepLinkedStudent,
+    isError: isDeepLinkError,
+  } = useQuery({
+    queryKey: ["/api/admin/students", "deep-link", requestedStudentId],
+    queryFn: async () => {
+      const token = localStorage.getItem("auth_token");
+      const response = await fetch(`/api/admin/students?studentId=${requestedStudentId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) throw new Error(`Error ${response.status}`);
+      return response.json();
+    },
+    enabled: requestedStudentId !== null,
+    retry: false,
+  });
+
+  const clearStudentDeepLink = () => {
+    if (!new URLSearchParams(window.location.search).has("studentId")) return;
+    setLocation("/estudiantes");
+  };
+
+  useEffect(() => {
+    if (!deepLinkedStudent) return;
+    setViewingStudent(deepLinkedStudent);
+    setShowViewModal(true);
+  }, [deepLinkedStudent, location]);
+
+  useEffect(() => {
+    if (!isDeepLinkError) return;
+    toast({
+      title: "No se pudo abrir el expediente",
+      description: "El alumno solicitado no está disponible en tu campus.",
+      variant: "destructive",
+    });
+    clearStudentDeepLink();
+  }, [isDeepLinkError]);
 
   // Formulario adaptado a estructura Excel "Concentrado_Estudiante y Padre" + credenciales individuales
   const [formData, setFormData] = useState({
@@ -1762,7 +1807,13 @@ export default function Estudiantes() {
       )}
 
       {/* ── Modal de vista del estudiante con gestión de tutores ────────────── */}
-      <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
+      <Dialog open={showViewModal} onOpenChange={(open) => {
+        setShowViewModal(open);
+        if (!open) {
+          setViewingStudent(null);
+          clearStudentDeepLink();
+        }
+      }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">

@@ -21,11 +21,19 @@ export interface ActionResultRow {
   highlight?: boolean;
 }
 
+/** Identificador obtenido de una consulta ya acotada al campus y tenant. */
+export interface StudentNavigationTarget {
+  id: number;
+  name: string;
+}
+
 export interface ActionResult {
   success: boolean;
   title: string;
   summary: string;
   rows?: ActionResultRow[];
+  /** Datos estructurados para abrir un expediente, nunca extraídos de texto libre. */
+  studentTargets?: StudentNavigationTarget[];
   requiresConfirmation?: boolean;
   confirmPayload?: { actionId: string; params: Record<string, any>; label: string };
 }
@@ -64,6 +72,18 @@ const FINANCIAL_PROTECTED_ACTIONS = new Set([
 function fmt(centavos: number | string | null): string {
   const n = typeof centavos === "string" ? parseInt(centavos, 10) : (centavos ?? 0);
   return `$${(n / 100).toLocaleString("es-MX", { minimumFractionDigits: 0 })}`;
+}
+
+function studentTargets(rows: Array<{ student_id?: unknown; nombre_completo?: unknown }>): StudentNavigationTarget[] {
+  const uniqueTargets = new Map<number, StudentNavigationTarget>();
+  for (const row of rows) {
+    const id = Number(row.student_id);
+    const name = typeof row.nombre_completo === "string" ? row.nombre_completo.trim() : "";
+    if (Number.isSafeInteger(id) && id > 0 && name) {
+      uniqueTargets.set(id, { id, name });
+    }
+  }
+  return Array.from(uniqueTargets.values());
 }
 
 // ── Handlers de consulta (query:*) ────────────────────────────────────────────
@@ -313,7 +333,7 @@ async function queryBuscarAlumno(params: Record<string, any>, ctx: ActionContext
 
   try {
     const { rows } = await pool.query(
-      `SELECT s.nombre_completo, s.grado, s.grupo, s.id_referencia, s.status,
+      `SELECT s.id AS student_id, s.nombre_completo, s.grado, s.grupo, s.id_referencia, s.status,
               COALESCE(
                 (SELECT SUM(monto_base_centavos) FILTER(WHERE estado IN ('pendiente','vencido'))
                  FROM charges WHERE student_id = s.id), 0
@@ -344,6 +364,7 @@ async function queryBuscarAlumno(params: Record<string, any>, ctx: ActionContext
           label: `${i + 1}. ${r.nombre_completo}`,
           value: `Grado: ${r.grado || "—"} · Grupo: ${r.grupo || "—"} · Matrícula: ${r.id_referencia || "—"}`,
         })),
+        studentTargets: studentTargets(rows),
       };
     }
 
@@ -364,12 +385,13 @@ async function queryBuscarAlumno(params: Record<string, any>, ctx: ActionContext
       title: `${rows.length} alumno(s) encontrado(s)`,
       summary: `Encontré **${rows.length} alumno(s)** con el nombre "${nombre}".`,
       rows: resultRows,
+      studentTargets: studentTargets(rows),
     };
   } catch (e: any) {
     // Fallback sin UNACCENT por si la extensión no está instalada
     try {
       const { rows } = await pool.query(
-        `SELECT s.nombre_completo, s.grado, s.grupo, s.id_referencia, s.status,
+        `SELECT s.id AS student_id, s.nombre_completo, s.grado, s.grupo, s.id_referencia, s.status,
                 COALESCE((SELECT SUM(monto_base_centavos) FILTER(WHERE estado IN ('pendiente','vencido'))
                           FROM charges WHERE student_id = s.id), 0) AS saldo_pendiente
          FROM students s
@@ -392,13 +414,20 @@ async function queryBuscarAlumno(params: Record<string, any>, ctx: ActionContext
             label: `${i + 1}. ${r.nombre_completo}`,
             value: `Grado: ${r.grado || "—"} · Grupo: ${r.grupo || "—"} · Matrícula: ${r.id_referencia || "—"}`,
           })),
+          studentTargets: studentTargets(rows),
         };
       }
       const resultRows: ActionResultRow[] = rows.flatMap((r: any, i: number) => [
         { label: `${i + 1}. ${r.nombre_completo}`, value: `${r.grado || ""} ${r.grupo || ""} · ${r.status}`.trim() },
         { label: "   Saldo pendiente", value: fmt(r.saldo_pendiente), highlight: parseInt(r.saldo_pendiente, 10) > 0 },
       ]);
-      return { success: true, title: `${rows.length} alumno(s) encontrado(s)`, summary: `Encontré ${rows.length} alumno(s).`, rows: resultRows };
+      return {
+        success: true,
+        title: `${rows.length} alumno(s) encontrado(s)`,
+        summary: `Encontré ${rows.length} alumno(s).`,
+        rows: resultRows,
+        studentTargets: studentTargets(rows),
+      };
     } catch {
       return { success: false, title: "Error", summary: `No pude buscar al alumno: ${e.message}` };
     }
@@ -423,7 +452,7 @@ async function queryBecasAlumno(params: Record<string, any>, ctx: ActionContext)
 
   try {
     const { rows } = await pool.query(
-      `SELECT s.nombre_completo,
+      `SELECT s.id AS student_id, s.nombre_completo,
               sh.porcentaje,
               sh.vigencia_inicio,
               sh.vigencia_fin,
@@ -461,6 +490,7 @@ async function queryBecasAlumno(params: Record<string, any>, ctx: ActionContext)
       title: "Becas asignadas",
       summary: `Encontré **${rows.length} beca(s)** para "${nombre}".`,
       rows: resultRows,
+      studentTargets: studentTargets(rows),
     };
   } catch (e: any) {
     return { success: false, title: "Error en becas", summary: `No pude consultar becas: ${e.message}` };
@@ -472,7 +502,7 @@ async function queryBecasNivel(params: Record<string, any>, ctx: ActionContext):
   const nivel = (params.nivel || "").trim();
   try {
     const { rows } = await pool.query(
-      `SELECT s.nombre_completo,
+      `SELECT s.id AS student_id, s.nombre_completo,
               s.nivel_escolar,
               s.grado,
               sh.porcentaje,
@@ -520,6 +550,7 @@ async function queryBecasNivel(params: Record<string, any>, ctx: ActionContext):
       title: `${titulo} — ${rows.length} alumno(s)`,
       summary: `Hay **${rows.length} alumno(s)** con beca activa${nivel ? ` en ${nivel}` : ""}.`,
       rows: resultRows,
+      studentTargets: studentTargets(rows),
     };
   } catch (e: any) {
     return { success: false, title: "Error en becas", summary: `No pude consultar las becas: ${e.message}` };
@@ -539,7 +570,7 @@ async function queryCargosAlumno(params: Record<string, any>, ctx: ActionContext
 
   try {
     const { rows } = await pool.query(
-      `SELECT s.nombre_completo,
+      `SELECT s.id AS student_id, s.nombre_completo,
               COALESCE(co.nombre, 'Sin concepto') AS concepto,
               c.monto_base_centavos,
               c.estado,
@@ -574,6 +605,7 @@ async function queryCargosAlumno(params: Record<string, any>, ctx: ActionContext
       title: `${rows.length} cargo(s) pendiente(s)/vencido(s)`,
       summary: `"${nombre}" tiene **${rows.length} cargo(s)** sin pagar.`,
       rows: resultRows,
+      studentTargets: studentTargets(rows),
     };
   } catch (e: any) {
     return { success: false, title: "Error en cargos", summary: `No pude consultar cargos: ${e.message}` };
@@ -662,8 +694,9 @@ async function queryAdeudosNivelPeriodo(params: Record<string, any>, ctx: Action
            AND c.estado IN ('pendiente', 'vencido', 'parcial')
          GROUP BY c.id, c.student_id, c.monto_base_centavos, c.recargo_aplicado_centavos
        )
-       SELECT
-         s.nombre_completo,
+        SELECT
+          s.id AS student_id,
+          s.nombre_completo,
          s.nivel_escolar,
          s.grado,
          COUNT(cs.id)::int AS cargos_pendientes,
@@ -728,6 +761,7 @@ async function queryAdeudosNivelPeriodo(params: Record<string, any>, ctx: Action
         value: `${fmt(row.saldo_pendiente_centavos)} · ${row.cargos_pendientes} cargo(s)`,
         highlight: Number(row.dias_atraso) >= -7,
       })),
+      studentTargets: studentTargets(rows),
     };
   } catch (e: any) {
     return { success: false, title: "Error en adeudos", summary: `No pude consultar los adeudos del periodo: ${e.message}` };

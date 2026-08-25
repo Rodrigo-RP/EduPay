@@ -229,6 +229,7 @@ export function registerAssistantRoutes(app: Express): void {
           ).catch(() => {});
           return res.json({
             reply: claude.reply,
+            studentTargets: claude.studentTargets,
             claude: {
               provider: "anthropic",
               model: claude.trace.model,

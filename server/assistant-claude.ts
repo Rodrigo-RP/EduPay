@@ -6,7 +6,12 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { ACTIONS, MODULES } from "@shared/permissions";
-import { executeAction, type ActionContext, type ActionResult } from "./assistant-actions";
+import {
+  executeAction,
+  type ActionContext,
+  type ActionResult,
+  type StudentNavigationTarget,
+} from "./assistant-actions";
 import { containsSensitiveAssistantData } from "./assistant-knowledge";
 
 export const CLAUDE_MODEL = "claude-sonnet-5";
@@ -66,6 +71,7 @@ export type ClaudeAnswer = {
   trace: ClaudeTrace;
   error?: string;
   conversationTurn?: ClaudeConversationTurn;
+  studentTargets?: StudentNavigationTarget[];
 };
 
 type ToolDefinition = Anthropic.Tool;
@@ -578,6 +584,7 @@ export async function answerWithClaude(
     runAction,
   );
   const conversationTools: ClaudeConversationTool[] = [];
+  const studentTargets = new Map<number, StudentNavigationTarget>();
 
   try {
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
@@ -614,6 +621,7 @@ export async function answerWithClaude(
             assistant: finalReply,
             tools: conversationTools,
           },
+          studentTargets: studentTargets.size ? Array.from(studentTargets.values()) : undefined,
         };
       }
 
@@ -659,6 +667,13 @@ export async function answerWithClaude(
         }
 
         const result = await runAction(actionId, toolInput, context);
+        for (const target of result.studentTargets ?? []) {
+          const id = Number(target.id);
+          const name = typeof target.name === "string" ? target.name.trim() : "";
+          if (Number.isSafeInteger(id) && id > 0 && name) {
+            studentTargets.set(id, { id, name });
+          }
+        }
         const safeToolInput = normalizeHistoricalToolInput(toolUse.name, toolInput);
         if (safeToolInput) {
           conversationTools.push({ name: toolUse.name, input: safeToolInput });

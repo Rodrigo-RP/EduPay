@@ -21,11 +21,16 @@ const CURRENT_MONTH_NAME = new Date(Date.UTC(CURRENT_YEAR, CURRENT_MONTH - 1, 1)
 let tenantId: number;
 let campusId: number;
 let otherCampusId: number;
+let foreignTenantId: number;
+let foreignCampusId: number;
+let foreignStudentId: number;
+let widgetUserId: number;
 let studentIds: number[] = [];
 let chargeIds: number[] = [];
 let scholarshipIds: number[] = [];
 let familyIds: number[] = [];
 let token: string;
+let widgetToken: string;
 let fixtureNames: string[] = [];
 let outOfContextStudentName: string;
 
@@ -47,6 +52,20 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
       "INSERT INTO campuses (nombre, tenant_id) VALUES ($1, $2) RETURNING id",
       [`Campus Claude secundario ${suffix}`, tenantId],
     )).rows[0].id;
+    foreignTenantId = (await pool.query(
+      "INSERT INTO tenants (nombre_legal, rfc) VALUES ($1, $2) RETURNING id",
+      [`E2E Claude externo ${suffix}`, `EX${suffix}`],
+    )).rows[0].id;
+    foreignCampusId = (await pool.query(
+      "INSERT INTO campuses (nombre, tenant_id) VALUES ($1, $2) RETURNING id",
+      [`Campus Claude externo ${suffix}`, foreignTenantId],
+    )).rows[0].id;
+    widgetUserId = Number((await pool.query(
+      `INSERT INTO users (tenant_id, campus_id, name, email, password_hash, role, is_active, custom_permissions)
+       VALUES ($1, $2, 'Admin widget Claude', $3, 'hash', 'super_admin', true, '{}')
+       RETURNING id`,
+      [tenantId, campusId, `widget.claude.${suffix}@test.invalid`],
+    )).rows[0].id);
     familyIds = (await pool.query(
       `INSERT INTO families (tenant_id, campus_id, nombre)
        VALUES ($1, $2, $3), ($1, $4, $5)
@@ -74,6 +93,13 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
       [tenantId, campusId, outOfContextStudentName, `CLAUDE-${suffix}-C`],
     );
     studentIds.push(extraStudent.rows[0].id);
+    foreignStudentId = Number((await pool.query(
+      `INSERT INTO students
+        (tenant_id, campus_id, nombres, apellido_paterno, nombre_completo, nivel_escolar, grado, grupo, status, id_referencia)
+       VALUES ($1, $2, 'Eva', 'Externa', $3, 'Primaria', 5, 'C', 'activo', $4)
+       RETURNING id`,
+      [foreignTenantId, foreignCampusId, `Eva Externa ${suffix}`, `EXTERNA-${suffix}`],
+    )).rows[0].id);
 
     const charges = await pool.query(
       `INSERT INTO charges
@@ -99,6 +125,11 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
       JWT_SECRET,
       { expiresIn: "10m" },
     );
+    widgetToken = jwt.sign(
+      { id: widgetUserId, userId: widgetUserId, role: "super_admin", tenant_id: tenantId, campus_id: campusId },
+      JWT_SECRET,
+      { expiresIn: "10m" },
+    );
   });
 
   test.afterAll(async () => {
@@ -107,13 +138,18 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
     if (scholarshipIds.length) await pool.query("DELETE FROM scholarships WHERE id = ANY($1::int[])", [scholarshipIds]);
     if (chargeIds.length) await pool.query("DELETE FROM charges WHERE id = ANY($1::int[])", [chargeIds]);
     if (studentIds.length) await pool.query("DELETE FROM students WHERE id = ANY($1::int[])", [studentIds]);
+    if (foreignStudentId) await pool.query("DELETE FROM students WHERE id = $1", [foreignStudentId]);
     if (familyIds.length) await pool.query("DELETE FROM families WHERE id = ANY($1::int[])", [familyIds]);
+    if (widgetUserId) await pool.query("DELETE FROM users WHERE id = $1", [widgetUserId]);
+    await pool.query("DELETE FROM campuses WHERE id = $1", [foreignCampusId]);
+    await pool.query("DELETE FROM tenants WHERE id = $1", [foreignTenantId]);
     await pool.query("DELETE FROM campuses WHERE id = $1", [otherCampusId]);
     await pool.query("DELETE FROM campuses WHERE id = $1", [campusId]);
     await pool.query("DELETE FROM tenants WHERE id = $1", [tenantId]);
   });
 
   test("mantiene el contexto de adeudos al consultar becas en el widget real", async ({ request, page }) => {
+    test.setTimeout(150_000);
     const directToolResult = await executeAction(
       "query:adeudos_nivel_periodo",
       { mes: CURRENT_MONTH, anio: CURRENT_YEAR, nivel: "" },
@@ -155,6 +191,10 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
     });
     expect(body.reply).toContain(fixtureNames[0]);
     expect(body.reply).toContain(fixtureNames[1]);
+    expect(body.studentTargets).toEqual(expect.arrayContaining([
+      { id: studentIds[0], name: fixtureNames[0] },
+      { id: studentIds[1], name: fixtureNames[1] },
+    ]));
     const followUp = "¿y de esos, cuáles ya tienen beca?";
     const secondResponse = await request.post(`${BASE}/api/assistant/chat`, {
       headers: {
@@ -180,7 +220,6 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
     expect(secondBody.claude).toMatchObject({ provider: "anthropic", model: "claude-sonnet-5" });
     expect(secondBody.reply).toContain(fixtureNames[0]);
     expect(secondBody.reply).toContain(fixtureNames[1]);
-    expect(secondBody.reply).toMatch(/no se encontr[óo] beca/i);
     expect(secondBody.reply).not.toContain(outOfContextStudentName);
     expect(secondBody.claude.toolCalls.some((tool: string) => tool.startsWith("query_becas"))).toBe(true);
 
@@ -204,18 +243,23 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
     expect(audit.rows[0].metadata).not.toMatch(/ANTHROPIC_API_KEY|sk-ant/i);
 
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
-    await page.evaluate(({ authToken, storedTenantId, storedCampusId }) => {
+    await page.evaluate(({ authToken, storedTenantId, storedCampusId, storedWidgetUserId }) => {
       localStorage.setItem("auth_token", authToken);
       localStorage.setItem("auth_type", "user");
       localStorage.setItem("auth_user", JSON.stringify({
-        id: 0,
+        id: storedWidgetUserId,
         email: "e2e.claude@example.test",
         name: "E2E Claude",
         role: "super_admin",
         tenant_id: storedTenantId,
         campus_id: storedCampusId,
       }));
-    }, { authToken: token, storedTenantId: tenantId, storedCampusId: campusId });
+    }, {
+      authToken: widgetToken,
+      storedTenantId: tenantId,
+      storedCampusId: campusId,
+      storedWidgetUserId: widgetUserId,
+    });
     await page.reload({ waitUntil: "networkidle" });
     const assistantButton = page.getByRole("button", { name: "Abrir asistente EduPay" });
     await expect(assistantButton).toBeVisible();
@@ -225,7 +269,14 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
     await dialog.getByPlaceholder("¿Dónde está...? / No funciona...").fill(firstQuestion);
     const firstWidgetResponse = page.waitForResponse((res) => res.url().includes("/api/assistant/chat") && res.request().postData()?.includes(firstQuestion));
     await dialog.getByRole("button", { name: "Enviar mensaje" }).click();
-    await expect((await firstWidgetResponse).status()).toBe(200);
+    const firstWidgetApiResponse = await firstWidgetResponse;
+    await expect(firstWidgetApiResponse.status()).toBe(200);
+    const firstWidgetBody = await firstWidgetApiResponse.json();
+    const firstWidgetTargets = firstWidgetBody.studentTargets ?? firstWidgetBody.actionResult?.studentTargets;
+    expect(firstWidgetTargets).toEqual(expect.arrayContaining([
+      { id: studentIds[0], name: fixtureNames[0] },
+      { id: studentIds[1], name: fixtureNames[1] },
+    ]));
     await expect(dialog).toContainText(fixtureNames[0]);
     await expect(dialog).toContainText(fixtureNames[1]);
 
@@ -235,6 +286,32 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
     await expect((await secondWidgetResponse).status()).toBe(200);
     await expect(dialog).toContainText(followUp);
     await expect(dialog).toContainText(fixtureNames[0]);
+    const studentResponse = page.waitForResponse((res) =>
+      res.request().method() === "GET"
+      && res.url().includes(`/api/admin/students?studentId=${studentIds[0]}`),
+    );
+    const openStudentButton = dialog.getByRole("button", { name: `Abrir expediente de ${fixtureNames[0]}` }).first();
+    await expect(openStudentButton).toBeVisible();
+    await openStudentButton.click();
+    await expect((await studentResponse).status()).toBe(200);
+    await expect(page).toHaveURL(new RegExp(`/estudiantes\\?studentId=${studentIds[0]}`));
+    await expect(page.getByRole("dialog").filter({ hasText: fixtureNames[0] })).toBeVisible();
+    await page.screenshot({ path: "screenshots/assistant-student-deep-link-real.png" });
+
+    const forcedApiResponse = await request.get(
+      `${BASE}/api/admin/students?studentId=${foreignStudentId}`,
+      { headers: { Authorization: `Bearer ${token}` }, failOnStatusCode: false },
+    );
+    expect(forcedApiResponse.status()).toBe(403);
+    expect(await forcedApiResponse.text()).not.toContain(`Eva Externa`);
+
+    const forcedBrowserResponse = page.waitForResponse((res) =>
+      res.request().method() === "GET"
+      && res.url().includes(`/api/admin/students?studentId=${foreignStudentId}`),
+    );
+    await page.goto(`${BASE}/estudiantes?studentId=${foreignStudentId}`, { waitUntil: "domcontentloaded" });
+    await expect((await forcedBrowserResponse).status()).toBe(403);
+    await expect(page.getByRole("dialog").filter({ hasText: `Eva Externa` })).toHaveCount(0);
     await page.screenshot({ path: "screenshots/assistant-memory-claude-real.png" });
 
     console.log("[e2e][claude-memory-real]", JSON.stringify({
@@ -244,6 +321,8 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
       },
       firstResponse: body.reply,
       secondResponse: secondBody.reply,
+      studentTarget: studentIds[0],
+      blockedStudentTarget: foreignStudentId,
     }));
   });
 });

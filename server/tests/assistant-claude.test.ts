@@ -52,6 +52,7 @@ describe("fallback de Claude con herramientas read-only", () => {
       title: "Alumnos con adeudo",
       summary: "Encontré dos alumnos.",
       rows: [{ label: "Alumno de prueba", value: "$1,000" }],
+      studentTargets: [{ id: 321, name: "Alumno de prueba" }],
     });
 
     const result = await answerWithClaude(
@@ -68,6 +69,9 @@ describe("fallback de Claude con herramientas read-only", () => {
       context,
     );
     expect(client.messages.create).toHaveBeenCalledTimes(2);
+    expect(result.studentTargets).toEqual([{ id: 321, name: "Alumno de prueba" }]);
+    const toolResult = (client.messages.create as any).mock.calls[1][0].messages.at(-1).content[0].content;
+    expect(JSON.parse(toolResult).students).toBeUndefined();
   });
 
   it("reconstruye un turno histórico con tool_use y tool_result validados", async () => {

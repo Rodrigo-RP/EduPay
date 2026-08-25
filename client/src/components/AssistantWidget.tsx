@@ -7,7 +7,8 @@
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { BotMessageSquare, X, Minus, Send, ChevronRight, CheckCircle2, XCircle, AlertTriangle, Wrench, Loader2, FileDown, Maximize2 } from "lucide-react";
+import { ACTIONS, MODULES, hasPermission } from "@shared/permissions";
+import { BotMessageSquare, X, Minus, Send, ChevronRight, CheckCircle2, XCircle, AlertTriangle, Wrench, Loader2, FileDown, Maximize2, UserRoundSearch } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { apiRequest } from "@/lib/queryClient";
@@ -54,6 +55,12 @@ interface ActionResult {
   title: string;
   summary: string;
   rows?: ActionResultRow[];
+  studentTargets?: StudentNavigationTarget[];
+}
+
+interface StudentNavigationTarget {
+  id: number;
+  name: string;
 }
 
 /** Señal N4/N5: el servidor reconoció una intención de escritura supervisada.
@@ -100,6 +107,8 @@ interface ChatMessage {
   diagnosing?: boolean;
   /** Resultado de una consulta/acción de datos */
   actionResult?: ActionResult;
+  /** Alumnos reales de una consulta de Claude, independientes del texto libre. */
+  studentTargets?: StudentNavigationTarget[];
   /** N3: señal de exportación de reporte */
   export?: ExportSignal;
   /** N4/N5: señal de acción con confirmación */
@@ -118,6 +127,7 @@ interface AssistantResponse {
   suggestions?: NavTarget[];
   diagnose?: { moduleId: string; label: string };
   actionResult?: ActionResult;
+  studentTargets?: StudentNavigationTarget[];
   /** N3: señal de exportación */
   export?: ExportSignal;
   /** N4/N5: señal de acción con confirmación */
@@ -357,7 +367,47 @@ function SuggestActionCard({ signal }: { signal: SuggestActionSignal }) {
 
 // ── Subcomponente: ActionResultCard ──────────────────────────────────────────
 
-function ActionResultCard({ result }: { result: ActionResult }) {
+function StudentNavigationCard({
+  students,
+  onNavigate,
+}: {
+  students: StudentNavigationTarget[];
+  onNavigate: (student: StudentNavigationTarget) => void;
+}) {
+  if (students.length === 0) return null;
+  return (
+    <div className="w-full max-w-[360px] overflow-hidden rounded-xl border border-blue-200 bg-blue-50 text-xs">
+      <div className="flex items-center gap-1.5 border-b border-blue-100 px-3 py-2 text-slate-700">
+        <UserRoundSearch className="h-3.5 w-3.5 text-blue-600" />
+        <span className="font-semibold">Expedientes de alumnos</span>
+      </div>
+      <div className="divide-y divide-blue-100">
+        {students.map((student) => (
+          <div key={student.id} className="flex items-center gap-2 bg-white/70 px-3 py-2">
+            <span className="min-w-0 flex-1 truncate text-slate-700">{student.name}</span>
+            <button
+              onClick={() => onNavigate(student)}
+              className="shrink-0 rounded-full bg-blue-600 px-2 py-1 text-[10px] font-medium text-white transition-colors hover:bg-blue-700"
+              aria-label={`Abrir expediente de ${student.name}`}
+            >
+              Ver expediente
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ActionResultCard({
+  result,
+  canNavigateStudents,
+  onNavigateStudent,
+}: {
+  result: ActionResult;
+  canNavigateStudents: boolean;
+  onNavigateStudent: (student: StudentNavigationTarget) => void;
+}) {
   return (
     <div className={`rounded-xl border p-3 text-xs max-w-[240px] ${result.success ? "bg-blue-50 border-blue-200" : "bg-red-50 border-red-200"}`}>
       <div className="flex items-center gap-1.5 mb-2">
@@ -378,6 +428,9 @@ function ActionResultCard({ result }: { result: ActionResult }) {
             </div>
           ))}
         </div>
+      )}
+      {canNavigateStudents && result.studentTargets && (
+        <StudentNavigationCard students={result.studentTargets} onNavigate={onNavigateStudent} />
       )}
     </div>
   );
@@ -556,6 +609,13 @@ export default function AssistantWidget() {
     })
     : "signed-out";
   const accountKeyRef = useRef(accountKey);
+  const canNavigateStudents = Boolean(
+    user && (
+      hasPermission(user.role as any, MODULES.STUDENTS, ACTIONS.READ)
+      || (Array.isArray((user as any).custom_permissions)
+        && (user as any).custom_permissions.includes(`${MODULES.STUDENTS}.${ACTIONS.READ}`))
+    ),
+  );
 
   // Una conversación pertenece únicamente a la cuenta actualmente autenticada.
   // También protege contra una respuesta tardía de una sesión anterior.
@@ -760,6 +820,7 @@ export default function AssistantWidget() {
             }
           : {}),
         ...(data.actionResult ? { actionResult: data.actionResult } : {}),
+        ...(data.studentTargets ? { studentTargets: data.studentTargets } : {}),
         ...(data.export   ? { export:   data.export   } : {}),
         ...(data.suggest  ? { suggest: data.suggest  } : {}),
         ts: Date.now(),
@@ -793,6 +854,10 @@ export default function AssistantWidget() {
   const navigateTo = (route: string) => {
     setLocation(route);
     setOpen(false);
+  };
+
+  const navigateToStudent = (student: StudentNavigationTarget) => {
+    navigateTo(`/estudiantes?studentId=${encodeURIComponent(String(student.id))}`);
   };
 
   const handleSuggestionClick = (s: NavTarget) => {
@@ -896,7 +961,18 @@ export default function AssistantWidget() {
 
                   {/* Tarjeta de resultado de acción/consulta */}
                   {msg.actionResult && (
-                    <ActionResultCard result={msg.actionResult} />
+                    <ActionResultCard
+                      result={msg.actionResult}
+                      canNavigateStudents={canNavigateStudents}
+                      onNavigateStudent={navigateToStudent}
+                    />
+                  )}
+
+                  {canNavigateStudents && msg.studentTargets && (
+                    <StudentNavigationCard
+                      students={msg.studentTargets}
+                      onNavigate={navigateToStudent}
+                    />
                   )}
 
                   {/* Tarjeta de diagnóstico */}

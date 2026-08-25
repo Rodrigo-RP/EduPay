@@ -21,3 +21,10 @@ uri = "file://screenshots/portal-padres-pago-completo-real.png"
 type = "image"
 title = "Prueba 14 — Portal de Padres con Stripe real"
 description = "Captura generada por Playwright después de completar el CardElement real de Stripe con la tarjeta de prueba 4242 4242 4242 4242 y validar el pago exitoso, folio y UUID CFDI."
+
+[[outputs]]
+id = "foA8YPXOuNk0elIACc1rP"
+uri = "file://screenshots/portal-padres-pago-monto-confirmado-real.png"
+type = "image"
+title = "Pago del portal: monto confirmado"
+description = "Captura de PP-01 con Stripe real: la pantalla de éxito muestra $2,800.00 MXN procesados, junto con folio y UUID CFDI."

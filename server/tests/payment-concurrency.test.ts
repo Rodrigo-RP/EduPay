@@ -21,7 +21,7 @@ import { markChargeAsPaidForTest } from "./test-helpers";
 // resetPaymentRateLimitStore se llama globalmente desde tests/setup.ts
 
 const BASE       = "http://localhost:5000";
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 
 // ── IDs de datos creados en beforeAll ────────────────────────────────────────
 let tenantId:    number;

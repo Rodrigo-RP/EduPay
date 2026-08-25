@@ -17,7 +17,7 @@ import { pool, db } from "../db";
 import { payment_rules, students } from "../../shared/schema";
 import { eq } from "drizzle-orm";
 
-const JWT_SECRET = process.env.JWT_SECRET ?? "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 const BASE        = "http://localhost:5000";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────

@@ -23,7 +23,7 @@ import jwt from "jsonwebtoken";
 import { pool } from "../db.js";
 
 const BASE       = "http://localhost:5000";
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 
 let tenantId:       number;
 let campusId:       number;

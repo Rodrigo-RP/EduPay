@@ -19,7 +19,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { pool } from "../db";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 const BASE = "http://localhost:5000";
 
 // ── fixtures ─────────────────────────────────────────────────────────────────
@@ -308,9 +308,9 @@ describe("endpoints de timbrado — 503 honesto sin adaptador real", () => {
       headers: { Authorization: `Bearer ${adminToken}` },
       body: form,
     });
-    // Debe ser 503 (env var FACTURAPI_SECRET_KEY no configurada)
-    // o 400 (si la validación de archivos falla antes del factory — también es honesto)
-    expect([400, 503]).toContain(r.status);
+    // Debe ser 503 (sin proveedor) o un 4xx honesto si la validación de
+    // certificado/contraseña ocurre antes de resolver el factory.
+    expect([400, 422, 503]).toContain(r.status);
     const body = await r.json() as any;
     // En ningún caso debe simular un éxito
     expect(body.organizacion_id).toBeUndefined();

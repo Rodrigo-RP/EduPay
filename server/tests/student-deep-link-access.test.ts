@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import { pool } from "../db";
 
 const BASE = "http://localhost:5000";
-const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 const suffix = Date.now().toString().slice(-8);
 
 let tenantId = 0;

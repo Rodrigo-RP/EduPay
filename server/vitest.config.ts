@@ -13,6 +13,9 @@ export default defineConfig({
     // Glob: recoge automáticamente cualquier *.test.ts bajo tests/,
     // igual que Playwright recoge e2e/**/*.spec.ts con testDir.
     include: ["tests/**/*.test.ts"],
+    // audit-log.test.ts es un runner manual sin casos Vitest; se ejecuta con
+    // tsx cuando se necesita, no como parte de la suite declarativa.
+    exclude: ["tests/audit-log.test.ts"],
     // Resetea los tres stores de rate-limiting antes de cada archivo de test
     // para evitar 429 cuando la suite se corre múltiples veces seguidas.
     setupFiles: ["tests/setup.ts"],

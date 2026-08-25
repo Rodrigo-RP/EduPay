@@ -10,7 +10,7 @@ import { matchIntent } from "../assistant-knowledge";
 import { pool } from "../db";
 
 const BASE = "http://localhost:5000";
-const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET;
+import { JWT_SECRET } from "../routes/shared";
 if (!JWT_SECRET) throw new Error("Se requiere JWT_SECRET o SESSION_SECRET para las pruebas.");
 let campusId: number;
 let tenantId: number;

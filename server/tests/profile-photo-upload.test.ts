@@ -17,7 +17,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 
 const BASE = "http://localhost:5000";
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 
 // ── Imagen sintética mínima: 1×1 px PNG (67 bytes) ───────────────────────────
 // Multer acepta por MIME type, no por contenido. Buffer válido para pruebas de upload.

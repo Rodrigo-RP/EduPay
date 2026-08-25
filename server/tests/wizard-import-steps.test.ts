@@ -37,7 +37,7 @@ import jwt from "jsonwebtoken";
 
 
 const BASE       = "http://localhost:5000";
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 const TENANT_ID  = 29;
 const CAMPUS_ID  = 48;
 const ADMIN_ID   = 80;

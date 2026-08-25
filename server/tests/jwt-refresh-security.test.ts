@@ -35,7 +35,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
 const BASE       = "http://localhost:5000";
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 const FAKE_SECRET = "SECRETO_FALSO_QUE_NO_ES_JWT_SECRET_____________________";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────

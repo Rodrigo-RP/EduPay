@@ -18,7 +18,7 @@ import {
   isClaudeReadOnlyFallbackCandidate,
 } from "../assistant-knowledge";
 import { runDiagnostic, runFullDiagnostic, MODULE_CHECKS } from "../assistant-health-checks";
-import { executeAction } from "../assistant-actions";
+import { executeAction, resolveSuggestContext } from "../assistant-actions";
 import {
   answerWithClaude,
   getAssistantActionPermission,
@@ -118,11 +118,42 @@ export function registerAssistantRoutes(app: Express): void {
         });
       }
 
-      // ── Límite duro: el asistente no puede ejecutar ni preparar escrituras ───
-      // Los endpoints administrativos continúan disponibles desde sus pantallas,
-      // pero el chat nunca devuelve señales/URLs/body para modificar registros.
+      // ── Sugerencias de escritura: preparar, nunca ejecutar ──────────────────
+      // La señal se confirma después en la UI y el endpoint administrativo vuelve
+      // a validar permisos, tenant/campus y payload antes de cambiar datos.
       const suggestTrigger = detectSuggestTrigger(message.trim());
       if (suggestTrigger) {
+        const canPrepareSuggestion = [
+          "super_admin",
+          "administrador_general",
+          "administrador_campus",
+          "admisiones",
+        ].includes(userRole);
+        if (
+          suggestTrigger.action === "asignar_beca"
+          && canPrepareSuggestion
+          && Number.isSafeInteger(campusId)
+          && Number.isSafeInteger(tenantId)
+        ) {
+          const resolved = await resolveSuggestContext(suggestTrigger, { campusId, tenantId });
+          if (resolved?.kind === "signal") {
+            pool.query(
+              `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
+               VALUES ($1, $2, 'assistant_chat_interaction', 'system', $3, $4, NOW())`,
+              [
+                tenantId || null, userId || null, campusId || null,
+                JSON.stringify({ intentType: "suggestion_prepared", requestedAction: suggestTrigger.action, messageLength: message.trim().length }),
+              ],
+            ).catch(() => {});
+            return res.json({
+              reply: "Preparé una propuesta para tu revisión. Confírmala para aplicarla.",
+              suggest: resolved.signal,
+            });
+          }
+          if (resolved?.kind === "clarification") {
+            return res.json({ reply: resolved.reply });
+          }
+        }
         pool.query(
           `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
            VALUES ($1, $2, 'assistant_chat_interaction', 'system', $3, $4, NOW())`,

@@ -35,7 +35,7 @@ import {
   registerCampusPaymentRoutes,
 } from "../routes/campus-payment";
 
-const JWT_SECRET     = process.env.JWT_SECRET || "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 const TEST_PORT      = 5099;
 const TEST_BASE      = `http://localhost:${TEST_PORT}`;
 const WEBHOOK_SECRET = "whsec_test_secret_for_campus_payment";

@@ -18,7 +18,7 @@ import { pool }                            from "../db";
 import jwt                                 from "jsonwebtoken";
 
 const BASE       = "http://localhost:5000";
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 
 // ─── Setup de credenciales para tests de integración ─────────────────────────
 // No se incluye `id` en el JWT para evitar el rollback silencioso del audit_log

@@ -14,7 +14,7 @@ import { campuses, tenants } from "../../shared/schema";
 import { registerGuardianRoutes, type StripeGuardianClient } from "../routes/guardian";
 import { registerStripeWebhookRoute, type StripeClient } from "../routes/campus-payment";
 
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 // Puerto de pruebas ya declarado en .replit; fileParallelism:false garantiza
 // que no coincide con campus-payment.test.ts, que también lo usa y lo cierra.
 const TEST_PORT = 5099;

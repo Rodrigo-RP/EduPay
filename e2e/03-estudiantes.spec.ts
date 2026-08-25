@@ -14,9 +14,8 @@ import { loginAsAdmin } from "./helpers/auth";
 test.describe("Estudiantes", () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
-    // Navegar a estudiantes vía wouter (click en link del sidebar, o directo con location)
-    await page.evaluate(() => { window.history.pushState({}, "", "/estudiantes"); });
-    await page.waitForLoadState("networkidle", { timeout: 15_000 });
+    await page.goto("/estudiantes", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
   });
 
   test("la página carga sin error de servidor", async ({ page }) => {

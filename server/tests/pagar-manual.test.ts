@@ -21,7 +21,7 @@ import { markChargeAsPaidForTest } from "./test-helpers";
 
 
 const BASE       = "http://localhost:5000";
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 
 // ── Estado compartido ──────────────────────────────────────────────────────
 let tenantId:    number;

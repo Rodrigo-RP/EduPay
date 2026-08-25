@@ -16,6 +16,12 @@ export const GUARDIAN_PASSWORD = "Demo2025!";
  * Por eso esperamos contenido del panel, no un cambio de URL.
  */
 export async function loginAsAdmin(page: Page) {
+  const reset = await page.request.post("/api/test/reset-auth-rate-limit", {
+    failOnStatusCode: false,
+  });
+  if (!reset.ok()) {
+    throw new Error(`No se pudo reiniciar el rate limiter de login: HTTP ${reset.status()}`);
+  }
   await page.goto("/");
   await page.waitForLoadState("domcontentloaded");
   // Si ya hay sesión activa (token en localStorage) puede que el panel ya esté visible
@@ -33,6 +39,12 @@ export async function loginAsAdmin(page: Page) {
 
 /** Inicia sesión como tutor/guardian y espera el portal de pagos. */
 export async function loginAsGuardian(page: Page) {
+  const reset = await page.request.post("/api/test/reset-auth-rate-limit", {
+    failOnStatusCode: false,
+  });
+  if (!reset.ok()) {
+    throw new Error(`No se pudo reiniciar el rate limiter de login: HTTP ${reset.status()}`);
+  }
   await page.goto("/");
   await page.waitForLoadState("domcontentloaded");
   // El portal de padres reutiliza el mismo form — usar guardianLogin
@@ -41,13 +53,14 @@ export async function loginAsGuardian(page: Page) {
     data: { email: GUARDIAN_EMAIL, password: GUARDIAN_PASSWORD },
     failOnStatusCode: false,
   });
-  if (res.status() === 200) {
-    const body = await res.json();
-    await page.evaluate((token) => {
-      localStorage.setItem("auth_token", token);
-      localStorage.setItem("auth_type", "guardian");
-    }, body.token);
-    await page.reload();
-    await page.waitForSelector("[class*='portal'], [class*='Portal'], main", { timeout: 10_000 });
+  if (res.status() !== 200) {
+    throw new Error(`El login de tutor falló: HTTP ${res.status()} — ${await res.text()}`);
   }
+  const body = await res.json();
+  await page.evaluate((token) => {
+    localStorage.setItem("auth_token", token);
+    localStorage.setItem("auth_type", "guardian");
+  }, body.token);
+  await page.reload();
+  await page.waitForSelector("[class*='portal'], [class*='Portal'], main", { timeout: 10_000 });
 }

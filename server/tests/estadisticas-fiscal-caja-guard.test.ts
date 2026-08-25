@@ -24,14 +24,14 @@
 
 import { describe, it, expect } from "vitest";
 import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "../routes/shared";
 
 const BASE   = "http://localhost:5000";
-const SECRET = process.env.JWT_SECRET ?? "fallback-secret-key";
 
 function makeToken(role: string) {
   return jwt.sign(
     { id: 80, email: "efc-guard@jfr.edu.mx", role, tenant_id: 29, campus_id: 48 },
-    SECRET,
+    JWT_SECRET,
     { expiresIn: "10m" }
   );
 }

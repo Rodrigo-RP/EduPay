@@ -15,7 +15,7 @@ import jwt from "jsonwebtoken";
 import { pool } from "../db";
 
 const SERVER = "http://localhost:5000";
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

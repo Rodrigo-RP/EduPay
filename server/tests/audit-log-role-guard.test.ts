@@ -33,7 +33,7 @@ import { describe, it, expect } from "vitest";
 import jwt from "jsonwebtoken";
 
 const BASE       = "http://localhost:5000";
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 
 // Campus y tenant del seed de demo (no necesitamos crear fixtures propios:
 // solo verificamos el código HTTP que devuelve el guard, no el contenido).

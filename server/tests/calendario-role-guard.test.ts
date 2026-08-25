@@ -35,7 +35,7 @@ import { pool } from "../db";
 import jwt from "jsonwebtoken";
 
 const BASE       = "http://localhost:5000";
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 
 const post = async (path: string, body: object, token?: string) => {
   const headers: Record<string, string> = { "Content-Type": "application/json" };

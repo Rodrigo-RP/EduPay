@@ -15,7 +15,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import jwt from "jsonwebtoken";
 import { pool } from "../db";          // pool del servidor — misma instancia, sin conexión extra
 
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 const BASE = "http://localhost:5000";
 
 // ── helpers ────────────────────────────────────────────────────────────────

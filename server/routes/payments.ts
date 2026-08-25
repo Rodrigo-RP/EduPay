@@ -106,6 +106,7 @@ export function registerPaymentRoutes(app: Express): void {
     }
 
     const { student_id, charge_id, amount_centavos, idempotency_key } = parsed.data;
+    const manualReference = `manual:${idempotency_key}`;
     const client = await pool.connect();
     const findExistingManualPayment = () => client.query(
       `SELECT p.id, p.charge_id, p.monto_centavos, p.fecha_pago,
@@ -116,12 +117,12 @@ export function registerPaymentRoutes(app: Express): void {
          JOIN students s ON s.id = c.student_id
          JOIN concepts co ON co.id = c.concept_id
         WHERE p.tenant_id = $1
-          AND p.referencia_pasarela = $2
-          AND s.campus_id = $3
-          AND p.charge_id = $4
-          AND c.student_id = $5
+          AND p.referencia_pasarela IN ($2, $3)
+          AND s.campus_id = $4
+          AND p.charge_id = $5
+          AND c.student_id = $6
         FOR UPDATE`,
-      [tenantId, idempotency_key, campusId, charge_id, student_id],
+      [tenantId, manualReference, idempotency_key, campusId, charge_id, student_id],
     );
     const respondWithExistingPayment = (row: any) => res.status(200).json({
       success: true,
@@ -190,7 +191,7 @@ export function registerPaymentRoutes(app: Express): void {
            monto_centavos, fecha_pago, estado)
          VALUES ($1, $2, NULL, 'efectivo', $3, $4, NOW(), 'exitoso')
          RETURNING id, charge_id, monto_centavos, fecha_pago`,
-        [tenantId, charge_id, idempotency_key, amount_centavos],
+        [tenantId, charge_id, manualReference, amount_centavos],
       );
       const paymentRow = payment.rows[0];
 

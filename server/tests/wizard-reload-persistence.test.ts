@@ -26,7 +26,7 @@ import { pool } from "../db";
 import jwt from "jsonwebtoken";
 
 const BASE       = "http://localhost:5000";
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 
 // Orden canónico de pasos del wizard (debe coincidir con WIZARD_STEPS en configuracion-inicial.tsx)
 const WIZARD_STEP_IDS = [

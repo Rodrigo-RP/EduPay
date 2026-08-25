@@ -19,7 +19,7 @@ test.describe("Dashboard – Administrador", () => {
   test("métricas del dashboard son visibles y no muestran spinner indefinido", async ({
     page,
   }) => {
-    await page.waitForLoadState("networkidle", { timeout: 15_000 });
+    await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
     // Debe haber al menos una tarjeta de métrica o número visible
     const hasMetrics =
       (await page.locator("[data-testid='metric-card'], .stat-card, .kpi-card").count()) > 0 ||
@@ -41,7 +41,7 @@ test.describe("Dashboard – Administrador", () => {
     page.on("pageerror", (err) => errors.push(err.message));
     // Recargar para capturar errores desde el inicio
     await page.reload();
-    await page.waitForLoadState("networkidle", { timeout: 15_000 });
+    await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
     // Filtrar errores conocidos no críticos
     const criticalErrors = errors.filter(
       (e) =>

@@ -27,7 +27,7 @@ import { describe, it, expect } from "vitest";
 import jwt from "jsonwebtoken";
 
 const BASE       = "http://localhost:5000";
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 
 const CAMPUS_ID = 48;
 const TENANT_ID = 29;

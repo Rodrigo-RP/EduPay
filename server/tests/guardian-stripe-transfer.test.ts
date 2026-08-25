@@ -26,7 +26,7 @@ import jwt from "jsonwebtoken";
 import { registerGuardianRoutes } from "../routes/guardian";
 import type { StripeGuardianClient } from "../routes/guardian";
 
-const JWT_SECRET      = process.env.JWT_SECRET || "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 const TEST_PORT       = 5098;
 const TEST_BASE       = `http://localhost:${TEST_PORT}`;
 const MOCK_STRIPE_ACCT = "acct_test_guardian_stripe_mock";

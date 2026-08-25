@@ -20,7 +20,7 @@ import jwt from "jsonwebtoken";
 import { pool } from "../db.js";
 
 const BASE        = "http://localhost:5000";
-const JWT_SECRET  = process.env.JWT_SECRET || "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 const TEST_CLABE  = "002180099000001234"; // CLABE para curva de aprendizaje
 const TEST_CLABE2 = "002180099000005678"; // CLABE para test de regresión (conf=2 manual)
 

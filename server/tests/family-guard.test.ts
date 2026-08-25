@@ -39,7 +39,7 @@ import { describe, it, expect } from "vitest";
 import jwt from "jsonwebtoken";
 
 const BASE       = "http://localhost:5000";
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 
 // Campus/tenant del seed demo — tiene familias reales para los controles positivos
 const CAMPUS_ID = 48;

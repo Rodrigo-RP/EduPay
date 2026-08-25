@@ -41,7 +41,7 @@ import jwt from "jsonwebtoken";
 
 
 const BASE = "http://localhost:5000";
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 let tenantId: number;

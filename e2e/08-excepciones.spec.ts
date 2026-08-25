@@ -175,7 +175,7 @@ test.describe("UI — /excepciones-conciliacion (sin datos propios)", () => {
   test("página carga sin errores de servidor (sin 500 en consola)", async ({ page }) => {
     const errors: string[] = [];
     page.on("console", (msg) => {
-      if (msg.type() === "error" && msg.text().includes("500")) {
+      if (msg.type() === "error" && /\b500\b/.test(msg.text())) {
         errors.push(msg.text());
       }
     });

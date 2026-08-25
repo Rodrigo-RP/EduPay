@@ -31,7 +31,7 @@ import { pool } from "../db";
 import jwt from "jsonwebtoken";
 
 const BASE       = "http://localhost:5000";
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 const TENANT_ID  = 29;
 const CAMPUS_ID  = 48;
 const ADMIN_ID   = 80;
@@ -244,7 +244,7 @@ describe("POST /api/admin/families", () => {
           nombres: "Juan FCM01",
           apellido_paterno: "García",
           correo_institucional_familiar: `fcm01-padre-${ts}@test.mx`,
-          celular: "5551111111",
+          celular: "+525551111111",
           es_responsable_pago: true,
           porcentaje_responsabilidad: "60.00",
         },
@@ -253,7 +253,7 @@ describe("POST /api/admin/families", () => {
           nombres: "María FCM01",
           apellido_paterno: "López",
           correo_institucional_familiar: `fcm01-madre-${ts}@test.mx`,
-          celular: "5552222222",
+          celular: "+525552222222",
           es_responsable_pago: true,
           porcentaje_responsabilidad: "40.00",
         },
@@ -400,7 +400,7 @@ describe("POST /api/admin/families", () => {
           curp: CURP_FCM,
           correo_institucional_familiar: "curp-DISTINTO@fcm.mx", // difiere del original
           nombres: "Este Nombre No Se Debe Usar",
-          celular: "9990000000", // difiere de '5550000001'
+          celular: "+525599900000", // difiere de '5550000001'
           es_responsable_pago: true,
         },
       ],

@@ -20,7 +20,7 @@ import jwt from "jsonwebtoken";
 // resetPaymentRateLimitStore se llama globalmente desde tests/setup.ts
 
 const BASE_URL = "http://localhost:5000";
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 
 // IDs compartidos — se inicializan en beforeAll
 let tenantAId: number, tenantBId: number;

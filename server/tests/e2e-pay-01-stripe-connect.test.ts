@@ -21,15 +21,22 @@ import { pool } from "../db";
 import Stripe from "stripe";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET  = process.env.JWT_SECRET ?? "fallback-secret-key";
+import { JWT_SECRET } from "../routes/shared";
 const STRIPE_KEY  = process.env.STRIPE_SECRET_KEY!;
 const SERVER_URL  = "http://localhost:5000";
 const CAMPUS_ID   = 1;
 const ACCOUNT_ID  = "acct_1U5eFqE4HOJNFIv4";
+const runStripeE2E = process.env.RUN_STRIPE_E2E === "1";
 
-const stripe = new Stripe(STRIPE_KEY, { apiVersion: "2025-05-28.basil" as any });
+const stripe = runStripeE2E
+  ? new Stripe(STRIPE_KEY, { apiVersion: "2025-05-28.basil" as any })
+  : null;
 
-describe("E2E-PAY-01: pago Stripe Connect → JFR", () => {
+// Es un smoke test real contra Stripe; se habilita sólo en un entorno con una
+// credencial activa mediante RUN_STRIPE_E2E=1.
+const describeStripeE2E = runStripeE2E ? describe : describe.skip;
+
+describeStripeE2E("E2E-PAY-01: pago Stripe Connect → JFR", () => {
   let paymentDbId: number | null    = null;
   let stripePaymentIntentId: string | null = null;
   let chargeIdUsed: number | null   = null;
@@ -135,7 +142,7 @@ describe("E2E-PAY-01: pago Stripe Connect → JFR", () => {
     console.log("[E2E-PAY-01] PaymentIntent ID:", stripePaymentIntentId);
 
     // ── 8. Verificar en la API de Stripe que transfer_data.destination es correcto ──
-    const pi = await stripe.paymentIntents.retrieve(stripePaymentIntentId!);
+    const pi = await stripe!.paymentIntents.retrieve(stripePaymentIntentId!);
     console.log("[E2E-PAY-01] PaymentIntent de Stripe:", {
       id:                    pi.id,
       status:                pi.status,

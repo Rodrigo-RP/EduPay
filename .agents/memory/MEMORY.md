@@ -65,3 +65,4 @@
 - [Assistant figure associations](assistant-figure-associations.md) — En resúmenes financieros, validar cada cifra junto con su indicador antes de aceptar texto de un LLM.
 - [Assistant student navigation](assistant-student-navigation.md) — Las respuestas del asistente deben conservar studentTargets en todos sus caminos; el widget los muestra sólo con STUDENTS.READ.
 - [Reporte de commits](commit-reporting.md) — Todo reporte de trabajo terminado debe incluir hash real del commit y verificación con git ls-remote.
+- [Payment reference namespacing](payment-reference-namespacing.md) — La idempotencia manual usa referencias `manual:`; una referencia SPEI puede liquidar varios cargos.

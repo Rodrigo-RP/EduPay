@@ -105,6 +105,32 @@ async function getDashboard(page: Page, token: string) {
   }>;
 }
 
+/** Completa el CardElement real alojado por Stripe en su iframe seguro. */
+async function completarTarjetaStripe(page: Page): Promise<void> {
+  const cardFrame = page.frameLocator(
+    'iframe[title="Secure card payment input frame"]',
+  );
+  const numberInput = cardFrame.locator('input[name="cardnumber"]');
+  await expect(numberInput).toBeVisible({ timeout: 15_000 });
+  await numberInput.click();
+  await numberInput.pressSequentially("4242424242424242");
+  const expiryInput = cardFrame.locator('input[name="exp-date"]');
+  await expiryInput.click();
+  await expiryInput.pressSequentially("1234");
+  const cvcInput = cardFrame.locator('input[name="cvc"]');
+  await cvcInput.click();
+  await cvcInput.pressSequentially("123");
+  const postalInput = cardFrame
+    .locator('input[name="postal"], input[name="postal-code"]')
+    .first();
+  await expect(postalInput).toBeVisible({ timeout: 8_000 });
+  await postalInput.click();
+  await postalInput.pressSequentially("12345");
+  await expect(
+    page.getByRole("button", { name: /confirmar pago/i }),
+  ).toBeEnabled({ timeout: 8_000 });
+}
+
 // ─── beforeAll: re-seed para datos frescos ────────────────────────────────────
 
 test.beforeAll(async ({ request }) => {
@@ -180,20 +206,14 @@ test.describe("PP-01 — Flujo 3 clics: seleccionar → método → confirmar �
       // Seleccionar tarjeta
       await page.getByText(/tarjeta de crédito\/débito/i).first().click();
 
-      // Autocompletar tarjeta exitosa (4242 4242 4242 4242)
-      await page.getByText(/autocompletar tarjeta exitosa/i).click();
-
-      // Verificar que el campo quedó con el número de tarjeta correcto
-      const cardInput = page.locator("input[placeholder='0000 0000 0000 0000']");
-      await expect(cardInput).toHaveValue("4242 4242 4242 4242", { timeout: 3_000 });
-
-      // "Continuar" → paso 3
+      // "Continuar" → paso 3, donde Stripe monta el CardElement seguro.
       await page.getByRole("button", { name: /continuar/i }).click();
 
       // ── CLIC 3: confirmar pago ────────────────────────────────────────────
       await expect(
         page.getByText(/confirmar pago/i).first()
       ).toBeVisible({ timeout: 8_000 });
+      await completarTarjetaStripe(page);
 
       // El botón muestra el monto real: "Confirmar pago $X,XXX.XX"
       const btnConfirmar = page.getByRole("button", { name: /confirmar pago/i });
@@ -304,16 +324,14 @@ test.describe("PP-02 — Doble clic: 1 llamada al API, 1 payment en DB (sin dupl
         page.getByText(/método de pago/i).first()
       ).toBeVisible({ timeout: 8_000 });
 
-      // Tarjeta + autocompletar
+      // Selección de método → paso de confirmación → tarjeta real de Stripe.
       await page.getByText(/tarjeta de crédito\/débito/i).first().click();
-      await page.getByText(/autocompletar tarjeta exitosa/i).click();
-
-      // Continuar → paso 3
       await page.getByRole("button", { name: /continuar/i }).click();
 
       await expect(
         page.getByText(/confirmar pago/i).first()
       ).toBeVisible({ timeout: 8_000 });
+      await completarTarjetaStripe(page);
 
       // ── DOBLE CLIC ────────────────────────────────────────────────────────
       //   dblclick() envía mousedown, mouseup, click, mousedown, mouseup, click, dblclick

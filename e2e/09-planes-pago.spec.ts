@@ -14,8 +14,10 @@
  *  Así el fetch inicial de la página ya incluye el plan sin depender del modal.
  */
 
-import { test, expect, type Page, type BrowserContext } from "@playwright/test";
-import { loginAsAdmin } from "./helpers/auth";
+import { test, expect, type Page } from "@playwright/test";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
+import { pool as db } from "../server/db";
 
 const BASE = "http://localhost:5000";
 
@@ -24,64 +26,175 @@ async function getAdminToken(request: any): Promise<string> {
   const res = await request.post(`${BASE}/api/auth/login`, {
     data: { email: "admin.campus@jfr.edu.mx", password: "Demo2025!" },
   });
+  expect(res.status(), "El login administrativo de preparación debe funcionar").toBe(200);
   const body = await res.json();
   return body.token as string;
 }
 
 /**
- * Crea un plan de pago Modo B (futuro) vía API y devuelve { planId, cuotas }.
- * Usa campus_id=48, concept_id=88 (Colegiatura Mensual Primaria $2,800),
- * student_id=121 (Sofía Valentina López Hernández) — datos de demo seed.
+ * El fixture no depende del demo seed: crea un campus, concepto y alumno
+ * exclusivos para esta corrida en el tenant del administrador. El JWT de la
+ * sesión de UI queda acotado al campus temporal.
  */
-async function crearPlanViaApi(
-  request: any,
-  token: string
-): Promise<{ planId: number; cuotas: any[] }> {
+const fixture = {
+  campusId: 0,
+  conceptId: 0,
+  studentId: 0,
+  studentName: "",
+  userId: 0,
+  userEmail: "",
+  userPassword: "",
+  authUser: "",
+  token: "",
+  planId: 0,
+  cuotaId: 0,
+};
+
+async function crearFixture(request: any): Promise<void> {
+  const adminToken = await getAdminToken(request);
+  const adminClaims = jwt.decode(adminToken) as { tenant_id?: number } | null;
+  const tenantId = Number(adminClaims?.tenant_id);
+  expect(tenantId, "El JWT administrativo debe incluir tenant_id").toBeGreaterThan(0);
+
+  const suffix = `${Date.now()}-${process.pid}`;
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const campus = await client.query(
+      `INSERT INTO campuses (tenant_id, nombre, onboarding_completado)
+       VALUES ($1, $2, true)
+       RETURNING id`,
+      [tenantId, `Campus E2E Planes ${suffix}`],
+    );
+    fixture.campusId = Number(campus.rows[0].id);
+
+    fixture.userEmail = `admin.planes.${suffix}@test.edupay.mx`;
+    fixture.userPassword = `E2EPlan${suffix}!`;
+    const passwordHash = await bcrypt.hash(fixture.userPassword, 10);
+    const user = await client.query(
+      `INSERT INTO users (tenant_id, campus_id, name, email, password_hash, role, is_active)
+       VALUES ($1, $2, 'Administrador E2E Planes', $3, $4, 'administrador_campus', true)
+       RETURNING id`,
+      [tenantId, fixture.campusId, fixture.userEmail, passwordHash],
+    );
+    fixture.userId = Number(user.rows[0].id);
+
+    const concept = await client.query(
+      `INSERT INTO concepts (campus_id, tenant_id, nombre, tipo, periodicidad, monto_centavos)
+       VALUES ($1, $2, $3, 'colegiatura', 'mensual', 280000)
+       RETURNING id`,
+      [fixture.campusId, tenantId, `Colegiatura E2E Planes ${suffix}`],
+    );
+    fixture.conceptId = Number(concept.rows[0].id);
+
+    fixture.studentName = `Alumno Planes-${suffix}`;
+    const student = await client.query(
+      `INSERT INTO students
+         (campus_id, tenant_id, nombres, apellido_paterno, nombre_completo, id_referencia, status, grado)
+       VALUES ($1, $2, 'Alumno', $3, $3, $4, 'activo', '1')
+       RETURNING id`,
+      [fixture.campusId, tenantId, fixture.studentName, `E2E-PLAN-${suffix}`],
+    );
+    fixture.studentId = Number(student.rows[0].id);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  const login = await request.post(`${BASE}/api/auth/login`, {
+    data: { email: fixture.userEmail, password: fixture.userPassword },
+  });
+  expect(login.status(), "El administrador temporal debe iniciar sesión").toBe(200);
+  const auth = await login.json();
+  fixture.token = auth.token;
+  fixture.authUser = JSON.stringify(auth.user);
+  expect(fixture.token, "El login debe devolver un token").toBeTruthy();
+  expect(fixture.authUser, "El login debe devolver el usuario autenticado").toBeTruthy();
+}
+
+async function crearPlanViaApi(request: any): Promise<void> {
   const res = await request.post(`${BASE}/api/planes-pago`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: `Bearer ${fixture.token}` },
     data: {
-      concept_id:   88,   // Colegiatura Mensual Primaria
-      student_id:   121,  // Sofía Valentina López Hernández
+      concept_id: fixture.conceptId,
+      student_id: fixture.studentId,
       numero_pagos: 3,
       frecuencia:   "mensual",
       fecha_inicio: new Date().toISOString().slice(0, 10),
       observaciones: "Plan E2E — creado por test automatizado",
     },
   });
+  expect(
+    res.ok(),
+    `La creación del plan debe funcionar: HTTP ${res.status()} — ${await res.text()}`,
+  ).toBeTruthy();
   const body = await res.json();
-  return { planId: body.id, cuotas: body.cuotas || [] };
+  fixture.planId = Number(body.id);
+  fixture.cuotaId = Number(body.cuotas?.[0]?.id);
+  expect(fixture.planId, "La API debe devolver el id del plan creado").toBeGreaterThan(0);
+  expect(fixture.cuotaId, "La API debe devolver la primera cuota creada").toBeGreaterThan(0);
 }
 
-/** Navega a /planes-pago usando pushState (SPA con wouter). */
+async function loginAsFixtureAdmin(page: Page): Promise<void> {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.evaluate(
+    ({ token, user }: { token: string; user: string }) => {
+      localStorage.setItem("auth_token", token);
+      localStorage.setItem("auth_type", "user");
+      localStorage.setItem("auth_user", user);
+    },
+    { token: fixture.token, user: fixture.authUser },
+  );
+  await page.reload({ waitUntil: "domcontentloaded" });
+}
+
+/** Navega a /planes-pago y espera su contrato de interfaz, no red inactiva. */
 async function goToPlanesPago(page: Page) {
-  await page.evaluate(() => window.history.pushState({}, "", "/planes-pago"));
-  await page.waitForLoadState("networkidle");
-  // Esperar el título de la página
-  await page.waitForSelector('h1:has-text("Planes de Pago")', { timeout: 10_000 });
+  await page.evaluate(() => {
+    window.history.pushState({}, "", "/planes-pago");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  });
+  await expect(
+    page.getByRole("heading", { name: /planes de pago/i }),
+  ).toBeVisible({ timeout: 10_000 });
 }
 
 // ── Suite ─────────────────────────────────────────────────────────────────────
 test.describe("Planes de Pago — E2E (ADR-002)", () => {
-  let token: string;
-  let planId: number;
-  let cuotaId: number; // charge id de la primera cuota
-
   test.beforeAll(async ({ request }) => {
-    token = await getAdminToken(request);
-    const { planId: pid, cuotas } = await crearPlanViaApi(request, token);
-    planId  = pid;
-    cuotaId = cuotas[0]?.id;
-    expect(planId).toBeTruthy();
-    expect(cuotaId).toBeTruthy();
+    await crearFixture(request);
+    await crearPlanViaApi(request);
   });
 
-  test.afterAll(async ({ request }) => {
-    // Cancelar el plan creado para limpiar datos
-    if (planId) {
-      await request.patch(`${BASE}/api/planes-pago/${planId}/cancelar`, {
-        headers: { Authorization: `Bearer ${token}` },
-        data: { motivo: "Limpieza post-test E2E automatizado planes pago" },
-      }).catch(() => {});
+  test.afterAll(async () => {
+    const client = await db.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `DELETE FROM payment_applications
+          WHERE charge_id IN (SELECT id FROM charges WHERE plan_id = $1)`,
+        [fixture.planId],
+      );
+      await client.query(
+        `DELETE FROM payments
+          WHERE charge_id IN (SELECT id FROM charges WHERE plan_id = $1)`,
+        [fixture.planId],
+      );
+      await client.query("DELETE FROM charges WHERE plan_id = $1", [fixture.planId]);
+      await client.query("DELETE FROM payment_plans WHERE id = $1", [fixture.planId]);
+      await client.query("DELETE FROM concepts WHERE id = $1", [fixture.conceptId]);
+      await client.query("DELETE FROM students WHERE id = $1", [fixture.studentId]);
+      await client.query("DELETE FROM users WHERE id = $1", [fixture.userId]);
+      await client.query("DELETE FROM campuses WHERE id = $1", [fixture.campusId]);
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw error;
+    } finally {
+      client.release();
     }
   });
 
@@ -96,7 +209,7 @@ test.describe("Planes de Pago — E2E (ADR-002)", () => {
       }
     });
 
-    await loginAsAdmin(page);
+    await loginAsFixtureAdmin(page);
     await goToPlanesPago(page);
 
     // Filtrar 401 a rutas de otras páginas que puedan cargar en background
@@ -110,11 +223,11 @@ test.describe("Planes de Pago — E2E (ADR-002)", () => {
 
   // ── 2. Plan pre-creado aparece en la lista ───────────────────────────────
   test("PP-02: El plan creado aparece en la lista con nombre del alumno", async ({ page }) => {
-    await loginAsAdmin(page);
+    await loginAsFixtureAdmin(page);
     await goToPlanesPago(page);
 
     // Buscar el nombre del alumno en la tarjeta
-    const planCard = page.locator("text=Sofía Valentina").first();
+    const planCard = page.getByText(fixture.studentName).first();
     await expect(planCard).toBeVisible({ timeout: 10_000 });
 
     // Debe mostrar el badge "Activo"
@@ -124,11 +237,11 @@ test.describe("Planes de Pago — E2E (ADR-002)", () => {
 
   // ── 3. Expandir muestra cuotas como charges reales ───────────────────────
   test("PP-03: Expandir el plan muestra las 3 cuotas del ledger (monto_base_centavos)", async ({ page }) => {
-    await loginAsAdmin(page);
+    await loginAsFixtureAdmin(page);
     await goToPlanesPago(page);
 
     // Hacer clic en el botón de expandir del primer plan del alumno
-    const card = page.locator("div.space-y-3 > div").filter({ hasText: "Sofía Valentina" }).first();
+    const card = page.locator("div.space-y-3 > div").filter({ hasText: fixture.studentName }).first();
     await card.locator("button[variant=ghost], button:has(.lucide-chevron-down)").click();
 
     // Deben aparecer 3 filas de cuota
@@ -155,11 +268,11 @@ test.describe("Planes de Pago — E2E (ADR-002)", () => {
       }
     });
 
-    await loginAsAdmin(page);
+    await loginAsFixtureAdmin(page);
     await goToPlanesPago(page);
 
     // Expandir el plan del alumno de prueba
-    const card = page.locator("div.space-y-3 > div").filter({ hasText: "Sofía Valentina" }).first();
+    const card = page.locator("div.space-y-3 > div").filter({ hasText: fixture.studentName }).first();
     await card.locator("button").filter({ has: page.locator(".lucide-chevron-down") }).click();
 
     // Esperar que aparezcan los botones "Marcar pagada"
@@ -192,7 +305,7 @@ test.describe("Planes de Pago — E2E (ADR-002)", () => {
       if (resp.status() === 410) errores410.push(resp.url());
     });
 
-    await loginAsAdmin(page);
+    await loginAsFixtureAdmin(page);
     await goToPlanesPago(page);
 
     // Expandir todos los planes
@@ -218,7 +331,7 @@ test.describe("Planes de Pago — E2E (ADR-002)", () => {
       await route.continue();
     });
 
-    await loginAsAdmin(page);
+    await loginAsFixtureAdmin(page);
     await goToPlanesPago(page);
 
     // Abrir el modal

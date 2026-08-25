@@ -14,8 +14,13 @@ import { loginAsAdmin } from "./helpers/auth";
 test.describe("Cuentas por Cobrar", () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
-    await page.evaluate(() => { window.history.pushState({}, "", "/cuentas-por-cobrar"); });
-    await page.waitForLoadState("networkidle", { timeout: 15_000 });
+    await page.evaluate(() => {
+      window.history.pushState({}, "", "/cuentas-por-cobrar");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    await expect(
+      page.getByRole("heading", { name: /cuentas por cobrar/i }),
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test("la página carga y no muestra error de servidor", async ({ page }) => {

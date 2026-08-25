@@ -26,7 +26,7 @@ async function fetchOnboardingStatus(): Promise<OnboardingStatus> {
     // AuthProvider restores a cached session optimistically. If the token was
     // revoked or expired, terminate it immediately instead of leaving a stale
     // admin shell that can keep remounting this guard and hammering the API.
-    if (res.status === 401 || res.status === 403) {
+    if (res.status === 401) {
       window.dispatchEvent(new Event("auth:invalid-session"));
     }
     throw new Error("onboarding-status fetch failed");

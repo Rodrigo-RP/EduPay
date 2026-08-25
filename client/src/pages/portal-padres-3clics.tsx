@@ -1,5 +1,5 @@
 // Módulo 3: Portal del padre/tutor - Pago en 3 clics máximo (móvil-first)
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { loadStripe, type StripeElementsOptions } from "@stripe/stripe-js";
 import { Elements, CardElement, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
@@ -185,6 +185,7 @@ function PortalPadres3ClicsInner() {
   const [selectedMethod, setSelectedMethod] = useState<string>("");
   const [cardComplete, setCardComplete] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const paymentSubmissionLocked = useRef(false);
   const [lastPaymentResult, setLastPaymentResult] = useState<any>(null);
   const [speiIntent, setSpeiIntent] = useState<SpeiIntent | null>(null);
 
@@ -207,12 +208,14 @@ function PortalPadres3ClicsInner() {
       return res.json();
     },
     onSuccess: (data: any) => {
+      paymentSubmissionLocked.current = false;
       setProcessing(false);
       setLastPaymentResult(data);
       setStep("success");
       queryClient.invalidateQueries({ queryKey: ["/api/guardian/dashboard"] });
     },
     onError: (err: any) => {
+      paymentSubmissionLocked.current = false;
       setProcessing(false);
       // apiRequest lanza Error("${status}: ${body_text}") en respuestas no-ok
       const msg: string = err?.message ?? "";
@@ -243,6 +246,8 @@ function PortalPadres3ClicsInner() {
 
   // ── Función de pago ─────────────────────────────────────────────────────────
   const procesarPagoFinal = async () => {
+    if (processing || paymentSubmissionLocked.current) return;
+
     if (selectedMethod === "tarjeta") {
       if (!stripe || !elements) {
         toast({
@@ -255,6 +260,7 @@ function PortalPadres3ClicsInner() {
       const cardEl = elements.getElement(CardElement);
       if (!cardEl) return;
 
+      paymentSubmissionLocked.current = true;
       setProcessing(true);
       const { error, paymentMethod } = await stripe.createPaymentMethod({
         type: "card",
@@ -262,6 +268,7 @@ function PortalPadres3ClicsInner() {
       });
 
       if (error) {
+        paymentSubmissionLocked.current = false;
         setProcessing(false);
         toast({
           title: "Error con la tarjeta",
@@ -527,7 +534,7 @@ function PortalPadres3ClicsInner() {
   );
 
   // ── Paso 3: Confirmar y pagar ─────────────────────────────────────────────
-  const PaymentConfirm = () => {
+  const renderPaymentConfirm = () => {
     if (selectedMethod === "spei" && speiIntent) {
       const options: StripeElementsOptions = {
         clientSecret: speiIntent.clientSecret,
@@ -894,7 +901,7 @@ function PortalPadres3ClicsInner() {
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
           {step === "select"  && <SelectCharges />}
           {step === "pay"     && <PaymentMethod />}
-          {step === "confirm" && <PaymentConfirm />}
+          {step === "confirm" && renderPaymentConfirm()}
           {step === "spei-pending" && <SpeiPending />}
           {step === "success" && <PaymentSuccess />}
         </div>

@@ -130,14 +130,15 @@ async function restoreAdminSession(page: any) {
     },
     { token: adminToken, user: adminAuthUser }
   );
-  await page.reload();
-  await page.waitForLoadState("networkidle", { timeout: 15_000 });
+  await page.reload({ waitUntil: "domcontentloaded" });
 }
 
 // ── Helper: navegar a /usuarios y esperar el heading ───────────────────────
 async function goToUsuarios(page: any) {
-  await page.evaluate(() => window.history.pushState({}, "", "/usuarios"));
-  await page.waitForLoadState("networkidle", { timeout: 15_000 });
+  await page.evaluate(() => {
+    window.history.pushState({}, "", "/usuarios");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  });
   await expect(
     page.getByRole("heading", { name: /gestión de usuarios/i })
   ).toBeVisible({ timeout: 10_000 });
@@ -225,7 +226,12 @@ test.describe("U09-01: Ciclo completo (crear / editar / eliminar)", () => {
     // 5. Crear usuario.
     //    NOTA: el componente llama setShowCredentialsModal(true) ANTES de disparar
     //    la mutación. Ambos dialogs coexisten hasta que onSuccess cierra el de creación.
+    const createResponse = page.waitForResponse((response: any) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === "/api/users",
+    );
     await dialog.getByRole("button", { name: /crear usuario/i }).click();
+    expect((await createResponse).status(), "La creación debe responder exitosamente").toBeLessThan(300);
 
     // 6. Modal de credenciales aparece inmediatamente (comprobamos el título)
     await expect(page.getByText("Credenciales generadas")).toBeVisible({ timeout: 8_000 });
@@ -237,7 +243,6 @@ test.describe("U09-01: Ciclo completo (crear / editar / eliminar)", () => {
     // 8. Esperar que la mutación complete y aparezca el toast de éxito.
     //    .first() resuelve la strict-mode violation: hay dos nodos con ese texto
     //    (el ToastTitle visible + el aria-live span del sistema de accesibilidad).
-    await page.waitForLoadState("networkidle", { timeout: 10_000 });
     await expect(
       page.getByText(/usuario creado exitosamente/i).first()
     ).toBeVisible({ timeout: 8_000 });
@@ -284,11 +289,15 @@ test.describe("U09-01: Ciclo completo (crear / editar / eliminar)", () => {
     await editDialog.getByPlaceholder("Nombre y apellidos completos").fill(TEST_USER_NOMBRE_EDITADO);
 
     // 5. Guardar cambios
+    const updateResponse = page.waitForResponse((response: any) =>
+      response.request().method() === "PUT" &&
+      new URL(response.url()).pathname === `/api/users/${createdUserId}`,
+    );
     await editDialog.getByRole("button", { name: /guardar cambios/i }).click();
+    expect((await updateResponse).status(), "La actualización debe responder exitosamente").toBeLessThan(300);
     await expect(page.getByText("Editar Usuario")).toBeHidden({ timeout: 5_000 });
 
     // 6. Toast + refetch
-    await page.waitForLoadState("networkidle", { timeout: 10_000 });
     await expect(
       page.getByText(/usuario actualizado exitosamente/i).first()
     ).toBeVisible({ timeout: 8_000 });
@@ -343,12 +352,15 @@ test.describe("U09-01: Ciclo completo (crear / editar / eliminar)", () => {
 
     // 4. Confirmar eliminación.
     //    El handler inline usa DELETE /api/admin/users/:id.
+    const deleteResponse = page.waitForResponse((response: any) =>
+      response.request().method() === "DELETE" &&
+      new URL(response.url()).pathname === `/api/admin/users/${createdUserId}`,
+    );
     await confirmDialog.getByRole("button", { name: /eliminar usuario/i }).click();
+    expect((await deleteResponse).status(), "La eliminación debe responder exitosamente").toBeLessThan(300);
     await expect(page.getByText("Confirmar eliminación")).toBeHidden({ timeout: 5_000 });
 
     // 5. Refetch
-    await page.waitForLoadState("networkidle", { timeout: 10_000 });
-
     // 6. El usuario ya NO aparece en la lista de la UI
     await expect(
       page.getByRole("heading", { name: nombreActual, level: 3 })
@@ -386,8 +398,16 @@ test.describe("U09-02: Asistente — visibilidad de botones de acción", () => {
     // 2. Login como asistente vía formulario de la UI
     await page.locator("#email").fill(ASISTENTE.email);
     await page.locator("#password").fill(ASISTENTE.password);
+    const assistantLogin = page.waitForResponse((response: any) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === "/api/auth/login",
+    );
     await page.locator('button[type="submit"]').click();
-    await page.waitForSelector("nav, aside, main", { timeout: 15_000 });
+    expect(
+      (await assistantLogin).status(),
+      "El login del usuario asistente debe responder exitosamente",
+    ).toBe(200);
+    await expect(page.locator("aside, nav").first()).toBeVisible({ timeout: 15_000 });
 
     // 3. Navegar directamente a /usuarios
     //    (el sidebar puede no mostrar esta ruta para asistente — "sidebar filtra")

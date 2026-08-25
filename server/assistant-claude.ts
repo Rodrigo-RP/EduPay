@@ -58,6 +58,7 @@ export type ClaudeConversationTurn = {
   user: string;
   assistant: string;
   tools: ClaudeConversationTool[];
+  studentTargets?: StudentNavigationTarget[];
 };
 
 export type AssistantConversationHistory = {
@@ -371,7 +372,16 @@ function normalizeClaudeTurns(value: unknown): ClaudeConversationTurn[] {
           return input ? [{ name: (tool as any).name, input }] : [];
         })
       : [];
-    return [{ user, assistant, tools }];
+    const studentTargets = Array.isArray((candidate as any).studentTargets)
+      ? Array.from(new Map(
+        (candidate as any).studentTargets.flatMap((target: unknown) => {
+          const id = Number((target as any)?.id);
+          const name = safeHistoryText((target as any)?.name);
+          return Number.isSafeInteger(id) && id > 0 && name ? [[id, { id, name }]] : [];
+        }),
+      ).values())
+      : undefined;
+    return [{ user, assistant, tools, studentTargets }];
   }).slice(-MAX_CONVERSATION_TURNS);
 }
 
@@ -566,6 +576,37 @@ function preservesAdeudosReply(
   const verifiedTokens = new Set(allSources.flatMap(numericTokens));
   return numericTokens(reply).every((token) => verifiedTokens.has(token))
     && preservesAdeudosDetails(reply, rows);
+}
+
+function hasAdeudosMarkdownTable(reply: string): boolean {
+  const lines = reply.split(/\r?\n/);
+  const headerIndex = lines.findIndex((line) =>
+    line.includes("|")
+      && /alumno/i.test(line)
+      && /saldo/i.test(line)
+      && /cargos?/i.test(line),
+  );
+  return headerIndex >= 0
+    && /^\s*\|?\s*:?-{3,}/.test(lines[headerIndex + 1] ?? "");
+}
+
+function formatVerifiedAdeudosTable(rows: Array<{ label: string; value: string }>): string {
+  const cell = (value: string) => value.replace(/\|/g, "\\|").trim();
+  const tableRows = rows.map(({ label, value }) => {
+    const labelParts = label.split(" · ");
+    const alumno = labelParts.shift() ?? label;
+    const detalle = labelParts.join(" · ") || "—";
+    const valueParts = value.split(" · ");
+    const saldo = valueParts.find((part) => part.includes("$")) ?? value;
+    const cargos = valueParts.find((part) => /cargo/i.test(part)) ?? "—";
+    return `| ${cell(alumno)} | ${cell(detalle)} | ${cell(saldo)} | ${cell(cargos)} |`;
+  });
+  return [
+    "### Adeudos pendientes",
+    "| Alumno | Detalle | Saldo | Cargos |",
+    "| --- | --- | ---: | ---: |",
+    ...tableRows,
+  ].join("\n");
 }
 
 /**
@@ -868,11 +909,15 @@ export async function answerWithClaude(
           ...toolFactSources,
           ...toolFallbackRows.map((row) => row.label),
         ];
+        const verifiedAdeudosFallback = toolFallbackRows.length
+          ? formatVerifiedAdeudosTable(toolFallbackRows)
+          : boldVerifiedFigures(verifiedFallback, toolFactSources);
         const finalReply = hasAdeudosResult
           ? reply
+            && hasAdeudosMarkdownTable(reply)
             && preservesAdeudosReply(reply, adeudosFactSources, toolFallbackRows)
             ? reply
-            : boldVerifiedFigures(verifiedFallback, toolFactSources)
+            : verifiedAdeudosFallback
           : reply && preservesToolFigures(reply, toolFactSources) && hasVerifiedExecutiveAssociations
           ? boldVerifiedFigures(reply, toolFactSources)
           : reply && executiveSummaryRows.length === 0 && containsOnlyToolFigures(reply, toolFactSources) && verifiedDetails
@@ -886,6 +931,7 @@ export async function answerWithClaude(
             user: message,
             assistant: finalReply,
             tools: conversationTools,
+            studentTargets: studentTargets.size ? Array.from(studentTargets.values()) : undefined,
           },
           studentTargets: studentTargets.size ? Array.from(studentTargets.values()) : undefined,
         };

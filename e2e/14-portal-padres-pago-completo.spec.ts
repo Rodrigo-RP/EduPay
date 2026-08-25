@@ -5,7 +5,7 @@
  *
  * PP-01  Flujo 3 clics — login tutor → ver cargos pendientes reales → "Pagar todo"
  *        → seleccionar tarjeta → confirmar pago → verificar DB:
- *          · payment creado con referencia sim_*
+ *          · payment creado con referencia real de Stripe (pi_*)
  *          · payment_applications corresponde a los cargos
  *          · estado de los charges → 'pagado'
  *          · saldo pendiente en pantalla y en API = 0 post-pago
@@ -257,17 +257,17 @@ test.describe("PP-01 — Flujo 3 clics: seleccionar → método → confirmar �
         "El historial debe tener ≥ los pagos realizados en este test"
       ).toBeGreaterThanOrEqual(nPendBefore);
 
-      // 4. Al menos nPendBefore pagos con referencia sim_* y estado 'exitoso'
-      //    (filtramos por sim_* porque el historial incluye pagos del seed con ref_demo_*)
-      const simPayments = (after.paymentHistory ?? []).filter(
+      // 4. Al menos nPendBefore pagos reales de Stripe con estado exitoso.
+      //    Los pagos del seed usan ref_demo_*; el cobro Connect confirma PaymentIntents pi_*.
+      const stripePayments = (after.paymentHistory ?? []).filter(
         (p: { referencia_pasarela?: string }) =>
-          p.referencia_pasarela?.startsWith("sim_")
+          p.referencia_pasarela?.startsWith("pi_")
       );
       expect(
-        simPayments.length,
-        "Debe haber al menos 1 pago sim_* en el historial tras el pago del test"
+        stripePayments.length,
+        "Debe haber al menos 1 PaymentIntent pi_* en el historial tras el pago del test"
       ).toBeGreaterThanOrEqual(nPendBefore);
-      for (const p of simPayments.slice(0, nPendBefore)) {
+      for (const p of stripePayments.slice(0, nPendBefore)) {
         expect(
           (p as any).estado,
           `Pago ${(p as any).id} debe estar 'exitoso'`

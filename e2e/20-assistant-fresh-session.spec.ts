@@ -33,7 +33,7 @@ test.describe("Asistente desde una sesión nueva", () => {
 
     await expect.poll(() => assistantStatuses.at(-1), { timeout: 60_000 }).toBe(200);
     await expect(dialog).not.toContainText("Ocurrió un error al conectar con el asistente. Intenta de nuevo.");
-    await expect(dialog).toContainText("Alumnos con adeudo");
+    await expect(dialog.getByRole("table").first()).toContainText("Alumno");
     await expect(dialog).toContainText(/vencido|Vence en|Vence hoy|Vence el/);
     await expect.poll(
       () => consoleMessages.some((message) => message.includes("auth_success")),

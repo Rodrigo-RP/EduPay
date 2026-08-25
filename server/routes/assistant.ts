@@ -18,7 +18,11 @@ import {
   isClaudeReadOnlyFallbackCandidate,
 } from "../assistant-knowledge";
 import { runDiagnostic, runFullDiagnostic, MODULE_CHECKS } from "../assistant-health-checks";
-import { executeAction, resolveSuggestContext } from "../assistant-actions";
+import {
+  executeAction,
+  resolveSuggestContext,
+  type StudentNavigationTarget,
+} from "../assistant-actions";
 import {
   answerWithClaude,
   getAssistantActionPermission,
@@ -40,6 +44,88 @@ function isContextualFollowUp(message: string, history: unknown): boolean {
   );
   return hasAssistantContext
     && /\bde\s+(?:esos|esas|ellos|ellas)\b|\b(?:los|las)\s+anteriores\b/i.test(message);
+}
+
+function isScholarshipContextFollowUp(message: string): boolean {
+  return /\bbecas?\b|\bbecad[oa]s?\b|\bdescuentos?\b/i.test(message);
+}
+
+function uniqueStudentTargets(value: unknown): StudentNavigationTarget[] {
+  if (!Array.isArray(value)) return [];
+  const targets = new Map<number, StudentNavigationTarget>();
+  for (const candidate of value) {
+    const id = Number((candidate as any)?.id);
+    const name = typeof (candidate as any)?.name === "string"
+      ? (candidate as any).name.trim()
+      : "";
+    if (Number.isSafeInteger(id) && id > 0 && name) targets.set(id, { id, name });
+  }
+  return Array.from(targets.values());
+}
+
+function mostRecentStudentTargets(claudeTurns: unknown): StudentNavigationTarget[] {
+  if (!Array.isArray(claudeTurns)) return [];
+  for (const turn of [...claudeTurns].reverse()) {
+    const targets = uniqueStudentTargets((turn as any)?.studentTargets);
+    if (targets.length) return targets;
+  }
+  return [];
+}
+
+type ContextScholarshipStatus = StudentNavigationTarget & { porcentaje: number | null };
+
+async function getContextScholarshipStatuses(
+  targets: StudentNavigationTarget[],
+  tenantId: number,
+  campusId: number,
+): Promise<ContextScholarshipStatus[]> {
+  if (!targets.length) return [];
+  const result = await pool.query(
+    `SELECT s.id,
+            COALESCE(s.nombre_completo, CONCAT_WS(' ', s.nombres, s.apellido_paterno, s.apellido_materno)) AS name,
+            scholarship.porcentaje
+       FROM students s
+       LEFT JOIN LATERAL (
+         SELECT porcentaje
+           FROM scholarships
+          WHERE student_id = s.id
+            AND tenant_id = $2
+            AND (vigencia_inicio IS NULL OR vigencia_inicio <= CURRENT_DATE)
+            AND (vigencia_fin IS NULL OR vigencia_fin >= CURRENT_DATE)
+          ORDER BY id DESC
+          LIMIT 1
+       ) scholarship ON true
+      WHERE s.id = ANY($1::int[])
+        AND s.tenant_id = $2
+        AND s.campus_id = $3`,
+    [targets.map((target) => target.id), tenantId, campusId],
+  );
+  return result.rows.flatMap((row: any) => {
+    const id = Number(row.id);
+    const name = typeof row.name === "string" ? row.name.trim() : "";
+    if (!Number.isSafeInteger(id) || id <= 0 || !name) return [];
+    const percentage = row.porcentaje === null || row.porcentaje === undefined
+      ? null
+      : Number(row.porcentaje);
+    return [{ id, name, porcentaje: Number.isFinite(percentage) ? percentage : null }];
+  });
+}
+
+function formatContextScholarships(statuses: ContextScholarshipStatus[]): string {
+  if (!statuses.length) return "";
+  const cell = (value: string) => value.replace(/\|/g, "\\|");
+  return [
+    "### Becas de los alumnos consultados",
+    "| Alumno | Beca vigente |",
+    "| --- | --- |",
+    ...statuses.map((status) =>
+      `| ${cell(status.name)} | ${
+        status.porcentaje === null
+          ? "Sin beca activa"
+          : `${status.porcentaje.toLocaleString("es-MX", { maximumFractionDigits: 2 })}%`
+      } |`,
+    ),
+  ].join("\n");
 }
 
 export function registerAssistantRoutes(app: Express): void {
@@ -176,6 +262,13 @@ export function registerAssistantRoutes(app: Express): void {
         });
       }
       const contextualFollowUp = isContextualFollowUp(message, trustedHistory.messages);
+      const scholarshipPermission = getAssistantActionPermission("query:becas_alumno", {});
+      const contextualScholarshipTargets = contextualFollowUp
+        && isScholarshipContextFollowUp(message)
+        && scholarshipPermission
+        && hasPermissionForUser(req.user, scholarshipPermission[0], scholarshipPermission[1])
+        ? mostRecentStudentTargets(trustedHistory.claudeTurns)
+        : [];
       const naturalClaudeActionId = result.action
         && ["query:resumen_ejecutivo_mes", "query:adeudos_nivel_periodo"].includes(result.action.actionId)
         ? result.action.actionId
@@ -278,8 +371,25 @@ export function registerAssistantRoutes(app: Express): void {
               : "query_adeudos_nivel_periodo",
           );
         if (claude.handled && !claude.error && expectedToolWasUsed) {
+          const contextScholarships = await getContextScholarshipStatuses(
+            contextualScholarshipTargets,
+            tenantId,
+            campusId,
+          );
+          const responseTargets = uniqueStudentTargets([
+            ...contextualScholarshipTargets,
+            ...(claude.studentTargets ?? []),
+          ]);
+          const verifiedContextScholarships = formatContextScholarships(contextScholarships);
+          const reply = verifiedContextScholarships
+            ? `${claude.reply}\n\n${verifiedContextScholarships}`
+            : claude.reply;
           if (claude.conversationTurn) {
-            appendTrustedConversationTurn(conversationSession, claude.conversationTurn);
+            appendTrustedConversationTurn(conversationSession, {
+              ...claude.conversationTurn,
+              assistant: reply ?? claude.conversationTurn.assistant,
+              studentTargets: responseTargets,
+            });
           }
           pool.query(
             `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
@@ -302,8 +412,8 @@ export function registerAssistantRoutes(app: Express): void {
             ],
           ).catch(() => {});
           return res.json({
-            reply: claude.reply,
-            studentTargets: claude.studentTargets,
+            reply,
+            studentTargets: responseTargets.length ? responseTargets : claude.studentTargets,
             claude: {
               provider: "anthropic",
               model: claude.trace.model,

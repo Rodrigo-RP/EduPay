@@ -4,5 +4,7 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+playwright-report/
+test-results/
 # Archivos subidos por el usuario — nunca deben comprometerse al repo
 attached_assets/

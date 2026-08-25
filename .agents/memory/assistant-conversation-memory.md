@@ -14,3 +14,9 @@ El historial canónico que se envía a Claude debe existir sólo en memoria del 
 **Why:** El texto previo del asistente puede contener los datos financieros originalmente autorizados y el modelo podría repetirlos aunque la herramienta ya esté bloqueada.
 
 **How to apply:** Tratar un fallo de revalidación como una frontera de datos: no reenviar ni la pregunta ni la respuesta de ese intercambio, y cubrirlo con una prueba que inspeccione el contexto saliente.
+
+**Objetivos estructurados:** Los destinos de expedientes que provienen de una herramienta deben persistirse como IDs y nombres validados en el turno confiable. Un seguimiento que use referencias como “de esos” debe partir de esos IDs, no de nombres extraídos del texto ni de datos del navegador.
+
+**Why:** Una herramienta de becas puede devolver sólo los casos positivos. Sin el conjunto original de alumnos, el asistente omite los casos sin beca y no puede demostrar de forma segura que pertenecen al contexto previo.
+
+**How to apply:** Para consultas contextuales de becas, volver a consultar todos los IDs guardados con filtros explícitos de tenant y campus, y representar cada alumno devuelto, incluyendo “Sin beca activa” sólo cuando el `LEFT JOIN` verificado no encuentre una beca vigente. Devolver también la unión de destinos actuales y contextuales para que la navegación no desaparezca entre turnos.

@@ -56,7 +56,6 @@ test.afterAll(async () => {
     "UPDATE campuses SET onboarding_completado = $1 WHERE id = 1",
     [onboardingWasComplete],
   );
-  await db.end();
 });
 
 test("CX-01: registra una promesa en UI, existe en Neon y sobrevive la recarga", async ({ page }) => {

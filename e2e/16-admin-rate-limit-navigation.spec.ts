@@ -52,7 +52,11 @@ test("una sesión administrativa normal conserva un presupuesto saludable", asyn
     .map(({ remaining }) => remaining)
     .filter((value): value is number => value !== null);
   expect(remaining, "Las respuestas deben informar RateLimit-Remaining").not.toHaveLength(0);
-  expect(Math.min(...remaining)).toBeGreaterThan(250);
+  const consumedDuringNavigation = Math.max(...remaining) - Math.min(...remaining);
+  expect(
+    consumedDuringNavigation,
+    `La sesión consumió ${consumedDuringNavigation} solicitudes administrativas: ${JSON.stringify(adminResponses)}`,
+  ).toBeLessThan(50);
 
   if (observationMs > 0) {
     const dashboardRequests = adminResponses.filter(({ path }) => path.startsWith("/api/admin/dashboard/"));

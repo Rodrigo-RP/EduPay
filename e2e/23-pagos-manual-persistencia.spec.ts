@@ -76,7 +76,6 @@ test.afterAll(async () => {
     await db.query("UPDATE charges SET estado = $1 WHERE id = $2", [fixture.originalStatus, fixture.chargeId]);
   }
   await db.query("UPDATE campuses SET onboarding_completado = $1 WHERE id = 1", [onboardingWasComplete]);
-  await db.end();
 });
 
 test("PM-01: confirma pago real, evita reintento duplicado y genera recibo del alumno seleccionado", async ({ page }) => {

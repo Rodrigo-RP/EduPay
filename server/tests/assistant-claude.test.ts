@@ -361,9 +361,9 @@ describe("fallback de Claude con herramientas read-only", () => {
       },
     );
 
-    expect(result.reply).toContain("Estos son los adeudos que conviene revisar");
-    expect(result.reply).toContain("Alumno de prueba: **$1,000** · 1 cargo(s)");
-    expect(result.reply).toContain("Otra alumna: **$500** · 1 cargo(s)");
+    expect(result.reply).toContain("| Alumno | Detalle | Saldo | Cargos |");
+    expect(result.reply).toContain("| Alumno de prueba | — | $1,000 | 1 cargo(s) |");
+    expect(result.reply).toContain("| Otra alumna | — | $500 | 1 cargo(s) |");
     expect(result.reply).not.toContain("$1,001");
   });
 

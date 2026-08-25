@@ -103,6 +103,27 @@ interface SpeiIntent {
   clientSecret: string;
 }
 
+interface ConfirmedPayment {
+  payment_id: number;
+  monto_centavos: number | string;
+  cfdi?: string;
+}
+
+interface ConfirmedPaymentResult {
+  payments?: ConfirmedPayment[];
+}
+
+function getConfirmedPaymentTotal(result: ConfirmedPaymentResult | null): number | null {
+  if (!Array.isArray(result?.payments) || result.payments.length === 0) return null;
+  let total = 0;
+  for (const payment of result.payments) {
+    const amount = Number(payment?.monto_centavos);
+    if (!Number.isSafeInteger(amount) || amount <= 0) return null;
+    total += amount;
+  }
+  return Number.isSafeInteger(total) && total > 0 ? total : null;
+}
+
 /**
  * Formulario aislado porque PaymentElement necesita su propio ElementsProvider
  * configurado con el clientSecret del PaymentIntent SPEI.
@@ -186,7 +207,7 @@ function PortalPadres3ClicsInner() {
   const [cardComplete, setCardComplete] = useState(false);
   const [processing, setProcessing] = useState(false);
   const paymentSubmissionLocked = useRef(false);
-  const [lastPaymentResult, setLastPaymentResult] = useState<any>(null);
+  const [lastPaymentResult, setLastPaymentResult] = useState<ConfirmedPaymentResult | null>(null);
   const [speiIntent, setSpeiIntent] = useState<SpeiIntent | null>(null);
 
   const { data: dashboardData, isLoading } = useQuery<any>({
@@ -735,8 +756,14 @@ function PortalPadres3ClicsInner() {
   );
 
   // ── Paso 4: Éxito ──────────────────────────────────────────────────────────
-  const PaymentSuccess = () => (
-    <div className="text-center space-y-5 py-6">
+  const PaymentSuccess = () => {
+    // No usar totalSeleccionado aquí: la invalidación del dashboard puede
+    // vaciar pendingCharges antes de que React pinte este paso. El servidor
+    // devuelve el saldo aplicado dentro de cada payment confirmado.
+    const confirmedTotal = getConfirmedPaymentTotal(lastPaymentResult);
+
+    return (
+      <div className="text-center space-y-5 py-6">
       <div className="flex items-center justify-center">
         <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
           <CheckCircle className="w-12 h-12 text-green-500" />
@@ -744,10 +771,10 @@ function PortalPadres3ClicsInner() {
       </div>
       <div>
         <h2 className="text-2xl font-bold text-slate-900">¡Pago exitoso!</h2>
-        <p className="text-slate-600 mt-1">
-          $
-          {(totalSeleccionado / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
-          procesados
+        <p className="text-slate-600 mt-1" data-testid="payment-success-amount">
+          {confirmedTotal === null
+            ? "Monto confirmado no disponible"
+            : `$${(confirmedTotal / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN procesados`}
         </p>
       </div>
 
@@ -783,8 +810,9 @@ function PortalPadres3ClicsInner() {
       >
         Volver al inicio
       </Button>
-    </div>
-  );
+      </div>
+    );
+  };
 
   // ── Historial de pagos ──────────────────────────────────────────────────────
   const PaymentHistory = () => (

@@ -24,6 +24,7 @@
  *     independientemente de cuántas veces se corra la suite.
  */
 import { test, expect, type Page } from "@playwright/test";
+import { pool as db } from "../server/db";
 
 const BASE            = "http://localhost:5000";
 const DEMO_PASSWORD   = "Demo2025!";
@@ -218,7 +219,17 @@ test.describe("PP-01 — Flujo 3 clics: seleccionar → método → confirmar �
       // El botón muestra el monto real: "Confirmar pago $X,XXX.XX"
       const btnConfirmar = page.getByRole("button", { name: /confirmar pago/i });
       await expect(btnConfirmar).toBeVisible({ timeout: 5_000 });
+      const paymentResponsePromise = page.waitForResponse((response) =>
+        response.request().method() === "POST"
+        && response.url().endsWith("/api/guardian/pagar"),
+      );
       await btnConfirmar.click();
+      const paymentResponse = await paymentResponsePromise;
+      expect(paymentResponse.status(), "El pago confirmado debe responder 200").toBe(200);
+      const paymentBody = await paymentResponse.json() as {
+        payments: Array<{ payment_id: number; monto_centavos: number }>;
+      };
+      expect(paymentBody.payments.length, "La respuesta debe incluir pagos confirmados").toBeGreaterThan(0);
 
       // ── VERIFICACIÓN UI ───────────────────────────────────────────────────
       await expect(
@@ -234,6 +245,7 @@ test.describe("PP-01 — Flujo 3 clics: seleccionar → método → confirmar �
       await expect(
         page.getByText(/uuid cfdi/i).first()
       ).toBeVisible({ timeout: 5_000 });
+      const successAmountText = await page.getByTestId("payment-success-amount").textContent();
 
       // ── VERIFICACIÓN DB vía API ───────────────────────────────────────────
       const after = await getDashboard(page, token);
@@ -273,6 +285,22 @@ test.describe("PP-01 — Flujo 3 clics: seleccionar → método → confirmar �
           `Pago ${(p as any).id} debe estar 'exitoso'`
         ).toBe("exitoso");
       }
+
+      // ── VERIFICACIÓN EXACTA UI ↔ Neon ─────────────────────────────────────
+      const paymentIds = paymentBody.payments.map((payment) => payment.payment_id);
+      const neonTotal = await db.query(
+        `SELECT COALESCE(SUM(monto_centavos), 0)::bigint AS total_centavos
+           FROM payments
+          WHERE id = ANY($1::int[])`,
+        [paymentIds],
+      );
+      const confirmedCentavos = Number(neonTotal.rows[0]?.total_centavos ?? 0);
+      expect(confirmedCentavos).toBeGreaterThan(0);
+      const expectedAmount = `$${(confirmedCentavos / 100).toLocaleString("es-MX", {
+        minimumFractionDigits: 2,
+      })} MXN procesados`;
+      expect(successAmountText).toContain(expectedAmount);
+      expect(successAmountText).not.toContain("$0.00");
 
       // ── VERIFICACIÓN EN PANTALLA: balance actualizado tras volver al inicio ─
       await page.getByRole("button", { name: /volver al inicio/i }).click();

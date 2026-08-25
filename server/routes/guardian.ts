@@ -336,6 +336,7 @@ export async function registerGuardianRoutes(
       const results: {
         charge_id: number;
         payment_id: number;
+        monto_centavos: number;
         cfdi: string;
         via_stripe_connect: boolean;
         needs_liquidacion_manual: boolean;
@@ -423,6 +424,7 @@ export async function registerGuardianRoutes(
         // ── Transacción atómica ──────────────────────────────────────────────
         const client = await pool.connect();
         let paymentId!: number;
+        let montoAplicadoCentavos = 0;
         try {
           await client.query("BEGIN");
 
@@ -462,6 +464,7 @@ export async function registerGuardianRoutes(
             await client.query("ROLLBACK");
             return res.status(409).json({ message: `El cargo ${chargeId} ya tiene saldo cero` });
           }
+          montoAplicadoCentavos = saldo;
 
           // 4a. Guard race condition: si usamos Stripe Connect, verificar que el saldo
           //     no cambió entre la pre-lectura (para el PI) y el lock FOR UPDATE.
@@ -529,7 +532,7 @@ export async function registerGuardianRoutes(
           metadata: {
             flujo:                      "guardian_pagar_lote",
             payment_id:                 paymentId,
-            monto_centavos:             null,
+            monto_centavos:             montoAplicadoCentavos,
             via_stripe_connect:         useStripeConnect,
             stripe_payment_intent_id:   piId ?? undefined,
             needs_liquidacion_manual:   !useStripeConnect && stripeConnectAccountId === null,
@@ -572,6 +575,7 @@ export async function registerGuardianRoutes(
         results.push({
           charge_id:                chargeId,
           payment_id:               paymentId,
+          monto_centavos:           montoAplicadoCentavos,
           cfdi:                     cfdiUUID,
           via_stripe_connect:       useStripeConnect,
           needs_liquidacion_manual: !useStripeConnect && stripeConnectAccountId === null,

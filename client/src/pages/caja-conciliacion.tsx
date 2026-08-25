@@ -1001,7 +1001,16 @@ export default function CajaConciliacion() {
       for (const linea of lineas.slice(1)) {
         const cols = linea.split(",").map(c => c.trim().replace(/^"|"$/g, ""));
         if (cols.length >= 3) {
-          txs.push({ fecha: cols[0] || new Date().toISOString().split("T")[0], descripcion: cols[1] || "Sin descripción", monto: parseFloat(cols[2]) || 0, tipo: parseFloat(cols[2]) > 0 ? "credito" : "debito", referencia: cols[3] || "", nombre: cols[4] || "", clabe: cols[5] || "" });
+          const monto = cols[2] ?? "";
+          txs.push({
+            fecha: cols[0] ?? "",
+            descripcion: cols[1] || "Sin descripción",
+            monto,
+            tipo: parseFloat(monto) > 0 ? "credito" : "debito",
+            referencia: cols[3] || "",
+            nombre: cols[4] || "",
+            clabe: cols[5] || "",
+          });
         }
       }
       setTransacciones(txs);

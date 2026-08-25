@@ -67,3 +67,4 @@
 - [Reporte de commits](commit-reporting.md) — Todo reporte de trabajo terminado debe incluir hash real del commit y verificación con git ls-remote.
 - [Payment reference namespacing](payment-reference-namespacing.md) — La idempotencia manual usa referencias `manual:`; una referencia SPEI puede liquidar varios cargos.
 - [Drizzle schema creation prompt](drizzle-schema-creation.md) — Si Drizzle pregunta crear vs renombrar una tabla en modo no interactivo, no elegir renombrado; aplicar la migración versionada en desarrollo y verificar catálogo.
+- [Cash closure E2E fixtures](cash-closure-e2e-fixtures.md) — El snapshot diario suma todo pago exitoso del campus; capturar el ID de cierre antes de asertar para limpiar con seguridad.

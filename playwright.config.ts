@@ -1,4 +1,11 @@
+import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
+
+const nixChromium = "/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium";
+// En Replit usamos Chromium del sistema NixOS; en GitHub se omite esta opción
+// para que Playwright use el navegador descargado por el job.
+const chromiumExecutable = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+  || (existsSync(nixChromium) ? nixChromium : undefined);
 
 /**
  * Playwright — configuración E2E para EduPay
@@ -34,15 +41,17 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
-        // Usar el chromium del sistema NixOS (instalado via nix)
-        // en lugar del binario descargado por playwright que requiere libs del sistema no disponibles.
         launchOptions: {
-          executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || "/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium",
+          ...(chromiumExecutable ? { executablePath: chromiumExecutable } : {}),
           args: ["--no-sandbox", "--disable-setuid-sandbox"],
         },
       },
     },
   ],
-  // La app ya debe estar corriendo (npm run dev); no la levantamos aquí.
-  // En CI usar: webServer: { command: 'npm run dev', port: 5000, reuseExistingServer: true }
+  webServer: {
+    command: "npm run dev",
+    url: "http://127.0.0.1:5000",
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+  },
 });

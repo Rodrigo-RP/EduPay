@@ -36,6 +36,7 @@ import { registerReportesContableRoutes }          from "./routes/reportes-conta
 import { registerReportesAntiguedadSaldosRoutes } from "./routes/reportes-antiguedad-saldos";
 import { registerReportesRiesgoRoutes }           from "./routes/reportes-riesgo";
 import { registerAccionesRoutes }                from "./routes/acciones";
+import { registerReceivablesRoutes }             from "./routes/receivables";
 import { registerStripeWebhookRoute, registerCampusPaymentRoutes } from "./routes/campus-payment";
 import { registerAuditLogRoutes } from "./routes/audit-log";
 import { authenticateToken } from "./routes/shared";
@@ -107,6 +108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerReportesAntiguedadSaldosRoutes(app);
   registerReportesRiesgoRoutes(app);
   registerAccionesRoutes(app);
+  registerReceivablesRoutes(app);
   registerAuditLogRoutes(app);
   registerCampusPaymentRoutes(app);
 

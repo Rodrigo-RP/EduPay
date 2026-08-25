@@ -478,35 +478,36 @@ export class DatabaseStorage implements IStorage {
 
   async getAccountsReceivableByCampus(campusId: number): Promise<any[]> {
     try {
-      const results = await db
-        .select({
-          charge_id: charges.id,
-          student_id: students.id,
-          student_name: students.nombre_completo,
-          student_grade: students.grado,
-          student_level: sql<string>`CASE 
-            WHEN ${students.grado} LIKE '%Kinder%' OR ${students.grado} LIKE '%Pre%' THEN 'KINDER'
-            WHEN ${students.grado} LIKE '%1ro%' OR ${students.grado} LIKE '%2do%' OR ${students.grado} LIKE '%3ro%' OR ${students.grado} LIKE '%4to%' OR ${students.grado} LIKE '%5to%' OR ${students.grado} LIKE '%6to%' THEN 'PRIMARIA'
-            WHEN ${students.grado} LIKE '%Secundaria%' THEN 'SECUNDARIA'
-            WHEN ${students.grado} LIKE '%Bachillerato%' OR ${students.grado} LIKE '%Prepa%' THEN 'BACHILLERATO'
-            ELSE 'NO_DEFINIDO'
-          END`,
-          concept_name: concepts.nombre,
-          charge_amount: charges.monto_base_centavos,
-          discount_amount: sql<number>`COALESCE(${charges.monto_base_centavos} * COALESCE(${charges.beca_aplicada}, 0) / 100, 0)`,
-          late_fee_amount: sql<number>`COALESCE(${charges.recargo_aplicado_centavos}, 0)`,
-          amount_paid: sql<number>`COALESCE((SELECT SUM(${payments.monto_centavos}) FROM ${payments} WHERE ${payments.charge_id} = ${charges.id}), 0)`,
-          charge_date: charges.fecha_emision,
-          due_date: charges.fecha_vencimiento,
-          status: charges.estado
-        })
-        .from(charges)
-        .innerJoin(students, eq(charges.student_id, students.id))
-        .innerJoin(concepts, eq(charges.concept_id, concepts.id))
-        .where(eq(students.campus_id, campusId))
-        .orderBy(desc(charges.fecha_vencimiento));
+      const result = await pool.query(
+        `SELECT
+           c.id AS charge_id, s.id AS student_id, s.nombre_completo AS student_name,
+           s.grado AS student_grade, s.nivel_escolar AS student_level,
+           con.nombre AS concept_name, c.monto_base_centavos AS charge_amount,
+           COALESCE(c.monto_base_centavos * COALESCE(c.beca_aplicada, 0) / 100, 0)::bigint AS discount_amount,
+           COALESCE(c.recargo_aplicado_centavos, 0) AS late_fee_amount,
+           COALESCE((SELECT SUM(p.monto_centavos) FROM payments p WHERE p.charge_id = c.id AND p.estado = 'exitoso'), 0) AS amount_paid,
+           c.fecha_emision AS charge_date, c.fecha_vencimiento AS due_date, c.estado AS status,
+           COALESCE(g.nombre_completo, g.nombres || ' ' || COALESCE(g.apellido_paterno, ''), s.nombre_completo) AS guardian_name,
+           COALESCE(g.telefono, g.celular, g.telefono_casa_oficina) AS guardian_phone,
+           COALESCE(g.email, g.correo_institucional_familiar) AS guardian_email
+         FROM charges c
+         JOIN students s ON s.id = c.student_id
+         JOIN concepts con ON con.id = c.concept_id
+         LEFT JOIN LATERAL (
+           SELECT g.*
+             FROM student_guardian sg
+             JOIN guardians g ON g.id = sg.guardian_id
+            WHERE sg.student_id = s.id
+              AND sg.es_responsable_pago = true
+            ORDER BY sg.porcentaje_responsabilidad DESC NULLS LAST, g.id
+            LIMIT 1
+         ) g ON true
+        WHERE s.campus_id = $1
+        ORDER BY c.fecha_vencimiento DESC`,
+        [campusId],
+      );
 
-      return results.map(row => {
+      return result.rows.map(row => {
         const baseAmount = row.charge_amount || 0;
         const discount = row.discount_amount || 0;
         const lateFee = row.late_fee_amount || 0;
@@ -537,10 +538,11 @@ export class DatabaseStorage implements IStorage {
 
         return {
           id: row.charge_id,
+          student_id: row.student_id,
           estudiante: row.student_name,
-          responsable: `Responsable de ${row.student_name}`,
-          telefono: "555-0000",
-          email: "responsable@instituto-jfr.edu.mx",
+          responsable: row.guardian_name,
+          telefono: row.guardian_phone,
+          email: row.guardian_email,
           nivel_escolar: row.student_level || "NO_DEFINIDO",
           grado: row.student_grade,
           concepto: row.concept_name,

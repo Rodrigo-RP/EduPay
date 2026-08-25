@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,10 +17,53 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { apiRequest } from "@/lib/queryClient";
+
+type CuentaPorCobrar = {
+  id: number;
+  student_id: number;
+  estudiante: string;
+  responsable?: string | null;
+  telefono?: string | null;
+  email?: string | null;
+  nivel_escolar?: string | null;
+  grado?: string | null;
+  concepto: string;
+  pendiente_pagar_centavos: number;
+  estado_cobranza: string;
+  dias_vencido: number;
+  fecha_vencimiento?: string | null;
+};
+
+type ActividadCobranza = {
+  id: number;
+  charge_id: number;
+  student_id: number;
+  estudiante: string;
+  creado_por?: string | null;
+  tipo: string;
+  estado: string;
+  titulo: string;
+  descripcion?: string | null;
+  fecha_programada?: string | null;
+  hora_programada?: string | null;
+  monto_centavos?: number | null;
+  canal?: string | null;
+  prioridad?: string | null;
+  motivo?: string | null;
+  supervisor?: string | null;
+  urgencia?: string | null;
+  created_at: string;
+};
+
+function activityIsPending(activity: ActividadCobranza) {
+  return activity.estado === "pendiente" || activity.estado === "programado";
+}
 
 export default function CuentasPorCobrar() {
   const { toast } = useToast();
   const { logoUrl, institutionName } = useInstitution();
+  const queryClient = useQueryClient();
   
   // Estados locales
   const [filtros, setFiltros] = useState({
@@ -48,17 +92,20 @@ export default function CuentasPorCobrar() {
   
   // Estados para formularios de seguimiento
   const [seguimientoData, setSeguimientoData] = useState({
+    chargeId: "",
     tipo: "llamada",
     fecha: "",
     hora: "",
     observaciones: ""
   });
   const [notaData, setNotaData] = useState({
+    chargeId: "",
     titulo: "",
     contenido: "",
     prioridad: "normal"
   });
   const [escalacionData, setEscalacionData] = useState({
+    chargeId: "",
     motivo: "",
     supervisor: "",
     urgencia: "media",
@@ -75,86 +122,19 @@ export default function CuentasPorCobrar() {
   const [cobranzaSeleccionada, setCobranzaSeleccionada] = useState<string[]>([]);
   const [tipoRecordatorio, setTipoRecordatorio] = useState("email");
   const [promesaData, setPromesaData] = useState({
-    estudiante: "",
+    chargeId: "",
     fecha: "",
     monto: "",
     observaciones: ""
   });
   const [tipoReporte, setTipoReporte] = useState("ejecutivo");
 
-  // Datos de prueba específicos de la imagen con diferentes conceptos
-  const cuentasTodas = [
-    {
-      id: 1,
-      estudiante: "María González Pérez",
-      nivel_academico: "Primaria",
-      concepto: "Colegiatura",
-      pendiente_pagar_centavos: 280000,
-      estado_cobranza: "Vencido",
-      dias_vencido: 15,
-      familia: "González Pérez"
-    },
-    {
-      id: 2,
-      estudiante: "Juan Carlos Morales",
-      nivel_academico: "Secundaria",
-      concepto: "Inscripción",
-      pendiente_pagar_centavos: 320000,
-      estado_cobranza: "Por vencer",
-      dias_vencido: 0,
-      familia: "Morales Ruiz"
-    },
-    {
-      id: 3,
-      estudiante: "Ana Sofía Ramírez",
-      nivel_academico: "Kinder",
-      concepto: "Colegiatura",
-      pendiente_pagar_centavos: 250000,
-      estado_cobranza: "Al corriente",
-      dias_vencido: 0,
-      familia: "Ramírez López"
-    },
-    {
-      id: 4,
-      estudiante: "Carlos Eduardo Díaz",
-      nivel_academico: "Primaria",
-      concepto: "Reinscripción",
-      pendiente_pagar_centavos: 150000,
-      estado_cobranza: "Vencido",
-      dias_vencido: 22,
-      familia: "Díaz Herrera"
-    },
-    {
-      id: 5,
-      estudiante: "Patricia Fernández Silva",
-      nivel_academico: "Secundaria",
-      concepto: "Seguro Escolar",
-      pendiente_pagar_centavos: 85000,
-      estado_cobranza: "Por vencer",
-      dias_vencido: 0,
-      familia: "Fernández Silva"
-    },
-    {
-      id: 6,
-      estudiante: "Roberto Jiménez Castro",
-      nivel_academico: "Bachillerato",
-      concepto: "Libros",
-      pendiente_pagar_centavos: 120000,
-      estado_cobranza: "Vencido",
-      dias_vencido: 8,
-      familia: "Jiménez Castro"
-    },
-    {
-      id: 7,
-      estudiante: "Valeria Torres Mendoza",
-      nivel_academico: "Kinder",
-      concepto: "Otros",
-      pendiente_pagar_centavos: 95000,
-      estado_cobranza: "Al corriente",
-      dias_vencido: 0,
-      familia: "Torres Mendoza"
-    }
-  ];
+  const { data: cuentasTodas = [], isLoading: cuentasLoading } = useQuery<CuentaPorCobrar[]>({
+    queryKey: ["/api/accounts-receivable"],
+  });
+  const { data: actividadesCobranza = [], isLoading: actividadesLoading } = useQuery<ActividadCobranza[]>({
+    queryKey: ["/api/receivables/activities"],
+  });
 
   // Función para filtrar cuentas según los criterios seleccionados
   const cuentasFiltradas = cuentasTodas.filter(cuenta => {
@@ -178,8 +158,8 @@ export default function CuentasPorCobrar() {
     // Filtro por estudiante/familia
     if (filtros.estudiante) {
       const terminoBusqueda = filtros.estudiante.toLowerCase();
-      if (!cuenta.estudiante.toLowerCase().includes(terminoBusqueda) && 
-          !cuenta.familia.toLowerCase().includes(terminoBusqueda)) {
+      if (!cuenta.estudiante.toLowerCase().includes(terminoBusqueda) &&
+          !(cuenta.responsable || "").toLowerCase().includes(terminoBusqueda)) {
         return false;
       }
     }
@@ -236,73 +216,6 @@ export default function CuentasPorCobrar() {
     }
   ];
 
-  // Datos para seguimiento de cobranza
-  const actividadesCobranza = [
-    {
-      id: 1,
-      estudiante: "María González Ramírez",
-      tipo: "llamada",
-      descripcion: "Llamada telefónica - Compromiso de pago para el viernes",
-      monto: "$2,800",
-      fecha: "Hoy 10:30 AM",
-      estado: "pendiente"
-    },
-    {
-      id: 2,
-      estudiante: "Juan Carlos Morales",
-      tipo: "email",
-      descripcion: "Recordatorio enviado por correo electrónico",
-      monto: "$3,200",
-      fecha: "Ayer 2:15 PM",
-      estado: "enviado"
-    },
-    {
-      id: 3,
-      estudiante: "Ana Patricia Ramírez",
-      tipo: "promesa",
-      descripcion: "Promesa de pago registrada para el 30 de enero",
-      monto: "$2,500",
-      fecha: "25 Ene 4:45 PM",
-      estado: "prometido"
-    },
-    {
-      id: 4,
-      estudiante: "Carlos Mendoza López",
-      tipo: "pago",
-      descripcion: "Pago parcial recibido - Resta $1,500",
-      monto: "$1,000",
-      fecha: "24 Ene 11:20 AM",
-      estado: "pagado"
-    }
-  ];
-
-  const cuentasPrioritarias = [
-    {
-      id: 1,
-      estudiante: "María González Ramírez",
-      dias_vencido: 45,
-      monto: 280000,
-      ultimo_contacto: "20 Ene 2025",
-      proxima_accion: "Llamada de seguimiento"
-    },
-    {
-      id: 2,
-      estudiante: "Roberto Silva Martínez",
-      dias_vencido: 32,
-      monto: 350000,
-      ultimo_contacto: "18 Ene 2025",
-      proxima_accion: "Envío de carta"
-    },
-    {
-      id: 3,
-      estudiante: "Carmen López Hernández",
-      dias_vencido: 28,
-      monto: 180000,
-      ultimo_contacto: "22 Ene 2025",
-      proxima_accion: "Reunión presencial"
-    }
-  ];
-
   // Función para formatear moneda
   const formatCurrency = (centavos: number) => {
     return new Intl.NumberFormat('es-MX', {
@@ -319,32 +232,58 @@ export default function CuentasPorCobrar() {
 
   // Función para mostrar detalles de actividad de cobranza
   const verDetallesActividad = (actividad: any) => {
-    setActividadSeleccionada({
-      ...actividad,
-      id: Math.floor(Math.random() * 1000),
-      responsable: "Ana García - Administradora",
-      duracion: actividad.tipo === 'llamada' ? "8 minutos" : "N/A",
-      resultado: actividad.tipo === 'llamada' ? "Promesa de pago para viernes" : 
-                 actividad.tipo === 'email' ? "Email entregado correctamente" :
-                 actividad.tipo === 'promesa' ? "Compromiso registrado exitosamente" :
-                 "Pago aplicado y verificado",
-      seguimiento: actividad.tipo === 'promesa' ? "Llamar el viernes a las 10:00 AM" : "No requerido",
-      observaciones_completas: `Detalles completos de la actividad con ${actividad.estudiante}. ` +
-                              `Método de contacto: ${actividad.tipo}. ` +
-                              `Estado actual: ${actividad.descripcion}. ` +
-                              `Próxima acción programada según protocolo establecido.`
-    });
+    setActividadSeleccionada(actividad);
     setModalDetallesActividad(true);
   };
 
-  // Métricas específicas de la imagen
-  const metricas = {
-    totalPorCobrar: 4200000, // $42,000
-    tasaRecuperacion: 73.2,
-    eficienciaGestion: 89.1,
-    cuentasVencidas: 15,
-    diasPromedio: 18.5,
-    casosMorosos: 8
+  const cuentasPrioritarias = useMemo(
+    () => [...cuentasTodas]
+      .filter((cuenta) => cuenta.pendiente_pagar_centavos > 0)
+      .sort((a, b) => b.dias_vencido - a.dias_vencido || b.pendiente_pagar_centavos - a.pendiente_pagar_centavos)
+      .slice(0, 10),
+    [cuentasTodas],
+  );
+  const metricas = useMemo(() => {
+    const porCobrar = cuentasTodas.reduce((sum, cuenta) => sum + Number(cuenta.pendiente_pagar_centavos || 0), 0);
+    const vencidas = cuentasTodas.filter((cuenta) => ["VENCIDO", "MOROSO"].includes(cuenta.estado_cobranza)).length;
+    const morosas = cuentasTodas.filter((cuenta) => cuenta.estado_cobranza === "MOROSO").length;
+    const promesas = actividadesCobranza.filter((actividad) => actividad.tipo === "promesa" && actividad.estado === "prometido").length;
+    const recordatorios = actividadesCobranza.filter((actividad) => actividad.tipo === "recordatorio" && activityIsPending(actividad)).length;
+    return { porCobrar, vencidas, morosas, promesas, recordatorios };
+  }, [cuentasTodas, actividadesCobranza]);
+
+  const actividadMutation = useMutation({
+    mutationFn: async ({ endpoint, body }: { endpoint: string; body: Record<string, unknown> }) => {
+      const response = await apiRequest(endpoint, { method: "POST", body: JSON.stringify(body) });
+      return response.json();
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/receivables/activities"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/accounts-receivable"] }),
+      ]);
+    },
+  });
+
+  const guardarActividad = async (
+    endpoint: string,
+    body: Record<string, unknown>,
+    success: { title: string; description: string },
+  ) => {
+    try {
+      await actividadMutation.mutateAsync({ endpoint, body });
+      toast(success);
+      return true;
+    } catch (error: any) {
+      const raw = error?.message || "";
+      const description = raw.includes(": ") ? raw.slice(raw.indexOf(": ") + 2) : raw;
+      toast({
+        title: "No se guardó el cambio",
+        description: description || "La acción no pudo persistirse. Intenta nuevamente.",
+        variant: "destructive",
+      });
+      return false;
+    }
   };
 
   // Variables para filtros
@@ -515,88 +454,138 @@ export default function CuentasPorCobrar() {
     setModalIniciarCobranza(true);
   };
 
-  const procesarCobranza = () => {
+  const procesarCobranza = async () => {
     const cuentasSeleccionadas = cobranzaSeleccionada.length;
-    toast({
-      title: "Cobranza procesada",
-      description: `Proceso iniciado para ${cuentasSeleccionadas} cuentas seleccionadas`
-    });
-    setModalIniciarCobranza(false);
-    setCobranzaSeleccionada([]);
+    if (await guardarActividad(
+      "/api/receivables/collections",
+      { charge_ids: cobranzaSeleccionada.map(Number) },
+      { title: "Cobranza iniciada", description: `El proceso quedó registrado para ${cuentasSeleccionadas} cuenta(s).` },
+    )) {
+      setModalIniciarCobranza(false);
+      setCobranzaSeleccionada([]);
+    }
   };
 
   const abrirModalEnviarRecordatorios = () => {
     setModalEnviarRecordatorios(true);
   };
 
-  const enviarRecordatorios = () => {
-    toast({
-      title: "Recordatorios enviados", 
-      description: `Recordatorios enviados por ${tipoRecordatorio} a familias seleccionadas`
-    });
-    setModalEnviarRecordatorios(false);
+  const enviarRecordatorios = async () => {
+    const chargeIds = cobranzaSeleccionada.length
+      ? cobranzaSeleccionada.map(Number)
+      : cuentas.filter((cuenta) => cuenta.pendiente_pagar_centavos > 0).map((cuenta) => cuenta.id);
+    if (await guardarActividad(
+      "/api/receivables/reminders",
+      { canal: tipoRecordatorio, charge_ids: chargeIds },
+      { title: "Recordatorios programados", description: `Se registraron ${chargeIds.length} recordatorio(s) por ${tipoRecordatorio}.` },
+    )) {
+      setModalEnviarRecordatorios(false);
+      setCobranzaSeleccionada([]);
+    }
   };
 
   const abrirModalRegistrarPromesa = () => {
     setModalRegistrarPromesa(true);
   };
 
-  const guardarPromesa = () => {
-    if (promesaData.estudiante && promesaData.fecha && promesaData.monto) {
-      toast({
-        title: "Promesa registrada",
-        description: `Promesa de pago de ${promesaData.monto} registrada para ${promesaData.estudiante}`
-      });
+  const guardarPromesa = async () => {
+    const montoCentavos = Math.round(Number(promesaData.monto.replace(/[$,\s]/g, "")) * 100);
+    if (promesaData.chargeId && promesaData.fecha && Number.isSafeInteger(montoCentavos) && montoCentavos > 0) {
+      if (await guardarActividad(
+        "/api/receivables/promises",
+        {
+          charge_id: Number(promesaData.chargeId),
+          fecha: promesaData.fecha,
+          monto_centavos: montoCentavos,
+          observaciones: promesaData.observaciones,
+        },
+        { title: "Promesa registrada", description: "La promesa de pago quedó guardada en el historial de cobranza." },
+      )) {
       setModalRegistrarPromesa(false);
-      setPromesaData({ estudiante: "", fecha: "", monto: "", observaciones: "" });
+        setPromesaData({ chargeId: "", fecha: "", monto: "", observaciones: "" });
+      }
+    } else {
+      toast({ title: "Campos requeridos", description: "Selecciona una cuenta e indica fecha y monto válidos.", variant: "destructive" });
     }
   };
 
   // Funciones para acciones de seguimiento
-  const programarSeguimiento = () => {
-    if (seguimientoData.fecha && seguimientoData.hora) {
-      toast({
-        title: "Seguimiento programado",
-        description: `Actividad de ${seguimientoData.tipo} programada para ${seguimientoData.fecha} a las ${seguimientoData.hora}`
-      });
+  const programarSeguimiento = async () => {
+    if (seguimientoData.chargeId && seguimientoData.fecha && seguimientoData.hora) {
+      if (await guardarActividad(
+        "/api/receivables/follow-ups",
+        {
+          charge_id: Number(seguimientoData.chargeId),
+          tipo: seguimientoData.tipo,
+          fecha: seguimientoData.fecha,
+          hora: seguimientoData.hora,
+          observaciones: seguimientoData.observaciones,
+        },
+        { title: "Seguimiento programado", description: "El seguimiento quedó guardado y será visible después de recargar." },
+      )) {
       setModalProgramarSeguimiento(false);
       setSeguimientoData({
+        chargeId: "",
         tipo: "llamada",
         fecha: "",
         hora: "",
         observaciones: ""
       });
+      }
+    } else {
+      toast({ title: "Campos requeridos", description: "Selecciona una cuenta e indica fecha y hora.", variant: "destructive" });
     }
   };
 
-  const agregarNota = () => {
-    if (notaData.titulo && notaData.contenido) {
-      toast({
-        title: "Nota agregada",
-        description: `Nota "${notaData.titulo}" registrada en el expediente`
-      });
+  const agregarNota = async () => {
+    if (notaData.chargeId && notaData.titulo && notaData.contenido) {
+      if (await guardarActividad(
+        "/api/receivables/notes",
+        {
+          charge_id: Number(notaData.chargeId),
+          titulo: notaData.titulo,
+          contenido: notaData.contenido,
+          prioridad: notaData.prioridad,
+        },
+        { title: "Nota agregada", description: "La nota quedó guardada en el historial de cobranza." },
+      )) {
       setModalAgregarNota(false);
       setNotaData({
+        chargeId: "",
         titulo: "",
         contenido: "",
         prioridad: "normal"
       });
+      }
+    } else {
+      toast({ title: "Campos requeridos", description: "Selecciona una cuenta, título y contenido.", variant: "destructive" });
     }
   };
 
-  const escalarCaso = () => {
-    if (escalacionData.motivo && escalacionData.supervisor) {
-      toast({
-        title: "Caso escalado",
-        description: `Caso escalado a ${escalacionData.supervisor} con urgencia ${escalacionData.urgencia}`
-      });
+  const escalarCaso = async () => {
+    if (escalacionData.chargeId && escalacionData.motivo && escalacionData.supervisor) {
+      if (await guardarActividad(
+        "/api/receivables/escalations",
+        {
+          charge_id: Number(escalacionData.chargeId),
+          motivo: escalacionData.motivo,
+          supervisor: escalacionData.supervisor,
+          urgencia: escalacionData.urgencia,
+          detalles: escalacionData.detalles,
+        },
+        { title: "Caso escalado", description: "La escalación quedó guardada en el historial de cobranza." },
+      )) {
       setModalEscalarCaso(false);
       setEscalacionData({
+        chargeId: "",
         motivo: "",
         supervisor: "",
         urgencia: "media",
         detalles: ""
       });
+      }
+    } else {
+      toast({ title: "Campos requeridos", description: "Selecciona una cuenta, motivo y supervisor.", variant: "destructive" });
     }
   };
 
@@ -613,17 +602,13 @@ export default function CuentasPorCobrar() {
   };
 
   const contactarFamilia = (cuenta: any) => {
-    toast({
-      title: "Contactando familia",
-      description: `Iniciando contacto con familia de ${cuenta.estudiante}`
-    });
+    setCobranzaSeleccionada([String(cuenta.id)]);
+    setModalEnviarRecordatorios(true);
   };
 
-  const registrarPago = (cuenta: any) => {
-    toast({
-      title: "Registrando pago",
-      description: `Abriendo registro de pago para ${cuenta.estudiante}`
-    });
+  const registrarPago = () => {
+    window.history.pushState({}, "", "/pagos");
+    window.dispatchEvent(new PopStateEvent("popstate"));
   };
 
   // Función para vista previa
@@ -720,28 +705,28 @@ export default function CuentasPorCobrar() {
             <CardTitle className="text-sm font-medium text-red-700">Total por Cobrar</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-red-600">$42,000</div>
-            <p className="text-sm text-red-600 mt-1">15 cuentas vencidas</p>
+            <div className="text-3xl font-bold text-red-600">{formatCurrency(metricas.porCobrar)}</div>
+            <p className="text-sm text-red-600 mt-1">{metricas.vencidas} cuenta(s) vencida(s)</p>
           </CardContent>
         </Card>
 
         <Card className="bg-yellow-50 border-yellow-200">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-yellow-700">Tasa de Recuperación</CardTitle>
+            <CardTitle className="text-sm font-medium text-yellow-700">Promesas activas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-yellow-600">73.2%</div>
-            <p className="text-sm text-yellow-600 mt-1">18.5 días promedio</p>
+            <div className="text-3xl font-bold text-yellow-600">{metricas.promesas}</div>
+            <p className="text-sm text-yellow-600 mt-1">registradas en el historial</p>
           </CardContent>
         </Card>
 
         <Card className="bg-orange-50 border-orange-200">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-orange-700">Eficiencia de Gestión</CardTitle>
+            <CardTitle className="text-sm font-medium text-orange-700">Cuentas morosas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-orange-600">89.1%</div>
-            <p className="text-sm text-orange-600 mt-1">8 casos morosos</p>
+            <div className="text-3xl font-bold text-orange-600">{metricas.morosas}</div>
+            <p className="text-sm text-orange-600 mt-1">requieren gestión prioritaria</p>
           </CardContent>
         </Card>
       </div>
@@ -857,7 +842,7 @@ export default function CuentasPorCobrar() {
                 <div>
                   <label className="text-sm font-medium">Concepto</label>
                   <Select value={filtros.concepto} onValueChange={(value) => setFiltros({...filtros, concepto: value})}>
-                    <SelectTrigger>
+                  <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -917,15 +902,19 @@ export default function CuentasPorCobrar() {
                     </tr>
                   </thead>
                   <tbody>
-                    {cuentas.map((cuenta) => (
+                    {cuentasLoading ? (
+                      <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Cargando cuentas…</td></tr>
+                    ) : cuentas.length === 0 ? (
+                      <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No hay cuentas pendientes con estos filtros.</td></tr>
+                    ) : cuentas.map((cuenta) => (
                       <tr key={cuenta.id} className="border-b">
                         <td className="p-2">{cuenta.estudiante}</td>
-                        <td className="p-2">{cuenta.nivel_academico}</td>
+                        <td className="p-2">{cuenta.nivel_escolar || cuenta.grado || "—"}</td>
                         <td className="p-2">{cuenta.concepto}</td>
                         <td className="p-2 font-semibold">{formatCurrency(cuenta.pendiente_pagar_centavos)}</td>
                         <td className="p-2">
-                          <Badge variant={cuenta.estado_cobranza === "Vencido" ? "destructive" : 
-                                        cuenta.estado_cobranza === "Por vencer" ? "secondary" : "default"}>
+                          <Badge variant={["VENCIDO", "MOROSO"].includes(cuenta.estado_cobranza) ? "destructive" :
+                                        cuenta.estado_cobranza === "POR_VENCER" ? "secondary" : "default"}>
                             {cuenta.estado_cobranza}
                           </Badge>
                         </td>
@@ -959,7 +948,7 @@ export default function CuentasPorCobrar() {
                   </div>
                   <div>
                     <h3 className="font-semibold">Recordatorios Pendientes</h3>
-                    <p className="text-2xl font-bold text-orange-600">12</p>
+                    <p className="text-2xl font-bold text-orange-600">{metricas.recordatorios}</p>
                   </div>
                 </div>
               </CardContent>
@@ -973,7 +962,7 @@ export default function CuentasPorCobrar() {
                   </div>
                   <div>
                     <h3 className="font-semibold">Promesas de Pago</h3>
-                    <p className="text-2xl font-bold text-blue-600">8</p>
+                    <p className="text-2xl font-bold text-blue-600">{metricas.promesas}</p>
                   </div>
                 </div>
               </CardContent>
@@ -986,8 +975,8 @@ export default function CuentasPorCobrar() {
                     <DollarSign className="w-5 h-5 text-green-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold">Recuperado Hoy</h3>
-                    <p className="text-2xl font-bold text-green-600">$8,500</p>
+                    <h3 className="font-semibold">Cuentas morosas</h3>
+                    <p className="text-2xl font-bold text-green-600">{metricas.morosas}</p>
                   </div>
                 </div>
               </CardContent>
@@ -1046,8 +1035,12 @@ export default function CuentasPorCobrar() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {actividadesCobranza.map((actividad, index) => (
-                  <div key={index} className="flex items-center space-x-4 p-3 border rounded-lg">
+                {actividadesLoading ? (
+                  <p className="py-4 text-center text-muted-foreground">Cargando actividad…</p>
+                ) : actividadesCobranza.length === 0 ? (
+                  <p className="py-4 text-center text-muted-foreground">Aún no hay actividad registrada para este campus.</p>
+                ) : actividadesCobranza.map((actividad) => (
+                  <div key={actividad.id} className="flex items-center space-x-4 p-3 border rounded-lg">
                     <div className={`p-2 rounded-lg ${
                       actividad.tipo === 'llamada' ? 'bg-blue-100' :
                       actividad.tipo === 'email' ? 'bg-green-100' :
@@ -1057,15 +1050,15 @@ export default function CuentasPorCobrar() {
                       {actividad.tipo === 'llamada' && <Phone className="w-4 h-4 text-blue-600" />}
                       {actividad.tipo === 'email' && <Mail className="w-4 h-4 text-green-600" />}
                       {actividad.tipo === 'promesa' && <Users className="w-4 h-4 text-yellow-600" />}
-                      {actividad.tipo === 'pago' && <DollarSign className="w-4 h-4 text-green-600" />}
+                      {["cobranza", "seguimiento", "nota", "escalacion"].includes(actividad.tipo) && <FileText className="w-4 h-4 text-slate-600" />}
                     </div>
                     <div className="flex-1">
                       <p className="font-medium">{actividad.estudiante}</p>
-                      <p className="text-sm text-muted-foreground">{actividad.descripcion}</p>
+                      <p className="text-sm text-muted-foreground">{actividad.descripcion || actividad.titulo}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-medium">{actividad.monto}</p>
-                      <p className="text-xs text-muted-foreground">{actividad.fecha}</p>
+                      <p className="text-sm font-medium">{actividad.monto_centavos ? formatCurrency(Number(actividad.monto_centavos)) : actividad.estado}</p>
+                      <p className="text-xs text-muted-foreground">{new Date(actividad.created_at).toLocaleString("es-MX")}</p>
                     </div>
                     <Button 
                       size="sm" 
@@ -1099,7 +1092,9 @@ export default function CuentasPorCobrar() {
                     </tr>
                   </thead>
                   <tbody>
-                    {cuentasPrioritarias.map((cuenta) => (
+                    {cuentasPrioritarias.length === 0 ? (
+                      <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No hay cuentas pendientes.</td></tr>
+                    ) : cuentasPrioritarias.map((cuenta) => (
                       <tr key={cuenta.id} className="border-b">
                         <td className="p-2 font-medium">{cuenta.estudiante}</td>
                         <td className="p-2">
@@ -1107,9 +1102,15 @@ export default function CuentasPorCobrar() {
                             {cuenta.dias_vencido} días
                           </Badge>
                         </td>
-                        <td className="p-2">{formatCurrency(cuenta.monto)}</td>
-                        <td className="p-2 text-sm text-muted-foreground">{cuenta.ultimo_contacto}</td>
-                        <td className="p-2 text-sm">{cuenta.proxima_accion}</td>
+                        <td className="p-2">{formatCurrency(cuenta.pendiente_pagar_centavos)}</td>
+                        <td className="p-2 text-sm text-muted-foreground">
+                          {actividadesCobranza.find((actividad) => actividad.charge_id === cuenta.id)?.created_at
+                            ? new Date(actividadesCobranza.find((actividad) => actividad.charge_id === cuenta.id)!.created_at).toLocaleDateString("es-MX")
+                            : "Sin contacto"}
+                        </td>
+                        <td className="p-2 text-sm">
+                          {actividadesCobranza.find((actividad) => actividad.charge_id === cuenta.id && activityIsPending(actividad))?.titulo || "Registrar seguimiento"}
+                        </td>
                         <td className="p-2">
                           <div className="flex space-x-1">
                             <Button 
@@ -1122,7 +1123,7 @@ export default function CuentasPorCobrar() {
                             <Button 
                               size="sm" 
                               variant="outline"
-                              onClick={() => registrarPago(cuenta)}
+                              onClick={registrarPago}
                             >
                               <DollarSign className="w-4 h-4" />
                             </Button>
@@ -1349,6 +1350,17 @@ export default function CuentasPorCobrar() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
+              <label className="block text-sm font-medium mb-2">Cuenta</label>
+              <select
+                className="w-full border rounded-lg px-3 py-2"
+                value={seguimientoData.chargeId}
+                onChange={(e) => setSeguimientoData({ ...seguimientoData, chargeId: e.target.value })}
+              >
+                <option value="">Seleccionar cuenta…</option>
+                {cuentas.map((cuenta) => <option key={cuenta.id} value={cuenta.id}>{cuenta.estudiante} — {formatCurrency(cuenta.pendiente_pagar_centavos)}</option>)}
+              </select>
+            </div>
+            <div>
               <Label htmlFor="tipo-recordatorio">Tipo de Recordatorio</Label>
               <Select value={tipoRecordatorio} onValueChange={setTipoRecordatorio}>
                 <SelectTrigger>
@@ -1367,8 +1379,8 @@ export default function CuentasPorCobrar() {
               <h4 className="font-medium mb-2">Resumen del Envío</h4>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
-                  <span>Familias con pagos pendientes:</span>
-                  <span className="font-medium">8</span>
+                  <span>Cuentas seleccionadas:</span>
+                  <span className="font-medium">{cobranzaSeleccionada.length || cuentas.filter((cuenta) => cuenta.pendiente_pagar_centavos > 0).length}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Método seleccionado:</span>
@@ -1410,17 +1422,28 @@ export default function CuentasPorCobrar() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
+              <label className="block text-sm font-medium mb-2">Cuenta</label>
+              <select
+                className="w-full border rounded-lg px-3 py-2"
+                value={notaData.chargeId}
+                onChange={(e) => setNotaData({ ...notaData, chargeId: e.target.value })}
+              >
+                <option value="">Seleccionar cuenta…</option>
+                {cuentas.map((cuenta) => <option key={cuenta.id} value={cuenta.id}>{cuenta.estudiante} — {formatCurrency(cuenta.pendiente_pagar_centavos)}</option>)}
+              </select>
+            </div>
+            <div>
               <Label htmlFor="estudiante-promesa">Estudiante</Label>
               <Select 
-                value={promesaData.estudiante} 
-                onValueChange={(value) => setPromesaData({...promesaData, estudiante: value})}
+                value={promesaData.chargeId}
+                onValueChange={(value) => setPromesaData({...promesaData, chargeId: value})}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar estudiante" />
+                <SelectTrigger id="estudiante-promesa">
+                  <SelectValue placeholder="Seleccionar cuenta" />
                 </SelectTrigger>
                 <SelectContent>
                   {cuentas.map((cuenta) => (
-                    <SelectItem key={cuenta.id} value={cuenta.estudiante}>
+                    <SelectItem key={cuenta.id} value={String(cuenta.id)}>
                       {cuenta.estudiante} - {formatCurrency(cuenta.pendiente_pagar_centavos)}
                     </SelectItem>
                   ))}
@@ -1486,6 +1509,17 @@ export default function CuentasPorCobrar() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Cuenta</label>
+              <select
+                className="w-full border rounded-lg px-3 py-2"
+                value={escalacionData.chargeId}
+                onChange={(e) => setEscalacionData({ ...escalacionData, chargeId: e.target.value })}
+              >
+                <option value="">Seleccionar cuenta…</option>
+                {cuentas.map((cuenta) => <option key={cuenta.id} value={cuenta.id}>{cuenta.estudiante} — {formatCurrency(cuenta.pendiente_pagar_centavos)}</option>)}
+              </select>
+            </div>
             <div>
               <Label htmlFor="tipo-reporte">Tipo de Reporte</Label>
               <Select value={tipoReporte} onValueChange={setTipoReporte}>
@@ -1582,11 +1616,11 @@ export default function CuentasPorCobrar() {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-600">Nivel Académico</label>
-                    <p className="font-medium">{cuentaSeleccionada.nivel_academico}</p>
+                    <p className="font-medium">{cuentaSeleccionada.nivel_escolar || cuentaSeleccionada.grado || "—"}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Familia</label>
-                    <p className="font-medium">{cuentaSeleccionada.familia}</p>
+                    <label className="text-sm font-medium text-gray-600">Responsable de pago</label>
+                    <p className="font-medium">{cuentaSeleccionada.responsable || "Sin responsable registrado"}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-600">ID de Cuenta</label>
@@ -1612,8 +1646,8 @@ export default function CuentasPorCobrar() {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-600">Estado de Cobranza</label>
-                    <Badge variant={cuentaSeleccionada.estado_cobranza === "Vencido" ? "destructive" : 
-                                  cuentaSeleccionada.estado_cobranza === "Por vencer" ? "secondary" : "default"}>
+                    <Badge variant={["VENCIDO", "MOROSO"].includes(cuentaSeleccionada.estado_cobranza) ? "destructive" :
+                                  cuentaSeleccionada.estado_cobranza === "POR_VENCER" ? "secondary" : "default"}>
                       {cuentaSeleccionada.estado_cobranza}
                     </Badge>
                   </div>
@@ -1633,19 +1667,11 @@ export default function CuentasPorCobrar() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium text-gray-600">Teléfono Principal</label>
-                    <p className="font-medium">+52 1 33 1234 5678</p>
+                    <p className="font-medium">{cuentaSeleccionada.telefono || "Sin teléfono registrado"}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-600">Correo Electrónico</label>
-                    <p className="font-medium">familia@jfr.edu.mx</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Dirección</label>
-                    <p className="font-medium">Av. Vallarta 1234, Col. Centro, Guadalajara, Jal.</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Código Postal</label>
-                    <p className="font-medium">44100</p>
+                    <p className="font-medium">{cuentaSeleccionada.email || "Sin correo registrado"}</p>
                   </div>
                 </div>
               </div>
@@ -1657,18 +1683,15 @@ export default function CuentasPorCobrar() {
                   Historial Reciente
                 </h4>
                 <div className="space-y-2">
-                  <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                    <span className="text-sm">Último pago realizado</span>
-                    <span className="font-medium">15 Nov 2024 - $2,500.00</span>
-                  </div>
-                  <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                    <span className="text-sm">Último contacto</span>
-                    <span className="font-medium">20 Nov 2024 - Llamada telefónica</span>
-                  </div>
-                  <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                    <span className="text-sm">Promesa de pago</span>
-                    <span className="font-medium">25 Dic 2024 - Pendiente</span>
-                  </div>
+                  {actividadesCobranza.filter((actividad) => actividad.charge_id === cuentaSeleccionada.id).slice(0, 3).map((actividad) => (
+                    <div key={actividad.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                      <span className="text-sm">{actividad.titulo}</span>
+                      <span className="font-medium">{new Date(actividad.created_at).toLocaleDateString("es-MX")}</span>
+                    </div>
+                  ))}
+                  {actividadesCobranza.filter((actividad) => actividad.charge_id === cuentaSeleccionada.id).length === 0 && (
+                    <p className="text-sm text-muted-foreground">Sin actividad registrada todavía.</p>
+                  )}
                 </div>
               </div>
 
@@ -1677,28 +1700,22 @@ export default function CuentasPorCobrar() {
                 <h4 className="font-semibold text-lg mb-3">Acciones Disponibles</h4>
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" variant="outline" onClick={() => {
-                    toast({
-                      title: "Llamada iniciada",
-                      description: `Marcando al teléfono de la familia ${cuentaSeleccionada.familia}`
-                    });
+                    setSeguimientoData({ ...seguimientoData, chargeId: String(cuentaSeleccionada.id), tipo: "llamada" });
+                    setModalProgramarSeguimiento(true);
                   }}>
                     <Phone className="w-4 h-4 mr-1" />
                     Llamar
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => {
-                    toast({
-                      title: "Email enviado",
-                      description: `Recordatorio enviado a familia ${cuentaSeleccionada.familia}`
-                    });
+                    setCobranzaSeleccionada([String(cuentaSeleccionada.id)]);
+                    setModalEnviarRecordatorios(true);
                   }}>
                     <Mail className="w-4 h-4 mr-1" />
                     Enviar Email
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => {
-                    toast({
-                      title: "Promesa registrada",
-                      description: `Nueva promesa de pago para ${cuentaSeleccionada.estudiante}`
-                    });
+                    setPromesaData({ ...promesaData, chargeId: String(cuentaSeleccionada.id) });
+                    setModalRegistrarPromesa(true);
                   }}>
                     <CalendarIcon className="w-4 h-4 mr-1" />
                     Registrar Promesa
@@ -1711,7 +1728,7 @@ export default function CuentasPorCobrar() {
                 <h4 className="font-semibold text-lg mb-3">Observaciones</h4>
                 <div className="bg-yellow-50 p-3 rounded border-l-4 border-yellow-400">
                   <p className="text-sm">
-                    {cuentaSeleccionada.estado_cobranza === "Vencido" 
+                    {["VENCIDO", "MOROSO"].includes(cuentaSeleccionada.estado_cobranza)
                       ? "⚠️ Cuenta vencida. Se requiere seguimiento inmediato para evitar incremento en morosidad."
                       : "✅ Cuenta al corriente. Mantener seguimiento preventivo."
                     }
@@ -1721,18 +1738,9 @@ export default function CuentasPorCobrar() {
             </div>
           )}
 
-          <div className="flex justify-end space-x-2 pt-4 border-t">
+          <div className="flex justify-end pt-4 border-t">
             <Button variant="outline" onClick={() => setModalDetallesCuenta(false)}>
               Cerrar
-            </Button>
-            <Button onClick={() => {
-              toast({
-                title: "Registro actualizado",
-                description: `Información de ${cuentaSeleccionada?.estudiante} actualizada`
-              });
-              setModalDetallesCuenta(false);
-            }}>
-              Guardar Cambios
             </Button>
           </div>
         </DialogContent>
@@ -1756,7 +1764,7 @@ export default function CuentasPorCobrar() {
                   {actividadSeleccionada.tipo === 'llamada' && <Phone className="w-5 h-5 mr-2 text-blue-600" />}
                   {actividadSeleccionada.tipo === 'email' && <Mail className="w-5 h-5 mr-2 text-green-600" />}
                   {actividadSeleccionada.tipo === 'promesa' && <Users className="w-5 h-5 mr-2 text-yellow-600" />}
-                  {actividadSeleccionada.tipo === 'pago' && <DollarSign className="w-5 h-5 mr-2 text-green-600" />}
+                  {["cobranza", "seguimiento", "nota", "escalacion", "recordatorio"].includes(actividadSeleccionada.tipo) && <FileText className="w-5 h-5 mr-2 text-slate-600" />}
                   Información de la Actividad
                 </h4>
                 <div className="grid grid-cols-2 gap-4">
@@ -1772,11 +1780,11 @@ export default function CuentasPorCobrar() {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-600">Fecha y Hora</label>
-                    <p className="font-medium">{actividadSeleccionada.fecha}</p>
+                    <p className="font-medium">{new Date(actividadSeleccionada.created_at).toLocaleString("es-MX")}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-600">Monto Involucrado</label>
-                    <p className="font-bold text-lg text-blue-600">{actividadSeleccionada.monto}</p>
+                    <p className="font-bold text-lg text-blue-600">{actividadSeleccionada.monto_centavos ? formatCurrency(Number(actividadSeleccionada.monto_centavos)) : "—"}</p>
                   </div>
                 </div>
               </div>
@@ -1787,19 +1795,19 @@ export default function CuentasPorCobrar() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium text-gray-600">Responsable</label>
-                    <p className="font-medium">{actividadSeleccionada.responsable}</p>
+                    <p className="font-medium">{actividadSeleccionada.creado_por || "Usuario del campus"}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Duración</label>
-                    <p className="font-medium">{actividadSeleccionada.duracion}</p>
+                    <label className="text-sm font-medium text-gray-600">Canal</label>
+                    <p className="font-medium">{actividadSeleccionada.canal || "—"}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-600">Resultado</label>
-                    <p className="font-medium text-green-600">{actividadSeleccionada.resultado}</p>
+                    <p className="font-medium text-green-600 capitalize">{actividadSeleccionada.estado}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-600">Próximo Seguimiento</label>
-                    <p className="font-medium">{actividadSeleccionada.seguimiento}</p>
+                    <p className="font-medium">{actividadSeleccionada.fecha_programada ? new Date(actividadSeleccionada.fecha_programada).toLocaleDateString("es-MX") : "No programado"}</p>
                   </div>
                 </div>
               </div>
@@ -1809,7 +1817,7 @@ export default function CuentasPorCobrar() {
                 <h4 className="font-semibold text-lg mb-3">Descripción Completa</h4>
                 <div className="bg-gray-50 p-3 rounded">
                   <p className="text-sm leading-relaxed">
-                    {actividadSeleccionada.observaciones_completas}
+                    {actividadSeleccionada.descripcion || "Sin descripción adicional."}
                   </p>
                 </div>
               </div>
@@ -1818,15 +1826,24 @@ export default function CuentasPorCobrar() {
               <div className="border rounded-lg p-4">
                 <h4 className="font-semibold text-lg mb-3">Acciones de Seguimiento</h4>
                 <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="outline" onClick={() => setModalProgramarSeguimiento(true)}>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    setSeguimientoData({ ...seguimientoData, chargeId: String(actividadSeleccionada.charge_id) });
+                    setModalProgramarSeguimiento(true);
+                  }}>
                     <CalendarIcon className="w-4 h-4 mr-1" />
                     Programar Seguimiento
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => setModalAgregarNota(true)}>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    setNotaData({ ...notaData, chargeId: String(actividadSeleccionada.charge_id) });
+                    setModalAgregarNota(true);
+                  }}>
                     <FileText className="w-4 h-4 mr-1" />
                     Agregar Nota
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => setModalEscalarCaso(true)}>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    setEscalacionData({ ...escalacionData, chargeId: String(actividadSeleccionada.charge_id) });
+                    setModalEscalarCaso(true);
+                  }}>
                     <AlertTriangle className="w-4 h-4 mr-1" />
                     Escalar Caso
                   </Button>
@@ -1835,18 +1852,9 @@ export default function CuentasPorCobrar() {
             </div>
           )}
 
-          <div className="flex justify-end space-x-2 pt-4 border-t">
+          <div className="flex justify-end pt-4 border-t">
             <Button variant="outline" onClick={() => setModalDetallesActividad(false)}>
               Cerrar
-            </Button>
-            <Button onClick={() => {
-              toast({
-                title: "Actividad actualizada",
-                description: `Detalles de actividad de ${actividadSeleccionada?.estudiante} actualizados`
-              });
-              setModalDetallesActividad(false);
-            }}>
-              Guardar Cambios
             </Button>
           </div>
         </DialogContent>

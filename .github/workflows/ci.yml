@@ -1,0 +1,53 @@
+name: Validación
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Unitarias y E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: "true"
+      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+      SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Verificar secretos requeridos
+        run: |
+          if [ -z "$NEON_DATABASE_URL" ]; then
+            echo "::error::Configura el secreto NEON_DATABASE_URL en GitHub Actions antes de ejecutar la suite."
+            exit 1
+          fi
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Instalar Chromium para Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Ejecutar validación completa
+        run: npm run test:all
+
+      - name: Publicar evidencias de Playwright
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-evidence
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 14

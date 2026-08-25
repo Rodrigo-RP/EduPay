@@ -232,6 +232,7 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
       { module: MODULES.PAYMENTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver pagos del campus' },
       { module: MODULES.PAYMENTS, action: ACTIONS.PROCESS, scope: 'campus', description: 'Procesar pagos del campus' },
       { module: MODULES.RECEIVABLES, action: ACTIONS.READ, scope: 'campus', description: 'Ver cuentas por cobrar del campus' },
+      { module: MODULES.RECEIVABLES, action: ACTIONS.PROCESS, scope: 'campus', description: 'Gestionar cobranza del campus' },
       { module: MODULES.CONCEPTS, action: ACTIONS.READ, scope: 'campus', description: 'Ver conceptos de cobro del campus' },
       { module: MODULES.CONCEPTS, action: ACTIONS.CONFIGURE, scope: 'campus', description: 'Gestionar catálogo de conceptos de cobro del campus' },
       { module: MODULES.PRODUCTS, action: ACTIONS.READ,      scope: 'campus', description: 'Ver catálogo de productos (precios por nivel) del campus' },

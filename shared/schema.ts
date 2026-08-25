@@ -552,6 +552,36 @@ export const notifications = pgTable("notifications", {
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = typeof notifications.$inferInsert;
 
+// ── COLLECTION ACTIVITIES ─────────────────────────────────────────────────────
+// Historial operativo de una cuenta por cobrar: notas, seguimientos, promesas,
+// recordatorios, escalaciones e inicios de cobranza. No reutilizar
+// acciones_seguimiento: esa tabla representa hallazgos internos de workflow.
+export const collection_activities = pgTable("collection_activities", {
+  id:               serial("id").primaryKey(),
+  tenant_id:        integer("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  campus_id:        integer("campus_id").notNull().references(() => campuses.id, { onDelete: "cascade" }),
+  charge_id:        integer("charge_id").notNull().references(() => charges.id, { onDelete: "cascade" }),
+  student_id:       integer("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
+  created_by:       integer("created_by").references(() => users.id, { onDelete: "set null" }),
+  tipo:             varchar("tipo", { length: 40 }).notNull(),
+  estado:           varchar("estado", { length: 40 }).notNull().default("registrado"),
+  titulo:           varchar("titulo", { length: 255 }).notNull(),
+  descripcion:      text("descripcion"),
+  fecha_programada: date("fecha_programada"),
+  hora_programada:  varchar("hora_programada", { length: 8 }),
+  monto_centavos:   bigint("monto_centavos", { mode: "number" }),
+  canal:            varchar("canal", { length: 30 }),
+  prioridad:        varchar("prioridad", { length: 20 }),
+  motivo:           varchar("motivo", { length: 100 }),
+  supervisor:       varchar("supervisor", { length: 255 }),
+  urgencia:         varchar("urgencia", { length: 20 }),
+  metadata:         jsonb("metadata").notNull().default({}),
+  created_at:       timestamp("created_at").notNull().defaultNow(),
+  updated_at:       timestamp("updated_at").notNull().defaultNow(),
+});
+export type CollectionActivity = typeof collection_activities.$inferSelect;
+export type InsertCollectionActivity = typeof collection_activities.$inferInsert;
+
 // RECONCILIATION BATCHES
 export const reconciliation_batches = pgTable("reconciliation_batches", {
   id: serial("id").primaryKey(),

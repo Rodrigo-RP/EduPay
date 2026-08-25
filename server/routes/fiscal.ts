@@ -39,8 +39,10 @@ const MSG_SIN_CONFIG =
   "Este campus no tiene configurado un proveedor de timbrado. " +
   "Registra el CSD primero en /api/fiscal/registrar-organizacion.";
 
-/** Carga campus_invoicing_config para el campus del JWT. Devuelve null si no existe. */
-async function loadInvoicingConfig(campusId: number) {
+/** Carga campus_invoicing_config para el campus/tenant del JWT. Devuelve null si no existe. */
+async function loadInvoicingConfig(campusId: number, tenantId?: number | null) {
+  const tenantFilter = tenantId ? " AND tenant_id = $2" : "";
+  const params = tenantId ? [campusId, tenantId] : [campusId];
   const rows = await pool.query<{
     id: number; proveedor: string; organizacion_id: string | null;
     rfc: string | null; razon_social: string | null; estado: string;
@@ -50,8 +52,8 @@ async function loadInvoicingConfig(campusId: number) {
     `SELECT id, proveedor, organizacion_id, rfc, razon_social, estado,
             ambiente, regimen_fiscal, uso_cfdi_default, timbrado_automatico,
             fecha_vencimiento_csd
-     FROM campus_invoicing_config WHERE campus_id = $1 LIMIT 1`,
-    [campusId],
+     FROM campus_invoicing_config WHERE campus_id = $1${tenantFilter} LIMIT 1`,
+    params,
   );
   return rows.rows[0] ?? null;
 }
@@ -66,13 +68,14 @@ export function registerFiscalRoutes(app: Express): void {
       if (!hasPermissionForUser(req.user, MODULES.FISCAL, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para acceder a información fiscal" });
       }
-      const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
-      if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
+       const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
+       const tenantId = req.user?.tenant_id;
+       if (!await checkCampusTenant(campusId, tenantId, res)) return;
       const { mes } = req.query;
-      let filtroMes = "";
-      const params: any[] = [campusId];
+       let filtroMes = "";
+       const params: any[] = [campusId, tenantId];
       if (mes) {
-        filtroMes = ` AND TO_CHAR(p.created_at, 'YYYY-MM') = $2`;
+         filtroMes = ` AND TO_CHAR(p.created_at, 'YYYY-MM') = $3`;
         params.push(mes as string);
       }
       const rows = await pool.query(`
@@ -85,7 +88,9 @@ export function registerFiscalRoutes(app: Express): void {
         LEFT JOIN student_guardian sg ON sg.student_id = s.id
         LEFT JOIN guardians g ON g.id = sg.guardian_id
         LEFT JOIN invoices i ON i.payment_id = p.id
-        WHERE s.campus_id = $1 AND i.id IS NULL${filtroMes}
+         WHERE s.campus_id = $1 AND s.tenant_id = $2
+           AND p.tenant_id = $2 AND ch.tenant_id = $2
+           AND i.id IS NULL${filtroMes}
         ORDER BY p.created_at DESC LIMIT 500
       `, params);
       res.json({ pagos: rows.rows, total: (rows.rows as any[]).length });
@@ -103,17 +108,25 @@ export function registerFiscalRoutes(app: Express): void {
       if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para ejecutar operaciones fiscales" });
       }
-      const campusId = (req as any).user?.campus_id;
+       const campusId = (req as any).user?.campus_id;
+       const tenantId = (req as any).user?.tenant_id;
+       if (!await checkCampusTenant(campusId, tenantId, res)) return;
       const { payment_ids } = req.body;
       if (!Array.isArray(payment_ids) || payment_ids.length === 0) {
         return res.status(400).json({ message: "No hay pagos seleccionados" });
       }
 
       // Verificar que el campus tiene configuración de timbrado activa
-      const config = await loadInvoicingConfig(campusId);
+       const config = await loadInvoicingConfig(campusId, tenantId);
       if (!config || config.estado !== 'activo' || !config.organizacion_id) {
         return res.status(503).json({ message: MSG_SIN_CONFIG, code: 'CAMPUS_SIN_CONFIGURAR' });
       }
+       if (config.ambiente !== 'sandbox') {
+         return res.status(503).json({
+           message: "El timbrado en producción permanece desactivado. Este flujo sólo admite configuración sandbox.",
+           code: 'SANDBOX_ONLY',
+         });
+       }
 
       // Intentar obtener el adaptador — falla hasta que exista implementación real
       let provider;
@@ -130,7 +143,7 @@ export function registerFiscalRoutes(app: Express): void {
         try {
           // Verificar que el pago pertenece al campus del JWT
           const pRows = await pool.query(
-            `SELECT p.id, p.monto_centavos, s.curp AS curp_alumno,
+             `SELECT p.id, p.monto_centavos, s.curp AS curp_alumno,
                     s.nivel_educativo, g.rfc AS rfc_receptor, g.nombres AS nombre_receptor,
                     ii.cct, ii.rvoe, s.nivel_educativo AS nivel_edu_alumno
              FROM payments p
@@ -140,8 +153,12 @@ export function registerFiscalRoutes(app: Express): void {
              LEFT JOIN guardians g ON g.id = sg.guardian_id
              LEFT JOIN institutional_info ii ON ii.campus_id = s.campus_id
                AND ii.seccion_educativa = UPPER(SPLIT_PART(s.nivel_escolar,' ',1))
-             WHERE p.id = $1 AND s.campus_id = $2`,
-            [pid, campusId],
+             WHERE p.id = $1
+               AND s.campus_id = $2
+               AND p.tenant_id = $3
+               AND c.tenant_id = $3
+               AND s.tenant_id = $3`,
+             [pid, campusId, tenantId],
           );
 
           if ((pRows.rows as any[]).length === 0) {
@@ -218,14 +235,16 @@ export function registerFiscalRoutes(app: Express): void {
       if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para acceder a información fiscal" });
       }
-      const campusId = (req as any).user?.campus_id;
+       const campusId = (req as any).user?.campus_id;
+       const tenantId = (req as any).user?.tenant_id;
+       if (!await checkCampusTenant(campusId, tenantId, res)) return;
       const rows = await pool.query(
         `SELECT COUNT(*) as total_invoices FROM invoices i
          JOIN payments p ON p.id = i.payment_id
          JOIN charges c  ON c.id = p.charge_id
          JOIN students s ON s.id = c.student_id
-         WHERE s.campus_id = $1`,
-        [campusId],
+          WHERE s.campus_id = $1 AND s.tenant_id = $2`,
+         [campusId, tenantId],
       ).catch(() => ({ rows: [{ total_invoices: 0 }] }));
       res.json({ total_invoices: Number((rows.rows[0] as any)?.total_invoices || 0) });
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
@@ -238,10 +257,12 @@ export function registerFiscalRoutes(app: Express): void {
         return res.status(403).json({ message: "Sin permisos para acceder a información fiscal" });
       }
       const campusId = (req as any).user?.campus_id;
+      const tenantId = (req as any).user?.tenant_id;
+      if (!await checkCampusTenant(campusId, tenantId, res)) return;
       const { mes } = req.query;
       let filtroMes = "";
-      const params: any[] = [campusId];
-      if (mes) { filtroMes = ` AND TO_CHAR(p.created_at, 'YYYY-MM') = $2`; params.push(mes as string); }
+      const params: any[] = [campusId, tenantId];
+      if (mes) { filtroMes = ` AND TO_CHAR(p.created_at, 'YYYY-MM') = $3`; params.push(mes as string); }
       const rows = await pool.query(`
         SELECT p.id, p.monto_centavos, p.created_at,
           CONCAT(s.nombres, ' ', s.apellido_paterno) AS estudiante,
@@ -252,7 +273,9 @@ export function registerFiscalRoutes(app: Express): void {
         LEFT JOIN student_guardian sg ON sg.student_id = s.id
         LEFT JOIN guardians g ON g.id = sg.guardian_id
         LEFT JOIN invoices i ON i.payment_id = p.id
-        WHERE s.campus_id = $1 AND i.id IS NULL${filtroMes}
+        WHERE s.campus_id = $1 AND s.tenant_id = $2
+          AND p.tenant_id = $2 AND ch.tenant_id = $2
+          AND i.id IS NULL${filtroMes}
         ORDER BY p.created_at DESC LIMIT 500
       `, params);
       res.json({ pagos: rows.rows, total: (rows.rows as any[]).length });
@@ -265,11 +288,13 @@ export function registerFiscalRoutes(app: Express): void {
       if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para acceder a información fiscal" });
       }
-      const campusId = (req as any).user?.campus_id;
+       const campusId = (req as any).user?.campus_id;
+       const tenantId = (req as any).user?.tenant_id;
+       if (!await checkCampusTenant(campusId, tenantId, res)) return;
       const [emitidosRows, pendientesRows, canceladosRows] = await Promise.all([
-        pool.query(`SELECT COUNT(*) as cnt, COALESCE(SUM(p.monto_centavos),0) as monto FROM invoices i JOIN payments p ON p.id=i.payment_id JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND i.estado='emitido'`, [campusId]).catch(() => ({ rows: [{ cnt: 0, monto: 0 }] })),
-        pool.query(`SELECT COUNT(*) as cnt FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id LEFT JOIN invoices i ON i.payment_id=p.id WHERE s.campus_id=$1 AND i.id IS NULL`, [campusId]).catch(() => ({ rows: [{ cnt: 0 }] })),
-        pool.query(`SELECT COUNT(*) as cnt FROM invoices i JOIN payments p ON p.id=i.payment_id JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND i.estado='cancelado'`, [campusId]).catch(() => ({ rows: [{ cnt: 0 }] })),
+         pool.query(`SELECT COUNT(*) as cnt, COALESCE(SUM(p.monto_centavos),0) as monto FROM invoices i JOIN payments p ON p.id=i.payment_id JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND s.tenant_id=$2 AND p.tenant_id=$2 AND c.tenant_id=$2 AND i.estado='emitido'`, [campusId, tenantId]).catch(() => ({ rows: [{ cnt: 0, monto: 0 }] })),
+         pool.query(`SELECT COUNT(*) as cnt FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id LEFT JOIN invoices i ON i.payment_id=p.id WHERE s.campus_id=$1 AND s.tenant_id=$2 AND p.tenant_id=$2 AND c.tenant_id=$2 AND i.id IS NULL`, [campusId, tenantId]).catch(() => ({ rows: [{ cnt: 0 }] })),
+         pool.query(`SELECT COUNT(*) as cnt FROM invoices i JOIN payments p ON p.id=i.payment_id JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND s.tenant_id=$2 AND p.tenant_id=$2 AND c.tenant_id=$2 AND i.estado='cancelado'`, [campusId, tenantId]).catch(() => ({ rows: [{ cnt: 0 }] })),
       ]);
       res.json({
         emitidos:      Number((emitidosRows.rows[0] as any)?.cnt   || 0),
@@ -289,9 +314,11 @@ export function registerFiscalRoutes(app: Express): void {
       if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para ejecutar operaciones fiscales" });
       }
-      const campusId = (req as any).user?.campus_id;
+       const campusId = (req as any).user?.campus_id;
+       const tenantId = (req as any).user?.tenant_id;
 
-      const config = await loadInvoicingConfig(campusId);
+       if (!await checkCampusTenant(campusId, tenantId, res)) return;
+       const config = await loadInvoicingConfig(campusId, tenantId);
       if (!config || config.estado !== 'activo' || !config.organizacion_id) {
         return res.status(503).json({ message: MSG_SIN_CONFIG, code: 'CAMPUS_SIN_CONFIGURAR' });
       }
@@ -317,9 +344,11 @@ export function registerFiscalRoutes(app: Express): void {
       if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para ejecutar operaciones fiscales" });
       }
-      const campusId = (req as any).user?.campus_id;
+       const campusId = (req as any).user?.campus_id;
+       const tenantId = (req as any).user?.tenant_id;
 
-      const config = await loadInvoicingConfig(campusId);
+       if (!await checkCampusTenant(campusId, tenantId, res)) return;
+       const config = await loadInvoicingConfig(campusId, tenantId);
       if (!config || config.estado !== 'activo' || !config.organizacion_id) {
         return res.status(503).json({ message: MSG_SIN_CONFIG, code: 'CAMPUS_SIN_CONFIGURAR' });
       }
@@ -401,6 +430,12 @@ export function registerFiscalRoutes(app: Express): void {
           cerBuf = null; keyBuf = null;
 
           if (err instanceof ProviderAuthError) {
+             if (err.message.includes('User Secret Key')) {
+               return res.status(422).json({
+                 message: "Facturapi no permite registrar CSD con la Test Secret Key actual. El registro de organizaciones sandbox requiere una User Secret Key y sigue pendiente de habilitación.",
+                 code: 'SANDBOX_CSD_REGISTRATION_UNAVAILABLE',
+               });
+             }
             return res.status(422).json({
               message: "El certificado o la contraseña no son válidos. Verifica que .cer y .key correspondan al mismo CSD.",
               code: 'CSD_INVALIDO',
@@ -482,8 +517,10 @@ export function registerFiscalRoutes(app: Express): void {
       if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para acceder a información fiscal" });
       }
-      const campusId = (req as any).user?.campus_id;
-      const config = await loadInvoicingConfig(campusId);
+       const campusId = (req as any).user?.campus_id;
+       const tenantId = (req as any).user?.tenant_id;
+       if (!await checkCampusTenant(campusId, tenantId, res)) return;
+       const config = await loadInvoicingConfig(campusId, tenantId);
       if (!config) {
         return res.json({
           pac: null, estado: 'sin_configurar', ambiente: null,
@@ -529,7 +566,9 @@ export function registerFiscalRoutes(app: Express): void {
         return res.status(403).json({ message: "Sin permisos para acceder a información fiscal" });
       }
       const campusId = (req as any).user?.campus_id;
-      const config = await loadInvoicingConfig(campusId);
+      const tenantId = (req as any).user?.tenant_id;
+      if (!await checkCampusTenant(campusId, tenantId, res)) return;
+      const config = await loadInvoicingConfig(campusId, tenantId);
       if (config) {
         res.json({
           habilitado:          config.estado === 'activo',
@@ -562,6 +601,14 @@ export function registerFiscalRoutes(app: Express): void {
       const tenantId = (req as any).user?.tenant_id;
       const { timbrado_automatico, regimen_fiscal, uso_cfdi, ambiente } = req.body;
 
+       if (!await checkCampusTenant(campusId, tenantId, res)) return;
+       if (ambiente && ambiente !== 'sandbox') {
+         return res.status(422).json({
+           message: "La configuración de producción está desactivada. Este entorno sólo admite sandbox.",
+           code: 'SANDBOX_ONLY',
+         });
+       }
+
       await pool.query(
         `INSERT INTO campus_invoicing_config
            (campus_id, tenant_id, timbrado_automatico, regimen_fiscal, uso_cfdi_default, ambiente)
@@ -576,7 +623,7 @@ export function registerFiscalRoutes(app: Express): void {
          timbrado_automatico ?? false,
          regimen_fiscal      || '601',
          uso_cfdi            || 'D10',
-         ambiente            || 'sandbox'],
+         'sandbox'],
       );
       res.json({ mensaje: "Configuración guardada" });
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
@@ -609,7 +656,9 @@ export function registerFiscalRoutes(app: Express): void {
       if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para acceder a información fiscal" });
       }
-      const campusId = (req as any).user?.campus_id;
+       const campusId = (req as any).user?.campus_id;
+       const tenantId = (req as any).user?.tenant_id;
+       if (!await checkCampusTenant(campusId, tenantId, res)) return;
       const rows = await pool.query(
         `SELECT
            COUNT(*) FILTER (WHERE i.estado = 'emitido')   AS emitidos,
@@ -620,8 +669,9 @@ export function registerFiscalRoutes(app: Express): void {
          JOIN payments p ON p.id = i.payment_id
          JOIN charges  c ON c.id = p.charge_id
          JOIN students s ON s.id = c.student_id
-         WHERE s.campus_id = $1`,
-        [campusId],
+         WHERE s.campus_id = $1 AND s.tenant_id = $2
+           AND p.tenant_id = $2 AND c.tenant_id = $2`,
+         [campusId, tenantId],
       ).catch(() => ({ rows: [{ emitidos: 0, cancelados: 0, pendientes: 0, total_cfdis: 0 }] }));
       const r = rows.rows[0] as any;
       res.json({

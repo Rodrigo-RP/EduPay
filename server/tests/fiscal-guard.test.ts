@@ -51,6 +51,8 @@ import { JWT_SECRET } from "../routes/shared";
 
 let tenantId     = 0;
 let campusId     = 0;
+let foreignTenantId = 0;
+let foreignCampusId = 0;
 
 const TS = Date.now().toString().slice(-7);
 
@@ -60,6 +62,7 @@ let tokenAuxiliar   = ""; // auxiliar_contable
 let tokenAsistente  = ""; // asistente
 let tokenAdmisiones = ""; // admisiones
 let tokenSinPerm    = ""; // rol desconocido
+let tokenForeignAdmin = "";
 
 function makeToken(userId: number, role: string): string {
   return jwt.sign(
@@ -114,9 +117,36 @@ beforeAll(async () => {
       campus_id: campusId, tenant_id: tenantId, type: "user" },
     JWT_SECRET, { expiresIn: "1h" }
   );
+
+  const foreignTenant = await pool.query(
+    `INSERT INTO tenants (nombre_legal, rfc) VALUES ($1,$2) RETURNING id`,
+    [`FSC Foreign ${TS}`, `FSX${TS}`],
+  );
+  foreignTenantId = foreignTenant.rows[0].id;
+  const foreignCampus = await pool.query(
+    `INSERT INTO campuses (tenant_id, nombre) VALUES ($1,$2) RETURNING id`,
+    [foreignTenantId, `Campus-FSX-${TS}`],
+  );
+  foreignCampusId = foreignCampus.rows[0].id;
+  const foreignAdmin = await pool.query(
+    `INSERT INTO users
+       (tenant_id, campus_id, name, email, password_hash, role, is_active, custom_permissions)
+     VALUES ($1,$2,$3,$4,$5,'administrador_campus',true,'{}') RETURNING id`,
+    [foreignTenantId, foreignCampusId, "Admin Foreign FSC", `admin.foreign.${TS}@fsc.test`, hash],
+  );
+  tokenForeignAdmin = jwt.sign(
+    { id: foreignAdmin.rows[0].id, email: `admin.foreign.${TS}@fsc.test`,
+      role: "administrador_campus", campus_id: foreignCampusId,
+      tenant_id: foreignTenantId, type: "user" },
+    JWT_SECRET,
+    { expiresIn: "1h" },
+  );
 });
 
 afterAll(async () => {
+  await pool.query(`DELETE FROM users    WHERE tenant_id = $1`, [foreignTenantId]);
+  await pool.query(`DELETE FROM campuses WHERE tenant_id = $1`, [foreignTenantId]);
+  await pool.query(`DELETE FROM tenants  WHERE id        = $1`, [foreignTenantId]);
   await pool.query(`DELETE FROM users    WHERE tenant_id = $1`, [tenantId]);
   await pool.query(`DELETE FROM campuses WHERE tenant_id = $1`, [tenantId]);
   await pool.query(`DELETE FROM tenants  WHERE id        = $1`, [tenantId]);
@@ -172,6 +202,11 @@ describe("FSC — Guards FISCAL.READ y FISCAL.CONFIGURE en rutas de fiscal.ts", 
 
     it("FSC-07: rol desconocido GET /api/fiscal/estadisticas-cfdi → 403", async () => {
       const r = await GET("/api/fiscal/estadisticas-cfdi", tokenSinPerm);
+      expect(r.status).toBe(403);
+    });
+
+    it("FSC-08: otro tenant no puede leer pendientes del campus ajeno por URL explícita", async () => {
+      const r = await GET(`/api/fiscal/pendientes-cfdi/${campusId}`, tokenForeignAdmin);
       expect(r.status).toBe(403);
     });
   });
@@ -282,6 +317,12 @@ describe("FSC — Guards FISCAL.READ y FISCAL.CONFIGURE en rutas de fiscal.ts", 
     it("FSC-25: administrador_campus PUT /api/fiscal/config-automatica → NO 403", async () => {
       const r = await PUT("/api/fiscal/config-automatica", tokenAdmin, { habilitado: false, timbrado_automatico: false });
       await expectNotForbidden(r, "administrador_campus config-automatica");
+    });
+
+    it("FSC-25b: administrador no puede activar producción por config-automatica", async () => {
+      const r = await PUT("/api/fiscal/config-automatica", tokenAdmin, { ambiente: "produccion" });
+      expect(r.status).toBe(422);
+      expect((await r.json()).code).toBe("SANDBOX_ONLY");
     });
 
     it("FSC-26: contador_general POST /api/fiscal/generar-reporte-sat → NO 403", async () => {

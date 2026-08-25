@@ -24,6 +24,51 @@ import {
   Clock
 } from "lucide-react";
 
+type PacStatus = {
+  pac: string | null;
+  estado: "sin_configurar" | "pendiente" | "activo" | "error" | "vencido";
+  ambiente: "sandbox" | "produccion" | null;
+  rfc?: string | null;
+  razon_social?: string | null;
+  fecha_vencimiento_csd?: string | null;
+  organizacion_id: string | null;
+  timbres_disponibles?: number | null;
+  timbres_usados?: number | null;
+};
+
+type CfdiStats = {
+  emitidos: number;
+  monto_emitido: number;
+  pendientes: number;
+  cancelados: number;
+};
+
+function apiErrorMessage(error: unknown, fallback: string): string {
+  const raw = String((error as Error)?.message || "");
+  const body = raw.replace(/^\d+:\s*/, "");
+  try {
+    const parsed = JSON.parse(body);
+    if (typeof parsed?.message === "string") return parsed.message;
+  } catch {
+    // El endpoint puede devolver texto plano; se muestra sin el prefijo HTTP.
+  }
+  return body || fallback;
+}
+
+function EmptyFiscalState({ message }: { message: string }) {
+  return (
+    <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+      {message}
+    </div>
+  );
+}
+
+function pacEnvironmentLabel(ambiente: PacStatus["ambiente"]): string {
+  if (ambiente === "sandbox") return "Sandbox";
+  if (ambiente === "produccion") return "Producción (bloqueada)";
+  return "Sin configurar";
+}
+
 export default function FiscalContable() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -32,8 +77,11 @@ export default function FiscalContable() {
 
   // CFDI 4.0 automático al pagar
   const GestionCFDI = () => {
-    const { data: estadisticasCFDI } = useQuery({
+    const { data: estadisticasCFDI } = useQuery<CfdiStats>({
       queryKey: ["/api/fiscal/estadisticas-cfdi", selectedPeriod],
+    });
+    const { data: estadoPAC, isLoading: loadingPAC, isError: pacError } = useQuery<PacStatus>({
+      queryKey: ["/api/fiscal/estado-pac"],
     });
 
     const regenerarCFDI = useMutation({
@@ -65,7 +113,7 @@ export default function FiscalContable() {
           <Card>
             <CardContent className="p-4 text-center">
               <FileText className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold">{(estadisticasCFDI as any)?.total_emitidos || 0}</div>
+          <div className="text-2xl font-bold">{estadisticasCFDI?.emitidos || 0}</div>
           <div className="text-sm text-slate-600">CFDI emitidos</div>
             </CardContent>
           </Card>
@@ -73,8 +121,8 @@ export default function FiscalContable() {
           <Card>
             <CardContent className="p-4 text-center">
               <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold">{(estadisticasCFDI as any)?.validados || 0}</div>
-          <div className="text-sm text-slate-600">Validados SAT</div>
+          <div className="text-2xl font-bold">{estadisticasCFDI?.pendientes || 0}</div>
+          <div className="text-sm text-slate-600">Pendientes de timbrar</div>
             </CardContent>
           </Card>
 
@@ -89,7 +137,7 @@ export default function FiscalContable() {
           <Card>
             <CardContent className="p-4 text-center">
               <Receipt className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold">${(((estadisticasCFDI as any)?.monto_total || 0) / 100).toLocaleString()}</div>
+          <div className="text-2xl font-bold">${((estadisticasCFDI?.monto_emitido || 0) / 100).toLocaleString()}</div>
           <div className="text-sm text-slate-600">Monto facturado</div>
             </CardContent>
           </Card>
@@ -100,39 +148,22 @@ export default function FiscalContable() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-blue-800">
               <Shield className="w-5 h-5" />
-              Configuración PAC - Facturama
+               Estado de configuración PAC
             </CardTitle>
           </CardHeader>
           <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-                <Label>Proveedor PAC</Label>
-                <Select defaultValue="FACTURAMA">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="FACTURAMA">Facturama</SelectItem>
-                    <SelectItem value="ENLACE_FISCAL">Enlace Fiscal</SelectItem>
-                  </SelectContent>
-                </Select>
+            {loadingPAC ? (
+              <p className="text-sm text-slate-600">Consultando configuración del campus…</p>
+            ) : pacError ? (
+              <p className="text-sm text-red-700">No se pudo consultar el estado del PAC.</p>
+            ) : (
+              <div className="mt-1 rounded border bg-white p-3 text-sm text-slate-700">
+                <p><strong>Proveedor:</strong> {estadoPAC?.pac || "Sin configurar"}</p>
+                <p><strong>Ambiente:</strong> {pacEnvironmentLabel(estadoPAC?.ambiente ?? null)}</p>
+                <p><strong>Estado:</strong> {estadoPAC?.estado?.replace("_", " ") || "sin configurar"}</p>
+                <p><strong>Facturas pendientes de timbrar:</strong> {estadisticasCFDI?.pendientes || 0}</p>
               </div>
-              
-          <div className="flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                <span className="text-sm text-green-700">Conexión PAC activa</span>
-              </div>
-            </div>
-
-        <div className="mt-4 p-3 bg-white rounded border">
-          <div className="text-sm">
-                <strong>Estado del servicio:</strong> Operativo
-                <br />
-                <strong>Última sincronización:</strong> Hace 5 minutos
-                <br />
-                <strong>Facturas pendientes de timbrar:</strong> 0
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 
@@ -142,36 +173,11 @@ export default function FiscalContable() {
             <CardTitle>Facturas CFDI recientes</CardTitle>
           </CardHeader>
           <CardContent>
-        <div className="space-y-3">
-              {[
-                { folio: "A001", uuid: "12345-ABCDE-67890", estudiante: "Carlos Pérez", monto: 500000, fecha: "2025-01-20", estado: "Vigente" },
-                { folio: "A002", uuid: "12346-ABCDF-67891", estudiante: "Ana García", monto: 150000, fecha: "2025-01-20", estado: "Vigente" },
-                { folio: "A003", uuid: "12347-ABCDG-67892", estudiante: "Luis Martínez", monto: 300000, fecha: "2025-01-19", estado: "Cancelado" }
-              ].map((factura, index) => (
-            <div key={index} className="flex items-center justify-between p-3 border rounded">
-              <div>
-                <div className="font-medium">Folio {factura.folio} - {factura.estudiante}</div>
-                <div className="text-sm text-slate-600">{factura.fecha} • UUID: {factura.uuid}</div>
-                  </div>
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <div className="font-semibold">${(factura.monto / 100).toLocaleString()}</div>
-                    </div>
-                    <Badge variant={factura.estado === "Vigente" ? "default" : "destructive"}>
-                      {factura.estado}
-                    </Badge>
-                <div className="flex gap-1">
-                  <Button size="sm" variant="outline">
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                  <Button size="sm" variant="outline">
-                        <Download className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <EmptyFiscalState
+              message={estadoPAC?.estado === "activo"
+                ? "El historial de facturas aún no está conectado a esta vista."
+                : "No hay facturas para mostrar porque este campus no tiene un PAC configurado."}
+            />
           </CardContent>
         </Card>
       </div>
@@ -180,20 +186,18 @@ export default function FiscalContable() {
 
   // Facturación Automática
   const FacturacionAutomatica = () => {
-    const { data: configAutomatica } = useQuery({
+    const { data: configAutomatica, isLoading } = useQuery<{
+      habilitado: boolean;
+      timbrado_automatico: boolean;
+      estado: string;
+      ambiente: string;
+      pac_nombre: string | null;
+    }>({
       queryKey: ["/api/fiscal/config-automatica"],
     });
 
-    const actualizarConfigAutomatica = useMutation({
-      mutationFn: (data: any) => apiRequest("/api/fiscal/config-automatica", { method: "PUT", body: JSON.stringify(data) }),
-      onSuccess: () => {
-        toast({
-          title: "Configuración actualizada",
-          description: "La facturación automática se configuró correctamente"
-        });
-        queryClient.invalidateQueries({ queryKey: ["/api/fiscal"] });
-      }
-    });
+    const configuredForSandbox = configAutomatica?.estado === "activo"
+      && configAutomatica?.ambiente === "sandbox";
 
     return (
       <div className="space-y-6">
@@ -205,55 +209,20 @@ export default function FiscalContable() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-blue-700 mb-4">
-              Configurar la emisión automática de CFDI 4.0 cada vez que se registre un pago
-            </p>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-white rounded border">
-                <div>
-                  <div className="font-medium">Timbrado automático</div>
-                  <div className="text-sm text-slate-600">Generar CFDI automáticamente al confirmar pago</div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
+            {isLoading ? (
+              <p className="text-sm text-blue-700">Consultando configuración del campus…</p>
+            ) : (
+              <div className={`rounded border p-4 ${configuredForSandbox ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"}`}>
+                <p className="font-medium">
+                  {configuredForSandbox ? "Sandbox configurado" : "Timbrado automático no configurado"}
+                </p>
+                <p className="mt-1 text-sm">
+                  {configuredForSandbox && configAutomatica?.timbrado_automatico
+                    ? "El campus tiene activado el timbrado automático en sandbox."
+                    : "Primero registra el CSD mediante la configuración PAC. No se emitirán CFDIs automáticamente."}
+                </p>
               </div>
-
-              <div className="flex items-center justify-between p-3 bg-white rounded border">
-                <div>
-                  <div className="font-medium">Envío automático por email</div>
-                  <div className="text-sm text-slate-600">Enviar CFDI por correo electrónico al padre/tutor</div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-
-              <div className="flex items-center justify-between p-3 bg-white rounded border">
-                <div>
-                  <div className="font-medium">Validación SAT en tiempo real</div>
-                  <div className="text-sm text-slate-600">Validar datos fiscales contra catálogos SAT</div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-            </div>
-
-            <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded">
-              <div className="flex items-center gap-2 text-green-800 mb-2">
-                <CheckCircle className="w-5 h-5" />
-                <span className="font-medium">Sistema configurado correctamente</span>
-              </div>
-              <p className="text-sm text-green-700">
-                El sistema está configurado para generar automáticamente CFDI 4.0 al recibir pagos, 
-                validar datos fiscales en tiempo real y enviar facturas por email.
-              </p>
-            </div>
+            )}
           </CardContent>
         </Card>
 
@@ -262,24 +231,24 @@ export default function FiscalContable() {
           <Card>
             <CardContent className="p-4 text-center">
               <RefreshCw className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold">156</div>
-              <div className="text-sm text-slate-600">Facturas automáticas</div>
+              <div className="text-2xl font-bold">—</div>
+              <div className="text-sm text-slate-600">Historial no disponible</div>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="p-4 text-center">
               <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold">98.7%</div>
-              <div className="text-sm text-slate-600">Tasa de éxito</div>
+              <div className="text-2xl font-bold">—</div>
+              <div className="text-sm text-slate-600">Tasa no disponible</div>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="p-4 text-center">
               <Clock className="w-8 h-8 text-orange-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold">1.2 seg</div>
-              <div className="text-sm text-slate-600">Tiempo promedio</div>
+              <div className="text-2xl font-bold">—</div>
+              <div className="text-sm text-slate-600">Tiempo no disponible</div>
             </CardContent>
           </Card>
         </div>
@@ -289,20 +258,57 @@ export default function FiscalContable() {
 
   // Integración PAC
   const IntegracionPAC = () => {
-    const { data: estadoPAC } = useQuery({
+    const { data: estadoPAC, isLoading, isError } = useQuery<PacStatus>({
       queryKey: ["/api/fiscal/estado-pac"],
     });
+    const [cerFile, setCerFile] = useState<File | null>(null);
+    const [keyFile, setKeyFile] = useState<File | null>(null);
+    const [keyPassword, setKeyPassword] = useState("");
 
-    const configurarPAC = useMutation({
-      mutationFn: (data: any) => apiRequest("/api/fiscal/configurar-pac", { method: "POST", body: JSON.stringify(data) }),
-      onSuccess: () => {
-        toast({
-          title: "PAC configurado",
-          description: "La integración con el PAC se configuró correctamente"
+    const registrarOrganizacion = useMutation({
+      mutationFn: async () => {
+        if (!cerFile || !keyFile || !keyPassword.trim()) {
+          throw new Error("Selecciona los archivos .cer y .key e ingresa la contraseña de la llave privada.");
+        }
+        const formData = new FormData();
+        formData.append("cer", cerFile);
+        formData.append("key", keyFile);
+        formData.append("password", keyPassword.trim());
+        formData.append("proveedor", "facturapi");
+
+        const token = localStorage.getItem("auth_token");
+        const response = await fetch("/api/fiscal/registrar-organizacion", {
+          method: "POST",
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          body: formData,
+          credentials: "include",
         });
-        queryClient.invalidateQueries({ queryKey: ["/api/fiscal"] });
-      }
+        if (!response.ok) {
+          const body = await response.json().catch(() => null);
+          throw new Error(body?.message || `No se pudo registrar el CSD (${response.status}).`);
+        }
+        return response.json() as Promise<{ rfc: string; razon_social: string }>;
+      },
+      onSuccess: (result) => {
+        toast({
+          title: "CSD registrado en sandbox",
+          description: result.razon_social || result.rfc,
+        });
+        setCerFile(null);
+        setKeyFile(null);
+        setKeyPassword("");
+        queryClient.invalidateQueries({ queryKey: ["/api/fiscal/estado-pac"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/fiscal/config-automatica"] });
+      },
+      onError: (error) => toast({
+        title: "No se pudo registrar el CSD",
+        description: apiErrorMessage(error, "Revisa los datos fiscales e intenta de nuevo."),
+        variant: "destructive",
+      }),
     });
+
+    const statusText = estadoPAC?.estado?.replace("_", " ") || "sin configurar";
+    const isSandboxActive = estadoPAC?.estado === "activo" && estadoPAC?.ambiente === "sandbox";
 
     return (
       <div className="space-y-6">
@@ -315,33 +321,31 @@ export default function FiscalContable() {
           </CardHeader>
           <CardContent>
             <p className="text-purple-700 mb-4">
-              Configurar conexión con PAC Facturama para timbrado automático de CFDI
+               Registra el CSD del campus exclusivamente para validar el flujo de CFDI en sandbox.
+               La emisión en producción permanece desactivada.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>Proveedor PAC</Label>
-                <Select defaultValue="facturama">
+                <Select value="facturapi" disabled>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="facturama">Facturama</SelectItem>
-                    <SelectItem value="enlace-fiscal">Enlace Fiscal</SelectItem>
-                    <SelectItem value="comercio-digital">Comercio Digital</SelectItem>
+                    <SelectItem value="facturapi">Facturapi</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
                 <Label>Ambiente</Label>
-                <Select defaultValue="produccion">
+                <Select value="sandbox" disabled>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="sandbox">Sandbox (Pruebas)</SelectItem>
-                    <SelectItem value="produccion">Producción</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -349,22 +353,32 @@ export default function FiscalContable() {
 
             <div className="mt-4 space-y-3">
               <div>
-                <Label>Usuario PAC</Label>
-                <Input placeholder="usuario_pac" />
+                <Label htmlFor="fiscal-cer">Certificado CSD (.cer)</Label>
+                <Input id="fiscal-cer" type="file" accept=".cer" onChange={(event) => setCerFile(event.target.files?.[0] || null)} />
               </div>
               <div>
-                <Label>Contraseña PAC</Label>
-                <Input type="password" placeholder="contraseña_pac" />
+                <Label htmlFor="fiscal-key">Llave privada CSD (.key)</Label>
+                <Input id="fiscal-key" type="file" accept=".key" onChange={(event) => setKeyFile(event.target.files?.[0] || null)} />
+              </div>
+              <div>
+                <Label htmlFor="fiscal-key-password">Contraseña de la llave privada</Label>
+                <Input
+                  id="fiscal-key-password"
+                  type="password"
+                  value={keyPassword}
+                  onChange={(event) => setKeyPassword(event.target.value)}
+                  autoComplete="off"
+                />
               </div>
             </div>
 
-            <Button 
-              onClick={() => configurarPAC.mutate({})}
-              disabled={configurarPAC.isPending}
+            <Button
+              onClick={() => registrarOrganizacion.mutate()}
+              disabled={registrarOrganizacion.isPending}
               className="w-full mt-4"
             >
               <Shield className="w-4 h-4 mr-2" />
-              Configurar conexión PAC
+              {registrarOrganizacion.isPending ? "Registrando CSD…" : "Registrar CSD en sandbox"}
             </Button>
           </CardContent>
         </Card>
@@ -375,34 +389,34 @@ export default function FiscalContable() {
             <CardTitle>Estado de la conexión PAC</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded">
-                <div className="flex items-center gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                  <div>
-                    <div className="font-medium text-green-800">Facturama - Producción</div>
-                    <div className="text-sm text-green-600">Conectado correctamente</div>
+            {isLoading ? (
+              <p className="text-sm text-slate-600">Consultando estado del PAC…</p>
+            ) : isError ? (
+              <EmptyFiscalState message="No se pudo consultar el estado de la configuración PAC." />
+            ) : (
+              <div className={`space-y-3 rounded border p-4 ${isSandboxActive ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    {isSandboxActive
+                      ? <CheckCircle className="w-5 h-5 text-green-600" />
+                      : <AlertCircle className="w-5 h-5 text-amber-600" />}
+                    <div>
+                      <div className="font-medium">{estadoPAC?.pac || "PAC sin configurar"}</div>
+                      <div className="text-sm">
+                        {isSandboxActive ? "Configurado para pruebas sandbox" : "No hay una configuración activa para timbrar"}
+                      </div>
+                    </div>
                   </div>
+                  <Badge variant={isSandboxActive ? "default" : "secondary"}>{statusText}</Badge>
                 </div>
-                <Badge className="bg-green-100 text-green-800">Activo</Badge>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-3 bg-slate-50 rounded">
-                  <div className="text-sm text-slate-600">Timbres disponibles</div>
-                  <div className="text-2xl font-bold">2,847</div>
-                </div>
-                <div className="p-3 bg-slate-50 rounded">
-                  <div className="text-sm text-slate-600">Timbres usados (mes)</div>
-                  <div className="text-2xl font-bold">156</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                  <div><span className="text-slate-600">Ambiente:</span> {pacEnvironmentLabel(estadoPAC?.ambiente ?? null)}</div>
+                  <div><span className="text-slate-600">RFC:</span> {estadoPAC?.rfc || "—"}</div>
+                  <div><span className="text-slate-600">Timbres disponibles:</span> {estadoPAC?.timbres_disponibles ?? "No disponible en sandbox"}</div>
+                  <div><span className="text-slate-600">Timbres usados:</span> {estadoPAC?.timbres_usados ?? "No disponible en sandbox"}</div>
                 </div>
               </div>
-
-              <Button variant="outline" className="w-full">
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Probar conexión PAC
-              </Button>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -411,27 +425,38 @@ export default function FiscalContable() {
 
   // ── Timbrado Masivo CFDI ──────────────────────────────────────────────────
   const TimbradoMasivo = () => {
-    const { data: authUser } = useQuery<any>({ queryKey: ["/api/auth/user"], retry: false });
-    const campusId = (authUser as any)?.campus_id || 1;
     const [mesFiltro, setMesFiltro] = useState(new Date().toISOString().slice(0, 7));
     const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set());
     const [progreso, setProgreso] = useState<null | { timbrados: number; errores: number; total: number }>(null);
+    const pendientesUrl = `/api/fiscal/pendientes-cfdi?mes=${encodeURIComponent(mesFiltro)}`;
 
-    const { data: pendientes, isLoading: loadingPendientes } = useQuery<any>({
-      queryKey: ["/api/fiscal/pendientes-cfdi", campusId, mesFiltro],
+    const { data: pendientes, isLoading: loadingPendientes, isError: pendientesError } = useQuery<any>({
+      queryKey: [pendientesUrl],
     });
 
     const pagosPendientes: any[] = pendientes?.pagos || [];
 
     const timbrarLote = useMutation({
-      mutationFn: (data: any) => apiRequest("/api/fiscal/timbrar-lote", { method: "POST", body: JSON.stringify(data) }),
+      mutationFn: async (data: { payment_ids: number[] }) => {
+        const response = await apiRequest("/api/fiscal/timbrar-lote", { method: "POST", body: JSON.stringify(data) });
+        return response.json() as Promise<{ timbrados: number; errores: number; total: number }>;
+      },
       onSuccess: (result: any) => {
         setProgreso({ timbrados: result?.timbrados || 0, errores: result?.errores || 0, total: result?.total || 0 });
-        toast({ title: `Timbrado completado`, description: `${result?.timbrados || 0} CFDIs generados, ${result?.errores || 0} errores` });
-        queryClient.invalidateQueries({ queryKey: ["/api/fiscal/pendientes-cfdi"] });
+        toast({
+          title: result?.timbrados ? "Timbrado completado" : "Timbrado sin CFDIs emitidos",
+          description: `${result?.timbrados || 0} CFDIs generados, ${result?.errores || 0} errores`,
+          variant: result?.errores ? "destructive" : "default",
+        });
+        queryClient.invalidateQueries({ queryKey: [pendientesUrl] });
+        queryClient.invalidateQueries({ queryKey: ["/api/fiscal/estadisticas-cfdi"] });
         setSeleccionados(new Set());
       },
-      onError: () => toast({ title: "Error en timbrado masivo", variant: "destructive" }),
+      onError: (error) => toast({
+        title: "No se pudo timbrar el lote",
+        description: apiErrorMessage(error, "No fue posible completar el timbrado."),
+        variant: "destructive",
+      }),
     });
 
     const toggleSel = (id: number) => setSeleccionados(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -454,7 +479,7 @@ export default function FiscalContable() {
               <Button
                 className="bg-purple-600 hover:bg-purple-700 gap-2"
                 disabled={seleccionados.size === 0 || timbrarLote.isPending}
-                onClick={() => timbrarLote.mutate({ payment_ids: Array.from(seleccionados), campus_id: campusId })}
+                onClick={() => timbrarLote.mutate({ payment_ids: Array.from(seleccionados) })}
               >
                 <Receipt className="w-4 h-4" />
                 {timbrarLote.isPending ? "Timbrando..." : `Timbrar ${seleccionados.size > 0 ? seleccionados.size : ""} CFDIs`}
@@ -472,6 +497,8 @@ export default function FiscalContable() {
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin w-6 h-6 border-4 border-purple-600 border-t-transparent rounded-full" />
             </div>
+          ) : pendientesError ? (
+            <EmptyFiscalState message="No se pudieron consultar los pagos pendientes de timbrar." />
           ) : pagosPendientes.length === 0 ? (
             <div className="text-center py-10 text-slate-500">
               <CheckCircle className="w-10 h-10 mx-auto mb-2 text-green-500 opacity-70" />
@@ -502,7 +529,7 @@ export default function FiscalContable() {
                         <td className="p-3"><input type="checkbox" checked={seleccionados.has(p.id)} onChange={() => toggleSel(p.id)} onClick={e => e.stopPropagation()} /></td>
                         <td className="p-3 font-medium">{p.estudiante}</td>
                         <td className="p-3 text-slate-500 text-xs">{p.guardian_nombre}<br />{p.email}</td>
-                        <td className="p-3 text-right font-bold text-green-700">${((p.amount_centavos || 0) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td>
+                        <td className="p-3 text-right font-bold text-green-700">${((p.monto_centavos || 0) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td>
                         <td className="p-3 text-slate-500 text-xs">{new Date(p.created_at).toLocaleDateString("es-MX")}</td>
                       </tr>
                     ))}
@@ -518,10 +545,6 @@ export default function FiscalContable() {
 
   // Integración con contadores
   const IntegracionContadores = () => {
-    const { data: reportesContables } = useQuery({
-      queryKey: [`/api/reportes/contable${selectedPeriod ? `?periodo=${selectedPeriod}` : ""}`],
-    });
-
     const [exporting, setExporting] = useState(false);
 
     // Llama a POST /api/reportes/contable/exportar (RPT-06) y descarga el blob.
@@ -626,24 +649,7 @@ export default function FiscalContable() {
             <CardTitle>Reportes contables disponibles</CardTitle>
           </CardHeader>
           <CardContent>
-        <div className="space-y-3">
-              {[
-                { nombre: "Reporte Enero 2025 - Completo", fecha: "2025-01-31", tamaño: "2.5 MB", tipo: "Excel" },
-                { nombre: "Conciliación Bancaria Enero 2025", fecha: "2025-01-31", tamaño: "1.2 MB", tipo: "PDF" },
-                { nombre: "CFDI Emitidos Enero 2025", fecha: "2025-01-31", tamaño: "856 KB", tipo: "Excel" }
-              ].map((reporte, index) => (
-            <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded">
-              <div>
-                <div className="font-medium">{reporte.nombre}</div>
-                <div className="text-sm text-slate-600">{reporte.fecha} • {reporte.tamaño} • {reporte.tipo}</div>
-                  </div>
-              <Button size="sm" variant="outline">
-                    <Download className="w-4 h-4 mr-2" />
-                    Descargar
-                  </Button>
-                </div>
-              ))}
-            </div>
+            <EmptyFiscalState message="No hay reportes almacenados para mostrar. Genera uno para descargarlo directamente." />
           </CardContent>
         </Card>
       </div>
@@ -652,7 +658,12 @@ export default function FiscalContable() {
 
   // Reporte mensual para SAT
   const ReportesSAT = () => {
-    const { data: estadisticasSAT } = useQuery({
+    const { data: estadisticasSAT } = useQuery<{
+      total_cfdis: number;
+      emitidos: number;
+      cancelados: number;
+      pendientes: number;
+    }>({
       queryKey: ["/api/fiscal/estadisticas-sat", selectedPeriod],
     });
 
@@ -673,7 +684,7 @@ export default function FiscalContable() {
           <Card>
             <CardContent className="p-4 text-center">
               <FileText className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold">{(estadisticasSAT as any)?.facturas_emitidas || 0}</div>
+           <div className="text-2xl font-bold">{estadisticasSAT?.emitidos || 0}</div>
           <div className="text-sm text-slate-600">Facturas emitidas</div>
             </CardContent>
           </Card>
@@ -681,7 +692,7 @@ export default function FiscalContable() {
           <Card>
             <CardContent className="p-4 text-center">
               <AlertCircle className="w-8 h-8 text-orange-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold">{(estadisticasSAT as any)?.facturas_canceladas || 0}</div>
+           <div className="text-2xl font-bold">{estadisticasSAT?.cancelados || 0}</div>
           <div className="text-sm text-slate-600">Facturas canceladas</div>
             </CardContent>
           </Card>
@@ -689,8 +700,8 @@ export default function FiscalContable() {
           <Card>
             <CardContent className="p-4 text-center">
               <Receipt className="w-8 h-8 text-green-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold">${(((estadisticasSAT as any)?.ingresos_declarados || 0) / 100).toLocaleString()}</div>
-          <div className="text-sm text-slate-600">Ingresos declarados</div>
+           <div className="text-2xl font-bold">{estadisticasSAT?.pendientes || 0}</div>
+           <div className="text-sm text-slate-600">CFDI pendientes</div>
             </CardContent>
           </Card>
         </div>
@@ -747,24 +758,7 @@ export default function FiscalContable() {
             <CardTitle>Bitácora de cancelaciones CFDI</CardTitle>
           </CardHeader>
           <CardContent>
-        <div className="space-y-3">
-              {[
-                { folio: "A125", uuid: "12345-CANCEL-67890", motivo: "Error en datos", fecha: "2025-01-18", usuario: "Admin Campus" },
-                { folio: "A098", uuid: "12346-CANCEL-67891", motivo: "Devolución", fecha: "2025-01-15", usuario: "Caja Principal" },
-                { folio: "A067", uuid: "12347-CANCEL-67892", motivo: "Corrección", fecha: "2025-01-10", usuario: "Admin Campus" }
-              ].map((cancelacion, index) => (
-            <div key={index} className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded">
-              <div>
-                <div className="font-medium text-red-800">Folio {cancelacion.folio}</div>
-                <div className="text-sm text-red-600">
-                      {cancelacion.fecha} • {cancelacion.motivo} • Por: {cancelacion.usuario}
-                    </div>
-                <div className="text-xs text-red-500">UUID: {cancelacion.uuid}</div>
-                  </div>
-                  <Badge variant="destructive">Cancelado</Badge>
-                </div>
-              ))}
-            </div>
+            <EmptyFiscalState message="No hay cancelaciones registradas para mostrar." />
           </CardContent>
         </Card>
       </div>

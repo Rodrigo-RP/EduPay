@@ -879,6 +879,9 @@ export const payment_surcharge_rules = pgTable("payment_surcharge_rules", {
   id: serial("id").primaryKey(),
   campus_id: integer("campus_id").references(() => campuses.id).notNull(),
   tenant_id: integer("tenant_id").references(() => tenants.id),
+  // Canonical association used by the active configuration flow and the
+  // surcharge engine. `concepto` remains for historic routes only.
+  concept_id: integer("concept_id").references(() => concepts.id),
   concepto: text("concepto").notNull(), // Nombre del concepto
   nombre: text("nombre").notNull(),
   tipo: text("tipo").notNull(), // 'porcentaje_fijo', 'porcentaje_diario', 'monto_fijo'

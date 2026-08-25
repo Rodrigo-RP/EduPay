@@ -157,25 +157,27 @@ beforeAll(async () => {
   );
   chargeOrtoId = cho.rows[0].id;
 
-  // 6. Surcharge rule activa (tipo='porcentaje' — cadena exacta que compara charges.ts:315)
+  // 6. Regla activa vinculada explícitamente al concepto del cargo.
   const sr = await pool.query(
     `INSERT INTO payment_surcharge_rules
-       (campus_id, tenant_id, concepto, nombre, tipo, dias_gracia, porcentaje, activo)
-     VALUES ($1, $2, 'TEST-AME', 'Regla test AME', 'porcentaje', 0, '10.00', true)
+        (campus_id, tenant_id, concept_id, concepto, nombre, tipo, dias_gracia, porcentaje,
+         aplica_fines_semana, aplica_festivos, activo)
+      VALUES ($1, $2, $3, 'TEST-AME', 'Regla test AME', 'porcentaje', 0, '10.00',
+              true, true, true)
      RETURNING id`,
-    [CAMPUS_ID, TENANT_ID],
+    [CAMPUS_ID, TENANT_ID, conceptColegId],
   );
   surchargeRuleId = sr.rows[0].id;
 });
 
 afterAll(async () => {
+  await pool.query("DELETE FROM payment_surcharge_rules WHERE id = $1", [surchargeRuleId]);
   await pool.query(
     `DELETE FROM charges WHERE id = ANY($1::int[])`,
     [[chargeMigradoId, chargeColegId, chargeOrtoId]],
   );
   await pool.query("DELETE FROM students WHERE id = $1", [testStudentId]);
   await pool.query("DELETE FROM concepts WHERE id = $1", [conceptColegId]);
-  await pool.query("DELETE FROM payment_surcharge_rules WHERE id = $1", [surchargeRuleId]);
 });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

@@ -18,6 +18,79 @@ import { NotificationSystem as ServerNotificationSystem } from '../notification-
 import Stripe from "stripe";
 import { getActiveStripeAccountForCampus } from "./campus-payment";
 import { resolveEffectiveScholarship } from "../lib/scholarship-engine";
+import { parseProgressiveSurchargeTiers } from "../lib/surcharge-calculator";
+
+type CompleteSurchargePayload = {
+  concepto_id: number;
+  dias_gracia: number;
+  tipo: "porcentaje" | "fijo" | "progresivo";
+  porcentaje: string | null;
+  monto_fijo_centavos: number | null;
+  reglas_progresivas: string | null;
+  monto_maximo_centavos: number | null;
+  aplica_fines_semana: boolean;
+  aplica_festivos: boolean;
+  activo: boolean;
+};
+
+function normalizeCompleteSurchargePayload(body: any): { value?: CompleteSurchargePayload; error?: string } {
+  const conceptId = Number(body?.concepto_id);
+  const graceDays = Number(body?.dias_gracia ?? 0);
+  const typeMap: Record<string, CompleteSurchargePayload["tipo"]> = {
+    porcentaje_fijo: "porcentaje",
+    monto_fijo: "fijo",
+    porcentaje_diario: "progresivo",
+  };
+  const tipo = typeMap[body?.tipo_calculo];
+
+  if (!Number.isSafeInteger(conceptId) || conceptId <= 0) {
+    return { error: "Selecciona un concepto válido" };
+  }
+  if (!tipo) return { error: "Tipo de cálculo inválido" };
+  if (!Number.isSafeInteger(graceDays) || graceDays < 0) {
+    return { error: "Los días de gracia deben ser un entero no negativo" };
+  }
+
+  const percentage = Number(body?.porcentaje_recargo);
+  const fixedCents = Math.round(Number(body?.monto_fijo) * 100);
+  const maximumInput = body?.monto_maximo;
+  const maximumCents = maximumInput === "" || maximumInput == null
+    ? null
+    : Math.round(Number(maximumInput) * 100);
+
+  if (tipo === "porcentaje" && (!Number.isFinite(percentage) || percentage <= 0 || percentage > 100)) {
+    return { error: "El porcentaje debe ser mayor a 0 y no superar 100" };
+  }
+  if (tipo === "fijo" && (!Number.isSafeInteger(fixedCents) || fixedCents <= 0)) {
+    return { error: "El monto fijo debe ser mayor a 0" };
+  }
+  if (maximumCents !== null && (!Number.isSafeInteger(maximumCents) || maximumCents <= 0)) {
+    return { error: "El monto máximo debe ser mayor a 0" };
+  }
+
+  const progressiveTiers = tipo === "progresivo"
+    ? parseProgressiveSurchargeTiers(body?.reglas_progresivas)
+    : null;
+  if (tipo === "progresivo" && !progressiveTiers) {
+    return { error: "Define tramos progresivos válidos, sin traslapes" };
+  }
+
+  return {
+    value: {
+      concepto_id: conceptId,
+      dias_gracia: graceDays,
+      tipo,
+      // Drizzle maps PostgreSQL numeric to string; preserve that contract.
+      porcentaje: tipo === "porcentaje" ? percentage.toFixed(2) : null,
+      monto_fijo_centavos: tipo === "fijo" ? fixedCents : null,
+      reglas_progresivas: progressiveTiers ? JSON.stringify(progressiveTiers) : null,
+      monto_maximo_centavos: maximumCents,
+      aplica_fines_semana: Boolean(body?.aplica_fines_semana),
+      aplica_festivos: Boolean(body?.aplica_festivos),
+      activo: body?.activo !== undefined ? Boolean(body.activo) : true,
+    },
+  };
+}
 
 /**
  * Subconjunto de la API de Stripe necesario para guardian/pagar.
@@ -1547,16 +1620,20 @@ export async function registerGuardianRoutes(
       const surchargeRulesComplete = await db
         .select({
           id: payment_surcharge_rules.id,
-          concepto_id: concepts.id,
-          concepto_nombre: payment_surcharge_rules.concepto,
+          concepto_id: payment_surcharge_rules.concept_id,
+          concepto_nombre: concepts.nombre,
           dias_gracia: payment_surcharge_rules.dias_gracia,
           porcentaje_recargo: payment_surcharge_rules.porcentaje,
           monto_fijo: payment_surcharge_rules.monto_fijo_centavos,
           tipo_calculo: payment_surcharge_rules.tipo,
+          reglas_progresivas: payment_surcharge_rules.reglas_progresivas,
+          monto_maximo_centavos: payment_surcharge_rules.monto_maximo_centavos,
+          aplica_fines_semana: payment_surcharge_rules.aplica_fines_semana,
+          aplica_festivos: payment_surcharge_rules.aplica_festivos,
           activo: payment_surcharge_rules.activo
         })
         .from(payment_surcharge_rules)
-        .leftJoin(concepts, eq(payment_surcharge_rules.concepto, concepts.nombre))
+        .leftJoin(concepts, eq(payment_surcharge_rules.concept_id, concepts.id))
         .where(eq(payment_surcharge_rules.campus_id, campusId));
       
       // Convert data and map types
@@ -1570,6 +1647,8 @@ export async function registerGuardianRoutes(
         return {
           ...rule,
           monto_fijo: rule.monto_fijo ? rule.monto_fijo / 100 : 0,
+          monto_maximo: rule.monto_maximo_centavos ? rule.monto_maximo_centavos / 100 : "",
+          reglas_progresivas: parseProgressiveSurchargeTiers(rule.reglas_progresivas) ?? [],
           porcentaje_recargo: parseFloat(rule.porcentaje_recargo?.toString() || '0'),
           tipo_calculo: frontendType
         };
@@ -1589,40 +1668,46 @@ export async function registerGuardianRoutes(
       if (!hasPermissionForUser((req as any).user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para gestionar reglas de recargo" });
       }
-      const campusId = (req as any).user.campus_id;
-      const { concepto_id, dias_gracia, porcentaje_recargo, monto_fijo, tipo_calculo, activo } = req.body;
+      const campusId = Number((req as any).user.campus_id);
+      const tenantId = Number((req as any).user.tenant_id);
+      const normalized = normalizeCompleteSurchargePayload(req.body);
+      if (!normalized.value) return res.status(400).json({ message: normalized.error });
+      const payload = normalized.value;
+      const { concepto_id: ignoredConceptId, ...ruleValues } = payload;
       
-      // Get concept name
+      // The concept must belong to the caller's campus. Never infer this
+      // relationship from a display name.
       const [conceptData] = await db
         .select({ nombre: concepts.nombre })
         .from(concepts)
-        .where(eq(concepts.id, concepto_id))
+        .where(and(eq(concepts.id, payload.concepto_id), eq(concepts.campus_id, campusId)))
         .limit(1);
 
       if (!conceptData) {
         return res.status(400).json({ message: "Concepto no encontrado" });
       }
 
-      // Map frontend types to database types
-      let dbType = 'porcentaje';
-      if (tipo_calculo === 'porcentaje_fijo') dbType = 'porcentaje';
-      if (tipo_calculo === 'monto_fijo') dbType = 'fijo';
-      if (tipo_calculo === 'porcentaje_diario') dbType = 'progresivo';
-
-      const montoFijoCentavos = tipo_calculo === 'monto_fijo' ? Math.round((parseFloat(monto_fijo) || 0) * 100) : null;
-      const porcentajeDecimal = tipo_calculo !== 'monto_fijo' ? (porcentaje_recargo || 0) : null;
+      if (payload.activo) {
+        const conflict = await pool.query(
+          `SELECT id FROM payment_surcharge_rules
+            WHERE tenant_id = $1 AND campus_id = $2 AND concept_id = $3 AND activo = true
+            LIMIT 1`,
+          [tenantId, campusId, payload.concepto_id],
+        );
+        if (conflict.rowCount) {
+          return res.status(409).json({ message: "Ya existe una regla activa para este concepto" });
+        }
+      }
       
       const [newRule] = await db
         .insert(payment_surcharge_rules)
         .values({
           campus_id: campusId,
+          tenant_id: tenantId,
+          concept_id: payload.concepto_id,
           concepto: conceptData.nombre,
           nombre: `Regla de recargo para ${conceptData.nombre}`,
-          tipo: dbType,
-          dias_gracia: dias_gracia || 0,
-          porcentaje: porcentajeDecimal,
-          monto_fijo_centavos: montoFijoCentavos,
-          activo: activo !== undefined ? activo : true
+          ...ruleValues,
         })
         .returning();
       
@@ -1634,11 +1719,15 @@ export async function registerGuardianRoutes(
 
       res.status(201).json({
         id: newRule.id,
-        concepto_id,
+        concepto_id: newRule.concept_id,
         concepto_nombre: conceptData.nombre,
         dias_gracia: newRule.dias_gracia,
         porcentaje_recargo: parseFloat(newRule.porcentaje?.toString() || '0'),
         monto_fijo: newRule.monto_fijo_centavos ? newRule.monto_fijo_centavos / 100 : 0,
+        monto_maximo: newRule.monto_maximo_centavos ? newRule.monto_maximo_centavos / 100 : "",
+        reglas_progresivas: parseProgressiveSurchargeTiers(newRule.reglas_progresivas) ?? [],
+        aplica_fines_semana: newRule.aplica_fines_semana,
+        aplica_festivos: newRule.aplica_festivos,
         tipo_calculo: frontendType,
         activo: newRule.activo
       });
@@ -1675,42 +1764,37 @@ export async function registerGuardianRoutes(
         .limit(1);
       if (!existing) return res.status(404).json({ message: "Regla no encontrada" });
 
-      const { concepto_id, dias_gracia, porcentaje_recargo, monto_fijo, tipo_calculo, activo } = req.body;
+      const normalized = normalizeCompleteSurchargePayload(req.body);
+      if (!normalized.value) return res.status(400).json({ message: normalized.error });
+      const payload = normalized.value;
+      const { concepto_id: ignoredConceptId, ...ruleValues } = payload;
       
       // Get concept name if provided
-      let conceptName = null;
-      if (concepto_id) {
-        const [conceptData] = await db
-          .select({ nombre: concepts.nombre })
-          .from(concepts)
-          .where(eq(concepts.id, concepto_id))
-          .limit(1);
-        
-        if (conceptData) {
-          conceptName = conceptData.nombre;
+      const [conceptData] = await db
+        .select({ nombre: concepts.nombre })
+        .from(concepts)
+        .where(and(eq(concepts.id, payload.concepto_id), eq(concepts.campus_id, campusId)))
+        .limit(1);
+      if (!conceptData) return res.status(400).json({ message: "Concepto no encontrado" });
+
+      if (payload.activo) {
+        const conflict = await pool.query(
+          `SELECT id FROM payment_surcharge_rules
+            WHERE campus_id = $1 AND concept_id = $2 AND activo = true AND id <> $3
+            LIMIT 1`,
+          [campusId, payload.concepto_id, ruleId],
+        );
+        if (conflict.rowCount) {
+          return res.status(409).json({ message: "Ya existe una regla activa para este concepto" });
         }
       }
-
-      // Map frontend types to database types
-      let dbType = 'porcentaje';
-      if (tipo_calculo === 'porcentaje_fijo') dbType = 'porcentaje';
-      if (tipo_calculo === 'monto_fijo') dbType = 'fijo';
-      if (tipo_calculo === 'porcentaje_diario') dbType = 'progresivo';
-
-      const montoFijoCentavos = tipo_calculo === 'monto_fijo' ? Math.round((parseFloat(monto_fijo) || 0) * 100) : null;
-      const porcentajeDecimal = tipo_calculo !== 'monto_fijo' ? (porcentaje_recargo || 0) : null;
-
-      const updateData: any = {};
-      if (conceptName) {
-        updateData.concepto = conceptName;
-        updateData.nombre = `Regla de recargo para ${conceptName}`;
-      }
-      if (dias_gracia !== undefined) updateData.dias_gracia = dias_gracia;
-      if (tipo_calculo) updateData.tipo = dbType;
-      if (porcentajeDecimal !== null) updateData.porcentaje = porcentajeDecimal;
-      if (montoFijoCentavos !== null) updateData.monto_fijo_centavos = montoFijoCentavos;
-      if (activo !== undefined) updateData.activo = activo;
-      updateData.updated_at = new Date();
+      const updateData = {
+        ...ruleValues,
+        concept_id: payload.concepto_id,
+        concepto: conceptData.nombre,
+        nombre: `Regla de recargo para ${conceptData.nombre}`,
+        updated_at: new Date(),
+      };
       
       const [updated] = await db
         .update(payment_surcharge_rules)
@@ -1729,11 +1813,15 @@ export async function registerGuardianRoutes(
 
       res.json({
         id: updated.id,
-        concepto_id,
-        concepto_nombre: conceptName || "Concepto actualizado",
+        concepto_id: updated.concept_id,
+        concepto_nombre: conceptData.nombre,
         dias_gracia: updated.dias_gracia,
         porcentaje_recargo: parseFloat(updated.porcentaje?.toString() || '0'),
         monto_fijo: updated.monto_fijo_centavos ? updated.monto_fijo_centavos / 100 : 0,
+        monto_maximo: updated.monto_maximo_centavos ? updated.monto_maximo_centavos / 100 : "",
+        reglas_progresivas: parseProgressiveSurchargeTiers(updated.reglas_progresivas) ?? [],
+        aplica_fines_semana: updated.aplica_fines_semana,
+        aplica_festivos: updated.aplica_festivos,
         tipo_calculo: frontendType,
         activo: updated.activo
       });

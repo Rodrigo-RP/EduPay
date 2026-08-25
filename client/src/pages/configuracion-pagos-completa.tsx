@@ -44,7 +44,17 @@ interface ReglaRecargo {
   porcentaje_recargo: number;
   monto_fijo: string | number;
   tipo_calculo: 'porcentaje_fijo' | 'porcentaje_diario' | 'monto_fijo';
+  reglas_progresivas: TramoRecargo[];
+  monto_maximo: string | number;
+  aplica_fines_semana: boolean;
+  aplica_festivos: boolean;
   activo: boolean;
+}
+
+interface TramoRecargo {
+  dias_desde: number;
+  dias_hasta: number;
+  porcentaje: number;
 }
 
 const MESES = [
@@ -108,6 +118,10 @@ export default function ConfiguracionPagosCompleta() {
     porcentaje_recargo: 0,
     monto_fijo: '',
     tipo_calculo: 'porcentaje_fijo' as 'porcentaje_fijo' | 'porcentaje_diario' | 'monto_fijo',
+    reglas_progresivas: [{ dias_desde: 1, dias_hasta: 15, porcentaje: 1 }] as TramoRecargo[],
+    monto_maximo: '',
+    aplica_fines_semana: false,
+    aplica_festivos: false,
     activo: true
   });
 
@@ -401,6 +415,10 @@ export default function ConfiguracionPagosCompleta() {
       porcentaje_recargo: 0,
       monto_fijo: '',
       tipo_calculo: 'porcentaje_fijo',
+      reglas_progresivas: [{ dias_desde: 1, dias_hasta: 15, porcentaje: 1 }],
+      monto_maximo: '',
+      aplica_fines_semana: false,
+      aplica_festivos: false,
       activo: true
     });
   };
@@ -444,6 +462,14 @@ export default function ConfiguracionPagosCompleta() {
       porcentaje_recargo: recargo.porcentaje_recargo,
       monto_fijo: typeof recargo.monto_fijo === 'number' ? recargo.monto_fijo.toString() : recargo.monto_fijo || '',
       tipo_calculo: recargo.tipo_calculo,
+      reglas_progresivas: recargo.reglas_progresivas?.length
+        ? recargo.reglas_progresivas
+        : [{ dias_desde: 1, dias_hasta: 15, porcentaje: 1 }],
+      monto_maximo: typeof recargo.monto_maximo === 'number'
+        ? recargo.monto_maximo.toString()
+        : recargo.monto_maximo || '',
+      aplica_fines_semana: Boolean(recargo.aplica_fines_semana),
+      aplica_festivos: Boolean(recargo.aplica_festivos),
       activo: recargo.activo
     });
     setShowRecargoModal(true);
@@ -520,7 +546,7 @@ export default function ConfiguracionPagosCompleta() {
         });
         return;
       }
-    } else {
+    } else if (nuevoRecargo.tipo_calculo === 'porcentaje_fijo') {
       if (nuevoRecargo.porcentaje_recargo <= 0) {
         toast({
           title: "Error",
@@ -529,6 +555,18 @@ export default function ConfiguracionPagosCompleta() {
         });
         return;
       }
+    } else if (!nuevoRecargo.reglas_progresivas.length || nuevoRecargo.reglas_progresivas.some((tramo) =>
+      tramo.dias_desde < 1 ||
+      tramo.dias_hasta < tramo.dias_desde ||
+      tramo.porcentaje <= 0 ||
+      tramo.porcentaje > 100,
+    )) {
+      toast({
+        title: "Error",
+        description: "Define tramos de días válidos con porcentajes entre 0 y 100",
+        variant: "destructive",
+      });
+      return;
     }
 
     saveRecargoMutation.mutate(nuevoRecargo);
@@ -865,7 +903,7 @@ export default function ConfiguracionPagosCompleta() {
                     Nueva Regla
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>
                       {editingRecargo ? 'Editar Regla de Recargo' : 'Nueva Regla de Recargo'}
@@ -908,7 +946,7 @@ export default function ConfiguracionPagosCompleta() {
                       />
                     </div>
 
-                    {nuevoRecargo.tipo_calculo !== 'monto_fijo' ? (
+                    {nuevoRecargo.tipo_calculo === 'porcentaje_fijo' ? (
                       <div className="space-y-2">
                         <Label htmlFor="porcentaje">Porcentaje de Recargo (%)</Label>
                         <Input
@@ -920,7 +958,7 @@ export default function ConfiguracionPagosCompleta() {
                           onChange={(e) => setNuevoRecargo(prev => ({ ...prev, porcentaje_recargo: parseFloat(e.target.value) || 0 }))}
                         />
                       </div>
-                    ) : (
+                    ) : nuevoRecargo.tipo_calculo === 'monto_fijo' ? (
                       <div className="space-y-2">
                         <Label htmlFor="monto-fijo">Monto Fijo ($)</Label>
                         <Input
@@ -940,6 +978,68 @@ export default function ConfiguracionPagosCompleta() {
                           placeholder="Ingresa la cantidad (ej: 500, 150.50)"
                         />
                       </div>
+                    ) : (
+                      <div className="space-y-3 rounded-lg border border-slate-200 p-3">
+                        <div>
+                          <Label>Tramos de porcentaje por días de atraso</Label>
+                          <p className="text-xs text-slate-500 mt-1">
+                            Se aplica el porcentaje del tramo que corresponda a los días vencidos después de la gracia.
+                          </p>
+                        </div>
+                        {nuevoRecargo.reglas_progresivas.map((tramo, index) => (
+                          <div key={index} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Desde</Label>
+                              <Input type="number" min="1" value={tramo.dias_desde}
+                                onChange={(e) => setNuevoRecargo(prev => ({
+                                  ...prev,
+                                  reglas_progresivas: prev.reglas_progresivas.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, dias_desde: parseInt(e.target.value) || 0 } : item
+                                  ),
+                                }))} />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Hasta</Label>
+                              <Input type="number" min="1" value={tramo.dias_hasta}
+                                onChange={(e) => setNuevoRecargo(prev => ({
+                                  ...prev,
+                                  reglas_progresivas: prev.reglas_progresivas.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, dias_hasta: parseInt(e.target.value) || 0 } : item
+                                  ),
+                                }))} />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">%</Label>
+                              <Input type="number" min="0.01" max="100" step="0.01" value={tramo.porcentaje}
+                                onChange={(e) => setNuevoRecargo(prev => ({
+                                  ...prev,
+                                  reglas_progresivas: prev.reglas_progresivas.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, porcentaje: parseFloat(e.target.value) || 0 } : item
+                                  ),
+                                }))} />
+                            </div>
+                            <Button type="button" variant="ghost" size="icon"
+                              disabled={nuevoRecargo.reglas_progresivas.length === 1}
+                              onClick={() => setNuevoRecargo(prev => ({
+                                ...prev,
+                                reglas_progresivas: prev.reglas_progresivas.filter((_, itemIndex) => itemIndex !== index),
+                              }))}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
+                        <Button type="button" variant="outline" size="sm"
+                          onClick={() => setNuevoRecargo(prev => ({
+                            ...prev,
+                            reglas_progresivas: [...prev.reglas_progresivas, {
+                              dias_desde: (prev.reglas_progresivas.at(-1)?.dias_hasta ?? 0) + 1,
+                              dias_hasta: (prev.reglas_progresivas.at(-1)?.dias_hasta ?? 0) + 15,
+                              porcentaje: 1,
+                            }],
+                          }))}>
+                          <Plus className="w-4 h-4 mr-1" /> Agregar tramo
+                        </Button>
+                      </div>
                     )}
 
                     <div className="space-y-2">
@@ -953,10 +1053,31 @@ export default function ConfiguracionPagosCompleta() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="porcentaje_fijo">Porcentaje Fijo</SelectItem>
-                          <SelectItem value="porcentaje_diario">Porcentaje por Día</SelectItem>
+                          <SelectItem value="porcentaje_diario">Porcentaje por Día (escalonado)</SelectItem>
                           <SelectItem value="monto_fijo">Monto Fijo</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-lg bg-slate-50 p-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="monto-maximo">Tope de recargo ($, opcional)</Label>
+                        <Input id="monto-maximo" type="number" min="0.01" step="0.01"
+                          value={nuevoRecargo.monto_maximo}
+                          onChange={(e) => setNuevoRecargo(prev => ({ ...prev, monto_maximo: e.target.value }))} />
+                      </div>
+                      <div className="space-y-3 pt-1">
+                        <div className="flex items-center gap-2">
+                          <Switch id="recargo-fin-semana" checked={nuevoRecargo.aplica_fines_semana}
+                            onCheckedChange={(checked) => setNuevoRecargo(prev => ({ ...prev, aplica_fines_semana: checked }))} />
+                          <Label htmlFor="recargo-fin-semana">Contar fines de semana</Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Switch id="recargo-festivo" checked={nuevoRecargo.aplica_festivos}
+                            onCheckedChange={(checked) => setNuevoRecargo(prev => ({ ...prev, aplica_festivos: checked }))} />
+                          <Label htmlFor="recargo-festivo">Contar días festivos SEP</Label>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="flex items-center space-x-2">
@@ -1020,7 +1141,9 @@ export default function ConfiguracionPagosCompleta() {
                                 <div>
                                   {regla.tipo_calculo === 'monto_fijo' 
                                     ? `Recargo: ${formatMonto((parseFloat(regla.monto_fijo.toString()) || 0) * 100)}`
-                                    : `Recargo: ${regla.porcentaje_recargo}%`
+                                    : regla.tipo_calculo === 'porcentaje_diario'
+                                      ? `Tramos: ${regla.reglas_progresivas?.map((tramo) => `${tramo.dias_desde}-${tramo.dias_hasta}: ${tramo.porcentaje}%`).join(', ') || 'sin definir'}`
+                                      : `Recargo: ${regla.porcentaje_recargo}%`
                                   }
                                 </div>
                                 <div>

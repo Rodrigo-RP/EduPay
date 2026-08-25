@@ -11,6 +11,7 @@ import { getAcademicLevel } from "@shared/academic-levels";
 import { wsManager } from "../websocket-manager";
 import { z } from "zod";
 import { resolveEffectiveScholarship } from "../lib/scholarship-engine";
+import { calculateSurcharge } from "../lib/surcharge-calculator";
 
 export function registerChargesRoutes(app: Express): void {
   app.get("/api/admin/concepts/:campusId", authenticateToken, async (req: any, res) => {
@@ -318,39 +319,66 @@ export function registerChargesRoutes(app: Express): void {
   // Apply late fee surcharges to overdue charges
   app.post("/api/admin/cargos/aplicar-recargos", authenticateToken, async (req: any, res: any) => {
     try {
-      const role = req.user?.role;
       if (!hasPermissionForUser((req as any).user, MODULES.PAYMENTS, ACTIONS.PROCESS)) {
         return res.status(403).json({ message: "Sin permisos para procesar pagos" });
       }
-      const campusId = req.user.campus_id;
-      const rules = await storage.getSurchargeRulesByCampus(campusId);
-      if (rules.length === 0) return res.json({ message: "No hay reglas de recargo configuradas", actualizados: 0 });
-      const rule = rules.find((r: any) => r.activo) || rules[0];
-      // date − date en PostgreSQL devuelve INTEGER (días), no interval.
-      // EXTRACT(DAY FROM integer) no existe → usamos la resta directamente.
-      // El LEFT JOIN a concepts ya no es necesario: la exención usa c.es_adeudo_migrado.
+      const campusId = Number(req.user?.campus_id);
+      const tenantId = Number(req.user?.tenant_id);
+      if (!Number.isSafeInteger(campusId) || !Number.isSafeInteger(tenantId)) {
+        return res.status(400).json({ message: "Campus y tenant requeridos" });
+      }
+
+      // A charge is eligible only when exactly one *active* rule belongs to its
+      // exact concept, campus and tenant. Ambiguous historic configuration is
+      // intentionally ignored instead of choosing an arbitrary rule.
       const overdueCharges = await pool.query(`
-        SELECT c.id, c.monto_base_centavos,
-          (CURRENT_DATE - c.fecha_vencimiento::date) AS dias_vencido
+        WITH active_rule_counts AS (
+          SELECT tenant_id, campus_id, concept_id, COUNT(*) AS count
+            FROM payment_surcharge_rules
+           WHERE activo = true AND concept_id IS NOT NULL
+           GROUP BY tenant_id, campus_id, concept_id
+        )
+        SELECT c.id, c.monto_base_centavos, c.fecha_vencimiento,
+               rule.tipo, rule.dias_gracia, rule.porcentaje,
+               rule.monto_fijo_centavos, rule.reglas_progresivas,
+               rule.aplica_fines_semana, rule.aplica_festivos,
+               rule.monto_maximo_centavos
         FROM charges c
         JOIN students s ON s.id = c.student_id
-        WHERE s.campus_id = $1 AND c.estado = 'pendiente' AND c.fecha_vencimiento < CURRENT_DATE
+        JOIN active_rule_counts counts
+          ON counts.tenant_id = c.tenant_id
+         AND counts.campus_id = s.campus_id
+         AND counts.concept_id = c.concept_id
+         AND counts.count = 1
+        JOIN payment_surcharge_rules rule
+          ON rule.tenant_id = counts.tenant_id
+         AND rule.campus_id = counts.campus_id
+         AND rule.concept_id = counts.concept_id
+         AND rule.activo = true
+        WHERE s.campus_id = $1
+          AND c.tenant_id = $2
+          AND c.estado = 'pendiente'
+          AND c.fecha_vencimiento < CURRENT_DATE
           AND (c.recargo_aplicado_centavos IS NULL OR c.recargo_aplicado_centavos = 0)
           AND NOT c.es_adeudo_migrado
-      `, [campusId]);
+      `, [campusId, tenantId]);
       let actualizados = 0;
       for (const charge of (overdueCharges.rows as any[])) {
-        const diasVencido = Math.max(0, Number(charge.dias_vencido) - (rule.dias_gracia || 0));
-        if (diasVencido <= 0) continue;
-        let recargo = 0;
-        if ((rule as any).tipo === 'porcentaje' && rule.porcentaje) {
-          recargo = Math.round(charge.monto_base_centavos * (Number(rule.porcentaje) / 100));
-        } else if ((rule as any).tipo === 'fijo' && rule.monto_fijo_centavos) {
-          recargo = rule.monto_fijo_centavos;
-        }
-        if (recargo > 0) {
-          await pool.query(`UPDATE charges SET recargo_aplicado_centavos = $1 WHERE id = $2`, [recargo, charge.id]);
-          actualizados++;
+        const calculation = calculateSurcharge(
+          charge,
+          Number(charge.monto_base_centavos),
+          charge.fecha_vencimiento,
+        );
+        if (calculation.amountCentavos > 0) {
+          const updated = await pool.query(
+            `UPDATE charges
+                SET recargo_aplicado_centavos = $1, updated_at = NOW()
+              WHERE id = $2
+                AND tenant_id = $3
+                AND (recargo_aplicado_centavos IS NULL OR recargo_aplicado_centavos = 0)`,
+            [calculation.amountCentavos, charge.id, tenantId],
+          );
+          actualizados += updated.rowCount === 1 ? 1 : 0;
         }
       }
       res.json({ message: `Recargos aplicados a ${actualizados} cargos`, actualizados });

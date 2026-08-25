@@ -1,0 +1,9 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "Tj8VB0WEByDPjgw4ZRZsQ"
+uri = "file://screenshots/assistant-memory-claude-real.png"
+type = "image"
+title = "Evidencia: memoria conversacional del asistente"
+description = "Captura real del widget con adeudos de agosto y el seguimiento sobre becas, resuelto con el contexto seguro de la sesión."

@@ -67,7 +67,9 @@ Metodología de Desarrollo Preferida (Agosto 2025):
 - **ORM**: Drizzle ORM with PostgreSQL
 - **Database**: PostgreSQL
 - **Schema**: Multi-tenant architecture (tenants, campuses, users, students, financial entities)
-- **Migrations**: Drizzle Kit
+- **Schema sync**: Drizzle Kit (`shared/schema.ts` + `npm run db:push`). Los
+  SQL en `migrations/` son registros idempotentes; `server/migrations/` es un
+  archivo histórico y no lo ejecuta ningún script.
 
 ### Key Components
 - **User Roles**: 7 specific roles with granular permissions (super_admin, administrador_general, administrador_campus, contador_general, auxiliar_contable, asistente, admisiones).

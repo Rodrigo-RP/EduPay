@@ -12,5 +12,5 @@ description = "Captura real del widget con adeudos de agosto y el seguimiento so
 id = "PMXzdS6shIVaaa4JEEvuu"
 uri = "file://screenshots/assistant-executive-summary-real.png"
 type = "image"
-title = "Resumen ejecutivo financiero — widget real"
-description = "Captura E2E real del asistente mostrando cobrado, por cobrar, vencido y becas activas en una sola respuesta narrativa."
+title = "Asistente financiero — prueba real"
+description = "Captura E2E del widget con resumen ejecutivo conversacional y detalle de deudores verificado."

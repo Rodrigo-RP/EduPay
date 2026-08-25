@@ -844,6 +844,45 @@ export function registerConciliacionRoutes(app: Express): void {
     }
   });
 
+  // Pagos en efectivo confirmados por fecha. El campus se deriva del JWT y el
+  // tenant se valida en payments para no mezclar la operación de otras escuelas.
+  app.get("/api/caja/pagos-efectivo", authenticateToken, async (req: any, res) => {
+    if (!hasPermissionForUser(req.user, MODULES.PAYMENTS, ACTIONS.READ)) {
+      return res.status(403).json({ message: "Sin permisos para ver pagos en efectivo" });
+    }
+
+    const fecha = typeof req.query.fecha === "string" ? req.query.fecha : fechaCiudadDeMexico();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+      return res.status(400).json({ message: "La fecha debe tener el formato AAAA-MM-DD" });
+    }
+
+    try {
+      const result = await pool.query(
+        `SELECT p.id,
+                p.created_at,
+                p.monto_centavos,
+                s.nombre_completo AS estudiante,
+                s.grado,
+                s.id_referencia,
+                COALESCE(con.nombre, 'Concepto no disponible') AS concepto
+           FROM payments p
+           JOIN charges c ON c.id = p.charge_id
+           JOIN students s ON s.id = c.student_id
+           LEFT JOIN concepts con ON con.id = c.concept_id
+          WHERE p.tenant_id = $1
+            AND s.campus_id = $2
+            AND p.metodo = 'efectivo'
+            AND p.estado = 'exitoso'
+            AND DATE(p.created_at) = $3::date
+          ORDER BY p.created_at DESC, p.id DESC`,
+        [req.user?.tenant_id, req.user?.campus_id, fecha],
+      );
+      res.json(result.rows);
+    } catch (error: any) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
   // Get bank movements
   app.get("/api/caja/movimientos-banco", authenticateToken, async (req, res) => {
     if (!hasPermissionForUser((req as any).user, MODULES.PAYMENTS, ACTIONS.READ)) {

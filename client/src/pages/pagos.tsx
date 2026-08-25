@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { CreditCard, Banknote, Smartphone, Receipt, Download, Eye, DollarSign, CheckCircle, Calendar, User, FileText, Building2, PieChart, Upload, X, AlertCircle, Info, Mail, MessageCircle, FileCheck } from "lucide-react";
+import { CreditCard, Banknote, Smartphone, Receipt, Download, Eye, DollarSign, CheckCircle, Calendar, User, FileText, Building2, PieChart, Info, Mail, MessageCircle, FileCheck } from "lucide-react";
 import { PieChartComponent } from "@/components/PieChartComponent";
 import { hasPermission, MODULES, ACTIONS, type UserRole } from "@shared/permissions";
 import { useAuth } from "@/hooks/use-auth";
@@ -38,14 +38,10 @@ export default function Pagos() {
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
   const [showRegistrarPago, setShowRegistrarPago] = useState(false);
-  const [showImportarEstado, setShowImportarEstado] = useState(false);
   const [showReceiptOptions, setShowReceiptOptions] = useState(false);
   const [currentReceiptHTML, setCurrentReceiptHTML] = useState('');
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [isUploading, setIsUploading] = useState(false);
   
   // Estado para el formulario de registro de pagos
   const [pagoManualForm, setPagoManualForm] = useState({
@@ -659,111 +655,6 @@ export default function Pagos() {
       title: "Recibo fiscal generado",
       description: `Recibo de ${pago.concepto} generado con folio ${folio}`,
     });
-  };
-
-  const handleConciliacionAutomatica = () => {
-    toast({
-      title: "Conciliación en proceso",
-      description: "Ejecutando conciliación automática de movimientos bancarios...",
-      duration: 3000,
-    });
-  };
-
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      // Validar formato de archivo
-      const allowedTypes = [
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'text/csv',
-        'text/plain'
-      ];
-      
-      if (!allowedTypes.includes(file.type)) {
-        toast({
-          title: "Formato no válido",
-          description: "Por favor selecciona un archivo Excel (.xlsx, .xls) o CSV",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Validar tamaño (máximo 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        toast({
-          title: "Archivo muy grande",
-          description: "El archivo debe ser menor a 10MB",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setSelectedFile(file);
-      toast({
-        title: "Archivo seleccionado",
-        description: `${file.name} listo para procesar`,
-      });
-    }
-  };
-
-  const handleRemoveFile = () => {
-    setSelectedFile(null);
-    setUploadProgress(0);
-  };
-
-  const handleImportarEstado = async () => {
-    if (!selectedFile) {
-      toast({
-        title: "Sin archivo",
-        description: "Por favor selecciona un archivo de estado de cuenta",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsUploading(true);
-    setUploadProgress(0);
-
-    try {
-      // Simular progreso de carga
-      const interval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(interval);
-            return 90;
-          }
-          return prev + 10;
-        });
-      }, 100);
-
-      // Simular procesamiento
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      setUploadProgress(100);
-      
-      // Simular resultados de conciliación
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      toast({
-        title: "Importación exitosa",
-        description: "Estado de cuenta procesado: 15 movimientos conciliados, 3 pendientes",
-      });
-
-      // Resetear estado
-      setSelectedFile(null);
-      setUploadProgress(0);
-      setShowImportarEstado(false);
-      
-    } catch (error) {
-      toast({
-        title: "Error en importación",
-        description: "No se pudo procesar el archivo. Intenta nuevamente",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUploading(false);
-    }
   };
 
   const generateFiscalReceiptHTML = (pagoData: any) => {
@@ -1571,17 +1462,10 @@ export default function Pagos() {
                     </div>
                   </div>
                   <div className="flex gap-4">
-                    <Button 
-                      className="bg-blue-600 hover:bg-blue-700"
-                      onClick={handleConciliacionAutomatica}
-                    >
-                      Ejecutar conciliación automática
-                    </Button>
-                    <Button 
-                      variant="outline"
-                      onClick={() => setShowImportarEstado(true)}
-                    >
-                      Importar estado de cuenta
+                    <Button asChild className="bg-blue-600 hover:bg-blue-700">
+                      <a href="/caja-conciliacion">
+                        Ir a Caja y Conciliación
+                      </a>
                     </Button>
                   </div>
                 </div>
@@ -1673,142 +1557,6 @@ export default function Pagos() {
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal de importar estado de cuenta */}
-      <Dialog open={showImportarEstado} onOpenChange={setShowImportarEstado}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Importar Estado de Cuenta</DialogTitle>
-            <DialogDescription>
-              Sube el archivo de estado de cuenta bancario para conciliación automática
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-6">
-            {/* Información del proceso */}
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-                <div>
-                  <h4 className="font-medium text-blue-900">Formatos soportados</h4>
-                  <p className="text-sm text-blue-700 mt-1">
-                    Archivos Excel (.xlsx, .xls) o CSV con movimientos bancarios
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Área de carga de archivo */}
-            <div className="space-y-4">
-              {!selectedFile ? (
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8">
-                  <div className="text-center">
-                    <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <div className="space-y-2">
-                      <h4 className="text-lg font-medium">Selecciona el archivo</h4>
-                      <p className="text-sm text-gray-500">
-                        Arrastra y suelta el archivo o haz clic para seleccionar
-                      </p>
-                    </div>
-                    <input
-                      type="file"
-                      accept=".xlsx,.xls,.csv"
-                      onChange={handleFileSelect}
-                      className="hidden"
-                      id="file-upload"
-                    />
-                    <label
-                      htmlFor="file-upload"
-                      className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer mt-4"
-                    >
-                      <Upload className="h-4 w-4 mr-2" />
-                      Seleccionar archivo
-                    </label>
-                  </div>
-                </div>
-              ) : (
-                <div className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 bg-green-100 rounded-lg flex items-center justify-center">
-                        <FileText className="h-5 w-5 text-green-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{selectedFile.name}</p>
-                        <p className="text-sm text-gray-500">
-                          {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleRemoveFile}
-                      disabled={isUploading}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  
-                  {isUploading && (
-                    <div className="mt-4">
-                      <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-                        <span>Procesando archivo...</span>
-                        <span>{uploadProgress}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${uploadProgress}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Información adicional */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h4 className="font-medium text-gray-900 mb-2">Proceso de conciliación</h4>
-              <ul className="text-sm text-gray-600 space-y-1">
-                <li>• El sistema identificará automáticamente los movimientos</li>
-                <li>• Se conciliarán con los pagos registrados en el sistema</li>
-                <li>• Recibirás un reporte con los resultados del proceso</li>
-                <li>• Los movimientos no conciliados requerirán revisión manual</li>
-              </ul>
-            </div>
-
-            {/* Botones de acción */}
-            <div className="flex gap-3">
-              <Button
-                onClick={handleImportarEstado}
-                disabled={!selectedFile || isUploading}
-                className="flex-1"
-              >
-                {isUploading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                    Procesando...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Importar y Conciliar
-                  </>
-                )}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowImportarEstado(false)}
-                disabled={isUploading}
-              >
-                Cancelar
-              </Button>
-            </div>
-          </div>
         </DialogContent>
       </Dialog>
 

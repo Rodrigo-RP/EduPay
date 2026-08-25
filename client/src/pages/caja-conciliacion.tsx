@@ -27,12 +27,44 @@ import {
   MessageCircle
 } from "lucide-react";
 
+type ManualPaymentOptions = {
+  students: Array<{
+    id: number;
+    nombre_completo: string;
+    grado: string | null;
+    id_referencia: string | null;
+  }>;
+  charges: Array<{
+    id: number;
+    student_id: number;
+    concept_name: string;
+    saldo_centavos: number;
+  }>;
+};
+
 export default function CajaConciliacion() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { logoUrl, institutionName } = useInstitution();
   const [showReceiptOptions, setShowReceiptOptions] = useState(false);
   const [currentReceiptHTML, setCurrentReceiptHTML] = useState('');
+  const [activeTab, setActiveTab] = useState("efectivo");
+  const fechaPagos = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "America/Mexico_City",
+  }).format(new Date());
+  const { data: pagosEfectivoResumen = [] } = useQuery<any[]>({
+    queryKey: [`/api/caja/pagos-efectivo?fecha=${fechaPagos}`],
+    staleTime: 0,
+  });
+  const { data: estadisticasResumen } = useQuery<any>({
+    queryKey: ["/api/caja/estadisticas-conciliacion"],
+    staleTime: 0,
+  });
+  const efectivoDiaCentavos = pagosEfectivoResumen.reduce(
+    (total, pago) => total + Number(pago.monto_centavos || 0),
+    0,
+  );
+  const montoBancarioCentavos = Number(estadisticasResumen?.monto_total || 0);
 
   // Obtener información del usuario autenticado
   const { data: user } = useQuery<any>({
@@ -138,6 +170,21 @@ export default function CajaConciliacion() {
       recibido_por: "",
       observaciones: ""
     });
+    const fechaPagos = new Intl.DateTimeFormat("sv-SE", {
+      timeZone: "America/Mexico_City",
+    }).format(new Date());
+    const { data: manualOptions } = useQuery<ManualPaymentOptions>({
+      queryKey: ["/api/payments/manual-options"],
+      staleTime: 0,
+    });
+    const { data: pagosEfectivo = [] } = useQuery<any[]>({
+      queryKey: [`/api/caja/pagos-efectivo?fecha=${fechaPagos}`],
+      staleTime: 0,
+    });
+    const students = manualOptions?.students || [];
+    const charges = manualOptions?.charges || [];
+    const selectedStudentId = Number(pagoForm.estudiante_id);
+    const availableCharges = charges.filter((charge) => charge.student_id === selectedStudentId);
 
     // Establecer automáticamente el campo "Recibido por" cuando el usuario esté disponible
     useEffect(() => {
@@ -356,11 +403,9 @@ export default function CajaConciliacion() {
                        </div>`
                   }
               </div>
-              <h1>RECIBO FISCAL</h1>
-              <p>${institutionName || 'Instituto San Patricio'}</p>
-              <p>RFC: ISP850101ABC</p>
-              <p>Calle Principal #123, Col. Centro, CP 44100</p>
-              <p>Guadalajara, Jalisco, México</p>
+              <h1>COMPROBANTE DE PAGO</h1>
+              <p>${institutionName || 'Institución no configurada'}</p>
+              <p>Generado después de confirmar el pago en Edupay</p>
           </div>
   
           <div class="receipt-info">
@@ -373,9 +418,9 @@ export default function CajaConciliacion() {
               </div>
               <div class="info-block">
                   <h3>INFORMACIÓN DEL ESTUDIANTE</h3>
-                  <p><strong>Nombre:</strong> ${pagoData.estudiante || 'Estudiante Demo'}</p>
-                  <p><strong>Grado:</strong> ${pagoData.grado || '3ro A'}</p>
-                  <p><strong>Matrícula:</strong> ${pagoData.matricula || 'EST-001'}</p>
+                  <p><strong>Nombre:</strong> ${pagoData.estudiante || 'No disponible'}</p>
+                  <p><strong>Grado:</strong> ${pagoData.grado || 'No disponible'}</p>
+                  <p><strong>Matrícula:</strong> ${pagoData.matricula || 'No disponible'}</p>
               </div>
           </div>
   
@@ -383,7 +428,7 @@ export default function CajaConciliacion() {
               <h3>DETALLES DEL PAGO</h3>
               <div class="detail-row">
                   <span class="detail-label">Concepto:</span>
-                  <span class="detail-value">${pagoData.concepto || 'Colegiatura'}</span>
+                  <span class="detail-value">${pagoData.concepto || 'No disponible'}</span>
               </div>
               <div class="detail-row">
                   <span class="detail-label">Método de Pago:</span>
@@ -409,13 +454,9 @@ export default function CajaConciliacion() {
           </div>
   
           <div class="fiscal-info">
-              <h3>INFORMACIÓN FISCAL</h3>
-              <p><strong>Régimen Fiscal:</strong> Personas Morales del Régimen General</p>
-              <p><strong>Lugar de Expedición:</strong> 44100, Guadalajara, Jalisco</p>
-              <p><strong>Uso CFDI:</strong> G03 - Gastos en general</p>
-              <p><strong>Tipo de Comprobante:</strong> Recibo de Pago</p>
-              <p><strong>Moneda:</strong> MXN - Peso Mexicano</p>
-              <p><strong>Tipo de Cambio:</strong> 1.00</p>
+              <h3>ESTADO FISCAL</h3>
+              <p>Este comprobante acredita un pago confirmado por el sistema.</p>
+              <p>No sustituye un CFDI; la factura se emite desde el flujo de facturación institucional.</p>
           </div>
   
           <div class="signature-section">
@@ -430,8 +471,7 @@ export default function CajaConciliacion() {
           </div>
   
           <div class="footer">
-              <p>Este recibo fue generado electrónicamente por Edupay</p>
-              <p>Documento válido para efectos fiscales y contables</p>
+              <p>Este comprobante fue generado electrónicamente por Edupay</p>
               <p>Fecha de generación: ${new Date().toLocaleString('es-MX')}</p>
           </div>
       </div>
@@ -548,42 +588,56 @@ export default function CajaConciliacion() {
         return;
       }
 
-      // Generar el recibo fiscal
-      const pagoData = {
-        estudiante: "Carlos Pérez - 3ro A", // En producción vendría de la selección
-        grado: "3ro A",
-        matricula: "EST-001",
-        concepto: "Colegiatura Enero",
-        metodo: "Efectivo",
-        forma: "Pago en una sola exhibición",
-        monto: pagoForm.monto,
-        recibido_por: pagoForm.recibido_por,
-        observaciones: pagoForm.observaciones
-      };
-
-      const receiptHTML = generateFiscalReceiptHTML(pagoData);
-
-      toast({
-        title: "Pago registrado y recibo generado",
-        description: "El pago se registró exitosamente y el recibo fiscal ha sido generado"
+      registrarPagoEfectivo.mutate({
+        ...pagoForm,
+        charge_id: Number(pagoForm.concepto_id),
       });
-      
-      setPagoForm({
-        estudiante_id: "",
-        concepto_id: "",
-        monto: "",
-        recibido_por: getUserDisplayName(),
-        observaciones: ""
-      });
-      
-      // Ejecutar la mutación para registrar el pago
-      registrarPagoEfectivo.mutate(pagoForm);
     };
 
     const registrarPagoEfectivo = useMutation({
-      mutationFn: (data: any) => apiRequest("/api/caja/pago-efectivo", { method: "POST", body: JSON.stringify(data) }),
-      onSuccess: () => {
+      mutationFn: async (data: any) => {
+        const response = await apiRequest("/api/caja/pago-efectivo", {
+          method: "POST",
+          body: JSON.stringify(data),
+        });
+        return response.json();
+      },
+      onSuccess: (result: any, submitted: any) => {
+        if (!result?.payment_id) {
+          toast({
+            title: "Pago no registrado",
+            description: result?.message || "El sistema no confirmó un pago para el cargo seleccionado.",
+            variant: "destructive",
+          });
+          return;
+        }
+        const student = students.find((item) => item.id === Number(submitted.estudiante_id));
+        const charge = charges.find((item) => item.id === Number(submitted.charge_id));
+        generateFiscalReceiptHTML({
+          estudiante: student?.nombre_completo,
+          grado: student?.grado,
+          matricula: student?.id_referencia,
+          concepto: charge?.concept_name,
+          metodo: "Efectivo",
+          forma: "Pago en una sola exhibición",
+          monto: (Number(result.monto_centavos) / 100).toFixed(2),
+          recibido_por: submitted.recibido_por,
+          observaciones: submitted.observaciones,
+        });
+        toast({
+          title: "Pago registrado",
+          description: "El pago fue confirmado y el comprobante está listo.",
+        });
+        setPagoForm({
+          estudiante_id: "",
+          concepto_id: "",
+          monto: "",
+          recibido_por: getUserDisplayName(),
+          observaciones: "",
+        });
         queryClient.invalidateQueries({ queryKey: ["/api/caja"] });
+        queryClient.invalidateQueries({ queryKey: [`/api/caja/pagos-efectivo?fecha=${fechaPagos}`] });
+        queryClient.invalidateQueries({ queryKey: ["/api/payments/manual-options"] });
       },
       onError: (error: any) => {
         const msg = error?.message ?? "";
@@ -611,28 +665,46 @@ export default function CajaConciliacion() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
                 <Label htmlFor="estudiante">Estudiante</Label>
-                <Select value={pagoForm.estudiante_id} onValueChange={(value) => setPagoForm({...pagoForm, estudiante_id: value})}>
+                <Select
+                  value={pagoForm.estudiante_id}
+                  onValueChange={(value) => setPagoForm({...pagoForm, estudiante_id: value, concepto_id: "", monto: ""})}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Buscar estudiante..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1">Carlos Pérez - 3ro A</SelectItem>
-                    <SelectItem value="2">Ana García - 2do B</SelectItem>
-                    <SelectItem value="3">Luis Martínez - 1ro A</SelectItem>
+                    {students.map((student) => (
+                      <SelectItem key={student.id} value={String(student.id)}>
+                        {student.nombre_completo}{student.grado ? ` — ${student.grado}` : ""}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
 
           <div>
                 <Label htmlFor="concepto">Concepto a pagar</Label>
-                <Select value={pagoForm.concepto_id} onValueChange={(value) => setPagoForm({...pagoForm, concepto_id: value})}>
+                <Select
+                  value={pagoForm.concepto_id}
+                  disabled={!pagoForm.estudiante_id}
+                  onValueChange={(value) => {
+                    const charge = availableCharges.find((item) => item.id === Number(value));
+                    setPagoForm({
+                      ...pagoForm,
+                      concepto_id: value,
+                      monto: charge ? (charge.saldo_centavos / 100).toFixed(2) : pagoForm.monto,
+                    });
+                  }}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar concepto..." />
+                    <SelectValue placeholder={pagoForm.estudiante_id ? "Seleccionar cargo pendiente..." : "Primero selecciona un estudiante"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1">Colegiatura Enero - $5,000</SelectItem>
-                    <SelectItem value="2">Materiales - $1,500</SelectItem>
-                    <SelectItem value="3">Inscripción - $3,000</SelectItem>
+                    {availableCharges.map((charge) => (
+                      <SelectItem key={charge.id} value={String(charge.id)}>
+                        {charge.concept_name} — ${(charge.saldo_centavos / 100).toFixed(2)}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -689,19 +761,21 @@ export default function CajaConciliacion() {
           </CardHeader>
           <CardContent>
         <div className="space-y-3">
-              {[
-                { hora: "09:30", estudiante: "Carlos Pérez", concepto: "Colegiatura Enero", monto: 500000, cajero: "Ana López" },
-                { hora: "10:15", estudiante: "María García", concepto: "Materiales", monto: 150000, cajero: "Ana López" },
-                { hora: "11:00", estudiante: "Luis Hernández", concepto: "Inscripción", monto: 300000, cajero: "Ana López" }
-              ].map((pago, index) => (
-            <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded">
+              {pagosEfectivo.length === 0 ? (
+                <p className="py-6 text-center text-sm text-slate-500">
+                  No hay pagos en efectivo confirmados para este día.
+                </p>
+              ) : pagosEfectivo.map((pago) => (
+            <div key={pago.id} className="flex items-center justify-between p-3 bg-slate-50 rounded">
               <div>
                 <div className="font-medium">{pago.estudiante}</div>
-                <div className="text-sm text-slate-600">{pago.hora} • {pago.concepto}</div>
-                <div className="text-xs text-slate-500">Cajero: {pago.cajero}</div>
+                <div className="text-sm text-slate-600">
+                  {new Date(pago.created_at).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })} • {pago.concepto}
+                </div>
+                <div className="text-xs text-slate-500">Pago confirmado</div>
                   </div>
               <div className="text-right">
-                <div className="font-semibold">${(pago.monto / 100).toLocaleString()}</div>
+                <div className="font-semibold">${(Number(pago.monto_centavos) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</div>
                     <Badge variant="secondary">Registrado</Badge>
                   </div>
                 </div>
@@ -723,18 +797,33 @@ export default function CajaConciliacion() {
       referencia: "",
       monto: "",
       fecha: "",
-      concepto: "",
-      estudiante_id: ""
+      concepto: ""
     });
 
     const registrarTransferencia = useMutation({
-      mutationFn: (data: any) => apiRequest("/api/caja/transferencia-manual", { method: "POST", body: JSON.stringify(data) }),
-      onSuccess: () => {
+      mutationFn: async (data: any) => {
+        const response = await apiRequest("/api/caja/transferencia-manual", {
+          method: "POST",
+          body: JSON.stringify({
+            fecha: data.fecha,
+            referencia: data.referencia,
+            monto: data.monto,
+            descripcion: data.concepto,
+            tipo: "credito",
+          }),
+        });
+        return response.json();
+      },
+      onSuccess: (result: any) => {
         toast({
           title: "Transferencia registrada",
-          description: "El pago bancario se registró correctamente"
+          description: result?.transaccion?.referencia
+            ? `Movimiento ${result.transaccion.referencia} registrado y pendiente de conciliación.`
+            : "El movimiento bancario se registró y quedó pendiente de conciliación.",
         });
+        setTransferenciasForm({ referencia: "", monto: "", fecha: "", concepto: "" });
         queryClient.invalidateQueries({ queryKey: ["/api/caja/movimientos-banco"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/caja/estadisticas-conciliacion"] });
       },
       onError: (error: any) => {
         const msg = error?.message ?? "";
@@ -792,21 +881,28 @@ export default function CajaConciliacion() {
               </div>
 
           <div>
-                <Label htmlFor="estudiante_transferencia">Estudiante</Label>
-                <Select value={transferenciasForm.estudiante_id} onValueChange={(value) => setTransferenciasForm({...transferenciasForm, estudiante_id: value})}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Buscar estudiante..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">Carlos Pérez</SelectItem>
-                    <SelectItem value="2">Ana García</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="descripcion_transferencia">Descripción del movimiento</Label>
+                <Input
+                  id="descripcion_transferencia"
+                  value={transferenciasForm.concepto}
+                  onChange={(e) => setTransferenciasForm({...transferenciasForm, concepto: e.target.value})}
+                  placeholder="Ej. Transferencia identificada en ventanilla"
+                />
               </div>
             </div>
 
             <Button 
-              onClick={() => registrarTransferencia.mutate(transferenciasForm)}
+              onClick={() => {
+                if (!transferenciasForm.referencia || !transferenciasForm.monto || !transferenciasForm.fecha || !transferenciasForm.concepto) {
+                  toast({
+                    title: "Campos requeridos",
+                    description: "Captura fecha, referencia, monto y descripción del movimiento.",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                registrarTransferencia.mutate(transferenciasForm);
+              }}
               disabled={registrarTransferencia.isPending}
               className="w-full mt-4"
             >
@@ -822,22 +918,22 @@ export default function CajaConciliacion() {
           </CardHeader>
           <CardContent>
         <div className="space-y-2">
-              {[
-                { fecha: "2025-01-20", referencia: "REF001", monto: 500000, concepto: "Transferencia SPEI", estado: "Conciliado" },
-                { fecha: "2025-01-20", referencia: "REF002", monto: 150000, concepto: "Transferencia SPEI", estado: "Pendiente" },
-                { fecha: "2025-01-19", referencia: "REF003", monto: 300000, concepto: "Transferencia SPEI", estado: "Conciliado" }
-              ].map((movimiento, index) => (
-            <div key={index} className="flex items-center justify-between p-3 border rounded">
+              {(Array.isArray(movimientosBanco) ? movimientosBanco : []).length === 0 ? (
+                <p className="py-6 text-center text-sm text-slate-500">
+                  No hay movimientos bancarios registrados.
+                </p>
+              ) : (movimientosBanco as any[]).map((movimiento) => (
+            <div key={movimiento.id} className="flex items-center justify-between p-3 border rounded">
               <div>
                 <div className="font-medium">{movimiento.referencia}</div>
-                <div className="text-sm text-slate-600">{movimiento.fecha} • {movimiento.concepto}</div>
+                <div className="text-sm text-slate-600">{movimiento.fecha} • {movimiento.descripcion}</div>
                   </div>
               <div className="flex items-center gap-3">
                 <div className="text-right">
-                  <div className="font-semibold">${(movimiento.monto / 100).toLocaleString()}</div>
+                  <div className="font-semibold">${(Number(movimiento.monto_centavos) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</div>
                     </div>
-                    <Badge variant={movimiento.estado === "Conciliado" ? "default" : "secondary"}>
-                      {movimiento.estado}
+                    <Badge variant={movimiento.estado_conciliacion === "conciliado" ? "default" : "secondary"}>
+                      {movimiento.estado_conciliacion === "conciliado" ? "Conciliado" : "Pendiente"}
                     </Badge>
                   </div>
                 </div>
@@ -863,20 +959,39 @@ export default function CajaConciliacion() {
     });
 
     const importar = useMutation({
-      mutationFn: (data: any) => apiRequest("/api/conciliacion/importar", { method: "POST", body: JSON.stringify(data) }),
+      mutationFn: async (data: any) => {
+        const response = await apiRequest("/api/conciliacion/importar", {
+          method: "POST",
+          body: JSON.stringify(data),
+        });
+        return response.json();
+      },
       onSuccess: (result: any) => {
-        toast({ title: "Importación exitosa", description: result?.mensaje || "Transacciones importadas" });
+        toast({ title: "Importación confirmada", description: result?.mensaje || "Las transacciones se importaron correctamente." });
         setCsvTexto(""); setTransacciones([]); setParseado(false); setSeleccionadas(new Set());
         queryClient.invalidateQueries({ queryKey: ["/api/conciliacion/transacciones"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/caja/movimientos-banco"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/caja/estadisticas-conciliacion"] });
       },
       onError: () => toast({ title: "Error al importar", variant: "destructive" }),
     });
 
     const autoMatch = useMutation({
-      mutationFn: () => apiRequest(`/api/conciliacion/auto-match/${campusId}`, { method: "POST", body: JSON.stringify({}) }),
+      mutationFn: async () => {
+        const response = await apiRequest(`/api/conciliacion/auto-match/${campusId}`, {
+          method: "POST",
+          body: JSON.stringify({}),
+        });
+        return response.json();
+      },
       onSuccess: (result: any) => {
-        toast({ title: "Conciliación automática completada", description: `${result?.conciliados || 0} transacciones conciliadas` });
+        toast({
+          title: "Conciliación automática completada",
+          description: `${Number(result?.conciliados) || 0} transacciones conciliadas y ${Number(result?.en_revision) || 0} enviadas a revisión.`,
+        });
         queryClient.invalidateQueries({ queryKey: ["/api/conciliacion/transacciones"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/caja/movimientos-banco"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/caja/estadisticas-conciliacion"] });
       },
     });
 
@@ -1116,8 +1231,8 @@ export default function CajaConciliacion() {
               <div className="p-3 bg-green-100 rounded-xl inline-block mb-3">
                 <DollarSign className="w-6 h-6 text-green-600" />
               </div>
-              <div className="text-2xl font-bold text-green-600">${((estadisticasConciliacion?.ingresos_dia || 0) / 100).toLocaleString()}</div>
-              <div className="text-sm text-slate-600">Ingresos del día</div>
+              <div className="text-2xl font-bold text-green-600">${(Number(estadisticasConciliacion?.monto_total || 0) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</div>
+              <div className="text-sm text-slate-600">Monto de movimientos bancarios</div>
             </CardContent>
           </Card>
 
@@ -1126,7 +1241,7 @@ export default function CajaConciliacion() {
               <div className="p-3 bg-blue-100 rounded-xl inline-block mb-3">
                 <CheckCircle className="w-6 h-6 text-blue-600" />
               </div>
-              <div className="text-2xl font-bold text-blue-600">{estadisticasConciliacion?.movimientos_conciliados || 0}</div>
+              <div className="text-2xl font-bold text-blue-600">{estadisticasConciliacion?.conciliadas || 0}</div>
               <div className="text-sm text-slate-600">Conciliados</div>
             </CardContent>
           </Card>
@@ -1136,7 +1251,7 @@ export default function CajaConciliacion() {
               <div className="p-3 bg-orange-100 rounded-xl inline-block mb-3">
                 <Clock className="w-6 h-6 text-orange-600" />
               </div>
-              <div className="text-2xl font-bold text-orange-600">{estadisticasConciliacion?.movimientos_pendientes || 0}</div>
+              <div className="text-2xl font-bold text-orange-600">{estadisticasConciliacion?.pendientes || 0}</div>
               <div className="text-sm text-slate-600">Pendientes</div>
             </CardContent>
           </Card>
@@ -1146,8 +1261,8 @@ export default function CajaConciliacion() {
               <div className="p-3 bg-red-100 rounded-xl inline-block mb-3">
                 <AlertTriangle className="w-6 h-6 text-red-600" />
               </div>
-              <div className="text-2xl font-bold text-red-600">{estadisticasConciliacion?.diferencias || 0}</div>
-              <div className="text-sm text-slate-600">Diferencias</div>
+              <div className="text-2xl font-bold text-red-600">${(Number(estadisticasConciliacion?.monto_pendiente || 0) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</div>
+              <div className="text-sm text-slate-600">Monto pendiente</div>
             </CardContent>
           </Card>
         </div>
@@ -1177,7 +1292,7 @@ export default function CajaConciliacion() {
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Ejecutar conciliación
               </Button>
-          <Button variant="outline" className="flex-1">
+          <Button variant="outline" className="flex-1" onClick={() => setActiveTab("spei-importar")}>
                 <Upload className="w-4 h-4 mr-2" />
                 Importar estado de cuenta
               </Button>
@@ -1301,8 +1416,12 @@ export default function CajaConciliacion() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Efectivo del día</p>
-                  <p className="text-sm md:text-base font-bold text-green-600 whitespace-nowrap">$8,450</p>
-                  <div className="text-xs text-green-600 mt-1">5 pagos registrados</div>
+                  <p className="text-sm md:text-base font-bold text-green-600 whitespace-nowrap">
+                    ${(efectivoDiaCentavos / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                  </p>
+                  <div className="text-xs text-green-600 mt-1">
+                    {pagosEfectivoResumen.length} pagos confirmados
+                  </div>
                 </div>
                 <div className="text-green-500 flex-shrink-0">
                   <Banknote className="h-5 w-5 md:h-7 md:w-7" />
@@ -1316,8 +1435,12 @@ export default function CajaConciliacion() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Transferencias</p>
-                  <p className="text-sm md:text-base font-bold text-blue-600 whitespace-nowrap">$24,300</p>
-                  <div className="text-xs text-blue-600 mt-1">12 movimientos</div>
+                  <p className="text-sm md:text-base font-bold text-blue-600 whitespace-nowrap">
+                    ${(montoBancarioCentavos / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                  </p>
+                  <div className="text-xs text-blue-600 mt-1">
+                    {Number(estadisticasResumen?.total_transacciones || 0)} movimientos
+                  </div>
                 </div>
                 <div className="text-blue-500 flex-shrink-0">
                   <RefreshCw className="h-5 w-5 md:h-7 md:w-7" />
@@ -1331,7 +1454,9 @@ export default function CajaConciliacion() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Por conciliar</p>
-                  <p className="text-lg md:text-xl font-bold text-orange-600 whitespace-nowrap">3</p>
+                  <p className="text-lg md:text-xl font-bold text-orange-600 whitespace-nowrap">
+                    {Number(estadisticasResumen?.pendientes || 0)}
+                  </p>
                   <div className="text-xs text-orange-600 mt-1">Pendientes</div>
                 </div>
                 <div className="text-orange-500 flex-shrink-0">
@@ -1346,8 +1471,10 @@ export default function CajaConciliacion() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm text-slate-600 mb-1">Total del día</p>
-                  <p className="text-sm md:text-base font-bold text-purple-600 whitespace-nowrap">$32,750</p>
-                  <div className="text-xs text-green-600 mt-1">+8.2% vs ayer</div>
+                  <p className="text-sm md:text-base font-bold text-purple-600 whitespace-nowrap">
+                    ${((efectivoDiaCentavos + montoBancarioCentavos) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                  </p>
+                  <div className="text-xs text-purple-600 mt-1">Efectivo y movimientos bancarios</div>
                 </div>
                 <div className="text-purple-500 flex-shrink-0">
                   <Calculator className="h-5 w-5 md:h-7 md:w-7" />
@@ -1357,7 +1484,7 @@ export default function CajaConciliacion() {
           </Card>
         </div>
 
-        <Tabs defaultValue="efectivo" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="relative bg-white/95 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/40">
             <TabsList className="grid w-full grid-cols-4 bg-slate-100 rounded-xl">
               <TabsTrigger value="efectivo" className="data-[state=active]:bg-white data-[state=active]:text-green-600 data-[state=active]:shadow-sm rounded-lg">

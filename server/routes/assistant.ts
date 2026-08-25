@@ -247,6 +247,13 @@ export function registerAssistantRoutes(app: Express): void {
               : "query_adeudos_nivel_periodo",
           );
         if (claude.handled && !claude.error && expectedToolWasUsed) {
+          console.info("[assistant] chat response path", {
+            path: "claude",
+            matchedActionId: result.action?.actionId ?? null,
+            naturalClaudeAction,
+            expectedToolWasUsed,
+            studentTargetCount: claude.studentTargets?.length ?? 0,
+          });
           if (claude.conversationTurn) {
             appendTrustedConversationTurn(conversationSession, claude.conversationTurn);
           }
@@ -289,6 +296,11 @@ export function registerAssistantRoutes(app: Express): void {
           result.action.params,
           { campusId, tenantId, userId },
         );
+        console.info("[assistant] chat response path", {
+          path: "natural_action_fallback",
+          actionId: result.action.actionId,
+          studentTargetCount: actionResult.studentTargets?.length ?? 0,
+        });
         result.reply = actionResult.summary;
         (result as any).actionResult = actionResult;
         (result as any).studentTargets = actionResult.studentTargets;

@@ -58,6 +58,13 @@ test.describe("Caja — onError: toast de error aparece, onSuccess no corre", ()
           body: JSON.stringify({ message: "Error interno del servidor" }),
         });
       });
+      await page.route("**/api/caja/cierre-dia?*", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ cierre: null }),
+        });
+      });
 
       // ── 2. Activar el tab "Conciliación automática" ──────────────────────
       //      El botón "Cerrar caja del día" vive en ConciliacionAutomatica,
@@ -74,13 +81,14 @@ test.describe("Caja — onError: toast de error aparece, onSuccess no corre", ()
       // ── 3. Hacer clic en el botón real "Cerrar caja del día" ─────────────
       const btnCerrar = page.getByRole("button", { name: /cerrar caja del día/i });
       await expect(btnCerrar).toBeVisible({ timeout: 6_000 });
+      await page.getByLabel(/efectivo contado en caja/i).fill("100.00");
       await btnCerrar.click();
 
       // ── 4. El toast de error debe aparecer ───────────────────────────────
       //      shadcn/ui Toast renderiza en un viewport con role="region"
       //      y el texto del título en el DOM directo.
       await expect(
-        page.getByText("Error al cerrar caja")
+        page.getByText("Error al cerrar caja", { exact: true })
       ).toBeVisible({ timeout: 8_000 });
 
       // ── 5. El toast de éxito NO debe aparecer ────────────────────────────
@@ -88,7 +96,7 @@ test.describe("Caja — onError: toast de error aparece, onSuccess no corre", ()
       //      Esperamos 2 s para dar tiempo a que cualquier efecto secundario
       //      se manifieste — si en ese plazo no aparece, confirmamos ausencia.
       await expect(
-        page.getByText("Caja cerrada")
+        page.getByText("Caja cerrada", { exact: true })
       ).not.toBeVisible({ timeout: 2_000 });
     }
   );

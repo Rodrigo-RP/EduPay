@@ -407,6 +407,36 @@ export const payments = pgTable("payments", {
   ),
 ]);
 
+// CASH CLOSURES
+// Snapshot diario de caja. El efectivo capturado lo declara el operador; los
+// demás importes se calculan desde pagos exitosos al momento de cerrar.
+// Un campus sólo puede cerrar una fecha una vez.
+export const cash_closures = pgTable("cash_closures", {
+  id: serial("id").primaryKey(),
+  tenant_id: integer("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  campus_id: integer("campus_id").notNull().references(() => campuses.id, { onDelete: "cascade" }),
+  closed_by_user_id: integer("closed_by_user_id").notNull().references(() => users.id),
+  fecha: date("fecha").notNull(),
+  efectivo_capturado_centavos: bigint("efectivo_capturado_centavos", { mode: "number" }).notNull(),
+  efectivo_registrado_centavos: bigint("efectivo_registrado_centavos", { mode: "number" }).notNull(),
+  ingresos_bancarios_centavos: bigint("ingresos_bancarios_centavos", { mode: "number" }).notNull(),
+  total_cobrado_centavos: bigint("total_cobrado_centavos", { mode: "number" }).notNull(),
+  diferencia_efectivo_centavos: bigint("diferencia_efectivo_centavos", { mode: "number" }).notNull(),
+  pagos_procesados: integer("pagos_procesados").notNull(),
+  observaciones: text("observaciones"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("cash_closures_campus_fecha_unique").on(table.campus_id, table.fecha),
+  check(
+    "cash_closures_amounts_non_negative",
+    sql`${table.efectivo_capturado_centavos} >= 0
+      AND ${table.efectivo_registrado_centavos} >= 0
+      AND ${table.ingresos_bancarios_centavos} >= 0
+      AND ${table.total_cobrado_centavos} >= 0
+      AND ${table.pagos_procesados} >= 0`,
+  ),
+]);
+
 // PAYMENT METHODS (Tokenized)
 export const payment_methods = pgTable("payment_methods", {
   id: serial("id").primaryKey(),

@@ -8,6 +8,23 @@ import { getParser } from "../lib/bank-parsers/index";
 import { MODULES, ACTIONS } from "@shared/permissions";
 import { payments, charges, students, invoices, guardians } from "@shared/schema";
 
+function fechaCiudadDeMexico(): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Mexico_City",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value;
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+function esFechaIsoValida(fecha: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return false;
+  const parsed = new Date(`${fecha}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === fecha;
+}
+
 // ── Motor de scoring de conciliación bancaria ─────────────────────────────────
 //
 // Tres señales: monto_score (0-70) + clabe_score (0-20) + nombre_score (0-15),
@@ -1013,27 +1030,203 @@ export function registerConciliacionRoutes(app: Express): void {
     }
   });
 
-  // Close day (corte de caja)
-  app.post("/api/caja/cerrar-dia", authenticateToken, async (req, res) => {
+  const seleccionarCierreCaja = `
+    SELECT cc.id, cc.fecha, cc.efectivo_capturado_centavos,
+           cc.efectivo_registrado_centavos, cc.ingresos_bancarios_centavos,
+           cc.total_cobrado_centavos, cc.diferencia_efectivo_centavos,
+           cc.pagos_procesados, cc.observaciones, cc.created_at,
+           cc.closed_by_user_id, u.name AS cerrado_por
+    FROM cash_closures cc
+    JOIN users u ON u.id = cc.closed_by_user_id
+  `;
+  const serializarCierreCaja = (cierre: any) => {
+    if (!cierre) return null;
+    const fecha = cierre.fecha instanceof Date
+      ? cierre.fecha.toISOString().slice(0, 10)
+      : String(cierre.fecha).slice(0, 10);
+    return {
+      ...cierre,
+      fecha,
+      efectivo_capturado_centavos: Number(cierre.efectivo_capturado_centavos),
+      efectivo_registrado_centavos: Number(cierre.efectivo_registrado_centavos),
+      ingresos_bancarios_centavos: Number(cierre.ingresos_bancarios_centavos),
+      total_cobrado_centavos: Number(cierre.total_cobrado_centavos),
+      diferencia_efectivo_centavos: Number(cierre.diferencia_efectivo_centavos),
+      pagos_procesados: Number(cierre.pagos_procesados),
+    };
+  };
+
+  // Devuelve el corte confirmado para que la UI no invite a cerrar dos veces.
+  app.get("/api/caja/cierre-dia", authenticateToken, async (req, res) => {
     try {
-      const campusId = (req as any).user?.campus_id;
-      const { fecha, observaciones } = req.body;
-      const today = fecha || new Date().toISOString().split('T')[0];
-      const paymentsToday = await pool.query(`
-        SELECT COUNT(*) as count, COALESCE(SUM(p.monto_centavos),0) as total
-        FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id
-        WHERE s.campus_id=$1 AND DATE(p.created_at)=$2::date
-      `, [campusId, today]).catch(() => ({ rows: [{ count: 0, total: 0 }] }));
-      res.json({
-        fecha: today,
-        pagos_procesados: Number((paymentsToday.rows[0] as any)?.count || 0),
-        total_cobrado: Number((paymentsToday.rows[0] as any)?.total || 0),
-        mensaje: "Corte de caja realizado correctamente",
-        observaciones
-      });
-    } catch (error: any) {
-      res.status(500).json({ message: "Error interno del servidor" });
+      const user = (req as any).user;
+      if (!hasPermissionForUser(user, MODULES.PAYMENTS, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para consultar cierres de caja" });
+      }
+      const campusId = Number(user?.campus_id);
+      const tenantId = Number(user?.tenant_id);
+      const fecha = typeof req.query.fecha === "string"
+        ? req.query.fecha
+        : fechaCiudadDeMexico();
+      if (!campusId || !tenantId || !esFechaIsoValida(fecha)) {
+        return res.status(400).json({ message: "Fecha de cierre inválida" });
+      }
+      if (!await checkCampusTenant(campusId, tenantId, res)) return;
+
+      const result = await pool.query(
+        `${seleccionarCierreCaja}
+         WHERE cc.campus_id = $1 AND cc.tenant_id = $2 AND cc.fecha = $3::date
+         LIMIT 1`,
+        [campusId, tenantId, fecha],
+      );
+      res.json({ cierre: serializarCierreCaja((result.rows as any[])[0]) });
+    } catch {
+      res.status(500).json({ message: "Error al consultar el cierre de caja" });
     }
+  });
+
+  // Cierre diario: snapshot persistido y auditable. La restricción única de DB
+  // garantiza que dos solicitudes concurrentes no cierren el mismo día dos veces.
+  app.post("/api/caja/cerrar-dia", authenticateToken, async (req, res) => {
+    const user = (req as any).user;
+    if (!hasPermissionForUser(user, MODULES.PAYMENTS, ACTIONS.PROCESS)) {
+      return res.status(403).json({ message: "Sin permisos para cerrar caja" });
+    }
+
+    const campusId = Number(user?.campus_id);
+    const tenantId = Number(user?.tenant_id);
+    const userId = Number(user?.id);
+    const { fecha: fechaBody, efectivo_capturado_centavos, observaciones } = req.body ?? {};
+    const fecha = typeof fechaBody === "string"
+      ? fechaBody
+      : fechaCiudadDeMexico();
+    const efectivoCapturado = Number(efectivo_capturado_centavos);
+
+    if (!campusId || !tenantId || !userId) {
+      return res.status(401).json({ message: "La sesión no identifica al usuario que realiza el cierre" });
+    }
+    if (!esFechaIsoValida(fecha)) {
+      return res.status(400).json({ message: "La fecha de cierre no es válida" });
+    }
+    if (!Number.isSafeInteger(efectivoCapturado) || efectivoCapturado < 0) {
+      return res.status(400).json({ message: "Captura un importe de efectivo válido, en centavos" });
+    }
+    if (observaciones != null && (typeof observaciones !== "string" || observaciones.length > 2_000)) {
+      return res.status(400).json({ message: "Las observaciones no son válidas" });
+    }
+    if (!await checkCampusTenant(campusId, tenantId, res)) return;
+
+    const client = await pool.connect();
+    let cierre: any;
+    let duplicate = false;
+    let transactionError: unknown = null;
+    try {
+      await client.query("BEGIN");
+      const resumen = await client.query(
+        `SELECT COUNT(*)::int AS pagos_procesados,
+                COALESCE(SUM(p.monto_centavos), 0)::bigint AS total_cobrado_centavos,
+                COALESCE(SUM(p.monto_centavos) FILTER (WHERE p.metodo = 'efectivo'), 0)::bigint
+                  AS efectivo_registrado_centavos,
+                COALESCE(SUM(p.monto_centavos) FILTER (WHERE p.metodo <> 'efectivo'), 0)::bigint
+                  AS ingresos_bancarios_centavos
+           FROM payments p
+           JOIN charges c ON c.id = p.charge_id
+           JOIN students s ON s.id = c.student_id
+          WHERE s.campus_id = $1
+            AND p.estado = 'exitoso'
+            AND DATE(p.created_at) = $2::date`,
+        [campusId, fecha],
+      );
+      const snapshot = (resumen.rows as any[])[0];
+      const efectivoRegistrado = Number(snapshot.efectivo_registrado_centavos);
+      const ingresosBancarios = Number(snapshot.ingresos_bancarios_centavos);
+      const totalCobrado = Number(snapshot.total_cobrado_centavos);
+      const pagosProcesados = Number(snapshot.pagos_procesados);
+
+      const inserted = await client.query(
+        `INSERT INTO cash_closures (
+           tenant_id, campus_id, closed_by_user_id, fecha,
+           efectivo_capturado_centavos, efectivo_registrado_centavos,
+           ingresos_bancarios_centavos, total_cobrado_centavos,
+           diferencia_efectivo_centavos, pagos_procesados, observaciones
+         ) VALUES ($1,$2,$3,$4::date,$5,$6,$7,$8,$9,$10,$11)
+         RETURNING id, fecha, efectivo_capturado_centavos, efectivo_registrado_centavos,
+                   ingresos_bancarios_centavos, total_cobrado_centavos,
+                   diferencia_efectivo_centavos, pagos_procesados, observaciones, created_at,
+                   closed_by_user_id`,
+        [
+          tenantId, campusId, userId, fecha,
+          efectivoCapturado, efectivoRegistrado, ingresosBancarios, totalCobrado,
+          efectivoCapturado - efectivoRegistrado, pagosProcesados,
+          observaciones?.trim() || null,
+        ],
+      );
+      cierre = (inserted.rows as any[])[0];
+      await client.query("COMMIT");
+    } catch (error: any) {
+      await client.query("ROLLBACK").catch(() => {});
+      if (error?.code === "23505") {
+        duplicate = true;
+      } else {
+        transactionError = error;
+      }
+    } finally {
+      client.release();
+    }
+
+    if (duplicate) {
+      const existente = await pool.query(
+        `${seleccionarCierreCaja}
+         WHERE cc.campus_id = $1 AND cc.tenant_id = $2 AND cc.fecha = $3::date
+         LIMIT 1`,
+        [campusId, tenantId, fecha],
+      );
+      return res.status(409).json({
+        message: "La caja de esta fecha ya fue cerrada; no se puede registrar un segundo corte",
+        cierre: serializarCierreCaja((existente.rows as any[])[0]),
+      });
+    }
+    if (transactionError) {
+      console.error("Error al persistir cierre de caja:", transactionError);
+      return res.status(500).json({ message: "Error al registrar el cierre de caja" });
+    }
+
+    const auditPayloadCierre: import("../audit-retry").AuditLogPayload = {
+      tenant_id: tenantId,
+      user_id: userId,
+      action: "cash_closure.created",
+      entity_type: "cash_closure",
+      entity_id: cierre.id,
+      new_value: {
+        fecha,
+        efectivo_capturado_centavos: cierre.efectivo_capturado_centavos,
+        diferencia_efectivo_centavos: cierre.diferencia_efectivo_centavos,
+      },
+      metadata: {
+        campus_id: campusId,
+        pagos_procesados: cierre.pagos_procesados,
+        total_cobrado_centavos: cierre.total_cobrado_centavos,
+        ingresos_bancarios_centavos: cierre.ingresos_bancarios_centavos,
+      },
+    };
+    pool.query(
+      `INSERT INTO audit_log
+         (tenant_id, user_id, action, entity_type, entity_id, new_value, metadata)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [
+        auditPayloadCierre.tenant_id, auditPayloadCierre.user_id,
+        auditPayloadCierre.action, auditPayloadCierre.entity_type, auditPayloadCierre.entity_id,
+        JSON.stringify(auditPayloadCierre.new_value), JSON.stringify(auditPayloadCierre.metadata),
+      ],
+    ).catch((error) => enqueueAuditLog(auditPayloadCierre, error));
+
+    res.status(201).json({
+      message: "Caja cerrada y registrada correctamente",
+      cierre: {
+        ...serializarCierreCaja(cierre),
+        cerrado_por: user?.name ?? user?.email ?? null,
+      },
+    });
   });
 
   // ── 3. CONCILIACIÓN BANCARIA SPEI ─────────────────────────────────────────

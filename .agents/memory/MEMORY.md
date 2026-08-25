@@ -66,3 +66,4 @@
 - [Assistant student navigation](assistant-student-navigation.md) — Las respuestas del asistente deben conservar studentTargets en todos sus caminos; el widget los muestra sólo con STUDENTS.READ.
 - [Reporte de commits](commit-reporting.md) — Todo reporte de trabajo terminado debe incluir hash real del commit y verificación con git ls-remote.
 - [Payment reference namespacing](payment-reference-namespacing.md) — La idempotencia manual usa referencias `manual:`; una referencia SPEI puede liquidar varios cargos.
+- [Drizzle schema creation prompt](drizzle-schema-creation.md) — Si Drizzle pregunta crear vs renombrar una tabla en modo no interactivo, no elegir renombrado; aplicar la migración versionada en desarrollo y verificar catálogo.

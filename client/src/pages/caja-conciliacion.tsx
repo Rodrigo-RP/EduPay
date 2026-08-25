@@ -1030,9 +1030,19 @@ export default function CajaConciliacion() {
 
   // Conciliación automática con bancos
   const ConciliacionAutomatica = () => {
+    const fechaCierre = new Intl.DateTimeFormat("sv-SE", {
+      timeZone: "America/Mexico_City",
+    }).format(new Date());
+    const [efectivoCapturado, setEfectivoCapturado] = useState("");
+    const [observacionesCierre, setObservacionesCierre] = useState("");
+
     const { data: estadisticasConciliacion } = useQuery<any>({
       queryKey: ["/api/caja/estadisticas-conciliacion"],
     });
+    const { data: cierreData, isLoading: cargandoCierre } = useQuery<any>({
+      queryKey: [`/api/caja/cierre-dia?fecha=${fechaCierre}`],
+    });
+    const cierreExistente = cierreData?.cierre;
 
     const ejecutarConciliacion = useMutation({
       mutationFn: () => apiRequest("/api/caja/ejecutar-conciliacion", { method: "POST", body: JSON.stringify({}) }),
@@ -1055,12 +1065,19 @@ export default function CajaConciliacion() {
     });
 
     const cerrarCaja = useMutation({
-      mutationFn: (data: any) => apiRequest("/api/caja/cerrar-dia", { method: "POST", body: JSON.stringify(data) }),
-      onSuccess: () => {
+      mutationFn: async (data: any) => {
+        const response = await apiRequest("/api/caja/cerrar-dia", {
+          method: "POST",
+          body: JSON.stringify(data),
+        });
+        return response.json();
+      },
+      onSuccess: (data: any) => {
         toast({
           title: "Caja cerrada",
-          description: "El corte de caja se realizó correctamente"
+          description: `El corte del ${data.cierre.fecha} quedó registrado correctamente`,
         });
+        queryClient.invalidateQueries({ queryKey: [`/api/caja/cierre-dia?fecha=${fechaCierre}`] });
       },
       onError: (error: any) => {
         const msg = error?.message ?? "";
@@ -1072,6 +1089,23 @@ export default function CajaConciliacion() {
         });
       },
     });
+
+    const registrarCierre = () => {
+      const monto = Number(efectivoCapturado);
+      if (!Number.isFinite(monto) || monto < 0) {
+        toast({
+          title: "Efectivo inválido",
+          description: "Captura un importe de efectivo igual o mayor a cero.",
+          variant: "destructive",
+        });
+        return;
+      }
+      cerrarCaja.mutate({
+        fecha: fechaCierre,
+        efectivo_capturado_centavos: Math.round(monto * 100),
+        observaciones: observacionesCierre,
+      });
+    };
 
     return (
       <div className="space-y-6">
@@ -1160,26 +1194,63 @@ export default function CajaConciliacion() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        {cierreExistente ? (
+          <div className="mb-4 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-900">
+            <p className="font-medium">Caja cerrada para el {cierreExistente.fecha}</p>
+            <p>
+              Efectivo capturado: ${((Number(cierreExistente.efectivo_capturado_centavos) || 0) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}.
+              {cierreExistente.cerrado_por ? ` Registró: ${cierreExistente.cerrado_por}.` : ""}
+            </p>
+          </div>
+        ) : null}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
-                <Label>Efectivo en caja</Label>
-                <Input type="number" placeholder="Total efectivo" />
+                <Label htmlFor="efectivo-cierre">Efectivo contado en caja</Label>
+                <Input
+                  id="efectivo-cierre"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={efectivoCapturado}
+                  onChange={(event) => setEfectivoCapturado(event.target.value)}
+                  disabled={Boolean(cierreExistente)}
+                />
               </div>
           <div>
-                <Label>Ingresos bancarios</Label>
-                <Input type="number" placeholder="Total transferencias" readOnly />
+                <Label htmlFor="ingresos-bancarios-cierre">Ingresos bancarios confirmados</Label>
+                <Input
+                  id="ingresos-bancarios-cierre"
+                  type="text"
+                  value={cierreExistente
+                    ? `$${((Number(cierreExistente.ingresos_bancarios_centavos) || 0) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`
+                    : "Se calcula al confirmar el cierre"}
+                  readOnly
+                />
               </div>
+            </div>
+        <div className="mb-4">
+              <Label htmlFor="observaciones-cierre">Observaciones del corte</Label>
+              <Input
+                id="observaciones-cierre"
+                maxLength={2000}
+                placeholder="Opcional"
+                value={observacionesCierre}
+                onChange={(event) => setObservacionesCierre(event.target.value)}
+                disabled={Boolean(cierreExistente)}
+              />
             </div>
 
         <div className="flex gap-2">
           <Button 
-                onClick={() => cerrarCaja.mutate({})}
-                disabled={cerrarCaja.isPending}
+                onClick={registrarCierre}
+                disabled={cerrarCaja.isPending || cargandoCierre || Boolean(cierreExistente)}
                 variant="destructive"
                 className="flex-1"
               >
                 <Calculator className="w-4 h-4 mr-2" />
-                Cerrar caja del día
+                {cierreExistente ? "Caja ya cerrada" : "Cerrar caja del día"}
               </Button>
           <Button variant="outline" className="flex-1">
                 <Download className="w-4 h-4 mr-2" />

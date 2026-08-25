@@ -27,6 +27,7 @@ pool.query("INSERT INTO audit_log ...").catch(() => {})
 
 **How to apply:**
 - Aplica a: `POST /api/guardian/pagar`, `POST /api/payments/process`, `POST /api/caja/pago-efectivo`
+- También aplica a mutaciones que cancelan o reestructuran cargos: bloquear los `charges` implicados y recalcular saldo dentro de la misma transacción antes de cancelar, condonar o reinstalar.
 - NO usar `storage.updateChargeStatus()` para endpoints de pago — esa función tiene `SELECT FOR UPDATE` pero no escribe `payment_applications`
 - La excepción `if (from === to) return;` en `state-machines.ts:101` es la causa de que pagado→pagado silenciosamente pase: el FOR UPDATE serializa, pero si la transición se considera identidad, el segundo request también completa
 - Referencia de implementación correcta: ver también `caja/ejecutar-conciliacion` (conciliacion.ts:250-297) y `POST /api/admin/charges/:id/pagar-manual`
@@ -39,3 +40,16 @@ pool.query("INSERT INTO audit_log ...").catch(() => {})
 - Acepta `charge_id` opcional en el body para targeting explícito (si no, auto-selecciona el más antiguo)
 
 `guardian/pagar` y `payments/process` siempre pagan el saldo completo — no hay parcialidad.
+
+## Reestructuraciones y cancelaciones
+
+Un pago manual puede correr al mismo tiempo que una reestructuración o una
+cancelación de plan. La mutación de plan debe bloquear primero el plan y sus
+cargos, y sólo después volver a leer estados, aplicaciones y saldo pendiente.
+
+**Why:** Calcular el saldo antes de `BEGIN` puede reinstalar una deuda que ya
+quedó pagada, o cancelar un cargo cuyo pago ya fue acreditado.
+
+**How to apply:** Después de los locks, usar el saldo del ledger
+(`monto_base + recargo - SUM(payment_applications)`) para generar cuotas o un
+cargo reinstalado; nunca reutilizar un total calculado fuera de la transacción.

@@ -1,6 +1,6 @@
 // Planes de Pago Negociados — convenios para familias con adeudos (ADR-002)
 // Las cuotas son charges reales (plan_id FK). El pago usa /api/admin/charges/:id/pagar-manual.
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +32,7 @@ export default function PlanesPago() {
   const queryClient = useQueryClient();
   const campusId = user?.campus_id || 1;
   const [showModal, setShowModal] = useState(false);
+  const [showRestructureModal, setShowRestructureModal] = useState(false);
   const [expandedPlan, setExpandedPlan] = useState<number | null>(null);
   const [planParaCancelar, setPlanParaCancelar] = useState<any | null>(null);
   const [destinoCancelacion, setDestinoCancelacion] = useState<"condonar" | "reinstalar">("condonar");
@@ -54,6 +55,15 @@ export default function PlanesPago() {
     fecha_inicio:           new Date().toISOString().split("T")[0],
     observaciones:          "",
   });
+  const [reestructForm, setReestructForm] = useState({
+    student_id: "",
+    charge_ids: [] as number[],
+    monto_inicial_centavos: "0",
+    numero_pagos: "4",
+    frecuencia: "mensual",
+    fecha_inicio: new Date().toISOString().split("T")[0],
+    observaciones: "",
+  });
 
   // ── Datos remotos ─────────────────────────────────────────────────────────
   const { data: planes, isLoading } = useQuery<any[]>({
@@ -71,6 +81,12 @@ export default function PlanesPago() {
     select: (data: any[]) => data.filter((c: any) => c.tipo !== "cuota_plan"),
   });
 
+  const { data: reestructOpciones } = useQuery<{ students: any[]; charges: any[] }>({
+    queryKey: ["/api/planes-pago/opciones-reestructuracion", campusId],
+    queryFn: () => apiRequest("/api/planes-pago/opciones-reestructuracion").then(r => r.json()),
+    enabled: showRestructureModal,
+  });
+
   // ── Mutations ─────────────────────────────────────────────────────────────
   const crearPlan = useMutation({
     mutationFn: (data: any) => apiRequest("/api/planes-pago", { method: "POST", body: JSON.stringify(data) }),
@@ -81,6 +97,17 @@ export default function PlanesPago() {
       queryClient.invalidateQueries({ queryKey: ["/api/planes-pago"] });
     },
     onError: (err: any) => toast({ title: "Error al crear plan", description: String(err?.message || ""), variant: "destructive" }),
+  });
+
+  const crearReestructuracion = useMutation({
+    mutationFn: (data: any) => apiRequest("/api/planes-pago", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      toast({ title: "Reestructuración creada", description: "El adeudo se convirtió en un convenio con sus cuotas." });
+      setShowRestructureModal(false);
+      setReestructForm(f => ({ ...f, student_id: "", charge_ids: [], observaciones: "" }));
+      queryClient.invalidateQueries({ queryKey: ["/api/planes-pago"] });
+    },
+    onError: (err: any) => toast({ title: "Error al reestructurar adeudo", description: String(err?.message || ""), variant: "destructive" }),
   });
 
   // ADR-002: las cuotas son charges reales → pagar con endpoint admin
@@ -208,6 +235,21 @@ export default function PlanesPago() {
     completados: (planes || []).filter(p => p.estado === "completado").length,
     incumplidos: (planes || []).filter(p => p.estado === "incumplido").length,
   };
+  const cargosSeleccionables = useMemo(
+    () => (reestructOpciones?.charges || []).filter(c => String(c.student_id) === reestructForm.student_id),
+    [reestructOpciones?.charges, reestructForm.student_id],
+  );
+  const saldoReestructurado = cargosSeleccionables
+    .filter(c => reestructForm.charge_ids.includes(Number(c.id)))
+    .reduce((sum, c) => sum + Number(c.saldo_centavos || 0), 0);
+  const toggleCharge = (chargeId: number) => {
+    setReestructForm(f => ({
+      ...f,
+      charge_ids: f.charge_ids.includes(chargeId)
+        ? f.charge_ids.filter(id => id !== chargeId)
+        : [...f.charge_ids, chargeId],
+    }));
+  };
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -221,6 +263,109 @@ export default function PlanesPago() {
           <p className="text-slate-500 text-sm mt-1">Convenios de pago en parcialidades para familias con adeudos</p>
         </div>
 
+        <div className="flex items-center gap-2">
+        <Dialog open={showRestructureModal} onOpenChange={open => {
+          setShowRestructureModal(open);
+          if (!open) setReestructForm(f => ({ ...f, student_id: "", charge_ids: [], observaciones: "" }));
+        }}>
+          <DialogTrigger asChild>
+            <Button variant="outline" className="gap-2 border-orange-300 text-orange-800 hover:bg-orange-50">
+              <DollarSign className="w-4 h-4" /> Reestructurar adeudo
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Reestructurar adeudo</DialogTitle>
+              <DialogDescription>Selecciona los cargos pendientes que se convertirán en un nuevo convenio.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 pt-2">
+              <div>
+                <Label>Estudiante</Label>
+                <Select
+                  value={reestructForm.student_id}
+                  onValueChange={value => setReestructForm(f => ({ ...f, student_id: value, charge_ids: [] }))}
+                >
+                  <SelectTrigger aria-label="Estudiante para reestructurar">
+                    <SelectValue placeholder="Seleccionar alumno..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(reestructOpciones?.students || []).map((student: any) => (
+                      <SelectItem key={student.id} value={String(student.id)}>
+                        {student.nombre_completo || `Estudiante #${student.id}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {reestructForm.student_id && (
+                <div className="space-y-2">
+                  <Label>Cargos a reestructurar</Label>
+                  {cargosSeleccionables.length === 0 ? (
+                    <p className="text-sm text-slate-500">Este alumno no tiene cargos con saldo pendiente.</p>
+                  ) : cargosSeleccionables.map((charge: any) => {
+                    const selected = reestructForm.charge_ids.includes(Number(charge.id));
+                    return (
+                      <button
+                        type="button"
+                        key={charge.id}
+                        aria-pressed={selected}
+                        onClick={() => toggleCharge(Number(charge.id))}
+                        className={`w-full rounded border p-3 text-left text-sm transition ${
+                          selected ? "border-orange-400 bg-orange-50" : "border-slate-200 bg-slate-50 hover:border-orange-300"
+                        }`}
+                      >
+                        <span className="font-medium">{charge.concept_name}</span>
+                        <span className="float-right font-semibold">${(Number(charge.saldo_centavos) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+                        <span className="block text-xs text-slate-500">Cargo #{charge.id} · {selected ? "Seleccionado" : "Seleccionar"}</span>
+                      </button>
+                    );
+                  })}
+                  <p className="text-sm font-semibold text-orange-800">
+                    Saldo seleccionado: ${(saldoReestructurado / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Enganche inicial ($)</Label>
+                  <Input type="number" min="0" step="0.01" value={reestructForm.monto_inicial_centavos}
+                    onChange={e => setReestructForm(f => ({ ...f, monto_inicial_centavos: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Número de cuotas</Label>
+                  <Select value={reestructForm.numero_pagos} onValueChange={value => setReestructForm(f => ({ ...f, numero_pagos: value }))}>
+                    <SelectTrigger aria-label="Número de cuotas para reestructurar"><SelectValue /></SelectTrigger>
+                    <SelectContent>{[2, 3, 4, 6, 8, 10, 12].map(n => <SelectItem key={n} value={String(n)}>{n} cuotas</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label>Fecha inicio</Label>
+                <Input type="date" value={reestructForm.fecha_inicio}
+                  onChange={e => setReestructForm(f => ({ ...f, fecha_inicio: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Observaciones</Label>
+                <Textarea placeholder="Notas de la reestructuración..." rows={2} value={reestructForm.observaciones}
+                  onChange={e => setReestructForm(f => ({ ...f, observaciones: e.target.value }))} />
+              </div>
+              <Button
+                className="w-full bg-orange-600 hover:bg-orange-700"
+                disabled={!reestructForm.student_id || reestructForm.charge_ids.length === 0 || crearReestructuracion.isPending}
+                onClick={() => crearReestructuracion.mutate({
+                  charge_ids: reestructForm.charge_ids,
+                  monto_inicial_centavos: Number(reestructForm.monto_inicial_centavos || 0) * 100,
+                  numero_pagos: Number(reestructForm.numero_pagos),
+                  frecuencia: reestructForm.frecuencia,
+                  fecha_inicio: reestructForm.fecha_inicio,
+                  observaciones: reestructForm.observaciones || undefined,
+                })}
+              >
+                {crearReestructuracion.isPending ? "Reestructurando..." : "Crear reestructuración"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
         <Dialog open={showModal} onOpenChange={setShowModal}>
           <DialogTrigger asChild>
             <Button className="gap-2 bg-amber-600 hover:bg-amber-700">
@@ -237,7 +382,7 @@ export default function PlanesPago() {
               <div>
                 <Label>Estudiante</Label>
                 <Select value={form.student_id} onValueChange={v => setForm(f => ({ ...f, student_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar alumno..." /></SelectTrigger>
+                  <SelectTrigger aria-label="Estudiante del convenio"><SelectValue placeholder="Seleccionar alumno..." /></SelectTrigger>
                   <SelectContent>
                     {(estudiantes || []).map((e: any) => (
                       <SelectItem key={e.id} value={String(e.id)}>
@@ -252,7 +397,7 @@ export default function PlanesPago() {
               <div>
                 <Label>Concepto del convenio</Label>
                 <Select value={form.concept_id} onValueChange={v => setForm(f => ({ ...f, concept_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar concepto..." /></SelectTrigger>
+                  <SelectTrigger aria-label="Concepto del convenio"><SelectValue placeholder="Seleccionar concepto..." /></SelectTrigger>
                   <SelectContent>
                     {(conceptos || []).map((c: any) => (
                       <SelectItem key={c.id} value={String(c.id)}>
@@ -278,7 +423,7 @@ export default function PlanesPago() {
                 <div>
                   <Label>Frecuencia</Label>
                   <Select value={form.frecuencia} onValueChange={v => setForm(f => ({ ...f, frecuencia: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-label="Frecuencia del convenio"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="semanal">Semanal</SelectItem>
                       <SelectItem value="quincenal">Quincenal</SelectItem>
@@ -292,7 +437,7 @@ export default function PlanesPago() {
                 <div>
                   <Label>Número de cuotas</Label>
                   <Select value={form.numero_pagos} onValueChange={v => setForm(f => ({ ...f, numero_pagos: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-label="Número de cuotas del convenio"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {[2, 3, 4, 6, 8, 10, 12].map(n => (
                         <SelectItem key={n} value={String(n)}>{n} cuotas</SelectItem>
@@ -359,6 +504,7 @@ export default function PlanesPago() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Tarjetas resumen */}
@@ -406,7 +552,7 @@ export default function PlanesPago() {
             const isExpanded = expandedPlan === plan.id;
 
             return (
-              <Card key={plan.id} className={plan.estado === "incumplido" ? "border-red-200" : ""}>
+              <Card key={plan.id} data-plan-card={plan.id} className={plan.estado === "incumplido" ? "border-red-200" : ""}>
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">

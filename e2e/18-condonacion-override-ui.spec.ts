@@ -195,6 +195,9 @@ test.describe("Condonación repetida — UI de Planes de Pago", () => {
     expect(auditChain.rows.map((row: any) => row.action)).toEqual(
       expect.arrayContaining(["ALERTA_CONDONACION_REPETIDA", "generacion_override_condonacion", "saldo_condonado"]),
     );
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { name: "Planes de Pago" })).toBeVisible();
+    await expect(page.getByText("Cancelado", { exact: true })).toHaveCount(2);
   });
 
   test("administrador_campus ve el bloqueo, sin control para generar token", async ({ page }) => {

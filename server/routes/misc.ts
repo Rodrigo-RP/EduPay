@@ -61,6 +61,66 @@ async function generarCuotaCharges(
 
 export function registerMiscRoutes(app: Express): void {
 
+  // ── PLANES DE PAGO — Opciones para reestructuración Modo A ────────────────
+  app.get("/api/planes-pago/opciones-reestructuracion", authenticateToken, async (req: any, res) => {
+    if (!hasPermissionForUser(req.user, MODULES.CHARGES, ACTIONS.CREATE)) {
+      return res.status(403).json({ message: "Sin permisos para crear planes de pago" });
+    }
+    try {
+      const campusId = Number(req.user?.campus_id);
+      const tenantId = Number(req.user?.tenant_id);
+      if (!Number.isSafeInteger(campusId) || !Number.isSafeInteger(tenantId)) {
+        return res.status(400).json({ message: "Campus y tenant son requeridos" });
+      }
+      const result = await pool.query(
+        `SELECT s.id AS student_id, s.nombre_completo AS student_name,
+                s.grado AS student_grade, s.id_referencia AS student_reference,
+                c.id AS charge_id, c.concept_id, co.nombre AS concept_name,
+                c.monto_base_centavos, c.recargo_aplicado_centavos,
+                COALESCE(SUM(pa.amount_centavos), 0)::bigint AS paid_centavos
+           FROM students s
+           JOIN charges c ON c.student_id = s.id
+           JOIN concepts co ON co.id = c.concept_id
+           LEFT JOIN payment_applications pa ON pa.charge_id = c.id
+          WHERE s.tenant_id = $1
+            AND s.campus_id = $2
+            AND c.tenant_id = $1
+            AND c.estado IN ('pendiente', 'parcial')
+          GROUP BY s.id, c.id, co.id
+         HAVING c.monto_base_centavos + COALESCE(c.recargo_aplicado_centavos, 0)
+              - COALESCE(SUM(pa.amount_centavos), 0) > 0
+          ORDER BY s.nombre_completo, c.fecha_vencimiento, c.id`,
+        [tenantId, campusId],
+      );
+      res.json({
+        students: result.rows.reduce((items: any[], row: any) => {
+          if (!items.some((student) => Number(student.id) === Number(row.student_id))) {
+            items.push({
+              id: Number(row.student_id),
+              nombre_completo: row.student_name,
+              grado: row.student_grade,
+              id_referencia: row.student_reference,
+            });
+          }
+          return items;
+        }, []),
+        charges: result.rows.map((row: any) => ({
+          id: Number(row.charge_id),
+          student_id: Number(row.student_id),
+          concept_id: Number(row.concept_id),
+          concept_name: row.concept_name,
+          saldo_centavos:
+            Number(row.monto_base_centavos) +
+            Number(row.recargo_aplicado_centavos || 0) -
+            Number(row.paid_centavos || 0),
+        })),
+      });
+    } catch (error: any) {
+      console.error("Error cargando opciones de reestructuración:", error);
+      res.status(500).json({ message: "No se pudieron cargar los cargos pendientes" });
+    }
+  });
+
   // ── PLANES DE PAGO — GET con campusId ────────────────────────────────────
   app.get("/api/planes-pago/:campusId", authenticateToken, async (req: any, res) => {
     if (!hasPermissionForUser(req.user, MODULES.RECEIVABLES, ACTIONS.READ)) {

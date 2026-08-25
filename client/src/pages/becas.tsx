@@ -241,10 +241,65 @@ export default function Becas() {
   const [importResults, setImportResults] = useState<any>(null);
   const [showImportResults, setShowImportResults] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const campusId = user?.campus_id;
   const { data: scholarshipAssignments = [] } = useQuery<any[]>({
     queryKey: ["/api/scholarships", campusId],
     enabled: Boolean(campusId),
+  });
+  const { data: students = [], isLoading: studentsLoading } = useQuery<any[]>({
+    queryKey: ["/api/admin/students", campusId],
+    enabled: Boolean(campusId),
+  });
+  const [manualAssignment, setManualAssignment] = useState(() => {
+    const start = new Date();
+    const end = new Date(start);
+    end.setFullYear(end.getFullYear() + 1);
+    return {
+      studentId: "",
+      tipoBeca: "",
+      porcentaje: "",
+      vigenciaInicio: start.toISOString().split("T")[0],
+      vigenciaFin: end.toISOString().split("T")[0],
+      motivo: "",
+    };
+  });
+  const [assignmentResult, setAssignmentResult] = useState<any>(null);
+  const asignarBecaIndividual = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest(`/api/admin/students/${manualAssignment.studentId}/beca`, {
+        method: "POST",
+        body: JSON.stringify({
+          porcentaje: Number(manualAssignment.porcentaje),
+          motivo: [manualAssignment.tipoBeca, manualAssignment.motivo].filter(Boolean).join(" — ") || undefined,
+          vigencia_inicio: manualAssignment.vigenciaInicio || undefined,
+          vigencia_fin: manualAssignment.vigenciaFin || undefined,
+        }),
+      });
+      return response.json();
+    },
+    onSuccess: (result: any) => {
+      setAssignmentResult(result);
+      queryClient.invalidateQueries({ queryKey: ["/api/scholarships"] });
+      toast({
+        title: result.overlap_warning ? "Beca asignada con advertencia" : "Beca asignada",
+        description: result.overlap_warning
+          ? "El alumno ya tenía una beca vigente. Revisa el aviso antes de continuar."
+          : "La asignación quedó guardada correctamente.",
+        variant: result.overlap_warning ? "default" : undefined,
+      });
+    },
+    onError: (error: any) => {
+      let message = "No se pudo asignar la beca.";
+      const rawMessage = String(error?.message || "");
+      try {
+        const parsed = JSON.parse(rawMessage.replace(/^\d+:\s*/, ""));
+        message = parsed.message || message;
+      } catch {
+        if (rawMessage) message = rawMessage.replace(/^\d+:\s*/, "");
+      }
+      toast({ title: "Error al asignar beca", description: message, variant: "destructive" });
+    },
   });
 
   // Funciones para importación masiva de CSV - usando el mismo patrón que estudiantes
@@ -500,88 +555,6 @@ export default function Becas() {
     }
   ];
 
-  // Estudiantes para gestión de becas
-  const estudiantesParaBecasMock = [
-    {
-      id: 1,
-      nombre_completo: "Ana García Pérez",
-      grado: "5to Primaria",
-      hermanos_inscritos: 1,
-      tipo_solicitud: "socioeconomica",
-      grupo: "A",
-      monto_mensual_descuento: 150000, // $1,500 MXN
-      porcentaje_asignado: 50,
-      estado: "Activa",
-      fecha_asignacion: "2024-08-15",
-      observaciones: "Renovación automática cada semestre"
-    },
-    {
-      id: 2,
-      nombre_completo: "Carlos Mendoza Silva", 
-      grado: "3ro Secundaria",
-      hermanos_inscritos: 3,
-      tipo_solicitud: "familiar",
-      grupo: "B",
-      monto_mensual_descuento: 90000, // $900 MXN
-      porcentaje_asignado: 30,
-      estado: "Automática",
-      fecha_asignacion: "2024-08-01",
-      observaciones: "Aplicado automáticamente por sistema"
-    },
-    {
-      id: 3,
-      nombre_completo: "Sofia López Torres",
-      grado: "1ro Bachillerato", 
-      hermanos_inscritos: 2,
-      tipo_solicitud: "convenio",
-      grupo: "A",
-      monto_mensual_descuento: 225000, // $2,250 MXN
-      porcentaje_asignado: 75,
-      estado: "Activa",
-      fecha_asignacion: "2024-09-01",
-      observaciones: "Convenio con Grupo Industrial SA"
-    },
-    {
-      id: 4,
-      nombre_completo: "Miguel Ramírez Castro",
-      grado: "2do Secundaria",
-      hermanos_inscritos: 0,
-      tipo_solicitud: "deportiva",
-      grupo: "C",
-      monto_mensual_descuento: 120000, // $1,200 MXN
-      porcentaje_asignado: 40,
-      estado: "Pendiente Renovación",
-      fecha_asignacion: "2024-08-20",
-      observaciones: "Requiere constancia de participación actualizada"
-    },
-    {
-      id: 5,
-      nombre_completo: "Elena Morales Jiménez",
-      grado: "4to Primaria",
-      grupo: "B",
-      hermanos_inscritos: 0,
-      tipo_solicitud: "cantidad_fija",
-      porcentaje_asignado: 0, // No aplica para cantidad fija
-      monto_mensual_descuento: 150000, // $1,500 MXN fijos
-      estado: "Activa",
-      fecha_asignacion: "2024-09-10",
-      observaciones: "Descuento fijo de $1,500 mensuales por situación especial familiar"
-    },
-    {
-      id: 6,
-      nombre_completo: "Roberto García Mendoza",
-      grado: "1ro Bachillerato",
-      grupo: "C",
-      hermanos_inscritos: 1,
-      tipo_solicitud: "cantidad_fija",
-      porcentaje_asignado: 0, // No aplica para cantidad fija
-      monto_mensual_descuento: 250000, // $2,500 MXN fijos
-      estado: "Activa",
-      fecha_asignacion: "2024-08-25",
-      observaciones: "Descuento premium fijo de $2,500 mensuales por excelencia académica sostenida"
-    }
-  ];
-
   // `vigente` se calcula en el backend con la misma regla que usa el asistente:
   // alumno activo del campus actual y beca con vigencia válida hoy.
   const becasVigentes = scholarshipAssignments.filter(
@@ -815,148 +788,147 @@ ${b.nombre}:
                 </TabsList>
                 
                 <TabsContent value="individual" className="space-y-6 mt-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="estudiante">Estudiante</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Buscar estudiante..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ana">Ana García Pérez - 5to Primaria</SelectItem>
-                        <SelectItem value="carlos">Carlos Mendoza Silva - 3ro Secundaria</SelectItem>
-                        <SelectItem value="sofia">Sofia López Torres - 1ro Bachillerato</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="tipo_beca">Tipo de Beca</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar beca..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="usebeq">Beca USEBEQ</SelectItem>
-                        <SelectItem value="convenio">Beca por Convenio</SelectItem>
-                        <SelectItem value="deportiva">Beca Deportiva</SelectItem>
-                        <SelectItem value="cultural">Beca Cultural</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Selector de tipo de descuento */}
-                <div>
-                  <Label>Tipo de Descuento</Label>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    <Button 
-                      variant={tipoDescuento === 'porcentaje' ? 'default' : 'outline'}
-                      onClick={() => setTipoDescuento('porcentaje')}
-                      className="w-full"
-                    >
-                      <Percent className="h-4 w-4 mr-2" />
-                      Porcentaje (%)
-                    </Button>
-                    <Button 
-                      variant={tipoDescuento === 'cantidad' ? 'default' : 'outline'}
-                      onClick={() => setTipoDescuento('cantidad')}
-                      className="w-full"
-                    >
-                      <DollarSign className="h-4 w-4 mr-2" />
-                      Cantidad Fija ($)
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  {tipoDescuento === 'porcentaje' ? (
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="porcentaje">Porcentaje de Descuento (%)</Label>
-                      <Input 
-                        id="porcentaje" 
-                        type="number" 
-                        min="0" 
-                        max="100" 
+                      <Label htmlFor="estudiante">Estudiante</Label>
+                      <Select
+                        value={manualAssignment.studentId}
+                        onValueChange={(studentId) => {
+                          setAssignmentResult(null);
+                          setManualAssignment((current) => ({ ...current, studentId }));
+                        }}
+                      >
+                        <SelectTrigger id="estudiante">
+                          <SelectValue placeholder={studentsLoading ? "Cargando alumnos..." : "Buscar estudiante..."} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {students.map((student: any) => (
+                            <SelectItem key={student.id} value={String(student.id)}>
+                              {student.nombre_completo || `${student.nombre || ""} ${student.apellido || ""}`.trim() || `Alumno #${student.id}`}
+                              {student.grado ? ` — ${student.grado}` : ""}
+                            </SelectItem>
+                          ))}
+                          {!studentsLoading && students.length === 0 && (
+                            <SelectItem value="sin-alumnos" disabled>No hay alumnos en este campus</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="tipo_beca">Tipo de Beca</Label>
+                      <Select
+                        value={manualAssignment.tipoBeca}
+                        onValueChange={(tipoBeca) => {
+                          setAssignmentResult(null);
+                          setManualAssignment((current) => ({ ...current, tipoBeca }));
+                        }}
+                      >
+                        <SelectTrigger id="tipo_beca">
+                          <SelectValue placeholder="Seleccionar motivo..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Beca USEBEQ">Beca USEBEQ</SelectItem>
+                          <SelectItem value="Beca por Convenio">Beca por Convenio</SelectItem>
+                          <SelectItem value="Beca Deportiva">Beca Deportiva</SelectItem>
+                          <SelectItem value="Beca Cultural">Beca Cultural</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="porcentaje">Porcentaje de descuento (%)</Label>
+                      <Input
+                        id="porcentaje"
+                        type="number"
+                        min="1"
+                        max="100"
                         placeholder="50"
+                        value={manualAssignment.porcentaje}
+                        onChange={(event) => {
+                          setAssignmentResult(null);
+                          setManualAssignment((current) => ({ ...current, porcentaje: event.target.value }));
+                        }}
                         className="text-center font-bold text-lg"
                       />
-                      <div className="text-xs text-gray-500 mt-1">Entre 0% y 100% de descuento</div>
                     </div>
-                  ) : (
                     <div>
-                      <Label htmlFor="cantidad">Cantidad Fija de Descuento ($)</Label>
-                      <div className="relative">
-                        <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input 
-                          id="cantidad" 
-                          type="number" 
-                          min="0" 
-                          placeholder="1500"
-                          className="pl-10 text-center font-bold text-lg"
-                        />
+                      <Label htmlFor="vigencia_inicio">Inicio de vigencia</Label>
+                      <Input
+                        id="vigencia_inicio"
+                        type="date"
+                        value={manualAssignment.vigenciaInicio}
+                        onChange={(event) => setManualAssignment((current) => ({ ...current, vigenciaInicio: event.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="vigencia_fin">Fin de vigencia</Label>
+                      <Input
+                        id="vigencia_fin"
+                        type="date"
+                        value={manualAssignment.vigenciaFin}
+                        onChange={(event) => setManualAssignment((current) => ({ ...current, vigenciaFin: event.target.value }))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-900">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <Calculator className="h-4 w-4 text-blue-600" />
+                      <h4 className="font-medium">Descuento por porcentaje</h4>
+                    </div>
+                    Se aplicará sobre cada colegiatura. El endpoint no admite montos fijos para una asignación individual.
+                  </div>
+
+                  {assignmentResult?.overlap_warning && (
+                    <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 text-sm text-amber-950" role="alert">
+                      <div className="flex items-center gap-2 font-semibold">
+                        <AlertTriangle className="h-4 w-4" />
+                        El alumno ya tiene una beca vigente
                       </div>
-                      <div className="text-xs text-gray-500 mt-1">Monto fijo en pesos mexicanos</div>
+                      <p className="mt-1">
+                        Esta asignación se guardó, pero existen {assignmentResult.becas_vigentes_previas?.length || 1} beca(s) vigente(s).
+                        La generación de cargos conservará el porcentaje más alto.
+                      </p>
                     </div>
                   )}
+
+                  {assignmentResult && !assignmentResult.overlap_warning && (
+                    <div className="bg-green-50 border border-green-300 rounded-lg p-4 text-sm text-green-900">
+                      Beca de {assignmentResult.porcentaje}% asignada a {assignmentResult.alumno}.
+                    </div>
+                  )}
+
                   <div>
-                    <Label htmlFor="vigencia">Vigencia</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar vigencia..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="semestre">Un semestre</SelectItem>
-                        <SelectItem value="anual">Ciclo completo 2026-2027</SelectItem>
-                        <SelectItem value="permanente">Permanente (hasta graduación)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="observaciones">Observaciones</Label>
+                    <Textarea
+                      id="observaciones"
+                      value={manualAssignment.motivo}
+                      onChange={(event) => {
+                        setAssignmentResult(null);
+                        setManualAssignment((current) => ({ ...current, motivo: event.target.value }));
+                      }}
+                      placeholder="Motivo de la beca, documentos adjuntos o condiciones especiales..."
+                    />
                   </div>
-                </div>
 
-                {/* Vista previa del descuento */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Calculator className="h-4 w-4 text-blue-600" />
-                    <h4 className="font-medium text-blue-900">Vista Previa del Descuento</h4>
+                  <div className="flex justify-end space-x-2">
+                    <Button variant="outline" onClick={() => setShowAsignarModal(false)}>
+                      Cancelar
+                    </Button>
+                    <Button
+                      disabled={
+                        !manualAssignment.studentId ||
+                        !manualAssignment.tipoBeca ||
+                        !manualAssignment.porcentaje ||
+                        asignarBecaIndividual.isPending
+                      }
+                      onClick={() => asignarBecaIndividual.mutate()}
+                    >
+                      {asignarBecaIndividual.isPending ? "Asignando..." : "Asignar Beca"}
+                    </Button>
                   </div>
-                  <div className="text-sm text-gray-600">
-                    {tipoDescuento === 'porcentaje' ? (
-                      <div>
-                        <div>• Tipo: Descuento por porcentaje</div>
-                        <div>• Aplicación: Se calculará sobre el monto total de cada colegiatura</div>
-                        <div>• Ejemplo: Si la colegiatura es $3,000 y el descuento es 50%, se aplicará un descuento de $1,500</div>
-                      </div>
-                    ) : (
-                      <div>
-                        <div>• Tipo: Descuento por cantidad fija</div>
-                        <div>• Aplicación: Se restará la cantidad exacta especificada</div>
-                        <div>• Ejemplo: Si especificas $1,500, siempre se descontará exactamente $1,500 independientemente del monto de la colegiatura</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="observaciones">Observaciones</Label>
-                  <Textarea id="observaciones" placeholder="Motivo de la beca, documentos adjuntos, condiciones especiales..." />
-                </div>
-
-                <div className="flex justify-end space-x-2">
-                  <Button variant="outline" onClick={() => setShowAsignarModal(false)}>
-                    Cancelar
-                  </Button>
-                  <Button onClick={() => {
-                    setShowAsignarModal(false);
-                    toast({
-                      title: `Beca Asignada - ${tipoDescuento === 'porcentaje' ? 'Porcentaje' : 'Cantidad Fija'}`,
-                      description: tipoDescuento === 'porcentaje' ? 
-                        "Descuento por porcentaje asignado exitosamente. Se aplicará sobre el monto total de cada colegiatura." :
-                        "Descuento por cantidad fija asignado exitosamente. Se descontará el monto exacto especificado.",
-                    });
-                  }}>
-                    Asignar Beca
-                  </Button>
-                </div>
                 </TabsContent>
 
                 <TabsContent value="excel" className="space-y-6 mt-4">

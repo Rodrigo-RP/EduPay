@@ -709,10 +709,13 @@ export function registerFiscalRoutes(app: Express): void {
         return res.status(403).json({ message: "Sin permisos para gestionar becas" });
       }
       const campusId = (req as any).user?.campus_id;
-      await pool.query(
+      const result = await pool.query(
         `DELETE FROM scholarship_auto_rules WHERE id = $1 AND campus_id = $2`,
         [parseInt(req.params.id), campusId],
       );
+      if (result.rowCount !== 1) {
+        return res.status(404).json({ message: "Regla no encontrada en este campus" });
+      }
       res.json({ message: "Regla eliminada" });
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });

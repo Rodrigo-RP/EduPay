@@ -42,6 +42,7 @@ import { JWT_SECRET } from "../routes/shared";
 
 let tenantId     = 0;
 let campusId     = 0;
+let catalogProductId = 0;
 let adminId      = 0;
 let contadorId   = 0;
 let auxiliarId   = 0;
@@ -83,6 +84,14 @@ beforeAll(async () => {
     [tenantId, `Campus-CHG-${TS}`]
   );
   campusId = cRow.rows[0].id;
+  const productRow = await pool.query(
+    `INSERT INTO products
+       (campus_id, tenant_id, codigo, nombre, categoria)
+     VALUES ($1, $2, $3, $4, 'COLEGIATURAS')
+     RETURNING id`,
+    [campusId, tenantId, `CHG-${TS}`, `Producto CHG ${TS}`],
+  );
+  catalogProductId = productRow.rows[0].id;
 
   async function createUser(name: string, role: string, prefix: string): Promise<number> {
     const r = await pool.query(
@@ -113,6 +122,7 @@ beforeAll(async () => {
 afterAll(async () => {
   if (!tenantId) return;
   await pool.query(`DELETE FROM users    WHERE tenant_id = $1`, [tenantId]).catch(() => {});
+  await pool.query(`DELETE FROM products WHERE tenant_id = $1`, [tenantId]).catch(() => {});
   await pool.query(`DELETE FROM campuses WHERE tenant_id = $1`, [tenantId]).catch(() => {});
   await pool.query(`DELETE FROM tenants  WHERE id = $1`,        [tenantId]).catch(() => {});
 });
@@ -148,7 +158,7 @@ function postDesdeCatalogo(token: string) {
   return fetch(`${BASE}/api/admin/cargos/desde-catalogo`, {
     method : "POST",
     headers: { "Content-Type": "application/json", ...authH(token) },
-    body   : JSON.stringify({ producto_id: "1" }),
+    body   : JSON.stringify({ producto_id: String(catalogProductId) }),
   });
 }
 

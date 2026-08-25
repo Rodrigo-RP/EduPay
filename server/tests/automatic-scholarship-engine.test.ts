@@ -220,4 +220,24 @@ describe("motor de becas automáticas idempotente", () => {
     const crossCampus = await request(`/api/becas-auto/reglas/${campusId + 999999}`);
     expect(crossCampus.status).toBe(403);
   });
+
+  it("confirma el borrado de una regla y responde 404 si ya no existe", async () => {
+    const created = await request("/api/becas-auto/reglas", {
+      method: "POST",
+      body: JSON.stringify({
+        nombre: "Regla temporal para borrar",
+        tipo: "hermanos",
+        descuento_porcentaje: 15,
+        aplica_a: "todos",
+      }),
+    });
+    expect(created.status).toBe(200);
+
+    const deleted = await request(`/api/becas-auto/reglas/${created.body.id}`, { method: "DELETE" });
+    expect(deleted.status).toBe(200);
+    expect(deleted.body.message).toMatch(/eliminada/i);
+
+    const missing = await request(`/api/becas-auto/reglas/${created.body.id}`, { method: "DELETE" });
+    expect(missing.status).toBe(404);
+  });
 });

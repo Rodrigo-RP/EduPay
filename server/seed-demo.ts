@@ -966,7 +966,7 @@ export async function seedDemoData() {
     );
     await pool.query(
       `INSERT INTO scholarship_auto_rules (campus_id, tenant_id, nombre, tipo, condicion_json, descuento_porcentaje, aplica_a, activo)
-       VALUES ($1,$2,'Regla hermanos demo','hermanos','{"minimo_hermanos":2}',10.00,'colegiatura',true)`,
+        VALUES ($1,$2,'Regla hermanos demo','hermanos','{"minimo_hermanos":2}',10.00,'todos',true)`,
       [campusNorte.id, tenant.id],
     );
 

@@ -23,6 +23,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getAuthToken } from "@/lib/authUtils";
 import MigrationDashboard from "@/components/migration-dashboard";
 import DataValidationReport from "@/components/data-validation-report";
 
@@ -45,13 +46,25 @@ interface Template {
   status: 'pending' | 'completed' | 'error';
 }
 
+interface ImportResult {
+  successful: number;
+  skipped: number;
+  failed: number;
+  errors: string[];
+  skipped_details: string[];
+  warnings: string[];
+  preview: Record<string, unknown>[];
+  total: number;
+  committed: boolean;
+}
+
 export default function ImportacionDatos() {
   const { toast } = useToast();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importProgress, setImportProgress] = useState(0);
   const [isImporting, setIsImporting] = useState(false);
-  const [previewData, setPreviewData] = useState<any[]>([]);
-  const [showPreview, setShowPreview] = useState(false);
+  const [previewResult, setPreviewResult] = useState<ImportResult | null>(null);
+  const [previewContext, setPreviewContext] = useState<string | null>(null);
 
   // Categorías de templates organizadas por prioridad
   const templateCategories: TemplateCategory[] = [
@@ -67,7 +80,7 @@ export default function ImportacionDatos() {
           name: "Registro de Estudiantes",
           description: "Datos completos de estudiantes activos",
           columns: [
-            "nombre_completo", "curp", "fecha_nacimiento", "grado", "grupo", 
+            "nombre_completo", "curp", "id_referencia", "fecha_nacimiento", "grado", "grupo",
             "nivel_academico", "status", "fecha_ingreso", "observaciones"
           ],
           sampleData: [
@@ -311,7 +324,7 @@ export default function ImportacionDatos() {
     try {
       const response = await fetch(`/api/import/template/${categoryId}/${templateId}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${getAuthToken()}`
         }
       });
 
@@ -342,30 +355,89 @@ export default function ImportacionDatos() {
     }
   };
 
-  // Función para manejar subida de archivo
+  const resetImportState = () => {
+    setSelectedFile(null);
+    setPreviewResult(null);
+    setPreviewContext(null);
+    setImportProgress(0);
+  };
+
+  // Seleccionar o cambiar el archivo invalida siempre la vista previa anterior.
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     setSelectedFile(file);
-    
-    // Simular lectura del archivo y previsualización
-    setTimeout(() => {
-      setPreviewData([
-        { nombre_completo: "Ana Pérez", curp: "PERA990101HDFRNN01", grado: "2do Primaria", status: "✓ Válido" },
-        { nombre_completo: "Luis García", curp: "GARL880505HDFRGN02", grado: "5to Primaria", status: "✓ Válido" },
-        { nombre_completo: "Carmen López", curp: "LOCR770303MDFPRM03", grado: "1ro Secundaria", status: "⚠ CURP a verificar" }
-      ]);
-      setShowPreview(true);
-    }, 1000);
+    setPreviewResult(null);
+    setPreviewContext(null);
   };
 
-  // Función para procesar importación
-  const processImport = async (categoryId: string, templateId: string) => {
-    if (!selectedFile) return;
+  const sendImportFile = async (
+    categoryId: string,
+    templateId: string,
+    dryRun: boolean,
+  ): Promise<ImportResult> => {
+    if (!selectedFile) throw new Error("Selecciona un archivo");
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+    const suffix = dryRun ? "?dry_run=true" : "";
+    const response = await fetch(`/api/import/data/${categoryId}/${templateId}${suffix}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${getAuthToken()}`,
+      },
+      body: formData,
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.message || "Error procesando importación");
+    }
+    return {
+      successful: Number(result.successful ?? 0),
+      skipped: Number(result.skipped ?? 0),
+      failed: Number(result.failed ?? 0),
+      errors: Array.isArray(result.errors) ? result.errors.map(String) : [],
+      skipped_details: Array.isArray(result.skipped_details) ? result.skipped_details.map(String) : [],
+      warnings: Array.isArray(result.warnings) ? result.warnings.map(String) : [],
+      preview: Array.isArray(result.preview) ? result.preview : [],
+      total: Number(result.total ?? 0),
+      committed: Boolean(result.committed),
+    };
+  };
 
+  const runPreview = async (categoryId: string, templateId: string) => {
+    if (!selectedFile) return;
+    setIsImporting(true);
+    setImportProgress(35);
+    try {
+      const result = await sendImportFile(categoryId, templateId, true);
+      setPreviewResult(result);
+      setPreviewContext(`${categoryId}/${templateId}`);
+      setImportProgress(100);
+      toast({
+        title: "Vista previa lista",
+        description: `${result.successful} nuevos, ${result.skipped} omitidos y ${result.failed} con error. La base de datos no cambió.`,
+      });
+    } catch (error: any) {
+      setPreviewResult(null);
+      setPreviewContext(null);
+      toast({
+        title: "Error en vista previa",
+        description: error.message || "No se pudo analizar el archivo",
+        variant: "destructive",
+      });
+    } finally {
+      setIsImporting(false);
+      setImportProgress(0);
+    }
+  };
+
+  // Confirmación real: sólo se habilita después del dry-run del mismo archivo/template.
+  const processImport = async (categoryId: string, templateId: string) => {
+    if (!selectedFile || previewContext !== `${categoryId}/${templateId}` || !previewResult) return;
     setIsImporting(true);
     setImportProgress(0);
+    let progressInterval: ReturnType<typeof setInterval> | undefined;
 
     try {
       // Actualizar estado a "en progreso"
@@ -373,7 +445,7 @@ export default function ImportacionDatos() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${getAuthToken()}`
         },
         body: JSON.stringify({
           category: categoryId,
@@ -384,79 +456,46 @@ export default function ImportacionDatos() {
         })
       });
 
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-
       // Progreso durante la carga
-      const progressInterval = setInterval(() => {
+      progressInterval = setInterval(() => {
         setImportProgress(prev => Math.min(prev + 10, 90));
       }, 200);
 
-      const response = await fetch(`/api/import/data/${categoryId}/${templateId}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: formData
-      });
-
-      clearInterval(progressInterval);
+      const result = await sendImportFile(categoryId, templateId, false);
       setImportProgress(100);
-
-      if (!response.ok) {
-        // Actualizar estado a "error"
-        await fetch('/api/migration/status', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
-          body: JSON.stringify({
-            category: categoryId,
-            templateId: templateId,
-            status: 'error',
-            errors: ['Error procesando archivo']
-          })
-        });
-        throw new Error('Error procesando importación');
-      }
-
-      const result = await response.json();
+      setPreviewResult(result);
 
       // Actualizar estado final
-      const finalStatus = result.results.errors.length > 0 ? 'error' : 'completed';
+      const finalStatus = result.failed > 0 ? 'error' : 'completed';
       await fetch('/api/migration/status', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${getAuthToken()}`
         },
         body: JSON.stringify({
           category: categoryId,
           templateId: templateId,
           status: finalStatus,
-          recordsProcessed: result.results.successful,
-          totalRecords: result.results.total,
-          errors: result.results.errors.map((e: any) => e.error)
+          recordsProcessed: result.successful,
+          totalRecords: result.total,
+          errors: result.errors
         })
       });
 
       toast({
         title: "Importación Completada",
-        description: `${result.results.successful} registros importados exitosamente de ${result.results.total} total`,
+        description: `${result.successful} nuevos, ${result.skipped} omitidos y ${result.failed} con error de ${result.total} registros.`,
       });
 
-      if (result.results.errors.length > 0) {
-        // Errors are shown to the user via toast or table — no console needed
-      }
-
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error en Importación",
-        description: "No se pudo procesar el archivo",
+        description: error.message || "No se pudo procesar el archivo",
         variant: "destructive"
       });
     } finally {
+      if (progressInterval) clearInterval(progressInterval);
       setIsImporting(false);
       setImportProgress(0);
     }
@@ -671,7 +710,10 @@ export default function ImportacionDatos() {
 
             <div className="grid gap-4">
               {category.templates.map((template) => (
-                <Card key={template.id}>
+                <Card
+                  key={template.id}
+                  data-testid={`template-card-${category.id}-${template.id}`}
+                >
                   <CardHeader>
                     <div className="flex justify-between items-start">
                       <div>
@@ -714,12 +756,15 @@ export default function ImportacionDatos() {
                                 <div className="text-center">
                                   <Upload className="h-12 w-12 mx-auto text-muted-foreground/50" />
                                   <div className="mt-4">
-                                    <Label htmlFor="file-upload" className="cursor-pointer">
+                                    <Label
+                                      htmlFor={`file-upload-${category.id}-${template.id}`}
+                                      className="cursor-pointer"
+                                    >
                                       <span className="text-sm font-medium">
                                         Hacer clic para subir archivo
                                       </span>
                                       <Input
-                                        id="file-upload"
+                                        id={`file-upload-${category.id}-${template.id}`}
                                         type="file"
                                         accept=".xlsx,.xls,.csv"
                                         onChange={handleFileUpload}
@@ -748,7 +793,7 @@ export default function ImportacionDatos() {
                                       <Button 
                                         variant="ghost" 
                                         size="sm"
-                                        onClick={() => setSelectedFile(null)}
+                                         onClick={resetImportState}
                                       >
                                         Remover
                                       </Button>
@@ -758,37 +803,87 @@ export default function ImportacionDatos() {
                               )}
 
                               {/* Preview Data */}
-                              {showPreview && (
+                              {previewResult && previewContext === `${category.id}/${template.id}` && (
                                 <Card>
                                   <CardHeader>
-                                    <CardTitle className="text-sm">Vista Previa de Datos</CardTitle>
+                                    <CardTitle className="text-sm">
+                                      {previewResult.committed ? "Resultado de importación" : "Vista previa real — sin cambios"}
+                                    </CardTitle>
                                     <CardDescription>
-                                      Primeros 3 registros detectados en el archivo
+                                      {previewResult.committed
+                                        ? "Resultado confirmado por el servidor"
+                                        : "El servidor procesó el archivo dentro de una transacción y revirtió todos los cambios"}
                                     </CardDescription>
                                   </CardHeader>
-                                  <CardContent>
-                                    <div className="overflow-x-auto">
+                                  <CardContent className="space-y-4">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                      <div className="rounded border p-3">
+                                        <div className="text-2xl font-bold">{previewResult.total}</div>
+                                        <div className="text-xs text-muted-foreground">Total</div>
+                                      </div>
+                                      <div className="rounded border border-green-200 bg-green-50 p-3 dark:bg-green-950">
+                                        <div data-testid="import-successful" className="text-2xl font-bold text-green-700 dark:text-green-300">{previewResult.successful}</div>
+                                        <div className="text-xs">Nuevos</div>
+                                      </div>
+                                      <div className="rounded border border-amber-200 bg-amber-50 p-3 dark:bg-amber-950">
+                                        <div data-testid="import-skipped" className="text-2xl font-bold text-amber-700 dark:text-amber-300">{previewResult.skipped}</div>
+                                        <div className="text-xs">Omitidos</div>
+                                      </div>
+                                      <div className="rounded border border-red-200 bg-red-50 p-3 dark:bg-red-950">
+                                        <div data-testid="import-failed" className="text-2xl font-bold text-red-700 dark:text-red-300">{previewResult.failed}</div>
+                                        <div className="text-xs">Con error</div>
+                                      </div>
+                                    </div>
+
+                                    {previewResult.skipped_details.length > 0 && (
+                                      <Alert>
+                                        <AlertTriangle className="h-4 w-4" />
+                                        <AlertDescription>
+                                          <div className="font-medium mb-1">Registros omitidos</div>
+                                          <ul className="list-disc pl-5 space-y-1">
+                                            {previewResult.skipped_details.map((detail, idx) => (
+                                              <li key={idx}>{detail}</li>
+                                            ))}
+                                          </ul>
+                                        </AlertDescription>
+                                      </Alert>
+                                    )}
+
+                                    {previewResult.errors.length > 0 && (
+                                      <Alert variant="destructive">
+                                        <AlertTriangle className="h-4 w-4" />
+                                        <AlertDescription>
+                                          <ul className="list-disc pl-5 space-y-1">
+                                            {previewResult.errors.map((error, idx) => (
+                                              <li key={idx}>{error}</li>
+                                            ))}
+                                          </ul>
+                                        </AlertDescription>
+                                      </Alert>
+                                    )}
+
+                                    {previewResult.preview.length > 0 && (
+                                      <div className="overflow-x-auto">
                                       <table className="w-full text-sm">
                                         <thead>
                                           <tr className="border-b">
                                             {template.columns.slice(0, 4).map(col => (
                                               <th key={col} className="text-left p-2">{col}</th>
                                             ))}
-                                            <th className="text-left p-2">Status</th>
                                           </tr>
                                         </thead>
                                         <tbody>
-                                          {previewData.map((row, idx) => (
+                                          {previewResult.preview.slice(0, 5).map((row, idx) => (
                                             <tr key={idx} className="border-b">
                                               {template.columns.slice(0, 4).map(col => (
-                                                <td key={col} className="p-2">{row[col] || '-'}</td>
+                                                <td key={col} className="p-2">{String(row[col] ?? "-")}</td>
                                               ))}
-                                              <td className="p-2">{row.status}</td>
                                             </tr>
                                           ))}
                                         </tbody>
                                       </table>
                                     </div>
+                                    )}
                                   </CardContent>
                                 </Card>
                               )}
@@ -810,13 +905,29 @@ export default function ImportacionDatos() {
 
                               {/* Actions */}
                               <div className="flex justify-end gap-2">
-                                <Button variant="outline">Cancelar</Button>
+                                <Button variant="outline" onClick={resetImportState}>Cancelar</Button>
+                                <Button
+                                  variant="secondary"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    runPreview(category.id, template.id);
+                                  }}
+                                  disabled={!selectedFile || isImporting}
+                                >
+                                  {isImporting ? "Analizando..." : "Generar vista previa"}
+                                </Button>
                                 <Button 
                                   onClick={(e) => {
                                     e.preventDefault();
                                     processImport(category.id, template.id);
                                   }}
-                                  disabled={!selectedFile || isImporting}
+                                  disabled={
+                                    !selectedFile
+                                    || isImporting
+                                    || !previewResult
+                                    || previewResult.committed
+                                    || previewContext !== `${category.id}/${template.id}`
+                                  }
                                 >
                                   {isImporting ? 'Procesando...' : 'Confirmar Importación'}
                                 </Button>

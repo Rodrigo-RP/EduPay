@@ -723,16 +723,20 @@ export function registerPaymentRoutes(app: Express): void {
       // Validate and process data based on template
       const results: {
         successful: number;
+        skipped: number;
         failed: number;
         errors: any[];
+        skipped_details: string[];
         warnings: string[];
         preview: any[];
         total: number;
         committed: boolean;
       } = {
         successful: 0,
+        skipped: 0,
         failed: 0,
         errors: [],
+        skipped_details: [],
         warnings: [],    // mensajes de desambigüación no fatales (ej. concepto elegido por defecto)
         preview: jsonData.slice(0, 5),
         total: jsonData.length,
@@ -843,6 +847,35 @@ export function registerPaymentRoutes(app: Express): void {
         }
 
       } else if (category === 'estudiantes' && templateId === 'estudiantes') {
+        const { validarCurp, normalizarCurp } = await import("../lib/validators");
+        const getStudentReference = (studentData: any): string => String(
+          studentData.id_referencia
+            ?? studentData.matricula
+            ?? studentData["matrícula"]
+            ?? "",
+        ).trim();
+
+        // Adquirir ANTES del loop todas las llaves del archivo en un orden global.
+        // Así dos archivos con las mismas filas en orden inverso nunca pueden
+        // quedarse esperando mutuamente mientras conservan locks previos.
+        const fileLockKeys = new Set<string>();
+        for (const rawStudentData of jsonData as any[]) {
+          const normalizedCurp = normalizarCurp(rawStudentData.curp ?? "");
+          if (normalizedCurp) {
+            fileLockKeys.add(`student:curp:${tenantId}:${campusId}:${normalizedCurp}`);
+          }
+          const normalizedReference = getStudentReference(rawStudentData);
+          if (normalizedReference) {
+            fileLockKeys.add(`student:reference:${tenantId}:${campusId}:${normalizedReference}`);
+          }
+        }
+        for (const lockKey of Array.from(fileLockKeys).sort()) {
+          await client.query(
+            `SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))`,
+            [lockKey],
+          );
+        }
+
         for (let index = 0; index < jsonData.length; index++) {
           const studentData = jsonData[index] as any;
 
@@ -855,13 +888,50 @@ export function registerPaymentRoutes(app: Express): void {
 
           // Validar y normalizar CURP (patrón oficial SAT — no bloqueante en bulk import)
           {
-            const { validarCurp, normalizarCurp } = await import("../lib/validators");
             studentData.curp = normalizarCurp(studentData.curp);
             if (!validarCurp(studentData.curp)) {
               results.errors.push(`Fila ${index + 2}: CURP inválida (${studentData.curp}) — formato incorrecto, verifique el patrón oficial SAT`);
               results.failed++;
               continue;
             }
+          }
+
+          const idReferencia = getStudentReference(studentData);
+
+          // Importación incremental: nunca actualizar ni duplicar silenciosamente.
+          // La búsqueda está aislada por tenant/campus y también detecta duplicados
+          // introducidos en filas anteriores del mismo archivo, porque esos INSERTs
+          // ya son visibles dentro de esta misma transacción.
+          const duplicateResult = await client.query(
+            `SELECT id, nombre_completo, curp, id_referencia,
+                    CASE
+                      WHEN upper(btrim(curp)) = upper($3::text) THEN 'CURP'
+                      ELSE 'matrícula'
+                    END AS duplicate_field
+               FROM students
+              WHERE tenant_id = $1
+                AND campus_id = $2
+                AND (
+                  upper(btrim(curp)) = upper($3::text)
+                  OR (
+                    $4::text <> ''
+                    AND btrim(id_referencia) = btrim($4::text)
+                  )
+                )
+              LIMIT 1`,
+            [tenantId, campusId, studentData.curp, idReferencia],
+          );
+
+          if (duplicateResult.rowCount) {
+            const existing = duplicateResult.rows[0] as any;
+            const identifier = existing.duplicate_field === 'CURP'
+              ? `CURP ${studentData.curp}`
+              : `matrícula ${idReferencia}`;
+            results.skipped++;
+            results.skipped_details.push(
+              `Fila ${index + 2}: ${studentData.nombre_completo} omitido — ${identifier} ya pertenece a ${existing.nombre_completo}`,
+            );
+            continue;
           }
 
           // ── INSERT (si falla → propaga → ROLLBACK)
@@ -874,11 +944,12 @@ export function registerPaymentRoutes(app: Express): void {
           const nombreCompleto = studentData.nombre_completo;
           await client.query(
             `INSERT INTO students
-               (tenant_id, campus_id, nombres, nombre_completo, curp, grado, grupo, status)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+               (tenant_id, campus_id, id_referencia, nombres, nombre_completo, curp, grado, grupo, status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
             [
               tenantId,
               campusId,
+              idReferencia || null,
               studentData.nombre_completo || '',
               nombreCompleto,
               studentData.curp || '',
@@ -1259,6 +1330,7 @@ export function registerPaymentRoutes(app: Express): void {
               template:   templateId,
               total:      results.total,
               successful: results.successful,
+              skipped:    results.skipped,
               failed:     results.failed,
             },
           };
@@ -1291,6 +1363,7 @@ export function registerPaymentRoutes(app: Express): void {
             template:   templateId,
             total:      results.total,
             successful: results.successful,
+            skipped:    results.skipped,
             failed:     results.failed,
             error:      fatalError instanceof Error ? fatalError.message : String(fatalError),
           },

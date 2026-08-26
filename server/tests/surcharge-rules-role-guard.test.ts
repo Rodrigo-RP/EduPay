@@ -1,6 +1,5 @@
 /**
- * Prueba de regresión: endpoints de configuración de reglas de recargo —
- * guard hasPermission(MODULES.SETTINGS, ACTIONS.CONFIGURE)
+ * Prueba de regresión: configuración de reglas de recargo.
  *
  * VULNERABILIDAD ORIGINAL (confirmada empíricamente antes del fix):
  *   PUT  /api/payment-config/surcharge-rules/:id         → 200 con JWT de asistente
@@ -11,18 +10,14 @@
  *   el porcentaje de recargo de todo el campus sin ningún guard de rol.
  *   El cambio persistía en payment_surcharge_rules de inmediato.
  *
- * DESPUÉS del fix:
- *   hasPermission(role, MODULES.SETTINGS, ACTIONS.CONFIGURE) es la PRIMERA
- *   verificación en los 6 endpoints de escritura sobre payment_surcharge_rules.
- *   Roles autorizados: super_admin, administrador_general, administrador_campus.
+ * Los aliases heredados ya no escriben: todos responden 410 Gone.
+ * Los endpoints -complete conservan su guard SETTINGS.CONFIGURE.
  *
  * Tests:
- *   SRG-01  asistente → 403 en PUT /api/payment-config/surcharge-rules/:id
+ *   SRG-01  asistente → 410 en PUT /api/payment-config/surcharge-rules/:id
  *   SRG-02  asistente → 403 en PUT /api/payment-config/surcharge-rules-complete/:id
- *   SRG-03  asistente → 403 en POST /api/payment-config/late-fee-rules
- *   SRG-04  administrador_general → 200 en PUT /api/payment-config/surcharge-rules/:id (control positivo)
- *   SRG-05  SRG-01 no persistió: la regla conserva sus valores originales en DB
- *   SRG-06  administrador_campus → 200 en PUT /api/payment-config/surcharge-rules/:id (control positivo)
+ *   SRG-03  asistente → 410 en POST /api/payment-config/late-fee-rules
+ *   SRG-04  aliases heredados no persisten cambios aun con rol administrador
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -112,7 +107,7 @@ afterAll(async () => {
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 describe("Reglas de recargo — guard SETTINGS.CONFIGURE", () => {
-  it("SRG-01: asistente recibe 403 en PUT /api/payment-config/surcharge-rules/:id", async () => {
+  it("SRG-01: asistente recibe 410 en PUT /api/payment-config/surcharge-rules/:id", async () => {
     const { status, body } = await apiFetch(
       "PUT",
       `/api/payment-config/surcharge-rules/${ruleId}`,
@@ -126,8 +121,8 @@ describe("Reglas de recargo — guard SETTINGS.CONFIGURE", () => {
       }
     );
 
-    expect(status).toBe(403);
-    expect(body.message).toMatch(/sin permisos/i);
+    expect(status).toBe(410);
+    expect(body.code).toBe("LEGACY_PAYMENT_CONFIG_ENDPOINT_GONE");
   });
 
   it("SRG-02: asistente recibe 403 en PUT /api/payment-config/surcharge-rules-complete/:id", async () => {
@@ -147,7 +142,7 @@ describe("Reglas de recargo — guard SETTINGS.CONFIGURE", () => {
     expect(body.message).toMatch(/sin permisos/i);
   });
 
-  it("SRG-03: asistente recibe 403 en POST /api/payment-config/late-fee-rules", async () => {
+  it("SRG-03: asistente recibe 410 en POST /api/payment-config/late-fee-rules", async () => {
     const { status, body } = await apiFetch(
       "POST",
       `/api/payment-config/late-fee-rules`,
@@ -160,11 +155,15 @@ describe("Reglas de recargo — guard SETTINGS.CONFIGURE", () => {
       }
     );
 
-    expect(status).toBe(403);
-    expect(body.message).toMatch(/sin permisos/i);
+    expect(status).toBe(410);
+    expect(body.code).toBe("LEGACY_PAYMENT_CONFIG_ENDPOINT_GONE");
   });
 
-  it("SRG-04: administrador_general recibe 200 en PUT /api/payment-config/surcharge-rules/:id (control positivo)", async () => {
+  it("SRG-04: un administrador tampoco puede escribir mediante el alias heredado", async () => {
+    const before = await pool.query(
+      `SELECT nombre, porcentaje, dias_gracia, activo FROM payment_surcharge_rules WHERE id = $1`,
+      [ruleId],
+    );
     const { status, body } = await apiFetch(
       "PUT",
       `/api/payment-config/surcharge-rules/${ruleId}`,
@@ -178,39 +177,12 @@ describe("Reglas de recargo — guard SETTINGS.CONFIGURE", () => {
       }
     );
 
-    expect(status).toBe(200);
-    const rule = body.updatedRule || body;
-    expect(rule.activo).toBe(true);
-  });
-
-  it("SRG-05: SRG-01 no persistió — la regla NO tiene activo:false ni porcentaje:0 en DB", async () => {
-    const res = await pool.query(
-      `SELECT porcentaje, activo FROM payment_surcharge_rules WHERE id = $1`,
+    expect(status).toBe(410);
+    expect(body.code).toBe("LEGACY_PAYMENT_CONFIG_ENDPOINT_GONE");
+    const after = await pool.query(
+      `SELECT nombre, porcentaje, dias_gracia, activo FROM payment_surcharge_rules WHERE id = $1`,
       [ruleId]
     );
-    expect(res.rows.length).toBe(1);
-    // El intento de SRG-01 no debió persistir
-    expect(res.rows[0].activo).toBe(true);
-    // El porcentaje no debió quedar en 0 (puede ser '5.00' o '7.00' tras SRG-04, ambos > 0)
-    expect(parseFloat(res.rows[0].porcentaje)).toBeGreaterThan(0);
-  });
-
-  it("SRG-06: administrador_campus recibe 200 en PUT /api/payment-config/surcharge-rules/:id (control positivo)", async () => {
-    const { status, body } = await apiFetch(
-      "PUT",
-      `/api/payment-config/surcharge-rules/${ruleId}`,
-      tokenAdminCampus,
-      {
-        nombre: "Recargo SRG actualizado por admin_campus",
-        tipo: "porcentaje",
-        dias_gracia: 3,
-        porcentaje: "6",
-        activo: true,
-      }
-    );
-
-    expect(status).toBe(200);
-    const rule = body.updatedRule || body;
-    expect(rule.activo).toBe(true);
+    expect(after.rows[0]).toEqual(before.rows[0]);
   });
 });

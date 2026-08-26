@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { pool, db } from "../db";
 import { eq, and } from "drizzle-orm";
 import { storage } from "../storage";
-import { authenticateToken, requireAuth, requireSuperAdmin, serializeUser, hasPermissionForUser} from "./shared";
+import { authenticateToken, requireAuth, requireSuperAdmin, serializeUser, hasPermissionForUser, checkCampusTenant } from "./shared";
 import { MODULES, ACTIONS } from "@shared/permissions";
 import { NotificationSystem as ServerNotificationSystem } from "../notification-system";
 import { wsManager } from "../websocket-manager";
@@ -10,6 +10,12 @@ import { users, students, guardians, charges, payments, concepts, scholarships, 
 import { z } from "zod";
 
 export function registerNotificationRoutes(app: Express): void {
+  const legacyPaymentConfigWriteGone = (_req: any, res: any) =>
+    res.status(410).json({
+      code: "LEGACY_PAYMENT_CONFIG_ENDPOINT_GONE",
+      message: "Este endpoint de configuración fue retirado para escritura. Usa /configuracion-pagos-completa.",
+    });
+
   app.get("/api/notifications", authenticateToken, async (req, res) => {
     if (!hasPermissionForUser((req as any).user, MODULES.RECEIVABLES, ACTIONS.READ)) {
       return res.status(403).json({ message: "No tienes permiso para ver el historial de notificaciones" });
@@ -295,11 +301,20 @@ export function registerNotificationRoutes(app: Express): void {
   // Get late fee rules configuration — lee de payment_surcharge_rules real
   app.get("/api/payment-config/late-fee-rules", authenticateToken, async (req: any, res) => {
     try {
-      const campusId = req.user?.campus_id;
-      if (!campusId) return res.status(400).json({ error: "Campus requerido" });
+      if (!hasPermissionForUser(req.user, MODULES.SETTINGS, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver configuración de recargos" });
+      }
+      const campusId = Number(req.user?.campus_id);
+      const tenantId = req.user?.tenant_id;
+      if (!Number.isSafeInteger(campusId) || campusId <= 0) {
+        return res.status(400).json({ error: "Campus requerido" });
+      }
+      if (!await checkCampusTenant(campusId, tenantId, res)) return;
 
       const rules = await db.select().from(payment_surcharge_rules)
-        .where(eq(payment_surcharge_rules.campus_id, campusId));
+        .where(tenantId
+          ? and(eq(payment_surcharge_rules.campus_id, campusId), eq(payment_surcharge_rules.tenant_id, tenantId))
+          : eq(payment_surcharge_rules.campus_id, campusId));
 
       // Serializar reglas_progresivas si vienen como string
       const mapped = rules.map((r: any) => ({
@@ -316,7 +331,7 @@ export function registerNotificationRoutes(app: Express): void {
   });
 
   // Create new late fee rule — persiste en payment_surcharge_rules
-  app.post("/api/payment-config/late-fee-rules", authenticateToken, async (req: any, res) => {
+  app.post("/api/payment-config/late-fee-rules", authenticateToken, legacyPaymentConfigWriteGone, async (req: any, res) => {
     try {
       const campusId = req.user?.campus_id;
       const tenantId = req.user?.tenant_id;
@@ -371,7 +386,7 @@ export function registerNotificationRoutes(app: Express): void {
   });
 
   // Update late fee rule — actualiza en BD con ownership check
-  app.put("/api/payment-config/late-fee-rules/:id", authenticateToken, async (req: any, res) => {
+  app.put("/api/payment-config/late-fee-rules/:id", authenticateToken, legacyPaymentConfigWriteGone, async (req: any, res) => {
     try {
       const ruleId = parseInt(req.params.id);
       if (!ruleId || isNaN(ruleId)) return res.status(400).json({ error: "ID inválido" });
@@ -424,7 +439,7 @@ export function registerNotificationRoutes(app: Express): void {
   });
 
   // Delete late fee rule — elimina de BD con ownership check
-  app.delete("/api/payment-config/late-fee-rules/:id", authenticateToken, async (req: any, res) => {
+  app.delete("/api/payment-config/late-fee-rules/:id", authenticateToken, legacyPaymentConfigWriteGone, async (req: any, res) => {
     try {
       const ruleId = parseInt(req.params.id);
       if (!ruleId || isNaN(ruleId)) return res.status(400).json({ error: "ID inválido" });

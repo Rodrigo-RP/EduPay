@@ -92,6 +92,13 @@ function normalizeCompleteSurchargePayload(body: any): { value?: CompleteSurchar
   };
 }
 
+function legacyPaymentConfigWriteGone(_req: any, res: any) {
+  return res.status(410).json({
+    code: "LEGACY_PAYMENT_CONFIG_ENDPOINT_GONE",
+    message: "Este endpoint de configuración fue retirado para escritura. Usa /configuracion-pagos-completa.",
+  });
+}
+
 /**
  * Subconjunto de la API de Stripe necesario para guardian/pagar.
  * Permite inyectar un mock en tests sin tocar el singleton global.
@@ -1300,26 +1307,34 @@ export async function registerGuardianRoutes(
     res.set('ETag', '');
     next();
   }, authenticateToken, async (req, res) => {
-    const campusId = (req as any).user.campus_id;
-    const timestamp = Date.now();
-    console.log(`🔍 [${timestamp}] FRESH GET due-dates for campus:`, campusId);
-    
-    // Get fresh data directly from database
-    const dueDates = await db
-      .select()
-      .from(payment_due_dates)
-      .where(eq(payment_due_dates.campus_id, campusId));
-    
-    // Fix HTML encoding and force fresh response
-    const cleanedDueDates = dueDates.map(dueDate => ({
-      ...dueDate,
-      mes_aplicacion: typeof dueDate.mes_aplicacion === 'string' 
-        ? dueDate.mes_aplicacion.replace(/&quot;/g, '"') 
-        : dueDate.mes_aplicacion
-    }));
-    
-    console.log(`🔍 [${timestamp}] FRESH data from DB: ${cleanedDueDates.length} records`);
-    res.json(cleanedDueDates);
+    try {
+      if (!hasPermissionForUser((req as any).user, MODULES.SETTINGS, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver configuración de fechas de vencimiento" });
+      }
+      const campusId = Number((req as any).user?.campus_id);
+      const tenantId = (req as any).user?.tenant_id;
+      if (!Number.isSafeInteger(campusId) || campusId <= 0) {
+        return res.status(400).json({ message: "Campus requerido" });
+      }
+      if (!await checkCampusTenant(campusId, tenantId, res)) return;
+
+      const dueDates = await db
+        .select()
+        .from(payment_due_dates)
+        .where(tenantId
+          ? and(eq(payment_due_dates.campus_id, campusId), eq(payment_due_dates.tenant_id, tenantId))
+          : eq(payment_due_dates.campus_id, campusId));
+
+      res.json(dueDates.map(dueDate => ({
+        ...dueDate,
+        mes_aplicacion: typeof dueDate.mes_aplicacion === "string"
+          ? dueDate.mes_aplicacion.replace(/&quot;/g, "\"")
+          : dueDate.mes_aplicacion,
+      })));
+    } catch (error: any) {
+      console.error("Error fetching payment due dates:", error);
+      res.status(500).json({ message: "Error fetching due dates" });
+    }
   });
 
   // Payment Configuration - Complete System Endpoints
@@ -1327,11 +1342,21 @@ export async function registerGuardianRoutes(
   // Get all concepts
   app.get("/api/concepts", authenticateToken, async (req, res) => {
     try {
-      const campusId = (req as any).user.campus_id;
+      if (!hasPermissionForUser((req as any).user, MODULES.CONCEPTS, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver conceptos" });
+      }
+      const campusId = Number((req as any).user?.campus_id);
+      const tenantId = (req as any).user?.tenant_id;
+      if (!Number.isSafeInteger(campusId) || campusId <= 0) {
+        return res.status(400).json({ message: "Campus requerido" });
+      }
+      if (!await checkCampusTenant(campusId, tenantId, res)) return;
       const conceptsList = await db
         .select()
         .from(concepts)
-        .where(eq(concepts.campus_id, campusId));
+        .where(tenantId
+          ? and(eq(concepts.campus_id, campusId), eq(concepts.tenant_id, tenantId))
+          : eq(concepts.campus_id, campusId));
       
       res.json(conceptsList);
     } catch (error: any) {
@@ -1466,7 +1491,12 @@ export async function registerGuardianRoutes(
       if (!hasPermissionForUser((req as any).user, MODULES.SETTINGS, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para ver configuración de fechas de vencimiento" });
       }
-      const campusId = (req as any).user.campus_id;
+      const campusId = Number((req as any).user?.campus_id);
+      const tenantId = (req as any).user?.tenant_id;
+      if (!Number.isSafeInteger(campusId) || campusId <= 0) {
+        return res.status(400).json({ message: "Campus requerido" });
+      }
+      if (!await checkCampusTenant(campusId, tenantId, res)) return;
       
       // Using left join to get concept names
       const dueDatesComplete = await db
@@ -1479,8 +1509,15 @@ export async function registerGuardianRoutes(
           activo: payment_due_dates.activo
         })
         .from(payment_due_dates)
-        .leftJoin(concepts, eq(payment_due_dates.concepto, concepts.nombre))
-        .where(eq(payment_due_dates.campus_id, campusId));
+        .leftJoin(
+          concepts,
+          tenantId
+            ? and(eq(payment_due_dates.concepto, concepts.nombre), eq(concepts.campus_id, campusId), eq(concepts.tenant_id, tenantId))
+            : and(eq(payment_due_dates.concepto, concepts.nombre), eq(concepts.campus_id, campusId)),
+        )
+        .where(tenantId
+          ? and(eq(payment_due_dates.campus_id, campusId), eq(payment_due_dates.tenant_id, tenantId))
+          : eq(payment_due_dates.campus_id, campusId));
       
       // Parse meses_aplicacion from JSON string to array
       const processedData = dueDatesComplete.map(item => ({
@@ -1504,14 +1541,21 @@ export async function registerGuardianRoutes(
       if (!hasPermissionForUser((req as any).user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para gestionar fechas de vencimiento" });
       }
-      const campusId = (req as any).user.campus_id;
+      const campusId = Number((req as any).user?.campus_id);
+      const tenantId = (req as any).user?.tenant_id;
+      if (!Number.isSafeInteger(campusId) || campusId <= 0) {
+        return res.status(400).json({ message: "Campus requerido" });
+      }
+      if (!await checkCampusTenant(campusId, tenantId, res)) return;
       const { concepto_id, dia_vencimiento, meses_aplicacion, activo } = req.body;
       
       // Find the concept name by ID
       const [conceptData] = await db
         .select({ nombre: concepts.nombre })
         .from(concepts)
-        .where(eq(concepts.id, concepto_id))
+        .where(tenantId
+          ? and(eq(concepts.id, concepto_id), eq(concepts.campus_id, campusId), eq(concepts.tenant_id, tenantId))
+          : and(eq(concepts.id, concepto_id), eq(concepts.campus_id, campusId)))
         .limit(1);
 
       if (!conceptData) {
@@ -1522,6 +1566,7 @@ export async function registerGuardianRoutes(
         .insert(payment_due_dates)
         .values({
           campus_id: campusId,
+          tenant_id: tenantId ?? null,
           concepto: conceptData.nombre,
           dia_vencimiento,
           mes_aplicacion: meses_aplicacion.length === 12 ? 'todos' : JSON.stringify(meses_aplicacion),
@@ -1548,11 +1593,14 @@ export async function registerGuardianRoutes(
       const campusId = req.user?.campus_id;
       const tenantId = req.user?.tenant_id;
       if (!campusId) return res.status(400).json({ message: "Campus requerido" });
+      if (!await checkCampusTenant(Number(campusId), tenantId, res)) return;
 
       // Ownership check: el registro debe pertenecer al campus del usuario
       const [existing] = await db.select({ id: payment_due_dates.id })
         .from(payment_due_dates)
-        .where(and(eq(payment_due_dates.id, dueDateId), eq(payment_due_dates.campus_id, campusId)))
+        .where(tenantId
+          ? and(eq(payment_due_dates.id, dueDateId), eq(payment_due_dates.campus_id, campusId), eq(payment_due_dates.tenant_id, tenantId))
+          : and(eq(payment_due_dates.id, dueDateId), eq(payment_due_dates.campus_id, campusId)))
         .limit(1);
       if (!existing) return res.status(404).json({ message: "Fecha de vencimiento no encontrada" });
 
@@ -1563,7 +1611,9 @@ export async function registerGuardianRoutes(
         const [conceptData] = await db
           .select({ nombre: concepts.nombre })
           .from(concepts)
-          .where(and(eq(concepts.id, concepto_id), eq(concepts.campus_id, campusId)))
+          .where(tenantId
+            ? and(eq(concepts.id, concepto_id), eq(concepts.campus_id, campusId), eq(concepts.tenant_id, tenantId))
+            : and(eq(concepts.id, concepto_id), eq(concepts.campus_id, campusId)))
           .limit(1);
         if (conceptData) conceptName = conceptData.nombre;
       }
@@ -1577,7 +1627,9 @@ export async function registerGuardianRoutes(
       const [updated] = await db
         .update(payment_due_dates)
         .set(updateData)
-        .where(and(eq(payment_due_dates.id, dueDateId), eq(payment_due_dates.campus_id, campusId)))
+        .where(tenantId
+          ? and(eq(payment_due_dates.id, dueDateId), eq(payment_due_dates.campus_id, campusId), eq(payment_due_dates.tenant_id, tenantId))
+          : and(eq(payment_due_dates.id, dueDateId), eq(payment_due_dates.campus_id, campusId)))
         .returning();
       
       res.json(updated);
@@ -1597,11 +1649,15 @@ export async function registerGuardianRoutes(
       const dueDateId = parseInt(req.params.id);
       if (!dueDateId || isNaN(dueDateId)) return res.status(400).json({ message: "ID inválido" });
       const campusId = req.user?.campus_id;
+      const tenantId = req.user?.tenant_id;
       if (!campusId) return res.status(400).json({ message: "Campus requerido" });
+      if (!await checkCampusTenant(Number(campusId), tenantId, res)) return;
 
       const [deleted] = await db
         .delete(payment_due_dates)
-        .where(and(eq(payment_due_dates.id, dueDateId), eq(payment_due_dates.campus_id, campusId)))
+        .where(tenantId
+          ? and(eq(payment_due_dates.id, dueDateId), eq(payment_due_dates.campus_id, campusId), eq(payment_due_dates.tenant_id, tenantId))
+          : and(eq(payment_due_dates.id, dueDateId), eq(payment_due_dates.campus_id, campusId)))
         .returning({ id: payment_due_dates.id });
       
       if (!deleted) return res.status(404).json({ message: "Fecha de vencimiento no encontrada" });
@@ -1615,7 +1671,15 @@ export async function registerGuardianRoutes(
   // Get complete surcharge rules
   app.get("/api/payment-config/surcharge-rules-complete", authenticateToken, async (req, res) => {
     try {
-      const campusId = (req as any).user.campus_id;
+      if (!hasPermissionForUser((req as any).user, MODULES.SETTINGS, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver configuración de recargos" });
+      }
+      const campusId = Number((req as any).user?.campus_id);
+      const tenantId = (req as any).user?.tenant_id;
+      if (!Number.isSafeInteger(campusId) || campusId <= 0) {
+        return res.status(400).json({ message: "Campus requerido" });
+      }
+      if (!await checkCampusTenant(campusId, tenantId, res)) return;
       
       const surchargeRulesComplete = await db
         .select({
@@ -1633,8 +1697,15 @@ export async function registerGuardianRoutes(
           activo: payment_surcharge_rules.activo
         })
         .from(payment_surcharge_rules)
-        .leftJoin(concepts, eq(payment_surcharge_rules.concept_id, concepts.id))
-        .where(eq(payment_surcharge_rules.campus_id, campusId));
+        .leftJoin(
+          concepts,
+          tenantId
+            ? and(eq(payment_surcharge_rules.concept_id, concepts.id), eq(concepts.campus_id, campusId), eq(concepts.tenant_id, tenantId))
+            : and(eq(payment_surcharge_rules.concept_id, concepts.id), eq(concepts.campus_id, campusId)),
+        )
+        .where(tenantId
+          ? and(eq(payment_surcharge_rules.campus_id, campusId), eq(payment_surcharge_rules.tenant_id, tenantId))
+          : eq(payment_surcharge_rules.campus_id, campusId));
       
       // Convert data and map types
       const processedData = surchargeRulesComplete.map(rule => {
@@ -1670,6 +1741,7 @@ export async function registerGuardianRoutes(
       }
       const campusId = Number((req as any).user.campus_id);
       const tenantId = Number((req as any).user.tenant_id);
+      if (!await checkCampusTenant(campusId, tenantId, res)) return;
       const normalized = normalizeCompleteSurchargePayload(req.body);
       if (!normalized.value) return res.status(400).json({ message: normalized.error });
       const payload = normalized.value;
@@ -1750,6 +1822,8 @@ export async function registerGuardianRoutes(
 
       const campusId = (req as any).user?.campus_id;
       if (!campusId) return res.status(400).json({ message: "Campus requerido" });
+      const tenantId = (req as any).user?.tenant_id;
+      if (!await checkCampusTenant(Number(campusId), tenantId, res)) return;
 
       // ── Ownership check: la regla debe pertenecer al campus del solicitante ─
       // Sin esta verificación el UPDATE filtraría solo por id, permitiendo que
@@ -1837,16 +1911,20 @@ export async function registerGuardianRoutes(
       const ruleId = parseInt(req.params.id);
       if (!ruleId || isNaN(ruleId)) return res.status(400).json({ message: "ID inválido" });
       const campusId = req.user?.campus_id;
+      const tenantId = req.user?.tenant_id;
 
       // ── Guard de rol ──────────────────────────────────────────────────────
       if (!hasPermissionForUser(req.user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para configurar reglas de recargo" });
       }
       if (!campusId) return res.status(400).json({ message: "Campus requerido" });
+      if (!await checkCampusTenant(Number(campusId), tenantId, res)) return;
 
       const [deleted] = await db
         .delete(payment_surcharge_rules)
-        .where(and(eq(payment_surcharge_rules.id, ruleId), eq(payment_surcharge_rules.campus_id, campusId)))
+        .where(tenantId
+          ? and(eq(payment_surcharge_rules.id, ruleId), eq(payment_surcharge_rules.campus_id, campusId), eq(payment_surcharge_rules.tenant_id, tenantId))
+          : and(eq(payment_surcharge_rules.id, ruleId), eq(payment_surcharge_rules.campus_id, campusId)))
         .returning({ id: payment_surcharge_rules.id });
       
       if (!deleted) return res.status(404).json({ message: "Regla de recargo no encontrada" });
@@ -1863,7 +1941,7 @@ export async function registerGuardianRoutes(
   });
 
   // Create payment due date configuration
-  app.post("/api/payment-config/due-dates", authenticateToken, async (req, res) => {
+  app.post("/api/payment-config/due-dates", authenticateToken, legacyPaymentConfigWriteGone, async (req, res) => {
     try {
       const campusId = (req as any).user?.campus_id;
       const { concepto, dia_vencimiento, mes_aplicacion, activo } = req.body;
@@ -1897,7 +1975,7 @@ export async function registerGuardianRoutes(
   });
 
   // Update payment due date configuration
-  app.put("/api/payment-config/due-dates/:id", authenticateToken, async (req: any, res) => {
+  app.put("/api/payment-config/due-dates/:id", authenticateToken, legacyPaymentConfigWriteGone, async (req: any, res) => {
     try {
       const dueDateId = parseInt(req.params.id);
       if (!dueDateId || isNaN(dueDateId)) return res.status(400).json({ message: "ID inválido" });
@@ -1939,7 +2017,7 @@ export async function registerGuardianRoutes(
   });
 
   // Delete payment due date configuration
-  app.delete("/api/payment-config/due-dates/:id", authenticateToken, async (req: any, res) => {
+  app.delete("/api/payment-config/due-dates/:id", authenticateToken, legacyPaymentConfigWriteGone, async (req: any, res) => {
     try {
       const dueDateId = parseInt(req.params.id);
       if (!dueDateId || isNaN(dueDateId)) return res.status(400).json({ message: "ID inválido" });
@@ -1966,8 +2044,21 @@ export async function registerGuardianRoutes(
   // Get surcharge rules configuration
   app.get("/api/payment-config/surcharge-rules", authenticateToken, async (req, res) => {
     try {
-      const campusId = (req as any).user.campus_id;
-      const rules = await storage.getSurchargeRulesByCampus(campusId);
+      if (!hasPermissionForUser((req as any).user, MODULES.SETTINGS, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver configuración de recargos" });
+      }
+      const campusId = Number((req as any).user?.campus_id);
+      const tenantId = (req as any).user?.tenant_id;
+      if (!Number.isSafeInteger(campusId) || campusId <= 0) {
+        return res.status(400).json({ message: "Campus requerido" });
+      }
+      if (!await checkCampusTenant(campusId, tenantId, res)) return;
+      const rules = await db
+        .select()
+        .from(payment_surcharge_rules)
+        .where(tenantId
+          ? and(eq(payment_surcharge_rules.campus_id, campusId), eq(payment_surcharge_rules.tenant_id, tenantId))
+          : eq(payment_surcharge_rules.campus_id, campusId));
       res.json(rules);
     } catch (error: any) {
       console.error("Error fetching surcharge rules:", error);
@@ -1976,7 +2067,7 @@ export async function registerGuardianRoutes(
   });
 
   // Create surcharge rule
-  app.post("/api/payment-config/surcharge-rules", authenticateToken, async (req, res) => {
+  app.post("/api/payment-config/surcharge-rules", authenticateToken, legacyPaymentConfigWriteGone, async (req, res) => {
     try {
       const campusId = (req as any).user.campus_id;
       const { 
@@ -2009,7 +2100,7 @@ export async function registerGuardianRoutes(
   });
 
   // Update surcharge rule
-  app.put("/api/payment-config/surcharge-rules/:id", authenticateToken, async (req: any, res) => {
+  app.put("/api/payment-config/surcharge-rules/:id", authenticateToken, legacyPaymentConfigWriteGone, async (req: any, res) => {
     try {
       const ruleId = parseInt(req.params.id);
       if (!ruleId || isNaN(ruleId)) return res.status(400).json({ message: "ID inválido" });
@@ -2057,7 +2148,7 @@ export async function registerGuardianRoutes(
   });
 
   // Delete surcharge rule
-  app.delete("/api/payment-config/surcharge-rules/:id", authenticateToken, async (req: any, res) => {
+  app.delete("/api/payment-config/surcharge-rules/:id", authenticateToken, legacyPaymentConfigWriteGone, async (req: any, res) => {
     try {
       const ruleId = parseInt(req.params.id);
       if (!ruleId || isNaN(ruleId)) return res.status(400).json({ message: "ID inválido" });

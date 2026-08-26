@@ -17,6 +17,9 @@ export function registerChargesRoutes(app: Express): void {
   app.get("/api/admin/concepts/:campusId", authenticateToken, async (req: any, res) => {
     try {
       const campusId = parseInt(req.params.campusId);
+      if (!hasPermissionForUser(req.user, MODULES.CONCEPTS, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver conceptos" });
+      }
       if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
       const concepts = await storage.getConceptsByCampus(campusId);
       
@@ -68,6 +71,7 @@ export function registerChargesRoutes(app: Express): void {
       if (!Number.isSafeInteger(Number(campus_id)) || Number(campus_id) !== campusId) {
         return res.status(403).json({ message: "El campus solicitado no coincide con tu sesión" });
       }
+      if (!await checkCampusTenant(campusId, tenantId, res)) return;
 
       const students = await storage.getStudentsByCampus(campusId);
       const concepts = await storage.getConceptsByCampus(campusId);

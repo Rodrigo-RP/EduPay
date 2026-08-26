@@ -133,7 +133,7 @@ beforeAll(async () => {
   const [dd] = await db
     .insert(payment_due_dates)
     .values({
-      campus_id: campusId, concepto: c.nombre,
+      campus_id: campusId, tenant_id: tenantId, concepto: c.nombre,
       dia_vencimiento: 10, mes_aplicacion: "todos", activo: true,
     })
     .returning();
@@ -347,7 +347,7 @@ describe("CF-11 — /api/payment-config/due-dates-complete (GET/POST/PUT/DELETE)
   // ── CF-11 DELETE  (SETTINGS.CONFIGURE) ────────────────────────────────────
   it("CFC-13: asistente → 403 en DELETE /api/payment-config/due-dates-complete/:id, fila intacta", async () => {
     const [tmp] = await db.insert(payment_due_dates).values({
-      campus_id: campusId, concepto: "Concepto Actualizado AC",
+      campus_id: campusId, tenant_id: tenantId, concepto: "Concepto Actualizado AC",
       dia_vencimiento: 5, mes_aplicacion: "todos", activo: true,
     }).returning();
     dueDateDeleteId = tmp.id;
@@ -400,6 +400,124 @@ describe("CF-12 — POST /api/payment-config/surcharge-rules-complete [SETTINGS.
     expect(surchargeCreatedId).toBeGreaterThan(0);
     const row = await pool.query(`SELECT id FROM payment_surcharge_rules WHERE id=$1`, [surchargeCreatedId]);
     expect(row.rows.length).toBe(1);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+describe("Lecturas y aliases heredados de configuración de pagos", () => {
+  it("CFC-19: SETTINGS.READ y CONCEPTS.READ protegen todas las lecturas heredadas y completas", async () => {
+    const protectedPaths = [
+      "/api/concepts",
+      `/api/admin/concepts/${campusId}`,
+      "/api/payment-config/due-dates",
+      "/api/payment-config/due-dates-complete",
+      "/api/payment-config/surcharge-rules",
+      "/api/payment-config/surcharge-rules-complete",
+      "/api/payment-config/late-fee-rules",
+    ];
+
+    for (const path of protectedPaths) {
+      const { status } = await apiFetch("GET", path, tokenAsistente);
+      expect(status, path).toBe(403);
+    }
+
+    for (const path of protectedPaths) {
+      const { status } = await apiFetch("GET", path, tokenAdminCampus);
+      expect(status, path).toBe(200);
+    }
+  });
+
+  it("CFC-20: un JWT con tenant ajeno no puede leer ni crear configuración en este campus", async () => {
+    const suffix = Date.now().toString().slice(-6);
+    const foreignTenant = await pool.query(
+      `INSERT INTO tenants (nombre_legal, rfc) VALUES ($1,$2) RETURNING id`,
+      [`Tenant ajeno CFC ${suffix}`, `CFA${suffix}`],
+    );
+    const foreignTenantId = (foreignTenant.rows[0] as any).id as number;
+    const foreignCampus = await pool.query(
+      `INSERT INTO campuses (nombre, tenant_id) VALUES ($1,$2) RETURNING id`,
+      [`Campus ajeno CFC ${suffix}`, foreignTenantId],
+    );
+    const foreignCampusId = (foreignCampus.rows[0] as any).id as number;
+    const foreignConcept = await db.insert(concepts).values({
+      campus_id: foreignCampusId,
+      tenant_id: foreignTenantId,
+      nombre: `Concepto ajeno CFC ${suffix}`,
+      tipo: "mensualidad",
+      periodicidad: "mensual",
+      monto_centavos: 12345,
+      iva: false,
+    }).returning();
+
+    try {
+      // Sin id de usuario, authenticateToken no puede enriquecer ni corregir el tenant fabricado.
+      const forgedTenantToken = jwt.sign(
+        { role: "administrador_campus", campus_id: campusId, tenant_id: foreignTenantId },
+        JWT_SECRET,
+        { expiresIn: "1h" },
+      );
+      const read = await apiFetch(
+        "GET", "/api/payment-config/due-dates-complete", forgedTenantToken,
+      );
+      expect(read.status).toBe(403);
+
+      const before = await pool.query(
+        `SELECT COUNT(*)::int AS n FROM payment_due_dates WHERE campus_id=$1`,
+        [campusId],
+      );
+      const create = await apiFetch(
+        "POST", "/api/payment-config/due-dates-complete", tokenAdminCampus,
+        { concepto_id: foreignConcept[0].id, dia_vencimiento: 15, meses_aplicacion: ["enero"] },
+      );
+      expect(create.status).toBe(400);
+      const after = await pool.query(
+        `SELECT COUNT(*)::int AS n FROM payment_due_dates WHERE campus_id=$1`,
+        [campusId],
+      );
+      expect(after.rows[0]).toEqual(before.rows[0]);
+    } finally {
+      await pool.query(`DELETE FROM concepts WHERE campus_id=$1`, [foreignCampusId]);
+      await pool.query(`DELETE FROM campuses WHERE id=$1`, [foreignCampusId]);
+      await pool.query(`DELETE FROM tenants WHERE id=$1`, [foreignTenantId]);
+    }
+  });
+
+  it("CFC-21: ningún alias heredado de escritura modifica fechas ni recargos", async () => {
+    const before = await pool.query(
+      `SELECT
+         (SELECT COUNT(*)::int FROM payment_due_dates WHERE campus_id=$1) AS due_count,
+         (SELECT COUNT(*)::int FROM payment_surcharge_rules WHERE campus_id=$1) AS surcharge_count,
+         (SELECT row_to_json(d) FROM payment_due_dates d WHERE d.id=$2) AS due_date,
+         (SELECT row_to_json(s) FROM payment_surcharge_rules s WHERE s.id=$3) AS surcharge_rule`,
+      [campusId, dueDateBaseId, surchargeCreatedId],
+    );
+    const calls: Array<[string, string, object?]> = [
+      ["POST", "/api/payment-config/due-dates", { concepto: "No crear", dia_vencimiento: 1 }],
+      ["PUT", `/api/payment-config/due-dates/${dueDateBaseId}`, { dia_vencimiento: 1 }],
+      ["DELETE", `/api/payment-config/due-dates/${dueDateBaseId}`],
+      ["POST", "/api/payment-config/surcharge-rules", { nombre: "No crear" }],
+      ["PUT", `/api/payment-config/surcharge-rules/${surchargeCreatedId}`, { activo: false }],
+      ["DELETE", `/api/payment-config/surcharge-rules/${surchargeCreatedId}`],
+      ["POST", "/api/payment-config/late-fee-rules", { nombre: "No crear" }],
+      ["PUT", `/api/payment-config/late-fee-rules/${surchargeCreatedId}`, { activo: false }],
+      ["DELETE", `/api/payment-config/late-fee-rules/${surchargeCreatedId}`],
+    ];
+
+    for (const [method, path, body] of calls) {
+      const result = await apiFetch(method, path, tokenAdminCampus, body);
+      expect(result.status, `${method} ${path}`).toBe(410);
+      expect((result.body as any).code).toBe("LEGACY_PAYMENT_CONFIG_ENDPOINT_GONE");
+    }
+
+    const after = await pool.query(
+      `SELECT
+         (SELECT COUNT(*)::int FROM payment_due_dates WHERE campus_id=$1) AS due_count,
+         (SELECT COUNT(*)::int FROM payment_surcharge_rules WHERE campus_id=$1) AS surcharge_count,
+         (SELECT row_to_json(d) FROM payment_due_dates d WHERE d.id=$2) AS due_date,
+         (SELECT row_to_json(s) FROM payment_surcharge_rules s WHERE s.id=$3) AS surcharge_rule`,
+      [campusId, dueDateBaseId, surchargeCreatedId],
+    );
+    expect(after.rows[0]).toEqual(before.rows[0]);
   });
 });
 

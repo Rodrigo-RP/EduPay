@@ -1,30 +1,34 @@
 # Cambios de esquema
 
-La fuente de verdad del esquema activo es `shared/schema.ts`. El único comando
-configurado para sincronizar desarrollo es:
+La fuente de verdad declarativa del esquema activo es `shared/schema.ts`. Las
+migraciones ejecutables de Drizzle viven en `drizzle/migrations/`. El flujo
+versionado es:
 
 ```bash
-npm run db:push -- --force
+npm run db:generate -- --name=descripcion-del-cambio
+npm run db:check
+npm run db:validate-baseline
+npm run db:migrate
 ```
 
-Ese comando ejecuta `drizzle-kit push`: compara el esquema declarado con
-PostgreSQL y **no** ejecuta los archivos `.sql` de este directorio ni los de
-`server/migrations/`. La publicación sincroniza el mismo esquema mediante el
-flujo de Replit.
+`npm run db:push` está deshabilitado intencionalmente. Las migraciones
+generadas se aplican con el runner de Drizzle y registran su hash en
+`drizzle.__drizzle_migrations`.
 
-Los archivos `.sql` aquí son registros de cambios manuales, idempotentes y
-auditables. Sirven para revisar o reproducir una corrección puntual, pero no
-constituyen una cola de migraciones ni tienen una tabla de historial asociada.
+Los archivos `.sql` históricos de este directorio son registros manuales,
+idempotentes y auditables. No constituyen una cola ejecutable y no se
+reproducen durante la transición al baseline. `server/migrations/` también
+contiene registros históricos fuera del runner.
 
-`server/migrations/` contiene registros históricos de cambios anteriores al
-flujo actual. No debe recibir cambios nuevos y no es leído por ningún script
-del proyecto. No se consolidó automáticamente porque no existe un ledger que
-permita reconstruir con seguridad el orden real en que esos cambios históricos
-se aplicaron en cada entorno.
+El baseline representa el esquema actual declarado por `shared/schema.ts`.
+Para una base ya sincronizada se registra su hash con `npm run
+db:baseline:mark`; no se ejecuta de nuevo su DDL. Una base vacía puede ejecutar
+el baseline con `npm run db:migrate`. `db:validate-baseline` prueba el SQL
+completo dentro de una transacción y un schema PostgreSQL desechable.
 
 Para cambios nuevos:
 
 1. Actualiza `shared/schema.ts`.
-2. Usa `db:push` para desarrollo y el flujo de publicación para producción.
-3. Si se requiere un registro SQL idempotente, añádelo en este directorio con
-   un prefijo que no colisione con los registros existentes.
+2. Genera y revisa una migración en `drizzle/migrations/`.
+3. Ejecuta `db:check` y `db:migrate`.
+4. Incluye SQL y metadata en el mismo commit.

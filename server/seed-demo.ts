@@ -24,6 +24,7 @@ const DEMO_COUNT_TABLES = [
   "payment_surcharge_rules",
   "charge_surcharge_periods",
   "payment_due_dates",
+  "payment_due_date_periods",
   "scholarship_auto_rules",
   "scholarship_types",
   "pending_approvals",
@@ -155,6 +156,7 @@ export async function seedDemoData() {
           payment_surcharge_rules,
           charge_surcharge_periods,
           payment_due_dates,
+          payment_due_date_periods,
           scholarship_auto_rules,
           scholarship_types,
           concepts,
@@ -961,9 +963,15 @@ export async function seedDemoData() {
       [campusNorte.id, tenant.id],
     );
     await pool.query(
-      `INSERT INTO payment_due_dates (campus_id, tenant_id, concepto, dia_vencimiento, mes_aplicacion, activo)
-       VALUES ($1,$2,'Colegiatura Mensual Primaria',10,'todos',true),
-              ($3,$2,'Colegiatura Mensual Kinder',10,'todos',true)`,
+      `INSERT INTO payment_due_dates
+        (campus_id, tenant_id, concept_id, concepto, dia_vencimiento, mes_aplicacion, activo)
+       SELECT c.campus_id, c.tenant_id, c.id, c.nombre, 10, 'todos', true
+         FROM concepts c
+        WHERE c.tenant_id = $2
+          AND (
+            (c.campus_id = $1 AND c.nombre = 'Colegiatura Mensual Primaria')
+            OR (c.campus_id = $3 AND c.nombre = 'Colegiatura Mensual Kinder')
+          )`,
       [campusNorte.id, tenant.id, campusSur.id],
     );
     await pool.query(

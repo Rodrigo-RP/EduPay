@@ -36,6 +36,19 @@ interface FechaVencimiento {
   activo: boolean;
 }
 
+interface PeriodoVencimiento {
+  id: number;
+  concepto_id: number;
+  concepto_nombre: string;
+  periodicidad: string;
+  ciclo_escolar: string;
+  periodo_clave: string;
+  fecha_inicio: string;
+  fecha_fin: string;
+  fecha_vencimiento: string;
+  activo: boolean;
+}
+
 interface ReglaRecargo {
   id?: number;
   concepto_id: number;
@@ -116,6 +129,16 @@ export default function ConfiguracionPagosCompleta() {
     meses_aplicacion: [] as string[],
     activo: true
   });
+  const [nuevoPeriodo, setNuevoPeriodo] = useState({
+    concepto_id: 0,
+    ciclo_escolar: "",
+    periodo_clave: "ANUAL",
+    fecha_inicio: "",
+    fecha_fin: "",
+    fecha_vencimiento: "",
+    activo: true,
+  });
+  const [periodoEditandoId, setPeriodoEditandoId] = useState<number | null>(null);
 
   const [nuevoRecargo, setNuevoRecargo] = useState({
     concepto_id: 0,
@@ -235,6 +258,9 @@ export default function ConfiguracionPagosCompleta() {
     queryKey: ["/api/payment-config/due-dates-complete"],
     select: (data: FechaVencimiento[]) => data
   });
+  const { data: periodosVencimiento = [] } = useQuery<PeriodoVencimiento[]>({
+    queryKey: ["/api/payment-config/due-date-periods"],
+  });
 
   // Fetch reglas de recargo configuradas
   const { data: reglasRecargo = [], refetch: refetchRecargos } = useQuery({
@@ -271,6 +297,45 @@ export default function ConfiguracionPagosCompleta() {
         variant: "destructive",
       });
     },
+  });
+  const savePeriodoMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest(
+        periodoEditandoId
+          ? `/api/payment-config/due-date-periods/${periodoEditandoId}`
+          : "/api/payment-config/due-date-periods",
+        {
+        method: periodoEditandoId ? "PUT" : "POST",
+        body: JSON.stringify(nuevoPeriodo),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.message || "No se pudo guardar el calendario");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-config/due-date-periods"] });
+      setNuevoPeriodo({
+        concepto_id: 0, ciclo_escolar: "", periodo_clave: "ANUAL",
+        fecha_inicio: "", fecha_fin: "", fecha_vencimiento: "", activo: true,
+      });
+      setPeriodoEditandoId(null);
+      toast({ title: "Calendario guardado", description: "La fecha institucional quedó configurada." });
+    },
+    onError: (error: any) => toast({ title: "Error", description: error.message, variant: "destructive" }),
+  });
+
+  const deletePeriodoMutation = useMutation({
+    mutationFn: async (id: number) => apiRequest(`/api/payment-config/due-date-periods/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/payment-config/due-date-periods"] }),
+  });
+  const togglePeriodoMutation = useMutation({
+    mutationFn: async (periodo: PeriodoVencimiento) => apiRequest(
+      `/api/payment-config/due-date-periods/${periodo.id}`,
+      { method: "PUT", body: JSON.stringify({ activo: !periodo.activo }) },
+    ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/payment-config/due-date-periods"] }),
   });
 
   // Mutation para crear/actualizar recargos
@@ -938,6 +1003,95 @@ export default function ConfiguracionPagosCompleta() {
                     );
                   })
                 )}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Calendario de periodos largos</CardTitle>
+              <p className="text-sm text-slate-600">
+                Inscripción y Materiales requieren una fecha anual real por ciclo. No se generan fechas automáticas.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label>Concepto</Label>
+                  <Select value={String(nuevoPeriodo.concepto_id)} onValueChange={(value) => {
+                    const concept = conceptos.find((item: Concepto) => item.id === Number(value));
+                    setNuevoPeriodo((prev) => ({
+                      ...prev,
+                      concepto_id: Number(value),
+                      periodo_clave: concept?.periodicidad === "anual" ? "ANUAL" : "",
+                    }));
+                  }}>
+                    <SelectTrigger><SelectValue placeholder="Selecciona un concepto" /></SelectTrigger>
+                    <SelectContent>
+                      {conceptos.filter((item: Concepto) => ["anual", "semestral", "cuatrimestral"].includes(item.periodicidad)).map((item: Concepto) => (
+                        <SelectItem key={item.id} value={String(item.id)}>{item.nombre} · {item.periodicidad}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Ciclo escolar</Label>
+                  <Input placeholder="2026-2027" value={nuevoPeriodo.ciclo_escolar} onChange={(e) => setNuevoPeriodo((prev) => ({ ...prev, ciclo_escolar: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Clave del periodo</Label>
+                  <Input value={nuevoPeriodo.periodo_clave} onChange={(e) => setNuevoPeriodo((prev) => ({ ...prev, periodo_clave: e.target.value.toUpperCase() }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Inicio</Label>
+                  <Input type="date" value={nuevoPeriodo.fecha_inicio} onChange={(e) => setNuevoPeriodo((prev) => ({ ...prev, fecha_inicio: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Fin</Label>
+                  <Input type="date" value={nuevoPeriodo.fecha_fin} onChange={(e) => setNuevoPeriodo((prev) => ({ ...prev, fecha_fin: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Vencimiento</Label>
+                  <Input type="date" value={nuevoPeriodo.fecha_vencimiento} onChange={(e) => setNuevoPeriodo((prev) => ({ ...prev, fecha_vencimiento: e.target.value }))} />
+                </div>
+              </div>
+              <Button
+                disabled={savePeriodoMutation.isPending || !nuevoPeriodo.concepto_id || !nuevoPeriodo.ciclo_escolar || !nuevoPeriodo.periodo_clave || !nuevoPeriodo.fecha_inicio || !nuevoPeriodo.fecha_fin || !nuevoPeriodo.fecha_vencimiento}
+                onClick={() => savePeriodoMutation.mutate()}
+              >
+                {savePeriodoMutation.isPending ? "Guardando..." : periodoEditandoId ? "Actualizar periodo" : "Guardar periodo"}
+              </Button>
+              <Separator />
+              <div className="space-y-3">
+                {periodosVencimiento.length === 0 ? (
+                  <p className="text-sm text-slate-500">Aún no hay periodos largos configurados.</p>
+                ) : periodosVencimiento.map((periodo) => (
+                  <div key={periodo.id} className="flex items-center justify-between rounded-md border p-3">
+                    <div>
+                      <div className="font-medium">{periodo.concepto_nombre} · {periodo.periodo_clave}</div>
+                      <div className="text-sm text-slate-600">{periodo.ciclo_escolar}: vence {periodo.fecha_vencimiento}</div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => {
+                        setPeriodoEditandoId(periodo.id);
+                        setNuevoPeriodo({
+                          concepto_id: periodo.concepto_id,
+                          ciclo_escolar: periodo.ciclo_escolar,
+                          periodo_clave: periodo.periodo_clave,
+                          fecha_inicio: periodo.fecha_inicio,
+                          fecha_fin: periodo.fecha_fin,
+                          fecha_vencimiento: periodo.fecha_vencimiento,
+                          activo: periodo.activo,
+                        });
+                      }}>Editar</Button>
+                      <Button size="sm" variant="outline" onClick={() => togglePeriodoMutation.mutate(periodo)}>
+                        {periodo.activo ? "Desactivar" : "Activar"}
+                      </Button>
+                      <Button size="sm" variant="outline" aria-label="Eliminar periodo" onClick={() => deletePeriodoMutation.mutate(periodo.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>

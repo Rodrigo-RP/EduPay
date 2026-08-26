@@ -382,6 +382,9 @@ export const charges = pgTable("charges", {
   // Visible en estado de cuenta del tutor; no altera concept_id ni tipo fiscal.
   // Rollback: ALTER TABLE charges DROP COLUMN descripcion;
   descripcion: text("descripcion"),
+  // Sólo para cargos extraordinarios con fecha manual explícita y auditada.
+  manual_override: boolean("manual_override").default(false).notNull(),
+  manual_override_reason: text("manual_override_reason"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
@@ -866,6 +869,9 @@ export const payment_due_dates = pgTable("payment_due_dates", {
   id: serial("id").primaryKey(),
   campus_id: integer("campus_id").references(() => campuses.id).notNull(),
   tenant_id: integer("tenant_id").references(() => tenants.id),
+  // Asociación canónica introducida en la migración 031. `concepto` se
+  // conserva para compatibilidad temporal con datos y rutas históricas.
+  concept_id: integer("concept_id").references(() => concepts.id),
   concepto: text("concepto").notNull(),
   dia_vencimiento: integer("dia_vencimiento").notNull(),
   mes_aplicacion: text("mes_aplicacion").notNull(), // JSON array or "todos"
@@ -873,6 +879,33 @@ export const payment_due_dates = pgTable("payment_due_dates", {
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// EXPLICIT DUE DATES FOR LONG PERIODS
+// Used by cuatrimestral, semestral and anual concepts. The period is
+// institution-defined and therefore never inferred from calendar months.
+export const payment_due_date_periods = pgTable("payment_due_date_periods", {
+  id: serial("id").primaryKey(),
+  tenant_id: integer("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  campus_id: integer("campus_id").notNull().references(() => campuses.id, { onDelete: "cascade" }),
+  concept_id: integer("concept_id").notNull().references(() => concepts.id, { onDelete: "cascade" }),
+  ciclo_escolar: varchar("ciclo_escolar", { length: 50 }).notNull(),
+  periodo_clave: varchar("periodo_clave", { length: 50 }).notNull(),
+  fecha_inicio: date("fecha_inicio").notNull(),
+  fecha_fin: date("fecha_fin").notNull(),
+  fecha_vencimiento: date("fecha_vencimiento").notNull(),
+  activo: boolean("activo").notNull().default(true),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("payment_due_date_periods_unique").on(
+    table.tenant_id,
+    table.campus_id,
+    table.concept_id,
+    table.ciclo_escolar,
+    table.periodo_clave,
+  ),
+  check("payment_due_date_periods_dates_check", sql`${table.fecha_fin} >= ${table.fecha_inicio}`),
+]);
 
 // SURCHARGE RULES CONFIG
 export const payment_surcharge_rules = pgTable("payment_surcharge_rules", {
@@ -921,6 +954,21 @@ export const paymentDueDatesRelations = relations(payment_due_dates, ({ one }) =
   campus: one(campuses, {
     fields: [payment_due_dates.campus_id],
     references: [campuses.id],
+  }),
+  concept: one(concepts, {
+    fields: [payment_due_dates.concept_id],
+    references: [concepts.id],
+  }),
+}));
+
+export const paymentDueDatePeriodsRelations = relations(payment_due_date_periods, ({ one }) => ({
+  campus: one(campuses, {
+    fields: [payment_due_date_periods.campus_id],
+    references: [campuses.id],
+  }),
+  concept: one(concepts, {
+    fields: [payment_due_date_periods.concept_id],
+    references: [concepts.id],
   }),
 }));
 
@@ -994,6 +1042,12 @@ export const insertPaymentDueDateSchema = createInsertSchema(payment_due_dates).
   updated_at: true,
 });
 
+export const insertPaymentDueDatePeriodSchema = createInsertSchema(payment_due_date_periods).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+});
+
 export const insertPaymentSurchargeRuleSchema = createInsertSchema(payment_surcharge_rules).omit({
   id: true,
   created_at: true,
@@ -1013,6 +1067,8 @@ export type InsertLateFeeCalculation = z.infer<typeof insertLateFeeCalculationSc
 
 export type PaymentDueDate = typeof payment_due_dates.$inferSelect;
 export type InsertPaymentDueDate = z.infer<typeof insertPaymentDueDateSchema>;
+export type PaymentDueDatePeriod = typeof payment_due_date_periods.$inferSelect;
+export type InsertPaymentDueDatePeriod = z.infer<typeof insertPaymentDueDatePeriodSchema>;
 export type PaymentSurchargeRule = typeof payment_surcharge_rules.$inferSelect;
 export type InsertPaymentSurchargeRule = z.infer<typeof insertPaymentSurchargeRuleSchema>;
 export type ChargeSurchargePeriod = typeof charge_surcharge_periods.$inferSelect;

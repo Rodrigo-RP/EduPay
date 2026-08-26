@@ -12,6 +12,18 @@ import { wsManager } from "../websocket-manager";
 import { z } from "zod";
 import { resolveEffectiveScholarship } from "../lib/scholarship-engine";
 import { applyMonthlySurcharges } from "../lib/surcharge-accrual";
+import {
+  billingPeriodForConcept,
+  DueDateResolutionError,
+  resolveConfiguredDueDate,
+  usesConfiguredDueDate,
+} from "../lib/due-date-resolver";
+
+function sendDueDateResolutionError(res: any, error: unknown): boolean {
+  if (!(error instanceof DueDateResolutionError)) return false;
+  res.status(error.statusCode).json({ code: error.code, message: error.message });
+  return true;
+}
 
 export function registerChargesRoutes(app: Express): void {
   app.get("/api/admin/concepts/:campusId", authenticateToken, async (req: any, res) => {
@@ -62,7 +74,7 @@ export function registerChargesRoutes(app: Express): void {
       if (!hasPermissionForUser((req as any).user, MODULES.CHARGES, ACTIONS.CREATE)) {
         return res.status(403).json({ message: "Sin permisos para crear cargos en masa" });
       }
-      const { campus_id, concept_id, ciclo_escolar, fecha_vencimiento } = req.body;
+      const { campus_id, concept_id, ciclo_escolar } = req.body;
       const user = (req as any).user;
       const tenantId = user?.tenant_id;
       const campusId = Number(user?.campus_id);
@@ -80,6 +92,14 @@ export function registerChargesRoutes(app: Express): void {
       if (!concept) {
         return res.status(404).json({ message: "Concept not found" });
       }
+      const fechaEmision = req.body.fecha_emision || new Date().toISOString().split('T')[0];
+      const resolvedDueDate = await resolveConfiguredDueDate(pool, {
+        tenantId,
+        campusId,
+        conceptId: concept.id,
+        issueDate: fechaEmision,
+        billingPeriod: billingPeriodForConcept(concept.periodicidad, req.body, fechaEmision),
+      });
 
       const charges = [];
       for (const student of students) {
@@ -95,8 +115,8 @@ export function registerChargesRoutes(app: Express): void {
             concept_id: concept.id,
             tenant_id: user.tenant_id ?? student.tenant_id,
             ciclo_escolar,
-            fecha_emision: new Date().toISOString().split('T')[0],
-            fecha_vencimiento,
+            fecha_emision: fechaEmision,
+            fecha_vencimiento: resolvedDueDate.dueDate,
             monto_base_centavos: concept.monto_centavos,
             beca_aplicada: scholarship.effectivePercentage.toFixed(2),
             recargo_aplicado_centavos: 0,
@@ -133,6 +153,7 @@ export function registerChargesRoutes(app: Express): void {
         charges: charges.length 
       });
     } catch (error: any) {
+      if (sendDueDateResolutionError(res, error)) return;
       res.status(500).json({ message: "Error creating charges" });
     }
   });
@@ -198,8 +219,14 @@ export function registerChargesRoutes(app: Express): void {
       if (activeStudents.length === 0) return res.status(400).json({ message: "No hay alumnos activos en este campus" });
       const concept = concepts.find((c: any) => c.nombre?.toLowerCase().includes('colegiatura')) || concepts[0];
       if (!concept) return res.status(400).json({ message: "No hay conceptos configurados" });
-      const fechaVencimiento = periodo ? `${periodo}-15` : new Date().toISOString().split('T')[0];
       const fechaEmision = new Date().toISOString().split('T')[0];
+      const resolvedDueDate = await resolveConfiguredDueDate(pool, {
+        tenantId: req.user.tenant_id,
+        campusId: Number(campusId),
+        conceptId: Number(concept.id),
+        issueDate: fechaEmision,
+        billingPeriod: { kind: "monthly", month: periodo },
+      });
       let created = 0;
       const monthlyUser = (req as any).user;
       for (const student of activeStudents) {
@@ -216,7 +243,7 @@ export function registerChargesRoutes(app: Express): void {
           tenant_id: monthlyUser?.tenant_id ?? (student as any).tenant_id,
           ciclo_escolar: ciclo_escolar || new Date().getFullYear().toString(),
           fecha_emision: fechaEmision,
-          fecha_vencimiento: fechaVencimiento,
+          fecha_vencimiento: resolvedDueDate.dueDate,
           monto_base_centavos: concept.monto_centavos || 450000,
           beca_aplicada: scholarship.effectivePercentage.toFixed(2),
           recargo_aplicado_centavos: 0,
@@ -226,6 +253,7 @@ export function registerChargesRoutes(app: Express): void {
       }
       res.json({ message: `${created} cargos mensuales generados`, cargos_creados: created, periodo });
     } catch (error: any) {
+      if (sendDueDateResolutionError(res, error)) return;
       res.status(500).json({ message: "Error generando cargos" });
     }
   });
@@ -239,7 +267,7 @@ export function registerChargesRoutes(app: Express): void {
       }
       const campusId = req.user.campus_id;
       const tenantId = req.user.tenant_id;
-      const { student_id, concept_id, monto, descripcion, fecha_vencimiento } = req.body;
+      const { student_id, concept_id, monto, descripcion, fecha_vencimiento, motivo_override } = req.body;
       if (!student_id || !monto) return res.status(400).json({ message: "Estudiante y monto son requeridos" });
 
       // IDOR PROTECTION: verificar que el alumno pertenece al tenant del usuario autenticado
@@ -252,11 +280,13 @@ export function registerChargesRoutes(app: Express): void {
 
       let conceptId = concept_id;
       // Si se provee concept_id, validar que pertenece al tenant
+      let selectedConcept: any = null;
       if (conceptId && tenantId) {
         const ownedConcept = await storage.getConceptScoped(parseInt(conceptId), tenantId);
         if (!ownedConcept) {
           return res.status(403).json({ message: "Acceso denegado: el concepto no pertenece a este tenant" });
         }
+        selectedConcept = ownedConcept;
       }
       if (!conceptId && descripcion) {
         const concepts = await storage.getConceptsByCampus(campusId);
@@ -272,6 +302,15 @@ export function registerChargesRoutes(app: Express): void {
           });
         }
         conceptId = found.id;
+        selectedConcept = found;
+      }
+      if (!selectedConcept) selectedConcept = await storage.getConceptScoped(Number(conceptId), Number(tenantId));
+      if (!selectedConcept || !["extra", "extraordinario"].includes(String(selectedConcept.tipo).toLowerCase())) {
+        return res.status(422).json({ message: "El override manual sólo está permitido para conceptos extraordinarios" });
+      }
+      const today = new Date().toISOString().split("T")[0];
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(fecha_vencimiento || "")) || fecha_vencimiento < today || !motivo_override?.trim()) {
+        return res.status(400).json({ message: "La fecha manual futura y su motivo son obligatorios para un cargo extraordinario" });
       }
       const extraUser = (req as any).user;
       const charge = await storage.createCharge({
@@ -279,13 +318,30 @@ export function registerChargesRoutes(app: Express): void {
         concept_id: conceptId,
         tenant_id: extraUser?.tenant_id,
         ciclo_escolar: new Date().getFullYear().toString(),
-        fecha_emision: new Date().toISOString().split('T')[0],
-        fecha_vencimiento: fecha_vencimiento || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        fecha_emision: today,
+        fecha_vencimiento,
         monto_base_centavos: Math.round(parseFloat(monto) * 100),
         beca_aplicada: '0.00',
         recargo_aplicado_centavos: 0,
-        estado: 'pendiente'
+        estado: 'pendiente',
+        manual_override: true,
+        manual_override_reason: motivo_override.trim(),
       });
+      if (tenantId && req.user?.id) {
+        const payload: import("../audit-retry").AuditLogPayload = {
+          tenant_id: tenantId,
+          user_id: req.user.id,
+          action: "cargo_extraordinario_fecha_override",
+          entity_type: "charge",
+          entity_id: charge.id,
+          metadata: { fecha_vencimiento, motivo: motivo_override.trim(), concept_id: conceptId },
+        };
+        pool.query(
+          `INSERT INTO audit_log (tenant_id,user_id,action,entity_type,entity_id,metadata)
+           VALUES ($1,$2,$3,'charge',$4,$5)`,
+          [tenantId, req.user.id, payload.action, charge.id, JSON.stringify(payload.metadata)],
+        ).catch((err) => enqueueAuditLog(payload, err));
+      }
       res.status(201).json({ message: "Cargo extraordinario creado", charge });
     } catch (error: any) {
       res.status(500).json({ message: "Error creando cargo extraordinario" });
@@ -402,15 +458,26 @@ export function registerChargesRoutes(app: Express): void {
       }
 
       const today = new Date().toISOString().split("T")[0];
-      const dueDate = fecha_vencimiento || (() => {
-        const date = new Date();
-        date.setDate(date.getDate() + 30);
-        return date.toISOString().split("T")[0];
-      })();
       const schoolYear = ciclo_escolar || (() => {
         const year = new Date().getFullYear();
         return new Date().getMonth() + 1 >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
       })();
+      const issueDate = fecha_emision || today;
+      const dueDate = usesConfiguredDueDate(concept.periodicidad)
+        ? (await resolveConfiguredDueDate(pool, {
+            tenantId,
+            campusId,
+            conceptId: concept.id,
+            issueDate,
+            billingPeriod: billingPeriodForConcept(concept.periodicidad, {
+              ...req.body,
+              ciclo_escolar: schoolYear,
+            }, issueDate),
+          })).dueDate
+        : fecha_vencimiento;
+      if (!dueDate) {
+        return res.status(422).json({ message: "Este concepto requiere una fecha de vencimiento explícita" });
+      }
 
       const students = await storage.getStudentsByCampus(campusId);
       const summary: Array<{ student_id: number; student_name: string; grade: string; academic_level: string; amount: number }> = [];
@@ -474,6 +541,7 @@ export function registerChargesRoutes(app: Express): void {
         skipped: skippedWithoutPrice,
       });
     } catch (error: any) {
+      if (sendDueDateResolutionError(res, error)) return;
       console.error("Error applying catalog charges:", error);
       res.status(500).json({ message: "Error aplicando cargos desde catálogo" });
     }

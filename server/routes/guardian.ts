@@ -5,7 +5,7 @@ import { eq, and, gte, lt, count } from "drizzle-orm";
 import { storage } from "../storage";
 import { authenticateToken, requireAuth, requireSuperAdmin, authenticateGuardian, checkCampusTenant, upload, esmRequire, JWT_SECRET, hasPermissionForUser} from "./shared";
 import { MODULES, ACTIONS } from "@shared/permissions";
-import { students, guardians, student_guardian, charges, payments, concepts, scholarships, invoices, payment_due_dates, payment_surcharge_rules, families, family_students, payment_applications, payment_events, institutional_credentials, institutional_info } from "@shared/schema";
+import { students, guardians, student_guardian, charges, payments, concepts, scholarships, invoices, payment_due_dates, payment_due_date_periods, payment_surcharge_rules, families, family_students, payment_applications, payment_events, institutional_credentials, institutional_info } from "@shared/schema";
 import { insertPaymentSchema, insertChargeSchema } from "@shared/schema";
 import { getAcademicLevel } from "@shared/academic-levels";
 import { wsManager } from "../websocket-manager";
@@ -19,6 +19,18 @@ import Stripe from "stripe";
 import { getActiveStripeAccountForCampus } from "./campus-payment";
 import { resolveEffectiveScholarship } from "../lib/scholarship-engine";
 import { parseProgressiveSurchargeTiers } from "../lib/surcharge-calculator";
+import {
+  billingPeriodForConcept,
+  DueDateResolutionError,
+  resolveConfiguredDueDate,
+  usesConfiguredDueDate,
+} from "../lib/due-date-resolver";
+
+function sendDueDateResolutionError(res: any, error: unknown): boolean {
+  if (!(error instanceof DueDateResolutionError)) return false;
+  res.status(error.statusCode).json({ code: error.code, message: error.message });
+  return true;
+}
 
 type CompleteSurchargePayload = {
   concepto_id: number | null;
@@ -821,19 +833,19 @@ export async function registerGuardianRoutes(
           [userCampusId, descripcion]
         ).catch(() => ({ rows: [] }));
         if ((existingConcept.rows as any[]).length > 0) {
-          concept = { id: (existingConcept.rows as any[])[0].id, monto_centavos: montoNum };
+          concept = { id: (existingConcept.rows as any[])[0].id, monto_centavos: montoNum, tipo: "extra", periodicidad: "eventual" };
         } else {
           const newConcept = await pool.query(
             `INSERT INTO concepts (campus_id, tenant_id, nombre, tipo, periodicidad, monto_centavos, iva)
              VALUES ($1, $2, $3, 'extra', 'eventual', $4, false) RETURNING id`,
             [userCampusId, userTenantId, descripcion, montoNum]
           );
-          concept = { id: (newConcept.rows as any[])[0].id, monto_centavos: montoNum };
+          concept = { id: (newConcept.rows as any[])[0].id, monto_centavos: montoNum, tipo: "extra", periodicidad: "eventual" };
         }
       }
       if (!concept && productForPricing && !isDryRun) {
         const existingConcept = await pool.query(
-          `SELECT id FROM concepts WHERE campus_id = $1 AND nombre = $2 LIMIT 1`,
+          `SELECT id, tipo, periodicidad, monto_centavos FROM concepts WHERE campus_id = $1 AND nombre = $2 LIMIT 1`,
           [userCampusId, productForPricing.nombre],
         );
         if (existingConcept.rows.length > 0) {
@@ -857,7 +869,7 @@ export async function registerGuardianRoutes(
               highestProductPrice,
             ],
           );
-          concept = { id: (newConcept.rows[0] as any).id };
+          concept = { id: (newConcept.rows[0] as any).id, tipo: "extra", periodicidad: "unica" };
         }
       }
 
@@ -880,11 +892,24 @@ export async function registerGuardianRoutes(
       const chargesCreated: any[] = [];
       const chargesSummary: any[] = [];
       const defaultIssueDate = new Date().toISOString().split("T")[0];
-      const defaultDueDate = (() => {
-        const dueDate = new Date();
-        dueDate.setDate(dueDate.getDate() + 30);
-        return dueDate.toISOString().split("T")[0];
-      })();
+      const issueDate = fecha_emision || defaultIssueDate;
+      let resolvedDueDate: string | undefined;
+      if (concept && usesConfiguredDueDate(concept.periodicidad)) {
+        resolvedDueDate = (await resolveConfiguredDueDate(pool, {
+          tenantId: userTenantId,
+          campusId: userCampusId,
+          conceptId: Number(concept.id),
+          issueDate,
+          billingPeriod: billingPeriodForConcept(concept.periodicidad, req.body, issueDate),
+        })).dueDate;
+      } else {
+        resolvedDueDate = fecha_vencimiento;
+      }
+      if (!resolvedDueDate) {
+        return res.status(422).json({
+          message: "Este concepto requiere una fecha de vencimiento explícita",
+        });
+      }
 
       for (const student of targetStudents) {
         const academicLevel = getAcademicLevel((student as any).grado);
@@ -960,8 +985,8 @@ export async function registerGuardianRoutes(
             concept_id:                concept?.id ?? null,
             tenant_id:                 userTenantId ?? (student as any).tenant_id,
             ciclo_escolar:             ciclo_escolar || (() => { const y = new Date().getFullYear(); const m = new Date().getMonth() + 1; return m >= 8 ? `${y}-${y+1}` : `${y-1}-${y}`; })(),
-            fecha_emision:             fecha_emision || defaultIssueDate,
-            fecha_vencimiento:         fecha_vencimiento || defaultDueDate,
+            fecha_emision:             issueDate,
+            fecha_vencimiento:         resolvedDueDate,
             monto_base_centavos:       baseAmount,
             beca_aplicada:             discountPct.toFixed(2),
             recargo_aplicado_centavos: lateFee,
@@ -1015,6 +1040,7 @@ export async function registerGuardianRoutes(
       res.status(isDryRun ? 200 : 201).json(response);
 
     } catch (error: any) {
+      if (sendDueDateResolutionError(res, error)) return;
       console.error("Error generating charges:", error);
       res.status(500).json({ message: "Error al generar cargos" });
     }
@@ -1553,7 +1579,7 @@ export async function registerGuardianRoutes(
       const dueDatesComplete = await db
         .select({
           id: payment_due_dates.id,
-          concepto_id: payment_due_dates.concepto,
+          concepto_id: payment_due_dates.concept_id,
           concepto_nombre: concepts.nombre,
           dia_vencimiento: payment_due_dates.dia_vencimiento,
           meses_aplicacion: payment_due_dates.mes_aplicacion,
@@ -1562,9 +1588,7 @@ export async function registerGuardianRoutes(
         .from(payment_due_dates)
         .leftJoin(
           concepts,
-          tenantId
-            ? and(eq(payment_due_dates.concepto, concepts.nombre), eq(concepts.campus_id, campusId), eq(concepts.tenant_id, tenantId))
-            : and(eq(payment_due_dates.concepto, concepts.nombre), eq(concepts.campus_id, campusId)),
+          eq(payment_due_dates.concept_id, concepts.id),
         )
         .where(tenantId
           ? and(eq(payment_due_dates.campus_id, campusId), eq(payment_due_dates.tenant_id, tenantId))
@@ -1618,6 +1642,7 @@ export async function registerGuardianRoutes(
         .values({
           campus_id: campusId,
           tenant_id: tenantId ?? null,
+          concept_id: Number(concepto_id),
           concepto: conceptData.nombre,
           dia_vencimiento,
           mes_aplicacion: meses_aplicacion.length === 12 ? 'todos' : JSON.stringify(meses_aplicacion),
@@ -1670,7 +1695,10 @@ export async function registerGuardianRoutes(
       }
       
       const updateData: any = { updated_at: new Date() };
-      if (conceptName) updateData.concepto = conceptName;
+      if (conceptName) {
+        updateData.concepto = conceptName;
+        updateData.concept_id = Number(concepto_id);
+      }
       if (dia_vencimiento) updateData.dia_vencimiento = dia_vencimiento;
       if (meses_aplicacion) updateData.mes_aplicacion = meses_aplicacion.length === 12 ? 'todos' : JSON.stringify(meses_aplicacion);
       if (activo !== undefined) updateData.activo = activo;
@@ -1717,6 +1745,146 @@ export async function registerGuardianRoutes(
       console.error("Error deleting due date:", error);
       res.status(500).json({ message: "Error eliminando fecha de vencimiento" });
     }
+  });
+
+  app.get("/api/payment-config/due-date-periods", authenticateToken, async (req: any, res) => {
+    try {
+      if (!hasPermissionForUser(req.user, MODULES.SETTINGS, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver calendarios de vencimiento" });
+      }
+      const campusId = Number(req.user?.campus_id);
+      const tenantId = Number(req.user?.tenant_id);
+      if (!await checkCampusTenant(campusId, tenantId, res)) return;
+      const rows = await db.select({
+        id: payment_due_date_periods.id,
+        concepto_id: payment_due_date_periods.concept_id,
+        concepto_nombre: concepts.nombre,
+        periodicidad: concepts.periodicidad,
+        ciclo_escolar: payment_due_date_periods.ciclo_escolar,
+        periodo_clave: payment_due_date_periods.periodo_clave,
+        fecha_inicio: payment_due_date_periods.fecha_inicio,
+        fecha_fin: payment_due_date_periods.fecha_fin,
+        fecha_vencimiento: payment_due_date_periods.fecha_vencimiento,
+        activo: payment_due_date_periods.activo,
+      }).from(payment_due_date_periods)
+        .innerJoin(concepts, eq(payment_due_date_periods.concept_id, concepts.id))
+        .where(and(
+          eq(payment_due_date_periods.tenant_id, tenantId),
+          eq(payment_due_date_periods.campus_id, campusId),
+        ));
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching long due-date periods:", error);
+      res.status(500).json({ message: "Error consultando calendarios de vencimiento" });
+    }
+  });
+
+  app.post("/api/payment-config/due-date-periods", authenticateToken, async (req: any, res) => {
+    try {
+      if (!hasPermissionForUser(req.user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para configurar calendarios de vencimiento" });
+      }
+      const campusId = Number(req.user?.campus_id);
+      const tenantId = Number(req.user?.tenant_id);
+      if (!await checkCampusTenant(campusId, tenantId, res)) return;
+      const conceptId = Number(req.body?.concepto_id);
+      const [concept] = await db.select({
+        id: concepts.id,
+        periodicidad: concepts.periodicidad,
+      }).from(concepts).where(and(
+        eq(concepts.id, conceptId),
+        eq(concepts.campus_id, campusId),
+        eq(concepts.tenant_id, tenantId),
+      )).limit(1);
+      if (!concept || !["cuatrimestral", "semestral", "anual"].includes(String(concept.periodicidad).toLowerCase())) {
+        return res.status(422).json({ message: "Selecciona un concepto cuatrimestral, semestral o anual" });
+      }
+      const periodoClave = String(req.body?.periodo_clave || "").trim();
+      const cicloEscolar = String(req.body?.ciclo_escolar || "").trim();
+      const fechaInicio = String(req.body?.fecha_inicio || "");
+      const fechaFin = String(req.body?.fecha_fin || "");
+      const fechaVencimiento = String(req.body?.fecha_vencimiento || "");
+      if (
+        !periodoClave || !cicloEscolar
+        || !/^\d{4}-\d{2}-\d{2}$/.test(fechaInicio)
+        || !/^\d{4}-\d{2}-\d{2}$/.test(fechaFin)
+        || !/^\d{4}-\d{2}-\d{2}$/.test(fechaVencimiento)
+        || fechaFin < fechaInicio
+        || fechaVencimiento < fechaInicio
+        || fechaVencimiento > fechaFin
+      ) {
+        return res.status(400).json({ message: "Completa un ciclo, periodo y rango de fechas válido" });
+      }
+      if (String(concept.periodicidad).toLowerCase() === "anual" && periodoClave !== "ANUAL") {
+        return res.status(422).json({ message: "Los conceptos anuales deben usar periodo_clave ANUAL" });
+      }
+      const [created] = await db.insert(payment_due_date_periods).values({
+        tenant_id: tenantId,
+        campus_id: campusId,
+        concept_id: conceptId,
+        ciclo_escolar: cicloEscolar,
+        periodo_clave: periodoClave,
+        fecha_inicio: fechaInicio,
+        fecha_fin: fechaFin,
+        fecha_vencimiento: fechaVencimiento,
+        activo: req.body?.activo !== false,
+      }).returning();
+      res.status(201).json(created);
+    } catch (error: any) {
+      if (error?.code === "23505") {
+        return res.status(409).json({ message: "Ya existe una fecha para este concepto, ciclo y periodo" });
+      }
+      console.error("Error creating long due-date period:", error);
+      res.status(500).json({ message: "Error guardando calendario de vencimiento" });
+    }
+  });
+
+  app.put("/api/payment-config/due-date-periods/:id", authenticateToken, async (req: any, res) => {
+    try {
+      if (!hasPermissionForUser(req.user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+        return res.status(403).json({ message: "Sin permisos para configurar calendarios de vencimiento" });
+      }
+      const campusId = Number(req.user?.campus_id);
+      const tenantId = Number(req.user?.tenant_id);
+      const id = Number(req.params.id);
+      if (!await checkCampusTenant(campusId, tenantId, res)) return;
+      const [existing] = await db.select().from(payment_due_date_periods).where(and(
+        eq(payment_due_date_periods.id, id),
+        eq(payment_due_date_periods.tenant_id, tenantId),
+        eq(payment_due_date_periods.campus_id, campusId),
+      )).limit(1);
+      if (!existing) return res.status(404).json({ message: "Calendario no encontrado" });
+      const values = {
+        ciclo_escolar: String(req.body?.ciclo_escolar ?? existing.ciclo_escolar).trim(),
+        periodo_clave: String(req.body?.periodo_clave ?? existing.periodo_clave).trim(),
+        fecha_inicio: String(req.body?.fecha_inicio ?? existing.fecha_inicio),
+        fecha_fin: String(req.body?.fecha_fin ?? existing.fecha_fin),
+        fecha_vencimiento: String(req.body?.fecha_vencimiento ?? existing.fecha_vencimiento),
+        activo: req.body?.activo === undefined ? existing.activo : Boolean(req.body.activo),
+        updated_at: new Date(),
+      };
+      if (values.fecha_fin < values.fecha_inicio || values.fecha_vencimiento < values.fecha_inicio || values.fecha_vencimiento > values.fecha_fin) {
+        return res.status(400).json({ message: "El vencimiento debe estar dentro del periodo configurado" });
+      }
+      const [updated] = await db.update(payment_due_date_periods).set(values).where(eq(payment_due_date_periods.id, id)).returning();
+      res.json(updated);
+    } catch (error: any) {
+      if (error?.code === "23505") return res.status(409).json({ message: "Ya existe una fecha para este concepto, ciclo y periodo" });
+      res.status(500).json({ message: "Error actualizando calendario de vencimiento" });
+    }
+  });
+
+  app.delete("/api/payment-config/due-date-periods/:id", authenticateToken, async (req: any, res) => {
+    if (!hasPermissionForUser(req.user, MODULES.SETTINGS, ACTIONS.CONFIGURE)) {
+      return res.status(403).json({ message: "Sin permisos para configurar calendarios de vencimiento" });
+    }
+    const [deleted] = await db.delete(payment_due_date_periods).where(and(
+      eq(payment_due_date_periods.id, Number(req.params.id)),
+      eq(payment_due_date_periods.tenant_id, Number(req.user?.tenant_id)),
+      eq(payment_due_date_periods.campus_id, Number(req.user?.campus_id)),
+    )).returning({ id: payment_due_date_periods.id });
+    if (!deleted) return res.status(404).json({ message: "Calendario no encontrado" });
+    res.json({ success: true });
   });
 
   // Get complete surcharge rules

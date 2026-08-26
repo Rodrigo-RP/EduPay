@@ -73,3 +73,4 @@
 - [Estado manual de becas](scholarship-manual-state.md) — suspender/reactivar sólo cambia la elegibilidad de cargos futuros; el ledger emitido permanece intacto y el cambio exige auditoría.
 - [Deuda de configuración de pagos](payment-config-debt.md) — las pantallas y APIs heredadas siguen alcanzables; sólo la ruta completa es el camino activo hasta consolidarlas.
 - [Recargos mensuales acumulables](monthly-surcharge-accumulation.md) — la acumulación es un ledger mensual idempotente y nunca regulariza meses anteriores a su activación.
+- [Calendario por periodicidad](due-date-periodicity.md) — vencimientos institucionales siempre configurados; periodos largos son explícitos y el override sólo existe para extraordinarios.

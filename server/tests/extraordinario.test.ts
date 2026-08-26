@@ -154,6 +154,8 @@ describe("POST /api/admin/cargos/extraordinario", () => {
       student_id: studentAId,
       monto: "750",          // 750 pesos → 75 000 centavos
       descripcion: "Certificado de estudios extraordinario",
+      fecha_vencimiento: "2027-12-31",
+      motivo_override: "Fecha especial autorizada para prueba",
     }, tokenA);
 
     expect(r.status).toBe(201);
@@ -199,6 +201,8 @@ describe("POST /api/admin/cargos/extraordinario", () => {
       student_id: studentAId,
       monto: "200",
       descripcion: "Examen Reposicion", // coincide exactamente con conceptAId
+      fecha_vencimiento: "2027-12-31",
+      motivo_override: "Fecha especial autorizada para prueba",
     }, tokenA);
 
     expect(r.status).toBe(201);
@@ -229,6 +233,8 @@ describe("POST /api/admin/cargos/extraordinario", () => {
       student_id: studentAId,
       monto: "300",
       descripcion: nombreNuevo,
+      fecha_vencimiento: "2027-12-31",
+      motivo_override: "Fecha especial autorizada para prueba",
     }, tokenA);
 
     expect(r.status).toBe(201);

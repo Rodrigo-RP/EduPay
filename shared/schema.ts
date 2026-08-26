@@ -1,4 +1,4 @@
-import { pgTable, pgEnum, text, serial, integer, boolean, varchar, bigint, numeric, date, timestamp, primaryKey, jsonb, uniqueIndex, smallint, check } from "drizzle-orm/pg-core";
+import { pgTable, pgEnum, text, serial, integer, boolean, varchar, bigint, bigserial, numeric, date, time, timestamp, primaryKey, jsonb, uniqueIndex, smallint, check } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -23,6 +23,7 @@ export const campuses = pgTable("campuses", {
   // true = campus completed the guided setup wizard at least once.
   // New campuses default to false; existing campuses were grandfathered to true.
   onboarding_completado: boolean("onboarding_completado").default(false).notNull(),
+  onboarding_steps_completados: jsonb("onboarding_steps_completados").default({}).notNull(),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
@@ -34,7 +35,7 @@ export const users = pgTable("users", {
   tenant_id: integer("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
   email: varchar("email", { length: 255 }).notNull().unique(),
   password_hash: varchar("password_hash", { length: 255 }).notNull(),
-  name: varchar("name", { length: 255 }).notNull(),
+  name: varchar("name", { length: 255 }),
   role: varchar("role", { length: 50 }).notNull(), // 'administrador_general', 'administrador_campus', 'contador_general', 'auxiliar_contable', 'asistente', 'admisiones'
   telefono: varchar("telefono", { length: 20 }),
   // TEXT (sin límite): almacena la foto como data URI base64 directamente en la columna.
@@ -62,13 +63,13 @@ export const users = pgTable("users", {
 // INSTITUTIONAL CREDENTIALS - Credenciales institucionales para administradores
 export const institutional_credentials = pgTable("institutional_credentials", {
   id: serial("id").primaryKey(),
-  user_id: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
-  campus_id: integer("campus_id").references(() => campuses.id, { onDelete: "cascade" }),
+  user_id: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  campus_id: integer("campus_id").references(() => campuses.id, { onDelete: "cascade" }).notNull(),
   tenant_id: integer("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
   credential_type: varchar("credential_type", { length: 50 }).notNull(), // 'firma_electronica', 'sellos_digitales', 'idse', 'tarjeta_patronal', 'infonavit', 'otra'
   credential_name: varchar("credential_name", { length: 255 }), // Nombre personalizado para "Otra"
   username: varchar("username", { length: 255 }),
-  password_encrypted: varchar("password_encrypted", { length: 500 }), // Encrypted password
+  password_encrypted: text("password_encrypted"), // Encrypted password
   expiration_date: date("expiration_date"),
   last_notification_sent: date("last_notification_sent"),
   is_active: boolean("is_active").default(true),
@@ -79,7 +80,7 @@ export const institutional_credentials = pgTable("institutional_credentials", {
 // INSTITUTIONAL INFO - Información institucional por secciones educativas
 export const institutional_info = pgTable("institutional_info", {
   id: serial("id").primaryKey(),
-  campus_id: integer("campus_id").references(() => campuses.id, { onDelete: "cascade" }),
+  campus_id: integer("campus_id").references(() => campuses.id, { onDelete: "cascade" }).notNull(),
   tenant_id: integer("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
   seccion_educativa: varchar("seccion_educativa", { length: 50 }).notNull(), // 'KINDER', 'PRIMARIA', 'SECUNDARIA', 'BACHILLERATO'
   rfc: varchar("rfc", { length: 13 }),
@@ -135,7 +136,7 @@ export const students = pgTable("students", {
   password_hash: varchar("password_hash", { length: 255 }), // Contraseña del alumno
   
   // Campos de nombres (columnas 8-10 Excel)
-  nombres: varchar("nombres", { length: 255 }).notNull(),
+  nombres: varchar("nombres", { length: 255 }),
   apellido_paterno: varchar("apellido_paterno", { length: 255 }),
   apellido_materno: varchar("apellido_materno", { length: 255 }),
   
@@ -158,7 +159,7 @@ export const students = pgTable("students", {
   turno: varchar("turno", { length: 50 }),
   
   // Campo calculado para compatibilidad con código existente
-  nombre_completo: varchar("nombre_completo", { length: 300 }),
+  nombre_completo: varchar("nombre_completo", { length: 255 }).notNull(),
   
   // Datos demográficos (Task #60)
   sexo:                  varchar("sexo", { length: 10 }),
@@ -190,10 +191,10 @@ export const guardians = pgTable("guardians", {
   es_madre: boolean("es_madre").default(false),
   
   // Contacto (columna 1 Excel)
-  correo_institucional_familiar: varchar("correo_institucional_familiar", { length: 255 }).notNull(),
+  correo_institucional_familiar: varchar("correo_institucional_familiar", { length: 255 }),
   
   // Nombres (columnas 2-4 Excel)
-  nombres: varchar("nombres", { length: 255 }).notNull(),
+  nombres: varchar("nombres", { length: 255 }),
   apellido_paterno: varchar("apellido_paterno", { length: 255 }),
   apellido_materno: varchar("apellido_materno", { length: 255 }),
   
@@ -205,10 +206,10 @@ export const guardians = pgTable("guardians", {
   telefono_casa_oficina: varchar("telefono_casa_oficina", { length: 20 }),
   
   // Campos para compatibilidad con sistema existente
-  email: varchar("email", { length: 255 }),
+  email: varchar("email", { length: 255 }).notNull(),
   password_hash: varchar("password_hash", { length: 255 }),
   telefono: varchar("telefono", { length: 20 }),
-  nombre_completo: varchar("nombre_completo", { length: 300 }),
+  nombre_completo: varchar("nombre_completo", { length: 255 }).notNull(),
   rfc: varchar("rfc", { length: 13 }),
   calle: varchar("calle", { length: 255 }),
   numero_exterior: varchar("numero_exterior", { length: 30 }),
@@ -347,8 +348,8 @@ export const scholarships = pgTable("scholarships", {
   // Columnas reales verificadas directamente en la DB (2026-08-10).
   // Columnas ELIMINADAS que no existen en la DB: porcentaje_aplicado, monto_fijo_aplicado_centavos,
   // score_evaluacion, metodo_asignacion, observaciones, created_by.
-  porcentaje: numeric("porcentaje").notNull(),
-  motivo: varchar("motivo", { length: 500 }),
+  porcentaje: numeric("porcentaje", { precision: 5, scale: 2 }).notNull(),
+  motivo: varchar("motivo", { length: 255 }),
   // Nullable por compatibilidad con registros históricos; la migración usa
   // default 'activa' y las consultas tratan NULL histórico como activa.
   estado: varchar("estado", { length: 20 }).default("activa"),
@@ -469,8 +470,8 @@ export const campus_payment_config = pgTable("campus_payment_config", {
   payouts_enabled:   boolean("payouts_enabled").notNull().default(false),
   details_submitted: boolean("details_submitted").notNull().default(false),
   // DB: TIMESTAMPTZ — withTimezone:true para coincidir con information_schema
-  created_at:        timestamp("created_at", { withTimezone: true }).defaultNow(),
-  updated_at:        timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  created_at:        timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_at:        timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // CAMPUS INVOICING CONFIG — configuración de timbrado por campus (multi-proveedor multi-RFC)
@@ -497,8 +498,8 @@ export const campus_invoicing_config = pgTable("campus_invoicing_config", {
   // 'pendiente' | 'activo' | 'error' | 'vencido'
   ultimo_error:          text("ultimo_error"),
   // DB: TIMESTAMPTZ (mig-019 usó TIMESTAMPTZ) — withTimezone:true para coincidir
-  created_at:            timestamp("created_at", { withTimezone: true }).defaultNow(),
-  updated_at:            timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  created_at:            timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_at:            timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // INVOICES (CFDI)
@@ -604,7 +605,7 @@ export const collection_activities = pgTable("collection_activities", {
   titulo:           varchar("titulo", { length: 255 }).notNull(),
   descripcion:      text("descripcion"),
   fecha_programada: date("fecha_programada"),
-  hora_programada:  varchar("hora_programada", { length: 8 }),
+  hora_programada:  time("hora_programada"),
   monto_centavos:   bigint("monto_centavos", { mode: "number" }),
   canal:            varchar("canal", { length: 30 }),
   prioridad:        varchar("prioridad", { length: 20 }),
@@ -872,12 +873,12 @@ export const payment_due_dates = pgTable("payment_due_dates", {
   // Asociación canónica introducida en la migración 031. `concepto` se
   // conserva para compatibilidad temporal con datos y rutas históricas.
   concept_id: integer("concept_id").references(() => concepts.id),
-  concepto: text("concepto").notNull(),
+  concepto: varchar("concepto", { length: 255 }).notNull(),
   dia_vencimiento: integer("dia_vencimiento").notNull(),
   mes_aplicacion: text("mes_aplicacion").notNull(), // JSON array or "todos"
-  activo: boolean("activo").default(true).notNull(),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
+  activo: boolean("activo").default(true),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
 });
 
 // EXPLICIT DUE DATES FOR LONG PERIODS
@@ -916,23 +917,23 @@ export const payment_surcharge_rules = pgTable("payment_surcharge_rules", {
   // surcharge engine. `concepto` remains for historic routes only.
   concept_id: integer("concept_id").references(() => concepts.id),
   concepto: text("concepto").notNull(), // Nombre del concepto
-  nombre: text("nombre").notNull(),
-  tipo: text("tipo").notNull(), // 'porcentaje_fijo', 'porcentaje_diario', 'monto_fijo'
-  dias_gracia: integer("dias_gracia").default(0).notNull(),
+  nombre: varchar("nombre", { length: 255 }).notNull(),
+  tipo: varchar("tipo", { length: 50 }).notNull(), // 'porcentaje_fijo', 'porcentaje_diario', 'monto_fijo'
+  dias_gracia: integer("dias_gracia").default(0),
   porcentaje: numeric("porcentaje", { precision: 5, scale: 2 }), // Para tipos de porcentaje
   monto_fijo_centavos: integer("monto_fijo_centavos"), // Para tipo 'monto_fijo' 
   reglas_progresivas: text("reglas_progresivas"), // JSON para tipo 'progresivo'
-  aplica_fines_semana: boolean("aplica_fines_semana").default(false).notNull(),
-  aplica_festivos: boolean("aplica_festivos").default(false).notNull(),
+  aplica_fines_semana: boolean("aplica_fines_semana").default(false),
+  aplica_festivos: boolean("aplica_festivos").default(false),
   monto_maximo_centavos: integer("monto_maximo_centavos"),
   modo_acumulacion: text("modo_acumulacion").default("ninguno").notNull(),
   tipo_incremento_mensual: text("tipo_incremento_mensual"),
   incremento_mensual_centavos: integer("incremento_mensual_centavos"),
   incremento_mensual_porcentaje: numeric("incremento_mensual_porcentaje", { precision: 5, scale: 2 }),
   fecha_inicio_acumulacion: date("fecha_inicio_acumulacion"),
-  activo: boolean("activo").default(true).notNull(),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
+  activo: boolean("activo").default(true),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
 }, () => [
   // Refleja el CHECK real de DB — no genera migración nueva, solo documenta.
   check(
@@ -1177,17 +1178,20 @@ export type InsertPlatformProfile = z.infer<typeof insertPlatformProfileSchema>;
 // PENDING APPROVALS (Sistema de validación para cambios críticos)
 export const pending_approvals = pgTable("pending_approvals", {
   id: serial("id").primaryKey(),
-  campus_id: integer("campus_id").references(() => campuses.id, { onDelete: "cascade" }),
+  campus_id: integer("campus_id").references(() => campuses.id, { onDelete: "cascade" }).notNull(),
   tenant_id: integer("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
   requested_by: integer("requested_by").references(() => users.id, { onDelete: "cascade" }).notNull(),
   approved_by: integer("approved_by").references(() => users.id, { onDelete: "set null" }),
   action_type: varchar("action_type", { length: 100 }).notNull(), // 'modify_scholarship', 'modify_late_fee', 'modify_price', 'modify_payment_due_date', 'delete_concept', 'modify_concept'
   action_description: text("action_description").notNull(), // Descripción legible de la acción a aprobar
-  entity_type: varchar("entity_type", { length: 50 }).notNull(), // 'scholarship', 'late_fee', 'concept', 'payment_rule', 'product'
-  entity_id: integer("entity_id").notNull(), // ID del elemento a modificar
-  original_data: text("original_data").notNull(), // JSON con datos originales
-  requested_data: text("requested_data").notNull(), // JSON con datos solicitados
-  reason: text("reason"), // Justificación del cambio
+  entity_type: varchar("entity_type", { length: 50 }), // 'scholarship', 'late_fee', 'concept', 'payment_rule', 'product'
+  entity_id: integer("entity_id"), // ID del elemento a modificar
+  original_data: text("original_data"), // JSON con datos originales
+  requested_data: text("requested_data"), // JSON con datos solicitados
+  current_value: varchar("current_value", { length: 255 }),
+  proposed_value: varchar("proposed_value", { length: 255 }),
+  reason: text("reason").notNull(), // Justificación del cambio
+  additional_data: text("additional_data"),
   status: varchar("status", { length: 50 }).default("pending"), // 'pending', 'approved', 'rejected', 'expired'
   priority: varchar("priority", { length: 20 }).default("medium"), // 'low', 'medium', 'high', 'critical'
   approval_notes: text("approval_notes"), // Notas del aprobador
@@ -1201,12 +1205,13 @@ export const approval_notifications = pgTable("approval_notifications", {
   id: serial("id").primaryKey(),
   approval_id: integer("approval_id").references(() => pending_approvals.id, { onDelete: "cascade" }).notNull(),
   recipient_id: integer("recipient_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
-  notification_type: varchar("notification_type", { length: 50 }).notNull(), // 'approval_request', 'approval_granted', 'approval_denied', 'approval_expired'
+  notification_type: varchar("notification_type", { length: 100 }).notNull(), // 'approval_request', 'approval_granted', 'approval_denied', 'approval_expired'
   title: varchar("title", { length: 255 }).notNull(),
   message: text("message").notNull(),
   is_read: boolean("is_read").default(false),
   sent_at: timestamp("sent_at").defaultNow(),
   read_at: timestamp("read_at"),
+  additional_data: text("additional_data"),
 });
 
 // APPROVAL WORKFLOW LOGS (Auditoría del flujo de aprobación)
@@ -1442,8 +1447,8 @@ export const family_payment_sources = pgTable("family_payment_sources", {
   nombre_inferido: varchar("nombre_inferido", { length: 255 }),
   confirmaciones: integer("confirmaciones").notNull().default(1),
   // DB: TIMESTAMPTZ — withTimezone:true para coincidir con information_schema
-  primera_vez_at: timestamp("primera_vez_at", { withTimezone: true }).defaultNow(),
-  ultima_vez_at: timestamp("ultima_vez_at", { withTimezone: true }).defaultNow(),
+  primera_vez_at: timestamp("primera_vez_at", { withTimezone: true }).defaultNow().notNull(),
+  ultima_vez_at: timestamp("ultima_vez_at", { withTimezone: true }).defaultNow().notNull(),
 });
 export type FamilyPaymentSource = typeof family_payment_sources.$inferSelect;
 
@@ -1627,6 +1632,20 @@ export const audit_log = pgTable("audit_log", {
 });
 export type AuditLogEntry = typeof audit_log.$inferSelect;
 export type InsertAuditLogEntry = typeof audit_log.$inferInsert;
+
+// Cola durable creada por el subsistema de auditoría para reintentar escrituras
+// de audit_log que fallaron después de confirmar una transacción financiera.
+export const audit_retry_queue = pgTable("audit_retry_queue", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  payload: jsonb("payload").notNull(),
+  attempts: integer("attempts").default(0).notNull(),
+  max_attempts: integer("max_attempts").default(3).notNull(),
+  last_error: text("last_error"),
+  status: varchar("status", { length: 20 }).default("pending").notNull(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  next_retry_at: timestamp("next_retry_at", { withTimezone: true }).defaultNow().notNull(),
+});
+export type AuditRetryQueueEntry = typeof audit_retry_queue.$inferSelect;
 
 // ── CRM PROSPECTOS (tabla existente en DB — creada en 001_create_missing_tables.sql) ──────
 // Usada por GET/POST /api/crm/prospects en server/routes/misc.ts.

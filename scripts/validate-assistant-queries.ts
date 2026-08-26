@@ -12,7 +12,7 @@
  * Cuándo correrlo:
  *   - Antes de declarar que una query "funciona"
  *   - Después de cualquier cambio en assistant-actions.ts
- *   - Después de un db:push o migración
+ *   - Después de una migración de base de datos
  *   - Como paso de CI antes de desplegar
  */
 

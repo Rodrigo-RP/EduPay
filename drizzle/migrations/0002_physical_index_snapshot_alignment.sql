@@ -1,0 +1,3 @@
+-- Metadata-only migration.
+-- Neon already has these type-appropriate operator classes. This entry only
+-- aligns Drizzle's generated snapshot and intentionally executes no DDL.

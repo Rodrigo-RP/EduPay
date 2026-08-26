@@ -1,6 +1,6 @@
 {
-  "id": "a951a75c-c705-481c-ada4-2b32504d4d9d",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "69a6f936-e944-4960-ab9a-15bdd423c886",
+  "prevId": "b13a2841-7d26-4695-ba8d-538a8ad1667c",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -152,7 +152,7 @@
               "isExpression": false,
               "asc": true,
               "nulls": "last",
-              "opclass": "int4_ops"
+              "opclass": "enum_ops"
             }
           ],
           "isUnique": false,
@@ -253,9 +253,9 @@
           "name": "acciones_seg_entity_campus_uniq",
           "nullsNotDistinct": false,
           "columns": [
-            "campus_id",
             "entity_type",
-            "entity_id"
+            "entity_id",
+            "campus_id"
           ]
         }
       },
@@ -514,14 +514,14 @@
               "isExpression": false,
               "asc": true,
               "nulls": "last",
-              "opclass": "int4_ops"
+              "opclass": "text_ops"
             },
             {
               "expression": "entity_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last",
-              "opclass": "int4_ops"
+              "opclass": "text_ops"
             }
           ],
           "isUnique": false,
@@ -622,7 +622,8 @@
           "for": "UPDATE",
           "to": [
             "public"
-          ]
+          ],
+          "using": "false"
         },
         "audit_log_insert_policy": {
           "name": "audit_log_insert_policy",
@@ -630,7 +631,8 @@
           "for": "INSERT",
           "to": [
             "public"
-          ]
+          ],
+          "withCheck": "true"
         },
         "audit_log_select_policy": {
           "name": "audit_log_select_policy",
@@ -638,7 +640,8 @@
           "for": "SELECT",
           "to": [
             "public"
-          ]
+          ],
+          "using": "true"
         }
       },
       "checkConstraints": {},
@@ -836,7 +839,7 @@
               "isExpression": false,
               "asc": true,
               "nulls": "last",
-              "opclass": "text_ops"
+              "opclass": "date_ops"
             },
             {
               "expression": "monto_centavos",
@@ -1382,7 +1385,7 @@
               "isExpression": false,
               "asc": true,
               "nulls": "last",
-              "opclass": "int4_ops"
+              "opclass": "date_ops"
             }
           ],
           "isUnique": true,
@@ -1405,14 +1408,14 @@
               "isExpression": false,
               "asc": true,
               "nulls": "last",
-              "opclass": "timestamp_ops"
+              "opclass": "int4_ops"
             },
             {
               "expression": "created_at",
               "isExpression": false,
               "asc": false,
               "nulls": "first",
-              "opclass": "int4_ops"
+              "opclass": "timestamp_ops"
             }
           ],
           "isUnique": false,
@@ -1711,14 +1714,14 @@
               "isExpression": false,
               "asc": true,
               "nulls": "last",
-              "opclass": "date_ops"
+              "opclass": "int4_ops"
             },
             {
               "expression": "periodo_mes",
               "isExpression": false,
               "asc": true,
               "nulls": "last",
-              "opclass": "int4_ops"
+              "opclass": "date_ops"
             }
           ],
           "isUnique": false,
@@ -2183,7 +2186,7 @@
               "isExpression": false,
               "asc": true,
               "nulls": "last",
-              "opclass": "timestamp_ops"
+              "opclass": "int4_ops"
             },
             {
               "expression": "created_at",
@@ -2676,7 +2679,7 @@
               "isExpression": false,
               "asc": true,
               "nulls": "last",
-              "opclass": "text_ops"
+              "opclass": "int4_ops"
             },
             {
               "expression": "campus_id",
@@ -4825,14 +4828,14 @@
               "isExpression": false,
               "asc": true,
               "nulls": "last",
-              "opclass": "text_ops"
+              "opclass": "int4_ops"
             },
             {
               "expression": "ciclo_escolar",
               "isExpression": false,
               "asc": true,
               "nulls": "last",
-              "opclass": "bool_ops"
+              "opclass": "text_ops"
             },
             {
               "expression": "activo",
@@ -4989,14 +4992,14 @@
               "isExpression": false,
               "asc": true,
               "nulls": "last",
-              "opclass": "bool_ops"
+              "opclass": "int4_ops"
             },
             {
               "expression": "campus_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last",
-              "opclass": "bool_ops"
+              "opclass": "int4_ops"
             },
             {
               "expression": "concept_id",
@@ -6041,7 +6044,7 @@
               "isExpression": false,
               "asc": true,
               "nulls": "last",
-              "opclass": "int4_ops"
+              "opclass": "text_ops"
             }
           ],
           "isUnique": true,
@@ -6712,7 +6715,7 @@
               "isExpression": false,
               "asc": true,
               "nulls": "last",
-              "opclass": "text_ops"
+              "opclass": "int4_ops"
             },
             {
               "expression": "estado",
@@ -6735,7 +6738,7 @@
               "isExpression": false,
               "asc": true,
               "nulls": "last",
-              "opclass": "text_ops"
+              "opclass": "int4_ops"
             },
             {
               "expression": "campus_id",
@@ -6749,7 +6752,7 @@
               "isExpression": false,
               "asc": true,
               "nulls": "last",
-              "opclass": "int4_ops"
+              "opclass": "text_ops"
             }
           ],
           "isUnique": false,
@@ -7284,21 +7287,21 @@
               "isExpression": false,
               "asc": true,
               "nulls": "last",
-              "opclass": "text_ops"
+              "opclass": "int4_ops"
             },
             {
               "expression": "student_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last",
-              "opclass": "text_ops"
+              "opclass": "int4_ops"
             },
             {
               "expression": "estado",
               "isExpression": false,
               "asc": true,
               "nulls": "last",
-              "opclass": "int4_ops"
+              "opclass": "text_ops"
             },
             {
               "expression": "vigencia_inicio",
@@ -7312,7 +7315,7 @@
               "isExpression": false,
               "asc": true,
               "nulls": "last",
-              "opclass": "text_ops"
+              "opclass": "date_ops"
             }
           ],
           "isUnique": false,

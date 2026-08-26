@@ -74,3 +74,4 @@
 - [Deuda de configuración de pagos](payment-config-debt.md) — las pantallas y APIs heredadas siguen alcanzables; sólo la ruta completa es el camino activo hasta consolidarlas.
 - [Recargos mensuales acumulables](monthly-surcharge-accumulation.md) — la acumulación es un ledger mensual idempotente y nunca regulariza meses anteriores a su activación.
 - [Calendario por periodicidad](due-date-periodicity.md) — vencimientos institucionales siempre configurados; periodos largos son explícitos y el override sólo existe para extraordinarios.
+- [Drizzle baseline introspection](drizzle-baseline-introspection.md) — `drizzle-kit pull` puede corromper opclasses, arrays y checks NOT VALID; adoptar sólo con comparación transaccional del catálogo.

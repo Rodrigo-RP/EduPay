@@ -356,11 +356,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createGuardian(insertGuardian: InsertGuardian): Promise<Guardian> {
-    const hashedPassword = insertGuardian.password_hash ? 
+    const email = insertGuardian.correo_institucional_familiar?.trim();
+    if (!email) {
+      throw new Error("El correo institucional familiar es obligatorio");
+    }
+    const nombre_completo = [
+      insertGuardian.nombres,
+      insertGuardian.apellido_paterno,
+      insertGuardian.apellido_materno,
+    ].filter(Boolean).join(" ").trim();
+    if (!nombre_completo) {
+      throw new Error("El nombre completo del tutor es obligatorio");
+    }
+    const telefono =
+      insertGuardian.celular ?? insertGuardian.telefono_casa_oficina ?? null;
+    const hashedPassword = insertGuardian.password_hash ?
       await bcrypt.hash(insertGuardian.password_hash, 10) : null;
     const [guardian] = await db
       .insert(guardians)
-      .values({ ...insertGuardian, password_hash: hashedPassword })
+      .values({
+        ...insertGuardian,
+        email,
+        nombre_completo,
+        telefono,
+        password_hash: hashedPassword,
+      })
       .returning();
     return guardian;
   }
@@ -411,7 +431,10 @@ export class DatabaseStorage implements IStorage {
   async createStudent(student: InsertStudent): Promise<Student> {
     // nombre_completo es NOT NULL en la DB (campo calculado para compatibilidad)
     const nombre_completo = [student.nombres, student.apellido_paterno, student.apellido_materno]
-      .filter(Boolean).join(" ") || student.nombres;
+      .filter(Boolean).join(" ").trim();
+    if (!nombre_completo) {
+      throw new Error("El nombre completo del alumno es obligatorio");
+    }
     const [newStudent] = await db.insert(students).values({ ...student, nombre_completo }).returning();
     return newStudent;
   }

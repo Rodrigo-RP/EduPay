@@ -5,8 +5,22 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1787749975202,
+      "when": 1787751763050,
       "tag": "0000_baseline",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787752193895,
+      "tag": "0001_snapshot_alignment",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787752958325,
+      "tag": "0002_physical_index_snapshot_alignment",
       "breakpoints": true
     }
   ]

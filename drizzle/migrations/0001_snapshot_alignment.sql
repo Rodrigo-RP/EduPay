@@ -1,0 +1,4 @@
+-- Metadata-only migration.
+-- The corrected UNIQUE column order and audit_log policy expressions are
+-- already present in 0000_baseline.sql and in the adopted PostgreSQL schema.
+-- This entry advances Drizzle's snapshot without executing DDL.

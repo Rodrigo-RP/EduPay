@@ -28,7 +28,7 @@ export function getParser(banco: string): BankStatementParser {
 
     default:
       throw new Error(
-        `Banco "${banco}" no reconocido. Valores válidos: BBVA.`
+        `Banco "${banco}" no reconocido. Valores válidos: BBVA, Santander.`
       );
   }
 }

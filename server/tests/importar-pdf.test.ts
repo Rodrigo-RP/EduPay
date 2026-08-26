@@ -13,9 +13,12 @@
  * IPF-02   banco no reconocido → 400 con mensaje accionable
  * IPF-03   buffer no-PDF → 422 (parser falla al extraer texto)
  * IPF-04   PDF BBVA válido + dry_run=true → 200, committed:false, sin filas en DB
- * IPF-05   PDF BBVA válido normal → 200, committed:true, fila en bank_transactions
+ * IPF-05   commit sin preview o con archivo distinto → 409
+ * IPF-05b  PDF BBVA con token de preview → 200, committed:true, fila en DB
  * IPF-06   reenvío del mismo PDF → successful:0, skipped:1 (dedup ON CONFLICT)
  * IPF-07   audit_log registra BANK_PDF_IMPORT con banco, periodo y contadores
+ * IPF-08   XML Santander realista + dry_run=true → preview sin filas en DB
+ * IPF-09   mismo XML Santander → commit real y fila normalizada en DB
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -97,13 +100,43 @@ function buildBbvaPdf(opts: { monto: string; referencia?: string }): Buffer {
   return Buffer.from(header + objs.join("") + xref + trailer, "latin1");
 }
 
+function buildSantanderXml(opts: { referencia: string; monto: string }): Buffer {
+  return Buffer.from(`<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4">
+  <cfdi:Addenda>
+    <Santander:addendaECB xmlns:Santander="http://www.santander.com.mx/schemas/xsd/addendaECB">
+      <Santander:EstadoDeCuentaBancario version="1.0" numeroCuenta="99887700001" nombreCliente="COLEGIO PRUEBA" periodo="2026-08-31">
+        <Santander:Movimientos>
+          <Santander:MovimientoECB IdMovto="${opts.referencia}" fecha="2026-08-14" descripcion="ABONO TRANSFERENCIA SPEI PRUEBA" importe="${opts.monto}" monMov="MXN" />
+          <Santander:MovimientoECB IdMovto="${opts.referencia}-CARGO" fecha="2026-08-15" descripcion="CARGO PAGO TARJETA CREDITO" importe="125.00" monMov="MXN" />
+        </Santander:Movimientos>
+      </Santander:EstadoDeCuentaBancario>
+    </Santander:addendaECB>
+  </cfdi:Addenda>
+</cfdi:Comprobante>`, "utf-8");
+}
+
 // ── HTTP helper ───────────────────────────────────────────────────────────────
 
 async function postPdf(
   token:  string | null,
-  opts:   { file?: Buffer; banco?: string; dryRun?: boolean } = {},
+  opts:   {
+    file?: Buffer;
+    banco?: string;
+    dryRun?: boolean;
+    fileName?: string;
+    mimeType?: string;
+    previewToken?: string;
+  } = {},
 ) {
-  const { file, banco = "BBVA", dryRun = false } = opts;
+  const {
+    file,
+    banco = "BBVA",
+    dryRun = false,
+    fileName = "test.pdf",
+    mimeType = "application/pdf",
+    previewToken,
+  } = opts;
   const params = new URLSearchParams({ banco });
   if (dryRun) params.set("dry_run", "true");
   const url = `${BASE}/api/conciliacion/importar-pdf?${params}`;
@@ -114,7 +147,8 @@ async function postPdf(
   let body: BodyInit | undefined;
   if (file !== undefined) {
     const form = new FormData();
-    form.append("pdf", new Blob([file]), "test.pdf");
+    form.append("pdf", new Blob([file], { type: mimeType }), fileName);
+    if (previewToken) form.append("preview_token", previewToken);
     body = form;
   }
 
@@ -174,7 +208,7 @@ it("IPF-02: banco no reconocido → 400 con mensaje accionable", async () => {
 
 it("IPF-03: buffer no-PDF → 422 (parser no puede extraer texto)", async () => {
   const noEsPdf = Buffer.from("esto no es un archivo PDF valido");
-  const { status } = await postPdf(adminToken, { file: noEsPdf });
+  const { status } = await postPdf(adminToken, { file: noEsPdf, dryRun: true });
   expect(status).toBe(422);
 });
 
@@ -200,10 +234,36 @@ it("IPF-04: PDF BBVA válido con dry_run=true → 200, committed:false, sin fila
   expect(after.rows[0].n, "dry_run no debe insertar filas").toBe(countBefore);
 });
 
-it("IPF-05: PDF BBVA válido → 200, committed:true, fila en bank_transactions", async () => {
-  const pdf = buildBbvaPdf({ monto: "9,000.00" });
+it("IPF-05: commit sin preview o con archivo distinto → 409 y no inserta", async () => {
+  const original = buildBbvaPdf({ monto: "8,100.00", referencia: `TOKEN${Date.now()}` });
+  const distinto = buildBbvaPdf({ monto: "8,200.00", referencia: `OTRO${Date.now()}` });
 
-  const { status, body } = await postPdf(adminToken, { file: pdf });
+  const direct = await postPdf(adminToken, { file: original });
+  expect(direct.status).toBe(409);
+  expect(direct.body.message).toMatch(/vista previa/i);
+
+  const preview = await postPdf(adminToken, { file: original, dryRun: true });
+  expect(preview.status).toBe(200);
+  expect(preview.body.preview_token).toEqual(expect.any(String));
+
+  const mismatch = await postPdf(adminToken, {
+    file: distinto,
+    previewToken: preview.body.preview_token,
+  });
+  expect(mismatch.status).toBe(409);
+  expect(mismatch.body.message).toMatch(/no corresponde/i);
+});
+
+it("IPF-05b: PDF BBVA con token de preview → 200, committed:true, fila en bank_transactions", async () => {
+  const pdf = buildBbvaPdf({ monto: "9,000.00" });
+  const preview = await postPdf(adminToken, { file: pdf, dryRun: true });
+  expect(preview.status).toBe(200);
+  expect(preview.body.preview_token).toEqual(expect.any(String));
+
+  const { status, body } = await postPdf(adminToken, {
+    file: pdf,
+    previewToken: preview.body.preview_token,
+  });
 
   expect(status).toBe(200);
   expect(body.committed).toBe(true);
@@ -223,11 +283,19 @@ it("IPF-06: reenvío del mismo PDF → successful:0, skipped≥1 (dedup ON CONFL
   const ref = `IPFREF${Date.now()}`;
   const pdf = buildBbvaPdf({ monto: "3,500.00", referencia: ref });
 
-  const first = await postPdf(adminToken, { file: pdf });
+  const firstPreview = await postPdf(adminToken, { file: pdf, dryRun: true });
+  const first = await postPdf(adminToken, {
+    file: pdf,
+    previewToken: firstPreview.body.preview_token,
+  });
   expect(first.status).toBe(200);
   expect(first.body.successful).toBeGreaterThanOrEqual(1);
 
-  const second = await postPdf(adminToken, { file: pdf });
+  const secondPreview = await postPdf(adminToken, { file: pdf, dryRun: true });
+  const second = await postPdf(adminToken, {
+    file: pdf,
+    previewToken: secondPreview.body.preview_token,
+  });
   expect(second.status).toBe(200);
   expect(second.body.successful,
     "el segundo import del mismo PDF no debe insertar filas nuevas").toBe(0);
@@ -236,7 +304,8 @@ it("IPF-06: reenvío del mismo PDF → successful:0, skipped≥1 (dedup ON CONFL
 
 it("IPF-07: audit_log registra BANK_PDF_IMPORT con banco, periodo y contadores", async () => {
   const pdf = buildBbvaPdf({ monto: "2,100.00" });
-  await postPdf(adminToken, { file: pdf });
+  const preview = await postPdf(adminToken, { file: pdf, dryRun: true });
+  await postPdf(adminToken, { file: pdf, previewToken: preview.body.preview_token });
 
   // Sondeo con espera corta para el INSERT fire-and-forget post-COMMIT (ADR-001)
   let auditRow: any = null;
@@ -255,4 +324,89 @@ it("IPF-07: audit_log registra BANK_PDF_IMPORT con banco, periodo y contadores",
   expect(auditRow.meta).toContain('"banco"');
   expect(auditRow.meta).toContain('"successful"');
   expect(auditRow.meta).toContain('"periodo_inicio"');
+});
+
+it("IPF-08: XML Santander realista con dry_run=true → preview sin filas en DB", async () => {
+  const referencia = `SAN-DRY-${Date.now()}`;
+  const xml = buildSantanderXml({ referencia, monto: "4321.09" });
+  const before = await pool.query(
+    `SELECT COUNT(*)::int AS n FROM bank_transactions WHERE campus_id = $1 AND referencia = $2`,
+    [campusId, referencia],
+  );
+
+  const { status, body } = await postPdf(adminToken, {
+    file: xml,
+    banco: "Santander",
+    dryRun: true,
+    fileName: "estado-cuenta-santander.xml",
+    mimeType: "application/xml",
+  });
+
+  expect(status).toBe(200);
+  expect(body.committed).toBe(false);
+  expect(body.successful).toBe(1);
+  expect(body.skipped).toBe(0);
+  expect(body.failed).toEqual([]);
+  expect(body.parse_errors).toEqual([]);
+  expect(body.metadata).toMatchObject({
+    banco: "Santander",
+    periodo_inicio: "2026-08-14",
+    periodo_fin: "2026-08-31",
+    total_abonos_centavos: 432109,
+  });
+
+  const after = await pool.query(
+    `SELECT COUNT(*)::int AS n FROM bank_transactions WHERE campus_id = $1 AND referencia = $2`,
+    [campusId, referencia],
+  );
+  expect(after.rows[0].n).toBe(before.rows[0].n);
+});
+
+it("IPF-09: XML Santander realista → commit real y fila normalizada en DB", async () => {
+  const referencia = `SAN-COMMIT-${Date.now()}`;
+  const xml = buildSantanderXml({ referencia, monto: "7654.32" });
+
+  const preview = await postPdf(adminToken, {
+    file: xml,
+    banco: "Santander",
+    dryRun: true,
+    fileName: "estado-cuenta-santander.xml",
+    mimeType: "application/xml",
+  });
+  expect(preview.status).toBe(200);
+  expect(preview.body.committed).toBe(false);
+  expect(preview.body.successful).toBe(1);
+
+  const committed = await postPdf(adminToken, {
+    file: xml,
+    banco: "Santander",
+    fileName: "estado-cuenta-santander.xml",
+    mimeType: "application/xml",
+    previewToken: preview.body.preview_token,
+  });
+  expect(committed.status).toBe(200);
+  expect(committed.body.committed).toBe(true);
+  expect(committed.body.successful).toBe(1);
+  expect(committed.body.skipped).toBe(0);
+  expect(committed.body.failed).toEqual([]);
+  expect(committed.body.parse_errors).toEqual([]);
+
+  const row = await pool.query(
+    `SELECT tenant_id, fecha::text, descripcion, monto_centavos, tipo, referencia,
+            clabe_ordenante, nombre_ordenante
+       FROM bank_transactions
+      WHERE campus_id = $1 AND referencia = $2`,
+    [campusId, referencia],
+  );
+  expect(row.rows).toHaveLength(1);
+  expect(row.rows[0]).toMatchObject({
+    tenant_id: tenantId,
+    fecha: "2026-08-14",
+    descripcion: "ABONO TRANSFERENCIA SPEI PRUEBA",
+    monto_centavos: "765432",
+    tipo: "credito",
+    referencia,
+    clabe_ordenante: null,
+    nombre_ordenante: null,
+  });
 });

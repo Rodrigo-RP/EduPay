@@ -69,19 +69,20 @@ nunca conocerá el SDK de Stripe directamente — solo la interfaz PaymentProvid
 
 Motor de scoring: 100% auto-conciliado, 90-99% coincidencia muy probable, 70-89% revisión,
 0-69% no conciliado. Bandeja de excepciones con asignación de responsable y maker-checker.
-Parsers BBVA (PDF digital) y Santander. Importación CSV. Deduplicación con UNIQUE parcial.
+Parsers BBVA (PDF digital) y Santander (XML/CFDI de estado de cuenta). Importación CSV.
+Deduplicación con UNIQUE parcial.
 
 Tests: `conciliacion-scoring.test.ts` (10), `excepciones-conciliacion.test.ts` (16),
 `import-bank-transactions.test.ts` (11), `bbva-parser.test.ts` (8),
-`santander-parser.test.ts` (8), `importar-pdf.test.ts` (9).
+`santander-parser.test.ts` (8), `importar-pdf.test.ts` (13).
 
 ### ✅ 3. Carga de estados bancarios — COMPLETADO
 
-- Fase 1 ✅: CSV/Excel bancario (`/api/caja/importar`).
-- Fase 2 ✅: PDF bancario digital con tablas legibles (`/api/caja/importar-pdf`), BBVA
-  implementado con parser real de coordenadas X.
-- Fase 3: PDF escaneado/OCR — no implementada (Santander disponible es escaneado, sin texto
-  extraíble; solo se valida que el parser no rompe ante él).
+- Fase 1 ✅: CSV bancario normalizado (`/api/conciliacion/importar`).
+- Fase 2 ✅: archivo bancario (`/api/conciliacion/importar-pdf`): BBVA usa PDF digital
+  con parser real de coordenadas X; Santander usa XML/CFDI con addenda
+  `EstadoDeCuentaBancario`.
+- Fase 3: PDF escaneado/OCR — no implementada.
 
 ### ✅ 4. CFDI 4.0 con complemento IEDU — COMPLETADO (lógica interna)
 

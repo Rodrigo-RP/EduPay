@@ -45,6 +45,13 @@ Importación dinámica dentro de parse() para evitar problemas de resolución .m
 `POST /api/conciliacion/importar-pdf` — multipart campo `pdf`, query `banco=BBVA`, `dry_run`.
 Guard: PAYMENTS.PROCESS. Auditoría: BANK_PDF_IMPORT post-COMMIT.
 
+La confirmación requiere el `preview_token` emitido por un dry-run vigente. El
+token está ligado a usuario, tenant, campus, banco y SHA-256 de los bytes; no
+aceptar commits directos ni cambiar el archivo después del preview.
+
+En UI, el upload de archivo vive separado del importador CSV: BBVA acepta PDF y
+Santander acepta XML/CFDI. Cambiar banco o archivo invalida el preview.
+
 ## Helper compartido
 `insertBankRows(client, campusId, tenantId, rows[])` en conciliacion.ts — shared entre /importar y /importar-pdf.
 Espera `monto_centavos` ya en enteros; no hace conversión. La validación de fecha/monto se hace ANTES de llamarlo.

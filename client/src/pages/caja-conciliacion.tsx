@@ -1,5 +1,5 @@
 // Módulo 4: Caja y conciliación - Pagos manual, control bancario, conciliación automática
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,28 @@ type ManualPaymentOptions = {
     concept_name: string;
     saldo_centavos: number;
   }>;
+};
+
+type BancoArchivo = "BBVA" | "Santander";
+
+type ResultadoImportacionArchivo = {
+  successful: number;
+  skipped: number;
+  failed: string[];
+  parse_errors: Array<{
+    linea_inicio: number;
+    texto: string;
+    razon: string;
+  }>;
+  committed: boolean;
+  preview_token?: string;
+  metadata?: {
+    banco?: string;
+    periodo_inicio?: string | null;
+    periodo_fin?: string | null;
+    total_abonos_centavos?: number;
+  };
+  mensaje?: string;
 };
 
 export default function CajaConciliacion() {
@@ -1152,6 +1174,292 @@ export default function CajaConciliacion() {
     );
   };
 
+  // ── Importador de archivo bancario — BBVA PDF / Santander XML ─────────────
+  const ImportadorEstadoCuenta = useMemo(() => {
+    const ImportadorEstadoCuentaEstable = () => {
+    const [banco, setBanco] = useState<BancoArchivo>("BBVA");
+    const [archivo, setArchivo] = useState<File | null>(null);
+    const [preview, setPreview] = useState<ResultadoImportacionArchivo | null>(null);
+    const [resultado, setResultado] = useState<ResultadoImportacionArchivo | null>(null);
+    const [confirmacionAbierta, setConfirmacionAbierta] = useState(false);
+
+    const formato = banco === "BBVA"
+      ? { extension: ".pdf", accept: ".pdf,application/pdf", ayuda: "Estado de cuenta BBVA en PDF con texto seleccionable." }
+      : { extension: ".xml", accept: ".xml,text/xml,application/xml", ayuda: "CFDI de estado de cuenta Santander en XML con addenda EstadoDeCuentaBancario." };
+
+    const obtenerMensajeError = (error: unknown) => {
+      const raw = error instanceof Error ? error.message : "No se pudo procesar el archivo";
+      const jsonStart = raw.indexOf("{");
+      if (jsonStart >= 0) {
+        try {
+          const parsed = JSON.parse(raw.slice(jsonStart));
+          if (parsed?.message) return String(parsed.message);
+        } catch {}
+      }
+      return raw;
+    };
+
+    const enviarArchivo = async (dryRun: boolean): Promise<ResultadoImportacionArchivo> => {
+      if (!archivo) throw new Error("Selecciona un archivo bancario");
+
+      const extensionValida = archivo.name.toLowerCase().endsWith(formato.extension);
+      if (!extensionValida) {
+        throw new Error(`Para ${banco} selecciona un archivo ${formato.extension.toUpperCase()}`);
+      }
+
+      const form = new FormData();
+      // El endpoint conserva "pdf" como nombre histórico del campo multipart.
+      form.append("pdf", archivo, archivo.name);
+      if (!dryRun) {
+        if (!preview?.preview_token) {
+          throw new Error("La vista previa ya no es válida; analiza nuevamente el archivo");
+        }
+        form.append("preview_token", preview.preview_token);
+      }
+      const token = localStorage.getItem("auth_token");
+      const params = new URLSearchParams({
+        banco,
+        dry_run: dryRun ? "true" : "false",
+      });
+      const response = await fetch(`/api/conciliacion/importar-pdf?${params.toString()}`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+        credentials: "include",
+      });
+      const body = await response.json().catch(() => ({ message: response.statusText }));
+      if (!response.ok) {
+        throw new Error(`${response.status}: ${JSON.stringify(body)}`);
+      }
+      return body as ResultadoImportacionArchivo;
+    };
+
+    const previewMutation = useMutation({
+      mutationFn: () => enviarArchivo(true),
+      onSuccess: (data) => {
+        setPreview(data);
+        setResultado(null);
+        toast({
+          title: "Vista previa lista",
+          description: "Revisa los contadores antes de confirmar. Todavía no se guardó ningún movimiento.",
+        });
+      },
+      onError: (error) => {
+        setPreview(null);
+        toast({
+          title: "No se pudo analizar el archivo",
+          description: obtenerMensajeError(error),
+          variant: "destructive",
+        });
+      },
+    });
+
+    const commitMutation = useMutation({
+      mutationFn: () => enviarArchivo(false),
+      onSuccess: (data) => {
+        setResultado(data);
+        setConfirmacionAbierta(false);
+        queryClient.invalidateQueries({ queryKey: ["/api/conciliacion/transacciones"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/caja/movimientos-banco"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/caja/estadisticas-conciliacion"] });
+        toast({
+          title: "Importación confirmada",
+          description: `${data.successful} importadas, ${data.skipped} omitidas y ${data.failed.length} fallidas.`,
+        });
+      },
+      onError: (error) => {
+        setConfirmacionAbierta(false);
+        toast({
+          title: "No se pudo confirmar la importación",
+          description: obtenerMensajeError(error),
+          variant: "destructive",
+        });
+      },
+    });
+
+    const cambiarBanco = (value: BancoArchivo) => {
+      setBanco(value);
+      setArchivo(null);
+      setPreview(null);
+      setResultado(null);
+    };
+
+    const cambiarArchivo = (file: File | null) => {
+      setArchivo(file);
+      setPreview(null);
+      setResultado(null);
+    };
+
+    const ResumenResultado = ({
+      data,
+      titulo,
+      final,
+    }: {
+      data: ResultadoImportacionArchivo;
+      titulo: string;
+      final: boolean;
+    }) => (
+      <div className={`rounded-xl border overflow-hidden ${final ? "border-green-200" : "border-blue-200"}`}>
+        <div className={`px-4 py-3 border-b ${final ? "bg-green-50 border-green-200" : "bg-blue-50 border-blue-200"}`}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h4 className={`font-semibold ${final ? "text-green-800" : "text-blue-800"}`}>{titulo}</h4>
+            <Badge variant={data.committed ? "default" : "secondary"}>
+              {data.committed ? "Guardado en movimientos bancarios" : "Vista previa — sin cambios"}
+            </Badge>
+          </div>
+          {data.metadata && (
+            <p className="text-xs text-slate-600 mt-1">
+              {data.metadata.banco || banco}
+              {data.metadata.periodo_inicio || data.metadata.periodo_fin
+                ? ` · Periodo ${data.metadata.periodo_inicio || "—"} a ${data.metadata.periodo_fin || "—"}`
+                : ""}
+            </p>
+          )}
+        </div>
+        <div className="p-4 space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              { label: final ? "Importadas" : "Se importarían", value: data.successful, color: "text-green-700" },
+              { label: "Omitidas", value: data.skipped, color: "text-amber-700" },
+              { label: "Fallidas", value: data.failed.length, color: "text-red-700" },
+              { label: "Errores de parseo", value: data.parse_errors.length, color: "text-red-700" },
+            ].map((item) => (
+              <div key={item.label} className="rounded-lg bg-slate-50 border p-3 text-center">
+                <p className={`text-2xl font-bold ${item.color}`}>{item.value}</p>
+                <p className="text-xs text-slate-600">{item.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {(data.failed.length > 0 || data.parse_errors.length > 0) && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-2">
+              <p className="text-sm font-semibold text-red-800">Detalle de errores</p>
+              {data.failed.map((message, index) => (
+                <p key={`failed-${index}`} className="text-xs text-red-700">{message}</p>
+              ))}
+              {data.parse_errors.map((error, index) => (
+                <p key={`parse-${index}`} className="text-xs text-red-700">
+                  Bloque {error.linea_inicio + 1}: {error.razon}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {!final && (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <p className="text-sm text-slate-600">
+                La vista previa se ejecutó con <strong>dry_run=true</strong>; la base de datos no cambió.
+              </p>
+              <Button
+                className="bg-blue-600 hover:bg-blue-700"
+                disabled={data.successful === 0 || commitMutation.isPending}
+                onClick={() => setConfirmacionAbierta(true)}
+              >
+                Confirmar importación
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+
+    return (
+      <div className="space-y-5">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileCheck className="h-5 w-5 text-blue-600" />
+              Importar estado de cuenta
+            </CardTitle>
+            <p className="text-sm text-slate-600">
+              Sube el archivo original del banco. Primero se ejecutará una vista previa obligatoria; nada se guardará sin tu confirmación.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="banco-estado-cuenta">Banco</Label>
+                <Select value={banco} onValueChange={(value) => cambiarBanco(value as BancoArchivo)}>
+                  <SelectTrigger id="banco-estado-cuenta">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="BBVA">BBVA — Estado de cuenta PDF</SelectItem>
+                    <SelectItem value="Santander">Santander — Estado de cuenta XML/CFDI</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="archivo-estado-cuenta">Archivo {formato.extension.toUpperCase()}</Label>
+                <Input
+                  id="archivo-estado-cuenta"
+                  type="file"
+                  accept={formato.accept}
+                  onChange={(event) => cambiarArchivo(event.target.files?.[0] ?? null)}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-lg bg-slate-50 border p-3">
+              <p className="text-sm text-slate-700">{formato.ayuda}</p>
+              {archivo && (
+                <p className="text-xs text-slate-500 mt-1">
+                  Seleccionado: <strong>{archivo.name}</strong> · {(archivo.size / 1024).toFixed(1)} KB
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Button
+                variant="outline"
+                disabled={!archivo || previewMutation.isPending || commitMutation.isPending}
+                onClick={() => previewMutation.mutate()}
+              >
+                {previewMutation.isPending ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <FileCheck className="h-4 w-4 mr-2" />
+                )}
+                {previewMutation.isPending ? "Analizando..." : "Analizar archivo"}
+              </Button>
+              <p className="text-xs text-slate-500 self-center">
+                Para CSV usa la pestaña Importar SPEI; ese flujo permanece separado.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {preview && <ResumenResultado data={preview} titulo="Vista previa de importación" final={false} />}
+        {resultado && <ResumenResultado data={resultado} titulo="Resultado de la importación" final />}
+
+        <Dialog open={confirmacionAbierta} onOpenChange={setConfirmacionAbierta}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Confirmar importación bancaria</DialogTitle>
+              <DialogDescription>
+                Se guardarán {preview?.successful ?? 0} movimientos de {banco}. Los duplicados serán omitidos automáticamente.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end gap-3 pt-3">
+              <Button variant="outline" onClick={() => setConfirmacionAbierta(false)} disabled={commitMutation.isPending}>
+                Cancelar
+              </Button>
+              <Button
+                className="bg-blue-600 hover:bg-blue-700"
+                onClick={() => commitMutation.mutate()}
+                disabled={commitMutation.isPending}
+              >
+                {commitMutation.isPending ? "Importando..." : "Sí, importar movimientos"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+    };
+    return ImportadorEstadoCuentaEstable;
+  }, [queryClient, toast]);
+
   // Conciliación automática con bancos
   const ConciliacionAutomatica = () => {
     const fechaCierre = new Intl.DateTimeFormat("sv-SE", {
@@ -1495,7 +1803,7 @@ export default function CajaConciliacion() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="relative bg-white/95 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/40">
-            <TabsList className="grid w-full grid-cols-4 bg-slate-100 rounded-xl">
+            <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 bg-slate-100 rounded-xl h-auto">
               <TabsTrigger value="efectivo" className="data-[state=active]:bg-white data-[state=active]:text-green-600 data-[state=active]:shadow-sm rounded-lg">
                 <Banknote className="w-4 h-4 mr-2" />
                 Registro de Pagos Manual
@@ -1511,6 +1819,10 @@ export default function CajaConciliacion() {
               <TabsTrigger value="spei-importar" className="data-[state=active]:bg-white data-[state=active]:text-teal-600 data-[state=active]:shadow-sm rounded-lg">
                 <Upload className="w-4 h-4 mr-2" />
                 Importar SPEI
+              </TabsTrigger>
+              <TabsTrigger value="archivo-bancario" className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm rounded-lg">
+                <FileCheck className="w-4 h-4 mr-2" />
+                Estado de cuenta
               </TabsTrigger>
             </TabsList>
           </div>
@@ -1529,6 +1841,10 @@ export default function CajaConciliacion() {
 
           <TabsContent value="spei-importar">
             <ImportadorSPEI />
+          </TabsContent>
+
+          <TabsContent value="archivo-bancario">
+            <ImportadorEstadoCuenta />
           </TabsContent>
         </Tabs>
       </div>

@@ -88,6 +88,41 @@ async function crearMovimiento(params: {
   return id;
 }
 
+function buildBbvaPdf(opts: { monto: string; referencia: string }): Buffer {
+  const cmds = [
+    `1 0 0 1 16  700 Tm (14/MAR) Tj`,
+    `1 0 0 1 61  700 Tm (14/MAR) Tj`,
+    `1 0 0 1 107 700 Tm (SPEI RECIBIDOBANORTE) Tj`,
+    `1 0 0 1 420 700 Tm (${opts.monto}) Tj`,
+    `1 0 0 1 16 690 Tm (PAGO E2E 220033 Referencia ${opts.referencia} 021) Tj`,
+    `1 0 0 1 16 680 Tm (072180000101234567) Tj`,
+    `1 0 0 1 16 670 Tm (20260314700000TEST000012345) Tj`,
+    `1 0 0 1 16 660 Tm (EMPRESA E2E CONCILIACION) Tj`,
+  ];
+  const stream = `BT /F1 8 Tf\n${cmds.join("\n")}\nET`;
+  const streamLen = Buffer.byteLength(stream, "latin1");
+  const objects = [
+    `1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n`,
+    `2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n`,
+    `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n`,
+    `4 0 obj\n<< /Length ${streamLen} >>\nstream\n${stream}\nendstream\nendobj\n`,
+    `5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n`,
+  ];
+  const header = "%PDF-1.4\n";
+  const offsets: number[] = [];
+  let position = Buffer.byteLength(header, "latin1");
+  for (const object of objects) {
+    offsets.push(position);
+    position += Buffer.byteLength(object, "latin1");
+  }
+  let xref = "xref\n0 6\n0000000000 65535 f \n";
+  for (const offset of offsets) {
+    xref += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  }
+  const trailer = `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${position}\n%%EOF\n`;
+  return Buffer.from(header + objects.join("") + xref + trailer, "latin1");
+}
+
 test.describe.configure({ mode: "serial" });
 
 test.describe("Caja — transferencias e importación/conciliación bancaria", () => {
@@ -390,5 +425,109 @@ test.describe("Caja — transferencias e importación/conciliación bancaria", (
     await page.reload();
     await page.getByRole("tab", { name: /importar spei/i }).click();
     await expect(page.getByText("✓ Conciliado", { exact: true }).first()).toBeVisible();
+  });
+
+  test("CB-05: PDF BBVA por UI exige preview, confirma en Neon y aparece tras recarga", async ({ page }) => {
+    const referencia = `${Date.now()}`.slice(-12);
+    const pdf = buildBbvaPdf({ monto: "5,432.10", referencia });
+
+    await page.getByRole("tab", { name: /estado de cuenta/i }).click();
+    await expect(page.getByText(/estado de cuenta bbva en pdf/i)).toBeVisible();
+    await page.getByLabel(/archivo.*pdf/i).setInputFiles({
+      name: `bbva-e2e-${suffix}.pdf`,
+      mimeType: "application/pdf",
+      buffer: pdf,
+    });
+
+    const before = await db.query(
+      "SELECT COUNT(*)::int AS n FROM bank_transactions WHERE campus_id = $1 AND referencia = $2",
+      [campusId, referencia],
+    );
+    expect(before.rows[0].n).toBe(0);
+
+    const previewRequest = page.waitForResponse((response) =>
+      response.url().includes("/api/conciliacion/importar-pdf") &&
+      response.url().includes("banco=BBVA") &&
+      response.url().includes("dry_run=true") &&
+      response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: /analizar archivo/i }).click();
+    const previewResponse = await previewRequest;
+    expect(previewResponse.status()).toBe(200);
+    const preview = await previewResponse.json() as {
+      successful: number;
+      skipped: number;
+      failed: string[];
+      parse_errors: unknown[];
+      committed: boolean;
+    };
+    expect(preview).toMatchObject({
+      successful: 1,
+      skipped: 0,
+      failed: [],
+      parse_errors: [],
+      committed: false,
+    });
+    await expect(page.getByText("Vista previa — sin cambios", { exact: true })).toBeVisible();
+    await expect(page.getByText(/la base de datos no cambió/i)).toBeVisible();
+
+    const afterPreview = await db.query(
+      "SELECT COUNT(*)::int AS n FROM bank_transactions WHERE campus_id = $1 AND referencia = $2",
+      [campusId, referencia],
+    );
+    expect(afterPreview.rows[0].n).toBe(0);
+
+    await page.getByRole("button", { name: /confirmar importación/i }).click();
+    await expect(page.getByRole("dialog", { name: /confirmar importación bancaria/i })).toBeVisible();
+    const commitRequest = page.waitForResponse((response) =>
+      response.url().includes("/api/conciliacion/importar-pdf") &&
+      response.url().includes("banco=BBVA") &&
+      response.url().includes("dry_run=false") &&
+      response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: /sí, importar movimientos/i }).click();
+    const commitResponse = await commitRequest;
+    expect(commitResponse.status()).toBe(200);
+    const committed = await commitResponse.json() as {
+      successful: number;
+      skipped: number;
+      failed: string[];
+      parse_errors: unknown[];
+      committed: boolean;
+    };
+    expect(committed).toMatchObject({
+      successful: 1,
+      skipped: 0,
+      failed: [],
+      parse_errors: [],
+      committed: true,
+    });
+    await expect(page.getByText("Resultado de la importación", { exact: true })).toBeVisible();
+    await expect(page.getByText("Guardado en movimientos bancarios", { exact: true })).toBeVisible();
+
+    const neon = await db.query(
+      `SELECT id, tenant_id, fecha::text, descripcion, monto_centavos, tipo, referencia,
+              clabe_ordenante, nombre_ordenante, estado_conciliacion
+         FROM bank_transactions
+        WHERE campus_id = $1 AND referencia = $2`,
+      [campusId, referencia],
+    );
+    expect(neon.rows).toHaveLength(1);
+    expect(neon.rows[0]).toMatchObject({
+      tenant_id: tenantId,
+      descripcion: "SPEI RECIBIDOBANORTE",
+      monto_centavos: "543210",
+      tipo: "credito",
+      referencia,
+      clabe_ordenante: "072180000101234567",
+      nombre_ordenante: "EMPRESA E2E CONCILIACION",
+      estado_conciliacion: "pendiente",
+    });
+    bankTransactionIds.push(Number(neon.rows[0].id));
+
+    await page.reload();
+    await page.getByRole("tab", { name: /control bancario/i }).click();
+    await expect(page.getByText(referencia, { exact: true })).toBeVisible();
+    await expect(page.getByText(/SPEI RECIBIDOBANORTE/)).toBeVisible();
   });
 });

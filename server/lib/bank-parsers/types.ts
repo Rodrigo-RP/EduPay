@@ -44,11 +44,11 @@ export interface ParseResult {
 export interface BankStatementParser {
   banco: "BBVA" | "Santander";
   /**
-   * Extrae transacciones de abono del buffer PDF.
-   * @throws Error si el PDF no tiene capa de texto extraíble.
+   * Extrae transacciones de abono del archivo bancario.
+   * @throws Error si el archivo no corresponde al formato esperado del banco.
    * Los errores por bloque individual van en ParseResult.errors, NO lanzan.
    */
-  parse(pdfBuffer: Buffer): Promise<ParseResult>;
+  parse(fileBuffer: Buffer): Promise<ParseResult>;
 }
 
 // ── Tipos internos expuestos para pruebas unitarias ───────────────────────────

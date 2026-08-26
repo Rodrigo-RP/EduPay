@@ -1,9 +1,11 @@
 import type { Express } from "express";
+import { createHash } from "crypto";
+import jwt from "jsonwebtoken";
 import { pool, db } from "../db";
 import { enqueueAuditLog } from "../audit-retry";
 import { eq, and } from "drizzle-orm";
 import { storage } from "../storage";
-import { authenticateToken, requireAuth, checkCampusTenant, hasPermissionForUser, upload, uploadBinary } from "./shared";
+import { authenticateToken, requireAuth, checkCampusTenant, hasPermissionForUser, upload, uploadBinary, JWT_SECRET } from "./shared";
 import { getParser } from "../lib/bank-parsers/index";
 import { MODULES, ACTIONS } from "@shared/permissions";
 import { payments, charges, students, invoices, guardians } from "@shared/schema";
@@ -1436,17 +1438,20 @@ export function registerConciliacionRoutes(app: Express): void {
 
   // ── POST /api/conciliacion/importar-pdf ──────────────────────────────────
   //
-  // Recibe un PDF de estado de cuenta bancario (multipart/form-data, campo "pdf"),
-  // extrae las transacciones de abono usando el parser del banco indicado, y las
-  // inserta en bank_transactions reutilizando insertBankRows.
+  // Recibe un archivo de estado de cuenta bancario (multipart/form-data, campo
+  // histórico "pdf"), extrae las transacciones de abono usando el parser del
+  // banco indicado y las inserta en bank_transactions vía insertBankRows.
+  // Formatos soportados aquí: BBVA = PDF con capa de texto; Santander = XML/CFDI
+  // con addenda EstadoDeCuentaBancario. El importador CSV/JSON genérico sigue
+  // disponible por separado en POST /api/conciliacion/importar.
   //
   // Query params / body:
-  //   banco    : "BBVA" (requerido; "Santander" lanza 400 hasta tener CSV)
+  //   banco    : "BBVA" | "Santander" (default: "BBVA")
   //   dry_run  : "true" | "1" → ROLLBACK, devuelve conteos sin commitear
   //
   // Guard    : PAYMENTS.PROCESS (mismo dominio que /importar)
   // Atomicidad: BEGIN + SAVEPOINT por fila + COMMIT|ROLLBACK (via insertBankRows)
-  // Seguridad : PDF en memoria (multer memoryStorage) — nunca se persiste en disco
+  // Seguridad : archivo en memoria (multer memoryStorage) — nunca se persiste en disco
   // Auditoría : enqueueAuditLog post-COMMIT, acción BANK_PDF_IMPORT
   app.post("/api/conciliacion/importar-pdf",
     authenticateToken,
@@ -1464,7 +1469,7 @@ export function registerConciliacionRoutes(app: Express): void {
         }
 
         if (!req.file) {
-          return res.status(400).json({ message: "Se requiere un archivo PDF (campo: pdf)" });
+          return res.status(400).json({ message: "Se requiere un archivo bancario (campo: pdf)" });
         }
 
         const banco    = ((req.body?.banco ?? req.query.banco ?? "BBVA") as string).trim();
@@ -1480,7 +1485,36 @@ export function registerConciliacionRoutes(app: Express): void {
           return res.status(400).json({ message: e.message });
         }
 
-        // ── Parseo del PDF — lanza si sin capa de texto ─────────────────────
+        const fileHash = createHash("sha256").update(req.file.buffer).digest("hex");
+        if (!isDryRun) {
+          const rawPreviewToken = req.body?.preview_token ?? req.query.preview_token;
+          if (typeof rawPreviewToken !== "string" || !rawPreviewToken) {
+            return res.status(409).json({
+              message: "Primero ejecuta una vista previa vigente del mismo archivo antes de confirmar",
+            });
+          }
+          try {
+            const preview = jwt.verify(rawPreviewToken, JWT_SECRET) as any;
+            const sameScope =
+              preview?.type === "bank_import_preview" &&
+              Number(preview?.campus_id) === Number(campusId) &&
+              Number(preview?.tenant_id) === Number(tenantId) &&
+              (preview?.user_id ?? null) === (userId ?? null) &&
+              preview?.banco === parser.banco &&
+              preview?.file_sha256 === fileHash;
+            if (!sameScope) {
+              return res.status(409).json({
+                message: "La vista previa no corresponde al usuario, banco o archivo seleccionado",
+              });
+            }
+          } catch {
+            return res.status(409).json({
+              message: "La vista previa expiró o no es válida; analiza nuevamente el archivo",
+            });
+          }
+        }
+
+        // ── Parseo del archivo según banco ──────────────────────────────────
         let parseResult;
         try {
           parseResult = await parser.parse(req.file.buffer);
@@ -1497,7 +1531,7 @@ export function registerConciliacionRoutes(app: Express): void {
             parse_errors: [],
             committed:    false,
             metadata,
-            mensaje: "No se encontraron transacciones de abono en el PDF",
+            mensaje: "No se encontraron transacciones de abono en el archivo",
           });
         }
 
@@ -1519,10 +1553,19 @@ export function registerConciliacionRoutes(app: Express): void {
 
           if (isDryRun) {
             await client.query("ROLLBACK");
+            const previewToken = jwt.sign({
+              type:        "bank_import_preview",
+              campus_id:   campusId,
+              tenant_id:   tenantId,
+              user_id:     userId,
+              banco:       parser.banco,
+              file_sha256: fileHash,
+            }, JWT_SECRET, { expiresIn: "10m" });
             return res.json({
               successful, skipped, failed,
               parse_errors: parseErrors,
               committed:    false,
+              preview_token: previewToken,
               metadata,
               mensaje: `dry_run: ${successful} se insertarían, ${skipped} ya existirían, ${failed.length} con error`,
             });
@@ -1572,7 +1615,7 @@ export function registerConciliacionRoutes(app: Express): void {
           parse_errors: parseErrors,
           committed:    true,
           metadata,
-          mensaje: `${successful} transacciones importadas desde PDF ${banco}, ${skipped} ya existían, ${failed.length} con error`,
+          mensaje: `${successful} transacciones importadas desde archivo ${banco}, ${skipped} ya existían, ${failed.length} con error`,
         });
       } catch (error: any) {
         res.status(500).json({ message: "Error interno del servidor" });

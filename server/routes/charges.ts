@@ -11,7 +11,7 @@ import { getAcademicLevel } from "@shared/academic-levels";
 import { wsManager } from "../websocket-manager";
 import { z } from "zod";
 import { resolveEffectiveScholarship } from "../lib/scholarship-engine";
-import { calculateSurcharge } from "../lib/surcharge-calculator";
+import { applyMonthlySurcharges } from "../lib/surcharge-accrual";
 
 export function registerChargesRoutes(app: Express): void {
   app.get("/api/admin/concepts/:campusId", authenticateToken, async (req: any, res) => {
@@ -332,60 +332,15 @@ export function registerChargesRoutes(app: Express): void {
         return res.status(400).json({ message: "Campus y tenant requeridos" });
       }
 
-      // A charge is eligible only when exactly one *active* rule belongs to its
-      // exact concept, campus and tenant. Ambiguous historic configuration is
-      // intentionally ignored instead of choosing an arbitrary rule.
-      const overdueCharges = await pool.query(`
-        WITH active_rule_counts AS (
-          SELECT tenant_id, campus_id, concept_id, COUNT(*) AS count
-            FROM payment_surcharge_rules
-           WHERE activo = true AND concept_id IS NOT NULL
-           GROUP BY tenant_id, campus_id, concept_id
-        )
-        SELECT c.id, c.monto_base_centavos, c.fecha_vencimiento,
-               rule.tipo, rule.dias_gracia, rule.porcentaje,
-               rule.monto_fijo_centavos, rule.reglas_progresivas,
-               rule.aplica_fines_semana, rule.aplica_festivos,
-               rule.monto_maximo_centavos
-        FROM charges c
-        JOIN students s ON s.id = c.student_id
-        JOIN active_rule_counts counts
-          ON counts.tenant_id = c.tenant_id
-         AND counts.campus_id = s.campus_id
-         AND counts.concept_id = c.concept_id
-         AND counts.count = 1
-        JOIN payment_surcharge_rules rule
-          ON rule.tenant_id = counts.tenant_id
-         AND rule.campus_id = counts.campus_id
-         AND rule.concept_id = counts.concept_id
-         AND rule.activo = true
-        WHERE s.campus_id = $1
-          AND c.tenant_id = $2
-          AND c.estado = 'pendiente'
-          AND c.fecha_vencimiento < CURRENT_DATE
-          AND (c.recargo_aplicado_centavos IS NULL OR c.recargo_aplicado_centavos = 0)
-          AND NOT c.es_adeudo_migrado
-      `, [campusId, tenantId]);
-      let actualizados = 0;
-      for (const charge of (overdueCharges.rows as any[])) {
-        const calculation = calculateSurcharge(
-          charge,
-          Number(charge.monto_base_centavos),
-          charge.fecha_vencimiento,
-        );
-        if (calculation.amountCentavos > 0) {
-          const updated = await pool.query(
-            `UPDATE charges
-                SET recargo_aplicado_centavos = $1, updated_at = NOW()
-              WHERE id = $2
-                AND tenant_id = $3
-                AND (recargo_aplicado_centavos IS NULL OR recargo_aplicado_centavos = 0)`,
-            [calculation.amountCentavos, charge.id, tenantId],
-          );
-          actualizados += updated.rowCount === 1 ? 1 : 0;
-        }
-      }
-      res.json({ message: `Recargos aplicados a ${actualizados} cargos`, actualizados });
+      const result = await applyMonthlySurcharges({
+        campusId,
+        tenantId,
+        userId: Number.isSafeInteger(Number(req.user?.id)) ? Number(req.user.id) : null,
+      });
+      res.json({
+        message: `Recargos aplicados a ${result.actualizados} cargos`,
+        ...result,
+      });
     } catch (error: any) {
       res.status(500).json({ message: "Error aplicando recargos" });
     }
@@ -633,7 +588,17 @@ export function registerChargesRoutes(app: Express): void {
       }
 
       // Notificar en tiempo real
-      wsManager.broadcastToCampus({ type: "payment_update", data: "create" }, req.user?.campus_id);
+      wsManager.broadcastToCampus({
+        type: "payment_update",
+        action: "create",
+        data: { payment_id: paymentId!, charge_id: chargeId, saldo_pagado_centavos: saldo },
+        metadata: {
+          campus_id: Number(req.user?.campus_id),
+          tenant_id: tenantId,
+          created_by: userId,
+          timestamp: new Date().toISOString(),
+        },
+      }, Number(req.user?.campus_id));
 
       res.json({ message: "Cargo marcado como pagado correctamente", payment_id: paymentId!, saldo_pagado_centavos: saldo });
     } catch (error: any) {

@@ -21,20 +21,29 @@ import { resolveEffectiveScholarship } from "../lib/scholarship-engine";
 import { parseProgressiveSurchargeTiers } from "../lib/surcharge-calculator";
 
 type CompleteSurchargePayload = {
-  concepto_id: number;
+  concepto_id: number | null;
   dias_gracia: number;
   tipo: "porcentaje" | "fijo" | "progresivo";
   porcentaje: string | null;
   monto_fijo_centavos: number | null;
   reglas_progresivas: string | null;
   monto_maximo_centavos: number | null;
+  modo_acumulacion: "ninguno" | "incremento_fijo" | "compuesto";
+  tipo_incremento_mensual: "monto" | "porcentaje" | null;
+  incremento_mensual_centavos: number | null;
+  incremento_mensual_porcentaje: string | null;
+  fecha_inicio_acumulacion: string | null;
   aplica_fines_semana: boolean;
   aplica_festivos: boolean;
   activo: boolean;
 };
 
-function normalizeCompleteSurchargePayload(body: any): { value?: CompleteSurchargePayload; error?: string } {
-  const conceptId = Number(body?.concepto_id);
+function normalizeCompleteSurchargePayload(
+  body: any,
+  requireConcept = true,
+): { value?: CompleteSurchargePayload; error?: string } {
+  const hasConcept = body?.concepto_id !== undefined && body?.concepto_id !== null && body?.concepto_id !== "";
+  const conceptId = hasConcept ? Number(body.concepto_id) : null;
   const graceDays = Number(body?.dias_gracia ?? 0);
   const typeMap: Record<string, CompleteSurchargePayload["tipo"]> = {
     porcentaje_fijo: "porcentaje",
@@ -43,7 +52,10 @@ function normalizeCompleteSurchargePayload(body: any): { value?: CompleteSurchar
   };
   const tipo = typeMap[body?.tipo_calculo];
 
-  if (!Number.isSafeInteger(conceptId) || conceptId <= 0) {
+  if (requireConcept && (!Number.isSafeInteger(conceptId) || !conceptId || conceptId <= 0)) {
+    return { error: "Selecciona un concepto válido" };
+  }
+  if (!requireConcept && hasConcept && (!Number.isSafeInteger(conceptId) || !conceptId || conceptId <= 0)) {
     return { error: "Selecciona un concepto válido" };
   }
   if (!tipo) return { error: "Tipo de cálculo inválido" };
@@ -75,6 +87,36 @@ function normalizeCompleteSurchargePayload(body: any): { value?: CompleteSurchar
     return { error: "Define tramos progresivos válidos, sin traslapes" };
   }
 
+  const mode = body?.modo_acumulacion ?? "ninguno";
+  if (mode !== "ninguno" && mode !== "incremento_fijo" && mode !== "compuesto") {
+    return { error: "Modo de acumulación inválido" };
+  }
+  const activationDate = body?.fecha_inicio_acumulacion;
+  const validActivationDate = typeof activationDate === "string"
+    && /^\d{4}-\d{2}-\d{2}$/.test(activationDate)
+    && !Number.isNaN(new Date(`${activationDate}T12:00:00`).getTime());
+  if (mode !== "ninguno" && !validActivationDate) {
+    return { error: "La fecha de inicio es obligatoria para un recargo acumulable" };
+  }
+
+  const monthlyIncrementType = body?.tipo_incremento_mensual;
+  const monthlyFixedCents = Math.round(Number(body?.incremento_mensual) * 100);
+  const monthlyPercentage = Number(body?.incremento_mensual_porcentaje);
+  if (mode === "incremento_fijo") {
+    if (monthlyIncrementType !== "monto" && monthlyIncrementType !== "porcentaje") {
+      return { error: "Selecciona si el incremento mensual es por monto o porcentaje" };
+    }
+    if (monthlyIncrementType === "monto" && (!Number.isSafeInteger(monthlyFixedCents) || monthlyFixedCents <= 0)) {
+      return { error: "El incremento mensual debe ser un monto mayor a 0" };
+    }
+    if (monthlyIncrementType === "porcentaje" && (!Number.isFinite(monthlyPercentage) || monthlyPercentage <= 0 || monthlyPercentage > 100)) {
+      return { error: "El incremento mensual porcentual debe ser mayor a 0 y no superar 100" };
+    }
+  }
+  if (mode === "compuesto" && tipo !== "porcentaje") {
+    return { error: "El modo compuesto requiere un recargo base por porcentaje" };
+  }
+
   return {
     value: {
       concepto_id: conceptId,
@@ -85,6 +127,15 @@ function normalizeCompleteSurchargePayload(body: any): { value?: CompleteSurchar
       monto_fijo_centavos: tipo === "fijo" ? fixedCents : null,
       reglas_progresivas: progressiveTiers ? JSON.stringify(progressiveTiers) : null,
       monto_maximo_centavos: maximumCents,
+      modo_acumulacion: mode,
+      tipo_incremento_mensual: mode === "incremento_fijo" ? monthlyIncrementType : null,
+      incremento_mensual_centavos: mode === "incremento_fijo" && monthlyIncrementType === "monto"
+        ? monthlyFixedCents
+        : null,
+      incremento_mensual_porcentaje: mode === "incremento_fijo" && monthlyIncrementType === "porcentaje"
+        ? monthlyPercentage.toFixed(2)
+        : null,
+      fecha_inicio_acumulacion: mode === "ninguno" ? null : activationDate,
       aplica_fines_semana: Boolean(body?.aplica_fines_semana),
       aplica_festivos: Boolean(body?.aplica_festivos),
       activo: body?.activo !== undefined ? Boolean(body.activo) : true,
@@ -1692,6 +1743,11 @@ export async function registerGuardianRoutes(
           tipo_calculo: payment_surcharge_rules.tipo,
           reglas_progresivas: payment_surcharge_rules.reglas_progresivas,
           monto_maximo_centavos: payment_surcharge_rules.monto_maximo_centavos,
+          modo_acumulacion: payment_surcharge_rules.modo_acumulacion,
+          tipo_incremento_mensual: payment_surcharge_rules.tipo_incremento_mensual,
+          incremento_mensual_centavos: payment_surcharge_rules.incremento_mensual_centavos,
+          incremento_mensual_porcentaje: payment_surcharge_rules.incremento_mensual_porcentaje,
+          fecha_inicio_acumulacion: payment_surcharge_rules.fecha_inicio_acumulacion,
           aplica_fines_semana: payment_surcharge_rules.aplica_fines_semana,
           aplica_festivos: payment_surcharge_rules.aplica_festivos,
           activo: payment_surcharge_rules.activo
@@ -1719,6 +1775,11 @@ export async function registerGuardianRoutes(
           ...rule,
           monto_fijo: rule.monto_fijo ? rule.monto_fijo / 100 : 0,
           monto_maximo: rule.monto_maximo_centavos ? rule.monto_maximo_centavos / 100 : "",
+          modo_acumulacion: rule.modo_acumulacion,
+          tipo_incremento_mensual: rule.tipo_incremento_mensual,
+          incremento_mensual: rule.incremento_mensual_centavos ? rule.incremento_mensual_centavos / 100 : "",
+          incremento_mensual_porcentaje: parseFloat(rule.incremento_mensual_porcentaje?.toString() || "0"),
+          fecha_inicio_acumulacion: rule.fecha_inicio_acumulacion,
           reglas_progresivas: parseProgressiveSurchargeTiers(rule.reglas_progresivas) ?? [],
           porcentaje_recargo: parseFloat(rule.porcentaje_recargo?.toString() || '0'),
           tipo_calculo: frontendType
@@ -1752,7 +1813,7 @@ export async function registerGuardianRoutes(
       const [conceptData] = await db
         .select({ nombre: concepts.nombre })
         .from(concepts)
-        .where(and(eq(concepts.id, payload.concepto_id), eq(concepts.campus_id, campusId)))
+        .where(and(eq(concepts.id, payload.concepto_id!), eq(concepts.campus_id, campusId)))
         .limit(1);
 
       if (!conceptData) {
@@ -1797,6 +1858,11 @@ export async function registerGuardianRoutes(
         porcentaje_recargo: parseFloat(newRule.porcentaje?.toString() || '0'),
         monto_fijo: newRule.monto_fijo_centavos ? newRule.monto_fijo_centavos / 100 : 0,
         monto_maximo: newRule.monto_maximo_centavos ? newRule.monto_maximo_centavos / 100 : "",
+        modo_acumulacion: newRule.modo_acumulacion,
+        tipo_incremento_mensual: newRule.tipo_incremento_mensual,
+        incremento_mensual: newRule.incremento_mensual_centavos ? newRule.incremento_mensual_centavos / 100 : "",
+        incremento_mensual_porcentaje: parseFloat(newRule.incremento_mensual_porcentaje?.toString() || "0"),
+        fecha_inicio_acumulacion: newRule.fecha_inicio_acumulacion,
         reglas_progresivas: parseProgressiveSurchargeTiers(newRule.reglas_progresivas) ?? [],
         aplica_fines_semana: newRule.aplica_fines_semana,
         aplica_festivos: newRule.aplica_festivos,
@@ -1829,7 +1895,11 @@ export async function registerGuardianRoutes(
       // Sin esta verificación el UPDATE filtraría solo por id, permitiendo que
       // un admin de cualquier campus sobreescriba reglas de otro campus (IDOR).
       const [existing] = await db
-        .select({ id: payment_surcharge_rules.id })
+        .select({
+          id: payment_surcharge_rules.id,
+          concept_id: payment_surcharge_rules.concept_id,
+          concepto: payment_surcharge_rules.concepto,
+        })
         .from(payment_surcharge_rules)
         .where(and(
           eq(payment_surcharge_rules.id, ruleId),
@@ -1838,25 +1908,30 @@ export async function registerGuardianRoutes(
         .limit(1);
       if (!existing) return res.status(404).json({ message: "Regla no encontrada" });
 
-      const normalized = normalizeCompleteSurchargePayload(req.body);
+      const normalized = normalizeCompleteSurchargePayload(req.body, false);
       if (!normalized.value) return res.status(400).json({ message: normalized.error });
       const payload = normalized.value;
       const { concepto_id: ignoredConceptId, ...ruleValues } = payload;
       
       // Get concept name if provided
-      const [conceptData] = await db
-        .select({ nombre: concepts.nombre })
-        .from(concepts)
-        .where(and(eq(concepts.id, payload.concepto_id), eq(concepts.campus_id, campusId)))
-        .limit(1);
-      if (!conceptData) return res.status(400).json({ message: "Concepto no encontrado" });
+      const nextConceptId = payload.concepto_id ?? existing.concept_id;
+      let conceptName = existing.concepto;
+      if (nextConceptId) {
+        const [conceptData] = await db
+          .select({ nombre: concepts.nombre })
+          .from(concepts)
+          .where(and(eq(concepts.id, nextConceptId), eq(concepts.campus_id, campusId)))
+          .limit(1);
+        if (!conceptData) return res.status(400).json({ message: "Concepto no encontrado" });
+        conceptName = conceptData.nombre;
+      }
 
-      if (payload.activo) {
+      if (payload.activo && nextConceptId) {
         const conflict = await pool.query(
           `SELECT id FROM payment_surcharge_rules
             WHERE campus_id = $1 AND concept_id = $2 AND activo = true AND id <> $3
             LIMIT 1`,
-          [campusId, payload.concepto_id, ruleId],
+          [campusId, nextConceptId, ruleId],
         );
         if (conflict.rowCount) {
           return res.status(409).json({ message: "Ya existe una regla activa para este concepto" });
@@ -1864,9 +1939,9 @@ export async function registerGuardianRoutes(
       }
       const updateData = {
         ...ruleValues,
-        concept_id: payload.concepto_id,
-        concepto: conceptData.nombre,
-        nombre: `Regla de recargo para ${conceptData.nombre}`,
+        concept_id: nextConceptId,
+        concepto: conceptName,
+        nombre: `Regla de recargo para ${conceptName}`,
         updated_at: new Date(),
       };
       
@@ -1888,11 +1963,16 @@ export async function registerGuardianRoutes(
       res.json({
         id: updated.id,
         concepto_id: updated.concept_id,
-        concepto_nombre: conceptData.nombre,
+        concepto_nombre: conceptName,
         dias_gracia: updated.dias_gracia,
         porcentaje_recargo: parseFloat(updated.porcentaje?.toString() || '0'),
         monto_fijo: updated.monto_fijo_centavos ? updated.monto_fijo_centavos / 100 : 0,
         monto_maximo: updated.monto_maximo_centavos ? updated.monto_maximo_centavos / 100 : "",
+        modo_acumulacion: updated.modo_acumulacion,
+        tipo_incremento_mensual: updated.tipo_incremento_mensual,
+        incremento_mensual: updated.incremento_mensual_centavos ? updated.incremento_mensual_centavos / 100 : "",
+        incremento_mensual_porcentaje: parseFloat(updated.incremento_mensual_porcentaje?.toString() || "0"),
+        fecha_inicio_acumulacion: updated.fecha_inicio_acumulacion,
         reglas_progresivas: parseProgressiveSurchargeTiers(updated.reglas_progresivas) ?? [],
         aplica_fines_semana: updated.aplica_fines_semana,
         aplica_festivos: updated.aplica_festivos,

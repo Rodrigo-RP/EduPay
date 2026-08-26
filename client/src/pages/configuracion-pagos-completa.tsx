@@ -46,6 +46,11 @@ interface ReglaRecargo {
   tipo_calculo: 'porcentaje_fijo' | 'porcentaje_diario' | 'monto_fijo';
   reglas_progresivas: TramoRecargo[];
   monto_maximo: string | number;
+  modo_acumulacion: 'ninguno' | 'incremento_fijo' | 'compuesto';
+  tipo_incremento_mensual: 'monto' | 'porcentaje' | null;
+  incremento_mensual: string | number;
+  incremento_mensual_porcentaje: number;
+  fecha_inicio_acumulacion: string | null;
   aplica_fines_semana: boolean;
   aplica_festivos: boolean;
   activo: boolean;
@@ -120,6 +125,11 @@ export default function ConfiguracionPagosCompleta() {
     tipo_calculo: 'porcentaje_fijo' as 'porcentaje_fijo' | 'porcentaje_diario' | 'monto_fijo',
     reglas_progresivas: [{ dias_desde: 1, dias_hasta: 15, porcentaje: 1 }] as TramoRecargo[],
     monto_maximo: '',
+    modo_acumulacion: 'ninguno' as 'ninguno' | 'incremento_fijo' | 'compuesto',
+    tipo_incremento_mensual: 'monto' as 'monto' | 'porcentaje',
+    incremento_mensual: '',
+    incremento_mensual_porcentaje: 0,
+    fecha_inicio_acumulacion: '',
     aplica_fines_semana: false,
     aplica_festivos: false,
     activo: true
@@ -417,6 +427,11 @@ export default function ConfiguracionPagosCompleta() {
       tipo_calculo: 'porcentaje_fijo',
       reglas_progresivas: [{ dias_desde: 1, dias_hasta: 15, porcentaje: 1 }],
       monto_maximo: '',
+      modo_acumulacion: 'ninguno',
+      tipo_incremento_mensual: 'monto',
+      incremento_mensual: '',
+      incremento_mensual_porcentaje: 0,
+      fecha_inicio_acumulacion: '',
       aplica_fines_semana: false,
       aplica_festivos: false,
       activo: true
@@ -468,6 +483,13 @@ export default function ConfiguracionPagosCompleta() {
       monto_maximo: typeof recargo.monto_maximo === 'number'
         ? recargo.monto_maximo.toString()
         : recargo.monto_maximo || '',
+      modo_acumulacion: recargo.modo_acumulacion || 'ninguno',
+      tipo_incremento_mensual: recargo.tipo_incremento_mensual || 'monto',
+      incremento_mensual: typeof recargo.incremento_mensual === 'number'
+        ? recargo.incremento_mensual.toString()
+        : recargo.incremento_mensual || '',
+      incremento_mensual_porcentaje: recargo.incremento_mensual_porcentaje || 0,
+      fecha_inicio_acumulacion: recargo.fecha_inicio_acumulacion || '',
       aplica_fines_semana: Boolean(recargo.aplica_fines_semana),
       aplica_festivos: Boolean(recargo.aplica_festivos),
       activo: recargo.activo
@@ -564,6 +586,43 @@ export default function ConfiguracionPagosCompleta() {
       toast({
         title: "Error",
         description: "Define tramos de días válidos con porcentajes entre 0 y 100",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (nuevoRecargo.modo_acumulacion !== 'ninguno' && !nuevoRecargo.fecha_inicio_acumulacion) {
+      toast({
+        title: "Error",
+        description: "Indica desde qué fecha inicia la acumulación",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (nuevoRecargo.modo_acumulacion === 'incremento_fijo') {
+      if (nuevoRecargo.tipo_incremento_mensual === 'monto') {
+        const increment = parseFloat(nuevoRecargo.incremento_mensual.toString());
+        if (!nuevoRecargo.incremento_mensual || isNaN(increment) || increment <= 0) {
+          toast({
+            title: "Error",
+            description: "Ingresa un incremento mensual por monto válido",
+            variant: "destructive",
+          });
+          return;
+        }
+      } else if (nuevoRecargo.incremento_mensual_porcentaje <= 0) {
+        toast({
+          title: "Error",
+          description: "Ingresa un incremento mensual porcentual válido",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    if (nuevoRecargo.modo_acumulacion === 'compuesto' && nuevoRecargo.tipo_calculo !== 'porcentaje_fijo') {
+      toast({
+        title: "Error",
+        description: "El modo compuesto requiere un recargo base por porcentaje",
         variant: "destructive",
       });
       return;
@@ -1059,6 +1118,107 @@ export default function ConfiguracionPagosCompleta() {
                       </Select>
                     </div>
 
+                    <div className="space-y-3 rounded-lg border border-indigo-100 bg-indigo-50/50 p-3">
+                      <div className="space-y-2">
+                        <Label>Acumulación mensual</Label>
+                        <Select
+                          value={nuevoRecargo.modo_acumulacion}
+                          onValueChange={(value) => setNuevoRecargo(prev => ({
+                            ...prev,
+                            modo_acumulacion: value as 'ninguno' | 'incremento_fijo' | 'compuesto',
+                          }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ninguno">No acumula (comportamiento actual)</SelectItem>
+                            <SelectItem value="incremento_fijo">Incremento fijo por mes</SelectItem>
+                            <SelectItem value="compuesto">Compuesto sobre saldo pendiente</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {nuevoRecargo.modo_acumulacion !== 'ninguno' && (
+                        <>
+                          <div className="space-y-2">
+                            <Label htmlFor="fecha-inicio-acumulacion">Inicio de acumulación</Label>
+                            <Input
+                              id="fecha-inicio-acumulacion"
+                              type="date"
+                              value={nuevoRecargo.fecha_inicio_acumulacion}
+                              onChange={(e) => setNuevoRecargo(prev => ({
+                                ...prev,
+                                fecha_inicio_acumulacion: e.target.value,
+                              }))}
+                            />
+                            <p className="text-xs text-slate-600">
+                              Los cargos vencidos sólo acumularán desde esta fecha, sin cobros retroactivos.
+                            </p>
+                          </div>
+
+                          {nuevoRecargo.modo_acumulacion === 'incremento_fijo' && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div className="space-y-2">
+                                <Label>Tipo de incremento</Label>
+                                <Select
+                                  value={nuevoRecargo.tipo_incremento_mensual}
+                                  onValueChange={(value) => setNuevoRecargo(prev => ({
+                                    ...prev,
+                                    tipo_incremento_mensual: value as 'monto' | 'porcentaje',
+                                  }))}
+                                >
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="monto">Monto fijo</SelectItem>
+                                    <SelectItem value="porcentaje">Porcentaje del monto base</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              {nuevoRecargo.tipo_incremento_mensual === 'monto' ? (
+                                <div className="space-y-2">
+                                  <Label htmlFor="incremento-mensual">Incremento mensual ($)</Label>
+                                  <Input
+                                    id="incremento-mensual"
+                                    type="number"
+                                    min="0.01"
+                                    step="0.01"
+                                    value={nuevoRecargo.incremento_mensual}
+                                    onChange={(e) => setNuevoRecargo(prev => ({
+                                      ...prev,
+                                      incremento_mensual: e.target.value,
+                                    }))}
+                                  />
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  <Label htmlFor="incremento-mensual-pct">Incremento mensual (%)</Label>
+                                  <Input
+                                    id="incremento-mensual-pct"
+                                    type="number"
+                                    min="0.01"
+                                    max="100"
+                                    step="0.01"
+                                    value={nuevoRecargo.incremento_mensual_porcentaje}
+                                    onChange={(e) => setNuevoRecargo(prev => ({
+                                      ...prev,
+                                      incremento_mensual_porcentaje: parseFloat(e.target.value) || 0,
+                                    }))}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {nuevoRecargo.modo_acumulacion === 'compuesto' && (
+                            <p className="text-sm text-indigo-900">
+                              Cada mes se calcula un nuevo incremento con el porcentaje base sobre el saldo pendiente, incluyendo recargos previos.
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-lg bg-slate-50 p-3">
                       <div className="space-y-2">
                         <Label htmlFor="monto-maximo">Tope de recargo ($, opcional)</Label>
@@ -1149,6 +1309,15 @@ export default function ConfiguracionPagosCompleta() {
                                 <div>
                                   Tipo: {regla.tipo_calculo.replace('_', ' ').replace('porcentaje', 'Porcentaje').replace('monto', 'Monto')}
                                 </div>
+                                  {regla.modo_acumulacion !== 'ninguno' && (
+                                    <div>
+                                      Acumulación: {regla.modo_acumulacion === 'compuesto'
+                                        ? 'Compuesta'
+                                        : regla.tipo_incremento_mensual === 'monto'
+                                          ? `+$${regla.incremento_mensual} por mes`
+                                          : `+${regla.incremento_mensual_porcentaje}% por mes`}
+                                    </div>
+                                  )}
                               </div>
                             </div>
                           </div>

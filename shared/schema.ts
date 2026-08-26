@@ -892,6 +892,11 @@ export const payment_surcharge_rules = pgTable("payment_surcharge_rules", {
   aplica_fines_semana: boolean("aplica_fines_semana").default(false).notNull(),
   aplica_festivos: boolean("aplica_festivos").default(false).notNull(),
   monto_maximo_centavos: integer("monto_maximo_centavos"),
+  modo_acumulacion: text("modo_acumulacion").default("ninguno").notNull(),
+  tipo_incremento_mensual: text("tipo_incremento_mensual"),
+  incremento_mensual_centavos: integer("incremento_mensual_centavos"),
+  incremento_mensual_porcentaje: numeric("incremento_mensual_porcentaje", { precision: 5, scale: 2 }),
+  fecha_inicio_acumulacion: date("fecha_inicio_acumulacion"),
   activo: boolean("activo").default(true).notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
@@ -900,6 +905,14 @@ export const payment_surcharge_rules = pgTable("payment_surcharge_rules", {
   check(
     "payment_surcharge_rules_tipo_check",
     sql`((tipo)::text = ANY (ARRAY[('porcentaje'::character varying)::text, ('fijo'::character varying)::text, ('progresivo'::character varying)::text]))`,
+  ),
+  check(
+    "payment_surcharge_rules_modo_acumulacion_check",
+    sql`modo_acumulacion IN ('ninguno', 'incremento_fijo', 'compuesto')`,
+  ),
+  check(
+    "payment_surcharge_rules_tipo_incremento_mensual_check",
+    sql`tipo_incremento_mensual IS NULL OR tipo_incremento_mensual IN ('monto', 'porcentaje')`,
   ),
 ]);
 
@@ -914,6 +927,50 @@ export const paymentDueDatesRelations = relations(payment_due_dates, ({ one }) =
 export const paymentSurchargeRulesRelations = relations(payment_surcharge_rules, ({ one }) => ({
   campus: one(campuses, {
     fields: [payment_surcharge_rules.campus_id],
+    references: [campuses.id],
+  }),
+}));
+
+// MONTHLY SURCHARGE LEDGER
+export const charge_surcharge_periods = pgTable("charge_surcharge_periods", {
+  id: serial("id").primaryKey(),
+  charge_id: integer("charge_id").references(() => charges.id, { onDelete: "cascade" }).notNull(),
+  payment_rule_id: integer("payment_rule_id").references(() => payment_surcharge_rules.id, { onDelete: "set null" }),
+  tenant_id: integer("tenant_id").references(() => tenants.id).notNull(),
+  campus_id: integer("campus_id").references(() => campuses.id).notNull(),
+  periodo_mes: date("periodo_mes").notNull(),
+  modo_acumulacion: text("modo_acumulacion").notNull(),
+  saldo_base_centavos: integer("saldo_base_centavos").notNull(),
+  recargo_anterior_centavos: integer("recargo_anterior_centavos").notNull(),
+  incremento_centavos: integer("incremento_centavos").notNull(),
+  recargo_total_centavos: integer("recargo_total_centavos").notNull(),
+  formula_detalle: jsonb("formula_detalle").$type<Record<string, unknown>>().notNull().default({}),
+  aplicado_at: timestamp("aplicado_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("charge_surcharge_periods_charge_month_unique").on(table.charge_id, table.periodo_mes),
+  check(
+    "charge_surcharge_periods_modo_acumulacion_check",
+    sql`modo_acumulacion IN ('ninguno', 'incremento_fijo', 'compuesto')`,
+  ),
+  check("charge_surcharge_periods_non_negative_check", sql`
+    saldo_base_centavos >= 0
+    AND recargo_anterior_centavos >= 0
+    AND incremento_centavos >= 0
+    AND recargo_total_centavos >= 0
+  `),
+]);
+
+export const chargeSurchargePeriodsRelations = relations(charge_surcharge_periods, ({ one }) => ({
+  charge: one(charges, {
+    fields: [charge_surcharge_periods.charge_id],
+    references: [charges.id],
+  }),
+  payment_rule: one(payment_surcharge_rules, {
+    fields: [charge_surcharge_periods.payment_rule_id],
+    references: [payment_surcharge_rules.id],
+  }),
+  campus: one(campuses, {
+    fields: [charge_surcharge_periods.campus_id],
     references: [campuses.id],
   }),
 }));
@@ -943,6 +1000,11 @@ export const insertPaymentSurchargeRuleSchema = createInsertSchema(payment_surch
   updated_at: true,
 });
 
+export const insertChargeSurchargePeriodSchema = createInsertSchema(charge_surcharge_periods).omit({
+  id: true,
+  aplicado_at: true,
+});
+
 // Types for payment rules
 export type PaymentRule = typeof payment_rules.$inferSelect;
 export type InsertPaymentRule = z.infer<typeof insertPaymentRuleSchema>;
@@ -953,6 +1015,8 @@ export type PaymentDueDate = typeof payment_due_dates.$inferSelect;
 export type InsertPaymentDueDate = z.infer<typeof insertPaymentDueDateSchema>;
 export type PaymentSurchargeRule = typeof payment_surcharge_rules.$inferSelect;
 export type InsertPaymentSurchargeRule = z.infer<typeof insertPaymentSurchargeRuleSchema>;
+export type ChargeSurchargePeriod = typeof charge_surcharge_periods.$inferSelect;
+export type InsertChargeSurchargePeriod = z.infer<typeof insertChargeSurchargePeriodSchema>;
 
 // ── SEGUIMIENTO DE ACCIONES ──────────────────────────────────────────────────
 // SUPER ADMIN PLATFORM MANAGEMENT TABLES

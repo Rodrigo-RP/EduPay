@@ -1,6 +1,8 @@
 import { SEP_NON_WORKING_DAYS_2025_2026 } from "@shared/payment-rules";
 
 export type SurchargeType = "porcentaje" | "fijo" | "progresivo";
+export type SurchargeAccumulationMode = "ninguno" | "incremento_fijo" | "compuesto";
+export type MonthlyIncrementType = "monto" | "porcentaje";
 
 export interface ProgressiveSurchargeTier {
   dias_desde: number;
@@ -17,6 +19,11 @@ export interface SurchargeRuleForCalculation {
   monto_maximo_centavos?: number | string | null;
   aplica_fines_semana?: boolean;
   aplica_festivos?: boolean;
+  modo_acumulacion?: SurchargeAccumulationMode | string | null;
+  tipo_incremento_mensual?: MonthlyIncrementType | string | null;
+  incremento_mensual_centavos?: number | string | null;
+  incremento_mensual_porcentaje?: number | string | null;
+  fecha_inicio_acumulacion?: Date | string | null;
 }
 
 export interface SurchargeCalculation {
@@ -55,6 +62,19 @@ function addCalendarDays(date: Date, days: number): Date {
   const copy = new Date(date);
   copy.setDate(copy.getDate() + days);
   return copy;
+}
+
+function startOfCalendarMonth(value: Date | string): Date {
+  const date = toLocalCalendarDate(value);
+  return new Date(date.getFullYear(), date.getMonth(), 1, 12);
+}
+
+function addCalendarMonths(value: Date, months: number): Date {
+  return new Date(value.getFullYear(), value.getMonth() + months, 1, 12);
+}
+
+export function calendarMonthKey(value: Date | string): string {
+  return dateKey(startOfCalendarMonth(value));
 }
 
 function isCountableDay(
@@ -156,4 +176,71 @@ export function calculateSurcharge(
   }
 
   return { amountCentavos: Math.max(0, amountCentavos), daysLate, effectiveDaysLate };
+}
+
+/**
+ * Returns every calendar-month ledger key eligible since the charge became
+ * overdue. The due month owns the original surcharge; each later month owns
+ * one potential additional increment. An explicit activation date clamps the
+ * history so enabling a new accumulation policy never creates retroactive
+ * periods.
+ */
+export function getEligibleSurchargePeriods(
+  rule: SurchargeRuleForCalculation,
+  dueDate: Date | string,
+  calculationDate: Date | string,
+): string[] {
+  const graceCheck = calculateSurcharge(rule, 1, dueDate, calculationDate);
+  if (graceCheck.effectiveDaysLate <= 0) return [];
+
+  const end = startOfCalendarMonth(calculationDate);
+  let start = startOfCalendarMonth(dueDate);
+  if (rule.fecha_inicio_acumulacion) {
+    const activation = startOfCalendarMonth(rule.fecha_inicio_acumulacion);
+    if (activation > start) start = activation;
+  }
+  if (start > end) return [];
+
+  const periods: string[] = [];
+  for (let cursor = start; cursor <= end; cursor = addCalendarMonths(cursor, 1)) {
+    periods.push(dateKey(cursor));
+  }
+  return periods;
+}
+
+export function calculateFixedMonthlyIncrement(
+  rule: SurchargeRuleForCalculation,
+  baseAmountCentavos: number,
+): { amountCentavos: number; valid: boolean } {
+  const type = rule.tipo_incremento_mensual;
+  if (type === "monto") {
+    const amount = Number(rule.incremento_mensual_centavos);
+    return {
+      amountCentavos: Number.isSafeInteger(amount) && amount > 0 ? amount : 0,
+      valid: Number.isSafeInteger(amount) && amount > 0,
+    };
+  }
+  if (type === "porcentaje") {
+    const percentage = Number(rule.incremento_mensual_porcentaje);
+    const amount = Math.round(baseAmountCentavos * (percentage / 100));
+    return {
+      amountCentavos: Number.isFinite(percentage) && percentage > 0 && amount > 0 ? amount : 0,
+      valid: Number.isFinite(percentage) && percentage > 0 && amount > 0,
+    };
+  }
+  return { amountCentavos: 0, valid: false };
+}
+
+export function calculateCompoundMonthlyIncrement(
+  rule: SurchargeRuleForCalculation,
+  outstandingBalanceCentavos: number,
+): { amountCentavos: number; valid: boolean } {
+  const percentage = Number(rule.porcentaje);
+  const amount = Math.round(outstandingBalanceCentavos * (percentage / 100));
+  return {
+    amountCentavos: rule.tipo === "porcentaje" && Number.isFinite(percentage) && percentage > 0 && amount > 0
+      ? amount
+      : 0,
+    valid: rule.tipo === "porcentaje" && Number.isFinite(percentage) && percentage > 0,
+  };
 }

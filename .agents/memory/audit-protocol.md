@@ -33,6 +33,11 @@ Antes de aprobar cualquier corrección o módulo, validar:
 1. La simulación End-to-End completa.
 2. El checklist del Modo Auditoría.
 
+Un fallo sólo puede etiquetarse como “preexistente” después de ejecutarlo en el
+commit base con el mismo comando y condiciones comparables. Si un escenario
+pasa aislado pero falla en la suite completa, reportarlo como dependiente del
+orden/estado de la suite, no como regresión ni como preexistente sin evidencia.
+
 **Why:** El usuario explícitamente requiere este protocolo para asegurar calidad antes de marcar cualquier tarea como completa.
 
 **How to apply:** Cuando el usuario pida una auditoría, o antes de marcar como IMPLEMENTED cualquier tarea crítica (pagos, cargos, reportes, carga masiva), ejecutar este checklist completo y reportar resultados punto por punto.

@@ -71,6 +71,12 @@ test.describe("Cargos y Emisión — persistencia real", () => {
       [tenantId, campusId, conceptName, regularAmount],
     );
     conceptId = Number(concept.rows[0].id);
+    await db.query(
+      `INSERT INTO payment_due_dates
+        (tenant_id, campus_id, concept_id, concepto, dia_vencimiento, mes_aplicacion, activo)
+       VALUES ($1,$2,$3,$4,$5,'todos',true)`,
+      [tenantId, campusId, conceptId, conceptName, Number(futureDate.slice(8, 10))],
+    );
 
     const page = await browser.newPage();
     await loginAsAdmin(page);
@@ -88,6 +94,7 @@ test.describe("Cargos y Emisión — persistencia real", () => {
 
   test.afterAll(async () => {
     await db.query("DELETE FROM charges WHERE concept_id = $1 OR student_id = $2", [conceptId, studentId]);
+    await db.query("DELETE FROM payment_due_dates WHERE concept_id = $1", [conceptId]);
     await db.query("DELETE FROM concepts WHERE id = $1 OR (campus_id = $2 AND nombre = $3)", [
       conceptId,
       campusId,

@@ -50,7 +50,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev",
+    // Playwright arranca webServer ANTES del globalSetup. Validar también aquí
+    // para que ni el arranque (audit worker/DDL) toque una base sin marcador.
+    command: "npx tsx scripts/verify-test-database.ts && npm run dev",
     url: "http://127.0.0.1:5000",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

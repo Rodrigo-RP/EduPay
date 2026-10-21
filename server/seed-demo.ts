@@ -7,6 +7,7 @@ import {
   payment_applications,
 } from "../shared/schema";
 import { eq, and } from "drizzle-orm";
+import { assertNonProductionEnvironment, assertDatabaseMarker } from "./lib/database-safety";
 
 const DEMO_PASSWORD = "Demo2025!";
 const DEMO_COUNT_TABLES = [
@@ -73,6 +74,13 @@ function toEmailSlug(str: string): string {
 }
 
 export async function seedDemoData() {
+  // Fuera del catch del seed: un rechazo de seguridad debe propagarse.
+  // La validación de APP_ENV ocurre antes de cualquier SQL, incluso SELECT.
+  assertNonProductionEnvironment();
+  if (process.env.ALLOW_DEMO_SEED !== "true") {
+    throw new Error("Seed bloqueado: requiere ALLOW_DEMO_SEED=true.");
+  }
+  await assertDatabaseMarker(pool, "seed");
   const logs: string[] = [];
   const log = (msg: string) => { logs.push(msg); console.log(msg); };
 

@@ -9,7 +9,6 @@ import { students, guardians, student_guardian, charges, payments, concepts, sch
 import { insertPaymentSchema, insertChargeSchema } from "@shared/schema";
 import { getAcademicLevel } from "@shared/academic-levels";
 import { wsManager } from "../websocket-manager";
-import { seedDemoData } from "../seed-demo";
 import { seedAdmissionsData } from "../seed-admissions-data";
 import * as XLSX from "xlsx";
 import { z } from "zod";
@@ -209,17 +208,6 @@ export async function registerGuardianRoutes(
   stripeOverride?: StripeGuardianClient
 ): Promise<void> {
   const sg = stripeOverride ?? defaultStripeGuardian;
-  // ── DEMO DATA SEED — solo super_admin ───────────────────────────────────────
-  app.post("/api/demo/seed", requireSuperAdmin, async (req, res) => {
-    try {
-      const result = await seedDemoData();
-      res.json(result);
-    } catch (error: any) {
-      console.error("Error seeding demo data:", error);
-      res.status(500).json({ success: false, error: "Error ejecutando seed" });
-    }
-  });
-
   /**
    * POST /api/guardian/spei-intent
    *

@@ -22,6 +22,7 @@
     "validate:assistant": "tsx scripts/validate-assistant-queries.ts",
     "test:facturapi:sandbox": "tsx server/scripts/facturapi-sandbox-smoke.mts",
     "test:unit": "cd server && npx vitest run --config vitest.config.ts",
+    "test:safety": "cd server && npx vitest run --config vitest.safety.config.ts",
     "test:e2e": "npx playwright test",
     "test:e2e:ui": "npx playwright test --ui",
     "test:all": "npm run test:unit && npm run validate:assistant && npm run check:routes && npm run test:e2e",

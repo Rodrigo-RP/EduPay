@@ -7,17 +7,14 @@ import { users, students, guardians, charges, payments, concepts, invoices, paym
 import { insertUserSchema } from "@shared/schema";
 import { canEditUser, UserRole, MODULES, ACTIONS } from "@shared/permissions";
 import { optimizeDatabase, checkQueryPerformance, cleanupObsoleteData, runMaintenanceTask } from "../optimize-database";
-import { seedDemoData } from "../seed-demo";
+import { registerDemoSeedRoute } from "./demo-seed";
 import { wsManager } from "../websocket-manager";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
 
 export function registerSystemRoutes(app: Express): void {
-  app.post("/api/demo/seed", async (_req, res) => {
-    const result = await seedDemoData();
-    res.status(result.success ? 200 : 500).json(result);
-  });
+  registerDemoSeedRoute(app);
 
   app.get("/api/payment-rules", authenticateToken, async (req: any, res) => {
     try {

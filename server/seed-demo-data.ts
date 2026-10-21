@@ -1,6 +1,7 @@
 // @ts-nocheck
 // Script para crear datos demo según especificaciones del documento
-import { db } from "./db";
+import { db, pool } from "./db";
+import { assertNonProductionEnvironment, assertDatabaseMarker, DatabaseSafetyError } from "./lib/database-safety";
 import { 
   tenants, 
   campuses, 
@@ -16,6 +17,12 @@ import {
 import bcrypt from "bcrypt";
 
 export async function seedDemoData() {
+  // Fuera del catch: no iniciar el seed ni SQL si el entorno no está autorizado.
+  assertNonProductionEnvironment();
+  if (process.env.ALLOW_DEMO_SEED !== "true") {
+    throw new DatabaseSafetyError("Seed bloqueado: requiere ALLOW_DEMO_SEED=true.");
+  }
+  await assertDatabaseMarker(pool, "seed");
   console.log("🌱 Creando datos demo para Edupay...");
 
   try {

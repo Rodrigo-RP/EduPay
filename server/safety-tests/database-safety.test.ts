@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ query: vi.fn(), end: vi.fn() }));
-vi.mock("../db", () => ({ pool: mocks, db: {} }));
+const mocks = vi.hoisted(() => ({ query: vi.fn(), end: vi.fn(), insert: vi.fn() }));
+vi.mock("../db", () => ({ pool: mocks, db: { insert: mocks.insert } }));
 
 import { seedDemoData } from "../seed-demo";
+import { seedDemoData as secondarySeed } from "../seed-demo-data";
+import { restoreVitestFixtures } from "../scripts/restore-vitest-fixtures";
 import { assertDatabaseMarker, assertTestDatabase } from "../lib/database-safety";
 import vitestSetup from "../tests/global-setup";
 import playwrightSetup from "../../e2e/global-setup";
@@ -11,6 +13,37 @@ import playwrightSetup from "../../e2e/global-setup";
 afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); vi.clearAllMocks(); });
 
 describe("Barreras de base de datos (sin conexión real)", () => {
+  it.each([
+    ["seed-demo-data", secondarySeed],
+    ["restore-vitest-fixtures", restoreVitestFixtures],
+  ] as const)("%s rechaza production sin ejecutar SQL", async (_name, script) => {
+    vi.stubEnv("APP_ENV", "production");
+    vi.stubEnv("ALLOW_DEMO_SEED", "true");
+    await expect(script()).rejects.toThrow("APP_ENV");
+    expect(mocks.query).not.toHaveBeenCalled();
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["seed-demo-data", secondarySeed],
+    ["restore-vitest-fixtures", restoreVitestFixtures],
+  ] as const)("%s sin marcador sólo lee la guarda; nunca escribe", async (_name, script) => {
+    vi.stubEnv("APP_ENV", "test");
+    vi.stubEnv("ALLOW_DEMO_SEED", "true");
+    mocks.query.mockResolvedValue({ rows: [{ environment_marker: null }] });
+    await expect(script()).rejects.toThrow("marcador explícito");
+    expect(mocks.query).toHaveBeenCalledTimes(1);
+    expect(mocks.query.mock.calls[0][0]).toMatch(/^SELECT /);
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it("restore-vitest-fixtures no admite una base marcada sólo demo", async () => {
+    vi.stubEnv("APP_ENV", "test");
+    mocks.query.mockResolvedValue({ rows: [{ environment_marker: "edupay:demo" }] });
+    await expect(restoreVitestFixtures()).rejects.toThrow("edupay:test");
+    expect(mocks.query).toHaveBeenCalledTimes(1);
+  });
+
   it("seed en production falla antes de ejecutar cualquier SQL", async () => {
     vi.stubEnv("APP_ENV", "production");
     vi.stubEnv("ALLOW_DEMO_SEED", "true");

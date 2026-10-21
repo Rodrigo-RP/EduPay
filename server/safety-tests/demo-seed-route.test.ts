@@ -10,6 +10,7 @@ vi.mock("../db", () => ({ pool: { query: mocks.query }, db: {} }));
 
 import { registerDemoSeedRoute } from "../routes/demo-seed";
 import { JWT_SECRET } from "../routes/shared";
+import { DatabaseSafetyError } from "../lib/database-safety";
 
 afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); });
 
@@ -63,8 +64,28 @@ describe("Única ruta de seed, autenticación real y seed mock", () => {
   it("rechazo de seguridad del seed se devuelve sin éxito falso", async () => {
     vi.stubEnv("ALLOW_DEMO_SEED", "true");
     mocks.getUser.mockResolvedValue({ id: 123, is_super_admin: true });
-    mocks.seed.mockRejectedValue(new Error("bloqueado"));
-    expect((await post(jwt.sign({ id: 123 }, JWT_SECRET))).status).toBe(403);
+    mocks.seed.mockRejectedValue(new DatabaseSafetyError("detalle interno no público"));
+    const response = await post(jwt.sign({ id: 123 }, JWT_SECRET));
+    expect(response.status).toBe(403);
+    expect(JSON.stringify(await response.json())).not.toContain("detalle interno");
+  });
+
+  it("excepción operativa del seed devuelve 500 sin detalles internos", async () => {
+    vi.stubEnv("ALLOW_DEMO_SEED", "true");
+    mocks.getUser.mockResolvedValue({ id: 123, is_super_admin: true });
+    mocks.seed.mockRejectedValue(new Error("SQL o credenciales internas"));
+    const response = await post(jwt.sign({ id: 123 }, JWT_SECRET));
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ message: "No se pudo completar el seed." });
+  });
+
+  it("resultado fallido del seed devuelve 500 sin logs internos", async () => {
+    vi.stubEnv("ALLOW_DEMO_SEED", "true");
+    mocks.getUser.mockResolvedValue({ id: 123, is_super_admin: true });
+    mocks.seed.mockResolvedValue({ success: false, logs: ["interno"], error: "SQL interno" });
+    const response = await post(jwt.sign({ id: 123 }, JWT_SECRET));
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ message: "No se pudo completar el seed." });
   });
 
   it("ruta registrada una sola vez y montada sólo desde system", () => {

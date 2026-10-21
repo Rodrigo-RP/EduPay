@@ -6,8 +6,12 @@
  * ha borrado esos registros.
  */
 import { pool } from "../db";
+import { pathToFileURL } from "node:url";
+import { assertTestDatabase } from "../lib/database-safety";
 
-async function main() {
+export async function restoreVitestFixtures() {
+  // Sólo base de tests, incluso si una base demo tiene datos descartables.
+  await assertTestDatabase(pool);
   console.log("🔧 Restaurando fixtures de vitest (tenant 29, campus 48)...");
 
   // Tenant 29
@@ -47,10 +51,14 @@ async function main() {
   console.log(`  seq tenants=${seqT.rows[0].last_value} | campuses=${seqC.rows[0].last_value}`);
   console.log("✅ Listo.");
 
-  await pool.end();
 }
 
-main().catch((e) => {
-  console.error("❌ Error:", e.message);
-  process.exit(1);
-});
+// Importar para probar la guarda no debe disparar el script automáticamente.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  void restoreVitestFixtures()
+    .catch(() => {
+      console.error("Restauración bloqueada o fallida; no se muestran detalles internos.");
+      process.exitCode = 1;
+    })
+    .finally(() => pool.end());
+}

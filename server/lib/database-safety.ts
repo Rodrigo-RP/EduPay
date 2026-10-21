@@ -8,11 +8,20 @@ export const DATABASE_MARKER_SQL =
 
 type Reader = { query: (sql: string) => Promise<{ rows: any[] }> };
 
+// Sólo rechazos de política usan este tipo. Errores de conexión/SQL permanecen
+// errores operativos y nunca deben confundirse con un bloqueo autorizado.
+export class DatabaseSafetyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DatabaseSafetyError";
+  }
+}
+
 export function assertNonProductionEnvironment(
   env: NodeJS.ProcessEnv = process.env,
 ): void {
   if (env.APP_ENV !== "development" && env.APP_ENV !== "test") {
-    throw new Error("Operación bloqueada: APP_ENV debe ser development o test; no se ejecutó SQL.");
+    throw new DatabaseSafetyError("Operación bloqueada: APP_ENV debe ser development o test; no se ejecutó SQL.");
   }
 }
 
@@ -26,7 +35,7 @@ export async function assertDatabaseMarker(
     ? marker === "edupay:test"
     : marker === "edupay:test" || marker === "edupay:demo";
   if (!allowed) {
-    throw new Error(
+    throw new DatabaseSafetyError(
       `Operación bloqueada: la base no tiene el marcador explícito ${
         purpose === "tests" ? "edupay:test" : "edupay:demo o edupay:test"
       }. No se autoriza ninguna escritura.`,

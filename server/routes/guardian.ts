@@ -1,4 +1,7 @@
 import type { Express } from "express";
+import { createHash } from "node:crypto";
+import { settleConfirmedStripePaymentIntent } from "../lib/stripe-spei-settlement";
+import type { StripePaymentIntentResult } from "../lib/stripe-card-settlement";
 import { pool, db } from "../db";
 import { enqueueAuditLog } from "../audit-retry";
 import { eq, and, gte, lt, count } from "drizzle-orm";
@@ -192,7 +195,7 @@ export type StripeGuardianClient = {
       transfer_data?: { destination: string };
       application_fee_amount?: number;
       metadata?: Record<string, string>;
-    }) => Promise<{ id: string; status: string; client_secret?: string | null }>;
+    }, options?: { idempotencyKey: string }) => Promise<StripePaymentIntentResult>;
     cancel: (id: string) => Promise<{ id: string }>;
   };
 };
@@ -458,23 +461,38 @@ export async function registerGuardianRoutes(
       if (!charge_ids || !Array.isArray(charge_ids) || charge_ids.length === 0) {
         return res.status(400).json({ message: "Se requiere al menos un cargo" });
       }
+      if (!charge_ids.every((id: unknown) => Number.isSafeInteger(id) && Number(id) > 0)) {
+        return res.status(400).json({ message: "Los cargos deben ser identificadores válidos" });
+      }
+      if (metodo_pago !== "tarjeta" || typeof payment_method_id !== "string" || !payment_method_id.trim()) {
+        return res.status(422).json({ message: "Pago con tarjeta no disponible por ahora. No se realizó ningún cobro." });
+      }
+      for (const id of charge_ids) {
+        const owned = await storage.getChargeByGuardian(id, guardianId);
+        if (!owned || Number(owned.tenant_id) !== Number(tenantId)) {
+          return res.status(403).json({ message: "El cargo no pertenece a los alumnos de este tutor" });
+        }
+      }
 
       // ── Check Stripe Connect una vez por request (una query, todos los cargos) ───
       const guardianCampusId: number = req.guardian.campus_id;
-      const stripeConnectAccountId = await getActiveStripeAccountForCampus(guardianCampusId);
-      // Cobro real via Connect solo si: campus activo + frontend envió payment_method_id.
-      const useStripeConnect = !!(stripeConnectAccountId && payment_method_id);
+      const stripeConnectAccountId = await getActiveStripeAccountForCampus(guardianCampusId, tenantId);
+      if (!stripeConnectAccountId) {
+        return res.status(422).json({ message: "Pago con tarjeta no disponible por ahora. Tu escuela aún no lo tiene habilitado. No se realizó ningún cobro." });
+      }
 
       const results: {
         charge_id: number;
-        payment_id: number;
+        payment_id: number | null;
         monto_centavos: number;
-        cfdi: string;
+        cfdi: null;
+        status: string;
+        payment_intent_id: string;
         via_stripe_connect: boolean;
         needs_liquidacion_manual: boolean;
       }[] = [];
 
-      for (const chargeId of charge_ids) {
+      for (const chargeId of Array.from(new Set<number>(charge_ids))) {
         // ── IDOR: el cargo debe pertenecer a un alumno del guardián (lectura, fuera de txn) ──
         const chargeOwned = await storage.getChargeByGuardian(chargeId, guardianId);
         if (!chargeOwned) {
@@ -486,21 +504,20 @@ export async function registerGuardianRoutes(
 
         // ── Stripe PaymentIntent ANTES de la transacción DB ─────────────────
         // Se crea fuera de la txn para no mantener locks DB durante red externa.
-        let piId: string | null = null;
-        let referencia: string;
-        let saldoPrevio: number | null = null; // usado para detectar race condition
+        let pi: StripePaymentIntentResult;
+        let saldoPrevio: number;
 
-        if (useStripeConnect) {
           // Pre-leer saldo (optimista, sin lock) solo para el monto del PaymentIntent.
           // La txn DB lo reconfirma con FOR UPDATE antes de insertar el pago.
           const preRes = await pool.query(
             `SELECT c.monto_base_centavos, c.recargo_aplicado_centavos,
                     COALESCE(SUM(pa.amount_centavos), 0)::bigint AS ya_pagado
                FROM charges c
+                JOIN students s ON s.id = c.student_id
                LEFT JOIN payment_applications pa ON pa.charge_id = c.id
-              WHERE c.id = $1 AND c.tenant_id = $2
+               WHERE c.id = $1 AND c.tenant_id = $2 AND s.tenant_id = $2 AND s.campus_id = $3
               GROUP BY c.monto_base_centavos, c.recargo_aplicado_centavos`,
-            [chargeId, tenantIdLote]
+            [chargeId, tenantIdLote, guardianCampusId]
           );
           if (!preRes.rows.length) {
             return res.status(404).json({ message: `Cargo ${chargeId} no encontrado` });
@@ -515,7 +532,7 @@ export async function registerGuardianRoutes(
           }
 
           try {
-            const pi = await sg.paymentIntents.create({
+            pi = await sg.paymentIntents.create({
               amount:   saldoPrevio,
               currency: "mxn",
               payment_method: payment_method_id as string,
@@ -535,198 +552,60 @@ export async function registerGuardianRoutes(
                 charge_id:   chargeId.toString(),
                 guardian_id: guardianId.toString(),
                 campus_id:   guardianCampusId.toString(),
+                  tenant_id: tenantIdLote.toString(),
+                  stripe_account_id: stripeConnectAccountId,
+                  edupay_payment_flow: "guardian_card",
               },
+            }, {
+              idempotencyKey: createHash("sha256")
+                .update(`guardian-card:${tenantIdLote}:${guardianId}:${chargeId}:${saldoPrevio}`)
+                .digest("hex"),
             });
-            piId      = pi.id;
-            referencia = pi.id;
           } catch (stripeErr: any) {
             // Stripe rechazó: DB intacta, sin locks, sin transacciones abiertas.
             console.error(`[guardian/pagar] Stripe rechazó cargo ${chargeId}:`, stripeErr.message);
             return res.status(402).json({
               message:   "El pago fue rechazado por el procesador de pagos",
-              detalle:   stripeErr.message,
               charge_id: chargeId,
             });
           }
-        } else {
-          // Flujo de simulación: campus sin Connect activo o frontend sin payment_method_id.
-          referencia = `sim_${Date.now()}_${chargeId}`;
-        }
-
-        // ── Transacción atómica ──────────────────────────────────────────────
-        const client = await pool.connect();
-        let paymentId!: number;
-        let montoAplicadoCentavos = 0;
-        try {
-          await client.query("BEGIN");
-
-          // 1. Lock del cargo — serializa peticiones concurrentes
-          const lockRes = await client.query(
-            `SELECT id, monto_base_centavos, recargo_aplicado_centavos, estado
-             FROM charges WHERE id = $1 AND tenant_id = $2 FOR UPDATE`,
-            [chargeId, tenantIdLote]
-          );
-          if (!(lockRes.rows as any[]).length) {
-            await client.query("ROLLBACK");
-            return res.status(403).json({ message: `Cargo ${chargeId} no encontrado` });
-          }
-          const locked = (lockRes.rows as any[])[0];
-
-          // 2. Guard: estado terminal
-          if (["pagado", "cancelado"].includes(locked.estado)) {
-            await client.query("ROLLBACK");
-            return res.status(409).json({
-              message: `El cargo ${chargeId} ya fue pagado o está cancelado`,
-            });
-          }
-
-          // 3. Saldo pendiente real (lectura dentro del mismo client para consistencia)
-          const saldoRes = await client.query(
-            `SELECT COALESCE(SUM(pa.amount_centavos), 0)::bigint AS ya_pagado
-             FROM payment_applications pa WHERE pa.charge_id = $1`,
-            [chargeId]
-          );
-          const yaPagado = Number((saldoRes.rows as any[])[0].ya_pagado);
-          const saldo =
-            Number(locked.monto_base_centavos) +
-            Number(locked.recargo_aplicado_centavos || 0) -
-            yaPagado;
-
-          if (saldo <= 0) {
-            await client.query("ROLLBACK");
-            return res.status(409).json({ message: `El cargo ${chargeId} ya tiene saldo cero` });
-          }
-          montoAplicadoCentavos = saldo;
-
-          // 4a. Guard race condition: si usamos Stripe Connect, verificar que el saldo
-          //     no cambió entre la pre-lectura (para el PI) y el lock FOR UPDATE.
-          //     Si cambió, el cargo fue parcialmente pagado por otra petición concurrente:
-          //     cancelamos el PI y rechazamos limpiamente.
-          if (piId && saldoPrevio !== null && saldo !== saldoPrevio) {
-            await client.query("ROLLBACK");
-            // Fire-and-forget: finally libera el client
-            sg.paymentIntents.cancel(piId).catch((e: any) =>
-              console.error("[guardian/pagar] No se pudo cancelar PI tras race condition:", e.message)
-            );
-            return res.status(409).json({
-              message:   `El monto del cargo ${chargeId} cambió mientras se procesaba. Intente de nuevo.`,
-              charge_id: chargeId,
-            });
-          }
-
-          // 4b. Crear pago directamente en 'exitoso' (atomicidad garantizada por la txn)
-          const payRow = await client.query(
-            `INSERT INTO payments
-               (tenant_id, charge_id, guardian_id, metodo, referencia_pasarela,
-                monto_centavos, fecha_pago, estado)
-             VALUES ($1,$2,$3,$4,$5,$6,CURRENT_DATE,'exitoso') RETURNING id`,
-            [tenantIdLote, chargeId, guardianId, metodo_pago, referencia, saldo]
-          );
-          paymentId = (payRow.rows as any[])[0].id;
-
-          // 5. Ledger entry (payment_application)
-          await client.query(
-            `INSERT INTO payment_applications (payment_id, charge_id, amount_centavos, applied_at)
-             VALUES ($1,$2,$3,NOW())`,
-            [paymentId, chargeId, saldo]
-          );
-
-          // 6. Marcar cargo como pagado
-          await client.query(
-            `UPDATE charges SET estado = 'pagado', updated_at = NOW() WHERE id = $1`,
-            [chargeId]
-          );
-
-          await client.query("COMMIT");
-        } catch (err) {
-          await client.query("ROLLBACK");
-          // Si el PI de Stripe ya fue creado y la DB falla, cancelarlo (best-effort).
-          if (piId) {
-            sg.paymentIntents.cancel(piId).catch((ce: any) =>
-              console.error("[guardian/pagar] No se pudo cancelar PI tras error DB:", ce.message)
-            );
-          }
-          throw err;
-        } finally {
-          client.release();
-        }
-
-        // ── Audit fuera de la transacción financiera (ADR-001) ──────────────
-        const auditPayloadLote: import("../audit-retry").AuditLogPayload = {
-          tenant_id:      tenantIdLote,
-          user_id:        null,
-          guardian_id:    guardianId,
-          action:         "charge.status_changed",
-          entity_type:    "charge",
-          entity_id:      chargeId,
-          previous_value: { estado: "pendiente" },
-          new_value:      { estado: "pagado" },
-          metadata: {
-            flujo:                      "guardian_pagar_lote",
-            payment_id:                 paymentId,
-            monto_centavos:             montoAplicadoCentavos,
-            via_stripe_connect:         useStripeConnect,
-            stripe_payment_intent_id:   piId ?? undefined,
-            needs_liquidacion_manual:   !useStripeConnect && stripeConnectAccountId === null,
-          },
-        };
-        pool.query(
-          `INSERT INTO audit_log
-             (tenant_id, guardian_id, action, entity_type, entity_id, previous_value, new_value, metadata)
-           VALUES ($1,$2,'charge.status_changed','charge',$3,$4,$5,$6)`,
-          [
-            tenantIdLote, guardianId, chargeId,
-            JSON.stringify(auditPayloadLote.previous_value),
-            JSON.stringify(auditPayloadLote.new_value),
-            JSON.stringify(auditPayloadLote.metadata),
-          ]
-        ).catch((err) => enqueueAuditLog(auditPayloadLote, err));
-
-        // ── CFDI simulada (documento, no crítico para la integridad financiera) ──
-        const cfdiUUID = `${Date.now()}-${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
-        try {
-          const [newInvoice] = await db.insert(invoices).values({
-            payment_id: paymentId,
-            tenant_id:  tenantIdLote,
-            uuid_cfdi:  cfdiUUID,
-            xml_url:    `/api/demo/cfdi/${cfdiUUID}.xml`,
-            pdf_url:    `/api/demo/cfdi/${cfdiUUID}.pdf`,
-            estado:     "pendiente",
-          }).returning();
-
-          await storage.updateInvoiceStatus(newInvoice.id, "emitido", {
-            tenantId:   tenantIdLote,
-            guardianId: guardianId,
-            ip:         req.ip,
-            metadata:   { flujo: "guardian_pagar_lote_cfdi", uuid: cfdiUUID },
-          });
-        } catch {
-          // Si el CFDI falla el pago ya está registrado — no revertir
+        const settlement = pi.status === "succeeded"
+          ? await settleConfirmedStripePaymentIntent(pi, "sdk-response", JSON.stringify(pi))
+          : null;
+        const paymentId = settlement && "paymentIds" in settlement ? settlement.paymentIds[0] ?? null : null;
+        if (pi.status === "succeeded" && paymentId === null) {
+          throw new Error("Stripe confirmó el cobro pero no se pudo liquidar su ledger");
         }
 
         results.push({
           charge_id:                chargeId,
           payment_id:               paymentId,
-          monto_centavos:           montoAplicadoCentavos,
-          cfdi:                     cfdiUUID,
-          via_stripe_connect:       useStripeConnect,
-          needs_liquidacion_manual: !useStripeConnect && stripeConnectAccountId === null,
+          monto_centavos:           saldoPrevio,
+          cfdi:                     null,
+          status:                   pi.status,
+          payment_intent_id:        pi.id,
+          via_stripe_connect:       true,
+          needs_liquidacion_manual: false,
         });
       }
 
-      wsManager.notifyPaymentUpdate(results[0], "create", {
+      const confirmed = results.filter(result => result.payment_id !== null && result.status === "succeeded");
+      if (confirmed.length) wsManager.notifyPaymentUpdate(confirmed[0], "create", {
         campus_id:  req.guardian.campus_id,
         tenant_id:  req.guardian.tenant_id,
         created_by: guardianId,
       });
 
-      res.json({
-        success: true,
+      res.status(confirmed.length === results.length ? 200 : 202).json({
+        success: confirmed.length === results.length,
+        status: confirmed.length === results.length ? "succeeded" : results.find(result => result.status !== "succeeded")?.status,
         payments: results,
-        message: `${results.length} pago(s) procesados correctamente`,
+        message: confirmed.length === results.length
+          ? `${confirmed.length} pago(s) confirmado(s)`
+          : "El pago aún no está confirmado. No repitas el cobro; consulta su estado más tarde.",
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Error procesando pago" });
+      res.status(500).json({ message: "No se pudo confirmar el registro del pago. No repitas el cobro; consulta su estado más tarde." });
     }
   });
 

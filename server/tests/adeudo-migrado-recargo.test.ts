@@ -37,6 +37,7 @@ const ADMIN_ID   = 80;   // usuario real demo — FK audit_log.user_id
 let conceptColegId:       number;   // concepto colegiatura — usado por TODOS los charges
 let testStudentId:        number;
 let chargeMigradoId:      number;   // es_adeudo_migrado = true
+let dueDateId: number;
 let chargeColegId:        number;   // es_adeudo_migrado = false
 let chargeOrtoId:         number;   // es_adeudo_migrado = true + concept_id = colegiatura (AME-05)
 let surchargeRuleId:      number;
@@ -103,6 +104,13 @@ beforeAll(async () => {
     [CAMPUS_ID, TENANT_ID],
   );
   conceptColegId = cc.rows[0].id;
+  const dueDate = await pool.query(
+    `INSERT INTO payment_due_dates
+       (tenant_id, campus_id, concept_id, concepto, dia_vencimiento, mes_aplicacion, activo)
+     VALUES ($1, $2, $3, 'Colegiatura Test AME', 15, 'todos', true) RETURNING id`,
+    [TENANT_ID, CAMPUS_ID, conceptColegId],
+  );
+  dueDateId = Number(dueDate.rows[0].id);
 
   // 2. Alumno de prueba
   const st = await pool.query(
@@ -171,6 +179,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await pool.query("DELETE FROM payment_due_dates WHERE id = $1", [dueDateId]);
   await pool.query("DELETE FROM payment_surcharge_rules WHERE id = $1", [surchargeRuleId]);
   await pool.query(
     `DELETE FROM charges WHERE id = ANY($1::int[])`,

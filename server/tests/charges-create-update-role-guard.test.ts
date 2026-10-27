@@ -252,7 +252,11 @@ describe("POST /api/admin/cargos/extraordinario — guard CHARGES.CREATE", () =>
       "POST",
       "/api/admin/cargos/extraordinario",
       tokenAdminCampus,
-      { student_id: studentId, monto: "200", descripcion: "Cargo AC extraordinario" },
+      {
+        student_id: studentId, monto: "200", descripcion: "Cargo AC extraordinario",
+        fecha_vencimiento: new Date(Date.now() + 30 * 86_400_000).toISOString().split("T")[0],
+        motivo_override: "Prueba de cargo extraordinario de administrador de campus",
+      },
     );
 
     expect(status).toBe(201);
@@ -265,7 +269,11 @@ describe("POST /api/admin/cargos/extraordinario — guard CHARGES.CREATE", () =>
       "POST",
       "/api/admin/cargos/extraordinario",
       tokenAdminGeneral,
-      { student_id: studentId, monto: "200", descripcion: "Cargo AG extraordinario" },
+      {
+        student_id: studentId, monto: "200", descripcion: "Cargo AG extraordinario",
+        fecha_vencimiento: new Date(Date.now() + 30 * 86_400_000).toISOString().split("T")[0],
+        motivo_override: "Prueba de cargo extraordinario de administrador general",
+      },
     );
 
     expect(status).toBe(201);

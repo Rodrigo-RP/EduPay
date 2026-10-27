@@ -12,6 +12,7 @@ let guardianId: number;
 let manualStudentId: number;
 let automaticStudentId: number;
 let conceptId: number;
+let dueDateId: number;
 let ruleId: number;
 let token: string;
 const cycle = currentSchoolYear();
@@ -69,6 +70,13 @@ beforeAll(async () => {
     [tenantId, campusId],
   );
   conceptId = Number(concept.rows[0].id);
+  const dueDate = await pool.query(
+    `INSERT INTO payment_due_dates
+       (tenant_id, campus_id, concept_id, concepto, dia_vencimiento, mes_aplicacion, activo)
+     VALUES ($1, $2, $3, 'Colegiatura motor', 15, 'todos', true) RETURNING id`,
+    [tenantId, campusId, conceptId],
+  );
+  dueDateId = Number(dueDate.rows[0].id);
   const rule = await pool.query(
     `INSERT INTO scholarship_auto_rules
       (tenant_id, campus_id, nombre, tipo, descuento_porcentaje, aplica_a,
@@ -102,6 +110,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await pool.query(`DELETE FROM payment_due_dates WHERE id = $1`, [dueDateId]);
   await pool.query(`DELETE FROM audit_log WHERE tenant_id = $1`, [tenantId]);
   await pool.query(`DELETE FROM charge_scholarship_applications WHERE tenant_id = $1`, [tenantId]);
   await pool.query(`DELETE FROM scholarship_auto_assignments WHERE tenant_id = $1`, [tenantId]);

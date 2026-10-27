@@ -153,7 +153,10 @@ beforeAll(async () => {
   cAId = await insertCharge(s1Id, colegiaturaId, CICLO_A, "2025-08-01", "2025-09-01", 100_000, "0",  0,    "pagado");
   cBId = await insertCharge(s1Id, colegiaturaId, CICLO_A, "2025-09-01", "2025-10-01", 100_000, "20", 5_000, "parcial");
   cCId = await insertCharge(s2Id, inscripcionId, CICLO_B, "2024-08-01", "2024-09-01",  50_000, "0",  0,    "vencido");
-  cDId = await insertCharge(s3Id, colegiaturaId, CICLO_A, "2026-08-01", "2026-09-30", 120_000, "0",  0,    "pendiente");
+  const today = new Date();
+  const futureDueDate = new Date(today);
+  futureDueDate.setUTCDate(futureDueDate.getUTCDate() + 60);
+  cDId = await insertCharge(s3Id, colegiaturaId, CICLO_A, today.toISOString().split("T")[0], futureDueDate.toISOString().split("T")[0], 120_000, "0",  0,    "pendiente");
   cEId = await insertCharge(s4Id, colegiaturaId, CICLO_A, "2025-08-01", "2025-09-01",  80_000, "0",  0,    "cancelado");
 
   // pagos + payment_applications

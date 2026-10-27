@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { wsManager } from "./websocket-manager";
 import { initAuditRetryQueue, startAuditRetryWorker } from "./audit-retry";
+import { resendWebhookRateLimit, resendWebhookBodyError } from "./routes/email-webhooks";
 
 // Global error handling
 process.on('unhandledRejection', (reason, promise) => {
@@ -22,6 +23,7 @@ const app = express();
 // stripe.webhooks.constructEvent necesita el Buffer original para verificar HMAC.
 // Si express.json() lo parsea primero, la firma fallaría (cuerpo mutado).
 app.use("/api/webhooks/stripe", express.raw({ type: "application/json" }));
+app.use("/api/notifications/webhooks/resend", resendWebhookRateLimit(), express.raw({type:()=>true,limit:"64kb",inflate:false}), resendWebhookBodyError);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));

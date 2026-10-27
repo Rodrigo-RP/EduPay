@@ -40,6 +40,8 @@ import { registerReceivablesRoutes }             from "./routes/receivables";
 import { registerStripeWebhookRoute, registerCampusPaymentRoutes } from "./routes/campus-payment";
 import { registerAuditLogRoutes } from "./routes/audit-log";
 import { authenticateToken } from "./routes/shared";
+import { pool } from "./db";
+import { registerEmailWebhookRuntime } from "./lib/email/webhook-runtime";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // ── Trust proxy (Replit reverse proxy) ──────────────────────────────────────
@@ -51,6 +53,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // sanitizeInput, para que el middleware de sanitización no transforme el Buffer en
   // un objeto ordinario (sanitizeInput recorre typeof body === 'object').
   registerStripeWebhookRoute(app);
+  registerEmailWebhookRuntime(app,pool);
 
   // ── Middlewares de seguridad globales ────────────────────────────────────────
   app.use(secureCors);

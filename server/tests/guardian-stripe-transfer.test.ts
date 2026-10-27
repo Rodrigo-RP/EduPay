@@ -1,10 +1,9 @@
 /**
  * TESTS — Stripe Connect routing en POST /api/guardian/pagar
  *
- * Cubre los tres casos de falla documentados en la tarea #207:
+ * Stripe simulado en su SDK; firmas HMAC verificadas localmente, sin red externa.
  *
- * T1  Campus sin Connect → pago procede (simulación), needs_liquidacion_manual=true,
- *                           Stripe NO invocado, DB actualizada correctamente.
+ * T1  Campus sin Connect → 422, Stripe NO invocado y DB intacta.
  * T2  Campus con Connect + payment_method_id → PaymentIntent creado con
  *                           transfer_data.destination = stripe_account_id del campus;
  *                           referencia_pasarela = pi_...; cargo marcado 'pagado'.
@@ -12,9 +11,7 @@
  *                           'pendiente', no hay row en payments — DB intacta.
  *
  * Nota sobre application_fee_amount:
- *   T2 verifica que el parámetro vale 0. No existe aún una decisión de negocio
- *   sobre la tarifa de plataforma Refereence. Cuando se defina, actualizar tanto
- *   el código (campus-payment.ts TODO) como este test.
+ *   T2 conserva la comisión de plataforma cero del flujo existente.
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
@@ -24,6 +21,10 @@ import { pool, db } from "../db";
 import { tenants, campuses } from "../../shared/schema";
 import jwt from "jsonwebtoken";
 import { registerGuardianRoutes } from "../routes/guardian";
+import { registerStripeWebhookRoute } from "../routes/campus-payment";
+import Stripe from "stripe";
+import { randomUUID } from "node:crypto";
+import type { StripePaymentIntentResult } from "../lib/stripe-card-settlement";
 import type { StripeGuardianClient } from "../routes/guardian";
 
 import { JWT_SECRET } from "../routes/shared";
@@ -33,7 +34,9 @@ const MOCK_STRIPE_ACCT = "acct_test_guardian_stripe_mock";
 const MOCK_PI_ID       = "pi_test_mock_succeeded_001";
 
 // ── Mocks de Stripe ───────────────────────────────────────────────────────────
-const mockPICreate = vi.fn().mockResolvedValue({ id: MOCK_PI_ID, status: "succeeded" });
+const mockPICreate = vi.fn().mockImplementation(async (params) => ({
+  ...params, id: MOCK_PI_ID, status: "succeeded", amount_received: params.amount,
+}));
 const mockPICancel = vi.fn().mockResolvedValue({ id: MOCK_PI_ID });
 
 const mockStripe: StripeGuardianClient = {
@@ -56,6 +59,8 @@ let chargeConnectedId:  number; // para T2
 let chargeConnectedId2: number; // para T3 (diferente al de T2 que quedará 'pagado')
 
 let testServer: Server;
+const offlineStripe = new Stripe("offline-fixture-no-network");
+const webhookFixtureSecret = randomUUID();
 
 function makeGuardianToken(gId: number, cId: number, tId: number): string {
   // Sin 'type': StripeGuardian usa type="guardian"
@@ -200,6 +205,9 @@ beforeAll(async () => {
 
   // Servidor Express mínimo que replica la cadena relevante para este endpoint
   const testApp = express();
+  vi.stubEnv("STRIPE_WEBHOOK_SECRET", webhookFixtureSecret);
+  testApp.use("/api/webhooks/stripe", express.raw({ type: "application/json" }));
+  registerStripeWebhookRoute(testApp, { webhooks: offlineStripe.webhooks } as any);
   testApp.use(express.json());
   await registerGuardianRoutes(testApp, mockStripe);
 
@@ -221,6 +229,7 @@ afterAll(async () => {
   );
   await pool.query(`DELETE FROM invoices WHERE tenant_id = $1`, [tenantId]);
   await pool.query(`DELETE FROM payments WHERE tenant_id = $1`, [tenantId]);
+  await pool.query(`DELETE FROM payment_events WHERE tenant_id = $1`, [tenantId]);
   await pool.query(`DELETE FROM charges WHERE tenant_id = $1`, [tenantId]);
   await pool.query(
     `DELETE FROM student_guardian
@@ -236,43 +245,38 @@ afterAll(async () => {
   );
   await pool.query(`DELETE FROM campuses WHERE tenant_id = $1`, [tenantId]);
   await pool.query(`DELETE FROM tenants WHERE id = $1`, [tenantId]);
+  vi.unstubAllEnvs();
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
-// T1 — Campus sin Connect: pago procede, marcado para liquidación manual
+// T1 — Campus sin Connect: se rechaza antes de escribir o llamar al proveedor
 // ═════════════════════════════════════════════════════════════════════════════
 describe("POST /api/guardian/pagar — campus sin Stripe Connect", () => {
-  it("T1: campus sin Connect → 200, via_stripe_connect=false, needs_liquidacion_manual=true, Stripe NO invocado", async () => {
+  it("T1: campus sin Connect → 422 sin acreditar, Stripe NO invocado", async () => {
     const piCreatesBefore = mockPICreate.mock.calls.length;
 
-    const { status, body } = await pagar(tokenNoConnect, [chargeNoConnectId]);
-
-    expect(status).toBe(200);
-    expect(body.success).toBe(true);
-
-    const result = body.payments?.[0];
-    expect(result?.charge_id).toBe(chargeNoConnectId);
-    expect(result?.via_stripe_connect).toBe(false);
-    expect(result?.needs_liquidacion_manual).toBe(true);
-    expect(result?.payment_id).toBeTypeOf("number");
+    const before = await snapshot(chargeNoConnectId);
+    const { status, body } = await pagar(tokenNoConnect, [chargeNoConnectId], "pm_offline_no_connect");
+    expect(status).toBe(422);
+    expect(body.message).toMatch(/no disponible/i);
+    expect(await snapshot(chargeNoConnectId)).toEqual(before);
 
     // Stripe NO debe ser invocado (campus no tiene Connect activo)
     expect(mockPICreate.mock.calls.length).toBe(piCreatesBefore);
 
-    // El cargo quedó marcado como 'pagado' en DB
+    // El cargo sigue pendiente.
     const { rows: chargeRows } = await pool.query(
       `SELECT estado FROM charges WHERE id = $1`,
       [chargeNoConnectId]
     );
-    expect(chargeRows[0].estado).toBe("pagado");
+    expect(chargeRows[0].estado).toBe("pendiente");
 
-    // El pago existe en DB con referencia simulada (prefijo sim_)
+    // No se crea ningún pago ni referencia simulada.
     const { rows: payRows } = await pool.query(
       `SELECT referencia_pasarela FROM payments WHERE charge_id = $1`,
       [chargeNoConnectId]
     );
-    expect(payRows).toHaveLength(1);
-    expect(payRows[0].referencia_pasarela).toMatch(/^sim_/);
+    expect(payRows).toHaveLength(0);
   });
 });
 
@@ -307,7 +311,7 @@ describe("POST /api/guardian/pagar — campus con Stripe Connect activo", () => 
     expect(piParams.payment_method).toBe("pm_test_mock_visa_4242");
     expect(piParams.confirm).toBe(true);
     expect(piParams.transfer_data?.destination).toBe(MOCK_STRIPE_ACCT);
-    // application_fee_amount=0 (sin decisión de negocio tomada aún)
+    // application_fee_amount=0 (modelo existente sin comisión por transacción)
     expect(piParams.application_fee_amount).toBe(0);
 
     // El pago en DB usa el PI ID como referencia_pasarela (no sim_)
@@ -324,6 +328,10 @@ describe("POST /api/guardian/pagar — campus con Stripe Connect activo", () => 
       [chargeConnectedId]
     );
     expect(chargeRows[0].estado).toBe("pagado");
+    const state = await snapshot(chargeConnectedId);
+    expect(state.payments).toBe(1);
+    expect(state.applications).toBe(1);
+    expect(state.invoices).toBe(0);
   });
 });
 
@@ -348,7 +356,7 @@ describe("POST /api/guardian/pagar — Stripe rechaza la transferencia", () => {
 
     expect(status).toBe(402);
     expect(body.message).toMatch(/rechazado/i);
-    expect(body.detalle).toMatch(/insufficient funds/i);
+    expect(body.detalle).toBeUndefined();
     expect(body.charge_id).toBe(chargeConnectedId2);
 
     // El cargo NO fue modificado — sigue pendiente
@@ -364,5 +372,150 @@ describe("POST /api/guardian/pagar — Stripe rechaza la transferencia", () => {
       [chargeConnectedId2]
     );
     expect(payRows).toHaveLength(0);
+  });
+});
+
+async function snapshot(chargeId: number) {
+  const { rows } = await pool.query(
+    `SELECT c.estado, c.updated_at,
+      (SELECT COUNT(*)::int FROM payments p WHERE p.charge_id=c.id) AS payments,
+      (SELECT COUNT(*)::int FROM payment_applications pa WHERE pa.charge_id=c.id) AS applications,
+      (SELECT COUNT(*)::int FROM invoices i JOIN payments p ON p.id=i.payment_id WHERE p.charge_id=c.id) AS invoices,
+      (SELECT COUNT(*)::int FROM payment_events e WHERE e.tenant_id=c.tenant_id) AS events,
+      (SELECT COUNT(*)::int FROM audit_log a WHERE a.tenant_id=c.tenant_id) AS audits
+     FROM charges c WHERE c.id=$1`, [chargeId],
+  );
+  return rows[0];
+}
+
+async function newCardCharge(): Promise<number> {
+  const { rows } = await pool.query(
+    `INSERT INTO charges (student_id, tenant_id, concept_id, monto_base_centavos, estado, fecha_emision, fecha_vencimiento)
+     SELECT student_id, tenant_id, concept_id, 60000, 'pendiente', CURRENT_DATE, CURRENT_DATE+30
+       FROM charges WHERE id=$1 RETURNING id`, [chargeConnectedId],
+  );
+  return Number(rows[0].id);
+}
+
+async function signedWebhook(pi: StripePaymentIntentResult, eventId: string, badSignature = false) {
+  const payload = JSON.stringify({ id: eventId, type: "payment_intent.succeeded", data: { object: pi } });
+  const signature = offlineStripe.webhooks.generateTestHeaderString({ payload, secret: webhookFixtureSecret });
+  return fetch(`${TEST_BASE}/api/webhooks/stripe`, {
+    method: "POST", headers: { "Content-Type": "application/json", "stripe-signature": badSignature ? "invalid" : signature }, body: payload,
+  });
+}
+
+describe("Confirmación Stripe en la frontera del proveedor, sin llamadas externas", () => {
+  it("sin payment_method_id responde 422 y no escribe en ninguna tabla del flujo", async () => {
+    const before = await snapshot(chargeConnectedId2);
+    const calls = mockPICreate.mock.calls.length;
+    expect((await pagar(tokenConnected, [chargeConnectedId2])).status).toBe(422);
+    expect(await snapshot(chargeConnectedId2)).toEqual(before);
+    expect(mockPICreate.mock.calls.length).toBe(calls);
+  });
+
+  for (const status of ["requires_action", "processing"]) {
+    it(`${status}: cero escrituras; webhook firmado posterior liquida una sola vez`, async () => {
+      const chargeId = await newCardCharge();
+      let pi!: StripePaymentIntentResult;
+      mockPICreate.mockImplementationOnce(async params => {
+        pi = { ...params, id: `pi_offline_${chargeId}`, status, amount_received: 0 };
+        return pi;
+      });
+      const before = await snapshot(chargeId);
+      const result = await pagar(tokenConnected, [chargeId], "pm_offline_pending");
+      expect(result.status).toBe(202);
+      expect(result.body.status).toBe(status);
+      expect(result.body.success).toBe(false);
+      expect(result.body.payments[0].payment_id).toBeNull();
+      expect(await snapshot(chargeId)).toEqual(before);
+      const confirmed = { ...pi, status: "succeeded", amount_received: pi.amount };
+      expect((await signedWebhook(confirmed, `evt_offline_${chargeId}`)).status).toBe(200);
+      expect((await signedWebhook(confirmed, `evt_offline_${chargeId}`)).status).toBe(200);
+      expect((await signedWebhook(confirmed, `evt_offline_other_${chargeId}`)).status).toBe(200);
+      const after = await snapshot(chargeId);
+      expect(after.payments).toBe(1);
+      expect(after.applications).toBe(1);
+      expect(after.estado).toBe("pagado");
+      expect(after.invoices).toBe(0);
+    });
+  }
+
+  it("respuesta inmediata succeeded + webhook duplicado y concurrente → un solo pago", async () => {
+    const chargeId = await newCardCharge();
+    let pi!: StripePaymentIntentResult;
+    mockPICreate.mockImplementationOnce(async params => {
+      pi = { ...params, id: `pi_offline_${chargeId}`, status: "succeeded", amount_received: params.amount };
+      return pi;
+    });
+    expect((await pagar(tokenConnected, [chargeId], "pm_offline_success")).status).toBe(200);
+    const responses = await Promise.all([
+      signedWebhook(pi, `evt_offline_a_${chargeId}`), signedWebhook(pi, `evt_offline_b_${chargeId}`),
+    ]);
+    expect(responses.map(response => response.status)).toEqual([200, 200]);
+    const after = await snapshot(chargeId);
+    expect(after.payments).toBe(1);
+    expect(after.applications).toBe(1);
+    expect(after.estado).toBe("pagado");
+    const { rows } = await pool.query(
+      `SELECT COUNT(*)::int AS count FROM payment_events WHERE provider='stripe' AND provider_event_id=$1`, [pi.id],
+    );
+    expect(rows[0].count).toBe(1);
+  });
+
+  it("dos confirmaciones HTTP concurrentes usan la misma clave y acreditan una sola vez", async () => {
+    const chargeId = await newCardCharge();
+    const firstCall = mockPICreate.mock.calls.length;
+    let arrived = 0;
+    let release!: () => void;
+    const barrier = new Promise<void>(resolve => { release = resolve; });
+    const create: StripeGuardianClient["paymentIntents"]["create"] = async params => {
+      if (++arrived === 2) release();
+      await barrier;
+      return { ...params, id: `pi_offline_${chargeId}`, status: "succeeded", amount_received: params.amount };
+    };
+    mockPICreate.mockImplementationOnce(create).mockImplementationOnce(create);
+    const responses = await Promise.all([
+      pagar(tokenConnected, [chargeId], "pm_offline_concurrent"),
+      pagar(tokenConnected, [chargeId], "pm_offline_concurrent"),
+    ]);
+    expect(responses.map(response => response.status)).toEqual([200, 200]);
+    const calls = mockPICreate.mock.calls.slice(firstCall);
+    expect(calls).toHaveLength(2);
+    expect(calls[0][1].idempotencyKey).toMatch(/^[a-f0-9]{64}$/);
+    expect(calls[1][1].idempotencyKey).toBe(calls[0][1].idempotencyKey);
+    const after = await snapshot(chargeId);
+    expect(after.payments).toBe(1);
+    expect(after.applications).toBe(1);
+  });
+
+  it("webhook que llega antes de la respuesta inmediata usa el mismo ledger", async () => {
+    const chargeId = await newCardCharge();
+    mockPICreate.mockImplementationOnce(async params => {
+      const pi = { ...params, id: `pi_offline_${chargeId}`, status: "succeeded", amount_received: params.amount };
+      expect((await signedWebhook(pi, `evt_offline_first_${chargeId}`)).status).toBe(200);
+      return pi;
+    });
+    expect((await pagar(tokenConnected, [chargeId], "pm_offline_webhook_first")).status).toBe(200);
+    const after = await snapshot(chargeId);
+    expect(after.payments).toBe(1);
+    expect(after.applications).toBe(1);
+    expect(after.estado).toBe("pagado");
+  });
+
+  it("firma inválida o metadatos de otro tenant no acreditan cargos", async () => {
+    const chargeId = await newCardCharge();
+    let pi!: StripePaymentIntentResult;
+    mockPICreate.mockImplementationOnce(async params => {
+      pi = { ...params, id: `pi_offline_${chargeId}`, status: "processing", amount_received: 0 };
+      return pi;
+    });
+    await pagar(tokenConnected, [chargeId], "pm_offline_scope");
+    const before = await snapshot(chargeId);
+    const confirmed = { ...pi, status: "succeeded", amount_received: pi.amount };
+    expect((await signedWebhook(confirmed, `evt_invalid_${chargeId}`, true)).status).toBe(400);
+    const foreign = { ...confirmed, metadata: { ...confirmed.metadata!, tenant_id: String(tenantId + 999999) } };
+    expect((await signedWebhook(foreign, `evt_foreign_${chargeId}`)).status).toBe(500);
+    expect(await snapshot(chargeId)).toEqual(before);
   });
 });

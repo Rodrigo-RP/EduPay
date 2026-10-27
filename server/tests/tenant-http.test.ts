@@ -188,6 +188,7 @@ describe("Aislamiento multi-tenant — capa HTTP (IDOR)", () => {
       const r = await httpPost("/api/guardian/pagar", {
         charge_ids: [chargeAId],
         metodo_pago: "tarjeta",
+        payment_method_id: "pm_offline_idor_never_reaches_stripe",
       }, tokenUnlinked);
       expect(r.status).toBe(403);
     } finally {
@@ -195,17 +196,16 @@ describe("Aislamiento multi-tenant — capa HTTP (IDOR)", () => {
     }
   });
 
-  it("T4: guardián vinculado puede pagar su propio cargo → no 403, no 5xx", async () => {
+  it("T4: guardián vinculado sin método Stripe recibe 422, nunca un pago simulado", async () => {
     const tokenLinked = makeGuardianToken(guardianAId, tenantAId);
     const r = await httpPost("/api/guardian/pagar", {
       charge_ids: [chargeAId],
       metodo_pago: "tarjeta",
     }, tokenLinked);
-    expect(r.status).not.toBe(403);
-    expect(r.status).toBeLessThan(500);
+    expect(r.status).toBe(422);
   });
 
-  it("T5: guardián sin vínculo bloqueado en /api/payments/process → 403", async () => {
+  it("T5: guardián autenticado recibe 501 en /api/payments/process retirado", async () => {
     const ts5 = Date.now();
     const [gUnlinked2] = await db.insert(guardians).values({
       nombres: "Tutor Extra VT", nombre_completo: "Tutor Sin Vínculo 2 VT",
@@ -220,13 +220,13 @@ describe("Aislamiento multi-tenant — capa HTTP (IDOR)", () => {
         charge_id: chargeA2Id,
         payment_method: "tarjeta",
       }, tokenUnlinked2);
-      expect(r.status).toBe(403);
+      expect(r.status).toBe(501);
     } finally {
       await db.delete(guardians).where(eq(guardians.id, gUnlinked2.id)).catch(() => {});
     }
   });
 
-  it("T6: guardián sin vínculo bloqueado en /api/payments/create-intent → 403", async () => {
+  it("T6: guardián autenticado recibe 501 en /api/payments/create-intent retirado", async () => {
     const ts6 = Date.now();
     const [gUnlinked3] = await db.insert(guardians).values({
       nombres: "Tutor Extra 3 VT", nombre_completo: "Tutor Sin Vínculo 3 VT",
@@ -241,7 +241,7 @@ describe("Aislamiento multi-tenant — capa HTTP (IDOR)", () => {
         charge_id: chargeA2Id,
         amount: 1000,
       }, tokenUnlinked3);
-      expect(r.status).toBe(403);
+      expect(r.status).toBe(501);
     } finally {
       await db.delete(guardians).where(eq(guardians.id, gUnlinked3.id)).catch(() => {});
     }

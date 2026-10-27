@@ -256,7 +256,7 @@ afterAll(async () => {
 // BLOQUE 1 — guardian/pagar: concurrencia
 // ═════════════════════════════════════════════════════════════════════════════
 describe("guardian/pagar — concurrencia y ledger", () => {
-  it("PC-01: pago normal crea exactamente 1 payment y 1 payment_application", async () => {
+  it("PC-01: sin método Stripe validado devuelve 422 sin payment ni application", async () => {
     const chargeId = await mkCharge(50_000);
 
     const { status, body } = await httpPost(
@@ -265,20 +265,20 @@ describe("guardian/pagar — concurrencia y ledger", () => {
       guardianJwt
     );
 
-    expect(status).toBe(200);
-    expect(await chargeEstado(chargeId)).toBe("pagado");
-    expect(await countExitosPayments(chargeId)).toBe(1);
-    expect(await countApplications(chargeId)).toBe(1);
+    expect(status).toBe(422);
+    expect(await chargeEstado(chargeId)).toBe("pendiente");
+    expect(await countExitosPayments(chargeId)).toBe(0);
+    expect(await countApplications(chargeId)).toBe(0);
 
     // Verificar monto en payment_application
     const paRow = await pool.query(
       `SELECT amount_centavos FROM payment_applications WHERE charge_id=$1`,
       [chargeId]
     );
-    expect(Number(paRow.rows[0].amount_centavos)).toBe(50_000);
+    expect(paRow.rows).toHaveLength(0);
   });
 
-  it("PC-02: doble clic simultáneo — uno devuelve 200, el otro 409, exactamente 1 payment", async () => {
+  it("PC-02: doble clic sin método Stripe devuelve dos 422 y cero acreditaciones", async () => {
     const chargeId = await mkCharge(75_000);
 
     // Dos requests en paralelo sobre el MISMO charge (reproduce el bug original)
@@ -287,18 +287,18 @@ describe("guardian/pagar — concurrencia y ledger", () => {
       httpPost("/api/guardian/pagar", { charge_ids: [chargeId], metodo_pago: "tarjeta" }, guardianJwt),
     ]);
 
-    const statuses = [r1.status, r2.status].sort(); // [200, 409]
-    expect(statuses).toEqual([200, 409]);
+    const statuses = [r1.status, r2.status].sort();
+    expect(statuses).toEqual([422, 422]);
 
     // Un solo pago exitoso — no dos
-    expect(await countExitosPayments(chargeId)).toBe(1);
+    expect(await countExitosPayments(chargeId)).toBe(0);
     // Una sola payment_application — no dos
-    expect(await countApplications(chargeId)).toBe(1);
+    expect(await countApplications(chargeId)).toBe(0);
     // Estado final correcto
-    expect(await chargeEstado(chargeId)).toBe("pagado");
+    expect(await chargeEstado(chargeId)).toBe("pendiente");
   });
 
-  it("PC-03: intentar pagar un cargo ya pagado devuelve 409 inmediatamente", async () => {
+  it("PC-03: reintentar sin método Stripe sigue devolviendo 422 y no acredita", async () => {
     const chargeId = await mkCharge(30_000);
 
     // Primer pago
@@ -310,14 +310,14 @@ describe("guardian/pagar — concurrencia y ledger", () => {
       { charge_ids: [chargeId], metodo_pago: "tarjeta" },
       guardianJwt
     );
-    expect(status).toBe(409);
+    expect(status).toBe(422);
 
     // Sigue habiendo exactamente 1 payment
-    expect(await countExitosPayments(chargeId)).toBe(1);
-    expect(await countApplications(chargeId)).toBe(1);
+    expect(await countExitosPayments(chargeId)).toBe(0);
+    expect(await countApplications(chargeId)).toBe(0);
   });
 
-  it("PC-04: el estado-cuenta del alumno refleja el pago en saldo_pendiente (ledger correcto)", async () => {
+  it("PC-04: rechazo sin método Stripe no reduce el saldo del estado de cuenta", async () => {
     const MONTO = 60_000;
     const chargeId = await mkCharge(MONTO);
 
@@ -336,12 +336,12 @@ describe("guardian/pagar — concurrencia y ledger", () => {
     }).then(r => r.json()).catch(() => ({}));
     const saldoDespues = (despues as any).resumen?.saldo_pendiente_centavos ?? 0;
 
-    // El saldo debe haber bajado exactamente MONTO
-    expect(saldoAntes - saldoDespues).toBe(MONTO);
+    // Sin confirmación del proveedor no puede bajar el saldo.
+    expect(saldoAntes - saldoDespues).toBe(0);
 
-    // El cargo en el estado-cuenta debe mostrar pagado_centavos = MONTO
+    // El estado de cuenta no debe inventar una aplicación del pago.
     const cargoRow = (despues as any).cargos?.find((c: any) => c.id === chargeId);
-    expect(Number(cargoRow?.pagado_centavos)).toBe(MONTO);
+    expect(Number(cargoRow?.pagado_centavos)).toBe(0);
   });
 });
 
@@ -349,7 +349,7 @@ describe("guardian/pagar — concurrencia y ledger", () => {
 // BLOQUE 2 — payments/process: concurrencia
 // ═════════════════════════════════════════════════════════════════════════════
 describe("payments/process — concurrencia y ledger", () => {
-  it("PC-05: doble clic simultáneo en payments/process — uno 200, el otro 409, 1 payment", async () => {
+  it("PC-05: doble clic en payments/process retirado devuelve dos 501 y cero pagos", async () => {
     const chargeId = await mkCharge(80_000);
 
     const [r1, r2] = await Promise.all([
@@ -358,10 +358,10 @@ describe("payments/process — concurrencia y ledger", () => {
     ]);
 
     const statuses = [r1.status, r2.status].sort();
-    expect(statuses).toEqual([200, 409]);
-    expect(await countExitosPayments(chargeId)).toBe(1);
-    expect(await countApplications(chargeId)).toBe(1);
-    expect(await chargeEstado(chargeId)).toBe("pagado");
+    expect(statuses).toEqual([501, 501]);
+    expect(await countExitosPayments(chargeId)).toBe(0);
+    expect(await countApplications(chargeId)).toBe(0);
+    expect(await chargeEstado(chargeId)).toBe("pendiente");
   });
 });
 

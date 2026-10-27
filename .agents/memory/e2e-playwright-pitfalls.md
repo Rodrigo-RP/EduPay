@@ -40,7 +40,7 @@ hay una race condition. Usar restauración manual vía `localStorage.setItem` en
 ## 4. Rate limit de auth se agota en corridas consecutivas
 
 Ver `e2e-auth-session-pattern.md` para el patrón completo.
-Usar el endpoint `/api/test/reset-rate-limits` al inicio del `beforeAll`.
+Las utilidades de prueba deben ser funciones exportadas e importadas sólo desde tests, nunca rutas HTTP de reset ni rutas condicionadas por `NODE_ENV`, conforme a la skill y al protocolo de auditoría §5.
 
 ## 5. SPA wouter: navegación por pushState, no por goto
 

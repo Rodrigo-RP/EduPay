@@ -8,14 +8,14 @@
 - [Audit retry race condition](audit-retry-race.md) — stopAuditRetryWorker() debe llamarse en beforeAll de tests que usen processAuditRetries() directamente.
 - [Demo seed & email normalization](demo-seed.md) — emails con acentos en apellidos mexicanos requieren mapa Unicode explícito (\u00e1 etc.), no normalize("NFD").
 - [Guardian login route](guardian-auth.md) — login tutores es /api/auth/guardian-login (no /api/guardian/login); getGuardianByEmail debe buscar también por correo_institucional_familiar.
-- [Payment endpoint alias](payment-flow.md) — /api/guardian/pagar procesa array de charge_ids, crea payment + CFDI simulado; portal-padres-3clics.tsx lo consume con JWT en header.
+- [Payment endpoint alias](payment-flow.md) — un CFDI simulado NO es timbrado real y no debe presentarse como tal; exigir evidencia del proveedor.
 - [SQL column name rules](sql-column-rules.md) — charges/payments/invoices usan nombres en español; campus_id NO existe en charges ni payments ni invoices — siempre hacer JOIN vía students. payments usa metodo (no metodo_pago).
 - [Aislamiento de pagos manuales](manual-payment-isolation.md) — validar tenant en charges y campus en students; students.tenant_id puede no estar poblado en datos existentes.
 - [Scholarships real columns](scholarships-schema.md) — tabla scholarships tiene columnas distintas al schema TypeScript: porcentaje (no porcentaje_aplicado), motivo (no observaciones), sin estado, sin monto_fijo. scholarship_types no existe en la DB.
 - [ESM require fix](esm-require.md) — "type":"module" en package.json rompe require(); usar createRequire(import.meta.url) alias esmRequire para speakeasy, qrcode, exceljs.
 - [Students table columns](students-columns.md) — students usa id_referencia (no matricula); guardians usa tipo_guardian (no parentesco); siempre verificar schema antes de escribir SQL crudo.
 - [Semaforo SQL FILTER](semaforo-sql.md) — FILTER(WHERE…) en PostgreSQL debe ir DESPUÉS del paréntesis de cierre del agregado: MAX(expr) FILTER(…), no MAX(expr FILTER(…)).
-- [Admin credentials](admin-creds.md) — admin.campus@jfr.edu.mx / Demo2025! (role: administrador_campus, campus_id:48); superadmin@edupay.mx / Demo2025!. rodrigorp@institutojfr.edu.mx NO existe en demo seed.
+- [Cuentas de prueba](admin-creds.md) — referencia a las cuentas administrativas del seed demo.
 - [Caja/historial API paths](caja-paths.md) — caja usa /api/caja/movimientos-banco (no /api/bank-transactions/:id); semáforo usa /api/riesgo/semaforo/:campusId (no /api/semaforo-riesgo/:id).
 - [Assistant scoring rules](assistant-scoring.md) — usar split(" ").includes(token) no kw.includes(token); guarda financiera dura en FINANCIAL_PROTECTED_ACTIONS; logging §4.3 en audit_log.
 - [Route Registry §9](route-registry.md) — shared/route-registry.ts es la fuente única de rutas; npm run check:routes falla si App.tsx tiene rutas sin registrar.
@@ -28,7 +28,7 @@
 - [Teardown ledger transaccional](test-ledger-teardown.md) — afterAll del ledger en una sola txn; fixtures usan markChargeAsPaidForTest; /api/admin rate limit 50/5min causa 429 en corridas repetidas.
 - [audit_retry_queue contaminación](audit-retry-queue-contamination.md) — fuente: bug-audit-log-rollback.test.ts PASO 2; identificar con tenant_id NOT IN tenants; limpiar con DELETE directo (no hay FK en JSONB).
 - [Vitest DB fixtures requeridos](vitest-db-fixtures.md) — tenant_id=29, campus_id=48, user_id=80, concept(tipo=colegiatura,campus=48) deben existir en DB; seed-demo.ts los restaura tras TRUNCATE RESTART IDENTITY.
-- [E2E auth session pattern](e2e-auth-session-pattern.md) — login ONCE en beforeAll (browser fixture), restaurar localStorage en beforeEach; endpoint /api/test/reset-rate-limits para auth+payment limiters.
+- [E2E auth session pattern](e2e-auth-session-pattern.md) — utilidades de prueba como funciones exportadas e importadas sólo desde tests, nunca rutas HTTP de reset.
 - [Playwright E2E pitfalls](e2e-playwright-pitfalls.md) — strict-mode con aria-live/dialog text; h3 genérico captura sidebar; test.use storageState race; SPA wouter: pushState no goto.
 - [Audit log metadata check in tests](audit-log-meta-test.md) — pg puede devolver JSONB como objeto o como string según config; usar metadata::text AS meta_text + toContain('"key"') en vez de meta.key para evitar falsos undefined.
 - [Students nombre_completo NOT NULL](students-nombre-completo.md) — nombre_completo es NOT NULL en la DB real; storage.createStudent lo computa automáticamente; test beforeAll debe usar API no SQL directo.

@@ -280,6 +280,37 @@ describe("POST /api/admin/cargos/extraordinario — guard CHARGES.CREATE", () =>
     expect(body.charge?.id ?? body.id).toBeTruthy();
     if (body.charge?.id) extraChargeIds.push(body.charge.id);
   });
+
+  it("rechaza sin motivo y no crea ningún concepto", async () => {
+    const descripcion = `Extraordinario sin motivo ${Date.now()}`;
+    const countConcepts = async () => {
+      const result = await pool.query(
+        `SELECT COUNT(*)::int AS count FROM concepts WHERE tenant_id = $1 AND campus_id = $2`,
+        [tenantId, campusId],
+      );
+      return Number(result.rows[0].count);
+    };
+    const before = await countConcepts();
+    try {
+      const { status, body } = await apiFetch(
+        "POST",
+        "/api/admin/cargos/extraordinario",
+        tokenAdminCampus,
+        {
+          student_id: studentId, monto: "200", descripcion,
+          fecha_vencimiento: new Date(Date.now() + 30 * 86_400_000).toISOString().split("T")[0],
+        },
+      );
+      expect(status).toBe(400);
+      expect(body.message).toBe("La fecha manual futura y su motivo son obligatorios para un cargo extraordinario");
+      expect(await countConcepts()).toBe(before);
+    } finally {
+      await pool.query(
+        `DELETE FROM concepts WHERE tenant_id = $1 AND campus_id = $2 AND nombre = $3`,
+        [tenantId, campusId, descripcion],
+      );
+    }
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

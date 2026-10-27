@@ -269,6 +269,10 @@ export function registerChargesRoutes(app: Express): void {
       const tenantId = req.user.tenant_id;
       const { student_id, concept_id, monto, descripcion, fecha_vencimiento, motivo_override } = req.body;
       if (!student_id || !monto) return res.status(400).json({ message: "Estudiante y monto son requeridos" });
+      const today = new Date().toISOString().split("T")[0];
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(fecha_vencimiento || "")) || fecha_vencimiento < today || !motivo_override?.trim()) {
+        return res.status(400).json({ message: "La fecha manual futura y su motivo son obligatorios para un cargo extraordinario" });
+      }
 
       // IDOR PROTECTION: verificar que el alumno pertenece al tenant del usuario autenticado
       if (tenantId) {
@@ -307,10 +311,6 @@ export function registerChargesRoutes(app: Express): void {
       if (!selectedConcept) selectedConcept = await storage.getConceptScoped(Number(conceptId), Number(tenantId));
       if (!selectedConcept || !["extra", "extraordinario"].includes(String(selectedConcept.tipo).toLowerCase())) {
         return res.status(422).json({ message: "El override manual sólo está permitido para conceptos extraordinarios" });
-      }
-      const today = new Date().toISOString().split("T")[0];
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(fecha_vencimiento || "")) || fecha_vencimiento < today || !motivo_override?.trim()) {
-        return res.status(400).json({ message: "La fecha manual futura y su motivo son obligatorios para un cargo extraordinario" });
       }
       const extraUser = (req as any).user;
       const charge = await storage.createCharge({

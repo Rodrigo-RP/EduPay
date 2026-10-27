@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   getConceptScoped: vi.fn(), getChargeByGuardian: vi.fn(),
   getStudentsByCampus: vi.fn(), getConceptsByCampus: vi.fn(),
   createCharge: vi.fn(), audit: vi.fn(), parse: vi.fn(),
+  dueDate: vi.fn(), scholarship: vi.fn(),
 }));
 vi.mock("../db", () => ({
   pool: { query: mocks.query, connect: mocks.connect }, db: { execute: mocks.execute },
@@ -22,6 +23,11 @@ vi.mock("../websocket-manager", () => ({ wsManager: { notifyPaymentUpdate: vi.fn
 vi.mock("../lib/bank-parsers/index", () => ({
   getParser: () => ({ banco: "BBVA", parse: mocks.parse }),
 }));
+vi.mock("../lib/due-date-resolver", async importOriginal => ({
+  ...await importOriginal<typeof import("../lib/due-date-resolver")>(),
+  resolveConfiguredDueDate: mocks.dueDate,
+}));
+vi.mock("../lib/scholarship-engine", () => ({ resolveEffectiveScholarship: mocks.scholarship }));
 
 import { registerChargesRoutes } from "../routes/charges";
 import { registerPaymentRoutes } from "../routes/payments";
@@ -53,6 +59,8 @@ beforeEach(() => {
   for (const mock of [mocks.query, mocks.connect, mocks.execute]) {
     mock.mockRejectedValue(new Error("Acceso inesperado a persistencia aislada"));
   }
+  mocks.dueDate.mockResolvedValue({ dueDate: "2026-11-10" });
+  mocks.scholarship.mockResolvedValue({ effectivePercentage: 0, scholarshipId: null });
 });
 const noPersistence = () => {
   for (const name of ["query", "connect", "execute", "createConcept", "getCampusScoped",
@@ -99,6 +107,46 @@ const invalidCases: [string, any, string?][] = [
 ];
 
 describe("Rutas financieras reales, autenticación real, sin base de datos", () => {
+  it.each(["/api/admin/charges/bulk", "/api/admin/cargos/generar-mensual"])(
+    "conserva el importe real validado en %s sin respaldo ficticio", async path => {
+      mocks.getCampusScoped.mockResolvedValue({ id: 9 });
+      mocks.getStudentsByCampus.mockResolvedValue([{ id: 1, status: "activo" }]);
+      mocks.getConceptsByCampus.mockResolvedValue([{ id: 1, nombre: "Colegiatura", monto_centavos: "129" }]);
+      mocks.createCharge.mockResolvedValue({ id: 10 });
+      const body = path.endsWith("/bulk")
+        ? { campus_id: 9, concept_id: 1, ciclo_escolar: "2026" }
+        : { periodo: "2026-11" };
+      const response = await post(path, body);
+      expect([200, 201]).toContain(response.status);
+      expect(mocks.createCharge).toHaveBeenCalledWith(expect.objectContaining({ monto_base_centavos: 129 }));
+    });
+  it.each([-1, 0, "0", "abc", NaN, Infinity, 1.5, null, Number.MAX_SAFE_INTEGER + 1])(
+    "rechaza concepto heredado inválido %j en generación masiva y mensual", async monto_centavos => {
+      mocks.getCampusScoped.mockResolvedValue({ id: 9 });
+      mocks.getStudentsByCampus.mockResolvedValue([{ id: 1, status: "activo" }]);
+      mocks.getConceptsByCampus.mockResolvedValue([{ id: 1, nombre: "Colegiatura", monto_centavos }]);
+      expect((await post("/api/admin/charges/bulk", { campus_id: 9, concept_id: 1, ciclo_escolar: "2026" })).status).toBe(400);
+      expect((await post("/api/admin/cargos/generar-mensual", { periodo: "2026-11" })).status).toBe(400);
+      expect(mocks.createConcept).not.toHaveBeenCalled();
+      expect(mocks.createCharge).not.toHaveBeenCalled();
+      expect(mocks.query).not.toHaveBeenCalled();
+      expect(mocks.connect).not.toHaveBeenCalled();
+    });
+  it.each([-1, 0, "0", "abc", "100abc", Infinity, 1.5, null, Number.MAX_SAFE_INTEGER + 1])(
+    "rechaza producto heredado inválido %j antes de crear concepto o cargos", async precio_kinder => {
+      mocks.query.mockResolvedValue({ rows: [{
+        id: 1, campus_id: 9, tenant_id: 8, activo: true, nombre: "Catálogo",
+        precio_kinder, precio_primaria: 0, precio_secundaria: 0, precio_bachillerato: 0,
+      }] });
+      expect((await post("/api/admin/cargos/desde-catalogo", {
+        producto_id: 1, fecha_vencimiento: "2026-11-01",
+      })).status).toBe(400);
+      expect(mocks.query).toHaveBeenCalledOnce();
+      expect(mocks.query.mock.calls[0][0]).toMatch(/^\s*SELECT/);
+      expect(mocks.getConceptsByCampus).not.toHaveBeenCalled();
+      expect(mocks.createConcept).not.toHaveBeenCalled();
+      expect(mocks.createCharge).not.toHaveBeenCalled();
+    });
   it.each(invalidCases)("rechaza %s con %j antes de persistencia", async (path, body, method) => {
     const response = await post(path, body, token(), method);
     expect(response.status).toBe(400);

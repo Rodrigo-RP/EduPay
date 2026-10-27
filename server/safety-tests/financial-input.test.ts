@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   centavos, nonNegativeCentavos, pesos, percentage, isoFinancialDate,
-  financialBodies, paymentPlanInput, validateFinancialImportRows,
+  financialBodies, paymentPlanInput, validateFinancialImportRows, storedProductPrices,
 } from "../lib/financial-input";
 
 describe("Contratos financieros sin base de datos", () => {
@@ -11,6 +11,11 @@ describe("Contratos financieros sin base de datos", () => {
   });
   it.each([1, 100, Number.MAX_SAFE_INTEGER])("acepta centavos enteros %j", value => {
     expect(centavos.parse(value)).toBe(value);
+  });
+  it("normaliza BIGINT del catálogo sin alterar ceros de niveles no vendidos", () => {
+    expect(storedProductPrices.parse({
+      precio_kinder: "129", precio_primaria: "0", precio_secundaria: 0, precio_bachillerato: 0,
+    })).toEqual({ precio_kinder: 129, precio_primaria: 0, precio_secundaria: 0, precio_bachillerato: 0 });
   });
   it("permite cero sólo para precios no aplicables, anticipos, recargos y cierre", () => {
     expect(nonNegativeCentavos.parse(0)).toBe(0);

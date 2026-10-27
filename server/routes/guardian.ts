@@ -15,7 +15,7 @@ import { wsManager } from "../websocket-manager";
 import { seedAdmissionsData } from "../seed-admissions-data";
 import * as XLSX from "xlsx";
 import { z } from "zod";
-import { centavos, positiveId, financialBodies, validateFinancialBody } from "../lib/financial-input";
+import { centavos, csvCentavos, storedProductPrices, positiveId, financialBodies, validateFinancialBody } from "../lib/financial-input";
 import bcrypt from "bcrypt";
 import { NotificationSystem as ServerNotificationSystem } from '../notification-system';
 import Stripe from "stripe";
@@ -697,7 +697,11 @@ export async function registerGuardianRoutes(
         ) {
           return res.status(403).json({ message: "El producto pertenece a otro campus" });
         }
-        productForPricing = prod;
+        const parsedPrices = storedProductPrices.safeParse(prod);
+        if (!parsedPrices.success) {
+          return res.status(400).json({ message: "Corrige los precios del catálogo: usa centavos enteros no negativos y al menos un precio positivo" });
+        }
+        productForPricing = { ...prod, ...parsedPrices.data };
       }
 
       // Resolver concepto: por nombre para cargos normales, o crear ad-hoc para extraordinarios
@@ -819,9 +823,11 @@ export async function registerGuardianRoutes(
           }
         }
 
-        if (!centavos.safeParse(baseAmount).success) {
+        const validatedBaseAmount = csvCentavos.safeParse(baseAmount);
+        if (!validatedBaseAmount.success) {
           return res.status(400).json({ message: "El concepto o producto debe tener un importe positivo en centavos enteros" });
         }
+        baseAmount = validatedBaseAmount.data;
 
         // Beca real — precisión a 2 decimales para no perder centavos
         let discountPct     = 0;   // porcentaje exacto con 2 decimales

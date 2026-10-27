@@ -79,3 +79,4 @@
 - [Identidad de base y pruebas](database-environment-safety.md) — no inferir producción externa desde Publishing ni ejecutar suites sobre candidatas sin identificar.
 - [Seguridad de notificaciones](notification-safety-requirements.md) — aceptación no es entrega; conservar incidencias y separar revisión de activación.
 - [SSR aislado en Vitest](vitest-ui-transform.md) — el runner puede resolver otro transformador que el Vite principal; no reinstalar ni reiniciar para corregir JSX.
+- [Validación de precios heredados](financial-validation-boundaries.md) — validar el precio efectivo leído de la base antes de emitir cargos; validar sólo la petición no protege datos históricos.

@@ -73,6 +73,18 @@ const noFinancialAccess = () => {
 };
 
 describe("Ningún alias evita la validación ni los permisos financieros", () => {
+  it.each([-1, 0, "abc", 1.5, null])("alias rechaza precio heredado inválido %j antes de escribir", async precio_kinder => {
+    mocks.query.mockResolvedValue({ rows: [{
+      id: 1, campus_id: 9, tenant_id: 8, nombre: "Producto",
+      precio_kinder, precio_primaria: 0, precio_secundaria: 0, precio_bachillerato: 0,
+    }] });
+    expect((await request("/api/charges/generate", {
+      product_id: 1, fecha_vencimiento: "2026-11-01",
+    })).status).toBe(400);
+    expect(mocks.query).toHaveBeenCalledOnce();
+    expect(mocks.createCharge).not.toHaveBeenCalled();
+    expect(mocks.getStudentsByCampus).not.toHaveBeenCalled();
+  });
   it.each([-1, 0, 0.1, 1.5, "100abc", "NaN", null, true, 1e30])(
     "crear y editar conceptos rechazan importe %j", async monto_centavos => {
       const body = { nombre: "Cargo", tipo: "extra", periodicidad: "unica", monto_centavos };

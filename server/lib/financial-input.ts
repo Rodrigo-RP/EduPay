@@ -35,6 +35,19 @@ export const csvCentavos = z.union([
   z.number(),
   z.string().trim().regex(/^\d+$/).transform(Number),
 ]).pipe(centavos);
+const storedNonNegativeCentavos = z.union([
+  z.number(),
+  z.string().regex(/^\d+$/).transform(Number),
+]).pipe(nonNegativeCentavos);
+// pg devuelve BIGINT como texto; se normaliza sin aceptar truncamiento ni NaN.
+// Un cero indica un nivel no vendido, pero el producto necesita algún precio.
+export const storedProductPrices = z.object({
+  precio_kinder: storedNonNegativeCentavos,
+  precio_primaria: storedNonNegativeCentavos,
+  precio_secundaria: storedNonNegativeCentavos,
+  precio_bachillerato: storedNonNegativeCentavos,
+}).refine(prices => Object.values(prices).some(price => price > 0),
+  "El producto necesita al menos un precio positivo");
 export const csvPercentage = decimal.pipe(percentage);
 
 export const isoFinancialDate = z.string().refine(value => {

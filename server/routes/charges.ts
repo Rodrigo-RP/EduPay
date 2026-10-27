@@ -10,7 +10,7 @@ import { insertChargeSchema } from "@shared/schema";
 import { getAcademicLevel } from "@shared/academic-levels";
 import { wsManager } from "../websocket-manager";
 import { z } from "zod";
-import { financialBodies, validateFinancialBody } from "../lib/financial-input";
+import { csvCentavos, storedProductPrices, financialBodies, validateFinancialBody } from "../lib/financial-input";
 import { resolveEffectiveScholarship } from "../lib/scholarship-engine";
 import { applyMonthlySurcharges } from "../lib/surcharge-accrual";
 import {
@@ -93,6 +93,10 @@ export function registerChargesRoutes(app: Express): void {
       if (!concept) {
         return res.status(404).json({ message: "Concept not found" });
       }
+      const conceptAmount = csvCentavos.safeParse(concept.monto_centavos);
+      if (!conceptAmount.success) {
+        return res.status(400).json({ message: "Corrige el importe del concepto: debe ser positivo y estar en centavos enteros" });
+      }
       const fechaEmision = req.body.fecha_emision || new Date().toISOString().split('T')[0];
       const resolvedDueDate = await resolveConfiguredDueDate(pool, {
         tenantId,
@@ -118,7 +122,7 @@ export function registerChargesRoutes(app: Express): void {
             ciclo_escolar,
             fecha_emision: fechaEmision,
             fecha_vencimiento: resolvedDueDate.dueDate,
-            monto_base_centavos: concept.monto_centavos,
+            monto_base_centavos: conceptAmount.data,
             beca_aplicada: scholarship.effectivePercentage.toFixed(2),
             recargo_aplicado_centavos: 0,
             estado: "pendiente",
@@ -220,6 +224,10 @@ export function registerChargesRoutes(app: Express): void {
       if (activeStudents.length === 0) return res.status(400).json({ message: "No hay alumnos activos en este campus" });
       const concept = concepts.find((c: any) => c.nombre?.toLowerCase().includes('colegiatura')) || concepts[0];
       if (!concept) return res.status(400).json({ message: "No hay conceptos configurados" });
+      const conceptAmount = csvCentavos.safeParse(concept.monto_centavos);
+      if (!conceptAmount.success) {
+        return res.status(400).json({ message: "Corrige el importe del concepto: debe ser positivo y estar en centavos enteros" });
+      }
       const fechaEmision = new Date().toISOString().split('T')[0];
       const resolvedDueDate = await resolveConfiguredDueDate(pool, {
         tenantId: req.user.tenant_id,
@@ -245,7 +253,7 @@ export function registerChargesRoutes(app: Express): void {
           ciclo_escolar: ciclo_escolar || new Date().getFullYear().toString(),
           fecha_emision: fechaEmision,
           fecha_vencimiento: resolvedDueDate.dueDate,
-          monto_base_centavos: concept.monto_centavos || 450000,
+          monto_base_centavos: conceptAmount.data,
           beca_aplicada: scholarship.effectivePercentage.toFixed(2),
           recargo_aplicado_centavos: 0,
           estado: 'pendiente'
@@ -438,11 +446,15 @@ export function registerChargesRoutes(app: Express): void {
         return res.status(422).json({ message: "El producto está inactivo y no puede generar cargos" });
       }
 
+      const parsedPrices = storedProductPrices.safeParse(product);
+      if (!parsedPrices.success) {
+        return res.status(400).json({ message: "Corrige los precios del catálogo: usa centavos enteros no negativos y al menos un precio positivo" });
+      }
       const pricesByLevel: Record<string, number> = {
-        KINDER: Number(product.precio_kinder),
-        PRIMARIA: Number(product.precio_primaria),
-        SECUNDARIA: Number(product.precio_secundaria),
-        BACHILLERATO: Number(product.precio_bachillerato),
+        KINDER: parsedPrices.data.precio_kinder,
+        PRIMARIA: parsedPrices.data.precio_primaria,
+        SECUNDARIA: parsedPrices.data.precio_secundaria,
+        BACHILLERATO: parsedPrices.data.precio_bachillerato,
       };
       const defaultConceptAmount = Math.max(0, ...Object.values(pricesByLevel));
       let concept = (await storage.getConceptsByCampus(campusId))

@@ -1,106 +1,116 @@
-# Edupay - Plataforma SaaS de Pagos Escolares
+# EduPay
 
-## Overview
+## Resumen
 
-Edupay is a SaaS platform designed to automate tuition payments for private schools, aiming to reduce operational burden and delinquency rates. It simplifies payments for parents (1-click payments), automates debt collection, reconciles finances, and streamlines tax invoicing (CFDI) directly with the SAT/PAC. The platform supports paperless school operations, eliminates manual collection calls, and targets over 80% on-time payment rates. It is a multi-tenant, production-ready system.
+EduPay es una plataforma web para gestionar cargos, cobranza y pagos escolares, con portales administrativos y para tutores.
+Está en desarrollo, con un piloto planeado en el Instituto JFR. No tiene base de producción, según lo declarado por el responsable del proyecto; esto no se infiere del estado de publicación de Replit.
+No es un ERP ni un LMS. No debe describirse como lista para producción ni como una plataforma completamente auditada.
 
-## User Preferences
+## Estado verificado
 
-Preferred communication style: Simple, everyday language.
-Pruebas de integración: Antes de correr cualquier suite que dependa del servidor HTTP después de modificar código fuente, reiniciar el servidor explícitamente y confirmar en el reporte con hora ("servidor reiniciado a las HH:MM:SS, código nuevo cargado"). Nunca asumir que el proceso ya tiene el código más reciente.
-Architecture preference: SaaS multi-tenant web platform según especificaciones exactas del documento.
-Platform type: Plataforma SaaS 100% enfocada en pagos escolares, no ERP ni LMS.
-Tecnología requerida: React + Tailwind CSS (PWA ready), Node.js, PostgreSQL, Redis, Stripe/Openpay/Conekta, PAC Facturama.
-UX/UI: Móvil primero, proceso de pago 3 clics o menos, onboarding < 1 hora.
-Dashboard preference: Dashboard CEO tradicional como predeterminado para super administrador (no F1 style por problemas de carga).
-Funcionalidad de redes sociales: Integración real con plataformas oficiales (Facebook Business, Instagram Business, TikTok Ads) usando autenticación OAuth y redirección a sitios oficiales para que cada escuela conecte sus propias cuentas empresariales.
-Sistema verificado: Auditoría sistemática completada - todas las funcionalidades operan con datos reales, no decorativos.
-WebSocket: Sistema de tiempo real completamente operativo y libre de fallas críticas (Agosto 2025) - conexiones estables, autenticación JWT robusta, manejo de errores comprehensivo, limpieza automática de memoria, 11 notificaciones implementadas, sin conflictos con Vite HMR.
-Configuración de Pagos: Sistema completo implementado (Agosto 2025):
-- Interfaz de selección múltiple de meses con checkboxes - permite selección individual o "todos los meses"
-- Reglas de recargo con persistencia PostgreSQL - tabla payment_surcharge_rules completamente funcional
-- Campo de entrada manual de texto libre para cantidades de dinero (no controles numéricos)
-- Mapeo correcto entre tipos frontend (porcentaje_fijo, monto_fijo, porcentaje_diario) y base de datos (porcentaje, fijo, progresivo)
-- CRUD completo con validación y conversión automática de centavos/pesos
-- Sincronización automática con Reportes: conceptos personalizados creados aparecen instantáneamente como opciones de reporte (Agosto 2025)
+Última evidencia de ejecución: 27 de octubre de 2026, código `f84a9fb`.
 
-Gestión de Estudiantes: Sistema adaptado a estructura Excel "Concentrado_Estudiante y Padre" (Agosto 2025):
-- Formulario rediseñado con credenciales individuales por usuario: cada padre, madre y estudiante tiene su propio ID de Reference, usuario y contraseña
-- Sección PADRE DE FAMILIA (columnas 1-7): ID Reference + credenciales + correo institucional familiar, nombres, apellidos, CURP, celular, teléfono casa/oficina
-- Sección MADRE DE FAMILIA: ID Reference + credenciales + campos completos separados del padre
-- Sección ESTUDIANTE (columnas 8-20): ID Reference + credenciales + nombres, apellidos, CURP, fecha nacimiento, tipo sangre, correo institucional, nivel escolar, clave centro trabajo, grado, grupo, turno
-- Sistema Educativo Mexicano: Opciones específicas por nivel (Kinder: 1°, 2°, 3°; Primaria: 1° a 6°; Secundaria: 7°, 8°, 9°; Preparatoria: semestres 1° a 6°)
-- Filtros geográficos: Análisis por códigos postales para distribución demográfica estudiantil
-- Dirección familiar: Sección técnica completa (calle, colonia, CP, ciudad, estado) para análisis geográfico
-- Filtros Inteligentes (Agosto 2025): Sistema completo de filtrado con botones predefinidos ("Todos", "Solo activos", "Nuevos ingresos", "Pendientes documentos"), filtros por rango de edad específicos del sistema educativo mexicano (3-5 años Kinder, 6-12 años Primaria, 13-15 años Secundaria, 16-18 años Preparatoria, 19+ años), resumen automático de filtros activos con conteo de resultados
-- Base de datos extendida con nuevas columnas para ambas entidades
-- Plantilla de importación/exportación Excel actualizada al formato institucional exacto
-- Autenticación corregida en funciones de exportación (auth_token vs token)
-- Sistema completamente funcional y listo para datos reales
+- `DATABASE_URL` se verificó como la base de pruebas `heliumdb`, con comentario físico `edupay:test`. Ese resultado identifica la conexión de esa verificación, no cualquier conexión futura ni `NEON_DATABASE_URL`.
+- Unitarias: 1333 aprobadas, 1 omitida y 0 fallos; 140 archivos aprobados y 1 omitido.
+- E2E: 90 aprobadas en 31 archivos, sin fallos, omisiones ni casos inestables. EM-02 se ejecutó.
+- Evidencia local de esa corrida: `generated-artifacts/fix-suite-heliumdb/round3/` (`preflight.json`, `unit.log`, `e2e-results.json` y `check.log`). Son artefactos ignorados por Git; no suponer que acompañan a un clon nuevo.
+- Notificaciones por correo, fases A y B, están integradas: repositorios PostgreSQL, preparación de lotes, adaptador Resend, procesamiento de resultados y webhooks. No hay proveedor de correo real configurado ni envíos reales verificados.
+- La presencia de una implementación, un Secret o una suite aprobada no certifica por sí sola una operación real con un proveedor ni la seguridad de toda la aplicación.
 
-Metodología de Desarrollo Preferida (Agosto 2025):
-- SIEMPRE hacer ediciones incrementales y puntuales en lugar de reescribir archivos completos
-- Preservar funcionalidades existentes cuando se realizan correcciones
-- Antes de modificar código, identificar específicamente qué necesita cambio y qué debe preservarse
-- Dar explicaciones más precisas sobre qué funcionalidades ya existen para evitar pérdida de trabajo
-- Evitar reescribir desde cero a menos que sea estrictamente necesario
-- Documentar claramente qué cambios se están realizando y por qué
+## Reglas de trabajo
 
-## System Architecture
+- Leer y aplicar `.agents/skills/edupay-protocolo-desarrollo/SKILL.md` y `docs/PROTOCOLO-AUDITORIA.md`. Ante contradicciones, prevalece la skill.
+- Usar lenguaje sencillo y español claro. Hacer ediciones incrementales y conservar lo que no forma parte de la tarea.
+- Antes de cada suite dependiente de HTTP, reiniciar el servidor y registrar su línea real de arranque y hora. No confundirlas con la hora de inicio de las pruebas.
+- Priorizar la experiencia móvil y un pago en tres clics o menos como objetivo de diseño, no como una medición ya demostrada.
+- No publicar, ejecutar seeds, aplicar migraciones ni escribir en bases sin la autorización correspondiente.
+- No guardar contraseñas, tokens ni claves privadas en código, documentación o memoria, tampoco de cuentas demo.
+- No mostrar guardado, envío, entrega o timbrado exitoso sin evidencia de persistencia o del proveedor. Reportar implementaciones parciales y simulaciones como tales.
 
-### Frontend
-- **Framework**: React 18 with TypeScript
-- **Routing**: Wouter
-- **State Management**: TanStack Query (React Query)
-- **UI Framework**: Tailwind CSS with Shadcn/ui
-- **Build Tool**: Vite
-- **Design**: Mobile-First (Responsive Design), professional, clean dashboard with defined color schemes and templates.
+## Arquitectura
 
-### Backend
-- **Runtime**: Node.js with Express.js
-- **Language**: TypeScript with ES modules
-- **Authentication**: JWT-based with bcrypt hashing
-- **API Design**: RESTful API with role-based access control
-- **Multi-tenancy**: Campus-level isolation for multiple schools
+- **Frontend:** React 18 y TypeScript; rutas con Wouter; datos con TanStack Query; estilos Tailwind CSS y componentes Radix/shadcn. Entradas en `client/src/main.tsx` y `client/src/App.tsx`.
+- **Backend:** Node.js, TypeScript y Express; `server/index.ts` crea la aplicación y `server/routes.ts` registra las rutas.
+- **Acceso:** existen autenticación JWT, comparación de hashes bcrypt y comprobaciones mediante `hasPermissionForUser`. Esto no equivale a demostrar que todas las rutas y alias tengan aislamiento correcto.
+- **Límites de peticiones:** `server/routes.ts` monta `express-rate-limit` para login, rutas administrativas y pago de tutores. Esto no equivale a un WAF ni a cobertura universal de endpoints.
+- **Base:** PostgreSQL mediante `@neondatabase/serverless` y Drizzle ORM. `server/db.ts` consume `DATABASE_URL`; `shared/schema.ts` es el modelo de aplicación.
+- **Migraciones:** `drizzle.config.ts` usa `drizzle/physical/schema.ts` y `drizzle/migrations/`. `db:generate` genera archivos y `db:migrate` aplica las migraciones versionadas.
+- **`db:push` está bloqueado:** invoca `scripts/reject-db-push.ts`, que termina con error.
+- **Post-merge:** `.replit` apunta a `scripts/post-merge.sh`; ese script contiene instalación, migración y build. No usar “Apply changes” como sustituto de una integración Git autorizada.
 
-### Database
-- **ORM**: Drizzle ORM with PostgreSQL
-- **Database**: PostgreSQL
-- **Schema**: Multi-tenant architecture (tenants, campuses, users, students, financial entities)
-- **Schema migrations**: Drizzle Kit con migraciones versionadas
-  (`drizzle/physical/schema.ts` + `npm run db:generate` + `npm run db:migrate`).
-  `shared/schema.ts` es el modelo de aplicación y se mantiene alineado. El
-  comando `db:push` está bloqueado. Los SQL en `migrations/` y
-  `server/migrations/` son archivos históricos fuera del runner activo.
+## Integraciones
 
-### Key Components
-- **User Roles**: 7 specific roles with granular permissions (super_admin, administrador_general, administrador_campus, contador_general, auxiliar_contable, asistente, admisiones).
-- **Multi-Tenant Architecture**: Supports school groups and individual campuses with data separation and role hierarchy.
-- **Student & Guardian Management**: Comprehensive profiles with individual credentials per user (student, father, mother), flexible relationships, academic tracking, Excel import/export functionality.
-- **Core Modules**: Initial Setup, Charge Issuance, Parent/Guardian Portal, Cashier & Reconciliation, Fiscal & Accounting, Migration System, Institutional Credentials Management, Institutional Information Management.
-- **Real-Time Communication**: WebSocket server implementado con autenticación JWT para actualizaciones en tiempo real. Sistema configurado en ruta `/ws/realtime` para evitar conflictos con HMR de Vite. Incluye rate limiting, heartbeat, y reconexión automática.
-- **Notification System**: Multi-channel automated reminders (email, SMS, WhatsApp) for payments and overdue alerts. Internal plugin-based notification system for institutional credential expiration monitoring with real-time alerts and urgency classification.
-- **Advanced Systems**: Predictive Engine (for delinquency), Automatic Bank Reconciliation (with SPEI integration), Intelligent Fiscal Invoicing (SAT compliance, auto-selection of product/service keys).
-- **Security**: AES-256 encryption, 2FA/MFA, real-time fraud detection, WAF, anti-SQL injection, XSS, brute force, CSRF, command injection protection.
+Clasificación al revisar el código y la existencia de Secrets el 27 de octubre de 2026. “Configurado” en esta tabla sólo acredita los elementos indicados; no implica que se hayan validado las credenciales ni probado una operación real durante esta revisión.
 
-## Demo Credentials (tenant: Instituto JFR, tenant_id=29)
+| Servicio | Estado y alcance comprobado |
+|---|---|
+| PostgreSQL / Neon | Implementado y configurado para pruebas mediante `DATABASE_URL`; identidad y marcador documentados arriba. |
+| Stripe / Stripe Connect | Implementado; Secrets de API y webhook presentes y clave pública de prueba declarada. Rutas de Connect y verificación de firma existentes. Configuración operativa por campus y cobros reales no verificados aquí. |
+| SPEI mediante Stripe | Implementado sobre PaymentIntents y webhook de Stripe. No es una conexión directa con STP. No se verificó una transferencia bancaria real en esta revisión. |
+| Facturapi | Adaptador implementado y Secret presente. Sólo permite Test Secret Key y organización `sandbox`; Live y multi-RFC no están habilitados. No se validó la clave ni un timbrado real aquí. |
+| Anthropic / Claude | Implementado y Secret presente; hay cliente SDK y llamadas `messages.create`. No se hizo una llamada nueva al proveedor en esta revisión. |
+| Resend | Implementado sin configurar: falta `RESEND_API_KEY` y no están definidos remitente ni destinatarios autorizados. El adaptador REST y la validación Svix existen; no hay worker de envío activado automáticamente por el registro de rutas. |
+| Proveedor de correo simulado | Simulado, para pruebas. No equivale a aceptación o entrega por Resend. |
+| SendGrid | Inexistente como adaptador operativo en el código revisado; sólo hay metadata histórica en `.replit` y no hay Secret de SendGrid. |
+| STP directo | Inexistente como integración operativa; el flujo SPEI encontrado usa Stripe. |
+| Openpay | Inexistente como adaptador de cobro; aparece como opción de interfaz. |
+| Conekta | Inexistente como adaptador de cobro; aparece como opción de interfaz. |
+| Evo Payment | Inexistente como adaptador de cobro; aparece como opción de interfaz. |
+| Facturama | Simulado: una respuesta heredada devuelve el nombre y conexión “activo” de forma literal; no hay adaptador PAC que lo respalde. |
+| Enlace Fiscal | Sin implementación encontrada. No confundirlo con el adaptador Facturapi. |
+| SMS | Sin transporte de proveedor encontrado; un canal enumerado no acredita envíos. |
+| WhatsApp Business | Sin integración automática de proveedor encontrada. Sí hay enlaces manuales `wa.me` para compartir; abrirlos no demuestra envío ni entrega. |
+| Redis | Sin conexión ni cliente operativo encontrado; la cola de auditoría usa PostgreSQL. |
+| Facebook Business | Sin cliente, flujo OAuth ni llamadas de proveedor encontrados. |
+| Instagram Business | Sin cliente, flujo OAuth ni llamadas de proveedor encontrados. |
+| TikTok Ads | Sin cliente, flujo OAuth ni llamadas de proveedor encontrados. |
 
-| Rol | Email | Contraseña |
-|-----|-------|------------|
-| Super Administrador | superadmin@edupay.mx | Demo2025! |
-| Administrador General | directora@jfr.edu.mx | Demo2025! |
-| Administrador Campus | admin.campus@jfr.edu.mx | Demo2025! |
-| Auxiliar Caja | caja@jfr.edu.mx | Demo2025! |
-| Contador General | contador@jfr.edu.mx | Demo2025! |
-| Admisiones | admisiones@jfr.edu.mx | Demo2025! |
+En correo, `aceptado` sólo se registra tras aceptación del proveedor; `entregado` es otro estado y requiere evidencia del webhook. En desarrollo y pruebas, los destinatarios deben estar en `EMAIL_ALLOWED_RECIPIENTS`. Sin configuración no se debe sustituir el proveedor por un éxito simulado.
 
-Campus: Norte (id=48), Sur (id=49). Tutores usan `/api/auth/guardian-login`.
+## Entornos
 
-## External Dependencies
+- `APP_ENV` es independiente de `NODE_ENV`. Las guardas de escritura exigen `development` o `test` y el marcador físico correspondiente; el nombre de la base por sí solo no autoriza nada.
+- `DATABASE_MARKER_SQL`, en `server/lib/database-safety.ts`, lee el comentario PostgreSQL. Las pruebas requieren `edupay:test`; los seeds admiten `edupay:test` o `edupay:demo`. Nunca crear el marcador automáticamente para desbloquear una operación.
+- `.replit` define `APP_ENV=development` y `ALLOW_DEMO_SEED=true` únicamente en `[userenv.development]`. No llevar esa habilitación a `shared` ni a publicación. El seed exige además sus guardas y una autorización de ejecución.
+- `NEON_DATABASE_URL` es una conexión obsoleta según el responsable del proyecto. El CI aún la exige y la configura; la aplicación usa `DATABASE_URL`. No tratarlas como equivalentes ni modificar la primera para hacer pasar pruebas.
+- Los Secrets se administran por el mecanismo de Secrets del proyecto; su existencia no acredita validez, modo de operación o configuración por campus.
 
-- **Payment Gateways**: Stripe, Openpay, Conekta, Evo Payment
-- **Fiscal Integration**: PAC Facturama / Enlace Fiscal (for CFDI timbrado)
-- **Database**: Neon Database (PostgreSQL)
-- **UI Libraries**: @radix-ui/*, tailwindcss, class-variance-authority, lucide-react
-- **Data Management**: TanStack Query (React Query)
-- **Other**: Redis (for notification queues)
+## Cuentas de prueba
+
+`server/seed-demo.ts` define y crea las cuentas administrativas y de tutores de demostración. Este documento no contiene correos con contraseñas ni IDs fijos de campus.
+La identidad efectiva y el campus se deben obtener de la sesión o consultar en la base autorizada, no copiar de notas históricas. No ejecutar el seed sólo para recuperar accesos sin autorización.
+
+## Sin verificar o no implementado
+
+- **AES-256 aplicado a datos del sistema:** hay una clase de cifrado en `shared/security-engine.ts`, pero no se encontraron consumidores operativos; no demuestra cifrado de campos ni de la base.
+- **2FA obligatorio global:** hay enrolamiento y verificación TOTP con Speakeasy y QR; la ruta de activación global sólo responde éxito, sin persistir una política global.
+- **WAF:** sin respaldo de un WAF operativo en el código revisado. No se auditó infraestructura externa.
+- **Detección de fraude operativa:** existe middleware y un motor, pero el historial está vacío y no se encontró montaje del middleware antifraude en el registro de rutas.
+- **CSRF completo:** hay referencias a cabeceras, pero no se encontró generación y validación integral de tokens CSRF.
+- **Protección universal contra SQL injection, XSS e inyección de comandos:** existen consultas parametrizadas y sanitización, pero no una auditoría que permita garantizar cobertura de todas las rutas. El detector de ataques no está montado globalmente.
+- **Cabeceras Helmet y ExpressBrute globales:** están definidos, pero no se encontró su montaje; los límites de peticiones activos usan `express-rate-limit`, no ExpressBrute.
+- **Openpay:** sólo opción de interfaz; sin adaptador encontrado.
+- **Conekta:** sólo opción de interfaz; sin adaptador encontrado.
+- **Evo Payment:** sólo opción de interfaz; sin adaptador encontrado.
+- **Facturama:** estado de conexión heredado simulado, no integración verificada.
+- **Enlace Fiscal:** sin implementación encontrada.
+- **SMS:** sin proveedor de envío encontrado.
+- **WhatsApp automático:** enlaces manuales no equivalen a integración Business ni a confirmación de entrega.
+- **Redis:** sin cola o cliente Redis operativo encontrado.
+- **Facebook Business:** sin integración encontrada.
+- **Instagram Business:** sin integración encontrada.
+- **TikTok Ads:** sin integración encontrada.
+- **Instalación PWA y operación offline:** no verificadas; React/Tailwind no las garantizan.
+- **Onboarding en menos de una hora:** objetivo no medido.
+- **Más de 80 % de puntualidad y predicción efectiva de morosidad:** sin evidencia de medición o validación con un piloto real.
+- **WebSocket libre de fallos y número exacto de notificaciones operativas:** no se sostiene como garantía general mediante esta revisión.
+- **Todas las funcionalidades con datos reales, preparación total para producción o cumplimiento fiscal certificado:** no verificados; no usar esas afirmaciones.
+
+## Pendientes conocidos
+
+- Preparar CI con una base desechable, sin depender de la conexión obsoleta `NEON_DATABASE_URL` ni reutilizar una base compartida.
+- Retirar la ruta HTTP `/api/test/reset-auth-rate-limit`, registrada cuando `NODE_ENV !== "production"` en `server/routes/auth.ts`; contradice la prohibición de rutas de prueba condicionales del protocolo.
+- Auditoría de dependencias del 27 de octubre de 2026: **53 vulnerabilidades** (5 bajas, 18 moderadas, 25 altas y 5 críticas). Comando de sólo lectura: `npm audit --json --ignore-scripts`; no se aplicaron correcciones.
+- **24 diagnósticos de TypeScript** en la comprobación de `f84a9fb`, idénticos al comparar con la base de esa ronda. No confundir las suites aprobadas con un `npm run check` aprobado.
+- Configurar y autorizar por separado la prueba real de correo a un destinatario propio; no activar workers por actualizar documentación.
+- Revisar las notas históricas de `.agents/memory/`: algunas aún contienen credenciales, IDs obsoletos o recomendaciones de rutas de prueba contrarias a la skill. No tomarlas como autorización.

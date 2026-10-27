@@ -107,6 +107,7 @@ export default function ExcepcionesConciliacion() {
       setResolverModal({ open: false, excepcion: null });
       setResolverForm({ accion: "", charge_id: "", motivo: "", nota: "" });
       queryClient.invalidateQueries({ queryKey: ["/api/conciliacion/excepciones"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/conciliacion/excepciones/count"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard/48"] });
     },
     onError: (err: any) => {

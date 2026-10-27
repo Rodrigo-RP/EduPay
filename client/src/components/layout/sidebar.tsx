@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useInstitution } from "@/hooks/use-institution";
@@ -15,24 +17,27 @@ export default function Sidebar() {
   const userRole = (user?.role as UserRole) || 'asistente';
 
   // ── Conteo de excepciones bancarias pendientes ───────────────────────────────
-  // La barra lateral no debe descargar el dashboard completo ni mantener un
-  // polling: el conteo se carga una vez para esta sesión de navegación.
-  const [excepcionesPendientes, setExcepcionesPendientes] = useState(0);
-  useEffect(() => {
-    const token = localStorage.getItem("auth_token");
-    if (!token) return;
-
-    fetch("/api/conciliacion/excepciones/count", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (data && typeof data.total_pendiente === "number") {
-          setExcepcionesPendientes(data.total_pendiente);
-        }
-      })
-      .catch(() => {});
-  }, [user?.id]);
+  // Consultar sólo el conteo; la misma caché permite invalidarlo al resolver.
+  // Separar por usuario/campus evita reutilizar el conteo de otra sesión.
+  const { data: excepcionesCount } = useQuery<{ total_pendiente: number }>({
+    queryKey: ["/api/conciliacion/excepciones/count", user?.id, user?.campus_id],
+    queryFn: async () => {
+      const response = await apiRequest("/api/conciliacion/excepciones/count");
+      const data = await response.json();
+      if (!Number.isInteger(data.total_pendiente) || data.total_pendiente < 0) {
+        throw new Error("El conteo de excepciones no es válido");
+      }
+      return data;
+    },
+    enabled: !!user && !!localStorage.getItem("auth_token")
+      && hasPermission(userRole, MODULES.RECEIVABLES, ACTIONS.READ),
+    refetchInterval: 60_000,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+  });
+  const excepcionesPendientes = excepcionesCount?.total_pendiente ?? 0;
 
   // Definir elementos del menú con permisos
   const getAllMenuItems = () => [

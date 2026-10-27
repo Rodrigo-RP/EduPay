@@ -7,11 +7,16 @@ const relation = (id: number, active: boolean, percentage = "100.00") => ({
 
 async function run(body: unknown, options: {
   rows?: any[]; student?: boolean; auditFails?: boolean; params?: any; user?: any;
+  studentTenantId?: number | null; campusTenantId?: number;
 } = {}) {
   const rows = options.rows ?? [relation(2, false), relation(3, true)];
   const query = vi.fn(async (sql: string, args?: any[]) => {
-    if (sql.startsWith("SELECT id FROM students")) {
-      return { rows: options.student === false ? [] : [{ id: 1 }] };
+    if (sql.includes("FROM students")) {
+      const studentTenantId = options.studentTenantId === undefined ? 8 : options.studentTenantId;
+      const campusTenantId = options.campusTenantId ?? 8;
+      const inScope = args?.[0] === 1 && args?.[2] === 9 && campusTenantId === args?.[1]
+        && (studentTenantId === null || studentTenantId === args?.[1]);
+      return { rows: options.student === false || !inScope ? [] : [{ id: 1 }] };
     }
     if (sql.includes("FROM student_guardian")) return { rows };
     if (sql.startsWith("UPDATE")) return { rows: [{
@@ -92,6 +97,37 @@ describe("Responsabilidad financiera (sin conexión a bases reales)", () => {
     expect(res.status).toHaveBeenCalledWith(404);
     expect(query.mock.calls.at(-1)?.[0]).toBe("ROLLBACK");
     expect(query.mock.calls.some(([sql]) => sql.startsWith("UPDATE"))).toBe(false);
+  });
+
+  it("actualiza al alumno con tenant_id vacío dentro de su campus e institución", async () => {
+    const { query, res } = await run({ es_responsable_pago: true }, {
+      studentTenantId: null, campusTenantId: 8,
+    });
+    const sql = query.mock.calls[1][0].replace(/\s+/g, " ");
+    expect(sql).toContain("JOIN campuses c ON c.id = s.campus_id");
+    expect(sql).toContain("s.campus_id = $3");
+    expect(sql).toContain("c.tenant_id = $2");
+    expect(sql).toContain("(s.tenant_id IS NULL OR s.tenant_id = $2)");
+    expect(sql).toContain("FOR UPDATE OF s");
+    expect(query.mock.calls[1][1]).toEqual([1, 8, 9]);
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json.mock.calls[0][0]).toMatchObject({ es_responsable_pago: true });
+    expect(query.mock.calls.some(([statement]) => statement.startsWith("UPDATE"))).toBe(true);
+    expect(query.mock.calls.some(([statement]) => statement.includes("INSERT INTO audit_log"))).toBe(true);
+    expect(query.mock.calls.at(-1)?.[0]).toBe("COMMIT");
+  });
+
+  it("devuelve 404 si el campus del alumno pertenece a otro tenant", async () => {
+    const { query, res } = await run({ es_responsable_pago: true }, {
+      studentTenantId: null, campusTenantId: 42,
+    });
+    expect(query.mock.calls[1][0]).toContain("c.tenant_id = $2");
+    expect(query.mock.calls[1][1]).toEqual([1, 8, 9]);
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({ message: "Alumno no encontrado" });
+    expect(query.mock.calls.at(-1)?.[0]).toBe("ROLLBACK");
+    expect(query.mock.calls.some(([statement]) => statement.startsWith("UPDATE")
+      || statement.includes("INSERT INTO audit_log"))).toBe(false);
   });
 
   it("rechaza tutor no vinculado", async () => {

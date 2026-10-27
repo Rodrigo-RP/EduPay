@@ -27,7 +27,14 @@ export function guardianResponsibilityHandler(pool: Pick<Pool, "connect">) {
       await client.query("BEGIN");
       // Serializa los cambios de todos los tutores del mismo alumno.
       const student = await client.query(
-        `SELECT id FROM students WHERE id = $1 AND tenant_id = $2 AND campus_id = $3 FOR UPDATE`,
+        `SELECT s.id
+           FROM students s
+           JOIN campuses c ON c.id = s.campus_id
+          WHERE s.id = $1
+            AND s.campus_id = $3
+            AND c.tenant_id = $2
+            AND (s.tenant_id IS NULL OR s.tenant_id = $2)
+          FOR UPDATE OF s`,
         [studentId, user.tenant_id, user.campus_id],
       );
       if (!student.rows.length) {

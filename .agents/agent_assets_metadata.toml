@@ -46,3 +46,17 @@ mtime_ms = 1793074083206
 storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:1d65db5a-9a24-4d3f-bc7c-b90a11d39927/6768e947-eaaa-43d0-a6d7-6b930422b3ba/54a4c882-fb3d-453d-8d98-4400d7e63f05"
 storage_version_token = "1793074088405348"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "emnt3SwlwI4VIPCy03ncm"
+uri = "file://generated-artifacts/auditoria-suite-completa-heliumdb.md"
+type = "text"
+title = "Auditoría de la suite completa y comparación contra 6dfb8ff"
+description = "Bloques completos de las cinco ejecuciones, reinicios reales, repetición de unitarias y E2E sobre la base, comparación de los 17 fallos/errores de preparación y estado final de parada."
+logical_id = "fd78f48a-caf8-4e2f-a4a4-4d677f3a16d6"
+content_hash = "sha256:3c186907e55a2f6f4daa567d30f3d79a24049a9a52e70acbeaa5bfb85739024f"
+size = 22467
+mtime_ms = 1793076009885
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:1d65db5a-9a24-4d3f-bc7c-b90a11d39927/fd78f48a-caf8-4e2f-a4a4-4d677f3a16d6/918f7d65-895c-4be3-a1e0-eceb1641fac8"
+storage_version_token = "1793076030224764"
+content_type = "text/markdown"

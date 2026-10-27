@@ -41,3 +41,24 @@ escritura sobre las bases usadas por CI.
 no extender esa garantía a otros eventos ni al borrado de ramas, que puede
 evaluarse con el commit de la rama predeterminada. Si no puede evitarse una
 suite prohibida sin cambiar configuración, detenerse y pedir autorización.
+
+`APP_ENV=development` debe configurarse únicamente como variable del entorno
+`development`, nunca en `shared` ni en los Secrets de publicación.
+
+**Why:** El dueño exige separar la configuración del espacio de trabajo de
+la de publicación; habilitar guardas de desarrollo fuera de ese alcance
+podría autorizar escrituras en un destino distinto.
+
+**How to apply:** Usar la operación de variables con ámbito `development` y
+verificar por separado que no se propagó a producción. Esto no prohíbe una
+configuración futura `APP_ENV=production` autorizada para publicación.
+
+Las pruebas de navegador con un servidor Vite temporal pueden hacer que
+Replit agregue automáticamente un puerto a `.replit`.
+
+**Why:** Una ejecución sin cambios de código puede dejar cambios de
+configuración generados por la plataforma, además de variables autorizadas.
+
+**How to apply:** Comparar la configuración al terminar y retirar sólo la
+exposición temporal del servidor ya detenido. No restaurar todo `.replit`,
+porque se perderían también las variables de entorno pedidas por el dueño.

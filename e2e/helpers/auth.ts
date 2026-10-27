@@ -5,6 +5,7 @@
 import { type Page } from "@playwright/test";
 
 export const ADMIN_EMAIL = "admin.campus@jfr.edu.mx";
+export const SUPERADMIN_EMAIL = "superadmin@edupay.mx";
 export const ADMIN_PASSWORD = "Demo2025!";
 export const GUARDIAN_EMAIL = "guardian@demo.edupay.mx";
 export const GUARDIAN_PASSWORD = "Demo2025!";
@@ -31,6 +32,28 @@ export async function loginAsAdmin(page: Page) {
   }
   // Llenar credenciales
   await page.locator("#email").fill(ADMIN_EMAIL);
+  await page.locator("#password").fill(ADMIN_PASSWORD);
+  await page.locator('button[type="submit"]').click();
+  // Esperar a que desaparezca el form y aparezca el sidebar del panel
+  await page.waitForSelector("nav, aside, [class*='sidebar']", { timeout: 15_000 });
+}
+
+export async function loginAsSuperAdmin(page: Page) {
+  const reset = await page.request.post("/api/test/reset-auth-rate-limit", {
+    failOnStatusCode: false,
+  });
+  if (!reset.ok()) {
+    throw new Error(`No se pudo reiniciar el rate limiter de login: HTTP ${reset.status()}`);
+  }
+  await page.goto("/");
+  await page.waitForLoadState("domcontentloaded");
+  // Si ya hay sesión activa (token en localStorage) puede que el panel ya esté visible
+  const alreadyIn = page.locator("nav, aside, [class*='sidebar'], [class*='Sidebar']").first();
+  if (await alreadyIn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    return; // ya autenticado
+  }
+  // Llenar credenciales
+  await page.locator("#email").fill(SUPERADMIN_EMAIL);
   await page.locator("#password").fill(ADMIN_PASSWORD);
   await page.locator('button[type="submit"]').click();
   // Esperar a que desaparezca el form y aparezca el sidebar del panel

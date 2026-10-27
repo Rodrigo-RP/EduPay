@@ -1,8 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { loginAsSuperAdmin } from "./helpers/auth";
 
 test("el setup demo muestra conteos y accesos destacados después de poblar", async ({ page }) => {
   test.setTimeout(120_000);
 
+  await loginAsSuperAdmin(page);
   await page.goto("/demo-setup");
   await page.getByRole("button", { name: "Cargar datos demo" }).click();
 

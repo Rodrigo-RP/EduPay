@@ -7,6 +7,7 @@ import { MODULES, ACTIONS } from "@shared/permissions";
 import { students, guardians, charges, payments, concepts, invoices, families, family_students, payment_applications, payment_events, audit_log } from "@shared/schema";
 import { enqueueAuditLog } from "../audit-retry";
 import { z } from "zod";
+import { centavos, financialBodies, validateFinancialBody } from "../lib/financial-input";
 import jwt from "jsonwebtoken";
 
 // ── ADR-002: Helpers para planes de pago integrados al ledger ─────────────────
@@ -152,7 +153,7 @@ export function registerMiscRoutes(app: Express): void {
   });
 
   // ── PLANES DE PAGO — Crear (Modo A: reestructuración | Modo B: futuro) ───
-  app.post("/api/planes-pago", authenticateToken, async (req: any, res) => {
+  app.post("/api/planes-pago", authenticateToken, validateFinancialBody(financialBodies.plan), async (req: any, res) => {
     try {
       const role = req.user?.role;
       if (!hasPermissionForUser((req as any).user, MODULES.CHARGES, ACTIONS.CREATE)) {
@@ -277,6 +278,10 @@ export function registerMiscRoutes(app: Express): void {
           const sumSaldos = saldoRows.reduce((acc, r) => acc + Number(r.saldo_pendiente_centavos), 0);
           const totalAdeudo = sumSaldos + Number(recargo_centavos || 0);
           const montoInicial = montoInicialNumerico;
+          if (!centavos.safeParse(totalAdeudo).success || totalAdeudo - montoInicial < numero_pagos) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: "El total debe ser válido y permitir al menos un centavo por cuota" });
+          }
           if (montoInicial >= totalAdeudo && totalAdeudo > 0) {
             await client.query('ROLLBACK');
             return res.status(422).json({ message: "monto_inicial_centavos no puede superar el total adeudado" });
@@ -374,6 +379,9 @@ export function registerMiscRoutes(app: Express): void {
 
       const totalAdeudoB = Number(concept.monto_centavos);
       const montoInicialB = Number(monto_inicial_centavos || 0);
+      if (!centavos.safeParse(totalAdeudoB).success || totalAdeudoB - montoInicialB < numero_pagos) {
+        return res.status(400).json({ message: "El total debe ser válido y permitir al menos un centavo por cuota" });
+      }
       if (montoInicialB >= totalAdeudoB) {
         return res.status(422).json({
           message: "monto_inicial_centavos debe ser menor al monto total del concepto",
@@ -1747,7 +1755,7 @@ export function registerMiscRoutes(app: Express): void {
   });
 
   // POST /api/products  — crear producto
-  app.post("/api/products", authenticateToken, async (req: any, res) => {
+  app.post("/api/products", authenticateToken, validateFinancialBody(financialBodies.product), async (req: any, res) => {
     try {
       const { role, campus_id, tenant_id } = req.user ?? {};
       if (!hasPermissionForUser((req as any).user, MODULES.PRODUCTS, ACTIONS.CONFIGURE)) {
@@ -1782,7 +1790,7 @@ export function registerMiscRoutes(app: Express): void {
   });
 
   // PUT /api/products/:id  — edición completa
-  app.put("/api/products/:id", authenticateToken, async (req: any, res) => {
+  app.put("/api/products/:id", authenticateToken, validateFinancialBody(financialBodies.product), async (req: any, res) => {
     try {
       const { role, campus_id, tenant_id } = req.user ?? {};
       if (!hasPermissionForUser((req as any).user, MODULES.PRODUCTS, ACTIONS.CONFIGURE)) {

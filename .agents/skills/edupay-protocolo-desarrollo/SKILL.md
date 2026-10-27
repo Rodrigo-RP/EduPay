@@ -27,6 +27,7 @@ Este archivo complementa, no reemplaza, `docs/PROTOCOLO-AUDITORIA.md` y la memor
 - No refactorices, renombres ni "mejores" módulos ajenos a la tarea. Si encuentras un error fuera de alcance, repórtalo en la sección de hallazgos y no lo corrijas: un arreglo no pedido es código que nadie revisó.
 - No publiques, no hagas deploy y no reinicies nada de producción.
 - Si la tarea dice "solo diagnóstico" o "sin cambios", no modifiques ningún archivo de código.
+- Trabaja en una rama de revisión nueva, creada desde la base que indique la tarea (normalmente el hash actual de `replit-en-vivo`). Antes de hacer push, confirma con `git merge-base --is-ancestor <base> HEAD` que partes de esa base y con `git log <base>..HEAD` que solo están tus commits. Una vez se coló una tarea descartada por no revisar esto.
 
 ## 3. Base de datos
 
@@ -91,7 +92,7 @@ Este es el error que más se ha encontrado en EduPay: pantallas que mostraban "g
 
 ## 8. Reporte de entrega
 
-Haz push al remoto `github`, rama `replit-en-vivo`; nunca a `origin`. Luego responde con esta estructura exacta:
+Haz push al remoto `github`, a la rama de revisión que indique la tarea. Nunca hagas push a `origin` ni directamente a `replit-en-vivo`: integrar a `replit-en-vivo` requiere autorización explícita después de la auditoría, y nunca mediante "Apply changes", porque su hook ejecuta `db:migrate`. Luego responde con esta estructura exacta:
 
 ```
 RESUMEN
@@ -119,8 +120,11 @@ Lista honesta. Si todo se verificó, dilo.
 HALLAZGOS FUERA DE ALCANCE (NO CORREGIDOS)
 Qué encontraste, en qué archivo, y por qué importa.
 
+RAMA
+Nombre de la rama de revisión, hash de su base y lista de commits sobre esa base.
+
 COMMIT
-Hash completo y salida de `git ls-remote github replit-en-vivo`, que debe coincidir.
+Hash completo y salida de `git ls-remote github <rama de revisión>`, que debe coincidir.
 ```
 
 Si el hash local y el remoto no coinciden, no reportes la tarea como terminada.

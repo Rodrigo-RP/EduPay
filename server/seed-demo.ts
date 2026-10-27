@@ -303,6 +303,7 @@ export async function seedDemoData() {
     // ── Conceptos de pago ────────────────────────────────────────────────────
     log("💰 Creando conceptos de pago...");
     const [concColNorte] = await db.insert(concepts).values({
+      tenant_id: tenant.id,
       campus_id: campusNorte.id,
       nombre: "Colegiatura Mensual Primaria",
       tipo: "colegiatura",
@@ -311,6 +312,7 @@ export async function seedDemoData() {
       iva: false,
     }).returning();
     const [concColSec] = await db.insert(concepts).values({
+      tenant_id: tenant.id,
       campus_id: campusNorte.id,
       nombre: "Colegiatura Mensual Secundaria",
       tipo: "colegiatura",
@@ -319,6 +321,7 @@ export async function seedDemoData() {
       iva: false,
     }).returning();
     const [concInsc] = await db.insert(concepts).values({
+      tenant_id: tenant.id,
       campus_id: campusNorte.id,
       nombre: "Inscripción Ciclo 2025-2026",
       tipo: "inscripcion",
@@ -327,6 +330,7 @@ export async function seedDemoData() {
       iva: false,
     }).returning();
     const [concMat] = await db.insert(concepts).values({
+      tenant_id: tenant.id,
       campus_id: campusNorte.id,
       nombre: "Materiales y Útiles",
       tipo: "extra",
@@ -335,6 +339,7 @@ export async function seedDemoData() {
       iva: true,
     }).returning();
     const [concColSurPrim] = await db.insert(concepts).values({
+      tenant_id: tenant.id,
       campus_id: campusSur.id,
       nombre: "Colegiatura Mensual Kinder",
       tipo: "colegiatura",
@@ -343,6 +348,7 @@ export async function seedDemoData() {
       iva: false,
     }).returning();
     const [concColNorteKinder] = await db.insert(concepts).values({
+      tenant_id: tenant.id,
       campus_id: campusNorte.id,
       nombre: "Colegiatura Mensual Kinder",
       tipo: "colegiatura",
@@ -351,6 +357,7 @@ export async function seedDemoData() {
       iva: false,
     }).returning();
     const [concColNorteBach] = await db.insert(concepts).values({
+      tenant_id: tenant.id,
       campus_id: campusNorte.id,
       nombre: "Colegiatura Mensual Bachillerato",
       tipo: "colegiatura",
@@ -359,6 +366,7 @@ export async function seedDemoData() {
       iva: false,
     }).returning();
     const [concColSurSec] = await db.insert(concepts).values({
+      tenant_id: tenant.id,
       campus_id: campusSur.id,
       nombre: "Colegiatura Mensual Secundaria",
       tipo: "colegiatura",
@@ -367,6 +375,7 @@ export async function seedDemoData() {
       iva: false,
     }).returning();
     const [concColSurBach] = await db.insert(concepts).values({
+      tenant_id: tenant.id,
       campus_id: campusSur.id,
       nombre: "Colegiatura Mensual Bachillerato",
       tipo: "colegiatura",
@@ -970,7 +979,7 @@ export async function seedDemoData() {
        VALUES ($1,$2,'Colegiatura Mensual Primaria','Recargo por atraso demo','porcentaje',3,5.00,true)`,
       [campusNorte.id, tenant.id],
     );
-    await pool.query(
+    const dueDates = await pool.query(
       `INSERT INTO payment_due_dates
         (campus_id, tenant_id, concept_id, concepto, dia_vencimiento, mes_aplicacion, activo)
        SELECT c.campus_id, c.tenant_id, c.id, c.nombre, 10, 'todos', true
@@ -982,6 +991,9 @@ export async function seedDemoData() {
           )`,
       [campusNorte.id, tenant.id, campusSur.id],
     );
+    if (dueDates.rowCount !== 2) {
+      throw new Error(`El seed debe crear exactamente 2 vencimientos demo; creó ${dueDates.rowCount ?? 0}.`);
+    }
     await pool.query(
       `INSERT INTO scholarship_auto_rules (campus_id, tenant_id, nombre, tipo, condicion_json, descuento_porcentaje, aplica_a, activo)
         VALUES ($1,$2,'Regla hermanos demo','hermanos','{"minimo_hermanos":2}',10.00,'todos',true)`,

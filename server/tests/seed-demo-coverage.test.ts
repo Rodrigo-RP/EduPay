@@ -44,6 +44,7 @@ describe("SEED-02: datos demo completos para pantallas reales", () => {
     expect(tableCounts.scholarship_criteria).toBeGreaterThan(0);
     expect(tableCounts.scholarship_benefits).toBeGreaterThan(0);
     expect(tableCounts.products).toBeGreaterThan(0);
+    expect(tableCounts.payment_due_dates).toBe(2);
   });
 
   it("crea los casos de beca, calendario, hermanos y ledger", async () => {

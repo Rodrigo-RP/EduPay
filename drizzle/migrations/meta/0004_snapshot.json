@@ -8805,6 +8805,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "details": {
+          "name": "details",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "received_at": {
           "name": "received_at",
           "type": "timestamp with time zone",
@@ -8966,11 +8972,11 @@
       "checkConstraints": {
         "email_webhook_events_state_check": {
           "name": "email_webhook_events_state_check",
-          "value": "\"email_webhook_events\".\"status\" IN ('pendiente','procesando','procesado','sin_correlacion','ignorado','revision')"
+          "value": "\"email_webhook_events\".\"status\" IN ('pendiente','procesando','procesado','sin_correlacion','no_procesado','revision')"
         },
         "email_webhook_events_scope_check": {
           "name": "email_webhook_events_scope_check",
-          "value": "(\n    (\"email_webhook_events\".\"recipient_id\" IS NULL AND \"email_webhook_events\".\"tenant_id\" IS NULL AND \"email_webhook_events\".\"campus_id\" IS NULL AND \"email_webhook_events\".\"status\" <> 'procesado')\n    OR (\"email_webhook_events\".\"recipient_id\" IS NOT NULL AND \"email_webhook_events\".\"tenant_id\" IS NOT NULL AND \"email_webhook_events\".\"campus_id\" IS NOT NULL\n      AND \"email_webhook_events\".\"tenant_id\" > 0 AND \"email_webhook_events\".\"campus_id\" > 0 AND \"email_webhook_events\".\"status\" = 'procesado'\n      AND \"email_webhook_events\".\"processed_at\" IS NOT NULL AND \"email_webhook_events\".\"provider_message_id\" IS NOT NULL AND \"email_webhook_events\".\"occurred_at\" IS NOT NULL\n      AND \"email_webhook_events\".\"event_type\" IN ('email.sent','email.delivered','email.bounced','email.complained'))\n  )"
+          "value": "(\n    (\"email_webhook_events\".\"recipient_id\" IS NULL AND \"email_webhook_events\".\"tenant_id\" IS NULL AND \"email_webhook_events\".\"campus_id\" IS NULL AND \"email_webhook_events\".\"status\" <> 'procesado')\n    OR (\"email_webhook_events\".\"recipient_id\" IS NOT NULL AND \"email_webhook_events\".\"tenant_id\" IS NOT NULL AND \"email_webhook_events\".\"campus_id\" IS NOT NULL\n      AND \"email_webhook_events\".\"tenant_id\" > 0 AND \"email_webhook_events\".\"campus_id\" > 0 AND \"email_webhook_events\".\"status\" = 'procesado'\n      AND \"email_webhook_events\".\"processed_at\" IS NOT NULL AND \"email_webhook_events\".\"provider_message_id\" IS NOT NULL AND \"email_webhook_events\".\"occurred_at\" IS NOT NULL\n      AND \"email_webhook_events\".\"event_type\" IN ('email.delivered','email.bounced','email.complained','email.suppressed','email.failed','email.delivery_delayed'))\n  )"
         },
         "email_webhook_events_bounds_check": {
           "name": "email_webhook_events_bounds_check",
@@ -9049,7 +9055,7 @@
         },
         "email_webhook_receipts_ttl_check": {
           "name": "email_webhook_receipts_ttl_check",
-          "value": "\"email_webhook_receipts\".\"expires_at\" > \"email_webhook_receipts\".\"received_at\" AND \"email_webhook_receipts\".\"expires_at\" <= \"email_webhook_receipts\".\"received_at\" + INTERVAL '24 hours'"
+          "value": "\"email_webhook_receipts\".\"expires_at\" > \"email_webhook_receipts\".\"received_at\" AND \"email_webhook_receipts\".\"expires_at\" <= \"email_webhook_receipts\".\"received_at\" + INTERVAL '7 days'"
         }
       },
       "isRLSEnabled": false

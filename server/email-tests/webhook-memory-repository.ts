@@ -12,7 +12,7 @@ export class MemoryWebhookRepository implements EmailWebhookRepository {
   events=new Map<string,VerifiedEmailEvent & {status:string;claimId:string|null;until:number;
     next:number;recipientId:string|null;tenantId:number|null;campusId:number|null;errorCode?:string|null}>();
   recipients=new Map<string,{id:string;tenantId:number;campusId:number;messageId:string;
-    estado:any;accepted:boolean;scopeValid:boolean}>();
+    estado:any;accepted:boolean;scopeValid:boolean;reason?:string;errorCode?:string}>();
   clock=Date.now();
   failRaw=false;failEnqueue=false;failProcess=false;
   actions:string[]=[];
@@ -50,18 +50,22 @@ export class MemoryWebhookRepository implements EmailWebhookRepository {
     if(!event||event.claimId!==claim.claimId||event.status!=="procesando"||event.until<=this.clock)return;
     if(this.failProcess)throw new Error("simulated crash before commit");
     event.status="revision";event.errorCode="EVENTO_INCOMPLETO";
-    if(!isEmailEventType(event.eventType)){event.status="ignorado";event.errorCode="EVENTO_NO_SOPORTADO";}
-    else if(event.messageId&&event.occurredAt) {
+    const complete=event.eventType==="email.failed" ? !!event.details?.failedReason :
+      event.eventType==="email.bounced" ? !!event.details?.bounceType && !!event.details?.bounceSubType : true;
+    if(!isEmailEventType(event.eventType)){event.status="no_procesado";event.errorCode="EVENTO_NO_PROCESADO";}
+    else if(complete&&event.messageId&&event.occurredAt) {
       const rows=Array.from(this.recipients.values()).filter(r=>r.messageId===event.messageId);
       if(!rows.length){event.status="sin_correlacion";event.errorCode="ESPERANDO_ACEPTACION";}
       else if(rows.length!==1)event.errorCode="CORRELACION_AMBIGUA";
       else {
         const r=rows[0];
         if(!r.scopeValid||r.tenantId<=0||r.campusId<=0)event.errorCode="ALCANCE_INCONSISTENTE";
-        else if(!r.accepted||!["aceptado","entregado","rebotado","queja"].includes(r.estado)){
+        else if(!r.accepted||!["aceptado","entregado","rebotado","queja","error"].includes(r.estado)){
           event.status="sin_correlacion";event.errorCode="ESPERANDO_ACEPTACION";
         } else {
           r.estado=stateAfterEmailEvent(r.estado,event.eventType);
+          if(event.eventType==="email.failed"&&r.estado==="error")r.errorCode=event.details?.failedReason;
+          if(event.eventType==="email.suppressed"&&r.estado==="rebotado")r.reason="suprimido por el proveedor";
           event.status="procesado";event.errorCode=null;
           event.recipientId=r.id;event.tenantId=r.tenantId;event.campusId=r.campusId;
         }

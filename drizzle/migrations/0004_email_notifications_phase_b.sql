@@ -5,6 +5,7 @@ CREATE TABLE "email_webhook_events" (
 	"occurred_at" timestamp with time zone,
 	"receipt_id" text NOT NULL,
 	"payload_hash" text NOT NULL,
+	"details" jsonb,
 	"received_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"status" text DEFAULT 'pendiente' NOT NULL,
 	"recipient_id" text,
@@ -16,13 +17,13 @@ CREATE TABLE "email_webhook_events" (
 	"next_attempt_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"processed_at" timestamp with time zone,
 	"error_code" text,
-	CONSTRAINT "email_webhook_events_state_check" CHECK ("email_webhook_events"."status" IN ('pendiente','procesando','procesado','sin_correlacion','ignorado','revision')),
+	CONSTRAINT "email_webhook_events_state_check" CHECK ("email_webhook_events"."status" IN ('pendiente','procesando','procesado','sin_correlacion','no_procesado','revision')),
 	CONSTRAINT "email_webhook_events_scope_check" CHECK ((
     ("email_webhook_events"."recipient_id" IS NULL AND "email_webhook_events"."tenant_id" IS NULL AND "email_webhook_events"."campus_id" IS NULL AND "email_webhook_events"."status" <> 'procesado')
     OR ("email_webhook_events"."recipient_id" IS NOT NULL AND "email_webhook_events"."tenant_id" IS NOT NULL AND "email_webhook_events"."campus_id" IS NOT NULL
       AND "email_webhook_events"."tenant_id" > 0 AND "email_webhook_events"."campus_id" > 0 AND "email_webhook_events"."status" = 'procesado'
       AND "email_webhook_events"."processed_at" IS NOT NULL AND "email_webhook_events"."provider_message_id" IS NOT NULL AND "email_webhook_events"."occurred_at" IS NOT NULL
-      AND "email_webhook_events"."event_type" IN ('email.sent','email.delivered','email.bounced','email.complained'))
+      AND "email_webhook_events"."event_type" IN ('email.delivered','email.bounced','email.complained','email.suppressed','email.failed','email.delivery_delayed'))
   )),
 	CONSTRAINT "email_webhook_events_bounds_check" CHECK (length("email_webhook_events"."provider_event_id") BETWEEN 1 AND 256 AND length("email_webhook_events"."event_type") BETWEEN 1 AND 128
     AND ("email_webhook_events"."provider_message_id" IS NULL OR length("email_webhook_events"."provider_message_id") <= 256) AND "email_webhook_events"."attempts" >= 0)
@@ -36,7 +37,7 @@ CREATE TABLE "email_webhook_receipts" (
 	"received_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "email_webhook_receipts_size_check" CHECK ("email_webhook_receipts"."payload_size" BETWEEN 0 AND 65536 AND length("email_webhook_receipts"."payload_base64") <= 87384),
-	CONSTRAINT "email_webhook_receipts_ttl_check" CHECK ("email_webhook_receipts"."expires_at" > "email_webhook_receipts"."received_at" AND "email_webhook_receipts"."expires_at" <= "email_webhook_receipts"."received_at" + INTERVAL '24 hours')
+	CONSTRAINT "email_webhook_receipts_ttl_check" CHECK ("email_webhook_receipts"."expires_at" > "email_webhook_receipts"."received_at" AND "email_webhook_receipts"."expires_at" <= "email_webhook_receipts"."received_at" + INTERVAL '7 days')
 );
 --> statement-breakpoint
 ALTER TABLE "email_notification_recipients" ADD CONSTRAINT "email_recipients_id_scope_unique" UNIQUE("id","tenant_id","campus_id");--> statement-breakpoint

@@ -114,8 +114,8 @@ export class PgEmailRepository implements EmailRepository {
     const b = await this.db.query("SELECT id,created_at FROM email_notification_batches WHERE id=$1 AND tenant_id=$2 AND campus_id=$3", [id,s.tenantId,s.campusId]);
     if (!b.rows[0]) return null;
     const r = await this.db.query(`SELECT r.id,r.email,r.estado,r.motivo,r.error_code,r.error_message,
-      r.provider_message_id,r.accepted_at,r.enviado_en,proof.provider_sent_at,proof.delivered_at,
-      proof.bounced_at,proof.complained_at,proof.provider_events
+      r.provider_message_id,r.accepted_at,r.enviado_en,proof.delivered_at,
+      proof.bounced_at,proof.complained_at,proof.suppressed_at,proof.failed_at,proof.delayed_at,proof.provider_events
       FROM email_notification_recipients r ${emailEvidenceJoinSql}
       WHERE r.batch_id=$1 AND r.tenant_id=$2 AND r.campus_id=$3 ORDER BY r.created_at,r.id`,[id,s.tenantId,s.campusId]);
     const gate = await this.db.query("SELECT pause_reason FROM email_provider_gate WHERE provider='resend' AND next_allowed_at>NOW()");

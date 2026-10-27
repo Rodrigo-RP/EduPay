@@ -54,9 +54,9 @@ export class PgEmailWebhookRepository implements EmailWebhookRepository {
     // This is the first use of the trusted ID; invalid signatures never reach it.
     // Autocommit must complete before HTTP 200, including for duplicate receipts.
     await this.database.query(`INSERT INTO email_webhook_events
-      (provider_event_id,event_type,provider_message_id,occurred_at,receipt_id,payload_hash)
-      VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(provider_event_id) DO NOTHING`,
-    [event.eventId,event.eventType,event.messageId,event.occurredAt,event.receiptId,event.payloadHash]);
+      (provider_event_id,event_type,provider_message_id,occurred_at,receipt_id,payload_hash,details)
+      VALUES($1,$2,$3,$4,$5,$6,$7::jsonb) ON CONFLICT(provider_event_id) DO NOTHING`,
+    [event.eventId,event.eventType,event.messageId,event.occurredAt,event.receiptId,event.payloadHash,JSON.stringify(event.details??{})]);
   }
   async pruneRaw(): Promise<void> {
     await this.database.query(`DELETE FROM email_webhook_receipts WHERE id IN (
@@ -82,8 +82,11 @@ export class PgEmailWebhookRepository implements EmailWebhookRepository {
       const e = owned.rows[0];
       let status = "revision", code: string | null = "EVENTO_INCOMPLETO";
       let recipient: any = null;
-      if (!isEmailEventType(e.event_type)) { status = "ignorado"; code = "EVENTO_NO_SOPORTADO"; }
-      else if (e.provider_message_id && e.occurred_at) {
+      const details=typeof e.details==="string" ? JSON.parse(e.details) : (e.details??{});
+      const complete=e.event_type==="email.failed" ? typeof details.failedReason==="string" :
+        e.event_type==="email.bounced" ? typeof details.bounceType==="string" && typeof details.bounceSubType==="string" : true;
+      if (!isEmailEventType(e.event_type)) { status = "no_procesado"; code = "EVENTO_NO_PROCESADO"; }
+      else if (complete && e.provider_message_id && e.occurred_at) {
         const matches = await c.query(correlateEmailSql,[e.provider_message_id]);
         if (!matches.rows.length) { status = "sin_correlacion"; code = "ESPERANDO_ACEPTACION"; }
         else if (matches.rows.length !== 1) { code = "CORRELACION_AMBIGUA"; }
@@ -92,13 +95,18 @@ export class PgEmailWebhookRepository implements EmailWebhookRepository {
           if (!r.scope_valid || !(r.tenant_id > 0 && r.campus_id > 0)) code = "ALCANCE_INCONSISTENTE";
           else if (!r.accepted_at || !r.enviado_en ||
               new Date(r.accepted_at).getTime() !== new Date(r.enviado_en).getTime() ||
-              !["aceptado","entregado","rebotado","queja"].includes(r.estado)) {
+              !["aceptado","entregado","rebotado","queja","error"].includes(r.estado)) {
             status = "sin_correlacion"; code = "ESPERANDO_ACEPTACION";
           } else {
             recipient = r;
-            await c.query(`UPDATE email_notification_recipients SET estado=$4,updated_at=NOW()
+            const nextState=stateAfterEmailEvent(r.estado,e.event_type);
+            await c.query(`UPDATE email_notification_recipients SET estado=$4,updated_at=NOW(),next_attempt_at=NULL,
+              motivo=CASE WHEN $6::text IS NULL THEN motivo ELSE $6::text END,
+              error_code=CASE WHEN $7::text IS NULL THEN error_code ELSE $7::text END
               WHERE id=$1 AND tenant_id=$2 AND campus_id=$3 AND provider_message_id=$5`,
-            [r.id,r.tenant_id,r.campus_id,stateAfterEmailEvent(r.estado,e.event_type),e.provider_message_id]);
+            [r.id,r.tenant_id,r.campus_id,nextState,e.provider_message_id,
+              e.event_type==="email.suppressed" && nextState==="rebotado" ? "suprimido por el proveedor" : null,
+              e.event_type==="email.failed" && nextState==="error" ? details.failedReason : null]);
             status = "procesado"; code = null;
           }
         }

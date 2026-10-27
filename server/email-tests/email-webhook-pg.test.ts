@@ -8,7 +8,8 @@ const event={eventId:"authenticated-event",eventType:"email.delivered",messageId
   occurredAt:"2026-01-01T00:00:00Z",receiptId:"receipt",payloadHash:"hash"};
 function fakeDatabase(options:{matches?:any[];owned?:boolean;failAt?:string}={}) {
   const stored={provider_event_id:event.eventId,event_type:"email.bounced",provider_message_id:event.messageId,
-    occurred_at:event.occurredAt,receipt_id:event.receiptId,payload_hash:"hash"};
+    occurred_at:event.occurredAt,receipt_id:event.receiptId,payload_hash:"hash",
+    details:{bounceType:"Permanent",bounceSubType:"General"}};
   const recipient={id:"r1",tenant_id:1,campus_id:10,provider_message_id:event.messageId,estado:"aceptado",
     accepted_at:"2026-01-01T00:00:00Z",enviado_en:"2026-01-01T00:00:00Z",scope_valid:true};
   const query=vi.fn(async(sql:string,_params?:any[])=>{
@@ -23,6 +24,31 @@ function fakeDatabase(options:{matches?:any[];owned?:boolean;failAt?:string}={})
   return {query,connection,database,recipient,stored,repo:new PgEmailWebhookRepository(database)};
 }
 describe("Fase B: contratos PostgreSQL sin conexión (SQL capturado, no ejecutado)",()=>{
+  it("persistencia de metadatos usa parámetros; el procesador relee failed.reason y bloquea reenvíos",async()=>{
+    const f=fakeDatabase();f.stored.event_type="email.failed";
+    (f.stored as any).details={failedReason:"reached_daily_quota"};
+    await f.repo.process({...event,claimId:"claim",details:{failedReason:"forged"}});
+    const update=f.query.mock.calls.find(([sql])=>sql.includes("UPDATE email_notification_recipients"))!;
+    expect(update[0]).toContain("next_attempt_at=NULL");
+    expect(update[1]).toEqual(["r1",1,10,"error",event.messageId,null,"reached_daily_quota"]);
+  });
+  it("supresión persiste motivo fijo y no degrada una queja previa",async()=>{
+    const f=fakeDatabase();f.stored.event_type="email.suppressed";f.recipient.estado="queja";
+    await f.repo.process({...event,claimId:"claim"});
+    const update=f.query.mock.calls.find(([sql])=>sql.includes("UPDATE email_notification_recipients"))!;
+    expect(update[1]).toEqual(["r1",1,10,"queja",event.messageId,null,null]);
+  });
+  it("snapshot, SQL y modelo mantienen TTL, metadatos y tipos procesables alineados sin ejecutar DDL",()=>{
+    const snapshot=JSON.parse(readFileSync(new URL("../../drizzle/migrations/meta/0004_snapshot.json",import.meta.url),"utf8"));
+    const events=snapshot.tables["public.email_webhook_events"];
+    expect(events.columns.details.type).toBe("jsonb");
+    expect(events.checkConstraints.email_webhook_events_scope_check.value).toContain("'email.delivery_delayed'");
+    expect(events.checkConstraints.email_webhook_events_scope_check.value).not.toContain("'email.sent'");
+    expect(events.checkConstraints.email_webhook_events_state_check.value).toContain("'no_procesado'");
+    expect(snapshot.tables["public.email_webhook_receipts"].checkConstraints.email_webhook_receipts_ttl_check.value).toContain("'7 days'");
+    const sql=readFileSync(new URL("../../drizzle/migrations/0004_email_notifications_phase_b.sql",import.meta.url),"utf8");
+    expect(sql).toContain('"details" jsonb');expect(sql).toContain("'7 days'");
+  });
   it("crudo usa transacción, capacidad serializada, TTL y cuerpo exacto; sin id confiable ni headers",async()=>{
     const f=fakeDatabase();const payload=Buffer.from("original bytes");
     await f.repo.saveRaw(payload);
@@ -32,7 +58,7 @@ describe("Fase B: contratos PostgreSQL sin conexión (SQL capturado, no ejecutad
     expect(queries[2]).toContain("expires_at<=NOW()");expect(queries[2]).toContain("LIMIT 2000");
     const insert=f.query.mock.calls.find(([q])=>q.includes("INSERT INTO email_webhook_receipts"))!;
     expect(insert[0]).not.toMatch(/provider_event_id|signature|headers|tenant_id/);
-    expect(insert[1]?.[1]).toBe(payload.toString("base64"));expect(insert[1]?.[4]).toBe(24);
+    expect(insert[1]?.[1]).toBe(payload.toString("base64"));expect(insert[1]?.[4]).toBe(168);
     expect(f.connection.release).toHaveBeenCalled();
   });
   it("fallo de recepción revierte antes de confirmar",async()=>{
@@ -44,7 +70,7 @@ describe("Fase B: contratos PostgreSQL sin conexión (SQL capturado, no ejecutad
   it("únicamente enqueue usa el id autenticado con ON CONFLICT",async()=>{
     const f=fakeDatabase();await f.repo.enqueue(event);
     expect(f.query.mock.calls[0][0]).toContain("ON CONFLICT(provider_event_id) DO NOTHING");
-    expect(f.query.mock.calls[0][1]).toEqual([event.eventId,event.eventType,event.messageId,event.occurredAt,event.receiptId,event.payloadHash]);
+    expect(f.query.mock.calls[0][1]).toEqual([event.eventId,event.eventType,event.messageId,event.occurredAt,event.receiptId,event.payloadHash,"{}"]);
   });
   it("claim atómico incluye vencidos y SKIP LOCKED, sin pedir scope al payload",()=>{
     expect(claimWebhookSql).toContain("FOR UPDATE SKIP LOCKED");
@@ -56,7 +82,7 @@ describe("Fase B: contratos PostgreSQL sin conexión (SQL capturado, no ejecutad
     const f=fakeDatabase();
     await f.repo.process({...event,claimId:"claim",eventType:"email.complained",messageId:"forged"});
     const recipientUpdate=f.query.mock.calls.find(([q])=>q.startsWith("UPDATE email_notification_recipients"))!;
-    expect(recipientUpdate[1]).toEqual(["r1",1,10,"rebotado",event.messageId]);
+    expect(recipientUpdate[1]).toEqual(["r1",1,10,"rebotado",event.messageId,null,null]);
     expect(recipientUpdate[0]).toContain("tenant_id=$2 AND campus_id=$3 AND provider_message_id=$5");
     expect(recipientUpdate[0]).not.toMatch(/accepted_at=|enviado_en=/);
     const eventUpdate=f.query.mock.calls.find(([q])=>q.startsWith("UPDATE email_webhook_events"))!;
@@ -103,14 +129,14 @@ describe("Fase B: contratos PostgreSQL sin conexión (SQL capturado, no ejecutad
       evidence_aceptados:1,evidence_entregados:1,evidence_rebotados:1,evidence_quejas:1}]}));
     const counts=await new PgEmailRepository({query} as any).stats({tenantId:2,campusId:20,userId:8});
     expect(counts.queja).toBe(1);expect(counts.entregado).toBe(0);
-    expect(counts.evidence).toEqual({aceptados:1,entregados:1,rebotados:1,quejas:1});
+    expect(counts.evidence).toEqual({aceptados:1,entregados:1,rebotados:1,quejas:1,suprimidos:0,fallidos:0,demorados:0});
     expect(query.mock.calls[0]).toEqual([emailEvidenceCountsSql,[2,20,null]]);
     expect(counts).not.toHaveProperty("tasaEntrega");
   });
   it("fecha o estado sin evento no constituye entrega/queja/rebote",()=>{
     const c=countEmailEvidence([{estado:"entregado",n:1,evidence_aceptados:1,
       evidence_entregados:0,evidence_rebotados:0,evidence_quejas:0}]);
-    expect(c.entregado).toBe(0);expect(c.evidence).toEqual({aceptados:1,entregados:0,rebotados:0,quejas:0});
+    expect(c.entregado).toBe(0);expect(c.evidence).toEqual({aceptados:1,entregados:0,rebotados:0,quejas:0,suprimidos:0,fallidos:0,demorados:0});
   });
   it("detalle expone hechos, no crudo o firma; aplica scope a todas las lecturas",async()=>{
     const query=vi.fn(async(sql:string,_params?:any[])=>({rows:sql.startsWith("SELECT id,created_at FROM email_notification_batches WHERE id")?[{id:"batch"}]:[]}));

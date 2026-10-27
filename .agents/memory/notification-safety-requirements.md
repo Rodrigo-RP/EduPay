@@ -64,3 +64,28 @@ borre incidencias o convierta retrospectivamente una aceptación en entrega.
 no eventos ni estados legados. Correlacionar sólo con el ID de envío almacenado;
 nunca atribuir tenant/campus por tags o direcciones del payload. Preparar una
 fase no autoriza iniciar procesadores, registrar webhooks, migrar ni enviar.
+
+Las supresiones, fallos y demoras son hechos separados: supresión se representa
+como rebotado con motivo explícito, fallo como error, demora no cambia el estado.
+La precedencia acordada es queja > rebotado > error > entregado > aceptado.
+`email.sent` no es prueba de entrega ni un hecho procesable de esta fase.
+
+**Why:** El usuario exige conservar incidencias y sus códigos, incluso cuando
+una entrega tardía llega después de un fallo, rebote o queja.
+
+**How to apply:** No crear estados de destinatario para supresión o demora.
+Conservar tipos/subtipos/códigos normalizados y contar hechos distintos por
+destinatario. Sin Secret de webhook no se persiste ni siquiera cuarentena.
+El crudo no verificado tiene retención acordada de siete días, nunca logs.
+
+Un workflow marcado como fallido no demuestra que la app o su worker estén
+detenidos. Registrar la hora de observación y de señal antes de detenerlos;
+si faltan datos, reportar un intervalo y no una hora reconstruida como exacta.
+
+**Why:** Se encontraron procesos vivos pese al estado del workflow; los conteos
+posteriores de filas no pueden probar por sí solos ausencia de conexiones,
+modificaciones o DDL anteriores.
+
+**How to apply:** En estas fases comprobar procesos del SO y puertos antes y
+después de instalar. Mantener la app detenida sin cambiar workflows o `.replit`.
+Separar iniciador técnico de persona responsable, y conteos de causalidad.

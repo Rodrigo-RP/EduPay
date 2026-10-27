@@ -3,11 +3,13 @@ import type { EmailWebhookRepository } from "./webhook-types";
 
 /** Incidents are sticky facts, regardless of timestamp or arrival order. */
 export function stateAfterEmailEvent(current: EmailState, type: string): EmailState {
-  if (current === "queja" || type === "email.complained") return "queja";
-  if (current === "rebotado" || type === "email.bounced") return "rebotado";
-  if (current === "entregado" || type === "email.delivered") return "entregado";
-  // A late email.sent records a separate fact; it cannot downgrade anything.
-  return current;
+  const states:Record<string,EmailState> = {
+    "email.complained":"queja","email.bounced":"rebotado","email.suppressed":"rebotado",
+    "email.failed":"error","email.delivered":"entregado",
+  };
+  const priority:Partial<Record<EmailState,number>> = {aceptado:0,entregado:1,error:2,rebotado:3,queja:4};
+  const proposed=states[type];
+  return proposed && (priority[proposed]??-1)>(priority[current]??-1) ? proposed : current;
 }
 
 // Explicit, single tick. Registration/import never starts a worker or a timer.

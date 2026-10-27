@@ -1,15 +1,21 @@
 import { describe,it,expect,vi } from "vitest";
 import { randomBytes,randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
+import express from "express";
 import { readFileSync } from "node:fs";
-import { Webhook } from "standardwebhooks";
+import { Webhook } from "svix";
 import { createResendWebhookVerifier } from "../lib/email/webhook-signature";
-import { registerResendWebhookRoute,resendWebhookBody,RESEND_WEBHOOK_PATH } from "../routes/email-webhooks";
+import { registerResendWebhookRoute,resendWebhookRateLimit,resendWebhookBodyError,RESEND_WEBHOOK_PATH } from "../routes/email-webhooks";
 import { processEmailWebhookOnce,stateAfterEmailEvent } from "../lib/email/webhook-worker";
 import { WEBHOOK_RAW_MAX_ROWS,WEBHOOK_RAW_MAX_BYTES,WEBHOOK_MAX_BODY_BYTES,WEBHOOK_LEASE_MS } from "../lib/email/webhook-types";
 import { MemoryWebhookRepository } from "./webhook-memory-repository";
 
 const messageId=randomUUID();
+function resendWebhookBody() {
+  const raw=express.raw({type:()=>true,limit:"64kb",inflate:false});
+  return [resendWebhookRateLimit(),((req:any,res:any,next:any)=>raw(req,res,error=>
+    error?resendWebhookBodyError(error,req,res,next):next()))] as const;
+}
 function fixture() {
   const secret=`whsec_${randomBytes(32).toString("base64")}`;
   const signer=new Webhook(secret);
@@ -23,7 +29,9 @@ function fixture() {
   function signed(type="email.delivered",eventId=randomUUID(),options:{at?:Date;body?:string;emailId?:string;data?:any}={}) {
     const at=options.at??new Date();
     const body=Buffer.from(options.body??JSON.stringify({type,created_at:at.toISOString(),
-      data:{email_id:options.emailId??messageId,...options.data}}));
+      data:{email_id:options.emailId??messageId,
+        ...(type==="email.bounced"?{bounce:{type:"Permanent",subType:"General"}}:{}),
+        ...(type==="email.failed"?{failed:{reason:"reached_daily_quota"}}:{}),...options.data}}));
     return {body,headers:{"svix-id":eventId,"svix-timestamp":String(Math.floor(at.getTime()/1000)),
       "svix-signature":signer.sign(eventId,at,body)}};
   }
@@ -78,7 +86,7 @@ describe("Fase B: recepción firmada aislada",()=>{
       send(text:string){this.text=text;return this;}};
     await handler(f.signed(),response);
     expect(response.statusCode).toBe(503);expect(response.text).not.toContain(f.secret);
-    expect(f.repo.events.size).toBe(0);expect(f.repo.raw.size).toBe(1);
+    expect(f.repo.events.size).toBe(0);expect(f.repo.raw.size).toBe(0);expect(f.repo.actions).toEqual([]);
   });
   it("rotación: admite una firma válida entre varias con la librería oficial",async()=>{
     const f=fixture();const req=f.signed();
@@ -129,6 +137,46 @@ describe("Fase B: recepción firmada aislada",()=>{
 });
 
 describe("Fase B: transiciones y recuperación",()=>{
+  it("email.failed conserva el código del proveedor y pasa a error sin reenvío",async()=>{
+    const f=fixture();await f.request(f.signed("email.failed"));await processEmailWebhookOnce(f.repo);
+    expect(f.repo.recipients.get("r1")).toMatchObject({estado:"error",errorCode:"reached_daily_quota"});
+    expect(Array.from(f.repo.events.values())[0]).toMatchObject({status:"procesado",details:{failedReason:"reached_daily_quota"}});
+    expect(await processEmailWebhookOnce(f.repo)).toBe(false);
+  });
+  it("email.suppressed pasa a rebotado con motivo fijo, sin inventar una entrega",async()=>{
+    const f=fixture();await f.request(f.signed("email.suppressed"));await processEmailWebhookOnce(f.repo);
+    expect(f.repo.recipients.get("r1")).toMatchObject({estado:"rebotado",reason:"suprimido por el proveedor"});
+    expect(Array.from(f.repo.events.values()).map(e=>e.eventType)).toEqual(["email.suppressed"]);
+  });
+  it.each(["aceptado","entregado","error","rebotado","queja"])("demora conserva %s y guarda su hecho independiente",async state=>{
+    const f=fixture();f.repo.recipients.get("r1")!.estado=state;
+    await f.request(f.signed("email.delivery_delayed"));await processEmailWebhookOnce(f.repo);
+    expect(f.repo.recipients.get("r1")!.estado).toBe(state);
+    expect(Array.from(f.repo.events.values())[0]).toMatchObject({status:"procesado",eventType:"email.delivery_delayed"});
+  });
+  it.each([
+    ["email.failed","email.delivered","error"],["email.delivered","email.failed","error"],
+    ["email.failed","email.bounced","rebotado"],["email.bounced","email.failed","rebotado"],
+    ["email.failed","email.complained","queja"],["email.complained","email.failed","queja"],
+    ["email.suppressed","email.delivered","rebotado"],
+  ])("precedencia %s → %s conserva %s y todos los hechos",async(first,second,state)=>{
+    const f=fixture();for(const type of[first,second]){await f.request(f.signed(type));await processEmailWebhookOnce(f.repo);}
+    expect(f.repo.recipients.get("r1")!.estado).toBe(state);
+    expect(Array.from(f.repo.events.values()).filter(e=>e.status==="procesado")).toHaveLength(2);
+  });
+  it.each(["Permanent","Temporary","Transient"])("conserva bounce.type=%s y bounce.subType sin diagnósticos",async type=>{
+    const f=fixture();await f.request(f.signed("email.bounced",randomUUID(),
+      {data:{bounce:{type,subType:"General",message:"private fixture@example.test",diagnosticCode:["private"]}}}));
+    await processEmailWebhookOnce(f.repo);
+    const e=Array.from(f.repo.events.values())[0];expect(e.details).toEqual({bounceType:type,bounceSubType:"General"});
+    expect(JSON.stringify(e)).not.toContain("fixture@example.test");expect(e.status).toBe("procesado");
+  });
+  it("un failed.reason con datos libres queda en revisión sin almacenar el texto en el evento normalizado",async()=>{
+    const f=fixture();await f.request(f.signed("email.failed",randomUUID(),{data:{failed:{reason:"private fixture@example.test"}}}));
+    await processEmailWebhookOnce(f.repo);expect(f.repo.recipients.get("r1")!.estado).toBe("aceptado");
+    const e=Array.from(f.repo.events.values())[0];expect(e.status).toBe("revision");
+    expect(JSON.stringify(e)).not.toContain("fixture@example.test");
+  });
   it.each([
     ["email.delivered","email.bounced","rebotado"],
     ["email.bounced","email.delivered","rebotado"],
@@ -139,7 +187,8 @@ describe("Fase B: transiciones y recuperación",()=>{
   ])("orden %s → %s conserva %s y ambos hechos",async(first,second,state)=>{
     const f=fixture();
     await f.request(f.signed(first));await processEmailWebhookOnce(f.repo);
-    await f.request(f.signed(second,randomUUID(),{body:JSON.stringify({type:second,created_at:"2025-01-01T00:00:00Z",data:{email_id:messageId}})}));
+    await f.request(f.signed(second,randomUUID(),{body:JSON.stringify({type:second,created_at:"2025-01-01T00:00:00Z",
+      data:{email_id:messageId,...(second==="email.bounced"?{bounce:{type:"Permanent",subType:"General"}}:{})}})}));
     await processEmailWebhookOnce(f.repo);
     expect(f.repo.recipients.get("r1")!.estado).toBe(state);
     expect([...f.repo.events.values()].every(e=>e.status==="procesado")).toBe(true);
@@ -149,11 +198,11 @@ describe("Fase B: transiciones y recuperación",()=>{
   });
   it("queja prevalece incluso con rebote y entrega anteriores",async()=>{
     const f=fixture();
-    for(const type of ["email.complained","email.sent","email.bounced","email.delivered"]){
+    for(const type of ["email.complained","email.bounced","email.delivered"]){
       await f.request(f.signed(type));await processEmailWebhookOnce(f.repo);
     }
     expect(f.repo.recipients.get("r1")!.estado).toBe("queja");
-    expect([...f.repo.events.values()].filter(e=>e.status==="procesado")).toHaveLength(4);
+    expect([...f.repo.events.values()].filter(e=>e.status==="procesado")).toHaveLength(3);
   });
   it("evento anterior al commit de aceptación se conserva y se reintenta",async()=>{
     const f=fixture();const recipient=f.repo.recipients.get("r1")!;f.repo.recipients.clear();
@@ -208,9 +257,9 @@ describe("Fase B: transiciones y recuperación",()=>{
     expect([...f.repo.recipients.values()].every(r=>r.estado==="aceptado")).toBe(true);
     expect([...f.repo.events.values()][0]).toMatchObject({status:"revision",recipientId:null,tenantId:null});
   });
-  it.each(["email.opened","email.clicked","domain.updated"])("evento fuera de alcance %s se conserva sin seguimiento",async type=>{
+  it.each(["email.sent","email.opened","email.clicked","domain.updated"])("evento fuera de alcance %s se conserva sin seguimiento",async type=>{
     const f=fixture();await f.request(f.signed(type));await processEmailWebhookOnce(f.repo);
-    expect([...f.repo.events.values()][0].status).toBe("ignorado");
+    expect([...f.repo.events.values()][0].status).toBe("no_procesado");
     expect(f.repo.recipients.get("r1")!.estado).toBe("aceptado");
   });
   it("evento firmado malformado se guarda para revisión, no como entrega",async()=>{
@@ -234,14 +283,14 @@ describe("Fase B: límites y cuerpo original",()=>{
   });
   it("retención elimina sólo crudos vencidos; no elimina eventos ni evidencia",async()=>{
     const f=fixture();await f.request();await processEmailWebhookOnce(f.repo);
-    const firstId=[...f.repo.raw.keys()][0];f.repo.clock+=24*3600_000+1;
+    const firstId=[...f.repo.raw.keys()][0];f.repo.clock+=7*24*3600_000+1;
     await f.repo.saveRaw(Buffer.from("next"));
     expect(f.repo.raw.has(firstId)).toBe(false);expect(f.repo.events.size).toBe(1);
     expect(f.repo.recipients.get("r1")!.estado).toBe("entregado");
   });
   it("un tick limpia crudos vencidos aun sin eventos pendientes",async()=>{
     const f=fixture();await f.request();await processEmailWebhookOnce(f.repo);
-    f.repo.clock+=24*3600_000+1;
+    f.repo.clock+=7*24*3600_000+1;
     expect(await processEmailWebhookOnce(f.repo)).toBe(false);
     expect(f.repo.raw.size).toBe(0);expect(f.repo.events.size).toBe(1);
   });
@@ -275,13 +324,14 @@ describe("Fase B: límites y cuerpo original",()=>{
     const req:any=Readable.from([body]);req.headers={"content-type":"application/json","content-length":String(body.length)};
     req.method="POST";
     const [,raw]=resendWebhookBody();
-    await new Promise<void>((resolve,reject)=>raw(req,{} as any,error=>error?reject(error):resolve()));
+    await new Promise<void>((resolve,reject)=>raw(req,{} as any,(error:any)=>error?reject(error):resolve()));
     expect(Buffer.isBuffer(req.body)).toBe(true);expect(req.body.equals(body)).toBe(true);
   });
   it("integración registra captura antes de JSON y ruta antes de sanitizeInput",()=>{
     const index=readFileSync(new URL("../index.ts",import.meta.url),"utf8");
     const routes=readFileSync(new URL("../routes.ts",import.meta.url),"utf8");
-    expect(index.indexOf("app.use(RESEND_WEBHOOK_PATH")).toBeLessThan(index.indexOf("app.use(express.json"));
+    expect(index.indexOf('app.use("/api/notifications/webhooks/resend"')).toBeLessThan(index.indexOf("app.use(express.json"));
+    expect(index).toContain('express.raw({type:()=>true,limit:"64kb",inflate:false})');
     expect(routes.indexOf("registerEmailWebhookRuntime(app,pool)")).toBeLessThan(routes.indexOf("app.use(sanitizeInput)"));
   });
   it("registra solamente el POST esperado, sin rutas o workers de prueba",()=>{

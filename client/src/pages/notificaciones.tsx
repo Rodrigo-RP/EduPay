@@ -41,7 +41,7 @@ const TIPOS: { value: Tipo; label: string; detail: string }[] = [
 const COUNT_LABELS: [Estado | "total", string][] = [
   ["total", "Registros"], ["pendiente", "Pendientes"], ["enviando", "En proceso"],
    ["aceptado", "Aceptados (estado actual)"], ["entregado", "Entregados (estado actual)"],
-  ["rebotado", "Rebotados"], ["queja", "Quejas"], ["error", "Errores"],
+  ["rebotado", "Rebotes/supresiones (actual)"], ["queja", "Quejas"], ["error", "Errores"],
   ["incierto", "Estado incierto"], ["omitido", "Omitidos"],
 ];
 

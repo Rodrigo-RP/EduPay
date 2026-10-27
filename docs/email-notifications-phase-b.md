@@ -22,9 +22,9 @@ No se modifica `replit-en-vivo`, `skill-protocolo` ni la rama de Fase A.
 3. Persiste los bytes originales en base64, tamaño, hash y vencimiento en
    cuarentena **no confiable**. Base64 no es cifrado. No guarda headers, firma
    ni Secret. No registra cuerpo, direcciones o diagnósticos del proveedor.
-4. Verifica con `standardwebhooks@1.0.0`, la biblioteca usada directamente por
-   el SDK oficial vigente de Resend. Mapea los tres headers `svix-*` exactamente
-   como ese SDK. Valida formato del Secret/headers con Zod; la biblioteca oficial
+4. Verifica con el SDK oficial `svix@1.99.1`, fijado exactamente y comprobado
+   con Node 20, sin `EBADENGINE`. Usa los tres headers nativos `svix-*`.
+   Valida formato del Secret/headers con Zod; la biblioteca oficial
    comprueba HMAC, comparación segura y tolerancia temporal de cinco minutos.
 5. Sólo después de verificar utiliza `svix-id` como clave primaria confiable.
    Una firma inválida no reserva ese ID. Los duplicados firmados conservan su
@@ -34,6 +34,12 @@ No se modifica `replit-en-vivo`, `skill-protocolo` ni la rama de Fase A.
    frecuencia, 429; tamaño/compresión, 413/415. Respuestas de código constante,
    sin detalles internos. Nunca procesa el evento dentro de la petición.
 
+Antes de cualquier SQL se comprueba la configuración. Sin Secret válido:
+503 y **cero escrituras**, tampoco recepción cruda. Headers ausentes: 400 antes
+de la cuarentena; firma incorrecta: 400, sin reservar un ID confiable.
+Esta excepción explícita del usuario precede al orden general de cuarentena
+del protocolo.
+
 `RESEND_WEBHOOK_SECRET` es exclusivamente de servidor. No se creó ni solicitó
 un Secret real. Ausente/malformado falla cerrado; no existe un valor por defecto
 que permita simular autenticación.
@@ -41,7 +47,7 @@ que permita simular autenticación.
 ### Retención y procesamiento
 
 - Cuarentena: máximo 2,000 filas y 16 MiB de bytes originales globales
-  (base64 ocupa más espacio físico), expiración a 24 horas.
+  (base64 ocupa más espacio físico), expiración a **7 días (168 horas)**.
 - Contabilidad de capacidad serializada con advisory lock transaccional.
   Si se llena, falla cerrado con 503, no descarta evidencia dando 200.
 - Limpieza acotada de expirados al recibir otra petición o al ejecutar un tick
@@ -56,7 +62,8 @@ que permita simular autenticación.
   Si falla, rollback; el evento sigue reclamable tras vencer la lease.
 - Los no correlacionados se conservan indefinidamente y reintentan cada minuto
   cuando un operador habilite la ejecución. No se descartan por número de intentos.
-- Tipos desconocidos: retenidos como ignorados. Eventos conocidos incompletos
+- `email.sent`, `email.opened`, `email.clicked` y tipos desconocidos: retenidos
+  como **no procesados**, sin cambiar destinatarios. Eventos conocidos incompletos
   o con scope inconsistente/ambiguo: revisión, sin alterar destinatarios.
 
 ### Correlación, scope y hechos
@@ -74,19 +81,34 @@ FK compuesta. Las lecturas de notificaciones mantienen permisos y scope de
 Fase A; la entrada pública usa firma del proveedor, no JWT administrativo.
 
 Estado efectivo monotónico:
-`queja > rebotado > entregado > aceptado`.
-`email.sent` tardío no degrada nada. Los eventos verificados permanecen como
+`queja > rebotado > error > entregado > aceptado`.
+`email.sent` no se procesa. Los eventos verificados permanecen como
 hechos distintos con ID y fecha; una queja no inventa una entrega, y una entrega
 no borra rebote/queja. No se modifica `accepted_at` ni `enviado_en` de Fase A.
 
 Conteos de evidencia acumulados por **destinatario distinto**, no por cantidad
 de eventos: aceptaciones con ID, entregas firmadas, rebotes firmados y quejas
-firmadas. No son sumables. Se conservan también contadores de estado actual.
+firmadas, supresiones, fallos y demoras firmados. No son sumables. Se conservan
+también contadores de estado actual.
 No se usa `notifications` legado, ni se calcula una tasa a partir de aceptaciones.
-La UI muestra los cuatro hechos, fechas/IDs y advertencias de incidencia; una
+La UI muestra los hechos, fechas/IDs y advertencias de incidencia; una
 fecha o estado avanzado sin evento no habilita un badge de evidencia.
 Sin URL pública/evento firmado no se afirma entrega. “Actualizar” recarga
 también el lote abierto.
+
+- `email.bounced`: guarda `bounce.type` y `bounce.subType`; UI distingue
+  Permanente de Temporal (`Temporary` o `Transient`).
+- `email.suppressed`: estado rebotado, motivo fijo
+  **«suprimido por el proveedor»**. Su hecho y conteo son independientes de
+  un rebote firmado: no se fabrica un `email.bounced`.
+- `email.failed`: error y código `failed.reason` preservado. Sólo se normalizan
+  códigos de hasta 128 caracteres alfanuméricos/`_.:-`; texto libre se conserva
+  únicamente en cuarentena limitada y queda en revisión, nunca en logs ni como
+  código de error. Se anula `next_attempt_at`, sin reenvío automático.
+- `email.delivery_delayed`: conserva el estado y muestra **«Con demora»** con
+  su evento/fecha. Una demora histórica no acredita entrega.
+- `details` contiene sólo esos códigos mínimos; no asunto, direcciones,
+  diagnósticos SMTP, mensajes libres, firma ni Secret.
 
 ## ARCHIVOS MODIFICADOS
 
@@ -112,8 +134,10 @@ también el lote abierto.
   de hechos/conteos y verificación de badges.
 - `client/src/pages/notificaciones.tsx`: integración en estadísticas, historial
   y detalle, y actualización del lote abierto.
-- `package.json`, `package-lock.json`: declaran directamente `standardwebhooks`
-  ya instalado. No se ejecutó ninguna instalación.
+- `package.json`, `package-lock.json`: fijan el SDK oficial `svix@1.99.1`.
+  Instalación por terminal con `--save-exact --ignore-scripts`; sin alterar Node,
+  `.replit` ni workflows, sin reiniciar. No hay dependencia directa de
+  `standardwebhooks`; Svix utiliza su dependencia oficial interna.
 - `server/email-tests/email-phase-b.test.ts`: firmas, recepción, límites,
   orden, idempotencia, recuperación y scope, sin red.
 - `server/email-tests/webhook-memory-repository.ts`: persistencia simulada
@@ -130,10 +154,12 @@ también el lote abierto.
 - `.agents/memory/vitest-ui-transform.md`, `.agents/memory/MEMORY.md`: explicación
   del transformador de pruebas y punteros a requisitos persistentes.
 - `docs/email-notifications-phase-b.md`: este informe.
+- `docs/email-notifications-phase-b-database-report.md`: procesos y todas las
+  consultas SELECT reales autorizadas, parámetros, resultados y limitaciones.
 
 ## MIGRACIONES
 
-Se ejecutó **generación offline**, no aplicación:
+`0004` se había generado offline en la implementación anterior transportada:
 
 ```sh
 DATABASE_URL=postgresql://127.0.0.1:1/blocked \
@@ -147,6 +173,12 @@ cambios de datos. Se ordenó la restricción única antes de la FK: Drizzle la
 había generado después de su referencia. Snapshot/journal corresponden al
 esquema generado.
 
+En este ajuste **no se ejecutó ningún comando de migración ni de generación**.
+Se editaron el SQL pendiente `0004` y su snapshot en la rama de revisión:
+TTL 7 días, `details` JSONB nullable y tipos/estados internos acordados.
+No se añade ningún estado de destinatario. El nuevo control estático comprueba
+la alineación entre snapshot y SQL sin conectarse a PostgreSQL.
+
 No se aplicó ni siquiera a una base temporal. La compatibilidad física real
 y la concurrencia PostgreSQL están pendientes de validación autorizada.
 Esta rama también hereda `0003` de Fase A. El hook post-merge existente conserva
@@ -155,13 +187,14 @@ pendientes sobre la base identificada**. No se ejecutó ni modificó ese hook.
 
 ## PRUEBAS
 
-Suite A+B aislada: 72 regresiones de A + 74 pruebas de B/UI/contratos SQL.
+Suite A+B aislada: **72 regresiones de A + 100 pruebas de B/UI/contratos SQL**.
+Comando: `cd server && npx vitest run --config vitest.email.config.ts`.
 
 ```text
 Test Files  4 passed (4)
-     Tests  146 passed (146)
-  Start at  01:57:47
-  Duration  4.44s (transform 724ms, setup 136ms, import 1.73s, tests 430ms, environment 0ms)
+     Tests  172 passed (172)
+  Start at  02:53:49
+  Duration  5.40s (transform 879ms, setup 123ms, import 3.00s, tests 405ms, environment 0ms)
 ```
 
 Seguridad aislada:
@@ -169,8 +202,8 @@ Seguridad aislada:
 ```text
 Test Files  2 passed (2)
      Tests  23 passed (23)
-  Start at  01:54:05
-  Duration  3.29s (transform 598ms, setup 0ms, import 1.86s, tests 250ms, environment 0ms)
+  Start at  03:00:55
+  Duration  3.65s (transform 526ms, setup 0ms, import 1.94s, tests 193ms, environment 0ms)
 ```
 
 Pasaron también: `npx tsc --noEmit -p server/tsconfig.email.json`,
@@ -188,10 +221,18 @@ son del pase final. Logs y build outputs quedan fuera de Git.
 
 ## CONSULTAS A LA BASE
 
-**Ninguna contra DATABASE_URL, NEON_DATABASE_URL ni otra base real.**
-Las pruebas de repositorio capturan SQL en dobles de prueba, no lo ejecutan.
-No se inspeccionó catálogo, tabla de migraciones, datos, destinatarios reales
-ni configuración secreta. No se ejecutó seed, backfill, migración ni worker.
+Las pruebas de repositorio siguen capturando SQL en dobles, sin ejecutarlo.
+Separadamente, el usuario autorizó **SELECT reales sobre DATABASE_URL** para
+los procesos detenidos. Sesiones con `default_transaction_read_only=on`,
+confirmado por SELECT antes de consultar: catálogo de columnas y conteos
+agregados, sin destinatarios, datos personales ni valores de Secrets.
+
+**0 filas en las siete tablas**, tanto hasta la última observación con hora
+conocida como hasta el límite superior de detención. La hora exacta del
+SIGTERM no quedó registrada: no se inventa ni se atribuyen causalidades.
+Texto completo de cada SELECT, parámetros, conteos y límites:
+[informe de procesos y base](email-notifications-phase-b-database-report.md).
+No se ejecutó DML, DDL, seed, backfill, migración ni worker.
 
 ## DOCUMENTACIÓN EXTERNA CONSULTADA
 
@@ -203,6 +244,9 @@ Consulta de fuentes oficiales durante la implementación (2026-10-26):
 - https://resend.com/docs/webhooks/emails/delivered
 - https://resend.com/docs/webhooks/emails/bounced
 - https://resend.com/docs/webhooks/emails/complained
+- https://resend.com/docs/webhooks/emails/failed
+- https://resend.com/docs/webhooks/emails/suppressed
+- https://resend.com/docs/webhooks/emails/delivery-delayed
 - https://docs.svix.com/receiving/verifying-payloads/how
 - https://raw.githubusercontent.com/resend/resend-node/main/src/webhooks/webhooks.ts
 - https://raw.githubusercontent.com/svix/svix-webhooks/main/javascript/src/webhook.ts
@@ -220,6 +264,10 @@ significa aceptación por el servidor de correo, no lectura por la persona.
 - UI autenticada en navegador/captura: la app permaneció sin arrancar;
   sólo se verificaron componentes nuevos mediante SSR aislado.
 - Estado actual de migraciones en cualquier base configurada.
+- Hora exacta de detención y persona que solicitó el arranque anterior.
+  Sí se conoce el usuario del SO, la cadena técnica de procesos y un intervalo
+  conservador de detención. Cero filas creadas no demuestra ausencia de
+  modificaciones, borrados, DDL ni filas creadas y luego eliminadas.
 
 ## HALLAZGOS FUERA DE ALCANCE (NO CORREGIDOS)
 
@@ -229,9 +277,20 @@ reportes y un script de reproducción. Build: advertencias de Browserslist
 desactualizado y chunks mayores de 500 KiB. No se corrigieron estos módulos,
 ni se tocó `approval_notifications`.
 
+`npm` informó 53 alertas de dependencias (5 bajas, 18 moderadas, 25 altas,
+5 críticas). No se ejecutó `npm audit fix`, no se atribuyen al cambio sin
+comparar una auditoría de base y no se actualizaron dependencias ajenas.
+También persiste el aviso de peer dependency de `@types/node` del Vite anidado;
+no es `EBADENGINE` y no se modificó Node para resolverlo.
+
+El arranque anterior de auditoría contiene `CREATE TABLE IF NOT EXISTS` en
+`initAuditRetryQueue`. Está fuera del diff funcional de esta fase. Los conteos
+de cero filas no permiten afirmar que no haya ejecutado DDL; no se modificó
+ese arranque ni se volvió a ejecutar.
+
 ## RAMA
 
-`email-notifications-phase-b-review`, basada en la Fase A limpia.
+`email-notifications-phase-b`, basada en la Fase A limpia.
 Sin integración ni publicación de la app.
 
 ## COMMIT

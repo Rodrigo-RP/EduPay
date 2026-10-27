@@ -3,6 +3,7 @@ import { relations, sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 export * from "./email-schema";
+export * from "./email-webhook-schema";
 
 // TENANTS (Multi-school SaaS)
 export const tenants = pgTable("tenants", {

@@ -1,6 +1,6 @@
 {
   "extends": "../tsconfig.json",
-  "include": ["lib/email/**/*.ts", "routes/email-notifications.ts", "email-tests/**/*.ts", "vitest.email.config.ts", "../shared/email-schema.ts"],
+  "include": ["lib/email/**/*.ts", "routes/email-notifications.ts", "routes/email-webhooks.ts", "email-tests/**/*.ts", "email-tests/**/*.tsx", "vitest.email.config.ts", "../shared/email-schema.ts", "../shared/email-webhook-schema.ts"],
   "exclude": [],
   "compilerOptions": {
     "target": "ES2022",

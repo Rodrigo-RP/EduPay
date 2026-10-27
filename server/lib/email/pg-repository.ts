@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { EmailDatabase, EmailRepository, Intent, Selection } from "./repository";
-import { EmailError, emptyCounts, type EmailScope, type EmailState } from "./types";
+import { EmailError, type EmailScope } from "./types";
 import { digest } from "./identity";
+import { countEmailEvidence, emailEvidenceCountsSql, emailEvidenceJoinSql } from "./evidence";
 
 export const scopedCandidateSql = `
   SELECT s.id, s.nombre_completo AS nombre,
@@ -29,13 +30,6 @@ function mapIntent(r: any): Intent {
     canonicalKey: r.canonical_key, selection: r.selection, snapshot: r.snapshot,
     content: r.content, configFingerprint: r.config_fingerprint, expiresAt: new Date(r.expires_at).toISOString() };
 }
-const evidenceCountsSql = `
- SELECT estado, COUNT(*)::int AS n FROM email_notification_recipients
- WHERE tenant_id=$1 AND campus_id=$2
- AND ($3::text IS NULL OR batch_id=$3)
- AND (estado NOT IN ('aceptado','entregado','rebotado','queja')
-      OR (provider_message_id IS NOT NULL AND length(provider_message_id)>0 AND accepted_at IS NOT NULL AND enviado_en=accepted_at))
- GROUP BY estado`;
 
 export class PgEmailRepository implements EmailRepository {
   constructor(private db: EmailDatabase) {}
@@ -113,18 +107,17 @@ export class PgEmailRepository implements EmailRepository {
     } catch (e) { await c.query("ROLLBACK"); throw e; } finally { c.release(); }
   }
   async counts(s: EmailScope, batchId: string | null) {
-    const r = await this.db.query(evidenceCountsSql,[s.tenantId,s.campusId,batchId]);
-    const counts = emptyCounts();
-    for (const row of r.rows) if (row.estado in counts && row.estado !== "total") {
-      counts[row.estado as EmailState] = Number(row.n); counts.total += Number(row.n);
-    }
-    return counts;
+    const r = await this.db.query(emailEvidenceCountsSql,[s.tenantId,s.campusId,batchId]);
+    return countEmailEvidence(r.rows);
   }
   async batch(s: EmailScope, id: string) {
     const b = await this.db.query("SELECT id,created_at FROM email_notification_batches WHERE id=$1 AND tenant_id=$2 AND campus_id=$3", [id,s.tenantId,s.campusId]);
     if (!b.rows[0]) return null;
-    const r = await this.db.query(`SELECT id,email,estado,motivo,error_code,error_message,provider_message_id,accepted_at,enviado_en
-      FROM email_notification_recipients WHERE batch_id=$1 AND tenant_id=$2 AND campus_id=$3 ORDER BY created_at,id`,[id,s.tenantId,s.campusId]);
+    const r = await this.db.query(`SELECT r.id,r.email,r.estado,r.motivo,r.error_code,r.error_message,
+      r.provider_message_id,r.accepted_at,r.enviado_en,proof.provider_sent_at,proof.delivered_at,
+      proof.bounced_at,proof.complained_at,proof.provider_events
+      FROM email_notification_recipients r ${emailEvidenceJoinSql}
+      WHERE r.batch_id=$1 AND r.tenant_id=$2 AND r.campus_id=$3 ORDER BY r.created_at,r.id`,[id,s.tenantId,s.campusId]);
     const gate = await this.db.query("SELECT pause_reason FROM email_provider_gate WHERE provider='resend' AND next_allowed_at>NOW()");
     return { ...b.rows[0], counts:await this.counts(s,id), recipients:r.rows, notice:gate.rows[0]?.pause_reason ?? null, workerEnabled:false };
   }

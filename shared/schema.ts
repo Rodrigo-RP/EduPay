@@ -2,6 +2,7 @@ import { pgTable, pgEnum, text, serial, integer, boolean, varchar, bigint, bigse
 import { relations, sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+export * from "./email-schema";
 
 // TENANTS (Multi-school SaaS)
 export const tenants = pgTable("tenants", {

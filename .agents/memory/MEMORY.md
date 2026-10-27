@@ -77,3 +77,5 @@
 - [Drizzle baseline introspection](drizzle-baseline-introspection.md) — `drizzle-kit pull` puede corromper opclasses, arrays y checks NOT VALID; adoptar sólo con comparación transaccional del catálogo.
 - [Importación incremental de alumnos](incremental-student-import.md) — `/importacion-datos` es el flujo continuo; dedup concurrente bloquea todas las claves del archivo en orden global.
 - [Identidad de base y pruebas](database-environment-safety.md) — no inferir producción externa desde Publishing ni ejecutar suites sobre candidatas sin identificar.
+- [Seguridad de notificaciones](notification-safety-requirements.md) — aceptación no es entrega; conservar incidencias y separar revisión de activación.
+- [SSR aislado en Vitest](vitest-ui-transform.md) — el runner puede resolver otro transformador que el Vite principal; no reinstalar ni reiniciar para corregir JSX.

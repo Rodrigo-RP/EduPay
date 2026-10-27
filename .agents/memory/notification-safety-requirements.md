@@ -52,3 +52,15 @@ entrega heredaba una tarea descartada y sus scripts de configuración inseguros.
 **How to apply:** Antes de publicar una rama de revisión, comprobar tanto los
 commits como el diff completo respecto de la base autorizada; los archivos de
 setup, activos y cambios ajenos también deben quedar fuera de ese diff.
+
+Entrega, rebote y queja son hechos distintos que deben permanecer visibles,
+aunque el estado efectivo priorice queja sobre rebote y entrega. Una queja no
+demuestra que existió una entrega. La aceptación del proveedor debe conservarse.
+
+**Why:** El usuario exige evidencia real del proveedor, no una transición que
+borre incidencias o convierta retrospectivamente una aceptación en entrega.
+
+**How to apply:** Contar destinatarios distintos por cada hecho autenticado,
+no eventos ni estados legados. Correlacionar sólo con el ID de envío almacenado;
+nunca atribuir tenant/campus por tags o direcciones del payload. Preparar una
+fase no autoriza iniciar procesadores, registrar webhooks, migrar ni enviar.

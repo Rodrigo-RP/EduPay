@@ -1,6 +1,7 @@
 import { pgTable, index, foreignKey, unique, check, serial, integer, date, text, jsonb, timestamp, varchar, boolean, bigint, numeric, pgPolicy, uniqueIndex, smallint, time, bigserial, primaryKey, pgEnum } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 export * from "../../shared/email-schema";
+export * from "../../shared/email-webhook-schema";
 
 export const accionStatus = pgEnum("accion_status", ['pendiente', 'asignado', 'en_progreso', 'resuelto', 'ignorado', 'escalado'])
 

@@ -29,6 +29,13 @@
       "when": 1793061501427,
       "tag": "0003_email_notifications_phase_a",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793065778023,
+      "tag": "0004_email_notifications_phase_b",
+      "breakpoints": true
     }
   ]
 }

@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { AlertTriangle, ArrowRight, Check, Clock3, Mail, RefreshCw, Send, ShieldAlert, Smartphone, Users, XCircle } from "lucide-react";
+import { EmailEvidenceSummary, RecipientEventEvidence, hasVerifiedEmailState } from "@/components/notifications/email-evidence";
+import type { EmailEvidenceCounts, EmailRecipientEvidence } from "@shared/email-evidence";
 
 type Tipo = "RECORDATORIO_VENCIMIENTO" | "AVISO_MORA" | "CARGO_EMITIDO";
 type Estado = "pendiente" | "enviando" | "aceptado" | "entregado" | "rebotado" | "queja" | "error" | "incierto" | "omitido";
@@ -21,12 +23,12 @@ type Preview = {
   recipients: { email: string | null; estado: "pendiente" | "omitido"; motivo: string | null; studentIds: number[] }[];
   expiresAt: string;
 };
-type Recipient = {
+type Recipient = EmailRecipientEvidence & {
   id: string; email: string | null; estado: Estado; motivo: string | null;
   error_code: string | null; error_message: string | null; provider_message_id: string | null;
   accepted_at: string | null; enviado_en: string | null;
 };
-type Counts = Record<Estado, number> & { total: number };
+type Counts = Record<Estado, number> & { total: number; evidence?:EmailEvidenceCounts };
 type Batch = { id: string; counts: Counts; recipients?: Recipient[]; notice: string | null; workerEnabled: false };
 type Stats = Counts;
 type ApiError = Error & { code?: string; status?: number };
@@ -36,9 +38,9 @@ const TIPOS: { value: Tipo; label: string; detail: string }[] = [
   { value: "AVISO_MORA", label: "Aviso de mora", detail: "Pagos vencidos pendientes." },
   { value: "CARGO_EMITIDO", label: "Cargo emitido", detail: "Aviso de un nuevo cargo." },
 ];
-const COUNT_LABELS: [keyof Counts, string][] = [
+const COUNT_LABELS: [Estado | "total", string][] = [
   ["total", "Registros"], ["pendiente", "Pendientes"], ["enviando", "En proceso"],
-  ["aceptado", "Aceptados por proveedor"], ["entregado", "Entregados (evidencia)"],
+   ["aceptado", "Aceptados (estado actual)"], ["entregado", "Entregados (estado actual)"],
   ["rebotado", "Rebotados"], ["queja", "Quejas"], ["error", "Errores"],
   ["incierto", "Estado incierto"], ["omitido", "Omitidos"],
 ];
@@ -99,6 +101,7 @@ function BatchDetail({ batch, onCloseBatch, resolving, canProcess }: { batch: Ba
         <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-900">Worker detenido</Badge>
       </CardHeader>
       <CardContent className="space-y-5">
+        <EmailEvidenceSummary evidence={batch.counts.evidence} />
         {batch.notice && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{batch.notice}</p>}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           {COUNT_LABELS.map(([key, label]) => <div key={key} className="rounded-lg border border-stone-200 bg-white p-3">
@@ -116,8 +119,10 @@ function BatchDetail({ batch, onCloseBatch, resolving, canProcess }: { batch: Ba
             <h3 className="text-sm font-semibold text-slate-800">Registro de destinatarios</h3>
             {batch.recipients.map(r => <div key={r.id} className="rounded-lg border border-stone-200 bg-white p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="break-all text-sm font-medium text-slate-900">{r.email || "Correo no disponible"}</span>{statusBadge(r.estado)}
+                <span className="break-all text-sm font-medium text-slate-900">{r.email || "Correo no disponible"}</span>
+                {hasVerifiedEmailState(r.estado,r) ? statusBadge(r.estado) : <Badge variant="outline">Sin evidencia verificada</Badge>}
               </div>
+              <RecipientEventEvidence evidence={r} />
               {r.motivo && <p className="mt-1 text-sm text-slate-600">Motivo: {r.motivo}</p>}
               {(r.error_code || r.error_message) && <p className="mt-1 text-sm text-rose-800">Error {r.error_code ? `(${r.error_code}) ` : ""}{r.error_message}</p>}
               {r.provider_message_id && <p className="mt-1 break-all font-mono text-xs text-slate-600">ID proveedor: {r.provider_message_id}</p>}
@@ -265,7 +270,7 @@ function NotificacionesContent() {
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Cada lote conserva su vista previa y evidencia. Crear un lote no significa que un correo se haya enviado.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => { void configQuery.refetch(); void statsQuery.refetch(); void historyQuery.refetch(); }}><RefreshCw className="mr-2 h-4 w-4" />Actualizar</Button>
+          <Button variant="outline" onClick={() => { void configQuery.refetch(); void statsQuery.refetch(); void historyQuery.refetch(); if (selectedBatch) void batchQuery.refetch(); }}><RefreshCw className="mr-2 h-4 w-4" />Actualizar</Button>
           <Button onClick={begin} disabled={!isConfigured || !canProcess} className="bg-[#1d5550] text-white hover:bg-[#164540]"><Send className="mr-2 h-4 w-4" />Preparar correo</Button>
         </div>
       </header>
@@ -276,18 +281,20 @@ function NotificacionesContent() {
           <p className="mt-2 text-xs leading-5 text-amber-900">{configQuery.isLoading ? "Consultando configuración…" : configQuery.isError ? "No se pudo verificar la configuración. No se permite preparar correos." : "Los lotes pueden registrarse, pero todavía no se envían."}</p>
         </div>
         {[
-          ["Pendientes", "pendiente"], ["Aceptados", "aceptado"], ["Entregados", "entregado"], ["Errores", "error"],
+          ["Pendientes", "pendiente"], ["En proceso", "enviando"], ["Inciertos", "incierto"], ["Errores", "error"],
         ].map(([label, key]) => <Card key={key} className="border-[#dfe6df] bg-[#fbfcfa] shadow-none">
           <CardContent className="p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
             {statsQuery.isLoading ? <div className="mt-2 h-8 w-16 animate-pulse rounded bg-[#e6ece5]" /> :
               statsQuery.isError ? <p className="mt-2 text-sm text-rose-800">Error de lectura</p> :
-              <p className="mt-1 font-mono text-3xl text-[#173d39]">{statsQuery.data?.[key as keyof Stats] ?? "—"}</p>}
+              <p className="mt-1 font-mono text-3xl text-[#173d39]">{statsQuery.data?.[key as Estado] ?? "—"}</p>}
             {key === "aceptado" && <p className="mt-1 text-xs text-slate-500">Aceptación del proveedor, no entrega</p>}
             {key === "entregado" && <p className="mt-1 text-xs text-slate-500">Solo si existe evidencia</p>}
           </CardContent>
         </Card>)}
       </section>
+      <EmailEvidenceSummary evidence={statsQuery.isError ? undefined : statsQuery.data?.evidence} />
+      <p className="text-xs text-slate-600">Los procesadores de envío y eventos siguen detenidos. Sin URL pública y evento firmado, el correo conserva la aceptación del proveedor, no una entrega.</p>
       {configQuery.data && !canProcess && <p className="w-fit rounded-full border border-[#cbd7ce] bg-[#eaf0e9] px-3 py-1 text-xs font-semibold text-slate-700">Sólo consulta</p>}
       {statsQuery.isError && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900"><span>No se pudieron consultar las estadísticas. No se muestran valores sustitutos.</span><Button size="sm" variant="outline" onClick={() => void statsQuery.refetch()}>Reintentar</Button></div>}
 
@@ -303,7 +310,8 @@ function NotificacionesContent() {
               historyQuery.data?.length ? <div className="space-y-2">{historyQuery.data.map(batch => <div key={batch.id} className={`flex flex-col justify-between gap-3 rounded-lg border p-4 sm:flex-row sm:items-center ${selectedBatch === batch.id ? "border-teal-500 bg-teal-50/60" : "border-[#e1e7e0] bg-white"}`}>
                 <div className="min-w-0">
                   <p className="break-all font-mono text-sm font-semibold">Lote #{batch.id}</p>
-                  <p className="mt-1 text-xs text-slate-600">{batch.counts.total} destinatarios · {batch.counts.aceptado} aceptados · {batch.counts.entregado} entregados con evidencia · {batch.counts.error + batch.counts.rebotado} errores/rebotes</p>
+                  <p className="mt-1 text-xs text-slate-600">{batch.counts.total} destinatarios · {batch.counts.error} errores de envío · {batch.counts.incierto} inciertos</p>
+                  <EmailEvidenceSummary compact evidence={batch.counts.evidence} />
                 </div>
                 <div className="flex shrink-0 gap-2">
                   <Button size="sm" variant="outline" disabled={resolving !== null} onClick={() => setSelectedBatch(batch.id)}>Revisar lote</Button>

@@ -63,6 +63,8 @@ export const emailNotificationRecipients = pgTable("email_notification_recipient
 }, t => [
   uniqueIndex("email_recipients_batch_address_unique").on(t.batchId, t.recipientKey),
   uniqueIndex("email_recipients_provider_key_unique").on(t.providerKey),
+  unique("email_recipients_id_scope_unique").on(t.id,t.tenantId,t.campusId),
+  index("email_recipients_provider_message_idx").on(t.providerMessageId),
   index("email_recipients_claim_idx").on(t.estado, t.nextAttemptAt),
   index("email_recipients_scope_idx").on(t.tenantId, t.campusId, t.batchId),
   foreignKey({ name: "email_recipients_batch_scope_fk", columns: [t.batchId, t.tenantId, t.campusId],

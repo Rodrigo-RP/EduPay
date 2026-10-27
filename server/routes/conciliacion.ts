@@ -9,6 +9,7 @@ import { authenticateToken, requireAuth, checkCampusTenant, hasPermissionForUser
 import { getParser } from "../lib/bank-parsers/index";
 import { MODULES, ACTIONS } from "@shared/permissions";
 import { payments, charges, students, invoices, guardians } from "@shared/schema";
+import { wsManager } from "../websocket-manager";
 
 function fechaCiudadDeMexico(): string {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -283,12 +284,13 @@ export async function applyReconciliation(params: {
   // ── Fase 1: transacción atómica ────────────────────────────────────────────
   const client = await pool.connect();
   let firstPaymentId: number | null = null;
+  let reconciledCampusId: number | null = null;
   try {
     await client.query('BEGIN');
 
     // Bloquear la bank_transaction
     const txLock = await client.query(
-      `SELECT id FROM bank_transactions
+      `SELECT id, campus_id FROM bank_transactions
        WHERE id = $1 AND estado_conciliacion = 'pendiente'
          AND tipo = 'credito' AND monto_centavos > 0
        FOR UPDATE SKIP LOCKED`,
@@ -341,6 +343,7 @@ export async function applyReconciliation(params: {
     if ((upd as any).rowCount !== 1) { await client.query('ROLLBACK'); return null; }
 
     await client.query('COMMIT');
+    reconciledCampusId = Number(txLock.rows[0].campus_id);
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     throw err;
@@ -348,6 +351,9 @@ export async function applyReconciliation(params: {
     client.release();
   }
 
+  if (reconciledCampusId) {
+    void wsManager.refreshExcepcionesCount(params.tenantId, reconciledCampusId);
+  }
   // ── Fase 2: fuera de la txn comprometida (ADR-001) ────────────────────────
   if (firstPaymentId !== null && params.familyId && params.clabe_ordenante) {
     pool.query(
@@ -924,6 +930,7 @@ export function registerConciliacionRoutes(app: Express): void {
         referencia || null, clabe || null, nombre || null,
       ]);
       const tx = (row.rows as any[])[0];
+      void wsManager.refreshExcepcionesCount(tenantId, campusId);
 
       // ── Acción de seguimiento — fire-and-forget post-INSERT ───────────────
       if (tx?.id && tenantId && campusId) {
@@ -1060,6 +1067,7 @@ export function registerConciliacionRoutes(app: Express): void {
         // 0-69: sin acción — queda en la bandeja de aclaración
       }
 
+      await wsManager.refreshExcepcionesCount(tenantId, campusId);
       res.json({
         conciliados,
         en_revision,
@@ -1400,6 +1408,7 @@ export function registerConciliacionRoutes(app: Express): void {
       // Crea una entrada en acciones_seguimiento por cada transacción nueva.
       // ON CONFLICT DO NOTHING garantiza idempotencia: doble importación = sin duplicados.
       if (insertedIds.length > 0 && tenantId && campusId) {
+        void wsManager.refreshExcepcionesCount(tenantId, campusId);
         crearAccionesParaBankTx(campusId, tenantId, insertedIds, userId ?? null);
       }
 
@@ -1582,6 +1591,7 @@ export function registerConciliacionRoutes(app: Express): void {
 
         // ── Acciones de seguimiento — fire-and-forget post-COMMIT ─────────────
         if (insertedIds.length > 0 && tenantId && campusId) {
+          void wsManager.refreshExcepcionesCount(tenantId, campusId);
           crearAccionesParaBankTx(campusId, tenantId, insertedIds, userId ?? null);
         }
 
@@ -1707,6 +1717,7 @@ export function registerConciliacionRoutes(app: Express): void {
 
       const total = (txRows.rows as any[]).length;
       const noConciliados = total - conciliados - sugerencias.length;
+      await wsManager.refreshExcepcionesCount(tenantId, campusId);
       res.json({
         conciliados,
         en_revision,
@@ -1940,6 +1951,7 @@ export function registerConciliacionRoutes(app: Express): void {
         );
 
         await client.query('COMMIT');
+        void wsManager.refreshExcepcionesCount(tenantId, campusId);
         res.json({ message: "Pago aplicado correctamente al cargo seleccionado", payment_id: paymentId });
 
         // ── Cerrar acción de seguimiento (fire-and-forget, ADR-001) ────────────
@@ -2024,6 +2036,7 @@ export function registerConciliacionRoutes(app: Express): void {
 
         // ── COMMIT primero — el UPDATE debe persistir incluso si el audit falla
         await client.query('COMMIT');
+        void wsManager.refreshExcepcionesCount(tenantId, campusId);
         res.json({ message: "Excepción descartada y registrada en auditoría" });
 
         // ── Cerrar acción de seguimiento (fire-and-forget, ADR-001) ────────────

@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useInstitution } from "@/hooks/use-institution";
 import TrainingModal from "@/components/training-modal";
 import { hasPermission, MODULES, ACTIONS, UserRole } from "@shared/permissions";
 import { Badge } from "@/components/ui/badge";
+import { useRealTimeContext } from "@/components/RealTimeProvider";
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
@@ -14,25 +15,10 @@ export default function Sidebar() {
 
   const userRole = (user?.role as UserRole) || 'asistente';
 
-  // ── Conteo de excepciones bancarias pendientes ───────────────────────────────
-  // La barra lateral no debe descargar el dashboard completo ni mantener un
-  // polling: el conteo se carga una vez para esta sesión de navegación.
-  const [excepcionesPendientes, setExcepcionesPendientes] = useState(0);
-  useEffect(() => {
-    const token = localStorage.getItem("auth_token");
-    if (!token) return;
-
-    fetch("/api/conciliacion/excepciones/count", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (data && typeof data.total_pendiente === "number") {
-          setExcepcionesPendientes(data.total_pendiente);
-        }
-      })
-      .catch(() => {});
-  }, [user?.id]);
+  const { excepcionesCount } = useRealTimeContext();
+  const excepcionesPendientes = excepcionesCount && excepcionesCount.tenant_id === user?.tenant_id
+    && excepcionesCount.campus_id === user?.campus_id
+    ? excepcionesCount.total_pendiente : 0;
 
   // Definir elementos del menú con permisos
   const getAllMenuItems = () => [

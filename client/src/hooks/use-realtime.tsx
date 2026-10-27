@@ -2,9 +2,10 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './use-auth';
 import { useToast } from './use-toast';
+import { ExcepcionesCount, isExcepcionesCount } from '@shared/excepciones-realtime';
 
 interface RealTimeMessage {
-  type: 'user_update' | 'student_update' | 'family_update' | 'payment_update' | 'report_update' | 'system_notification' | 'auth_success' | 'auth_error' | 'error' | 'pong';
+  type: 'user_update' | 'student_update' | 'family_update' | 'payment_update' | 'report_update' | 'system_notification' | 'auth_success' | 'auth_error' | 'error' | 'pong' | 'excepciones_count';
   action?: 'create' | 'update' | 'delete' | 'export';
   data?: any;
   metadata?: {
@@ -35,6 +36,7 @@ export function useRealTime(options: UseRealTimeOptions = {}) {
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
   const [lastMessage, setLastMessage] = useState<RealTimeMessage | null>(null);
   const [messageHistory, setMessageHistory] = useState<RealTimeMessage[]>([]);
+  const [excepcionesCount, setExcepcionesCount] = useState<ExcepcionesCount | null>(null);
   
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -170,6 +172,9 @@ export function useRealTime(options: UseRealTimeOptions = {}) {
 
   const handleMessage = useCallback((message: RealTimeMessage) => {
     switch (message.type) {
+      case 'excepciones_count':
+        if (isExcepcionesCount(message.data)) setExcepcionesCount(message.data);
+        break;
       case 'auth_success':
         console.log('✅ Autenticación exitosa');
         // Suscribirse a actualizaciones del campus
@@ -324,18 +329,20 @@ export function useRealTime(options: UseRealTimeOptions = {}) {
     }
   }, [autoConnect, user, isConnected, connectionStatus, connect]);
 
-  // Cleanup al desmontar
+  // No conservar el socket ni cifras de otra sesión/campus.
   useEffect(() => {
+    setExcepcionesCount(null);
     return () => {
       disconnect();
     };
-  }, [disconnect]);
+  }, [disconnect, user?.id, user?.tenant_id, user?.campus_id]);
 
   return {
     isConnected,
     connectionStatus,
     lastMessage,
     messageHistory,
+    excepcionesCount,
     connect,
     disconnect,
     sendMessage,

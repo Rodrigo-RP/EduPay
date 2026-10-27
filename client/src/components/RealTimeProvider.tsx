@@ -2,12 +2,14 @@ import { createContext, useContext, ReactNode } from 'react';
 import { useRealTime } from '@/hooks/use-realtime';
 import { Badge } from '@/components/ui/badge';
 import { Wifi, WifiOff, AlertCircle, Loader2 } from 'lucide-react';
+import type { ExcepcionesCount } from '@shared/excepciones-realtime';
 
 interface RealTimeContextType {
   isConnected: boolean;
   connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
   lastMessage: any;
   messageHistory: any[];
+  excepcionesCount: ExcepcionesCount | null;
   connect: () => void;
   disconnect: () => void;
   sendMessage: (message: any) => boolean;

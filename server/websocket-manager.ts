@@ -1,10 +1,12 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import { Server } from 'http';
 import jwt from 'jsonwebtoken';
-import { db } from './db';
+import { db, pool } from './db';
 import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
-import { JWT_SECRET } from './routes/shared';
+import { JWT_SECRET, hasPermissionForUser } from './routes/shared';
+import { MODULES, ACTIONS } from '@shared/permissions';
+import { canReceiveExcepciones } from '@shared/excepciones-realtime';
 
 interface AuthenticatedSocket extends WebSocket {
   user?: {
@@ -13,12 +15,14 @@ interface AuthenticatedSocket extends WebSocket {
     tenant_id: number;
     role: string;
     email: string;
+    is_super_admin?: boolean;
+    custom_permissions?: string[] | null;
   };
   isAlive?: boolean;
 }
 
 interface RealTimeMessage {
-  type: 'user_update' | 'student_update' | 'family_update' | 'payment_update' | 'report_update' | 'system_notification';
+  type: 'user_update' | 'student_update' | 'family_update' | 'payment_update' | 'report_update' | 'system_notification' | 'excepciones_count';
   action: 'create' | 'update' | 'delete' | 'export';
   data: any;
   metadata: {
@@ -34,6 +38,41 @@ class WebSocketManager {
   private clients: Map<number, AuthenticatedSocket[]> = new Map(); // user_id -> sockets
   private campusClients: Map<number, Set<number>> = new Map(); // campus_id -> user_ids
   private connectionAttempts: Map<string, number> = new Map(); // IP -> connection count per minute
+  private excepcionesUpdates = new Map<string, Promise<void>>();
+
+  // Serializa lecturas/envíos por ámbito: una consulta lenta no debe enviar un
+  // conteo anterior después de otro más reciente. Un fallo nunca revierte pagos.
+  public refreshExcepcionesCount(tenantId: number, campusId: number, onlySocket?: AuthenticatedSocket): Promise<void> {
+    if (!tenantId || !campusId) return Promise.resolve();
+    const key = `${tenantId}:${campusId}`;
+    const update = (this.excepcionesUpdates.get(key) ?? Promise.resolve()).then(async () => {
+      const recipients = onlySocket ? [onlySocket] : Array.from(this.clients.values()).flat();
+      const allowed = recipients.filter(socket =>
+        socket.readyState === WebSocket.OPEN && socket.user?.tenant_id === tenantId
+        && socket.user?.campus_id === campusId && canReceiveExcepciones(socket.user)
+        && hasPermissionForUser(socket.user, MODULES.RECEIVABLES, ACTIONS.READ));
+      if (!allowed.length) return;
+      const result = await pool.query(
+        `SELECT COUNT(*)::int AS total_pendiente FROM bank_transactions
+         WHERE tenant_id = $1 AND campus_id = $2 AND estado_conciliacion = 'pendiente'`,
+        [tenantId, campusId],
+      );
+      const message: RealTimeMessage = {
+        type: 'excepciones_count', action: 'update',
+        data: { total_pendiente: Number(result.rows[0].total_pendiente), tenant_id: tenantId, campus_id: campusId },
+        metadata: { tenant_id: tenantId, campus_id: campusId, created_by: 0, timestamp: new Date().toISOString() },
+      };
+      for (const socket of allowed) {
+        if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
+      }
+    }).catch(error => {
+      console.error('No se pudo actualizar el conteo de excepciones por WebSocket', error);
+    }).finally(() => {
+      if (this.excepcionesUpdates.get(key) === update) this.excepcionesUpdates.delete(key);
+    });
+    this.excepcionesUpdates.set(key, update);
+    return update;
+  }
 
   initialize(server: Server) {
     this.wss = new WebSocketServer({ 
@@ -168,12 +207,15 @@ class WebSocketManager {
       }
 
       // Asignar datos de usuario a la conexión
+      this.removeClient(ws);
       ws.user = {
         id: user.id,
         campus_id: user.campus_id!,
         tenant_id: user.tenant_id!,
         role: user.role,
-        email: user.email
+        email: user.email,
+        is_super_admin: user.is_super_admin ?? false,
+        custom_permissions: user.custom_permissions,
       };
 
       // Registrar cliente
@@ -188,6 +230,8 @@ class WebSocketManager {
           campus_id: user.campus_id
         }
       }));
+      // Snapshot inicial y en cada reconexión, sin una petición HTTP periódica.
+      await this.refreshExcepcionesCount(user.tenant_id, user.campus_id, ws);
 
       console.log(`✅ Usuario autenticado: user_id=${user.id} role=${user.role}`);
 

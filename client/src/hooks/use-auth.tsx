@@ -7,6 +7,7 @@ interface User {
   name: string;
   role: string;
   campus_id: number;
+  tenant_id?: number | null;
   telefono?: string;
   foto_url?: string;
 }

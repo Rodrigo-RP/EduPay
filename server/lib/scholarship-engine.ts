@@ -1,3 +1,4 @@
+import { assertMutable } from "./ledger-mutability";
 import type { Pool, PoolClient } from "@neondatabase/serverless";
 
 type Queryable = Pick<Pool, "query"> | Pick<PoolClient, "query">;
@@ -286,7 +287,7 @@ export async function applyAutomaticRuleForStudent(
   );
 
   const charges = await client.query(
-    `SELECT c.id
+    `SELECT c.id, c.estado
        FROM charges c
        JOIN concepts con ON con.id = c.concept_id
       WHERE c.student_id = $1 AND c.tenant_id = $2
@@ -316,7 +317,8 @@ export async function applyAutomaticRuleForStudent(
         )`,
     [params.studentId, params.tenantId, dates.start, dates.end],
   );
-  for (const charge of charges.rows as Array<{ id: number }>) {
+  for (const charge of charges.rows as Array<{ id: number; estado: string }>) {
+    assertMutable(charge);
     await client.query(
       `INSERT INTO charge_scholarship_applications
         (charge_id, scholarship_id, tenant_id, effective_percentage, source)

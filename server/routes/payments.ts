@@ -12,6 +12,7 @@ import { getAcademicLevel } from "@shared/academic-levels";
 import { wsManager } from "../websocket-manager";
 import * as XLSX from "xlsx";
 import { z } from "zod";
+import { assertMutable, sendClosedLedgerError } from "../lib/ledger-mutability";
 
 export function registerPaymentRoutes(app: Express): void {
   app.get("/api/payments/manual-options", authenticateToken, async (req: any, res) => {
@@ -161,6 +162,7 @@ export function registerPaymentRoutes(app: Express): void {
         return res.status(404).json({ message: "El cargo no pertenece al estudiante o campus seleccionado" });
       }
       const charge = locked.rows[0] as any;
+      assertMutable(charge);
       if (["pagado", "cancelado"].includes(charge.estado)) {
         await client.query("ROLLBACK");
         return res.status(409).json({ message: "El cargo ya fue pagado o está cancelado" });
@@ -227,6 +229,7 @@ export function registerPaymentRoutes(app: Express): void {
       });
     } catch (error: any) {
       await client.query("ROLLBACK").catch(() => undefined);
+      if (sendClosedLedgerError(res, error)) return;
       if (error?.code === "23505") {
         const concurrentPayment = await findExistingManualPayment();
         if (concurrentPayment.rows.length) {
@@ -301,6 +304,7 @@ export function registerPaymentRoutes(app: Express): void {
           return res.status(403).json({ message: "Cargo no encontrado" });
         }
         const locked = (lockRes.rows as any[])[0];
+        assertMutable(locked);
 
         if (["pagado", "cancelado"].includes(locked.estado)) {
           await client.query("ROLLBACK");
@@ -392,6 +396,7 @@ export function registerPaymentRoutes(app: Express): void {
         message: "Payment processed successfully",
       });
     } catch (error: any) {
+      if (sendClosedLedgerError(res, error)) return;
       res.status(500).json({ message: "Error processing payment" });
     }
   });

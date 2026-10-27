@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { assertMutable, sendClosedLedgerError } from "../lib/ledger-mutability";
 import { pool, db } from "../db";
 import { enqueueAuditLog } from "../audit-retry";
 import { eq, and, gte, lt, count } from "drizzle-orm";
@@ -571,6 +572,7 @@ export async function registerGuardianRoutes(
             return res.status(403).json({ message: `Cargo ${chargeId} no encontrado` });
           }
           const locked = (lockRes.rows as any[])[0];
+          assertMutable(locked);
 
           // 2. Guard: estado terminal
           if (["pagado", "cancelado"].includes(locked.estado)) {
@@ -726,6 +728,7 @@ export async function registerGuardianRoutes(
         message: `${results.length} pago(s) procesados correctamente`,
       });
     } catch (error: any) {
+      if (sendClosedLedgerError(res, error)) return;
       res.status(500).json({ message: "Error procesando pago" });
     }
   });

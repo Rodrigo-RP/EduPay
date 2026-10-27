@@ -15,6 +15,7 @@ import { pool } from "../db";
 import { markChargeAsPaidForTest } from "./test-helpers";
 import { storage } from "../storage";
 import { transition, allowedTransitions, InvalidStateTransitionError } from "../state-machines";
+import { ClosedLedgerRecordError } from "../lib/ledger-mutability";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -259,7 +260,7 @@ describe("updateChargeStatus() + audit_log", () => {
 
     await expect(
       storage.updateChargeStatus(chargeId, "pendiente", { tenantId })
-    ).rejects.toThrow(InvalidStateTransitionError);
+    ).rejects.toThrow(ClosedLedgerRecordError);
 
     // Estado no cambió
     const chargeRows = await pool.query(`SELECT estado FROM charges WHERE id = $1`, [chargeId]);
@@ -346,7 +347,7 @@ describe("updatePaymentStatus() + audit_log", () => {
 
     await expect(
       storage.updatePaymentStatus(paymentId, "pendiente", { tenantId })
-    ).rejects.toThrow(InvalidStateTransitionError);
+    ).rejects.toThrow(ClosedLedgerRecordError);
 
     const rows = await pool.query(
       `SELECT * FROM audit_log WHERE entity_type = 'payment' AND entity_id = $1`,

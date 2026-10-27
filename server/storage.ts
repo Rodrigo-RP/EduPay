@@ -23,9 +23,15 @@ import {
   type AuditLogEntry, type InsertAuditLogEntry
 } from "@shared/schema";
 import { transition, InvalidStateTransitionError, type StateMachineEntity } from "./state-machines";
+import { assertMutable } from "./lib/ledger-mutability";
 import { db, pool } from "./db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import bcrypt from "bcrypt";
+
+type LedgerMutationContext = {
+  tenantId?: number; campusId?: number; userId?: number; guardianId?: number;
+  ip?: string; metadata?: Record<string, unknown>;
+};
 
 export interface IStorage {
   // Authentication
@@ -117,13 +123,13 @@ export interface IStorage {
   updateChargeStatus(
     chargeId: number,
     status: string,
-    ctx?: { tenantId?: number; userId?: number; guardianId?: number; ip?: string; metadata?: Record<string, unknown> }
+    ctx?: LedgerMutationContext
   ): Promise<void>;
   /** Valida transición de estado de pago, actualiza y emite audit_log. Atómico con SELECT FOR UPDATE. */
   updatePaymentStatus(
     paymentId: number,
     status: string,
-    ctx?: { tenantId?: number; userId?: number; guardianId?: number; ip?: string; metadata?: Record<string, unknown> }
+    ctx?: LedgerMutationContext
   ): Promise<void>;
   /** Valida transición de estado de factura, actualiza y emite audit_log. Atómico con SELECT FOR UPDATE.
    *  @param extraFields  Campos adicionales (ej. uuid_cfdi al regenerar CFDI) actualizados en la misma txn. */
@@ -652,16 +658,23 @@ export class DatabaseStorage implements IStorage {
   async updateChargeStatus(
     chargeId: number,
     newStatus: string,
-    ctx?: { tenantId?: number; userId?: number; guardianId?: number; ip?: string; metadata?: Record<string, unknown> }
+    ctx?: LedgerMutationContext
   ): Promise<void> {
     await db.transaction(async (tx) => {
       // 1. Lock + leer estado actual en la misma transacción (previene race conditions)
       const locked = await tx.execute(
-        sql`SELECT id, estado, tenant_id FROM charges WHERE id = ${chargeId} FOR UPDATE`
+        sql`SELECT id, estado, tenant_id FROM charges
+            WHERE id = ${chargeId}
+              AND (${ctx?.tenantId ?? null}::integer IS NULL OR tenant_id = ${ctx?.tenantId ?? null})
+              AND (${ctx?.campusId ?? null}::integer IS NULL OR student_id IN (
+                SELECT id FROM students WHERE campus_id = ${ctx?.campusId ?? null}
+              ))
+            FOR UPDATE`
       );
       const current = (locked.rows as any[])[0];
       if (!current) throw new Error(`Cargo ${chargeId} no encontrado`);
 
+      assertMutable(current);
       // 2. Validar transición (lanza InvalidStateTransitionError si inválida)
       transition("charge", current.estado ?? "pendiente", newStatus);
 
@@ -696,16 +709,28 @@ export class DatabaseStorage implements IStorage {
   async updatePaymentStatus(
     paymentId: number,
     newStatus: string,
-    ctx?: { tenantId?: number; userId?: number; guardianId?: number; ip?: string; metadata?: Record<string, unknown> }
+    ctx?: LedgerMutationContext
   ): Promise<void> {
     await db.transaction(async (tx) => {
       const locked = await tx.execute(
-        sql`SELECT id, estado, tenant_id FROM payments WHERE id = ${paymentId} FOR UPDATE`
+        sql`SELECT id, estado, tenant_id FROM payments
+            WHERE id = ${paymentId}
+              AND (${ctx?.tenantId ?? null}::integer IS NULL OR tenant_id = ${ctx?.tenantId ?? null})
+              AND (${ctx?.campusId ?? null}::integer IS NULL OR charge_id IN (
+                SELECT c.id FROM charges c JOIN students s ON s.id = c.student_id
+                WHERE s.campus_id = ${ctx?.campusId ?? null}
+              ))
+            FOR UPDATE`
       );
       const current = (locked.rows as any[])[0];
-      if (!current) throw new Error(`Pago ${paymentId} no encontrado`);
+      if (!current) throw Object.assign(new Error("Pago no encontrado en este plantel"), { status: 404 });
 
-      transition("payment", current.estado ?? "pendiente", newStatus);
+      // The existing explicit, audited reversal is the only escape from a settled payment.
+      // It cannot be used for amount/date edits or arbitrary status transitions.
+      if (!(["exitoso", "completado"].includes(current.estado) && newStatus === "reversado")) {
+        assertMutable(current);
+      }
+      transition("payment", current.estado === "completado" ? "exitoso" : current.estado ?? "pendiente", newStatus);
 
       const tenantId = ctx?.tenantId ?? Number(current.tenant_id) ?? 0;
 

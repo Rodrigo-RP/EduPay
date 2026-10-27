@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { assertMutable, sendClosedLedgerError } from "../lib/ledger-mutability";
 import { pool, db } from "../db";
 import { createFamily } from "../lib/family-service";
 import { guardianResponsibilityHandler } from "../lib/guardian-responsibility";
@@ -1180,6 +1181,7 @@ export function registerAdminRoutes(app: Express): void {
           await client.query("ROLLBACK");
           return res.status(403).json({ message: "El cargo no pertenece a tu campus" });
         }
+        assertMutable(charge);
         if (["pagado", "cancelado"].includes(charge.estado)) {
           await client.query("ROLLBACK");
           return res.status(409).json({ message: "El cargo ya está pagado o cancelado" });
@@ -1316,6 +1318,7 @@ export function registerAdminRoutes(app: Express): void {
         nuevo_credit_id:         newCreditId,
       });
     } catch (error: any) {
+      if (sendClosedLedgerError(res, error)) return;
       console.error("[family-credits/aplicar]", error.message);
       if (!res.headersSent) res.status(500).json({ message: "Error interno del servidor" });
     }

@@ -10,6 +10,8 @@ import { users, students, guardians, charges, payments, concepts, scholarships, 
 import { z } from "zod";
 import { registerEmailRuntime } from "../lib/email/runtime";
 import type { EmailDatabase } from "../lib/email/repository";
+import { mutateApprovedCharge } from "../lib/approved-charge-mutation";
+import { sendClosedLedgerError } from "../lib/ledger-mutability";
 
 export function registerNotificationRoutes(app: Express): void {
   registerEmailRuntime(app, pool as unknown as EmailDatabase, authenticateToken,
@@ -536,13 +538,23 @@ export function registerNotificationRoutes(app: Express): void {
         return res.status(403).json({ message: "No tienes permisos para aprobar este tipo de acción" });
       }
 
-      // Update the approval status
-      await storage.updateApprovalStatus(approval_id, decision, user.id, notes);
+      if (user.role !== "super_admin" && ["modify_charge_amount", "modify_payment_due_date", "delete_charge",
+        "cancel_payment", "refund_payment"].includes(approval.action_type)
+        && Number(approval.campus_id) !== Number(user.campus_id)) {
+        return res.status(403).json({ message: "La solicitud no pertenece a tu campus" });
+      }
+      const financialPermission = approval.entity_type === "charge"
+        ? { module: MODULES.CHARGES, action: approval.action_type === "delete_charge" ? ACTIONS.DELETE : ACTIONS.UPDATE }
+        : approval.entity_type === "payment"
+          ? { module: MODULES.PAYMENTS, action: ACTIONS.PROCESS } : null;
+      if (financialPermission && !hasPermissionForUser(user, financialPermission.module, financialPermission.action)) {
+        return res.status(403).json({ message: "No tienes permisos para modificar este registro financiero" });
+      }
 
       // If approved, execute the actual changes
       if (decision === 'approved') {
         try {
-          await executeApprovedChange(approval);
+          await executeApprovedChange({ ...approval, approved_by: user.id });
           // Log successful execution
           await storage.createApprovalWorkflowLog({
             approval_id,
@@ -552,15 +564,22 @@ export function registerNotificationRoutes(app: Express): void {
           });
         } catch (executeError: any) {
           console.error('Error ejecutando cambio aprobado:', executeError);
-          // Log the execution error but don't fail the approval
+          // A failed financial mutation is not an approved/applied operation.
           await storage.createApprovalWorkflowLog({
             approval_id,
             action: 'execution_failed',
             user_id: user.id,
             notes: `Error ejecutando cambio: ${executeError.message}`
           });
+          if (sendClosedLedgerError(res, executeError)) return;
+          return res.status(executeError.status === 404 ? 404 : 500).json({
+            message: executeError.status === 404
+              ? executeError.message : "No se pudo aplicar el cambio; la solicitud sigue pendiente",
+          });
         }
       }
+
+      await storage.updateApprovalStatus(approval_id, decision, user.id, notes);
 
       // Create notification for the requester
       await storage.createApprovalNotification({
@@ -675,19 +694,10 @@ export function registerNotificationRoutes(app: Express): void {
         break;
 
       case 'modify_charge_amount':
-        if (entity_type === 'charge' && entity_id) {
-          // Update charge amount
-          await db.update(charges)
-            .set({ monto_base_centavos: requestedData.amount })
-            .where(eq(charges.id, entity_id));
-        }
-        break;
-
       case 'delete_charge':
+      case 'modify_payment_due_date':
         if (entity_type === 'charge' && entity_id) {
-          // Delete the charge
-          await db.delete(charges)
-            .where(eq(charges.id, entity_id));
+          await mutateApprovedCharge(pool, approval, requestedData);
         }
         break;
 
@@ -699,21 +709,13 @@ export function registerNotificationRoutes(app: Express): void {
         }
         break;
 
-      case 'modify_payment_due_date':
-        if (entity_type === 'charge' && entity_id) {
-          // Update charge due date
-          await db.update(charges)
-            .set({ fecha_vencimiento: requestedData.due_date })
-            .where(eq(charges.id, entity_id));
-        }
-        break;
-
       case 'cancel_payment':
         if (entity_type === 'payment' && entity_id) {
           // pendiente → fallido es la transición de cancelación válida
           // (exitoso ya no se puede cancelar — usar refund_payment para reversarlo)
           await storage.updatePaymentStatus(entity_id, 'fallido', {
             tenantId: approval.tenant_id,
+            campusId: approval.campus_id,
             userId:   approval.approved_by ?? approval.requested_by,
             metadata: { flujo: 'approval_workflow', action: 'cancel_payment' },
           });
@@ -725,6 +727,7 @@ export function registerNotificationRoutes(app: Express): void {
           // exitoso → reversado es la única transición válida para reembolso
           await storage.updatePaymentStatus(entity_id, 'reversado', {
             tenantId: approval.tenant_id,
+            campusId: approval.campus_id,
             userId:   approval.approved_by ?? approval.requested_by,
             metadata: { flujo: 'approval_workflow', action: 'refund_payment' },
           });

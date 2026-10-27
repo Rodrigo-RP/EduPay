@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { assertMutable, sendClosedLedgerError } from "../lib/ledger-mutability";
 import { pool, db } from "../db";
 import { eq, and } from "drizzle-orm";
 import { storage } from "../storage";
@@ -215,7 +216,7 @@ export function registerMiscRoutes(app: Express): void {
         try {
           await client.query('BEGIN');
           const lockedCharges = await client.query(
-            `SELECT c.id
+            `SELECT c.id, c.estado
                FROM charges c
                JOIN students s ON s.id = c.student_id
               WHERE c.id = ANY($1)
@@ -231,6 +232,7 @@ export function registerMiscRoutes(app: Express): void {
               message: "Acceso denegado: uno o más cargos no pertenecen a este campus",
             });
           }
+          for (const charge of lockedCharges.rows) assertMutable(charge);
 
           // Calcular saldo real bajo el lock (monto base + recargo - aplicaciones).
           const saldoRes = await client.query(`
@@ -412,6 +414,7 @@ export function registerMiscRoutes(app: Express): void {
       return res.json({ ...planB, cuotas: cuotasB, mensaje: `Plan de acuerdo futuro creado con ${numero_pagos} cuotas` });
 
     } catch (error: any) {
+      if (sendClosedLedgerError(res, error)) return;
       res.status(500).json({ message: "Error interno del servidor" });
     }
   });
@@ -636,6 +639,10 @@ export function registerMiscRoutes(app: Express): void {
         );
         const lockedCharges = lockedChargesRes.rows as any[];
         cuotasPagadas = lockedCharges.filter((charge: any) => charge.estado === 'pagado').length;
+        // Only pending installments are changed; settled installments are preserved.
+        for (const charge of lockedCharges.filter(charge => charge.estado === "pendiente")) {
+          assertMutable(charge);
+        }
 
         const pendientesRes = await client.query(
           `SELECT c.id, c.monto_base_centavos, c.recargo_aplicado_centavos,

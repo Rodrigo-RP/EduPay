@@ -1,3 +1,4 @@
+import { assertMutable } from "./ledger-mutability";
 import { pool } from "../db";
 import { enqueueAuditLog } from "../audit-retry";
 import {
@@ -145,6 +146,7 @@ async function applyForCharge(
       await client.query("ROLLBACK");
       return { updated: false, periodCount: 0, reason: "cargo_no_elegible" };
     }
+    assertMutable(charge);
     if (!charge.concept_id || isoCalendarDate(charge.fecha_vencimiento) >= input.asOf) {
       await client.query("ROLLBACK");
       return { updated: false, periodCount: 0, reason: "cargo_no_vencido" };

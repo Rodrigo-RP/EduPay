@@ -14,6 +14,13 @@ async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     await notifyInvalidSession(res);
     const text = (await res.text()) || res.statusText;
+    if (res.status === 409) {
+      let body: { code?: string; message?: string } | null = null;
+      try { body = JSON.parse(text); } catch { /* Non-JSON errors keep the original message. */ }
+      if (body?.code === "LEDGER_RECORD_CLOSED") {
+        throw new Error("Este registro está cerrado. Para corregir este cargo o pago usa una reversa.");
+      }
+    }
     throw new Error(`${res.status}: ${text}`);
   }
 }

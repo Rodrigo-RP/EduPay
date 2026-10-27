@@ -183,7 +183,8 @@ describe("POST /api/admin/charges/:chargeId/pagar-manual", () => {
     );
 
     expect(r.status).toBe(409);
-    expect(r.body.message).toMatch(/ya está pagado/i);
+    expect(r.body.message).toMatch(/cerrado.*reversa/i);
+    expect(r.body.code).toBe("LEDGER_RECORD_CLOSED");
 
     // No se creó ninguna aplicación nueva
     const paAfter = await pool.query(
@@ -193,15 +194,15 @@ describe("POST /api/admin/charges/:chargeId/pagar-manual", () => {
     expect(Number((paAfter.rows[0] as any).n)).toBe(countBefore);
   });
 
-  // ── PM-03: cancelado → 422 ──────────────────────────────────────────────
-  it("PM-03: cargo 'cancelado' → 422 sin crear payment ni payment_application", async () => {
+  // ── PM-03: cancelado → 409 ──────────────────────────────────────────────
+  it("PM-03: cargo 'cancelado' → 409 sin crear payment ni payment_application", async () => {
     const r = await post(
       `/api/admin/charges/${chargeCancelledId}/pagar-manual`,
       { metodo: "transferencia" }
     );
 
-    expect(r.status).toBe(422);
-    expect(r.body.message).toMatch(/cancelado/i);
+    expect(r.status).toBe(409);
+    expect(r.body.message).toMatch(/cerrado.*reversa/i);
 
     // Sin pagos creados para este charge
     const pay = await pool.query(

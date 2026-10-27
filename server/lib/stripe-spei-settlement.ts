@@ -1,3 +1,4 @@
+import { assertMutable } from "./ledger-mutability";
 /**
  * Completa los pagos SPEI que Stripe confirmó mediante webhook.
  *
@@ -28,7 +29,7 @@ export async function settleStripeSpeiPaymentIntent(
     // Lock de payment primero; después locks de charges en id ascendente para
     // mantener el orden consistente y evitar deadlocks con pagos concurrentes.
     const pending = await client.query(
-      `SELECT id, tenant_id, charge_id, guardian_id, monto_centavos
+      `SELECT id, tenant_id, charge_id, guardian_id, monto_centavos, estado
          FROM payments
         WHERE referencia_pasarela = $1
           AND metodo = 'spei'
@@ -49,6 +50,7 @@ export async function settleStripeSpeiPaymentIntent(
       charge_id: number;
       guardian_id: number | null;
       monto_centavos: string | number;
+      estado: string;
     }>;
     const tenantId = Number(paymentRows[0].tenant_id);
 
@@ -68,6 +70,7 @@ export async function settleStripeSpeiPaymentIntent(
     }
 
     for (const payment of paymentRows) {
+      assertMutable(payment);
       if (Number(payment.tenant_id) !== tenantId) {
         throw new Error("PaymentIntent SPEI contiene pagos de tenants distintos");
       }
@@ -89,6 +92,7 @@ export async function settleStripeSpeiPaymentIntent(
         recargo_aplicado_centavos: string | number | null;
         estado: string;
       };
+      assertMutable(charge);
       if (["pagado", "cancelado"].includes(charge.estado)) {
         throw new Error(`Cargo ${charge.id} ya está ${charge.estado} al liquidar SPEI`);
       }

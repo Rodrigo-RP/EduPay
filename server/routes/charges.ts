@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { assertMutable, sendClosedLedgerError } from "../lib/ledger-mutability";
 import { pool, db } from "../db";
 import { enqueueAuditLog } from "../audit-retry";
 import { eq, and, gte, lt } from "drizzle-orm";
@@ -584,6 +585,7 @@ export function registerChargesRoutes(app: Express): void {
           return res.status(403).json({ message: "Acceso denegado: cargo no encontrado o no pertenece a este campus" });
         }
         const charge = (chargeRes.rows as any[])[0];
+        assertMutable(charge);
 
         if (charge.estado === "pagado") {
           await client.query("ROLLBACK");
@@ -670,6 +672,7 @@ export function registerChargesRoutes(app: Express): void {
 
       res.json({ message: "Cargo marcado como pagado correctamente", payment_id: paymentId!, saldo_pagado_centavos: saldo });
     } catch (error: any) {
+      if (sendClosedLedgerError(res, error)) return;
       res.status(500).json({ message: "Error interno del servidor" });
     }
   });

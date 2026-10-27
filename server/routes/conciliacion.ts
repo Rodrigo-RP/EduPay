@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { assertMutable, sendClosedLedgerError } from "../lib/ledger-mutability";
 import { createHash } from "crypto";
 import jwt from "jsonwebtoken";
 import { pool, db } from "../db";
@@ -244,6 +245,12 @@ async function insertarPagoYCerrarCargo(
     referencia: string;
   }
 ): Promise<number> {
+  const locked = await client.query(
+    "SELECT id, estado FROM charges WHERE id = $1 AND tenant_id = $2 FOR UPDATE",
+    [params.chargeId, params.tenantId],
+  );
+  if (!locked.rows.length) throw new Error("Cargo no encontrado en este plantel");
+  assertMutable(locked.rows[0]);
   const payRow = await client.query(
     `INSERT INTO payments
        (tenant_id, charge_id, guardian_id, metodo, referencia_pasarela,
@@ -727,6 +734,7 @@ export function registerConciliacionRoutes(app: Express): void {
           return res.status(404).json({ message: "Cargo no encontrado", payment_id: null, monto_centavos: montoOperador });
         }
         const locked = (lockRes.rows as any[])[0];
+        assertMutable(locked);
 
         if (["pagado", "cancelado"].includes(locked.estado)) {
           await client.query("ROLLBACK");
@@ -842,6 +850,7 @@ export function registerConciliacionRoutes(app: Express): void {
         charge_nuevo_estado:     newEstado,
       });
     } catch (error: any) {
+      if (sendClosedLedgerError(res, error)) return;
       res.status(500).json({ message: "Error interno del servidor" });
     }
   });
@@ -2073,6 +2082,7 @@ export function registerConciliacionRoutes(app: Express): void {
       }
     } catch (error: any) {
       await client.query('ROLLBACK').catch(() => {});
+      if (sendClosedLedgerError(res, error)) return;
       res.status(500).json({ message: "Error interno del servidor" });
     } finally {
       client.release();

@@ -7,6 +7,7 @@ uri = "file://screenshots/assistant-memory-claude-real.png"
 type = "image"
 title = "Evidencia: memoria conversacional del asistente"
 description = "Captura real del widget con adeudos de agosto y el seguimiento sobre becas, resuelto con el contexto seguro de la sesión."
+logical_id = "33ef8f44-d4f5-408b-8c68-8f28de91683b"
 
 [[outputs]]
 id = "PMXzdS6shIVaaa4JEEvuu"
@@ -14,6 +15,7 @@ uri = "file://screenshots/assistant-executive-summary-real.png"
 type = "image"
 title = "Asistente financiero — prueba real"
 description = "Captura E2E del widget con resumen ejecutivo conversacional y detalle de deudores verificado."
+logical_id = "e94c2623-2da5-4e67-b3d1-4a111d184689"
 
 [[outputs]]
 id = "UoPJrcagd5X3OMrm4llCI"
@@ -21,6 +23,7 @@ uri = "file://screenshots/portal-padres-pago-completo-real.png"
 type = "image"
 title = "Prueba 14 — Portal de Padres con Stripe real"
 description = "Captura generada por Playwright después de completar el CardElement real de Stripe con la tarjeta de prueba 4242 4242 4242 4242 y validar el pago exitoso, folio y UUID CFDI."
+logical_id = "f0e282d8-2af1-4c35-ac4b-a0a42aac25f6"
 
 [[outputs]]
 id = "foA8YPXOuNk0elIACc1rP"
@@ -28,3 +31,18 @@ uri = "file://screenshots/portal-padres-pago-monto-confirmado-real.png"
 type = "image"
 title = "Pago del portal: monto confirmado"
 description = "Captura de PP-01 con Stripe real: la pantalla de éxito muestra $2,800.00 MXN procesados, junto con folio y UUID CFDI."
+logical_id = "41de3358-aeae-4890-91bd-790a549d45c4"
+
+[[outputs]]
+id = "Ks1kLtBhbS-UB6tTn_p8X"
+uri = "file://generated-artifacts/notificaciones-integracion-migracion-auditoria.md"
+type = "text"
+title = "Auditoría completa de integración y migraciones de Notificaciones"
+description = "170 consultas completas con parámetros y resultados: preflight, 34 llamadas SQL del migrador, verificación de tablas, restricciones e índices, y comparación de estructura y contenido antes/después."
+logical_id = "6768e947-eaaa-43d0-a6d7-6b930422b3ba"
+content_hash = "sha256:0b1851997683aaba8a4a3cce789cf6aef7bbefc8cf261fbafe00950e7f2fd3c6"
+size = 663000
+mtime_ms = 1793074083206
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:1d65db5a-9a24-4d3f-bc7c-b90a11d39927/6768e947-eaaa-43d0-a6d7-6b930422b3ba/54a4c882-fb3d-453d-8d98-4400d7e63f05"
+storage_version_token = "1793074088405348"
+content_type = "text/markdown"

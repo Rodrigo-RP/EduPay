@@ -3,10 +3,13 @@
  * La única ruta permitida para esas operaciones es /caja-conciliacion.
  */
 import { expect, test, type Page } from "@playwright/test";
-import { loginAsAdmin } from "./helpers/auth";
+import { loginAsAdmin, ADMIN_EMAIL } from "./helpers/auth";
+import { pool as db } from "../server/db";
 
 let authToken = "";
 let authUser = "";
+let campusId = 0;
+let onboardingWasComplete = false;
 
 async function restaurarSesion(page: Page) {
   await page.goto("/");
@@ -21,6 +24,20 @@ async function restaurarSesion(page: Page) {
 
 test.describe("Pagos — sin controles de conciliación simulados", () => {
   test.beforeAll(async ({ browser }) => {
+    const scope = await db.query(
+      "SELECT id, tenant_id, campus_id FROM users WHERE email = $1 LIMIT 1",
+      [ADMIN_EMAIL],
+    );
+    expect(scope.rows).toHaveLength(1);
+    campusId = Number(scope.rows[0].campus_id);
+
+    const campus = await db.query(
+      "SELECT onboarding_completado FROM campuses WHERE id = $1",
+      [campusId],
+    );
+    onboardingWasComplete = Boolean(campus.rows[0]?.onboarding_completado);
+    await db.query("UPDATE campuses SET onboarding_completado = true WHERE id = $1", [campusId]);
+
     const context = await browser.newContext();
     const page = await context.newPage();
     await loginAsAdmin(page);
@@ -37,6 +54,13 @@ test.describe("Pagos — sin controles de conciliación simulados", () => {
       window.dispatchEvent(new PopStateEvent("popstate"));
     });
     await expect(page.getByText(/pagos/i).first()).toBeVisible();
+  });
+
+  test.afterAll(async () => {
+    await db.query("UPDATE campuses SET onboarding_completado = $1 WHERE id = $2", [
+      onboardingWasComplete,
+      campusId,
+    ]);
   });
 
   test("PG-01: no muestra importador/conciliación propia y dirige a Caja", async ({ page }) => {

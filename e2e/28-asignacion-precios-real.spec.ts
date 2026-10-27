@@ -22,6 +22,7 @@ let campusId = 0;
 let productId = 0;
 let primaryStudentId = 0;
 let secondaryStudentId = 0;
+let onboardingWasComplete = false;
 
 const primaryStudentName = `Alumna E2E Precio Primaria ${suffix}`;
 const secondaryStudentName = `Alumno E2E Precio Secundaria ${suffix}`;
@@ -48,6 +49,13 @@ test.describe("Asignación de precios — catálogo persistente", () => {
     expect(scope.rows).toHaveLength(1);
     tenantId = Number(scope.rows[0].tenant_id);
     campusId = Number(scope.rows[0].campus_id);
+
+    const campus = await db.query(
+      "SELECT onboarding_completado FROM campuses WHERE id = $1",
+      [campusId],
+    );
+    onboardingWasComplete = Boolean(campus.rows[0]?.onboarding_completado);
+    await db.query("UPDATE campuses SET onboarding_completado = true WHERE id = $1", [campusId]);
 
     const product = await db.query(
       `INSERT INTO products
@@ -105,6 +113,10 @@ test.describe("Asignación de precios — catálogo persistente", () => {
     }
     await db.query("DELETE FROM products WHERE id = $1", [productId]);
     await db.query("DELETE FROM students WHERE id = ANY($1)", [[primaryStudentId, secondaryStudentId]]);
+    await db.query("UPDATE campuses SET onboarding_completado = $1 WHERE id = $2", [
+      onboardingWasComplete,
+      campusId,
+    ]);
   });
 
   test("AP-01: muestra catálogo/alumnos reales, no persiste preview y confirma precios por nivel", async ({ page }) => {

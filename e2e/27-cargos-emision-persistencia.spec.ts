@@ -18,6 +18,7 @@ let tenantId = 0;
 let campusId = 0;
 let studentId = 0;
 let conceptId = 0;
+let onboardingWasComplete = false;
 
 const studentName = `Alumno E2E Emisión ${suffix}`;
 const conceptName = `Colegiatura E2E Emisión ${suffix}`;
@@ -55,6 +56,13 @@ test.describe("Cargos y Emisión — persistencia real", () => {
     expect(scope.rows).toHaveLength(1);
     tenantId = Number(scope.rows[0].tenant_id);
     campusId = Number(scope.rows[0].campus_id);
+
+    const campus = await db.query(
+      "SELECT onboarding_completado FROM campuses WHERE id = $1",
+      [campusId],
+    );
+    onboardingWasComplete = Boolean(campus.rows[0]?.onboarding_completado);
+    await db.query("UPDATE campuses SET onboarding_completado = true WHERE id = $1", [campusId]);
 
     const student = await db.query(
       `INSERT INTO students
@@ -101,6 +109,10 @@ test.describe("Cargos y Emisión — persistencia real", () => {
       extraordinaryName,
     ]);
     await db.query("DELETE FROM students WHERE id = $1", [studentId]);
+    await db.query("UPDATE campuses SET onboarding_completado = $1 WHERE id = $2", [
+      onboardingWasComplete,
+      campusId,
+    ]);
   });
 
   test("EM-01: el preview no escribe y la confirmación desde Cargos persiste", async ({ page }) => {

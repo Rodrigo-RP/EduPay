@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { pool, db } from "../db";
 import { createFamily } from "../lib/family-service";
+import { guardianResponsibilityHandler } from "../lib/guardian-responsibility";
 import { getFamilyGuardianIds, getGuardiansWithoutActiveFamilies } from "../lib/family-access";
 import { enqueueAuditLog } from "../audit-retry";
 import { eq, and, gte, lt } from "drizzle-orm";
@@ -851,78 +852,17 @@ export function registerAdminRoutes(app: Express): void {
    * Actualiza es_responsable_pago y/o porcentaje_responsabilidad en student_guardian.
    * Valida que no se deje al alumno sin ningún responsable de pago.
    */
-  app.patch("/api/admin/students/:studentId/guardians/:guardianId", authenticateToken, async (req: any, res) => {
-    try {
-      if (!hasPermissionForUser(req.user, MODULES.FAMILIES, ACTIONS.UPDATE)) {
-        return res.status(403).json({ message: "Sin permisos para editar responsabilidad de tutores" });
-      }
-      const studentId  = parseInt(req.params.studentId);
-      const guardianId = parseInt(req.params.guardianId);
-      const tenantId   = req.user?.tenant_id;
-      const campusId   = req.user?.campus_id;
-      const { es_responsable_pago, porcentaje_responsabilidad } = req.body;
-
-      // Verificar tenant y campus antes de tocar una relación alumno-tutor.
-      const studentCheck = await pool.query(
-        `SELECT id FROM students WHERE id = $1 AND tenant_id = $2 AND campus_id = $3`,
-        [studentId, tenantId, campusId]
-      );
-      if (studentCheck.rows.length === 0) {
-        return res.status(404).json({ message: "Alumno no encontrado" });
-      }
-
-      // Si se intenta desactivar, verificar que quede al menos otro responsable
-      if (es_responsable_pago === false) {
-        const otrosResponsables = await pool.query(`
-          SELECT COUNT(*) AS cnt
-          FROM student_guardian
-          WHERE student_id = $1
-            AND guardian_id != $2
-            AND es_responsable_pago = true
-        `, [studentId, guardianId]);
-
-        if (Number((otrosResponsables.rows[0] as any).cnt) === 0) {
-          return res.status(422).json({
-            message: "No se puede desactivar: el alumno quedaría sin ningún responsable de pago. Asigna primero a otro tutor como responsable."
-          });
-        }
-      }
-
-      // Construir campos a actualizar
-      const updates: string[] = [];
-      const values: any[]    = [];
-      let idx = 1;
-
-      if (es_responsable_pago !== undefined) {
-        updates.push(`es_responsable_pago = $${idx++}`);
-        values.push(es_responsable_pago);
-      }
-      if (porcentaje_responsabilidad !== undefined) {
-        updates.push(`porcentaje_responsabilidad = $${idx++}`);
-        values.push(porcentaje_responsabilidad);
-      }
-
-      if (updates.length === 0) {
-        return res.status(400).json({ message: "Sin campos para actualizar" });
-      }
-
-      values.push(studentId, guardianId);
-      const result = await pool.query(`
-        UPDATE student_guardian
-        SET ${updates.join(", ")}
-        WHERE student_id = $${idx} AND guardian_id = $${idx + 1}
-        RETURNING *
-      `, values);
-
-      if (result.rows.length === 0) {
-        return res.status(404).json({ message: "Relación alumno-tutor no encontrada" });
-      }
-
-      res.json(result.rows[0]);
-    } catch (error: any) {
-      res.status(500).json({ message: "Error interno del servidor" });
+  const updateGuardianResponsibility = guardianResponsibilityHandler(pool);
+  const guardianPermission = (req: any, res: any, next: any) => {
+    if (!hasPermissionForUser(req.user, MODULES.FAMILIES, ACTIONS.UPDATE)) {
+      return res.status(403).json({ message: "Sin permisos para editar responsabilidad de tutores" });
     }
-  });
+    next();
+  };
+  app.put("/api/admin/students/:studentId/tutores/:guardianId",
+    authenticateToken, guardianPermission, updateGuardianResponsibility);
+  app.patch("/api/admin/students/:studentId/guardians/:guardianId",
+    authenticateToken, guardianPermission, updateGuardianResponsibility);
 
   // Import students from Excel/CSV
   app.post("/api/admin/students/import", authenticateToken, upload.single('file'), async (req, res) => {

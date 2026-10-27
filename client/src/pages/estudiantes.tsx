@@ -37,7 +37,7 @@ interface GuardianRow {
   porcentaje_responsabilidad: string | null;
 }
 
-function TutoresPanel({ studentId, isOpen }: { studentId?: number; isOpen: boolean }) {
+export function TutoresPanel({ studentId, isOpen }: { studentId?: number; isOpen: boolean }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const token = localStorage.getItem("auth_token");
@@ -107,8 +107,8 @@ function TutoresPanel({ studentId, isOpen }: { studentId?: number; isOpen: boole
       guardianId: number;
       es_responsable_pago: boolean;
     }) => {
-      const res = await fetch(`/api/admin/students/${studentId}/guardians/${guardianId}`, {
-        method: "PATCH",
+      const res = await fetch(`/api/admin/students/${studentId}/tutores/${guardianId}`, {
+        method: "PUT",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({ es_responsable_pago }),
       });
@@ -118,9 +118,12 @@ function TutoresPanel({ studentId, isOpen }: { studentId?: number; isOpen: boole
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/students", studentId, "guardians"] });
       toast({ title: "Responsable actualizado", description: "El cambio se guardó correctamente." });
+      if (data.warning) {
+        toast({ title: "Revisa los responsables de pago", description: data.warning });
+      }
     },
     onError: (err: Error) => {
       toast({ title: "No se pudo actualizar", description: err.message, variant: "destructive" });
@@ -232,10 +235,17 @@ function TutoresPanel({ studentId, isOpen }: { studentId?: number; isOpen: boole
                   <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
                 ) : (
                   <Switch
+                    aria-label={`Responsable de pago: ${nombreCompleto(tutor)}`}
                     checked={tutor.es_responsable_pago}
-                    onCheckedChange={(checked) =>
-                      patchMutation.mutate({ guardianId: tutor.id, es_responsable_pago: checked })
-                    }
+                    onCheckedChange={(checked) => {
+                      const otroResponsableCompleto = tutores.find((other) =>
+                        other.id !== tutor.id && other.es_responsable_pago
+                        && Number(other.porcentaje_responsabilidad) === 100);
+                      if (checked && otroResponsableCompleto && !window.confirm(
+                        `${nombreCompleto(otroResponsableCompleto)} ya es responsable del 100 % del pago. Si continúas, ambos quedarán como responsables; este cambio no desactiva al otro tutor. ¿Deseas continuar?`
+                      )) return;
+                      patchMutation.mutate({ guardianId: tutor.id, es_responsable_pago: checked });
+                    }}
                     disabled={patchMutation.isPending}
                   />
                 )}

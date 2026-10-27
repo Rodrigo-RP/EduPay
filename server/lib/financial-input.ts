@@ -133,6 +133,25 @@ export const financialBodies = {
     nombre: text, tipo: text, periodicidad: text, monto_centavos: centavos,
     iva: z.boolean().optional(),
   }).passthrough(),
+  conceptUpdate: z.object({
+    nombre: text.optional(), tipo: text.optional(), periodicidad: text.optional(),
+    monto_centavos: centavos.optional(), iva: z.boolean().optional(),
+  }).passthrough().refine(value =>
+    ["nombre", "tipo", "periodicidad", "monto_centavos", "iva"].some(key => value[key] !== undefined),
+  "Indica al menos un campo del concepto para actualizar"),
+  generate: z.object({
+    concepto: text.optional(),
+    descripcion: optionalText,
+    monto_manual: centavos.optional(),
+    product_id: positiveId.optional(),
+    student_id: positiveId.optional(),
+    ciclo_escolar: text.optional(),
+    aplicar_becas: z.boolean().optional(),
+    incluir_recargos: z.boolean().optional(),
+    dry_run: z.boolean().optional(),
+    es_adeudo_migrado: z.boolean().optional(),
+    ...dateFields,
+  }).passthrough().refine(orderedDates, "El vencimiento o fin del período no puede ser anterior al inicio"),
   bulk: z.object({
     campus_id: positiveId, concept_id: positiveId, ciclo_escolar: text, ...dateFields,
   }).passthrough().refine(orderedDates, "El vencimiento o fin del período no puede ser anterior al inicio"),

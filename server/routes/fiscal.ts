@@ -12,7 +12,8 @@ import {
 import { MODULES, ACTIONS } from "@shared/permissions";
 import { invoices, payments, charges, students, campus_invoicing_config } from "@shared/schema";
 import { z } from "zod";
-import { getInvoicingProvider } from "../lib/invoicing/get-invoicing-provider";
+import { getInvoicingProvider, getInvoicingProviderStatus } from "../lib/invoicing/get-invoicing-provider";
+import { registerSatStatisticsRoute } from "./sat-statistics";
 import {
   ProviderAuthError,
   ProviderValidationError,
@@ -651,36 +652,13 @@ export function registerFiscalRoutes(app: Express): void {
   });
 
   // ── 13. Estadísticas SAT (alias para fiscal-contable frontend) ───────────
-  app.get("/api/fiscal/estadisticas-sat", authenticateToken, async (req, res) => {
-    try {
-      if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.READ)) {
-        return res.status(403).json({ message: "Sin permisos para acceder a información fiscal" });
-      }
-       const campusId = (req as any).user?.campus_id;
-       const tenantId = (req as any).user?.tenant_id;
-       if (!await checkCampusTenant(campusId, tenantId, res)) return;
-      const rows = await pool.query(
-        `SELECT
-           COUNT(*) FILTER (WHERE i.estado = 'emitido')   AS emitidos,
-           COUNT(*) FILTER (WHERE i.estado = 'cancelado') AS cancelados,
-           COUNT(*) FILTER (WHERE i.estado = 'pendiente') AS pendientes,
-           COUNT(*) AS total_cfdis
-         FROM invoices i
-         JOIN payments p ON p.id = i.payment_id
-         JOIN charges  c ON c.id = p.charge_id
-         JOIN students s ON s.id = c.student_id
-         WHERE s.campus_id = $1 AND s.tenant_id = $2
-           AND p.tenant_id = $2 AND c.tenant_id = $2`,
-         [campusId, tenantId],
-      ).catch(() => ({ rows: [{ emitidos: 0, cancelados: 0, pendientes: 0, total_cfdis: 0 }] }));
-      const r = rows.rows[0] as any;
-      res.json({
-        total_cfdis: Number(r.total_cfdis || 0),
-        emitidos:    Number(r.emitidos    || 0),
-        cancelados:  Number(r.cancelados  || 0),
-        pendientes:  Number(r.pendientes  || 0),
-      });
-    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
+  registerSatStatisticsRoute(app, {
+    authenticate: authenticateToken,
+    canRead: req => hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.READ),
+    checkScope: checkCampusTenant,
+    query: (text, values) => pool.query(text, values),
+    loadConfig: loadInvoicingConfig,
+    providerStatus: getInvoicingProviderStatus,
   });
 
   // ── 14. Motor de becas automáticas ────────────────────────────────────────

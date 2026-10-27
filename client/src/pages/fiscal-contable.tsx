@@ -657,28 +657,35 @@ export default function FiscalContable() {
   };
 
   // Reporte mensual para SAT
-  const ReportesSAT = () => {
-    const { data: estadisticasSAT } = useQuery<{
+  const EstadisticasSAT = () => {
+    const { data: estadisticasSAT, isPending, isError, refetch } = useQuery<{
       total_cfdis: number;
       emitidos: number;
       cancelados: number;
       pendientes: number;
+      pac: string | null;
+      modo: "sandbox" | "produccion" | "sin configurar";
+      conexion_verificada: false;
+      operacion_habilitada: boolean;
     }>({
       queryKey: ["/api/fiscal/estadisticas-sat", selectedPeriod],
     });
 
-    const generarReporteSAT = useMutation({
-      mutationFn: (data: any) => apiRequest("/api/fiscal/generar-reporte-sat", { method: "POST", body: JSON.stringify(data) }),
-      onSuccess: () => {
-        toast({
-          title: "Reporte SAT generado",
-          description: "El reporte mensual para SAT está listo"
-        });
-      }
-    });
+    if (isError) return (
+      <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
+        <p>No se pudieron obtener las estadísticas SAT. No hay cifras disponibles.</p>
+        <Button variant="outline" className="mt-3" onClick={() => void refetch()}>Reintentar</Button>
+      </div>
+    );
+    if (isPending) return <p role="status">Cargando estadísticas SAT…</p>;
 
     return (
       <div className="space-y-6">
+        <div className="rounded-lg border bg-white p-4 text-sm">
+          <p>Proveedor: {estadisticasSAT?.pac ?? "Sin configurar"}</p>
+          <p>Modo configurado: {estadisticasSAT?.modo === "produccion" ? "producción" : estadisticasSAT?.modo}</p>
+          <p>Conexión no verificada. {estadisticasSAT?.operacion_habilitada === false && "Timbrado no habilitado."}</p>
+        </div>
         {/* Estadísticas para SAT */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
@@ -707,6 +714,24 @@ export default function FiscalContable() {
         </div>
 
         {/* Generación reporte SAT */}
+      </div>
+    );
+  };
+
+  // Flujo heredado no montado: no exponer como parte de las estadísticas.
+  const ReportesSAT = () => {
+    const generarReporteSAT = useMutation({
+      mutationFn: (data: any) => apiRequest("/api/fiscal/generar-reporte-sat", { method: "POST", body: JSON.stringify(data) }),
+      onSuccess: () => {
+        toast({
+          title: "Reporte SAT generado",
+          description: "El reporte mensual para SAT está listo"
+        });
+      }
+    });
+    return (
+      <div className="space-y-6">
+        <EstadisticasSAT />
         <Card className="border-green-200 bg-green-50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-green-800">
@@ -773,17 +798,18 @@ export default function FiscalContable() {
             Fiscal y contable
           </h1>
           <p className="text-slate-600">
-            CFDI 4.0 automático, integración PAC Facturama, reportes SAT y conciliación contable
+            Gestión de CFDI, configuración del proveedor fiscal, reportes SAT y conciliación contable
           </p>
         </div>
 
         <Tabs defaultValue="gestion-cfdi" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
             <TabsTrigger value="gestion-cfdi">Gestión CFDI</TabsTrigger>
             <TabsTrigger value="timbrado-lote">Timbrado masivo</TabsTrigger>
             <TabsTrigger value="facturacion-automatica">Facturación Automática</TabsTrigger>
             <TabsTrigger value="integracion-pac">Integración PAC</TabsTrigger>
             <TabsTrigger value="contadores-externos">Contadores Externos</TabsTrigger>
+            <TabsTrigger value="reportes-sat">Reportes SAT</TabsTrigger>
           </TabsList>
 
           <TabsContent value="gestion-cfdi">
@@ -804,6 +830,9 @@ export default function FiscalContable() {
 
           <TabsContent value="contadores-externos">
             <IntegracionContadores />
+          </TabsContent>
+          <TabsContent value="reportes-sat">
+            <EstadisticasSAT />
           </TabsContent>
         </Tabs>
       </div>

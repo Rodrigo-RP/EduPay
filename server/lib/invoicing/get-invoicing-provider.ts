@@ -19,6 +19,28 @@ import { FacturapiAdapter } from './adapters/facturapi-adapter';
 // Mapa de overrides para tests — las claves son los nombres de proveedor
 type ProviderOverrides = Partial<Record<string, InvoicingProvider>>;
 
+function providerApiKey(proveedor: string, env: NodeJS.ProcessEnv): string | undefined {
+  return proveedor === "facturapi" ? env.FACTURAPI_SECRET_KEY : undefined;
+}
+
+/** Describe configuración, nunca una conexión comprobada ni un timbrado. */
+export function getInvoicingProviderStatus(
+  config: { proveedor: string; ambiente: string; organizacion_id?: string | null } | null,
+  env: NodeJS.ProcessEnv = process.env,
+) {
+  const key = config ? providerApiKey(config.proveedor, env) : undefined;
+  let modo: "sandbox" | "produccion" | "sin configurar" = "sin configurar";
+  if (key?.startsWith("sk_test_") && config?.ambiente === "sandbox") modo = "sandbox";
+  if (key?.startsWith("sk_live_") && config?.ambiente === "produccion") modo = "produccion";
+  return {
+    pac: config?.proveedor ?? null,
+    modo,
+    conexion_verificada: false as const,
+    // El adaptador actual rechaza Live y organizaciones distintas de sandbox.
+    operacion_habilitada: modo === "sandbox" && config?.organizacion_id === "sandbox",
+  };
+}
+
 /**
  * Devuelve la instancia del proveedor de timbrado para el proveedor indicado.
  *
@@ -43,7 +65,7 @@ export function getInvoicingProvider(
       // Esta entrega sólo permite la organización literal "sandbox" y una
       // sk_test_. La habilitación multi-RFC/Live requiere una integración
       // posterior con User Keys y claves por organización.
-      const apiKey = process.env.FACTURAPI_SECRET_KEY;
+      const apiKey = providerApiKey(proveedor, process.env);
       if (!apiKey) {
         throw new Error(
           'FACTURAPI_SECRET_KEY no configurada — ' +

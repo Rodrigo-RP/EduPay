@@ -1330,18 +1330,6 @@ export function registerMiscRoutes(app: Express): void {
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
-  // /api/fiscal/estadisticas-sat — métricas SAT para fiscal-contable
-  app.get("/api/fiscal/estadisticas-sat", authenticateToken, async (req, res) => {
-    if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.READ)) {
-      return res.status(403).json({ message: "No tienes permiso para ver estadísticas fiscales SAT" });
-    }
-    try {
-      const campusId = (req as any).user?.campus_id;
-      const rows = await pool.query(`SELECT COUNT(*) as total_cfdis, COUNT(CASE WHEN i.estado='emitido' THEN 1 END) as emitidos, COUNT(CASE WHEN i.estado='cancelado' THEN 1 END) as cancelados FROM invoices i JOIN payments p ON p.id=i.payment_id JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1`, [campusId]).catch(()=>({rows:[{total_cfdis:0,emitidos:0,cancelados:0}]}));
-      res.json({ total_cfdis: Number((rows.rows[0] as any)?.total_cfdis||0), emitidos: Number((rows.rows[0] as any)?.emitidos||0), cancelados: Number((rows.rows[0] as any)?.cancelados||0), vigentes: Number((rows.rows[0] as any)?.emitidos||0), pac: "Facturama", estado_conexion: "activo" });
-    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
-  });
-
   // ── FAMILIAS ──────────────────────────────────────────────────────────────
 
   /**

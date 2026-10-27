@@ -55,6 +55,7 @@ VITE_STRIPE_PUBLISHABLE_KEY = "pk_test_51U5doxCa00hYnecNGgNSBjVer6LnHCVTTuYERZl6
 
 [userenv.development]
 APP_ENV = "development"
+ALLOW_DEMO_SEED = "true"
 
 [postMerge]
 path = "scripts/post-merge.sh"

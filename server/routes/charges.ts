@@ -10,6 +10,7 @@ import { insertChargeSchema } from "@shared/schema";
 import { getAcademicLevel } from "@shared/academic-levels";
 import { wsManager } from "../websocket-manager";
 import { z } from "zod";
+import { financialBodies, validateFinancialBody } from "../lib/financial-input";
 import { resolveEffectiveScholarship } from "../lib/scholarship-engine";
 import { applyMonthlySurcharges } from "../lib/surcharge-accrual";
 import {
@@ -42,7 +43,7 @@ export function registerChargesRoutes(app: Express): void {
   });
 
   // Create new concept
-  app.post("/api/admin/concepts", authenticateToken, async (req: any, res) => {
+  app.post("/api/admin/concepts", authenticateToken, validateFinancialBody(financialBodies.concept), async (req: any, res) => {
     try {
       const role = req.user?.role;
       if (!hasPermissionForUser((req as any).user, MODULES.CONCEPTS, ACTIONS.CONFIGURE)) {
@@ -69,7 +70,7 @@ export function registerChargesRoutes(app: Express): void {
   });
 
   // Bulk create charges
-  app.post("/api/admin/charges/bulk", authenticateToken, async (req, res) => {
+  app.post("/api/admin/charges/bulk", authenticateToken, validateFinancialBody(financialBodies.bulk), async (req, res) => {
     try {
       if (!hasPermissionForUser((req as any).user, MODULES.CHARGES, ACTIONS.CREATE)) {
         return res.status(403).json({ message: "Sin permisos para crear cargos en masa" });
@@ -206,7 +207,7 @@ export function registerChargesRoutes(app: Express): void {
   });
 
   // Generate monthly charges for all active students
-  app.post("/api/admin/cargos/generar-mensual", authenticateToken, async (req: any, res: any) => {
+  app.post("/api/admin/cargos/generar-mensual", authenticateToken, validateFinancialBody(financialBodies.monthly), async (req: any, res: any) => {
     try {
       if (!hasPermissionForUser(req.user, MODULES.CHARGES, ACTIONS.CREATE)) {
         return res.status(403).json({ message: "Sin permisos para generar cargos mensuales" });
@@ -259,7 +260,7 @@ export function registerChargesRoutes(app: Express): void {
   });
 
   // Create extraordinary charge for a specific student
-  app.post("/api/admin/cargos/extraordinario", authenticateToken, async (req: any, res: any) => {
+  app.post("/api/admin/cargos/extraordinario", authenticateToken, validateFinancialBody(financialBodies.extraordinary), async (req: any, res: any) => {
     try {
       const role = req.user?.role;
       if (!hasPermissionForUser((req as any).user, MODULES.CHARGES, ACTIONS.CREATE)) {
@@ -403,7 +404,7 @@ export function registerChargesRoutes(app: Express): void {
   });
 
   // Apply charges from the persisted catalog with automatic academic level pricing.
-  app.post("/api/admin/cargos/desde-catalogo", authenticateToken, async (req: any, res: any) => {
+  app.post("/api/admin/cargos/desde-catalogo", authenticateToken, validateFinancialBody(financialBodies.catalog), async (req: any, res: any) => {
     try {
       if (!hasPermissionForUser(req.user, MODULES.CHARGES, ACTIONS.CREATE)) {
         return res.status(403).json({ message: "Sin permisos para aplicar cargos desde catálogo" });

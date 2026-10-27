@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { financialBodies, parsedBankTransactionInput, validateFinancialBody } from "../lib/financial-input";
 import { createHash } from "crypto";
 import jwt from "jsonwebtoken";
 import { pool, db } from "../db";
@@ -659,7 +660,7 @@ export function registerConciliacionRoutes(app: Express): void {
    *
    * Usa transacción atómica con FOR UPDATE para prevenir doble cobro concurrente.
    */
-  app.post("/api/caja/pago-efectivo", authenticateToken, async (req, res) => {
+  app.post("/api/caja/pago-efectivo", authenticateToken, validateFinancialBody(financialBodies.cash), async (req, res) => {
     try {
       const role = (req as any).user?.role;
       if (!hasPermissionForUser((req as any).user, MODULES.PAYMENTS, ACTIONS.PROCESS)) {
@@ -901,7 +902,7 @@ export function registerConciliacionRoutes(app: Express): void {
 
   // Register manual transfer
   // tenant_id desde JWT (fix: antes se dejaba NULL), auditoría post-INSERT
-  app.post("/api/caja/transferencia-manual", authenticateToken, async (req: any, res) => {
+  app.post("/api/caja/transferencia-manual", authenticateToken, validateFinancialBody(financialBodies.transfer), async (req: any, res) => {
     try {
       const user      = req.user;
       if (!hasPermissionForUser(user, MODULES.PAYMENTS, ACTIONS.PROCESS)) {
@@ -1128,7 +1129,7 @@ export function registerConciliacionRoutes(app: Express): void {
 
   // Cierre diario: snapshot persistido y auditable. La restricción única de DB
   // garantiza que dos solicitudes concurrentes no cierren el mismo día dos veces.
-  app.post("/api/caja/cerrar-dia", authenticateToken, async (req, res) => {
+  app.post("/api/caja/cerrar-dia", authenticateToken, validateFinancialBody(financialBodies.closure), async (req, res) => {
     const user = (req as any).user;
     if (!hasPermissionForUser(user, MODULES.PAYMENTS, ACTIONS.PROCESS)) {
       return res.status(403).json({ message: "Sin permisos para cerrar caja" });
@@ -1310,7 +1311,7 @@ export function registerConciliacionRoutes(app: Express): void {
   // dry_run  : ROLLBACK + committed=false, mismos conteos
   // tenant_id: desde el JWT (fix — antes se dejaba NULL)
   // Auditoría: enqueueAuditLog post-COMMIT (fire-and-forget, patrón ADR-001)
-  app.post("/api/conciliacion/importar", authenticateToken, async (req: any, res) => {
+  app.post("/api/conciliacion/importar", authenticateToken, validateFinancialBody(financialBodies.bankImport), async (req: any, res) => {
     try {
       const user     = req.user;
       const campusId = user?.campus_id;
@@ -1523,6 +1524,12 @@ export function registerConciliacionRoutes(app: Express): void {
         }
 
         const { transactions, errors: parseErrors, metadata } = parseResult;
+
+        if (transactions.some(tx => !parsedBankTransactionInput.safeParse(tx).success)) {
+          return res.status(400).json({
+            message: "El archivo contiene montos o fechas inválidos. No se importó ninguna transacción.",
+          });
+        }
 
         // Sin movimientos ni errores → el PDF estaba vacío o sin tabla
         if (transactions.length === 0 && parseErrors.length === 0) {

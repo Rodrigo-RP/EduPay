@@ -12,6 +12,7 @@ import { getAcademicLevel } from "@shared/academic-levels";
 import { wsManager } from "../websocket-manager";
 import * as XLSX from "xlsx";
 import { z } from "zod";
+import { centavos, positiveId, financialBodies, validateFinancialBody, validateFinancialImportRows } from "../lib/financial-input";
 
 export function registerPaymentRoutes(app: Express): void {
   app.get("/api/payments/manual-options", authenticateToken, async (req: any, res) => {
@@ -88,9 +89,9 @@ export function registerPaymentRoutes(app: Express): void {
     }
 
     const parsed = z.object({
-      student_id: z.coerce.number().int().positive(),
-      charge_id: z.coerce.number().int().positive(),
-      amount_centavos: z.coerce.number().int().positive(),
+      student_id: positiveId,
+      charge_id: positiveId,
+      amount_centavos: centavos,
       idempotency_key: z.string().min(16).max(100),
       recibido_por: z.string().trim().min(1).max(255),
       observaciones: z.string().trim().max(2000).optional().default(""),
@@ -241,7 +242,7 @@ export function registerPaymentRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/payments/create-intent", authenticateGuardian, async (req: any, res) => {
+  app.post("/api/payments/create-intent", authenticateGuardian, validateFinancialBody(financialBodies.payment), async (req: any, res) => {
     try {
       const { charge_id } = req.body;
       const guardianId = req.guardian?.id;
@@ -271,7 +272,7 @@ export function registerPaymentRoutes(app: Express): void {
    *   INSERT payment_application → UPDATE charges → COMMIT
    * No soporta pagos parciales (paga el saldo pendiente completo).
    */
-  app.post("/api/payments/process", authenticateGuardian, async (req: any, res) => {
+  app.post("/api/payments/process", authenticateGuardian, validateFinancialBody(financialBodies.payment), async (req: any, res) => {
     try {
       const { charge_id, payment_method } = req.body;
       const guardianId  = req.guardian?.id;
@@ -701,6 +702,7 @@ export function registerPaymentRoutes(app: Express): void {
         
         workbook = XLSX.read(cleanCsvData, { 
           type: 'string',
+          raw: true,
           FS: separator  // Field separator
         });
       } else {
@@ -710,6 +712,15 @@ export function registerPaymentRoutes(app: Express): void {
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
       jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      const financialPreflight = validateFinancialImportRows(category, jsonData);
+      if (financialPreflight.errors.length) {
+        return res.status(400).json({
+          message: "Revisa los montos, porcentajes y fechas del archivo. No se importó ninguna fila.",
+          errors: financialPreflight.errors,
+        });
+      }
+      jsonData = financialPreflight.rows;
 
       // dry_run: acepta ?dry_run=true (query string) o { dry_run: true } (body JSON).
       // Con dry_run activo, el procesamiento es idéntico al real pero termina en
@@ -779,7 +790,7 @@ export function registerPaymentRoutes(app: Express): void {
             continue;
           }
           const porcentaje = parseFloat(becaData.valor_descuento);
-          if (!becaData.valor_descuento || isNaN(porcentaje) || porcentaje <= 0 || porcentaje > 100) {
+          if (!Number.isFinite(porcentaje) || porcentaje < 0 || porcentaje > 100) {
             results.errors.push(`Fila ${index + 2}: valor_descuento debe ser un número entre 0 y 100`);
             results.failed++;
             continue;

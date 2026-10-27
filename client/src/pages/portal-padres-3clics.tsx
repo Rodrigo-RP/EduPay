@@ -1,5 +1,6 @@
 // Módulo 3: Portal del padre/tutor - Pago en 3 clics máximo (móvil-first)
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { isConfirmedCardPaymentResponse } from "@shared/payment-confirmation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { loadStripe, type StripeElementsOptions } from "@stripe/stripe-js";
 import { Elements, CardElement, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
@@ -106,7 +107,7 @@ interface SpeiIntent {
 interface ConfirmedPayment {
   payment_id: number;
   monto_centavos: number | string;
-  cfdi?: string;
+  cfdi?: string | null;
 }
 
 interface ConfirmedPaymentResult {
@@ -202,7 +203,7 @@ function PortalPadres3ClicsInner() {
 
   // Estado de navegación y pago
   const [selectedCharges, setSelectedCharges] = useState<number[]>([]);
-  const [step, setStep] = useState<"select" | "pay" | "confirm" | "spei-pending" | "success">("select");
+  const [step, setStep] = useState<"select" | "pay" | "confirm" | "spei-pending" | "card-pending" | "success">("select");
   const [selectedMethod, setSelectedMethod] = useState<string>("");
   const [cardComplete, setCardComplete] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -213,6 +214,13 @@ function PortalPadres3ClicsInner() {
   const { data: dashboardData, isLoading } = useQuery<any>({
     queryKey: ["/api/guardian/dashboard"],
   });
+  useEffect(() => {
+    const requested = Number(new URLSearchParams(window.location.search).get("cargo"));
+    if (Number.isSafeInteger(requested) && requested > 0 &&
+        dashboardData?.pendingCharges?.some((charge: { id: number }) => charge.id === requested)) {
+      setSelectedCharges([requested]);
+    }
+  }, [dashboardData]);
 
   const totalSeleccionado = selectedCharges.reduce((total, chargeId) => {
     const charge = dashboardData?.pendingCharges?.find((c: any) => c.id === chargeId);
@@ -229,10 +237,11 @@ function PortalPadres3ClicsInner() {
       return res.json();
     },
     onSuccess: (data: any) => {
-      paymentSubmissionLocked.current = false;
       setProcessing(false);
       setLastPaymentResult(data);
-      setStep("success");
+      const confirmed = isConfirmedCardPaymentResponse(data);
+      paymentSubmissionLocked.current = !confirmed;
+      setStep(confirmed ? "success" : "card-pending");
       queryClient.invalidateQueries({ queryKey: ["/api/guardian/dashboard"] });
     },
     onError: (err: any) => {
@@ -240,11 +249,11 @@ function PortalPadres3ClicsInner() {
       setProcessing(false);
       // apiRequest lanza Error("${status}: ${body_text}") en respuestas no-ok
       const msg: string = err?.message ?? "";
-      if (msg.startsWith("402:")) {
+      if (msg.startsWith("402:") || msg.startsWith("422:")) {
         try {
           const body = JSON.parse(msg.slice(4).trim());
           toast({
-            title: "Pago rechazado",
+            title: msg.startsWith("422:") ? "Pago no disponible" : "Pago rechazado",
             description: body.message ?? "El banco rechazó la tarjeta. Intenta con otra.",
             variant: "destructive",
           });
@@ -699,7 +708,7 @@ function PortalPadres3ClicsInner() {
 
       <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
         <CheckCircle className="w-4 h-4 inline mr-1" />
-        Se generará factura CFDI automáticamente y será enviada a su email.
+        El pago no confirma la emisión de una factura. Solicítala a tu escuela.
       </div>
 
       <Button
@@ -792,7 +801,7 @@ function PortalPadres3ClicsInner() {
               </div>
             )}
             <p className="text-xs text-slate-500">
-              El comprobante CFDI fue enviado a su correo institucional.
+              Consulta con tu escuela la emisión y entrega de tu factura.
             </p>
           </CardContent>
         </Card>
@@ -931,6 +940,19 @@ function PortalPadres3ClicsInner() {
           {step === "pay"     && <PaymentMethod />}
           {step === "confirm" && renderPaymentConfirm()}
           {step === "spei-pending" && <SpeiPending />}
+          {step === "card-pending" && (
+            <div role="status" className="space-y-4 text-center py-6">
+              <Clock className="h-10 w-10 mx-auto text-amber-600" />
+              <h2 className="text-xl font-semibold">Pago pendiente de confirmación</h2>
+              <p>El pago todavía no está acreditado. No repitas el cobro. Si tu banco solicita autenticación, el pago requiere completar ese paso.</p>
+              <Button onClick={() => {
+                queryClient.invalidateQueries({ queryKey: ["/api/guardian/dashboard"] });
+                setSelectedCharges([]);
+                setStep("select");
+                paymentSubmissionLocked.current = false;
+              }}>Consultar mi estado de cuenta</Button>
+            </div>
+          )}
           {step === "success" && <PaymentSuccess />}
         </div>
 

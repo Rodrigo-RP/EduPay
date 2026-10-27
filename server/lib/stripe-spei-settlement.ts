@@ -8,6 +8,21 @@
  */
 import { pool } from "../db";
 import { enqueueAuditLog, type AuditLogPayload } from "../audit-retry";
+import { settleStripeCardPaymentIntent, type StripePaymentIntentResult } from "./stripe-card-settlement";
+
+/** Entrada común para la respuesta del SDK y el webhook firmado. SPEI conserva su ledger pendiente. */
+export async function settleConfirmedStripePaymentIntent(
+  pi: StripePaymentIntentResult,
+  sourceId: string,
+  rawPayload: string,
+) {
+  if (pi.status !== "succeeded") return { status: "not_pending" as const, paymentIds: [] };
+  if (pi.metadata?.edupay_payment_flow === "guardian_card")
+    return settleStripeCardPaymentIntent(pi, sourceId, rawPayload);
+  if (pi.metadata?.edupay_payment_flow === "spei_bank_transfer")
+    return settleStripeSpeiPaymentIntent(pi.id, sourceId, rawPayload);
+  return { status: "not_pending" as const, paymentIds: [] };
+}
 
 export type SpeiSettlementResult =
   | { status: "processed"; paymentIds: number[] }

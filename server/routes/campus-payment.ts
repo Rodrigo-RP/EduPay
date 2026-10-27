@@ -39,7 +39,7 @@
 import type { Express } from "express";
 import Stripe from "stripe";
 import { pool } from "../db";
-import { settleStripeSpeiPaymentIntent } from "../lib/stripe-spei-settlement";
+import { settleConfirmedStripePaymentIntent } from "../lib/stripe-spei-settlement";
 import {
   authenticateToken,
   checkCampusTenant,
@@ -178,10 +178,10 @@ export function registerStripeWebhookRoute(
 
       if (event.type === "payment_intent.succeeded") {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        if (paymentIntent.metadata?.edupay_payment_flow === "spei_bank_transfer") {
+        if (["spei_bank_transfer", "guardian_card"].includes(paymentIntent.metadata?.edupay_payment_flow)) {
           try {
-            await settleStripeSpeiPaymentIntent(
-              paymentIntent.id,
+            await settleConfirmedStripePaymentIntent(
+              paymentIntent,
               event.id,
               JSON.stringify(event),
             );
@@ -189,10 +189,10 @@ export function registerStripeWebhookRoute(
             // 500 hace que Stripe reintente el evento firmado. No devolvemos 200
             // antes de que el ledger haya sido aplicado de manera atómica.
             console.error(
-              "[campus-payment] No se pudo liquidar SPEI " +
+              "[campus-payment] No se pudo liquidar el pago Stripe " +
                 `${paymentIntent.id}: ${dbErr.message}`,
             );
-            return res.status(500).json({ message: "No se pudo registrar el pago SPEI" });
+            return res.status(500).json({ message: "No se pudo registrar el pago confirmado" });
           }
         }
       }
@@ -503,14 +503,15 @@ export function registerCampusPaymentRoutes(
  * Usado por guardian.ts para enrutar PaymentIntents via transfer_data.
  */
 export async function getActiveStripeAccountForCampus(
-  campusId: number
+  campusId: number,
+  tenantId?: number,
 ): Promise<string | null> {
   const { rows } = await pool.query(
     `SELECT stripe_account_id
        FROM campus_payment_config
       WHERE campus_id = $1
-        AND charges_enabled = true`,
-    [campusId]
+        AND charges_enabled = true${tenantId ? " AND tenant_id = $2" : ""}`,
+    tenantId ? [campusId, tenantId] : [campusId]
   );
   return (rows[0]?.stripe_account_id as string) ?? null;
 }

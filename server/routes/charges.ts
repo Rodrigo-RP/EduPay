@@ -269,10 +269,6 @@ export function registerChargesRoutes(app: Express): void {
       const tenantId = req.user.tenant_id;
       const { student_id, concept_id, monto, descripcion, fecha_vencimiento, motivo_override } = req.body;
       if (!student_id || !monto) return res.status(400).json({ message: "Estudiante y monto son requeridos" });
-      const today = new Date().toISOString().split("T")[0];
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(fecha_vencimiento || "")) || fecha_vencimiento < today || !motivo_override?.trim()) {
-        return res.status(400).json({ message: "La fecha manual futura y su motivo son obligatorios para un cargo extraordinario" });
-      }
 
       // IDOR PROTECTION: verificar que el alumno pertenece al tenant del usuario autenticado
       if (tenantId) {
@@ -291,6 +287,10 @@ export function registerChargesRoutes(app: Express): void {
           return res.status(403).json({ message: "Acceso denegado: el concepto no pertenece a este tenant" });
         }
         selectedConcept = ownedConcept;
+      }
+      const today = new Date().toISOString().split("T")[0];
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(fecha_vencimiento || "")) || fecha_vencimiento < today || !motivo_override?.trim()) {
+        return res.status(400).json({ message: "La fecha manual futura y su motivo son obligatorios para un cargo extraordinario" });
       }
       if (!conceptId && descripcion) {
         const concepts = await storage.getConceptsByCampus(campusId);

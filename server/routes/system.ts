@@ -8,6 +8,7 @@ import { insertUserSchema } from "@shared/schema";
 import { canEditUser, UserRole, MODULES, ACTIONS } from "@shared/permissions";
 import { optimizeDatabase, checkQueryPerformance, cleanupObsoleteData, runMaintenanceTask } from "../optimize-database";
 import { registerDemoSeedRoute } from "./demo-seed";
+import { registerUnavailableSecurityRoutes } from "./unavailable-security";
 import { wsManager } from "../websocket-manager";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -217,62 +218,9 @@ export function registerSystemRoutes(app: Express): void {
     }
   });
 
-  // Security scan - PROTEGIDO
-  app.post("/api/security/scan", requireAuth, async (req, res) => {
-    try {
-      if (!hasPermissionForUser((req as any).user, MODULES.SECURITY, ACTIONS.READ)) {
-        return res.status(403).json({ message: "Sin permisos para ejecutar escaneos de seguridad" });
-      }
-      res.json({ 
-        message: "Escaneo de seguridad iniciado",
-        estimatedTime: "3 segundos",
-        vulnerabilities: 0,
-        securityScore: 98,
-        recommendations: [
-          "Sistema actualizado y seguro",
-          "Todas las protecciones activas"
-        ]
-      });
-    } catch (error) {
-      res.status(500).json({ error: "Error iniciando escaneo de seguridad" });
-    }
-  });
-
-  // Block IP address - PROTEGIDO
-  app.post("/api/security/block-ip", requireAuth, async (req, res) => {
-    try {
-      if (!hasPermissionForUser((req as any).user, MODULES.SECURITY, ACTIONS.READ)) {
-        return res.status(403).json({ message: "Sin permisos para gestionar bloqueos de seguridad" });
-      }
-      const { ipAddress } = req.body;
-      
-      if (!ipAddress) {
-        return res.status(400).json({ error: "IP address requerida" });
-      }
-
-      res.json({ 
-        message: `IP ${ipAddress} bloqueada exitosamente`,
-        blockedAt: new Date().toISOString()
-      });
-    } catch (error) {
-      res.status(500).json({ error: "Error bloqueando IP" });
-    }
-  });
-
-  // Enable 2FA globally - PROTEGIDO
-  app.post("/api/security/enable-2fa", requireAuth, async (req, res) => {
-    try {
-      if (!hasPermissionForUser((req as any).user, MODULES.SECURITY, ACTIONS.READ)) {
-        return res.status(403).json({ message: "Sin permisos para configurar seguridad global" });
-      }
-      res.json({ 
-        message: "2FA habilitado globalmente para todos los usuarios admin",
-        enabledAt: new Date().toISOString()
-      });
-    } catch (error) {
-      res.status(500).json({ error: "Error habilitando 2FA" });
-    }
-  });
+  registerUnavailableSecurityRoutes(app, requireAuth, req =>
+    hasPermissionForUser((req as any).user, MODULES.SECURITY, ACTIONS.READ),
+  );
 
   // Generate security report - PROTEGIDO
   app.get("/api/security/report", requireAuth, async (req, res) => {

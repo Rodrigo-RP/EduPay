@@ -15,6 +15,7 @@ import { wsManager } from "../websocket-manager";
 import { seedAdmissionsData } from "../seed-admissions-data";
 import * as XLSX from "xlsx";
 import { z } from "zod";
+import { centavos, positiveId, financialBodies, validateFinancialBody } from "../lib/financial-input";
 import bcrypt from "bcrypt";
 import { NotificationSystem as ServerNotificationSystem } from '../notification-system';
 import Stripe from "stripe";
@@ -457,7 +458,10 @@ export async function registerGuardianRoutes(
       const guardianId = req.guardian.id;
       const tenantId   = req.guardian.tenant_id;
 
-      const { charge_ids, metodo_pago = "tarjeta", payment_method_id } = req.body;
+      const { charge_ids, metodo_pago = "tarjeta", payment_method_id, payment_attempt_id } = req.body;
+      if (payment_attempt_id !== undefined && !z.string().uuid().safeParse(payment_attempt_id).success) {
+        return res.status(400).json({ message: "El identificador del intento de pago no es válido" });
+      }
       if (!charge_ids || !Array.isArray(charge_ids) || charge_ids.length === 0) {
         return res.status(400).json({ message: "Se requiere al menos un cargo" });
       }
@@ -527,12 +531,15 @@ export async function registerGuardianRoutes(
             Number(pre.monto_base_centavos) +
             Number(pre.recargo_aplicado_centavos || 0) -
             Number(pre.ya_pagado);
+          if (!centavos.safeParse(saldoPrevio).success && saldoPrevio !== 0) {
+            return res.status(400).json({ message: "El saldo del cargo no es un importe válido en centavos" });
+          }
           if (saldoPrevio <= 0) {
             return res.status(409).json({ message: `El cargo ${chargeId} ya tiene saldo cero` });
           }
 
           try {
-            pi = await sg.paymentIntents.create({
+            const paymentIntentParams = {
               amount:   saldoPrevio,
               currency: "mxn",
               payment_method: payment_method_id as string,
@@ -540,7 +547,7 @@ export async function registerGuardianRoutes(
               // Requerido con confirm:true para no necesitar return_url.
               // allow_redirects:"never" garantiza que solo se usen métodos no-redirect
               // (tarjeta), que es el único método que soporta el portal de padres.
-              automatic_payment_methods: { enabled: true, allow_redirects: "never" },
+              automatic_payment_methods: { enabled: true, allow_redirects: "never" as const },
               transfer_data: { destination: stripeConnectAccountId! },
               // application_fee_amount = 0: decisión de arquitectura permanente.
               // Refereence monetiza con cuota SaaS por número de alumnos, facturada
@@ -556,9 +563,17 @@ export async function registerGuardianRoutes(
                   stripe_account_id: stripeConnectAccountId,
                   edupay_payment_flow: "guardian_card",
               },
-            }, {
+            };
+            pi = await sg.paymentIntents.create(paymentIntentParams, {
               idempotencyKey: createHash("sha256")
-                .update(`guardian-card:${tenantIdLote}:${guardianId}:${chargeId}:${saldoPrevio}`)
+                // El mismo intento y los mismos parámetros reutilizan la clave.
+                // Otra tarjeta o intento autorizado no hereda un rechazo cacheado.
+                // Clientes anteriores usan el PaymentMethod como identidad del intento.
+                .update(JSON.stringify({
+                  flow: "guardian-card",
+                  attempt: payment_attempt_id ?? payment_method_id,
+                  params: paymentIntentParams,
+                }))
                 .digest("hex"),
             });
           } catch (stripeErr: any) {
@@ -624,8 +639,11 @@ export async function registerGuardianRoutes(
   // Implementación en server/routes/reportes-cobranza.ts
 
   // GENERATE CHARGES - ENDPOINT PARA GENERAR CARGOS CON CONFIGURACIÓN FLEXIBLE
-  app.post("/api/charges/generate", authenticateToken, async (req: any, res: any) => {
+  app.post("/api/charges/generate", authenticateToken, validateFinancialBody(financialBodies.generate), async (req: any, res: any) => {
     try {
+      if (!hasPermissionForUser(req.user, MODULES.CHARGES, ACTIONS.CREATE)) {
+        return res.status(403).json({ message: "Sin permisos para crear cargos" });
+      }
       const {
         concepto,
         tipo_generacion,
@@ -647,13 +665,9 @@ export async function registerGuardianRoutes(
       const userCampusId  = req.user.campus_id;
       const userTenantId  = req.user.tenant_id;
       const isDryRun      = !!dry_run;
-
-      // Validación básica de montos para cargos extraordinarios
-      if (monto_manual !== undefined) {
-        const montoNum = Number(monto_manual);
-        if (!Number.isFinite(montoNum) || montoNum <= 0) {
-          return res.status(400).json({ message: "El monto debe ser un número positivo mayor a cero" });
-        }
+      if (!Number.isSafeInteger(userCampusId) || userCampusId <= 0
+        || !Number.isSafeInteger(userTenantId) || userTenantId <= 0) {
+        return res.status(403).json({ message: "La sesión debe identificar tu campus e institución" });
       }
 
       // Validar fechas
@@ -694,7 +708,7 @@ export async function registerGuardianRoutes(
         if (!concept) return res.status(404).json({ message: "Concepto no encontrado" });
       } else if (descripcion && monto_manual && !isDryRun) {
         // Cargo extraordinario: crear un concepto ad-hoc para que los JOINs funcionen
-        const montoNum = Math.round(Number(monto_manual));
+        const montoNum = monto_manual;
         const existingConcept = await pool.query(
           `SELECT id FROM concepts WHERE campus_id = $1 AND nombre = $2 AND tipo = 'extra' LIMIT 1`,
           [userCampusId, descripcion]
@@ -797,12 +811,16 @@ export async function registerGuardianRoutes(
           baseAmount = precio;
         } else {
           baseAmount = monto_manual
-            ? Math.round(Number(monto_manual))
+            ? monto_manual
             : concept?.monto_centavos ?? 0;
           if (concept && !monto_manual) {
             const levelPrice = (concept as any)[`monto_${academicLevel}`];
             if (levelPrice && levelPrice > 0) baseAmount = levelPrice;
           }
+        }
+
+        if (!centavos.safeParse(baseAmount).success) {
+          return res.status(400).json({ message: "El concepto o producto debe tener un importe positivo en centavos enteros" });
         }
 
         // Beca real — precisión a 2 decimales para no perder centavos
@@ -1310,7 +1328,7 @@ export async function registerGuardianRoutes(
   });
 
   // Create new concept
-  app.post("/api/concepts", authenticateToken, async (req: any, res) => {
+  app.post("/api/concepts", authenticateToken, validateFinancialBody(financialBodies.concept), async (req: any, res) => {
     try {
       const role = req.user?.role;
       if (!hasPermissionForUser((req as any).user, MODULES.CONCEPTS, ACTIONS.CONFIGURE)) {
@@ -1319,6 +1337,10 @@ export async function registerGuardianRoutes(
       // campus_id y tenant_id SIEMPRE del JWT — nunca del body
       const campusId = req.user.campus_id;
       const tenantId = req.user.tenant_id;
+      if (!Number.isSafeInteger(campusId) || campusId <= 0
+        || !Number.isSafeInteger(tenantId) || tenantId <= 0) {
+        return res.status(403).json({ message: "La sesión debe identificar tu campus e institución" });
+      }
       const { nombre, tipo, periodicidad, monto_centavos, iva } = req.body;
       
       const [newConcept] = await db
@@ -1342,19 +1364,26 @@ export async function registerGuardianRoutes(
   });
 
   // Update concept by id
-  app.put("/api/concepts/:id", authenticateToken, async (req, res) => {
+  app.put("/api/concepts/:id", authenticateToken, validateFinancialBody(financialBodies.conceptUpdate), async (req, res) => {
     try {
       const role = (req as any).user?.role;
       if (!hasPermissionForUser((req as any).user, MODULES.CONCEPTS, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para gestionar conceptos" });
       }
       const campusId = (req as any).user.campus_id;
-      const id = parseInt(req.params.id);
+      const tenantId = (req as any).user.tenant_id;
+      if (!Number.isSafeInteger(campusId) || campusId <= 0
+        || !Number.isSafeInteger(tenantId) || tenantId <= 0) {
+        return res.status(403).json({ message: "La sesión debe identificar tu campus e institución" });
+      }
+      const parsedId = positiveId.safeParse(req.params.id);
+      if (!parsedId.success) return res.status(400).json({ message: "El identificador del concepto no es válido" });
+      const id = parsedId.data;
       const { nombre, tipo, periodicidad, monto_centavos, iva } = req.body;
       const [updated] = await db
         .update(concepts)
         .set({ nombre, tipo, periodicidad, monto_centavos, iva: iva !== undefined ? iva : false })
-        .where(and(eq(concepts.id, id), eq(concepts.campus_id, campusId)))
+        .where(and(eq(concepts.id, id), eq(concepts.campus_id, campusId), eq(concepts.tenant_id, tenantId)))
         .returning();
       if (!updated) return res.status(404).json({ message: "Concepto no encontrado" });
       res.json(updated);

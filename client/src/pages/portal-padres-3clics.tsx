@@ -312,6 +312,7 @@ function PortalPadres3ClicsInner() {
         charge_ids: selectedCharges,
         metodo_pago: "tarjeta",
         payment_method_id: paymentMethod.id,
+        payment_attempt_id: crypto.randomUUID(),
       });
     } else {
       setProcessing(true);

@@ -19,8 +19,9 @@ test.describe("Estudiantes", () => {
   });
 
   test("la página carga sin error de servidor", async ({ page }) => {
-    await expect(page.getByText(/error 500|internal server|algo salió mal/i)).toHaveCount(0);
-    // Debe haber algún contenido visible (tabla, cards, o mensaje de vacío)
+    await expect(
+      page.getByText(/error 500|internal server|algo salió mal|error al cargar estudiantes/i),
+    ).toHaveCount(0);
     const hasContent =
       (await page.locator("table, [class*='list'], [class*='grid'], [class*='card']").count()) > 0 ||
       (await page.getByText(/alumno|estudiante|sin registros|no hay/i).count()) > 0;
@@ -28,21 +29,16 @@ test.describe("Estudiantes", () => {
   });
 
   test("el buscador filtra resultados al escribir", async ({ page }) => {
-    const searchInput = page
-      .getByPlaceholder(/buscar|nombre|alumno/i)
-      .or(page.getByRole("searchbox"))
-      .first();
-    if (!(await searchInput.count())) {
-      test.skip(true, "No hay campo de búsqueda visible");
-      return;
-    }
+    const searchInput = page.getByPlaceholder(/buscar por nombre, apellidos o curp/i);
+    await expect(searchInput, "No apareció el campo de búsqueda").toBeVisible({ timeout: 15_000 });
     await searchInput.fill("zzz_no_existe_zzz");
-    await page.waitForTimeout(800); // debounce
-    // Debe haber menos resultados o mensaje de vacío
     const emptyMsg = page.getByText(/sin resultados|no encontr|0 alumnos|no hay/i);
     const rows = page.locator("table tbody tr, [data-testid='student-row']");
-    const filtered =
-      (await rows.count()) === 0 || (await emptyMsg.count()) > 0;
-    expect(filtered, "El buscador no está filtrando la lista").toBeTruthy();
+    await expect
+      .poll(async () => (await rows.count()) === 0 || (await emptyMsg.count()) > 0, {
+        message: "El buscador no está filtrando la lista",
+        timeout: 5_000,
+      })
+      .toBe(true);
   });
 });

@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { registerOperationalChargesRoute } from "./operational-charges";
 import { pool, db } from "../db";
 import { eq, and } from "drizzle-orm";
 import { storage } from "../storage";
@@ -1314,20 +1315,10 @@ export function registerMiscRoutes(app: Express): void {
   });
 
   // /api/admin/charges — alias para cargos administrativos
-  app.get("/api/admin/charges", authenticateToken, async (req, res) => {
-    try {
-      const campusId = (req as any).user?.campus_id;
-      const rows = await pool.query(`
-        SELECT c.*,
-               COALESCE(NULLIF(s.nombre_completo, ''), TRIM(CONCAT_WS(' ', s.nombres, s.apellido_paterno))) AS estudiante
-          FROM charges c
-          JOIN students s ON s.id = c.student_id
-         WHERE s.campus_id = $1
-         ORDER BY c.created_at DESC
-         LIMIT 500
-      `, [campusId]).catch(()=>({rows:[]}));
-      res.json(rows.rows);
-    } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
+  registerOperationalChargesRoute(app, {
+    authenticate: authenticateToken,
+    canRead: user => hasPermissionForUser(user, MODULES.CHARGES, ACTIONS.READ),
+    query: (sql, params) => pool.query(sql, params),
   });
 
   // ── FAMILIAS ──────────────────────────────────────────────────────────────

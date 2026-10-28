@@ -15,6 +15,9 @@ import { hasPermission, MODULES, ACTIONS, type UserRole } from "@shared/permissi
 import { useAuth } from "@/hooks/use-auth";
 import { useInstitution } from "@/hooks/use-institution";
 import { apiRequest } from "@/lib/queryClient";
+import { useAcademicFilter, useAcademicLevelOverride } from "@/hooks/use-academic-filter";
+import { AcademicLevelFilter } from "@/components/academic-level-filter";
+import { matchesAcademicContext, matchesPaymentDate, paymentPeriodRange } from "@/lib/operational-academic-filters";
 
 type ManualPaymentOptions = {
   students: Array<{
@@ -33,6 +36,8 @@ type ManualPaymentOptions = {
 };
 
 export default function Pagos() {
+  const { selectedCiclo, selectedNivel, selectedPeriodo } = useAcademicFilter();
+  const [nivel, setNivel] = useAcademicLevelOverride(selectedNivel);
   const [selectedMethod, setSelectedMethod] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
@@ -246,7 +251,15 @@ export default function Pagos() {
 
 
   // Transformar los datos de la API al formato esperado por el frontend
-  const transformedPagos = Array.isArray(paymentsData) ? paymentsData.map((payment: any) => {
+  const periodRange = paymentPeriodRange(selectedPeriodo, selectedCiclo);
+  const transformedPagos = Array.isArray(paymentsData) ? paymentsData
+    .filter((payment: any) =>
+      matchesAcademicContext({
+        ciclo_escolar: payment.charge?.ciclo_escolar,
+        nivel_escolar: payment.charge?.student?.nivel_escolar,
+      }, selectedCiclo, nivel) &&
+      matchesPaymentDate(payment.fecha_pago, periodRange, dateFrom, dateTo))
+    .map((payment: any) => {
     const transformedPayment = {
       id: payment.id,
       estudiante: payment.charge?.student?.nombre_completo || 'Sin estudiante',
@@ -278,20 +291,7 @@ export default function Pagos() {
     const conceptMatch = canViewConcept(pago.concepto);
     const statusRoleMatch = canViewStatus(pago.estado);
     
-    let dateMatch = true;
-    if (dateFrom || dateTo) {
-      const pagoDate = new Date(pago.fecha.split(' ')[0].split('/').reverse().join('-'));
-      if (dateFrom) {
-        const fromDate = new Date(dateFrom);
-        dateMatch = dateMatch && pagoDate >= fromDate;
-      }
-      if (dateTo) {
-        const toDate = new Date(dateTo);
-        dateMatch = dateMatch && pagoDate <= toDate;
-      }
-    }
-    
-    return methodMatch && statusMatch && dateMatch && conceptMatch && statusRoleMatch;
+    return methodMatch && statusMatch && conceptMatch && statusRoleMatch;
   });
 
   const getMetodoBadge = (metodo: string) => {
@@ -1272,6 +1272,7 @@ export default function Pagos() {
               
               {/* Filtros en línea horizontal como en la imagen */}
               <div className="flex items-center gap-4 mb-6 flex-wrap">
+                <AcademicLevelFilter value={nivel} onChange={setNivel} />
                 <div className="flex items-center gap-2">
                   <Label className="text-sm text-slate-600">Desde:</Label>
                   <Input 

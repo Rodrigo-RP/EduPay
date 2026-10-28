@@ -62,3 +62,14 @@ export function useAcademicFilter() {
   }
   return context;
 }
+
+/** El cambio global vuelve a tomar prioridad; un cambio local no modifica el header. */
+export function useAcademicLevelOverride(selectedNivel: string) {
+  const [selection, setSelection] = useState({ global: selectedNivel, local: selectedNivel });
+  if (selection.global !== selectedNivel) {
+    setSelection({ global: selectedNivel, local: selectedNivel });
+  }
+  const nivel = selection.global === selectedNivel ? selection.local : selectedNivel;
+  const setNivel = (local: string) => setSelection({ global: selectedNivel, local });
+  return [nivel, setNivel] as const;
+}

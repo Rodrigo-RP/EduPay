@@ -1,5 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAcademicFilter, useAcademicLevelOverride } from "@/hooks/use-academic-filter";
+import { AcademicLevelFilter } from "@/components/academic-level-filter";
+import { matchesAcademicContext } from "@/lib/operational-academic-filters";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +30,7 @@ type CuentaPorCobrar = {
   telefono?: string | null;
   email?: string | null;
   nivel_escolar?: string | null;
+  ciclo_escolar?: string | null;
   grado?: string | null;
   concepto: string;
   pendiente_pagar_centavos: number;
@@ -129,12 +133,22 @@ export default function CuentasPorCobrar() {
   });
   const [tipoReporte, setTipoReporte] = useState("ejecutivo");
 
-  const { data: cuentasTodas = [], isLoading: cuentasLoading } = useQuery<CuentaPorCobrar[]>({
+  const { selectedCiclo, selectedNivel } = useAcademicFilter();
+  const [nivel, setNivel] = useAcademicLevelOverride(selectedNivel);
+  const { data: cuentasRaw = [], isLoading: cuentasLoading } = useQuery<CuentaPorCobrar[]>({
     queryKey: ["/api/accounts-receivable"],
   });
-  const { data: actividadesCobranza = [], isLoading: actividadesLoading } = useQuery<ActividadCobranza[]>({
+  const cuentasTodas = useMemo(
+    () => cuentasRaw.filter(cuenta => matchesAcademicContext(cuenta, selectedCiclo, nivel)),
+    [cuentasRaw, selectedCiclo, nivel],
+  );
+  const { data: actividadesRaw = [], isLoading: actividadesLoading } = useQuery<ActividadCobranza[]>({
     queryKey: ["/api/receivables/activities"],
   });
+  const actividadesCobranza = useMemo(() => {
+    const chargeIds = new Set(cuentasTodas.map(cuenta => cuenta.id));
+    return actividadesRaw.filter(actividad => chargeIds.has(actividad.charge_id));
+  }, [actividadesRaw, cuentasTodas]);
 
   // Función para filtrar cuentas según los criterios seleccionados
   const cuentasFiltradas = cuentasTodas.filter(cuenta => {
@@ -287,10 +301,11 @@ export default function CuentasPorCobrar() {
   };
 
   // Variables para filtros
-  const hayFiltrosActivos = filtros.fechaInicio || filtros.fechaFin || filtros.estudiante || (filtros.concepto !== "todas");
+  const hayFiltrosActivos = filtros.fechaInicio || filtros.fechaFin || filtros.estudiante || (filtros.concepto !== "todas") || nivel !== selectedNivel;
 
   // Función para limpiar filtros
   const limpiarFiltros = () => {
+    setNivel(selectedNivel);
     setFiltros({
       fechaInicio: undefined,
       fechaFin: undefined,
@@ -855,6 +870,10 @@ export default function CuentasPorCobrar() {
                       <SelectItem value="otros">Otros</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Nivel de esta página</label>
+                  <AcademicLevelFilter value={nivel} onChange={setNivel} />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Formato</label>

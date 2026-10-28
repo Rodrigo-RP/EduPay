@@ -513,7 +513,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const result = await pool.query(
         `SELECT
-           c.id AS charge_id, s.id AS student_id, s.nombre_completo AS student_name,
+           c.id AS charge_id, c.ciclo_escolar, s.id AS student_id, s.nombre_completo AS student_name,
            s.grado AS student_grade, s.nivel_escolar AS student_level,
            con.nombre AS concept_name, c.monto_base_centavos AS charge_amount,
            COALESCE(c.monto_base_centavos * COALESCE(c.beca_aplicada, 0) / 100, 0)::bigint AS discount_amount,
@@ -577,6 +577,7 @@ export class DatabaseStorage implements IStorage {
           telefono: row.guardian_phone,
           email: row.guardian_email,
           nivel_escolar: row.student_level || "NO_DEFINIDO",
+          ciclo_escolar: row.ciclo_escolar,
           grado: row.student_grade,
           concepto: row.concept_name,
           fecha_cargo: row.charge_date,

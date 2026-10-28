@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { getCurrentCiclo } from "@/hooks/use-academic-filter";
+import { getCurrentCiclo, useAcademicFilter, useAcademicLevelOverride } from "@/hooks/use-academic-filter";
+import { AcademicLevelFilter } from "@/components/academic-level-filter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,8 @@ interface PreviewResponse {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function Cargos() {
+  const { selectedCiclo, selectedNivel } = useAcademicFilter();
+  const [nivel, setNivel] = useAcademicLevelOverride(selectedNivel);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedStatus, setSelectedStatus] = useState("all");
@@ -84,11 +87,12 @@ export default function Cargos() {
     },
   });
 
-  const { data: cargosRaw = [], isLoading: cargosLoading } = useQuery<any[]>({
-    queryKey: ["/api/admin/charges"],
+  const { data: cargosRaw = [], isLoading: cargosLoading, error: cargosError, refetch: refetchCargos } = useQuery<any[]>({
+    queryKey: ["/api/admin/charges", selectedCiclo, nivel],
     queryFn: async () => {
-      const res = await fetch("/api/admin/charges", { headers: { Authorization: `Bearer ${token()}` } });
-      return res.ok ? res.json() : [];
+      const params = new URLSearchParams({ ciclo: selectedCiclo, nivel });
+      const res = await apiRequest(`/api/admin/charges?${params}`);
+      return res.json();
     },
   });
 
@@ -143,7 +147,8 @@ export default function Cargos() {
    */
   const exportMutation = useMutation({
     mutationFn: async (_format: "excel" | "csv") => {
-      const body: Record<string, string> = { formato: "excel" };
+      const body: Record<string, string> = { formato: "excel", ciclo: selectedCiclo };
+      if (nivel !== "all") body.nivel = nivel;
       if (selectedStatus && selectedStatus !== "all") body.estado = selectedStatus;
       const res = await fetch("/api/reportes/cobranza/exportar", {
         method: "POST",
@@ -336,7 +341,8 @@ export default function Cargos() {
             <CardHeader>
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <CardTitle>Lista de cargos</CardTitle>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
+                  <AcademicLevelFilter value={nivel} onChange={setNivel} />
                   <div className="relative">
                     <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <Input className="pl-9 w-52" placeholder="Buscar alumno o concepto…" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
@@ -356,6 +362,11 @@ export default function Cargos() {
             <CardContent>
               {cargosLoading ? (
                 <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>
+              ) : cargosError ? (
+                <div role="alert" className="p-4 text-red-700">
+                  No se pudieron cargar los cargos.
+                  <Button variant="outline" className="ml-2" onClick={() => refetchCargos()}>Reintentar</Button>
+                </div>
               ) : filteredCargos.length === 0 ? (
                 <div className="text-center py-12 text-slate-500">No hay cargos que coincidan con el filtro.</div>
               ) : (

@@ -27,11 +27,13 @@ Este archivo complementa, no reemplaza, `docs/PROTOCOLO-AUDITORIA.md` y la memor
 - No refactorices, renombres ni "mejores" módulos ajenos a la tarea. Si encuentras un error fuera de alcance, repórtalo en la sección de hallazgos y no lo corrijas: un arreglo no pedido es código que nadie revisó.
 - No publiques, no hagas deploy y no reinicies nada de producción.
 - Si la tarea dice "solo diagnóstico" o "sin cambios", no modifiques ningún archivo de código.
+- Ejecuta las instrucciones de Rodrigo directamente en el hilo principal y en el orden indicado. Sus instrucciones ya son el plan, con pasos numerados y criterios de aceptación: no las conviertas en tareas en segundo plano, no generes un plan propio y no cambies el orden. Las tareas en segundo plano trabajan en copias aisladas y terminan con "Apply changes", cuyo hook ejecuta `db:migrate`; además, un plan propio puede reinterpretar requisitos ya acordados. Si ves una forma mejor de hacer algo, detente y pregúntalo (sección 9) o anótalo en el reporte. Usa tareas o Plan mode solo si Rodrigo lo pide expresamente.
+- No crees, propongas como tarjeta ni arranques tareas de seguimiento por tu cuenta. Si detectas trabajo pendiente, inclúyelo en HALLAZGOS FUERA DE ALCANCE del reporte; Rodrigo decide qué sigue.
 - Trabaja en una rama de revisión nueva, creada desde la base que indique la tarea (normalmente el hash actual de `replit-en-vivo`). Antes de hacer push, confirma con `git merge-base --is-ancestor <base> HEAD` que partes de esa base y con `git log <base>..HEAD` que solo están tus commits. Una vez se coló una tarea descartada por no revisar esto.
 
 ## 3. Base de datos
 
-Todavía no está confirmado cuál base de Neon es la real del Instituto JFR. Trata `DATABASE_URL` como si pudiera contener datos reales de familias.
+La base de desarrollo (`DATABASE_URL`) es `heliumdb`, marcada `edupay:test`: solo contiene datos de prueba. Todavía no existe base de producción. Trata cualquier base sin el marcador `edupay:test` como si contuviera datos reales de familias, y comprueba el marcador antes de cualquier escritura.
 
 **Prohibido sin autorización explícita escrita en la tarea:**
 - Ejecutar `db:push` (está bloqueado a propósito), seeds, `TRUNCATE`, `DELETE` masivos o backfills.

@@ -74,3 +74,76 @@ https://docs.stripe.com/api/payment_intents/object (2026-10-28).
 La lectura directa mostró hCaptcha; se contrastaron los resultados indexados
 de esa misma referencia para `metadata`, `amount_received` y `status`.
 No se utilizan SDK, API de cobros ni llamadas de reembolso en estos cambios.
+
+## Verificación — 2026-10-28 (UTC)
+
+Comandos con `APP_ENV=development RUN_STRIPE_E2E=0`. Base verificada:
+`heliumdb`, marcador `edupay:test`. No se ejecutaron seeds ni migraciones
+directamente. Las escrituras de prueba usan fixtures propios y teardown.
+
+### Seguridad
+
+Arranque real: `9:09:19 PM [express] serving on port 5000`.
+Comando: `npm run test:safety`.
+
+```text
+ Test Files  5 passed (5)
+      Tests  71 passed (71)
+   Start at  21:09:30
+   Duration  4.67s (transform 742ms, setup 0ms, import 2.14s, tests 363ms, environment 0ms)
+```
+
+### Unitarias completas
+
+Arranque real: `9:09:57 PM [express] serving on port 5000`.
+Comando: `npm run test:unit`.
+
+```text
+ Test Files  142 passed | 1 skipped (143)
+      Tests  1357 passed | 1 skipped (1358)
+   Start at  21:10:05
+   Duration  152.46s (transform 5.44s, setup 20.38s, import 29.76s, tests 81.53s, environment 12ms)
+```
+
+Son seis pruebas nuevas respecto a la base. Comprueban datos y contador,
+tenant/campus, permisos, payload inválido, justificación, dos confirmaciones,
+reintentos y concurrencia, una auditoría y rollback ante fallo de auditoría.
+Los snapshots verifican que cargos, pagos, aplicaciones y créditos no cambian.
+
+### E2E completa
+
+Arranque real: `9:15:10 PM [express] serving on port 5000`.
+Comando: `npm run test:e2e -- --trace=retain-on-failure`.
+Inicio JSON: `2026-10-28T21:15:22.993Z`; duración: `349142.146 ms`.
+
+```text
+Running 93 tests using 1 worker
+93 passed (5.8m)
+```
+
+Incluye SR-01, nuevo flujo UI → API → base → recarga. Cero omitidas/fallidas.
+
+Después se alineó el resumen administrativo con el contador unificado,
+evitando mostrar el contador bancario antiguo como si incluyera Stripe.
+Se verificaron nuevamente las pantallas afectadas, sin cambiar el backend:
+
+- Arranque: `9:24:09 PM [express] serving on port 5000`.
+- Comando: `npm run test:e2e -- e2e/02-dashboard.spec.ts e2e/33-stripe-review.spec.ts --trace=retain-on-failure`.
+- Inicio: `2026-10-28T21:24:22.863Z`; duración: `54929.809 ms`.
+
+```text
+Running 4 tests using 1 worker
+4 passed (54.9s)
+```
+
+El caso SR-01 verifica también el número visible del resumen, ambas
+confirmaciones, persistencia, descenso del contador, repetición idempotente
+y ausencia de cambios financieros. Bloquea dominios Stripe en su navegador.
+
+`npm run build`, `npm run check:routes` y `npm run check:migration-policy`:
+aprobados. `npm run check`: 24 diagnósticos, idénticos (archivo, código y
+mensaje, sin números de línea) a ejecutar el mismo comando en una copia
+temporal de `10a08b1`. Ningún diagnóstico nuevo.
+
+Al finalizar se detuvo la app; el puerto 5000 quedó libre. Evidencias
+generadas en `generated-artifacts/excepciones-cobros-stripe/`, fuera de Git.

@@ -114,7 +114,7 @@ export function parseProgressiveSurchargeTiers(value: unknown): ProgressiveSurch
     tier.dias_desde < 1 ||
     tier.dias_hasta < tier.dias_desde ||
     !Number.isFinite(tier.porcentaje) ||
-    tier.porcentaje <= 0 ||
+    tier.porcentaje < 0 ||
     tier.porcentaje > 100,
   )) {
     return null;
@@ -238,9 +238,9 @@ export function calculateCompoundMonthlyIncrement(
   const percentage = Number(rule.porcentaje);
   const amount = Math.round(outstandingBalanceCentavos * (percentage / 100));
   return {
-    amountCentavos: rule.tipo === "porcentaje" && Number.isFinite(percentage) && percentage > 0 && amount > 0
+    amountCentavos: rule.tipo === "porcentaje" && Number.isFinite(percentage) && percentage >= 0 && amount > 0
       ? amount
       : 0,
-    valid: rule.tipo === "porcentaje" && Number.isFinite(percentage) && percentage > 0,
+    valid: rule.tipo === "porcentaje" && Number.isFinite(percentage) && percentage >= 0,
   };
 }

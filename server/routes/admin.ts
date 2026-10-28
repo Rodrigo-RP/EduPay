@@ -59,7 +59,7 @@ const scholarshipCriterionSchema = z.object({
 });
 
 const scholarshipBenefitSchema = z.object({
-  porcentaje_descuento: z.coerce.number().int().min(1).max(100),
+  porcentaje_descuento: z.coerce.number().int().min(0).max(100),
   aplica_conceptos: z.array(z.string().trim().min(1).max(100)).min(1).max(20).optional()
     .default(["colegiatura"]),
   vigencia_meses: z.coerce.number().int().min(1).max(120).nullable().optional().default(12),
@@ -83,7 +83,7 @@ const scholarshipTypeUpdateSchema = scholarshipTypePayloadSchema.extend({
 }).strict();
 
 const scholarshipAssignmentUpdateSchema = z.object({
-  porcentaje: z.coerce.number().finite().gt(0).lte(100).optional(),
+  porcentaje: z.coerce.number().finite().min(0).lte(100).optional(),
   motivo: z.string().trim().max(500).nullable().optional(),
   vigencia_inicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   vigencia_fin: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -1490,9 +1490,9 @@ export function registerAdminRoutes(app: Express): void {
 
       // Validar porcentaje
       const pct = Number(porcentaje);
-      if (!porcentaje || isNaN(pct) || pct <= 0 || pct > 100) {
+      if (porcentaje == null || porcentaje === "" || isNaN(pct) || pct < 0 || pct > 100) {
         return res.status(400).json({
-          message: "porcentaje es requerido y debe ser un número entre 1 y 100",
+          message: "porcentaje es requerido y debe ser un número entre 0 y 100",
         });
       }
 

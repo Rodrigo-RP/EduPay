@@ -13,6 +13,8 @@ import { insertPaymentSchema } from "@shared/schema";
 import { getAcademicLevel } from "@shared/academic-levels";
 import { wsManager } from "../websocket-manager";
 import * as XLSX from "xlsx";
+import { financialImportPreflight } from "../lib/financial-import";
+import { centavos, percentage } from "../lib/financial-input";
 import { z } from "zod";
 
 export function registerPaymentRoutes(app: Express): void {
@@ -488,7 +490,7 @@ export function registerPaymentRoutes(app: Express): void {
   // Errores de validación por fila (campo faltante, alumno no encontrado) se
   // cuentan como "failed" y el resto continúa — el ROLLBACK sólo ocurre ante
   // errores fatales imprevistos (excepción no controlada en un INSERT/SELECT).
-  app.post("/api/import/data/:category/:templateId", authenticateToken, upload.single('file'), async (req, res) => {
+  app.post("/api/import/data/:category/:templateId", upload.single('file'), financialImportPreflight, authenticateToken, async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No se encontró archivo para importar" });
@@ -627,8 +629,8 @@ export function registerPaymentRoutes(app: Express): void {
             results.failed++;
             continue;
           }
-          const porcentaje = parseFloat(becaData.valor_descuento);
-          if (!becaData.valor_descuento || isNaN(porcentaje) || porcentaje <= 0 || porcentaje > 100) {
+          const porcentaje = percentage(becaData.valor_descuento);
+          if (becaData.valor_descuento == null || !Number.isFinite(porcentaje) || porcentaje < 0 || porcentaje > 100) {
             results.errors.push(`Fila ${index + 2}: valor_descuento debe ser un número entre 0 y 100`);
             results.failed++;
             continue;
@@ -891,7 +893,7 @@ export function registerPaymentRoutes(app: Express): void {
             results.failed++;
             continue;
           }
-          const monto = parseInt(String(row.monto_centavos ?? ''), 10);
+          const monto = centavos(row.monto_centavos);
           if (!row.monto_centavos || isNaN(monto) || monto <= 0) {
             results.errors.push(`Fila ${index + 2}: monto_centavos debe ser un entero positivo (en centavos, sin decimales)`);
             results.failed++;

@@ -57,6 +57,34 @@ export function percentage(value: unknown, label = "El porcentaje"): number {
   return hundredths / 100;
 }
 
+/**
+ * Excepción explícita autorizada: los beneficios de tipos de beca conservan
+ * porcentajes ENTEROS de 0 a 100. Su columna existente es integer; aceptar o
+ * redondear fracciones perdería precisión. No se cambia el esquema ni se migra.
+ * Los demás porcentajes usan percentage() y admiten hasta dos decimales.
+ */
+export function scholarshipBenefitPercentage(value: unknown): number {
+  const result = percentage(value, "El porcentaje del tipo de beca");
+  if (!Number.isInteger(result)) {
+    fail("El porcentaje del tipo de beca debe ser entero, de 0 a 100; no admite decimales.");
+  }
+  return result;
+}
+
+/**
+ * Segunda excepción explícita autorizada: las reglas automáticas requieren
+ * un descuento mayor que cero y hasta 100, con máximo dos decimales.
+ * Su CHECK existente prohíbe cero incluso siendo NOT VALID. Se conserva
+ * esa regla, sin migración, y se rechaza antes de consultar la base.
+ */
+export function automaticScholarshipPercentage(value: unknown): number {
+  const result = percentage(value, "El porcentaje de la beca automática");
+  if (result === 0) {
+    fail("El porcentaje de la beca automática debe ser mayor que 0 y hasta 100, con máximo dos decimales.");
+  }
+  return result;
+}
+
 export function positiveId(value: unknown, label = "El identificador"): number {
   if ((typeof value !== "number" && typeof value !== "string")
     || !/^[1-9]\d*$/.test(String(value))

@@ -1,5 +1,7 @@
 import { SCHOOL_TODAY_SQL, schoolDateSQL, schoolDate } from "@shared/school-date";
 import type { Express } from "express";
+import { pesosToCentavos } from "../lib/financial-input";
+import { financialBankImportPreflight } from "../lib/financial-bank-import";
 import { createHash } from "crypto";
 import jwt from "jsonwebtoken";
 import { pool, db } from "../db";
@@ -669,10 +671,10 @@ export function registerConciliacionRoutes(app: Express): void {
       // si no, auto-selecciona el más antiguo no-terminal del alumno.
       const { estudiante_id, charge_id: chargeIdOverride, monto, recibido_por, observaciones } = req.body;
 
-      if (!monto || parseFloat(monto) <= 0) {
+      if (!monto || Number(monto) <= 0) {
         return res.status(400).json({ message: "El monto debe ser mayor que cero" });
       }
-      const montoOperador = Math.round(parseFloat(monto) * 100); // centavos
+      const montoOperador = pesosToCentavos(monto);
 
       let chargeId: number | undefined;
       if (chargeIdOverride) {
@@ -908,7 +910,7 @@ export function registerConciliacionRoutes(app: Express): void {
       const tenantId = user?.tenant_id ?? null;
       const userId   = user?.id        ?? null;
       const { fecha, descripcion, monto, tipo, referencia, clabe, nombre } = req.body;
-      const montoCentavos = Math.round(parseFloat(monto || '0') * 100);
+      const montoCentavos = pesosToCentavos(monto);
       const row = await pool.query(`
         INSERT INTO bank_transactions
           (campus_id, tenant_id, fecha, descripcion, monto_centavos, tipo,
@@ -1342,7 +1344,7 @@ export function registerConciliacionRoutes(app: Express): void {
           preFailed.push(`Fila ${rowNum}: fecha requerida`);
           continue;
         }
-        const montoNum = parseFloat(tx.monto ?? '0');
+        const montoNum = Number(tx.monto);
         if (isNaN(montoNum)) {
           preFailed.push(`Fila ${rowNum}: monto inválido ("${tx.monto}")`);
           continue;
@@ -1350,7 +1352,7 @@ export function registerConciliacionRoutes(app: Express): void {
         rowsToInsert.push({
           fecha:           tx.fecha,
           descripcion:     tx.descripcion      ?? null,
-          monto_centavos:  Math.round(montoNum * 100),
+          monto_centavos:  pesosToCentavos(tx.monto),
           tipo:            tx.tipo             || 'credito',
           referencia:      tx.referencia       ?? null,
           clabe_ordenante: tx.clabe            ?? null,
@@ -1451,8 +1453,9 @@ export function registerConciliacionRoutes(app: Express): void {
   // Seguridad : archivo en memoria (multer memoryStorage) — nunca se persiste en disco
   // Auditoría : enqueueAuditLog post-COMMIT, acción BANK_PDF_IMPORT
   app.post("/api/conciliacion/importar-pdf",
-    authenticateToken,
     uploadBinary.single("pdf"),
+    financialBankImportPreflight,
+    authenticateToken,
     async (req: any, res) => {
       try {
         const user     = req.user;
@@ -1477,7 +1480,7 @@ export function registerConciliacionRoutes(app: Express): void {
         // ── Parser — lanza si banco no soportado ────────────────────────────
         let parser;
         try {
-          parser = getParser(banco);
+          parser = req.financialBankImport?.parser ?? getParser(banco);
         } catch (e: any) {
           return res.status(400).json({ message: e.message });
         }
@@ -1514,7 +1517,7 @@ export function registerConciliacionRoutes(app: Express): void {
         // ── Parseo del archivo según banco ──────────────────────────────────
         let parseResult;
         try {
-          parseResult = await parser.parse(req.file.buffer);
+          parseResult = req.financialBankImport?.result ?? await parser.parse(req.file.buffer);
         } catch (e: any) {
           return res.status(422).json({ message: e.message });
         }

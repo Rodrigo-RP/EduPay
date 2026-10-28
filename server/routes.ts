@@ -43,6 +43,8 @@ import { authenticateToken } from "./routes/shared";
 import { pool } from "./db";
 import { registerEmailWebhookRuntime } from "./lib/email/webhook-runtime";
 
+import { financialRequestValidation } from "./lib/financial-request-validation";
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // ── Trust proxy (Replit reverse proxy) ──────────────────────────────────────
   app.set("trust proxy", 1);
@@ -58,6 +60,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Middlewares de seguridad globales ────────────────────────────────────────
   app.use(secureCors);
   app.use(sanitizeInput);
+  app.use(financialRequestValidation);
   app.use(integrityCheck);
 
   // ── Página pública de Cuentas por Cobrar ─────────────────────────────────────

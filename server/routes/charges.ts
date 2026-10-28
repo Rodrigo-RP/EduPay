@@ -1,5 +1,6 @@
 import { SCHOOL_TODAY_SQL, schoolDate } from "@shared/school-date";
 import type { Express } from "express";
+import { pesosToCentavos } from "../lib/financial-input";
 import { pool, db } from "../db";
 import { enqueueAuditLog } from "../audit-retry";
 import { eq, and, gte, lt } from "drizzle-orm";
@@ -303,7 +304,7 @@ export function registerChargesRoutes(app: Express): void {
             nombre: descripcion || 'Cargo Extraordinario',
             tipo: 'extraordinario',
             periodicidad: 'unica',
-            monto_centavos: Math.round(parseFloat(monto) * 100)
+            monto_centavos: pesosToCentavos(monto)
           });
         }
         conceptId = found.id;
@@ -321,7 +322,7 @@ export function registerChargesRoutes(app: Express): void {
         ciclo_escolar: schoolDate().slice(0, 4),
         fecha_emision: today,
         fecha_vencimiento,
-        monto_base_centavos: Math.round(parseFloat(monto) * 100),
+        monto_base_centavos: pesosToCentavos(monto),
         beca_aplicada: '0.00',
         recargo_aplicado_centavos: 0,
         estado: 'pendiente',

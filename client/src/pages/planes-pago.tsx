@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { pesosToCentavos, MIN_CUOTAS_CONVENIO, MAX_CUOTAS_CONVENIO } from "../../../server/lib/financial-input";
 import { apiRequest } from "@/lib/queryClient";
 import {
   Plus, HandshakeIcon, CheckCircle, Clock, AlertTriangle,
@@ -224,8 +225,12 @@ export default function PlanesPago() {
   // ── Cálculo del preview ───────────────────────────────────────────────────
   const selectedConcept = (conceptos || []).find((c: any) => String(c.id) === form.concept_id);
   const totalAdeudoCentavos = selectedConcept ? Number(selectedConcept.monto_centavos) : 0;
-  const engancheCentavos = Number(form.monto_inicial_centavos) * 100 || 0;
-  const baseCuotas = totalAdeudoCentavos - engancheCentavos;
+  const parseInitial = (value: string) => {
+    try { return pesosToCentavos(value || "0", true); } catch { return null; }
+  };
+  const engancheCentavos = parseInitial(form.monto_inicial_centavos);
+  const reestructInitial = parseInitial(reestructForm.monto_inicial_centavos);
+  const baseCuotas = engancheCentavos == null ? 0 : totalAdeudoCentavos - engancheCentavos;
   const cuotaCalculada = form.numero_pagos && baseCuotas > 0
     ? (baseCuotas / Number(form.numero_pagos) / 100).toFixed(2)
     : "0.00";
@@ -274,7 +279,7 @@ export default function PlanesPago() {
               <DollarSign className="w-4 h-4" /> Reestructurar adeudo
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Reestructurar adeudo</DialogTitle>
               <DialogDescription>Selecciona los cargos pendientes que se convertirán en un nuevo convenio.</DialogDescription>
@@ -336,8 +341,9 @@ export default function PlanesPago() {
                   <Label>Número de cuotas</Label>
                   <Select value={reestructForm.numero_pagos} onValueChange={value => setReestructForm(f => ({ ...f, numero_pagos: value }))}>
                     <SelectTrigger aria-label="Número de cuotas para reestructurar"><SelectValue /></SelectTrigger>
-                    <SelectContent>{[2, 3, 4, 6, 8, 10, 12].map(n => <SelectItem key={n} value={String(n)}>{n} cuotas</SelectItem>)}</SelectContent>
+                    <SelectContent>{Array.from({ length: MAX_CUOTAS_CONVENIO - MIN_CUOTAS_CONVENIO + 1 }, (_, i) => i + MIN_CUOTAS_CONVENIO).map(n => <SelectItem key={n} value={String(n)}>{n} cuotas</SelectItem>)}</SelectContent>
                   </Select>
+                  <p className="text-sm text-muted-foreground">El convenio debe tener de {MIN_CUOTAS_CONVENIO} a {MAX_CUOTAS_CONVENIO} cuotas mensuales.</p>
                 </div>
               </div>
               <div>
@@ -352,10 +358,10 @@ export default function PlanesPago() {
               </div>
               <Button
                 className="w-full bg-orange-600 hover:bg-orange-700"
-                disabled={!reestructForm.student_id || reestructForm.charge_ids.length === 0 || crearReestructuracion.isPending}
+                disabled={!reestructForm.student_id || reestructForm.charge_ids.length === 0 || reestructInitial == null || crearReestructuracion.isPending}
                 onClick={() => crearReestructuracion.mutate({
                   charge_ids: reestructForm.charge_ids,
-                  monto_inicial_centavos: Number(reestructForm.monto_inicial_centavos || 0) * 100,
+                  monto_inicial_centavos: reestructInitial,
                   numero_pagos: Number(reestructForm.numero_pagos),
                   frecuencia: reestructForm.frecuencia,
                   fecha_inicio: reestructForm.fecha_inicio,
@@ -426,8 +432,6 @@ export default function PlanesPago() {
                   <Select value={form.frecuencia} onValueChange={v => setForm(f => ({ ...f, frecuencia: v }))}>
                   <SelectTrigger aria-label="Frecuencia del convenio"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="semanal">Semanal</SelectItem>
-                      <SelectItem value="quincenal">Quincenal</SelectItem>
                       <SelectItem value="mensual">Mensual</SelectItem>
                     </SelectContent>
                   </Select>
@@ -440,11 +444,12 @@ export default function PlanesPago() {
                   <Select value={form.numero_pagos} onValueChange={v => setForm(f => ({ ...f, numero_pagos: v }))}>
                   <SelectTrigger aria-label="Número de cuotas del convenio"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {[2, 3, 4, 6, 8, 10, 12].map(n => (
+                      {Array.from({ length: MAX_CUOTAS_CONVENIO - MIN_CUOTAS_CONVENIO + 1 }, (_, i) => i + MIN_CUOTAS_CONVENIO).map(n => (
                         <SelectItem key={n} value={String(n)}>{n} cuotas</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-sm text-muted-foreground">El convenio debe tener de {MIN_CUOTAS_CONVENIO} a {MAX_CUOTAS_CONVENIO} cuotas mensuales.</p>
                 </div>
                 <div>
                   <Label>Fecha inicio</Label>
@@ -466,7 +471,7 @@ export default function PlanesPago() {
                     <span>Total convenio:</span>
                     <span className="font-medium">${(totalAdeudoCentavos / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
                     <span>Enganche:</span>
-                    <span className="font-medium">${(engancheCentavos / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+                    <span className="font-medium">{engancheCentavos == null ? "Revisa el monto del enganche" : `$${(engancheCentavos / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`}</span>
                     <span>Cuota {form.frecuencia}:</span>
                     <span className="font-bold text-amber-900">${Number(cuotaCalculada).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
                     <span>Total cuotas:</span>
@@ -487,12 +492,12 @@ export default function PlanesPago() {
 
               <Button
                 className="w-full bg-amber-600 hover:bg-amber-700"
-                disabled={!form.student_id || !form.concept_id || crearPlan.isPending}
+                disabled={!form.student_id || !form.concept_id || engancheCentavos == null || crearPlan.isPending}
                 onClick={() =>
                   crearPlan.mutate({
                     concept_id:             Number(form.concept_id),
                     student_id:             form.student_id,
-                    monto_inicial_centavos: Number(form.monto_inicial_centavos || 0) * 100,
+                    monto_inicial_centavos: engancheCentavos,
                     numero_pagos:           Number(form.numero_pagos),
                     frecuencia:             form.frecuencia,
                     fecha_inicio:           form.fecha_inicio,

@@ -1,5 +1,6 @@
 import { SCHOOL_TODAY_SQL, schoolDate } from "@shared/school-date";
 import type { Express } from "express";
+import { centavos, pesosToCentavos } from "../lib/financial-input";
 import { createHash } from "node:crypto";
 import { settleConfirmedStripePaymentIntent } from "../lib/stripe-spei-settlement";
 import type { StripePaymentIntentResult } from "../lib/stripe-card-settlement";
@@ -79,14 +80,14 @@ function normalizeCompleteSurchargePayload(
   }
 
   const percentage = Number(body?.porcentaje_recargo);
-  const fixedCents = Math.round(Number(body?.monto_fijo) * 100);
+  const fixedCents = body?.monto_fijo == null || body.monto_fijo === "" ? NaN : pesosToCentavos(body.monto_fijo, true);
   const maximumInput = body?.monto_maximo;
   const maximumCents = maximumInput === "" || maximumInput == null
     ? null
-    : Math.round(Number(maximumInput) * 100);
+    : pesosToCentavos(maximumInput, true);
 
-  if (tipo === "porcentaje" && (!Number.isFinite(percentage) || percentage <= 0 || percentage > 100)) {
-    return { error: "El porcentaje debe ser mayor a 0 y no superar 100" };
+  if (tipo === "porcentaje" && (!Number.isFinite(percentage) || percentage < 0 || percentage > 100)) {
+    return { error: "El porcentaje debe estar entre 0 y 100" };
   }
   if (tipo === "fijo" && (!Number.isSafeInteger(fixedCents) || fixedCents <= 0)) {
     return { error: "El monto fijo debe ser mayor a 0" };
@@ -115,7 +116,8 @@ function normalizeCompleteSurchargePayload(
   }
 
   const monthlyIncrementType = body?.tipo_incremento_mensual;
-  const monthlyFixedCents = Math.round(Number(body?.incremento_mensual) * 100);
+  const monthlyFixedCents = body?.incremento_mensual == null || body.incremento_mensual === ""
+    ? NaN : pesosToCentavos(body.incremento_mensual, true);
   const monthlyPercentage = Number(body?.incremento_mensual_porcentaje);
   if (mode === "incremento_fijo") {
     if (monthlyIncrementType !== "monto" && monthlyIncrementType !== "porcentaje") {
@@ -124,8 +126,8 @@ function normalizeCompleteSurchargePayload(
     if (monthlyIncrementType === "monto" && (!Number.isSafeInteger(monthlyFixedCents) || monthlyFixedCents <= 0)) {
       return { error: "El incremento mensual debe ser un monto mayor a 0" };
     }
-    if (monthlyIncrementType === "porcentaje" && (!Number.isFinite(monthlyPercentage) || monthlyPercentage <= 0 || monthlyPercentage > 100)) {
-      return { error: "El incremento mensual porcentual debe ser mayor a 0 y no superar 100" };
+    if (monthlyIncrementType === "porcentaje" && (!Number.isFinite(monthlyPercentage) || monthlyPercentage < 0 || monthlyPercentage > 100)) {
+      return { error: "El incremento mensual porcentual debe estar entre 0 y 100" };
     }
   }
   if (mode === "compuesto" && tipo !== "porcentaje") {
@@ -695,7 +697,7 @@ export async function registerGuardianRoutes(
         if (!concept) return res.status(404).json({ message: "Concepto no encontrado" });
       } else if (descripcion && monto_manual && !isDryRun) {
         // Cargo extraordinario: crear un concepto ad-hoc para que los JOINs funcionen
-        const montoNum = Math.round(Number(monto_manual));
+        const montoNum = centavos(monto_manual);
         const existingConcept = await pool.query(
           `SELECT id FROM concepts WHERE campus_id = $1 AND nombre = $2 AND tipo = 'extra' LIMIT 1`,
           [userCampusId, descripcion]
@@ -798,7 +800,7 @@ export async function registerGuardianRoutes(
           baseAmount = precio;
         } else {
           baseAmount = monto_manual
-            ? Math.round(Number(monto_manual))
+            ? centavos(monto_manual)
             : concept?.monto_centavos ?? 0;
           if (concept && !monto_manual) {
             const levelPrice = (concept as any)[`monto_${academicLevel}`];

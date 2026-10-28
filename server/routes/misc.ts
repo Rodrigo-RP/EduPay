@@ -1,5 +1,6 @@
 import { SCHOOL_TODAY_SQL, schoolDateSQL } from "@shared/school-date";
 import type { Express } from "express";
+import { centavos, FinancialInputError, installments, isoFinancialDate, monthlyDueDate, splitInstallments } from "../lib/financial-input";
 import { pool, db } from "../db";
 import { eq, and } from "drizzle-orm";
 import { storage } from "../storage";
@@ -38,22 +39,18 @@ async function generarCuotaCharges(
     numeroPagos: number; frecuencia: string; fechaInicio: string; tenantId: number;
   }
 ): Promise<any[]> {
-  const base      = opts.totalAdeudo - opts.montoInicial;
-  const porCuota  = Math.floor(base / opts.numeroPagos);
-  const ajuste    = base - porCuota * opts.numeroPagos; // absorbido en última cuota
-  const diasFrec  = opts.frecuencia === 'semanal' ? 7 : opts.frecuencia === 'quincenal' ? 15 : 30;
-  const fechaBase = new Date(opts.fechaInicio + "T12:00:00");
+  const amounts = splitInstallments(opts.totalAdeudo, opts.montoInicial, opts.numeroPagos);
   const cuotas: any[] = [];
   for (let i = 0; i < opts.numeroPagos; i++) {
-    const fv    = new Date(fechaBase.getTime() + (i + 1) * diasFrec * 86400000);
-    const monto = i === opts.numeroPagos - 1 ? porCuota + ajuste : porCuota;
+    const dueDate = monthlyDueDate(opts.fechaInicio, i + 1);
+    const monto = amounts[i];
     const r = await client.query(
       `INSERT INTO charges
          (tenant_id, student_id, concept_id, plan_id,
           fecha_emision, fecha_vencimiento, monto_base_centavos, estado)
        VALUES ($1,$2,$3,$4, ${SCHOOL_TODAY_SQL},$5,$6,'pendiente') RETURNING *`,
       [opts.tenantId, opts.studentId, opts.conceptId, opts.plan.id,
-       fv.toISOString().split("T")[0], monto]
+       dueDate, monto]
     );
     cuotas.push((r.rows as any[])[0]);
   }
@@ -185,15 +182,11 @@ export function registerMiscRoutes(app: Express): void {
       }
 
       // Validaciones comunes
-      if (!numero_pagos || Number(numero_pagos) < 1) {
-        return res.status(400).json({ message: "numero_pagos debe ser ≥ 1" });
-      }
-      if (!fecha_inicio) {
-        return res.status(400).json({ message: "fecha_inicio es obligatorio" });
-      }
-      if (!['mensual', 'quincenal', 'semanal'].includes(frecuencia)) {
-        return res.status(400).json({ message: "frecuencia debe ser 'mensual', 'quincenal' o 'semanal'" });
-      }
+      installments(numero_pagos);
+      isoFinancialDate(fecha_inicio);
+      centavos(monto_inicial_centavos, true, "El pago inicial");
+      centavos(recargo_centavos, true, "El recargo");
+      if (frecuencia !== "mensual") return res.status(400).json({ message: "Los convenios deben tener cuotas mensuales." });
       const montoInicialNumerico = Number(monto_inicial_centavos ?? 0);
       if (!Number.isFinite(montoInicialNumerico) || montoInicialNumerico < 0) {
         return res.status(400).json({ message: "monto_inicial_centavos no puede ser negativo" });
@@ -283,6 +276,7 @@ export function registerMiscRoutes(app: Express): void {
             return res.status(422).json({ message: "monto_inicial_centavos no puede superar el total adeudado" });
           }
 
+          splitInstallments(totalAdeudo, montoInicial, numero_pagos);
           const conceptoId = await getOrCreateCuotaPlanConcept(campusId, tenantId);
           const planRow = await client.query(`
             INSERT INTO payment_plans
@@ -381,6 +375,7 @@ export function registerMiscRoutes(app: Express): void {
         });
       }
 
+      splitInstallments(totalAdeudoB, montoInicialB, numero_pagos);
       const clientB = await pool.connect();
       let planB: any; let cuotasB: any[];
       try {
@@ -413,6 +408,7 @@ export function registerMiscRoutes(app: Express): void {
       return res.json({ ...planB, cuotas: cuotasB, mensaje: `Plan de acuerdo futuro creado con ${numero_pagos} cuotas` });
 
     } catch (error: any) {
+      if (error instanceof FinancialInputError) return res.status(400).json({ message: error.message });
       res.status(500).json({ message: "Error interno del servidor" });
     }
   });

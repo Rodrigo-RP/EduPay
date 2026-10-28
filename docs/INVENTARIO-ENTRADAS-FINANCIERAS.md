@@ -69,6 +69,15 @@ permisos y saldo no sustituyen a la validación sintáctica de las entradas.
 | server/routes/fiscal.ts:635 | POST /api/fiscal/generar-reporte-contable | periodo; generación no disponible. |
 | server/routes/fiscal.ts:645 | POST /api/fiscal/generar-reporte-sat | periodo; generación no disponible. |
 | server/routes/fiscal.ts:693 | POST /api/becas-auto/reglas | descuento_porcentaje y vigencias; motor de reglas con validación propia. |
+| server/routes/reportes-cobranza.ts:195 | GET /api/reportes/cobranza | fecha_desde/fecha_hasta opcionales; filtros enviados al SQL sin validación de calendario común. |
+| server/routes/reportes-cobranza.ts:238 | POST /api/reportes/cobranza/exportar | los mismos filtros de fecha en body; exportación con permisos. |
+| server/routes/reportes-consejo.ts:358 | POST /api/reportes/consejo/exportar | fecha_desde/fecha_hasta; reutiliza el lector del reporte. |
+| server/routes/reportes-contable.ts:133 | POST /api/reportes/contable/exportar | periodo YYYY-MM; reutiliza el lector del reporte. |
+| server/routes/reportes-financiero.ts:98 | GET /api/reportes/financiero | fecha_desde/fecha_hasta; rango y período de comparación calculados desde filtros. |
+| server/routes/reportes-financiero.ts:441 | POST /api/reportes/financiero/exportar | los mismos filtros de fecha en body. |
+| server/routes/unavailable-payments.ts:4 | POST /api/payments/create-intent | alias retirado; autentica tutor y devuelve 501; no realiza cobros. |
+| server/routes/unavailable-payments.ts:4 | POST /api/payments/process | alias retirado; autentica tutor y devuelve 501; no realiza cobros. |
+| server/routes/admin.ts:196 | GET /api/admin/dashboard/:campusId | fecha_inicio/fecha_fin opcionales para los indicadores; campus convertido desde el parámetro. |
 
 ### Límites de esta clasificación
 
@@ -82,3 +91,17 @@ de Stripe no son IDs enteros de cargos/pagos de EduPay.
 Un importe calculado desde cargos existentes no puede verificarse antes de
 leerlos: la sintaxis de sus IDs se valida primero; el saldo y las reglas de
 pertenencia siguen comprobándose en servidor, bajo los bloqueos existentes.
+
+## Aplicación
+
+El registro ejecutable está en `server/lib/financial-request-validation.ts`,
+instalado antes de la autenticación que puede consultar usuarios. No sustituye
+permisos, pertenencia, saldo ni bloqueos. Las importaciones multipart tienen
+preflight sin SQL antes de autenticar, tanto para hojas como para archivos bancarios.
+Los cuerpos válidos no se reescriben ni se redondean.
+
+Excepción autorizada: `scholarship_benefits.porcentaje_descuento` conserva
+enteros 0–100 por su columna `integer`, sin migración; los demás porcentajes
+admiten hasta dos decimales. La justificación y función específica están en el
+módulo puro. Los convenios nuevos sólo admiten 3–6 cuotas mensuales; se ajustaron
+las expectativas de pruebas antiguas de dos cuotas a esta regla solicitada.

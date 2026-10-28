@@ -1,5 +1,23 @@
 # Retiro de éxitos simulados y barrido de rutas
 
+## Revisión autorizada sobre 506d472
+
+La rama `barrido-simulados` parte de `506d472`. Esta revisión retira
+las funciones ficticias enumeradas en el encargo y propaga los fallos
+de lectura de la sección «Respuestas 2xx degradadas». No reconstruye
+funciones retiradas ni cambia el esquema.
+
+Permisos aprobados por el dueño: `SYSTEM.IMPORT` para migración y
+validación; `FINANCIAL.READ` para ambos análisis financieros.
+Los demás permisos y la autenticación se conservan.
+
+Dependencias encontradas: `/importacion-datos` monta el panel de migración
+y actualiza el estado en memoria; `/migracion` y `/migration-refeerence`
+consultan progreso y descargan el CSV ficticio. El retiro debe desactivar
+ese panel y ambas vistas, pero conservar la importación real y su resultado.
+Las comprobaciones de IVA y becas no implementadas deben decir
+`no_evaluado`, no certificar cumplimiento.
+
 ## Alcance y método
 
 Base de trabajo: `f910c61`. Revisión estática de los 30 archivos

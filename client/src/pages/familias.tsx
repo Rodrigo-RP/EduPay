@@ -10,18 +10,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { generateCiclosList, getCurrentCiclo } from "@/hooks/use-academic-filter";
+import { generateCiclosList, getCurrentCiclo, useAcademicPageFilter } from "@/hooks/use-academic-filter";
 import { Home, Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, CreditCard, FileText, Link2, Download, Upload, AlertCircle, AlertTriangle, Eye, UserCheck, UserX, Settings, FileSpreadsheet } from "lucide-react";
 
 export default function Familias() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedSeccion, setSelectedSeccion]       = useState("all");
+  const { selectedSeccion, setSelectedSeccion } = useAcademicPageFilter();
   const [selectedGrado, setSelectedGrado]           = useState("all");
   const [selectedGrupo, setSelectedGrupo]           = useState("all");
   const [selectedEstatus, setSelectedEstatus]       = useState("all");
   const [selectedCodigoPostal, setSelectedCodigoPostal] = useState("all");
-  const [selectedCicloFamilias, setSelectedCicloFamilias]       = useState("all");
+  const [selectedCicloFamilias, setSelectedCicloFamilias] = useState("all");
   const [selectedPeriodoFamilias, setSelectedPeriodoFamilias]   = useState("all");
   const [selectedEstadoCivil, setSelectedEstadoCivil]           = useState("all");
   const [selectedHermanos, setSelectedHermanos]                 = useState("all");

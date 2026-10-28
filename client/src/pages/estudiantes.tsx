@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
-import { getCurrentCiclo, generateCiclosList } from "@/hooks/use-academic-filter";
+import { getCurrentCiclo, generateCiclosList, useAcademicPageFilter } from "@/hooks/use-academic-filter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -384,8 +384,7 @@ export default function Estudiantes() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedGrado, setSelectedGrado] = useState("all");
   const [selectedGrupo, setSelectedGrupo] = useState("all");
-  const [selectedSeccion, setSelectedSeccion] = useState("all");
-  const [selectedCicloEscolar, setSelectedCicloEscolar] = useState("all");
+  const { selectedSeccion, setSelectedSeccion, selectedCicloEscolar, setSelectedCicloEscolar } = useAcademicPageFilter();
   const [selectedPeriodoEstudiantes, setSelectedPeriodoEstudiantes] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedCodigoPostal, setSelectedCodigoPostal] = useState("all");

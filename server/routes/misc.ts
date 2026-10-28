@@ -1375,7 +1375,7 @@ export function registerMiscRoutes(app: Express): void {
       const withStudents = await Promise.all(
         withBalance.map(async (f) => {
           const rows = await pool.query(
-            `SELECT s.id, s.nombre_completo, s.grado, s.grupo
+            `SELECT s.id, s.nombre_completo, s.grado, s.grupo, s.nivel_escolar
              FROM family_students fs
              JOIN students s ON s.id = fs.student_id
              WHERE fs.family_id = $1`,

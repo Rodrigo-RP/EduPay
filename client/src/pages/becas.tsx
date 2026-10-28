@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { scholarshipDashboard } from "@shared/scholarship-dashboard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
@@ -263,14 +264,29 @@ export default function Becas() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const campusId = user?.campus_id;
-  const { data: scholarshipAssignments = [] } = useQuery<any[]>({
+  const { data: scholarshipAssignments = [], isLoading: assignmentsLoading, error: assignmentsError, refetch: refetchAssignments } = useQuery<any[]>({
     queryKey: ["/api/scholarships", campusId],
     enabled: Boolean(campusId),
   });
-  const { data: scholarshipTypes = [] } = useQuery<any[]>({
+  const { data: typeAccess, isLoading: typesLoading, error: typesError } = useQuery<{ types: any[]; canManage: boolean }>({
     queryKey: ["/api/admin/scholarship-types", campusId],
     enabled: Boolean(campusId),
+    queryFn: async () => {
+      try {
+        const response = await apiRequest("/api/admin/scholarship-types");
+        return { types: await response.json(), canManage: true };
+      } catch (error) {
+        // The configuration catalog requires ASSIGN, not READ. Readers use
+        // real assignments and their type metadata from /scholarships.
+        if (error instanceof Error && error.message.startsWith("403:")) {
+          return { types: [], canManage: false };
+        }
+        throw error;
+      }
+    },
   });
+  const scholarshipTypes = typeAccess?.types || [];
+  const canManage = typeAccess?.canManage === true;
   const { data: students = [], isLoading: studentsLoading } = useQuery<any[]>({
     queryKey: ["/api/admin/students", campusId],
     enabled: Boolean(campusId),
@@ -558,144 +574,29 @@ export default function Becas() {
     setImportProgress(0);
   };
 
-  // Sistema de gestión administrativa de becas y descuentos
-  const becasYDescuentosMock = [
-    {
-      id: 1,
-      nombre: "Beca USEBEQ",
-      categoria: "usebeq",
-      tipo: "manual",
-      descripcion: "Beca de la Unidad de Servicios para la Educación Básica en el Estado de Querétaro",
-      porcentaje_max: 100,
-      estudiantes_aplicados: 15,
-      monto_total_descuento: 3200000, // $32,000 MXN
-      asignacion: "Manual por área académica",
-      documentos_requeridos: ["Estudio socioeconómico", "Comprobante de ingresos", "Carta solicitud"],
-      vigencia: "2026-2027",
-      activa: true
-    },
-    {
-      id: 2,
-      nombre: "Descuento por Hermanos",
-      categoria: "familiar",
-      tipo: "automatico",
-      descripcion: "Descuento automático aplicado cuando hay múltiples hermanos inscritos",
-      porcentaje_max: 40,
-      estudiantes_aplicados: 22,
-      monto_total_descuento: 1950000, // $19,500 MXN
-      asignacion: "Automático al detectar hermanos en sistema",
-      criterios: "2 hermanos: 20%, 3 hermanos: 30%, 4+ hermanos: 40%",
-      vigencia: "2026-2027",
-      activa: true
-    },
-    {
-      id: 3,
-      nombre: "Beca por Convenio Empresarial",
-      categoria: "convenio",
-      tipo: "manual",
-      descripcion: "Becas otorgadas por convenios con empresas patrocinadoras",
-      porcentaje_max: 75,
-      estudiantes_aplicados: 8,
-      monto_total_descuento: 1800000, // $18,000 MXN
-      asignacion: "Manual según convenio vigente",
-      empresas_convenio: ["Grupo Industrial SA", "Tech Solutions", "Comercial del Norte"],
-      vigencia: "2026-2027",
-      activa: true
-    },
-    {
-      id: 4,
-      nombre: "Beca por Mérito Deportivo",
-      categoria: "deportiva",
-      tipo: "manual",
-      descripcion: "Reconocimiento a estudiantes destacados en actividades deportivas",
-      porcentaje_max: 50,
-      estudiantes_aplicados: 6,
-      monto_total_descuento: 720000, // $7,200 MXN
-      asignacion: "Manual por coordinación deportiva",
-      documentos_requeridos: ["Constancia participación", "Resultados competencias"],
-      vigencia: "2026-2027",
-      activa: true
-    },
-    {
-      id: 5,
-      nombre: "Beca Cultural y Artística",
-      categoria: "cultural",
-      tipo: "manual",
-      descripcion: "Apoyo a estudiantes con talento en actividades culturales y artísticas",
-      porcentaje_max: 45,
-      estudiantes_aplicados: 4,
-      monto_total_descuento: 540000, // $5,400 MXN
-      asignacion: "Manual por área cultural",
-      documentos_requeridos: ["Portfolio artístico", "Carta recomendación"],
-      vigencia: "2026-2027",
-      activa: true
-    },
-    {
-      id: 6,
-      nombre: "Descuento Empleados",
-      categoria: "empleado",
-      tipo: "automatico",
-      descripcion: "Descuento especial para hijos de empleados de la institución",
-      porcentaje_max: 60,
-      estudiantes_aplicados: 12,
-      monto_total_descuento: 2400000, // $24,000 MXN
-      asignacion: "Automático al verificar relación laboral",
-      criterios: "Personal administrativo: 30%, Docentes: 50%, Directivos: 60%",
-      vigencia: "2026-2027",
-      activa: true
-    },
-    {
-      id: 7,
-      nombre: "Descuento Cantidad Fija - Básico",
-      categoria: "cantidad_fija",
-      tipo: "manual",
-      descripcion: "Descuento de cantidad fija para casos especiales",
-      monto_fijo: 150000, // $1,500 MXN fijos
-      estudiantes_aplicados: 8,
-      monto_total_descuento: 1200000, // $12,000 MXN total (8 × $1,500)
-      asignacion: "Manual por área administrativa",
-      beneficios: "$1,500 pesos fijos descontados mensualmente",
-      vigencia: "2026-2027",
-      activa: true
-    },
-    {
-      id: 8,
-      nombre: "Descuento Cantidad Fija - Premium",
-      categoria: "cantidad_fija",
-      tipo: "manual",
-      descripcion: "Descuento premium de cantidad fija para beneficiarios especiales",
-      monto_fijo: 250000, // $2,500 MXN fijos
-      estudiantes_aplicados: 3,
-      monto_total_descuento: 750000, // $7,500 MXN total (3 × $2,500)
-      asignacion: "Manual por dirección académica",
-      beneficios: "$2,500 pesos fijos descontados mensualmente",
-      vigencia: "2026-2027",
-      activa: true
-    }
-  ];
-
   // `vigente` se calcula en el backend con la misma regla que usa el asistente.
   // Las suspendidas permanecen en pantalla, pero no cuentan como activas.
-  const becasVigentes = scholarshipAssignments.filter(
-    (beca) => beca.vigente && beca.student_status === "activo" && beca.estado === "activa",
-  );
+  const dashboard = scholarshipDashboard(scholarshipAssignments);
+  const becasVigentes = dashboard.vigente;
+  const [nivelFiltro, setNivelFiltro] = useState("todos");
+  const [incluirNoVigentes, setIncluirNoVigentes] = useState(false);
+  const matchesLevel = (beca: any) => nivelFiltro === "todos" || beca.nivel_escolar === nivelFiltro;
   const estudiantesParaBecas = scholarshipAssignments
-    .filter((beca) => beca.student_status === "activo")
+    .filter((beca) => beca.student_status === "activo" && matchesLevel(beca) && (incluirNoVigentes || beca.vigente))
     .map((beca) => ({
     id: beca.id,
     nombre_completo: beca.alumno,
     grado: [beca.nivel_escolar, beca.grado, beca.grupo].filter(Boolean).join(" · "),
-    hermanos_inscritos: 0,
     tipo_solicitud: beca.tipo_nombre || "Beca sin tipo",
     porcentaje_asignado: Number(beca.porcentaje_aplicado || 0),
-    estado: beca.estado === "suspendida" ? "Suspendida" : "Activa",
+    estado: beca.estado === "suspendida" ? "Suspendida" : beca.vigente ? "Activa" : "Fuera de vigencia",
     fecha_asignacion: beca.vigencia_inicio,
     observaciones: beca.observaciones || "Asignación vigente",
     vigencia_fin: beca.vigencia_fin,
   }));
   const becasAgrupadas = new Map<string, any>();
   for (const beca of becasVigentes) {
-    const key = String(beca.scholarship_type_id ?? beca.tipo_nombre ?? beca.id);
+    const key = beca.scholarship_type_id == null ? "sin-tipo" : `tipo:${beca.scholarship_type_id}`;
     const estudianteAsignado = {
       id: beca.student_id,
       nombre_completo: beca.alumno,
@@ -706,7 +607,7 @@ export default function Becas() {
       monto_mensual_descuento: Number(beca.monto_descuento_centavos || 0),
     };
     const actual = becasAgrupadas.get(key) ?? {
-      id: beca.scholarship_type_id ?? beca.id,
+      id: beca.scholarship_type_id ?? "sin-tipo",
       nombre: beca.tipo_nombre || "Beca sin tipo",
       categoria: beca.tipo_categoria || "manual",
       tipo: beca.tipo_algoritmo || "manual",
@@ -721,8 +622,10 @@ export default function Becas() {
     };
     actual.porcentaje_max = Math.max(actual.porcentaje_max, Number(beca.porcentaje_aplicado || 0));
     actual.estudiantes.add(Number(beca.student_id));
-    actual.estudiantes_detalle.push(estudianteAsignado);
-    actual.monto_total_descuento += Number(beca.monto_descuento_centavos || 0);
+    if (!actual.estudiantes_detalle.some((student: any) => Number(student.id) === Number(beca.student_id))) {
+      actual.estudiantes_detalle.push(estudianteAsignado);
+      actual.monto_total_descuento += Number(beca.monto_descuento_centavos || 0);
+    }
     becasAgrupadas.set(key, actual);
   }
   const becasYDescuentos = Array.from(becasAgrupadas.values()).map((beca) => ({
@@ -730,13 +633,11 @@ export default function Becas() {
     estudiantes_aplicados: beca.estudiantes.size,
     estudiantes: beca.estudiantes_detalle,
   }));
-  const tiposCatalogo = scholarshipTypes.map((type) => {
-    const typeAssignments = scholarshipAssignments.filter(
+  const tiposCatalogo: any[] = canManage ? scholarshipTypes.map((type) => {
+    const activeAssignments = becasVigentes.filter(
       (assignment) => Number(assignment.scholarship_type_id) === Number(type.id),
     );
-    const activeAssignments = typeAssignments.filter(
-      (assignment) => assignment.estado === "activa" && assignment.vigente,
-    );
+    const uniqueStudents = Array.from(new Map(activeAssignments.map((a) => [Number(a.student_id), a])).values());
     return {
       id: type.id,
       nombre: type.nombre,
@@ -744,14 +645,14 @@ export default function Becas() {
       tipo: type.algoritmo,
       descripcion: type.descripcion || "Sin descripción",
       porcentaje_max: Number(type.beneficio?.porcentaje_descuento || 0),
-      estudiantes_aplicados: activeAssignments.length,
-      estudiantes: activeAssignments.map((assignment) => ({
-        id: assignment.id,
+      estudiantes_aplicados: uniqueStudents.length,
+      estudiantes: uniqueStudents.map((assignment) => ({
+        id: assignment.student_id,
         nombre_completo: assignment.alumno,
         grado: assignment.grado || assignment.nivel_escolar || "Sin grado",
         porcentaje_asignado: Number(assignment.porcentaje_aplicado || 0),
       })),
-      monto_total_descuento: activeAssignments.reduce(
+      monto_total_descuento: uniqueStudents.reduce(
         (sum, assignment) => sum + Number(assignment.monto_descuento_centavos || 0),
         0,
       ),
@@ -762,18 +663,11 @@ export default function Becas() {
       activa: Boolean(type.activo),
       raw: type,
     };
-  });
-  const totalTiposBecas = tiposCatalogo.length;
-  const totalEstudiantesBeneficiados = new Set(
-    becasVigentes.map((beca) => Number(beca.student_id)),
-  ).size;
-  const montoTotalDescuentos = becasYDescuentos.reduce(
-    (sum, beca) => sum + beca.monto_total_descuento,
-    0,
-  );
-  const promedioDescuento = becasVigentes.length
-    ? becasVigentes.reduce((sum, beca) => sum + Number(beca.porcentaje_aplicado || 0), 0) / becasVigentes.length
-    : 0;
+  }) : becasYDescuentos;
+  const totalTiposBecas = tiposCatalogo.filter((type) => type.activa && type.id !== "sin-tipo").length;
+  const totalEstudiantesBeneficiados = dashboard.beneficiaries;
+  const montoTotalDescuentos = dashboard.savingsCentavos;
+  const promedioDescuento = dashboard.averagePercentage;
 
   // Funciones para manejar acciones de botones
   const handleEditBeca = (beca: any) => {
@@ -810,7 +704,7 @@ export default function Becas() {
     setShowDocumentModal(true);
   };
 
-  const handleGenerateReport = (formato: 'excel' | 'pdf' | 'word') => {
+  const handleGenerateReport = (formato: 'csv' | 'txt') => {
     const reportData = {
       fecha: new Date().toLocaleDateString(),
       tipos_becas: totalTiposBecas,
@@ -819,25 +713,26 @@ export default function Becas() {
       promedio_descuento: promedioDescuento.toFixed(1)
     };
 
-    // Simular descarga de reporte
     const fileName = `reporte_becas_${new Date().toISOString().split('T')[0]}.${formato}`;
     
-    if (formato === 'excel') {
-      // Crear contenido CSV para simular Excel
-      const csvContent = [
-        'Tipo de Beca,Estudiantes,Monto Total,Porcentaje Max',
-        ...becasYDescuentos.map(b => `${b.nombre},${b.estudiantes_aplicados},${b.monto_total_descuento/100},${b.porcentaje_max}%`)
-      ].join('\n');
+    if (formato === 'csv') {
+      const csvContent = "\uFEFF" + [
+        ["Alumnos beneficiados", dashboard.beneficiaries],
+        ["Asignaciones vigentes", dashboard.assignments],
+        ["Ahorro acumulado MXN (alumnos distintos)", montoTotalDescuentos / 100],
+        ["Tipo de beca", "Alumnos distintos", "Porcentaje máximo"],
+        ...becasYDescuentos.map(b => [b.nombre, b.estudiantes_aplicados, b.porcentaje_max]),
+        ["Un alumno puede aparecer en varios tipos; no sumar los alumnos por tipo."],
+      ].map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\r\n");
       
       const blob = new Blob([csvContent], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = fileName.replace('.excel', '.csv');
+      a.download = fileName;
       a.click();
       window.URL.revokeObjectURL(url);
     } else {
-      // Para PDF y Word, crear contenido de texto
       const content = `
 REPORTE DE BECAS Y DESCUENTOS
 Fecha: ${reportData.fecha}
@@ -845,24 +740,25 @@ Fecha: ${reportData.fecha}
 RESUMEN EJECUTIVO:
 - Tipos de becas activas: ${reportData.tipos_becas}
 - Estudiantes beneficiados: ${reportData.estudiantes_beneficiados}
-- Monto total de descuentos: $${reportData.monto_total.toLocaleString()}
+- Asignaciones vigentes: ${dashboard.assignments}
+- Ahorro acumulado en cargos emitidos de alumnos distintos: $${reportData.monto_total.toLocaleString()}
 - Promedio de descuento: ${reportData.promedio_descuento}%
 
 DETALLE POR TIPO DE BECA:
 ${becasYDescuentos.map(b => `
 ${b.nombre}:
 - Estudiantes: ${b.estudiantes_aplicados}
-- Monto: $${(b.monto_total_descuento/100).toLocaleString()}
 - Porcentaje máximo: ${b.porcentaje_max}%
 - Estado: ${b.activa ? 'Activa' : 'Inactiva'}
 `).join('')}
+Un alumno puede aparecer en varios tipos; no sumar los alumnos por tipo.
       `;
 
       const blob = new Blob([content], { type: 'text/plain' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = fileName.replace(formato, 'txt');
+      a.download = fileName;
       a.click();
       window.URL.revokeObjectURL(url);
     }
@@ -877,28 +773,20 @@ ${b.nombre}:
     const calculo = {
       becas_activas: totalTiposBecas,
       estudiantes_totales: totalEstudiantesBeneficiados,
-      ahorro_mensual: montoTotalDescuentos / 100,
-      ahorro_anual: (montoTotalDescuentos / 100) * 10, // 10 meses del ciclo escolar
-      beneficio_promedio: (montoTotalDescuentos / 100) / totalEstudiantesBeneficiados
+      ahorro_acumulado: montoTotalDescuentos / 100,
+      beneficio_promedio: totalEstudiantesBeneficiados ? (montoTotalDescuentos / 100) / totalEstudiantesBeneficiados : 0
     };
 
     toast({
       title: "Cálculo Total Completado",
-      description: `Ahorro anual estimado: $${calculo.ahorro_anual.toLocaleString()} | Beneficio promedio por estudiante: $${calculo.beneficio_promedio.toLocaleString()}`,
+      description: `Ahorro acumulado en cargos emitidos: $${calculo.ahorro_acumulado.toLocaleString()} | Beneficio promedio por alumno: $${calculo.beneficio_promedio.toLocaleString()}`,
     });
   };
 
   const handleAuditAssignments = () => {
-    const auditResults = {
-      total_asignaciones: totalEstudiantesBeneficiados,
-      asignaciones_manuales: becasYDescuentos.filter(b => b.tipo === 'manual').reduce((sum, b) => sum + b.estudiantes_aplicados, 0),
-      asignaciones_automaticas: becasYDescuentos.filter(b => b.tipo === 'automatico').reduce((sum, b) => sum + b.estudiantes_aplicados, 0),
-      pendientes_revision: estudiantesParaBecas.filter(e => e.estado === 'Pendiente Renovación').length
-    };
-
     toast({
-      title: "Auditoría Completada",
-      description: `${auditResults.total_asignaciones} asignaciones revisadas. ${auditResults.pendientes_revision} requieren atención.`,
+      title: "Resumen de asignaciones vigentes",
+      description: `${dashboard.assignments} asignaciones para ${dashboard.beneficiaries} alumnos activos distintos de este campus.`,
     });
   };
 
@@ -924,6 +812,13 @@ ${b.nombre}:
 
   const estudiantesDeBecaSeleccionada = selectedBeca?.estudiantes || [];
 
+  if (assignmentsLoading || typesLoading) return <p role="status" className="p-6">Consultando becas del campus…</p>;
+  if (assignmentsError || typesError) return (
+    <div role="alert" className="p-6 space-y-3">
+      <p>No se pudieron consultar las becas. No hay cifras disponibles.</p>
+      <Button onClick={() => { refetchAssignments(); queryClient.invalidateQueries({ queryKey: ["/api/admin/scholarship-types"] }); }}>Reintentar</Button>
+    </div>
+  );
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -934,7 +829,7 @@ ${b.nombre}:
         <div className="flex space-x-2">
           <Dialog open={showAsignarModal} onOpenChange={setShowAsignarModal}>
             <DialogTrigger asChild>
-              <Button variant="outline">
+              <Button disabled={!canManage} variant="outline">
                 <Users className="mr-2 h-4 w-4" />
                 Asignar Beca
               </Button>
@@ -1262,7 +1157,7 @@ ${b.nombre}:
             if (!open) setEditingType(null);
           }}>
             <DialogTrigger asChild>
-              <Button onClick={() => {
+              <Button disabled={!canManage} onClick={() => {
                 setEditingType(null);
                 setTypeForm({
                   nombre: "",
@@ -1396,34 +1291,34 @@ ${b.nombre}:
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tipos de Becas</CardTitle>
+            <CardTitle className="text-sm font-medium">{canManage ? "Tipos de Becas" : "Tipos con asignaciones vigentes"}</CardTitle>
             <Award className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalTiposBecas}</div>
-            <p className="text-xs text-muted-foreground">Activos en el sistema</p>
+            <p className="text-xs text-muted-foreground">{canManage ? "Activos en el catálogo" : "Según las asignaciones del campus"}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Estudiantes Beneficiados</CardTitle>
+            <CardTitle className="text-sm font-medium">Alumnos beneficiados</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalEstudiantesBeneficiados}</div>
-            <p className="text-xs text-muted-foreground">Con descuentos aplicados</p>
+            <div className="text-2xl font-bold" data-testid="scholarship-beneficiaries">{totalEstudiantesBeneficiados}</div>
+            <p className="text-xs text-muted-foreground">Activos del campus · {dashboard.assignments} asignaciones vigentes</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ahorro Total</CardTitle>
+            <CardTitle className="text-sm font-medium">Ahorro acumulado</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">${(montoTotalDescuentos / 100).toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Descuentos otorgados</p>
+            <p className="text-xs text-muted-foreground">Cargos emitidos · sin duplicar alumnos</p>
           </CardContent>
         </Card>
 
@@ -1441,10 +1336,10 @@ ${b.nombre}:
 
       {/* Main Content */}
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className={`grid w-full ${canManage ? "grid-cols-4" : "grid-cols-3"}`}>
           <TabsTrigger value="becas">Tipos de Becas</TabsTrigger>
           <TabsTrigger value="estudiantes">Estudiantes con Becas</TabsTrigger>
-          <TabsTrigger value="reglas-auto">⚡ Reglas automáticas</TabsTrigger>
+          {canManage && <TabsTrigger value="reglas-auto">⚡ Reglas automáticas</TabsTrigger>}
           <TabsTrigger value="reportes">Reportes y Control</TabsTrigger>
         </TabsList>
 
@@ -1507,16 +1402,10 @@ ${b.nombre}:
                     {beca.criterios && (
                       <p className="text-sm text-muted-foreground">Criterios: {beca.criterios}</p>
                     )}
-                    {beca.empresas_convenio && (
-                      <div>
-                        <p className="text-sm font-medium">Empresas con Convenio:</p>
-                        <p className="text-sm text-muted-foreground">{beca.empresas_convenio.join(", ")}</p>
-                      </div>
-                    )}
                   </div>
 
                   <div className="flex justify-end space-x-2 mt-4">
-                    <Button variant="outline" size="sm" onClick={() => openTypeEditor(beca)}>
+                    <Button disabled={!canManage} variant="outline" size="sm" onClick={() => openTypeEditor(beca)}>
                       <Edit className="h-4 w-4 mr-2" />
                       Editar
                     </Button>
@@ -1531,6 +1420,22 @@ ${b.nombre}:
         </TabsContent>
 
         <TabsContent value="estudiantes" className="space-y-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <Label htmlFor="becas-nivel">Nivel educativo</Label>
+            <Select value={nivelFiltro} onValueChange={setNivelFiltro}>
+              <SelectTrigger id="becas-nivel" className="w-48"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos los niveles</SelectItem>
+                {Array.from(new Set(scholarshipAssignments.map((a) => a.nivel_escolar).filter(Boolean))).map((nivel) => (
+                  <SelectItem key={nivel} value={nivel}>{nivel}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Switch id="becas-historicas" checked={incluirNoVigentes} onCheckedChange={setIncluirNoVigentes} />
+            <Label htmlFor="becas-historicas">Incluir suspendidas y fuera de vigencia</Label>
+            <p className="text-sm text-muted-foreground">Los indicadores corresponden a todo el campus. El filtro sólo cambia este listado de asignaciones.</p>
+          </div>
+          {estudiantesParaBecas.length === 0 && <p>No hay asignaciones para este filtro.</p>}
           <div className="grid gap-4">
             {estudiantesParaBecas.map((estudiante) => (
               <Card key={estudiante.id} className="hover:shadow-md transition-shadow">
@@ -1560,10 +1465,6 @@ ${b.nombre}:
                       <p className="text-sm font-medium">Fecha Asignación</p>
                       <p className="text-sm text-muted-foreground">{estudiante.fecha_asignacion}</p>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">Hermanos Inscritos</p>
-                      <p className="text-sm text-muted-foreground">{estudiante.hermanos_inscritos}</p>
-                    </div>
                   </div>
                   
                   <Separator className="my-4" />
@@ -1574,7 +1475,7 @@ ${b.nombre}:
                   </div>
 
                   <div className="flex justify-end space-x-2 mt-4">
-                    <Button variant="outline" size="sm" onClick={() => handleEditBeca(estudiante)}>
+                    <Button disabled={!canManage} variant="outline" size="sm" onClick={() => handleEditBeca(estudiante)}>
                       <Edit className="h-4 w-4 mr-2" />
                       Modificar
                     </Button>
@@ -1583,6 +1484,7 @@ ${b.nombre}:
                       Documentos
                     </Button>
                     <Button
+                      disabled={!canManage}
                       variant={estudiante.estado === "Suspendida" ? "default" : "destructive"}
                       size="sm"
                       onClick={() => {
@@ -1609,7 +1511,7 @@ ${b.nombre}:
 
         {/* ── Reglas automáticas de becas ───────────────────────────── */}
         <TabsContent value="reglas-auto" className="space-y-4">
-          <BecasReglaAuto />
+          {canManage && <BecasReglaAuto />}
         </TabsContent>
 
         <TabsContent value="reportes" className="space-y-4">
@@ -1620,7 +1522,7 @@ ${b.nombre}:
               </CardHeader>
               <CardContent className="space-y-4">
                 {becasYDescuentos.filter(b => b.activa).map((beca) => {
-                  const porcentajeDelTotal = (beca.estudiantes_aplicados / totalEstudiantesBeneficiados) * 100;
+                  const porcentajeDelTotal = totalEstudiantesBeneficiados ? (beca.estudiantes_aplicados / totalEstudiantesBeneficiados) * 100 : 0;
                   return (
                     <div key={beca.id} className="space-y-2">
                       <div className="flex justify-between text-sm">
@@ -1636,11 +1538,11 @@ ${b.nombre}:
 
             <Card>
               <CardHeader>
-                <CardTitle>Distribución de Beneficios ($)</CardTitle>
+                <CardTitle>Ahorro acumulado de alumnos por tipo</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {becasYDescuentos.filter(b => b.activa).map((beca) => {
-                  const porcentajeDelTotal = (beca.monto_total_descuento / montoTotalDescuentos) * 100;
+                  const porcentajeDelTotal = montoTotalDescuentos ? (beca.monto_total_descuento / montoTotalDescuentos) * 100 : 0;
                   return (
                     <div key={beca.id} className="space-y-2">
                       <div className="flex justify-between text-sm">
@@ -1651,6 +1553,7 @@ ${b.nombre}:
                     </div>
                   );
                 })}
+                <p className="text-sm text-muted-foreground">Los tipos pueden compartir alumnos. No sumes estos importes entre tipos; el ahorro total cuenta a cada alumno una sola vez.</p>
               </CardContent>
             </Card>
           </div>
@@ -1665,22 +1568,18 @@ ${b.nombre}:
                   <DropdownMenuTrigger asChild>
                     <Button className="h-20 flex flex-col items-center justify-center">
                       <FileText className="h-6 w-6 mb-2" />
-                      Generar Reporte Mensual
+                      Reporte de becas vigentes
                       <Download className="h-3 w-3 mt-1" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
-                    <DropdownMenuItem onClick={() => handleGenerateReport('excel')}>
+                    <DropdownMenuItem onClick={() => handleGenerateReport('csv')}>
                       <FileText className="h-4 w-4 mr-2" />
-                      Descargar Excel
+                      Descargar CSV
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleGenerateReport('pdf')}>
+                    <DropdownMenuItem onClick={() => handleGenerateReport('txt')}>
                       <FileText className="h-4 w-4 mr-2" />
-                      Descargar PDF
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleGenerateReport('word')}>
-                      <FileText className="h-4 w-4 mr-2" />
-                      Descargar Word
+                      Descargar texto
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -1715,6 +1614,7 @@ ${b.nombre}:
                 <Button 
                   variant="secondary" 
                   className="h-20 flex flex-col items-center justify-center"
+                  disabled={!canManage}
                   onClick={handleManualAssignment}
                 >
                   <Target className="h-6 w-6 mb-2" />
@@ -1730,7 +1630,7 @@ ${b.nombre}:
                   <p>• El sistema gestiona {totalTiposBecas} tipos diferentes de becas y descuentos</p>
                   <p>• Actualmente beneficia a {totalEstudiantesBeneficiados} estudiantes</p>
                   <p>• Ahorro total generado: ${(montoTotalDescuentos / 100).toLocaleString()} MXN</p>
-                  <p>• Asignación {becasYDescuentos.filter(b => b.tipo === "manual").length} manual + {becasYDescuentos.filter(b => b.tipo === "automatico").length} automática</p>
+                  <p>• Tipos con asignaciones vigentes: {becasYDescuentos.filter(b => b.tipo === "manual").length} manuales y {becasYDescuentos.filter(b => b.tipo === "automatico").length} automáticos</p>
                 </div>
               </div>
             </CardContent>

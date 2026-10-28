@@ -197,11 +197,13 @@ export async function seedDemoData() {
       tenant_id: tenant.id,
       nombre: "Campus Norte",
       clave_sep: "09DPR1234A",
+      onboarding_completado: true,
     }).returning();
     const [campusSur] = await db.insert(campuses).values({
       tenant_id: tenant.id,
       nombre: "Campus Sur",
       clave_sep: "09DPR5678B",
+      onboarding_completado: true,
     }).returning();
     log(`✅ Campus Norte (ID: ${campusNorte.id}), Campus Sur (ID: ${campusSur.id})`);
 
@@ -341,6 +343,15 @@ export async function seedDemoData() {
     const [concColSurPrim] = await db.insert(concepts).values({
       tenant_id: tenant.id,
       campus_id: campusSur.id,
+      nombre: "Colegiatura Mensual Primaria",
+      tipo: "colegiatura",
+      periodicidad: "mensual",
+      monto_centavos: 280000,
+      iva: false,
+    }).returning();
+    const [concColSurKinder] = await db.insert(concepts).values({
+      tenant_id: tenant.id,
+      campus_id: campusSur.id,
       nombre: "Colegiatura Mensual Kinder",
       tipo: "colegiatura",
       periodicidad: "mensual",
@@ -383,10 +394,10 @@ export async function seedDemoData() {
       monto_centavos: 420000,
       iva: false,
     }).returning();
-    log("✅ 9 conceptos de pago creados");
+    log("✅ 10 conceptos de pago creados");
 
     // ── Familias (padres, madres y estudiantes) ──────────────────────────────
-    log("👨‍👩‍👧 Creando 10 familias con estudiantes...");
+    log("Creando hogares demo de los cuatro niveles en ambos campus...");
 
     const familias = [
       {
@@ -447,7 +458,7 @@ export async function seedDemoData() {
         padre: { nombres: "Gerardo Alfonso", ap: "Pedraza", am: "Lara", celular: "5491234567", curp: "PELG730202HDFRRN10" },
         madre: { nombres: "Verónica Sofía", ap: "Lara", am: "Ibáñez", celular: "5498901234", curp: "LAIV770812MDFRRN10" },
         estudiante: { nombres: "Rodrigo Maximiliano", ap: "Pedraza", am: "Lara", grado: "2°", grupo: "B", nivel: "Kinder", curp: "PELR200310HDFRRG10" },
-        campus: campusSur, concept: concColSurPrim,
+        campus: campusSur, concept: concColSurKinder,
       },
       {
         padre: { nombres: "Raúl Esteban", ap: "Navarro", am: "Mendoza", celular: "5481234567", curp: "NAMR820401HDFVRL11" },
@@ -528,6 +539,7 @@ export async function seedDemoData() {
       }).returning();
 
       const [student] = await db.insert(students).values({
+        tenant_id: tenant.id,
         campus_id: f.campus.id,
         id_referencia: `MAT-${String(i + 1).padStart(4, "0")}`,
         nombres: f.estudiante.nombres,
@@ -688,6 +700,7 @@ export async function seedDemoData() {
     // en families existe solo como ancla requerida por family_credits y fuentes
     // SPEI; no sustituye esa relación para las pantallas de alumnos/tutores.
     const [hermano] = await db.insert(students).values({
+      tenant_id: tenant.id,
       campus_id: familiaPrincipal.campusId,
       id_referencia: "MAT-0001-H",
       nombres: "Emilia Guadalupe",
@@ -908,6 +921,21 @@ export async function seedDemoData() {
               ($2, 'porcentaje', 30, ARRAY['colegiatura'], 12),
               ($3, 'porcentaje', 20, ARRAY['colegiatura'], 12)`,
       [excelenciaId, hermanosId, deportivaId],
+    );
+    await pool.query(
+      `INSERT INTO scholarship_criteria (scholarship_type_id, criterio, valor_minimo, obligatorio)
+       VALUES ($1, 'promedio_minimo', 9.00, true),
+              ($2, 'hermanos_min', 2.00, true),
+              ($3, 'promedio_minimo', 8.50, false)`,
+      [excelenciaSurId, hermanosSurId, deportivaSurId],
+    );
+    await pool.query(
+      `INSERT INTO scholarship_benefits
+        (scholarship_type_id, tipo_beneficio, porcentaje_descuento, aplica_conceptos, vigencia_meses)
+       VALUES ($1, 'porcentaje', 40, ARRAY['colegiatura'], 12),
+              ($2, 'porcentaje', 30, ARRAY['colegiatura'], 12),
+              ($3, 'porcentaje', 20, ARRAY['colegiatura'], 12)`,
+      [excelenciaSurId, hermanosSurId, deportivaSurId],
     );
     const northKinder = demoStudents.find(
       (student) => student.campusId === campusNorte.id && student.nivel === "Kinder",

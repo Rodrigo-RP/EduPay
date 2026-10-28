@@ -686,7 +686,7 @@ export function detectActionIntent(message: string): ActionDescriptor | null {
 
   // ── Contar entidades ──────────────────────────────────────────────────────
   // Acepta masculino (cuántos) y femenino (cuántas)
-  const countMatch = n.match(/cu[aá]nt[ao]s?\s+(alumnos?|estudiantes?|pagos?|cargos?|becas?|familias?|descuentos?)/);
+  const countMatch = n.match(/cu[aá]nt[ao]s?\s+(alumnos?|estudiantes?|pagos?|cargos?|becad[oa]s?|becas?|familias?|descuentos?)\b/);
   if (countMatch)
     return { actionId: "query:contar", params: { entity: countMatch[1] } };
 

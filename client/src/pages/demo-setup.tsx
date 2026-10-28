@@ -13,9 +13,11 @@ export default function DemoSetup() {
   const [copied, setCopied] = useState<string>("");
 
   const seedMutation = useMutation({
-    mutationFn: () => apiRequest("/api/demo/seed", { method: "POST" }),
-    onSuccess: async (res: any) => {
-      const data = await res.json();
+    mutationFn: async () => {
+      const response = await apiRequest("/api/demo/seed", { method: "POST" });
+      return response.json();
+    },
+    onSuccess: (data: any) => {
       setResult(data);
       if (data.success) {
         toast({ title: "✅ Datos demo cargados", description: "Base de datos poblada correctamente" });

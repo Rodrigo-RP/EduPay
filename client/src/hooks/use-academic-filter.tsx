@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
 interface AcademicFilterContextType {
   selectedCiclo: string;
@@ -61,4 +61,27 @@ export function useAcademicFilter() {
     throw new Error('useAcademicFilter must be used within an AcademicFilterProvider');
   }
   return context;
+}
+
+/** Los filtros de gestión usan los nombres de sección de los registros.
+ *  Se permite filtrar localmente; un cambio del header vuelve a sincronizarlos. */
+export function useAcademicPageFilter() {
+  const { selectedCiclo, selectedNivel } = useAcademicFilter();
+  const seccion = ({
+    KINDER: "Kinder",
+    PRIMARIA: "Primaria",
+    SECUNDARIA: "Secundaria",
+    BACHILLERATO: "Preparatoria",
+  } as Record<string, string>)[selectedNivel] ?? selectedNivel;
+  const [selectedSeccion, setSelectedSeccion] = useState(seccion);
+  const [selectedCicloEscolar, setSelectedCicloEscolar] = useState(selectedCiclo);
+
+  useEffect(() => {
+    setSelectedSeccion(seccion);
+  }, [seccion]);
+  useEffect(() => {
+    setSelectedCicloEscolar(selectedCiclo);
+  }, [selectedCiclo]);
+
+  return { selectedSeccion, setSelectedSeccion, selectedCicloEscolar, setSelectedCicloEscolar };
 }

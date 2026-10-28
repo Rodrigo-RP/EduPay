@@ -11,6 +11,7 @@ import { SCHOOL_TODAY_SQL, schoolDate } from "@shared/school-date";
  */
 
 import { pool } from "./db";
+import { currentScholarshipScope } from "./lib/scholarship-scope";
 import { runAllProbes } from "./assistant-validation";
 import type { SuggestActionSignal, SuggestActionTrigger } from "./assistant-knowledge";
 
@@ -99,25 +100,19 @@ async function queryDiscrepancia(_p: Record<string, any>, ctx: ActionContext): P
          (SELECT COUNT(DISTINCT sh.student_id)
             FROM scholarships sh
             INNER JOIN students s ON s.id = sh.student_id
-            WHERE s.campus_id = $1
-              AND s.status = 'activo'
-              AND sh.vigencia_inicio <= ${SCHOOL_TODAY_SQL}
-              AND (sh.vigencia_fin IS NULL OR sh.vigencia_fin >= ${SCHOOL_TODAY_SQL})
+            WHERE ${currentScholarshipScope("sh", "s", "$1", "$2")}
          )                                                                              AS alumnos_con_beca,
          (SELECT COUNT(*)
             FROM scholarships sh
             INNER JOIN students s ON s.id = sh.student_id
-            WHERE s.campus_id = $1
-              AND s.status = 'activo'
-              AND sh.vigencia_inicio <= ${SCHOOL_TODAY_SQL}
-              AND (sh.vigencia_fin IS NULL OR sh.vigencia_fin >= ${SCHOOL_TODAY_SQL})
+            WHERE ${currentScholarshipScope("sh", "s", "$1", "$2")}
          )                                                                              AS becas_total,
          (SELECT COUNT(DISTINCT c.student_id)
             FROM charges c INNER JOIN students s ON c.student_id = s.id
             WHERE s.campus_id = $1)                                                    AS alumnos_con_cargo,
          (SELECT COUNT(*) FROM charges c
             INNER JOIN students s ON c.student_id = s.id WHERE s.campus_id = $1)      AS cargos_total`,
-       [ctx.campusId]
+       [ctx.campusId, ctx.tenantId]
     );
 
     const r = rows[0];
@@ -127,21 +122,10 @@ async function queryDiscrepancia(_p: Record<string, any>, ctx: ActionContext): P
     const becasTotal   = parseInt(r.becas_total, 10);
     const conCargo     = parseInt(r.alumnos_con_cargo, 10);
 
-    let summary = "";
-    if (conBeca > activos) {
-      summary =
-        `Hay **${conBeca} alumnos con beca** pero solo **${activos} alumnos activos** en este campus. ` +
-        `Esto ocurre cuando las becas referencian alumnos de otros campus o alumnos dados de baja. ` +
-        `El conteo de "8 alumnos" que ves en Estudiantes muestra solo los activos de este campus.`;
-    } else if (becasTotal > total) {
-      summary =
-        `Hay más registros de becas (${becasTotal}) que alumnos registrados (${total}). ` +
-        `Algunos alumnos beneficiados pueden pertenecer a otro campus dentro del mismo tenant.`;
-    } else {
-      summary =
-        `Los registros son consistentes: ${activos} alumnos activos, ` +
-        `${becasTotal} becas asignadas a ${conBeca} alumnos distintos.`;
-    }
+    const summary = `En este campus hay **${activos} alumnos activos**, ` +
+      `**${conBeca} alumnos beneficiados** y **${becasTotal} asignaciones vigentes**. ` +
+      `Un alumno puede tener varias asignaciones; no se suman como alumnos adicionales. ` +
+      `Se excluyen alumnos inactivos y becas suspendidas, futuras o vencidas.`;
 
     return {
       success: true,
@@ -150,8 +134,8 @@ async function queryDiscrepancia(_p: Record<string, any>, ctx: ActionContext): P
       rows: [
         { label: "Alumnos activos (este campus)",    value: activos,    highlight: true },
         { label: "Total alumnos (incl. inactivos)",  value: total },
-        { label: "Alumnos con beca asignada",        value: conBeca,    highlight: conBeca !== activos },
-        { label: "Total registros de becas",         value: becasTotal },
+        { label: "Alumnos beneficiados",             value: conBeca, highlight: true },
+        { label: "Asignaciones vigentes",            value: becasTotal },
         { label: "Alumnos con cargos generados",     value: conCargo },
         { label: "Total cargos en sistema",          value: r.cargos_total },
       ],
@@ -193,11 +177,8 @@ async function queryContar(params: Record<string, any>, ctx: ActionContext): Pro
                 COUNT(DISTINCT sh.student_id) AS alumnos_becados
          FROM scholarships sh
          INNER JOIN students s ON s.id = sh.student_id
-         WHERE s.campus_id = $1
-           AND s.status = 'activo'
-           AND sh.vigencia_inicio <= ${SCHOOL_TODAY_SQL}
-           AND (sh.vigencia_fin IS NULL OR sh.vigencia_fin >= ${SCHOOL_TODAY_SQL})`,
-        [ctx.campusId]
+         WHERE ${currentScholarshipScope("sh", "s", "$1", "$2")}`,
+        [ctx.campusId, ctx.tenantId]
       );
       const r = rows[0];
       return {
@@ -429,8 +410,7 @@ async function queryResumenEjecutivoMes(params: Record<string, any>, ctx: Action
          WHERE b.tenant_id = $1
            AND s.tenant_id = $1
            AND s.campus_id = $2
-           AND b.vigencia_inicio < $4::date
-           AND b.vigencia_fin >= $3::date
+           AND ${currentScholarshipScope("b", "s", "$2", "$1")}
        ),
        descuentos_periodo AS (
          SELECT COALESCE(SUM(
@@ -449,8 +429,7 @@ async function queryResumenEjecutivoMes(params: Record<string, any>, ctx: Action
              FROM scholarships b
              WHERE b.tenant_id = $1
                AND b.student_id = c.student_id
-               AND b.vigencia_inicio < $4::date
-               AND b.vigencia_fin >= $3::date
+               AND ${currentScholarshipScope("b", "s", "$2", "$1")}
            )
        )
        SELECT
@@ -636,10 +615,11 @@ async function queryBecasAlumno(params: Record<string, any>, ctx: ActionContext)
               sh.motivo
        FROM scholarships sh
        INNER JOIN students s ON sh.student_id = s.id
-       WHERE s.campus_id = $1 AND LOWER(s.nombre_completo) LIKE LOWER($2)
+       WHERE ${currentScholarshipScope("sh", "s", "$1", "$3")}
+         AND LOWER(s.nombre_completo) LIKE LOWER($2)
        ORDER BY s.nombre_completo
        LIMIT 10`,
-      [ctx.campusId, `%${nombre}%`]
+      [ctx.campusId, `%${nombre}%`, ctx.tenantId]
     );
 
     if (rows.length === 0) {
@@ -664,8 +644,8 @@ async function queryBecasAlumno(params: Record<string, any>, ctx: ActionContext)
 
     return {
       success: true,
-      title: "Becas asignadas",
-      summary: `Encontré **${rows.length} beca(s)** para "${nombre}".`,
+      title: "Becas vigentes",
+      summary: `Muestro **${rows.length} asignación(es) vigente(s)** para **${new Set(rows.map((r: any) => r.student_id)).size} alumno(s) beneficiado(s)** con el nombre "${nombre}" (hasta 10 asignaciones).`,
       rows: resultRows,
       studentTargets: studentTargets(rows),
     };
@@ -688,14 +668,11 @@ async function queryBecasNivel(params: Record<string, any>, ctx: ActionContext):
               sh.motivo
        FROM scholarships sh
        INNER JOIN students s ON sh.student_id = s.id
-       WHERE s.campus_id = $1
-          AND s.status = 'activo'
-         AND sh.vigencia_inicio <= ${SCHOOL_TODAY_SQL}
-         AND (sh.vigencia_fin IS NULL OR sh.vigencia_fin >= ${SCHOOL_TODAY_SQL})
+       WHERE ${currentScholarshipScope("sh", "s", "$1", "$3")}
          AND ($2 = '' OR LOWER(s.nivel_escolar) LIKE LOWER($2))
        ORDER BY s.nivel_escolar, s.nombre_completo
        LIMIT 25`,
-      [ctx.campusId, nivel ? `%${nivel}%` : ""]
+      [ctx.campusId, nivel ? `%${nivel}%` : "", ctx.tenantId]
     );
 
     const titulo = nivel
@@ -724,8 +701,8 @@ async function queryBecasNivel(params: Record<string, any>, ctx: ActionContext):
 
     return {
       success: true,
-      title: `${titulo} — ${rows.length} alumno(s)`,
-      summary: `Hay **${rows.length} alumno(s)** con beca activa${nivel ? ` en ${nivel}` : ""}.`,
+      title: titulo,
+      summary: `Muestro **${new Set(rows.map((r: any) => r.student_id)).size} alumno(s) beneficiado(s)** y **${rows.length} asignación(es) vigente(s)**${nivel ? ` en ${nivel}` : ""} (hasta 25 asignaciones).`,
       rows: resultRows,
       studentTargets: studentTargets(rows),
     };
@@ -1270,9 +1247,13 @@ export async function resolveSuggestContext(
     const { rows: vigentes } = await pool.query(
       `SELECT id, porcentaje, vigencia_fin
        FROM scholarships
-       WHERE student_id = $1 AND vigencia_fin >= ${SCHOOL_TODAY_SQL}
+       WHERE student_id = $1
+         AND tenant_id = $2
+         AND COALESCE(estado, 'activa') = 'activa'
+         AND vigencia_inicio <= ${SCHOOL_TODAY_SQL}
+         AND (vigencia_fin IS NULL OR vigencia_fin >= ${SCHOOL_TODAY_SQL})
        ORDER BY porcentaje DESC`,
-      [student.id]
+      [student.id, ctx.tenantId]
     );
 
     const hoy = schoolDate();

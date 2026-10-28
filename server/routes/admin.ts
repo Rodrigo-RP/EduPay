@@ -570,17 +570,11 @@ export function registerAdminRoutes(app: Express): void {
          WHERE stu.campus_id = $1
            AND s.tenant_id = $2
         ORDER BY stu.nombre_completo
-       `, [campusId, (req as any).user?.tenant_id]).catch((err: any) => {
-        // Catch visible: un error real de DB se registra en logs. El catch
-        // silencioso anterior ocultó la ausencia de scholarship_types durante
-        // tiempo indeterminado. Mantenemos degradación elegante (array vacío)
-        // pero ahora el error es visible en los logs del servidor.
-        console.error("[GET /api/scholarships] DB error:", err.message);
-        return { rows: [] };
-      });
+       `, [campusId, (req as any).user?.tenant_id]);
       res.json(rows.rows);
     } catch (error: any) {
-      res.status(500).json({ message: "Error fetching scholarships" });
+      console.error("[GET /api/scholarships] No se pudieron consultar las asignaciones");
+      res.status(500).json({ message: "No se pudieron consultar las becas. Intenta nuevamente." });
     }
   });
 

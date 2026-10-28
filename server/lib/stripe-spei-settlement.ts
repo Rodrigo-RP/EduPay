@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "@shared/school-date";
 /**
  * Completa los pagos SPEI que Stripe confirmó mediante webhook.
  *
@@ -127,7 +128,7 @@ export async function settleStripeSpeiPaymentIntent(
 
       await client.query(
         `UPDATE payments
-            SET estado = 'exitoso', fecha_pago = CURRENT_DATE, updated_at = NOW()
+            SET estado = 'exitoso', fecha_pago = ${SCHOOL_TODAY_SQL}, updated_at = NOW()
           WHERE id = $1`,
         [payment.id],
       );

@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "@shared/school-date";
 /**
  * RPT-07 — Antigüedad de Saldos
  *
@@ -133,7 +134,7 @@ async function fetchAntiguedadData(
       c.ciclo_escolar                                                         AS ciclo,
       con.nombre                                                              AS concepto,
       c.fecha_vencimiento,
-      GREATEST(0, CURRENT_DATE - c.fecha_vencimiento::date)::int             AS dias_vencido,
+      GREATEST(0, ${SCHOOL_TODAY_SQL} - c.fecha_vencimiento::date)::int             AS dias_vencido,
       -- saldo pendiente = total neto − pagos aplicados confirmados
       GREATEST(0,
         (ROUND(c.monto_base_centavos
@@ -143,11 +144,11 @@ async function fetchAntiguedadData(
       )::bigint                                                               AS saldo_centavos,
       -- Clasificación en bucket (días vencido, ambos extremos inclusivos)
       CASE
-        WHEN GREATEST(0, CURRENT_DATE - c.fecha_vencimiento::date) = 0   THEN 'al_corriente'
-        WHEN GREATEST(0, CURRENT_DATE - c.fecha_vencimiento::date) <= 30  THEN '1_30'
-        WHEN GREATEST(0, CURRENT_DATE - c.fecha_vencimiento::date) <= 60  THEN '31_60'
-        WHEN GREATEST(0, CURRENT_DATE - c.fecha_vencimiento::date) <= 90  THEN '61_90'
-        WHEN GREATEST(0, CURRENT_DATE - c.fecha_vencimiento::date) <= 120 THEN '91_120'
+        WHEN GREATEST(0, ${SCHOOL_TODAY_SQL} - c.fecha_vencimiento::date) = 0   THEN 'al_corriente'
+        WHEN GREATEST(0, ${SCHOOL_TODAY_SQL} - c.fecha_vencimiento::date) <= 30  THEN '1_30'
+        WHEN GREATEST(0, ${SCHOOL_TODAY_SQL} - c.fecha_vencimiento::date) <= 60  THEN '31_60'
+        WHEN GREATEST(0, ${SCHOOL_TODAY_SQL} - c.fecha_vencimiento::date) <= 90  THEN '61_90'
+        WHEN GREATEST(0, ${SCHOOL_TODAY_SQL} - c.fecha_vencimiento::date) <= 120 THEN '91_120'
         ELSE 'mas_120'
       END                                                                     AS bucket
     FROM charges c

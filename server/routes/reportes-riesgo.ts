@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "@shared/school-date";
 /**
  * RPT-08 — Reporte de Riesgo de Cobranza
  *
@@ -126,8 +127,8 @@ async function fetchRiesgoData(
       )                                                                       AS adeudo_centavos,
       -- dias_vencido = max días vencidos entre cargos pendientes vencidos
       COALESCE(
-        MAX(GREATEST(0, CURRENT_DATE - c.fecha_vencimiento::date)::int)
-        FILTER (WHERE c.estado = 'pendiente' AND c.fecha_vencimiento::date < CURRENT_DATE),
+        MAX(GREATEST(0, ${SCHOOL_TODAY_SQL} - c.fecha_vencimiento::date)::int)
+        FILTER (WHERE c.estado = 'pendiente' AND c.fecha_vencimiento::date < ${SCHOOL_TODAY_SQL}),
         0
       )                                                                       AS dias_vencido,
       -- tasa_pago_historica = pagos / cargos en últimos 6 meses (%)

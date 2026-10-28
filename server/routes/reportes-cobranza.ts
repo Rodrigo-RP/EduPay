@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "@shared/school-date";
 /**
  * reportes-cobranza.ts — RPT-03 Reporte de Cargos y Cobranza
  *
@@ -135,9 +136,9 @@ function buildCobranzaQuery(
       )::bigint                                                                 AS saldo_pendiente,
       c.estado,
       CASE
-        WHEN c.fecha_vencimiento < CURRENT_DATE
+        WHEN c.fecha_vencimiento < ${SCHOOL_TODAY_SQL}
          AND c.estado NOT IN ('pagado', 'cancelado')
-        THEN (CURRENT_DATE - c.fecha_vencimiento::date)::int
+        THEN (${SCHOOL_TODAY_SQL} - c.fecha_vencimiento::date)::int
         ELSE 0
       END                                                                       AS dias_vencido
     FROM charges c

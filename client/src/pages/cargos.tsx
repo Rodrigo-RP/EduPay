@@ -1,3 +1,4 @@
+import { schoolDate } from "@shared/school-date";
 import { useState } from "react";
 import { getCurrentCiclo } from "@/hooks/use-academic-filter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -69,7 +70,7 @@ export default function Cargos() {
     descripcion: "",
     monto_pesos: "",
     nivel_academico: "todos",
-    fecha_emision: new Date().toISOString().split("T")[0],
+    fecha_emision: schoolDate(),
     fecha_vencimiento: "",
   });
 
@@ -217,7 +218,7 @@ export default function Cargos() {
       dry_run: false,
     });
     setExtModalOpen(false);
-    setExtForm({ descripcion: "", monto_pesos: "", nivel_academico: "todos", fecha_emision: new Date().toISOString().split("T")[0], fecha_vencimiento: "" });
+    setExtForm({ descripcion: "", monto_pesos: "", nivel_academico: "todos", fecha_emision: schoolDate(), fecha_vencimiento: "" });
   };
 
   // ── Data normalización ────────────────────────────────────────────────────────

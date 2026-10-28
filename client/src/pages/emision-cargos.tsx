@@ -1,3 +1,4 @@
+import { schoolDate } from "@shared/school-date";
 // Módulo 2: Emisión de cargos - Generación automática/manual, extraordinarios, recargos por mora
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -413,7 +414,7 @@ export default function EmisionCargos() {
     const [selectedProductId, setSelectedProductId] = useState<string>("");
     const [nivelAcademico, setNivelAcademico]       = useState<string>("todos");
     const [fechaEmision, setFechaEmision]           = useState<string>(
-      new Date().toISOString().split("T")[0],
+      schoolDate(),
     );
     const [fechaVencimiento, setFechaVencimiento]   = useState<string>("");
     const [previewConfirmed, setPreviewConfirmed]   = useState(false);

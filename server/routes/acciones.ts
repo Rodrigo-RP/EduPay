@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL, schoolDateSQL, schoolDate } from "@shared/school-date";
 /**
  * server/routes/acciones.ts — Motor genérico de workflow: acciones de seguimiento
  *
@@ -196,7 +197,7 @@ export function registerAccionesRoutes(app: Express): void {
              )                                                                AS vencidas_48h
            FROM acciones_seguimiento
            WHERE campus_id  = $1
-             AND created_at >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '2 months')
+             AND ${schoolDateSQL("created_at")} >= DATE_TRUNC('month', ${SCHOOL_TODAY_SQL} - INTERVAL '2 months')
            GROUP BY tipo_hallazgo
            ORDER BY horas_prom_total DESC NULLS LAST`,
           [campusId]
@@ -230,7 +231,7 @@ export function registerAccionesRoutes(app: Express): void {
            FROM acciones_seguimiento a
            JOIN users u ON u.id = a.assigned_to
            WHERE a.campus_id   = $1
-             AND a.assigned_at >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '2 months')
+             AND ${schoolDateSQL("a.assigned_at")} >= DATE_TRUNC('month', ${SCHOOL_TODAY_SQL} - INTERVAL '2 months')
            GROUP BY u.id, u.name, u.role
            ORDER BY total_asignadas DESC`,
           [campusId]
@@ -242,7 +243,7 @@ export function registerAccionesRoutes(app: Express): void {
           const d = new Date();
           d.setMonth(d.getMonth() - 2);
           d.setDate(1);
-          return d.toISOString().slice(0, 10);
+          return schoolDate(d);
         })(),
         por_tipo:         q1Rows.rows,
         por_responsable:  q2Rows.rows,

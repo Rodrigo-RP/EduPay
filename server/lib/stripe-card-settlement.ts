@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "@shared/school-date";
 import { pool } from "../db";
 import { enqueueAuditLog, type AuditLogPayload } from "../audit-retry";
 
@@ -89,7 +90,7 @@ export async function settleStripeCardPaymentIntent(
     const pay = await client.query(
       `INSERT INTO payments (tenant_id, charge_id, guardian_id, metodo, referencia_pasarela,
                              monto_centavos, fecha_pago, estado)
-       VALUES ($1,$2,$3,'tarjeta',$4,$5,CURRENT_DATE,'exitoso') RETURNING id`,
+       VALUES ($1,$2,$3,'tarjeta',$4,$5,${SCHOOL_TODAY_SQL},'exitoso') RETURNING id`,
       [tenant, chargeId, guardian, pi.id, balance],
     );
     paymentId = Number(pay.rows[0].id);

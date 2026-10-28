@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL, schoolDate } from "@shared/school-date";
 /**
  * assistant-actions.ts
  * ─────────────────────────────────────────────────────────────────────────────
@@ -100,16 +101,16 @@ async function queryDiscrepancia(_p: Record<string, any>, ctx: ActionContext): P
             INNER JOIN students s ON s.id = sh.student_id
             WHERE s.campus_id = $1
               AND s.status = 'activo'
-              AND sh.vigencia_inicio <= CURRENT_DATE
-              AND (sh.vigencia_fin IS NULL OR sh.vigencia_fin >= CURRENT_DATE)
+              AND sh.vigencia_inicio <= ${SCHOOL_TODAY_SQL}
+              AND (sh.vigencia_fin IS NULL OR sh.vigencia_fin >= ${SCHOOL_TODAY_SQL})
          )                                                                              AS alumnos_con_beca,
          (SELECT COUNT(*)
             FROM scholarships sh
             INNER JOIN students s ON s.id = sh.student_id
             WHERE s.campus_id = $1
               AND s.status = 'activo'
-              AND sh.vigencia_inicio <= CURRENT_DATE
-              AND (sh.vigencia_fin IS NULL OR sh.vigencia_fin >= CURRENT_DATE)
+              AND sh.vigencia_inicio <= ${SCHOOL_TODAY_SQL}
+              AND (sh.vigencia_fin IS NULL OR sh.vigencia_fin >= ${SCHOOL_TODAY_SQL})
          )                                                                              AS becas_total,
          (SELECT COUNT(DISTINCT c.student_id)
             FROM charges c INNER JOIN students s ON c.student_id = s.id
@@ -194,8 +195,8 @@ async function queryContar(params: Record<string, any>, ctx: ActionContext): Pro
          INNER JOIN students s ON s.id = sh.student_id
          WHERE s.campus_id = $1
            AND s.status = 'activo'
-           AND sh.vigencia_inicio <= CURRENT_DATE
-           AND (sh.vigencia_fin IS NULL OR sh.vigencia_fin >= CURRENT_DATE)`,
+           AND sh.vigencia_inicio <= ${SCHOOL_TODAY_SQL}
+           AND (sh.vigencia_fin IS NULL OR sh.vigencia_fin >= ${SCHOOL_TODAY_SQL})`,
         [ctx.campusId]
       );
       const r = rows[0];
@@ -413,10 +414,10 @@ async function queryResumenEjecutivoMes(params: Record<string, any>, ctx: Action
        adeudos_mes AS (
          SELECT
            COALESCE(SUM(saldo_centavos) FILTER (
-             WHERE fecha_vencimiento >= CURRENT_DATE
+             WHERE fecha_vencimiento >= ${SCHOOL_TODAY_SQL}
            ), 0)::bigint AS por_cobrar_centavos,
            COALESCE(SUM(saldo_centavos) FILTER (
-             WHERE fecha_vencimiento < CURRENT_DATE
+             WHERE fecha_vencimiento < ${SCHOOL_TODAY_SQL}
            ), 0)::bigint AS vencido_centavos
          FROM saldo_cargos_periodo
          WHERE saldo_centavos > 0
@@ -689,8 +690,8 @@ async function queryBecasNivel(params: Record<string, any>, ctx: ActionContext):
        INNER JOIN students s ON sh.student_id = s.id
        WHERE s.campus_id = $1
           AND s.status = 'activo'
-         AND sh.vigencia_inicio <= CURRENT_DATE
-         AND (sh.vigencia_fin IS NULL OR sh.vigencia_fin >= CURRENT_DATE)
+         AND sh.vigencia_inicio <= ${SCHOOL_TODAY_SQL}
+         AND (sh.vigencia_fin IS NULL OR sh.vigencia_fin >= ${SCHOOL_TODAY_SQL})
          AND ($2 = '' OR LOWER(s.nivel_escolar) LIKE LOWER($2))
        ORDER BY s.nivel_escolar, s.nombre_completo
        LIMIT 25`,
@@ -834,7 +835,7 @@ async function queryFamiliasHijos(p: Record<string, any>, ctx: ActionContext): P
 /** Lista alumnos con saldo pendiente por mes de vencimiento y nivel escolar. */
 async function queryAdeudosNivelPeriodo(params: Record<string, any>, ctx: ActionContext): Promise<ActionResult> {
   const month = Number(params.mes);
-  const year = Number(params.anio) || new Date().getFullYear();
+  const year = Number(params.anio) || Number(schoolDate().slice(0, 4));
   const nivelRaw = typeof params.nivel === "string" ? params.nivel.trim() : "";
   const nivel = /^(todos?|todas?)\b|^all\b/i.test(nivelRaw) ? "" : nivelRaw;
 
@@ -878,7 +879,7 @@ async function queryAdeudosNivelPeriodo(params: Record<string, any>, ctx: Action
          COUNT(cs.id)::int AS cargos_pendientes,
           SUM(cs.saldo)::bigint AS saldo_pendiente_centavos,
           MIN(cs.fecha_vencimiento_mas_antigua)::date AS fecha_vencimiento_mas_antigua,
-          (CURRENT_DATE - MIN(cs.fecha_vencimiento_mas_antigua)::date)::int AS dias_atraso
+          (${SCHOOL_TODAY_SQL} - MIN(cs.fecha_vencimiento_mas_antigua)::date)::int AS dias_atraso
        FROM cargo_saldo cs
        INNER JOIN students s ON s.id = cs.student_id
        WHERE cs.saldo > 0
@@ -1269,12 +1270,12 @@ export async function resolveSuggestContext(
     const { rows: vigentes } = await pool.query(
       `SELECT id, porcentaje, vigencia_fin
        FROM scholarships
-       WHERE student_id = $1 AND vigencia_fin >= CURRENT_DATE
+       WHERE student_id = $1 AND vigencia_fin >= ${SCHOOL_TODAY_SQL}
        ORDER BY porcentaje DESC`,
       [student.id]
     );
 
-    const hoy = new Date().toISOString().split("T")[0];
+    const hoy = schoolDate();
     const d   = new Date(hoy);
     d.setFullYear(d.getFullYear() + 1);
     const vigenciaFin = d.toISOString().split("T")[0];

@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL, schoolDateSQL, schoolDate } from "@shared/school-date";
 import type { Express } from "express";
 import { createHash } from "crypto";
 import jwt from "jsonwebtoken";
@@ -11,14 +12,7 @@ import { MODULES, ACTIONS } from "@shared/permissions";
 import { payments, charges, students, invoices, guardians } from "@shared/schema";
 
 function fechaCiudadDeMexico(): string {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Mexico_City",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value;
-  return `${get("year")}-${get("month")}-${get("day")}`;
+  return schoolDate();
 }
 
 function esFechaIsoValida(fecha: string): boolean {
@@ -248,7 +242,7 @@ async function insertarPagoYCerrarCargo(
     `INSERT INTO payments
        (tenant_id, charge_id, guardian_id, metodo, referencia_pasarela,
         monto_centavos, fecha_pago, estado)
-     VALUES ($1,$2,NULL,'spei',$3,$4,NOW(),'exitoso') RETURNING id`,
+     VALUES ($1,$2,NULL,'spei',$3,$4,${SCHOOL_TODAY_SQL},'exitoso') RETURNING id`,
     [params.tenantId, params.chargeId, params.referencia, params.montoNetoCentavos]
   );
   const pid: number = payRow.rows[0].id;
@@ -553,7 +547,7 @@ export function registerConciliacionRoutes(app: Express): void {
       if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
       const [studentsRows, paymentsRows, chargesRows] = await Promise.all([
         pool.query(`SELECT COUNT(*) as total FROM students WHERE campus_id = $1 AND status = 'activo'`, [campusId]).catch(() => ({ rows: [{ total: 0 }] })),
-        pool.query(`SELECT COALESCE(SUM(p.monto_centavos),0) as total FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND p.created_at>=date_trunc('month',NOW())`, [campusId]).catch(() => ({ rows: [{ total: 0 }] })),
+        pool.query(`SELECT COALESCE(SUM(p.monto_centavos),0) as total FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND ${schoolDateSQL("p.created_at")}>=date_trunc('month',${SCHOOL_TODAY_SQL}::timestamp)`, [campusId]).catch(() => ({ rows: [{ total: 0 }] })),
         pool.query(`SELECT COALESCE(SUM(c.monto_base_centavos),0) as total, COUNT(*) as cnt FROM charges c JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND c.estado='pendiente'`, [campusId]).catch(() => ({ rows: [{ total: 0, cnt: 0 }] })),
       ]);
       const ingresosRaw = Number((paymentsRows.rows[0] as any)?.total || 0);
@@ -602,7 +596,7 @@ export function registerConciliacionRoutes(app: Express): void {
           CONCAT(g.nombres, ' ', g.apellido_paterno) AS nombre_familia,
           s.nivel_escolar AS nivel,
           COALESCE(SUM(CASE WHEN c.estado='pendiente' THEN c.monto_base_centavos ELSE 0 END), 0) AS adeudo_centavos,
-          COALESCE(MAX(EXTRACT(DAY FROM (NOW()-c.fecha_vencimiento::date))) FILTER (WHERE c.estado='pendiente' AND c.fecha_vencimiento<NOW()::date), 0) AS dias_vencido,
+          COALESCE(MAX(${SCHOOL_TODAY_SQL} - c.fecha_vencimiento::date) FILTER (WHERE c.estado='pendiente' AND c.fecha_vencimiento<${SCHOOL_TODAY_SQL}), 0) AS dias_vencido,
           COALESCE(
             ROUND(
               (COUNT(p.id) FILTER (WHERE p.created_at > NOW() - INTERVAL '6 months'))::numeric /
@@ -760,7 +754,7 @@ export function registerConciliacionRoutes(app: Express): void {
           `INSERT INTO payments
              (tenant_id, charge_id, guardian_id, metodo, referencia_pasarela,
               monto_centavos, fecha_pago, estado)
-           VALUES ($1,$2,NULL,'efectivo',$3,$4,CURRENT_DATE,'exitoso') RETURNING id`,
+           VALUES ($1,$2,NULL,'efectivo',$3,$4,${SCHOOL_TODAY_SQL},'exitoso') RETURNING id`,
           [tenantIdCaja, chargeId, referencia, montoOperador]
         );
         paymentId = (payRow.rows as any[])[0].id;
@@ -875,7 +869,7 @@ export function registerConciliacionRoutes(app: Express): void {
             AND s.campus_id = $2
             AND p.metodo = 'efectivo'
             AND p.estado = 'exitoso'
-            AND DATE(p.created_at) = $3::date
+            AND ${schoolDateSQL("p.created_at")} = $3::date
           ORDER BY p.created_at DESC, p.id DESC`,
         [req.user?.tenant_id, req.user?.campus_id, fecha],
       );
@@ -919,7 +913,7 @@ export function registerConciliacionRoutes(app: Express): void {
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pendiente') RETURNING *
       `, [
         campusId, tenantId,
-        fecha || new Date().toISOString().split('T')[0],
+        fecha || schoolDate(),
         descripcion, montoCentavos, tipo || 'credito',
         referencia || null, clabe || null, nombre || null,
       ]);
@@ -1175,7 +1169,7 @@ export function registerConciliacionRoutes(app: Express): void {
            JOIN students s ON s.id = c.student_id
           WHERE s.campus_id = $1
             AND p.estado = 'exitoso'
-            AND DATE(p.created_at) = $2::date`,
+            AND ${schoolDateSQL("p.created_at")} = $2::date`,
         [campusId, fecha],
       );
       const snapshot = (resumen.rows as any[])[0];
@@ -1800,7 +1794,7 @@ export function registerConciliacionRoutes(app: Express): void {
         SELECT bt.id, bt.fecha, bt.descripcion, bt.monto_centavos, bt.tipo,
                bt.referencia, bt.clabe_ordenante, bt.nombre_ordenante,
                bt.estado_conciliacion, bt.nota_conciliacion,
-               GREATEST(0, NOW()::date - bt.fecha::date) AS dias_sin_conciliar
+               GREATEST(0, ${SCHOOL_TODAY_SQL} - bt.fecha::date) AS dias_sin_conciliar
         FROM bank_transactions bt
         WHERE bt.campus_id = $1 AND bt.estado_conciliacion = 'pendiente'
         ORDER BY bt.fecha ASC, bt.id ASC

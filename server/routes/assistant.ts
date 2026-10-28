@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "@shared/school-date";
 /**
  * server/routes/assistant.ts
  * ─────────────────────────────────────────────────────────────────────────────
@@ -90,8 +91,8 @@ async function getContextScholarshipStatuses(
            FROM scholarships
           WHERE student_id = s.id
             AND tenant_id = $2
-            AND (vigencia_inicio IS NULL OR vigencia_inicio <= CURRENT_DATE)
-            AND (vigencia_fin IS NULL OR vigencia_fin >= CURRENT_DATE)
+            AND (vigencia_inicio IS NULL OR vigencia_inicio <= ${SCHOOL_TODAY_SQL})
+            AND (vigencia_fin IS NULL OR vigencia_fin >= ${SCHOOL_TODAY_SQL})
           ORDER BY id DESC
           LIMIT 1
        ) scholarship ON true

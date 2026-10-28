@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL, schoolDate } from "@shared/school-date";
 import type { Express } from "express";
 import { pool, db } from "../db";
 import { enqueueAuditLog } from "../audit-retry";
@@ -92,7 +93,7 @@ export function registerChargesRoutes(app: Express): void {
       if (!concept) {
         return res.status(404).json({ message: "Concept not found" });
       }
-      const fechaEmision = req.body.fecha_emision || new Date().toISOString().split('T')[0];
+      const fechaEmision = req.body.fecha_emision || schoolDate();
       const resolvedDueDate = await resolveConfiguredDueDate(pool, {
         tenantId,
         campusId,
@@ -198,7 +199,7 @@ export function registerChargesRoutes(app: Express): void {
         alumnos_activos: activeStudents.length,
         conceptos_configurados: conceptsResult.length,
         monto_estimado: activeStudents.length * avgAmount,
-        periodo: req.query.period || new Date().toISOString().slice(0, 7)
+        periodo: req.query.period || schoolDate().slice(0, 7)
       });
     } catch (error: any) {
       res.status(500).json({ message: "Error obteniendo estadísticas" });
@@ -219,7 +220,7 @@ export function registerChargesRoutes(app: Express): void {
       if (activeStudents.length === 0) return res.status(400).json({ message: "No hay alumnos activos en este campus" });
       const concept = concepts.find((c: any) => c.nombre?.toLowerCase().includes('colegiatura')) || concepts[0];
       if (!concept) return res.status(400).json({ message: "No hay conceptos configurados" });
-      const fechaEmision = new Date().toISOString().split('T')[0];
+      const fechaEmision = schoolDate();
       const resolvedDueDate = await resolveConfiguredDueDate(pool, {
         tenantId: req.user.tenant_id,
         campusId: Number(campusId),
@@ -241,7 +242,7 @@ export function registerChargesRoutes(app: Express): void {
           student_id: student.id,
           concept_id: concept.id,
           tenant_id: monthlyUser?.tenant_id ?? (student as any).tenant_id,
-          ciclo_escolar: ciclo_escolar || new Date().getFullYear().toString(),
+          ciclo_escolar: ciclo_escolar || schoolDate().slice(0, 4),
           fecha_emision: fechaEmision,
           fecha_vencimiento: resolvedDueDate.dueDate,
           monto_base_centavos: concept.monto_centavos || 450000,
@@ -288,7 +289,7 @@ export function registerChargesRoutes(app: Express): void {
         }
         selectedConcept = ownedConcept;
       }
-      const today = new Date().toISOString().split("T")[0];
+      const today = schoolDate();
       if (!/^\d{4}-\d{2}-\d{2}$/.test(String(fecha_vencimiento || "")) || fecha_vencimiento < today || !motivo_override?.trim()) {
         return res.status(400).json({ message: "La fecha manual futura y su motivo son obligatorios para un cargo extraordinario" });
       }
@@ -317,7 +318,7 @@ export function registerChargesRoutes(app: Express): void {
         student_id: parseInt(student_id),
         concept_id: conceptId,
         tenant_id: extraUser?.tenant_id,
-        ciclo_escolar: new Date().getFullYear().toString(),
+        ciclo_escolar: schoolDate().slice(0, 4),
         fecha_emision: today,
         fecha_vencimiento,
         monto_base_centavos: Math.round(parseFloat(monto) * 100),
@@ -362,7 +363,7 @@ export function registerChargesRoutes(app: Express): void {
           COUNT(c.id) AS cargos_vencidos
         FROM students s
         JOIN charges c ON c.student_id = s.id
-        WHERE s.campus_id = $1 AND c.estado = 'pendiente' AND c.fecha_vencimiento < CURRENT_DATE
+        WHERE s.campus_id = $1 AND c.estado = 'pendiente' AND c.fecha_vencimiento < ${SCHOOL_TODAY_SQL}
         GROUP BY s.id, s.nombres, s.apellido_paterno, s.nivel_escolar, s.grado, s.grupo
         ORDER BY adeudo_centavos DESC
       `, [campusId]);
@@ -457,10 +458,10 @@ export function registerChargesRoutes(app: Express): void {
         });
       }
 
-      const today = new Date().toISOString().split("T")[0];
+      const today = schoolDate();
       const schoolYear = ciclo_escolar || (() => {
-        const year = new Date().getFullYear();
-        return new Date().getMonth() + 1 >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+        const [year, month] = schoolDate().split("-").map(Number);
+        return month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
       })();
       const issueDate = fecha_emision || today;
       const dueDate = usesConfiguredDueDate(concept.periodicidad)
@@ -612,7 +613,7 @@ export function registerChargesRoutes(app: Express): void {
 
         const payRow = await client.query(
           `INSERT INTO payments (tenant_id, charge_id, metodo, monto_centavos, fecha_pago, estado)
-           VALUES ($1, $2, $3, $4, CURRENT_DATE, 'exitoso') RETURNING id`,
+           VALUES ($1, $2, $3, $4, ${SCHOOL_TODAY_SQL}, 'exitoso') RETURNING id`,
           [tenantId, chargeId, metodo, saldo]
         );
         paymentId = (payRow.rows as any[])[0].id;

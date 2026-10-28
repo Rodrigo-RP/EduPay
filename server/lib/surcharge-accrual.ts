@@ -1,3 +1,4 @@
+import { schoolDate } from "@shared/school-date";
 import { pool } from "../db";
 import { enqueueAuditLog } from "../audit-retry";
 import {
@@ -336,7 +337,7 @@ async function applyForCharge(
 export async function applyMonthlySurcharges(
   input: ApplyMonthlySurchargesInput,
 ): Promise<ApplyMonthlySurchargesResult> {
-  const asOf = isoCalendarDate(input.asOf ?? new Date());
+  const asOf = input.asOf === undefined ? schoolDate() : isoCalendarDate(input.asOf);
   const candidates = await pool.query<{ id: number }>(
     `WITH active_rule_counts AS (
        SELECT tenant_id, campus_id, concept_id, COUNT(*) AS count

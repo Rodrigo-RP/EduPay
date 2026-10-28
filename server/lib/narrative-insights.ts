@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "@shared/school-date";
 /**
  * server/lib/narrative-insights.ts — Panel narrativo del Consejo Directivo
  *
@@ -134,7 +135,7 @@ export async function generateNarrativeInsights(
   try {
     const r02 = await pool.query<{ mora_90d: string; total_cartera: string }>(
       `SELECT
-         COALESCE(SUM(CASE WHEN CURRENT_DATE - c.fecha_vencimiento::date > 90
+         COALESCE(SUM(CASE WHEN ${SCHOOL_TODAY_SQL} - c.fecha_vencimiento::date > 90
                            THEN c.monto_base_centavos ELSE 0 END), 0) AS mora_90d,
          COALESCE(SUM(c.monto_base_centavos), 0)                      AS total_cartera
        FROM   charges  c
@@ -180,8 +181,8 @@ export async function generateNarrativeInsights(
            0
          )                                                                        AS adeudo_centavos,
          COALESCE(
-           MAX(GREATEST(0, CURRENT_DATE - c.fecha_vencimiento::date)::int)
-           FILTER (WHERE c.estado = 'pendiente' AND c.fecha_vencimiento::date < CURRENT_DATE),
+           MAX(GREATEST(0, ${SCHOOL_TODAY_SQL} - c.fecha_vencimiento::date)::int)
+           FILTER (WHERE c.estado = 'pendiente' AND c.fecha_vencimiento::date < ${SCHOOL_TODAY_SQL}),
            0
          )                                                                        AS dias_vencido,
          COALESCE(
@@ -269,14 +270,14 @@ export async function generateNarrativeInsights(
          SELECT
            c.student_id,
            SUM(c.monto_base_centavos)                                              AS adeudo_centavos,
-           MAX(GREATEST(0, CURRENT_DATE - c.fecha_vencimiento::date)::int)         AS dias_vencido
+           MAX(GREATEST(0, ${SCHOOL_TODAY_SQL} - c.fecha_vencimiento::date)::int)         AS dias_vencido
          FROM   charges  c
          JOIN   students s ON s.id = c.student_id
          WHERE  s.campus_id = $1
            AND  c.estado    = 'pendiente'
          GROUP  BY c.student_id
          HAVING SUM(c.monto_base_centavos) > 500000
-            AND MAX(GREATEST(0, CURRENT_DATE - c.fecha_vencimiento::date)::int) > 60
+            AND MAX(GREATEST(0, ${SCHOOL_TODAY_SQL} - c.fecha_vencimiento::date)::int) > 60
        ) sub`,
       [campusId],
     );

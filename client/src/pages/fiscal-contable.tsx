@@ -1,3 +1,4 @@
+import { schoolDate, SCHOOL_TIME_ZONE } from "@shared/school-date";
 // Módulo 5: Fiscal y contable - CFDI 4.0 automático, integración PAC, reportes SAT
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -425,7 +426,7 @@ export default function FiscalContable() {
 
   // ── Timbrado Masivo CFDI ──────────────────────────────────────────────────
   const TimbradoMasivo = () => {
-    const [mesFiltro, setMesFiltro] = useState(new Date().toISOString().slice(0, 7));
+    const [mesFiltro, setMesFiltro] = useState(schoolDate().slice(0, 7));
     const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set());
     const [progreso, setProgreso] = useState<null | { timbrados: number; errores: number; total: number }>(null);
     const pendientesUrl = `/api/fiscal/pendientes-cfdi?mes=${encodeURIComponent(mesFiltro)}`;
@@ -530,7 +531,7 @@ export default function FiscalContable() {
                         <td className="p-3 font-medium">{p.estudiante}</td>
                         <td className="p-3 text-slate-500 text-xs">{p.guardian_nombre}<br />{p.email}</td>
                         <td className="p-3 text-right font-bold text-green-700">${((p.monto_centavos || 0) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td>
-                        <td className="p-3 text-slate-500 text-xs">{new Date(p.created_at).toLocaleDateString("es-MX")}</td>
+                        <td className="p-3 text-slate-500 text-xs">{new Date(p.created_at).toLocaleDateString("es-MX", { timeZone: SCHOOL_TIME_ZONE })}</td>
                       </tr>
                     ))}
                   </tbody>

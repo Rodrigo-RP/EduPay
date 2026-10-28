@@ -1,3 +1,4 @@
+import { schoolDate, SCHOOL_TIME_ZONE } from "@shared/school-date";
 // Módulo 4: Caja y conciliación - Pagos manual, control bancario, conciliación automática
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -71,9 +72,7 @@ export default function CajaConciliacion() {
   const [showReceiptOptions, setShowReceiptOptions] = useState(false);
   const [currentReceiptHTML, setCurrentReceiptHTML] = useState('');
   const [activeTab, setActiveTab] = useState("efectivo");
-  const fechaPagos = new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "America/Mexico_City",
-  }).format(new Date());
+  const fechaPagos = schoolDate();
   const { data: pagosEfectivoResumen = [] } = useQuery<any[]>({
     queryKey: [`/api/caja/pagos-efectivo?fecha=${fechaPagos}`],
     staleTime: 0,
@@ -192,9 +191,7 @@ export default function CajaConciliacion() {
       recibido_por: "",
       observaciones: ""
     });
-    const fechaPagos = new Intl.DateTimeFormat("sv-SE", {
-      timeZone: "America/Mexico_City",
-    }).format(new Date());
+    const fechaPagos = schoolDate();
     const { data: manualOptions } = useQuery<ManualPaymentOptions>({
       queryKey: ["/api/payments/manual-options"],
       staleTime: 0,
@@ -792,7 +789,7 @@ export default function CajaConciliacion() {
               <div>
                 <div className="font-medium">{pago.estudiante}</div>
                 <div className="text-sm text-slate-600">
-                  {new Date(pago.created_at).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })} • {pago.concepto}
+                  {new Date(pago.created_at).toLocaleTimeString("es-MX", { timeZone: SCHOOL_TIME_ZONE, hour: "2-digit", minute: "2-digit" })} • {pago.concepto}
                 </div>
                 <div className="text-xs text-slate-500">Pago confirmado</div>
                   </div>
@@ -1462,9 +1459,7 @@ export default function CajaConciliacion() {
 
   // Conciliación automática con bancos
   const ConciliacionAutomatica = () => {
-    const fechaCierre = new Intl.DateTimeFormat("sv-SE", {
-      timeZone: "America/Mexico_City",
-    }).format(new Date());
+    const fechaCierre = schoolDate();
     const [efectivoCapturado, setEfectivoCapturado] = useState("");
     const [observacionesCierre, setObservacionesCierre] = useState("");
 

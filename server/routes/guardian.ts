@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL, schoolDate } from "@shared/school-date";
 import type { Express } from "express";
 import { createHash } from "node:crypto";
 import { settleConfirmedStripePaymentIntent } from "../lib/stripe-spei-settlement";
@@ -410,7 +411,7 @@ export async function registerGuardianRoutes(
             `INSERT INTO payments
                (tenant_id, charge_id, guardian_id, metodo, referencia_pasarela,
                 monto_centavos, fecha_pago, estado)
-             VALUES ($1, $2, $3, 'spei', $4, $5, CURRENT_DATE, 'pendiente')`,
+             VALUES ($1, $2, $3, 'spei', $4, $5, ${SCHOOL_TODAY_SQL}, 'pendiente')`,
             [tenantId, entry.chargeId, guardianId, paymentIntent.id, entry.amount],
           );
         }
@@ -758,7 +759,7 @@ export async function registerGuardianRoutes(
 
       const chargesCreated: any[] = [];
       const chargesSummary: any[] = [];
-      const defaultIssueDate = new Date().toISOString().split("T")[0];
+      const defaultIssueDate = schoolDate();
       const issueDate = fecha_emision || defaultIssueDate;
       let resolvedDueDate: string | undefined;
       if (concept && usesConfiguredDueDate(concept.periodicidad)) {
@@ -851,7 +852,7 @@ export async function registerGuardianRoutes(
             student_id:                student.id,
             concept_id:                concept?.id ?? null,
             tenant_id:                 userTenantId ?? (student as any).tenant_id,
-            ciclo_escolar:             ciclo_escolar || (() => { const y = new Date().getFullYear(); const m = new Date().getMonth() + 1; return m >= 8 ? `${y}-${y+1}` : `${y-1}-${y}`; })(),
+            ciclo_escolar:             ciclo_escolar || (() => { const [y, m] = schoolDate().split("-").map(Number); return m >= 8 ? `${y}-${y+1}` : `${y-1}-${y}`; })(),
             fecha_emision:             issueDate,
             fecha_vencimiento:         resolvedDueDate,
             monto_base_centavos:       baseAmount,

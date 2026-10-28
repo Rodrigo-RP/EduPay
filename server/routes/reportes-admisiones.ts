@@ -1,3 +1,4 @@
+import { schoolDateSQL } from "@shared/school-date";
 /**
  * reportes-admisiones.ts — RPT-04 Reporte de Admisiones y Becas
  *
@@ -71,8 +72,8 @@ function buildStudentFilters(
   }
   if (p.nivel)        { clauses.push(`s.nivel_escolar = $${i}`);        values.push(p.nivel);        i++; }
   if (p.estado)       { clauses.push(`s.status = $${i}`);               values.push(p.estado);       i++; }
-  if (p.fecha_desde)  { clauses.push(`s.created_at::date >= $${i}`);    values.push(p.fecha_desde);  i++; }
-  if (p.fecha_hasta)  { clauses.push(`s.created_at::date <= $${i}`);    values.push(p.fecha_hasta);  i++; }
+  if (p.fecha_desde)  { clauses.push(`${schoolDateSQL("s.created_at")} >= $${i}`);    values.push(p.fecha_desde);  i++; }
+  if (p.fecha_hasta)  { clauses.push(`${schoolDateSQL("s.created_at")} <= $${i}`);    values.push(p.fecha_hasta);  i++; }
 
   return { clauses, values };
 }
@@ -106,8 +107,8 @@ function buildAlumnosQuery(
   }
   if (p.nivel)       { where.push(`s.nivel_escolar = $${i}`);     values.push(p.nivel);       i++; }
   if (p.estado)      { where.push(`s.status = $${i}`);            values.push(p.estado);      i++; }
-  if (p.fecha_desde) { where.push(`s.created_at::date >= $${i}`); values.push(p.fecha_desde); i++; }
-  if (p.fecha_hasta) { where.push(`s.created_at::date <= $${i}`); values.push(p.fecha_hasta); i++; }
+  if (p.fecha_desde) { where.push(`${schoolDateSQL("s.created_at")} >= $${i}`); values.push(p.fecha_desde); i++; }
+  if (p.fecha_hasta) { where.push(`${schoolDateSQL("s.created_at")} <= $${i}`); values.push(p.fecha_hasta); i++; }
 
   const whereExtra         = where.length > 0 ? "AND " + where.join(" AND ") : "";
   // El LATERAL de descuento filtra por ciclo usando el mismo índice de parámetro
@@ -259,8 +260,8 @@ export function registerReportesAdmisionesRoutes(app: Express): void {
                  let xi = base;
                  if (nivel)       { extra.push(`s.nivel_escolar = $${xi}`);     xv.push(nivel);       xi++; }
                  if (estado)      { extra.push(`s.status = $${xi}`);            xv.push(estado);      xi++; }
-                 if (fecha_desde) { extra.push(`s.created_at::date >= $${xi}`); xv.push(fecha_desde); xi++; }
-                 if (fecha_hasta) { extra.push(`s.created_at::date <= $${xi}`); xv.push(fecha_hasta); xi++; }
+                 if (fecha_desde) { extra.push(`${schoolDateSQL("s.created_at")} >= $${xi}`); xv.push(fecha_desde); xi++; }
+                 if (fecha_hasta) { extra.push(`${schoolDateSQL("s.created_at")} <= $${xi}`); xv.push(fecha_hasta); xi++; }
                  return extra.length > 0 ? "AND " + extra.join(" AND ") : "";
                })()
              }`,

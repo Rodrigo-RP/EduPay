@@ -1,3 +1,4 @@
+import { SCHOOL_TIME_ZONE, schoolDate } from "@shared/school-date";
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -254,12 +255,11 @@ export default function Pagos() {
       monto: payment.monto_centavos,
       metodo: payment.metodo?.toUpperCase() || 'EFECTIVO',
       estado: payment.estado || 'pendiente',
-      fecha: new Date(payment.fecha_pago).toLocaleDateString('es-ES', {
+      fecha: new Date((payment.fecha_pago ? String(payment.fecha_pago).slice(0, 10) : schoolDate(payment.created_at)) + "T12:00:00Z").toLocaleDateString('es-ES', {
+        timeZone: SCHOOL_TIME_ZONE,
         year: 'numeric',
         month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
+        day: '2-digit'
       }),
       referencia: payment.referencia_pasarela || `PAY${payment.id}`,
       origen: 'Portal Padres'

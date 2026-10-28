@@ -1,3 +1,4 @@
+import { schoolDateSQL } from "@shared/school-date";
 import type { Express } from "express";
 import { pool, db } from "../db";
 import { eq, and } from "drizzle-orm";
@@ -76,7 +77,7 @@ export function registerFiscalRoutes(app: Express): void {
        let filtroMes = "";
        const params: any[] = [campusId, tenantId];
       if (mes) {
-         filtroMes = ` AND TO_CHAR(p.created_at, 'YYYY-MM') = $3`;
+         filtroMes = ` AND TO_CHAR(${schoolDateSQL("p.created_at")}, 'YYYY-MM') = $3`;
         params.push(mes as string);
       }
       const rows = await pool.query(`
@@ -263,7 +264,7 @@ export function registerFiscalRoutes(app: Express): void {
       const { mes } = req.query;
       let filtroMes = "";
       const params: any[] = [campusId, tenantId];
-      if (mes) { filtroMes = ` AND TO_CHAR(p.created_at, 'YYYY-MM') = $3`; params.push(mes as string); }
+      if (mes) { filtroMes = ` AND TO_CHAR(${schoolDateSQL("p.created_at")}, 'YYYY-MM') = $3`; params.push(mes as string); }
       const rows = await pool.query(`
         SELECT p.id, p.monto_centavos, p.created_at,
           CONCAT(s.nombres, ' ', s.apellido_paterno) AS estudiante,

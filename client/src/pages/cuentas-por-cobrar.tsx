@@ -1,3 +1,4 @@
+import { SCHOOL_TIME_ZONE } from "@shared/school-date";
 import React, { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1058,7 +1059,7 @@ export default function CuentasPorCobrar() {
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-medium">{actividad.monto_centavos ? formatCurrency(Number(actividad.monto_centavos)) : actividad.estado}</p>
-                      <p className="text-xs text-muted-foreground">{new Date(actividad.created_at).toLocaleString("es-MX")}</p>
+                      <p className="text-xs text-muted-foreground">{new Date(actividad.created_at).toLocaleString("es-MX", { timeZone: SCHOOL_TIME_ZONE })}</p>
                     </div>
                     <Button 
                       size="sm" 
@@ -1686,7 +1687,7 @@ export default function CuentasPorCobrar() {
                   {actividadesCobranza.filter((actividad) => actividad.charge_id === cuentaSeleccionada.id).slice(0, 3).map((actividad) => (
                     <div key={actividad.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
                       <span className="text-sm">{actividad.titulo}</span>
-                      <span className="font-medium">{new Date(actividad.created_at).toLocaleDateString("es-MX")}</span>
+                      <span className="font-medium">{new Date(actividad.created_at).toLocaleDateString("es-MX", { timeZone: SCHOOL_TIME_ZONE })}</span>
                     </div>
                   ))}
                   {actividadesCobranza.filter((actividad) => actividad.charge_id === cuentaSeleccionada.id).length === 0 && (
@@ -1780,7 +1781,7 @@ export default function CuentasPorCobrar() {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-600">Fecha y Hora</label>
-                    <p className="font-medium">{new Date(actividadSeleccionada.created_at).toLocaleString("es-MX")}</p>
+                    <p className="font-medium">{new Date(actividadSeleccionada.created_at).toLocaleString("es-MX", { timeZone: SCHOOL_TIME_ZONE })}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-600">Monto Involucrado</label>

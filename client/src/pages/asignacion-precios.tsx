@@ -1,3 +1,4 @@
+import { schoolDate } from "@shared/school-date";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,8 +49,8 @@ const formatMoney = (amount: number) => new Intl.NumberFormat("es-MX", {
 }).format(amount / 100);
 
 const defaultDueDate = () => {
-  const date = new Date();
-  date.setDate(date.getDate() + 30);
+  const date = new Date(schoolDate() + "T12:00:00Z");
+  date.setUTCDate(date.getUTCDate() + 30);
   return date.toISOString().slice(0, 10);
 };
 

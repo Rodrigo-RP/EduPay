@@ -1,3 +1,4 @@
+import { schoolDate } from "@shared/school-date";
 // Planes de Pago Negociados — convenios para familias con adeudos (ADR-002)
 // Las cuotas son charges reales (plan_id FK). El pago usa /api/admin/charges/:id/pagar-manual.
 import { useMemo, useState } from "react";
@@ -52,7 +53,7 @@ export default function PlanesPago() {
     monto_inicial_centavos: "0",
     numero_pagos:           "4",
     frecuencia:             "mensual",
-    fecha_inicio:           new Date().toISOString().split("T")[0],
+    fecha_inicio:           schoolDate(),
     observaciones:          "",
   });
   const [reestructForm, setReestructForm] = useState({
@@ -61,7 +62,7 @@ export default function PlanesPago() {
     monto_inicial_centavos: "0",
     numero_pagos: "4",
     frecuencia: "mensual",
-    fecha_inicio: new Date().toISOString().split("T")[0],
+    fecha_inicio: schoolDate(),
     observaciones: "",
   });
 

@@ -1,3 +1,4 @@
+import { schoolDate } from "@shared/school-date";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -88,7 +89,7 @@ export default function Historial() {
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   // Estadísticas de contexto
-  const hoy = new Date().toISOString().split("T")[0];
+  const hoy = schoolDate();
   const movimientosHoy = entries.filter(e => e.created_at.startsWith(hoy)).length;
 
   const limpiarFiltros = () => {

@@ -1,3 +1,4 @@
+import { schoolDate } from "@shared/school-date";
 import type { Pool, PoolClient } from "@neondatabase/serverless";
 
 type Queryable = Pick<Pool, "query"> | Pick<PoolClient, "query">;
@@ -38,8 +39,8 @@ export type AutomaticAssignmentResult = {
 };
 
 export function currentSchoolYear(date = new Date()): string {
-  const year = date.getUTCFullYear();
-  return date.getUTCMonth() + 1 >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+  const [year, month] = schoolDate(date).split("-").map(Number);
+  return month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
 }
 
 export function schoolYearDates(cycle: string): { start: string; end: string } {
@@ -78,7 +79,7 @@ export async function resolveEffectiveScholarship(
 
   if ((params.conceptType ?? "").toLowerCase() !== "colegiatura") return noScholarship;
 
-  const chargeDate = params.chargeDate ?? new Date().toISOString().slice(0, 10);
+  const chargeDate = params.chargeDate ?? schoolDate();
   const result = await queryable.query(
     `SELECT sh.id, sh.porcentaje,
             CASE WHEN saa.id IS NULL THEN 'manual' ELSE 'automatico' END AS source

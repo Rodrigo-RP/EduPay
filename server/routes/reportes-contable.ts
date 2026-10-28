@@ -1,3 +1,4 @@
+import { schoolDateSQL } from "@shared/school-date";
 /**
  * RPT-06 — Reporte Contable / Fiscal
  *
@@ -62,7 +63,7 @@ async function fetchContableData(
   if (filters.periodo) {
     params.push(`${filters.periodo}-01`);
     where.push(
-      `DATE_TRUNC('month', p.created_at) = DATE_TRUNC('month', $${params.length}::date)`,
+      `DATE_TRUNC('month', ${schoolDateSQL("p.created_at")}::timestamp) = DATE_TRUNC('month', $${params.length}::date::timestamp)`,
     );
     limitClause = ""; // con filtro de mes no se aplica el LIMIT
   }
@@ -70,7 +71,7 @@ async function fetchContableData(
   const whereClause = `WHERE ${where.join(" AND ")}`;
 
   const result = await pool.query(
-    `SELECT DATE_TRUNC('month', p.created_at)  AS mes,
+    `SELECT DATE_TRUNC('month', ${schoolDateSQL("p.created_at")}::timestamp)  AS mes,
             COUNT(*)                            AS total_pagos,
             COALESCE(SUM(p.monto_centavos), 0) AS ingreso_centavos,
             COUNT(i.id)                         AS total_cfdis
@@ -79,7 +80,7 @@ async function fetchContableData(
      JOIN   students s ON s.id  = c.student_id
      LEFT JOIN invoices i ON i.payment_id = p.id
      ${whereClause}
-     GROUP BY DATE_TRUNC('month', p.created_at)
+     GROUP BY DATE_TRUNC('month', ${schoolDateSQL("p.created_at")}::timestamp)
      ORDER BY mes DESC
      ${limitClause}`,
     params,

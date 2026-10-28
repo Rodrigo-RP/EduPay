@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "@shared/school-date";
 import { randomUUID } from "node:crypto";
 import type { EmailDatabase, EmailRepository, Intent, Selection } from "./repository";
 import { EmailError, type EmailScope } from "./types";
@@ -20,8 +21,8 @@ export const scopedCandidateSql = `
         AND (c.tenant_id = $1 OR c.tenant_id IS NULL)
         AND c.estado IN ('pendiente','parcial')
         AND ($4::text = 'CARGO_EMITIDO'
-          OR ($4::text = 'AVISO_MORA' AND c.fecha_vencimiento < CURRENT_DATE)
-          OR ($4::text = 'RECORDATORIO_VENCIMIENTO' AND c.fecha_vencimiento BETWEEN CURRENT_DATE AND CURRENT_DATE + 3))
+          OR ($4::text = 'AVISO_MORA' AND c.fecha_vencimiento < ${SCHOOL_TODAY_SQL})
+          OR ($4::text = 'RECORDATORIO_VENCIMIENTO' AND c.fecha_vencimiento BETWEEN ${SCHOOL_TODAY_SQL} AND ${SCHOOL_TODAY_SQL} + 3))
     )
   ORDER BY s.id, g.id LIMIT 5001`;
 

@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL, schoolDateSQL, schoolDate } from "@shared/school-date";
 /**
  * server/routes/reportes-consejo.ts — RPT-05 Reporte Consejo Directivo
  *
@@ -63,8 +64,8 @@ function buildPaymentFilters(p: ConsejoParams, startIdx: number) {
   let   i = startIdx;
 
   if (p.ciclo)       { clauses.push(`c.ciclo_escolar = $${i++}`);      vals.push(p.ciclo); }
-  if (p.fecha_desde) { clauses.push(`p.created_at::date >= $${i++}`); vals.push(p.fecha_desde); }
-  if (p.fecha_hasta) { clauses.push(`p.created_at::date <= $${i++}`); vals.push(p.fecha_hasta); }
+  if (p.fecha_desde) { clauses.push(`${schoolDateSQL("p.created_at")} >= $${i++}`); vals.push(p.fecha_desde); }
+  if (p.fecha_hasta) { clauses.push(`${schoolDateSQL("p.created_at")} <= $${i++}`); vals.push(p.fecha_hasta); }
 
   return { clauses, vals, nextIdx: i };
 }
@@ -78,8 +79,8 @@ function buildChargeFilters(p: ConsejoParams, startIdx: number) {
   let   i = startIdx;
 
   if (p.ciclo)       { clauses.push(`c.ciclo_escolar = $${i++}`);      vals.push(p.ciclo); }
-  if (p.fecha_desde) { clauses.push(`c.created_at::date >= $${i++}`); vals.push(p.fecha_desde); }
-  if (p.fecha_hasta) { clauses.push(`c.created_at::date <= $${i++}`); vals.push(p.fecha_hasta); }
+  if (p.fecha_desde) { clauses.push(`${schoolDateSQL("c.created_at")} >= $${i++}`); vals.push(p.fecha_desde); }
+  if (p.fecha_hasta) { clauses.push(`${schoolDateSQL("c.created_at")} <= $${i++}`); vals.push(p.fecha_hasta); }
 
   return { clauses, vals, nextIdx: i };
 }
@@ -95,7 +96,7 @@ function buildChargeFilters(p: ConsejoParams, startIdx: number) {
 function prevMonthRange(fechaDesde?: string): { start: string; end: string } {
   const ref = fechaDesde
     ? new Date(fechaDesde + "T12:00:00Z")
-    : new Date();
+    : new Date(schoolDate() + "T12:00:00Z");
   // Date.UTC(year, month, 0) = último día del mes anterior (month es 0-indexed)
   const prevLast  = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), 0));
   const prevFirst = new Date(Date.UTC(prevLast.getUTCFullYear(), prevLast.getUTCMonth(), 1));
@@ -116,28 +117,28 @@ async function fetchTendencias(campusId: number) {
   const { rows } = await pool.query(`
     WITH mes_range AS (
       SELECT generate_series(
-        date_trunc('month', NOW() - INTERVAL '11 months'),
-        date_trunc('month', NOW()),
+        date_trunc('month', ${SCHOOL_TODAY_SQL}::timestamp - INTERVAL '11 months'),
+        date_trunc('month', ${SCHOOL_TODAY_SQL}::timestamp),
         '1 month'::interval
       ) AS mes_inicio
     ),
     ing AS (
-      SELECT date_trunc('month', p.created_at) AS mes_inicio,
+      SELECT date_trunc('month', ${schoolDateSQL("p.created_at")}::timestamp) AS mes_inicio,
              SUM(p.monto_centavos)              AS total
       FROM   payments p
       JOIN   charges  c ON c.id = p.charge_id
       JOIN   students s ON s.id = c.student_id
       WHERE  s.campus_id = $1
-        AND  p.created_at >= date_trunc('month', NOW() - INTERVAL '11 months')
+        AND  ${schoolDateSQL("p.created_at")} >= date_trunc('month', ${SCHOOL_TODAY_SQL}::timestamp - INTERVAL '11 months')
       GROUP  BY 1
     ),
     fac AS (
-      SELECT date_trunc('month', c.created_at) AS mes_inicio,
+      SELECT date_trunc('month', ${schoolDateSQL("c.created_at")}::timestamp) AS mes_inicio,
              SUM(c.monto_base_centavos)         AS total
       FROM   charges  c
       JOIN   students s ON s.id = c.student_id
       WHERE  s.campus_id = $1
-        AND  c.created_at >= date_trunc('month', NOW() - INTERVAL '11 months')
+        AND  ${schoolDateSQL("c.created_at")} >= date_trunc('month', ${SCHOOL_TODAY_SQL}::timestamp - INTERVAL '11 months')
       GROUP  BY 1
     )
     SELECT
@@ -201,8 +202,8 @@ async function fetchConsejoData(campusId: number, p: ConsejoParams) {
          FROM   scholarships sh
          JOIN   students     stu ON stu.id = sh.student_id
          WHERE  stu.campus_id = $1
-           AND  sh.vigencia_inicio <= CURRENT_DATE
-           AND  sh.vigencia_fin    >= CURRENT_DATE`,
+           AND  sh.vigencia_inicio <= ${SCHOOL_TODAY_SQL}
+           AND  sh.vigencia_fin    >= ${SCHOOL_TODAY_SQL}`,
         [campusId],
       ).catch((err: any) => {
         console.error("[RPT-05/consejo] becas_aplicadas error:", err.message);
@@ -219,8 +220,8 @@ async function fetchConsejoData(campusId: number, p: ConsejoParams) {
          JOIN   charges  c ON c.id = p.charge_id
          JOIN   students s ON s.id = c.student_id
          WHERE  s.campus_id = $1
-           AND  p.created_at::date >= $2
-           AND  p.created_at::date <= $3`,
+           AND  ${schoolDateSQL("p.created_at")} >= $2
+           AND  ${schoolDateSQL("p.created_at")} <= $3`,
         [campusId, prev.start, prev.end],
       ).catch(() => ({ rows: [{ total: 0 }] })),
       // Facturado del mes anterior (cargos creados en ese período)
@@ -229,8 +230,8 @@ async function fetchConsejoData(campusId: number, p: ConsejoParams) {
          FROM   charges  c
          JOIN   students s ON s.id = c.student_id
          WHERE  s.campus_id = $1
-           AND  c.created_at::date >= $2
-           AND  c.created_at::date <= $3`,
+           AND  ${schoolDateSQL("c.created_at")} >= $2
+           AND  ${schoolDateSQL("c.created_at")} <= $3`,
         [campusId, prev.start, prev.end],
       ).catch(() => ({ rows: [{ total: 0 }] })),
       // Tendencias: últimos 12 meses (sin filtros de período — siempre desde NOW())
@@ -256,7 +257,7 @@ async function fetchConsejoData(campusId: number, p: ConsejoParams) {
            CONCAT(g.nombres, ' ', g.apellido_paterno)                              AS nombre_familia,
            COALESCE(SUM(CASE WHEN c.estado = 'pendiente'
                               THEN c.monto_base_centavos ELSE 0 END), 0)           AS adeudo_centavos,
-           COALESCE(MAX(EXTRACT(DAY FROM (NOW() - c.fecha_vencimiento::date))), 0) AS dias_vencido
+           COALESCE(MAX(${SCHOOL_TODAY_SQL} - c.fecha_vencimiento::date), 0) AS dias_vencido
     FROM   charges c
     JOIN   students       s  ON s.id  = c.student_id
     LEFT JOIN student_guardian sg ON sg.student_id = s.id

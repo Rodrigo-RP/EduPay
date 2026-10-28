@@ -1,3 +1,4 @@
+import { schoolDate } from "@shared/school-date";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -276,9 +277,9 @@ export default function Becas() {
     enabled: Boolean(campusId),
   });
   const [manualAssignment, setManualAssignment] = useState(() => {
-    const start = new Date();
+    const start = new Date(schoolDate() + "T12:00:00Z");
     const end = new Date(start);
-    end.setFullYear(end.getFullYear() + 1);
+    end.setUTCFullYear(end.getUTCFullYear() + 1);
     return {
       studentId: "",
       tipoBeca: "",

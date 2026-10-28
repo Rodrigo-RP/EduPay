@@ -1,3 +1,4 @@
+import { SCHOOL_TIME_ZONE, schoolDate } from "@shared/school-date";
 // Módulo 3: Portal del padre/tutor - Pago en 3 clics máximo (móvil-first)
 import { useEffect, useRef, useState } from "react";
 import { isConfirmedCardPaymentResponse } from "@shared/payment-confirmation";
@@ -842,7 +843,7 @@ function PortalPadres3ClicsInner() {
                   </p>
                   <p className="text-sm text-slate-500">{p.charge?.student?.nombre_completo}</p>
                   <p className="text-xs text-slate-400 mt-1">
-                    {new Date(p.fecha_pago || p.created_at).toLocaleDateString("es-MX")} •{" "}
+                    {new Date((p.fecha_pago ? String(p.fecha_pago).slice(0, 10) : schoolDate(p.created_at)) + "T12:00:00Z").toLocaleDateString("es-MX", { timeZone: SCHOOL_TIME_ZONE })} •{" "}
                     {p.metodo}
                   </p>
                 </div>

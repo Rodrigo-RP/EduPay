@@ -1,3 +1,4 @@
+import { schoolDate, SCHOOL_TIME_ZONE } from "@shared/school-date";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -86,9 +87,8 @@ export default function DashboardAdmisiones() {
 
   // Filtrar pagos de inscripción del mes actual
   const currentMonthEnrollmentPayments = payments.filter(p => {
-    const paymentDate = new Date(p.created_at);
-    const currentMonth = new Date().getMonth();
-    const paymentMonth = paymentDate.getMonth();
+    const currentMonth = schoolDate().slice(0, 7);
+    const paymentMonth = schoolDate(p.created_at).slice(0, 7);
     return paymentMonth === currentMonth && 
            (p.concept?.name?.toLowerCase().includes('inscripcion') || p.concept?.name?.toLowerCase().includes('inscription'));
   });
@@ -529,7 +529,7 @@ export default function DashboardAdmisiones() {
                     <div className="text-right">
                       <p className="font-medium text-green-600">${payment.amount.toLocaleString()}</p>
                       <p className="text-sm text-gray-500">
-                        {new Date(payment.created_at).toLocaleDateString()}
+                        {new Date(payment.created_at).toLocaleDateString("es-MX", { timeZone: SCHOOL_TIME_ZONE })}
                       </p>
                     </div>
                   </div>

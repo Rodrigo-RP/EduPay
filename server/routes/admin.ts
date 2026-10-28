@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL, schoolDate } from "@shared/school-date";
 import type { Express } from "express";
 import { pool, db } from "../db";
 import { createFamily } from "../lib/family-service";
@@ -202,9 +203,9 @@ export function registerAdminRoutes(app: Express): void {
       if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
 
       // Parámetros del header global: ciclo, nivel, periodo
-      const now = new Date();
-      const autoY  = now.getFullYear();
-      const autoMo = now.getMonth() + 1;
+      const now = new Date(schoolDate() + "T12:00:00Z");
+      const autoY  = now.getUTCFullYear();
+      const autoMo = now.getUTCMonth() + 1;
       const ciclo  = (req.query.ciclo as string) ||
                      (autoMo >= 8 ? `${autoY}-${autoY + 1}` : `${autoY - 1}-${autoY}`);
       const rawNivel  = (req.query.nivel as string) ?? "all";
@@ -228,9 +229,9 @@ export function registerAdminRoutes(app: Express): void {
         periodoFin    = hoy;
       } else if (periodo === "semana") {
         const lunes = new Date(now);
-        lunes.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+        lunes.setUTCDate(now.getUTCDate() - ((now.getUTCDay() + 6) % 7));
         const domingo = new Date(lunes);
-        domingo.setDate(lunes.getDate() + 6);
+        domingo.setUTCDate(lunes.getUTCDate() + 6);
         periodoInicio = lunes.toISOString().split("T")[0];
         periodoFin    = domingo.toISOString().split("T")[0];
       } else if (periodo === "ciclo") {
@@ -239,8 +240,8 @@ export function registerAdminRoutes(app: Express): void {
         periodoFin    = `${startY + 1}-07-31`;
       } else {
         // mes (default)
-        periodoInicio = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
-        periodoFin    = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
+        periodoInicio = new Date(Date.UTC(autoY, now.getUTCMonth(), 1)).toISOString().split("T")[0];
+        periodoFin    = new Date(Date.UTC(autoY, now.getUTCMonth() + 1, 0)).toISOString().split("T")[0];
       }
 
       // ── 1. Semáforo del ciclo ───────────────────────────────────────────────
@@ -298,7 +299,7 @@ export function registerAdminRoutes(app: Express): void {
           FROM charges c JOIN students s ON c.student_id = s.id
           WHERE s.campus_id = $1
             AND c.estado = 'vencido'
-            AND c.fecha_vencimiento <= CURRENT_DATE - INTERVAL '60 days'
+            AND c.fecha_vencimiento <= ${SCHOOL_TODAY_SQL} - INTERVAL '60 days'
         `, [campusId]),
       ]);
 
@@ -548,8 +549,8 @@ export function registerAdminRoutes(app: Express): void {
                stu.grupo,
                stu.status                 AS student_status,
                (
-                 s.vigencia_inicio <= CURRENT_DATE
-                 AND (s.vigencia_fin IS NULL OR s.vigencia_fin >= CURRENT_DATE)
+                 s.vigencia_inicio <= ${SCHOOL_TODAY_SQL}
+                 AND (s.vigencia_fin IS NULL OR s.vigencia_fin >= ${SCHOOL_TODAY_SQL})
                   AND COALESCE(s.estado, 'activa') = 'activa'
                  AND stu.status = 'activo'
                )                          AS vigente,
@@ -561,7 +562,7 @@ export function registerAdminRoutes(app: Express): void {
                  WHERE c.student_id = s.student_id
                    AND c.tenant_id = s.tenant_id
                    AND c.beca_aplicada > 0
-                   AND c.fecha_emision <= CURRENT_DATE
+                   AND c.fecha_emision <= ${SCHOOL_TODAY_SQL}
                ), 0)                      AS monto_descuento_centavos
         FROM scholarships s
         JOIN students stu ON stu.id = s.student_id
@@ -1496,7 +1497,7 @@ export function registerAdminRoutes(app: Express): void {
       }
 
       // Resolver fechas con defaults
-      const hoy   = new Date().toISOString().split("T")[0];
+      const hoy   = schoolDate();
       const vinicio = vigencia_inicio ? String(vigencia_inicio).trim() : hoy;
       let vfin: string;
       if (vigencia_fin) {
@@ -1555,7 +1556,7 @@ export function registerAdminRoutes(app: Express): void {
           `SELECT id, porcentaje, vigencia_inicio, vigencia_fin
              FROM scholarships
             WHERE student_id = $1 AND tenant_id = $2
-              AND vigencia_fin >= CURRENT_DATE
+              AND vigencia_fin >= ${SCHOOL_TODAY_SQL}
             ORDER BY porcentaje DESC
             FOR UPDATE`,
           [studentId, tenantId],

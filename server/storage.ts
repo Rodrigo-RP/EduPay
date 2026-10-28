@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "@shared/school-date";
 import { 
   tenants, campuses, users, students, guardians, student_guardian, concepts, 
   charges, payments, payment_methods, invoices, scholarships, discounts,
@@ -838,7 +839,7 @@ export class DatabaseStorage implements IStorage {
       .select({
         total_charges: sql<number>`COUNT(*)`,
         paid_charges: sql<number>`COUNT(CASE WHEN ${charges.estado} = 'pagado' THEN 1 END)`,
-        overdue_charges: sql<number>`COUNT(CASE WHEN ${charges.estado} = 'pendiente' AND ${charges.fecha_vencimiento} < CURRENT_DATE THEN 1 END)`,
+        overdue_charges: sql<number>`COUNT(CASE WHEN ${charges.estado} = 'pendiente' AND ${charges.fecha_vencimiento} < ${sql.raw(SCHOOL_TODAY_SQL)} THEN 1 END)`,
       })
       .from(charges)
       .innerJoin(students, eq(charges.student_id, students.id))

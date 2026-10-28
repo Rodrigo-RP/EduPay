@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL, schoolDate } from "@shared/school-date";
 /**
  * reportes-financiero.ts — RPT-01 Reporte Financiero
  *
@@ -185,7 +186,7 @@ export function registerReportesFinancieroRoutes(app: Express): void {
            JOIN students s ON s.id = c.student_id
            WHERE s.campus_id = $1
              AND c.estado IN ('pendiente', 'parcial', 'vencido')
-             AND c.fecha_vencimiento < CURRENT_DATE
+             AND c.fecha_vencimiento < ${SCHOOL_TODAY_SQL}
              ${arWhere}`,
           arParams,
         ),
@@ -263,11 +264,11 @@ export function registerReportesFinancieroRoutes(app: Express): void {
         }
       } else if (!fecha_desde && !fecha_hasta && !ciclo) {
         // Sin filtros de fecha: mes actual vs mes anterior (calendario)
-        const now   = new Date();
-        const currStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-        const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
+        const now   = new Date(schoolDate() + "T12:00:00Z");
+        const currStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+        const prevStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)).toISOString();
         const prevEnd   = new Date(
-          now.getFullYear(), now.getMonth(), 0, 23, 59, 59,
+          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0, 23, 59, 59),
         ).toISOString();
 
         const prevParams: (string | number)[] = [campusId, prevStart, prevEnd];

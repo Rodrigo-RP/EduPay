@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL, schoolDateSQL } from "@shared/school-date";
 import type { Express } from "express";
 import { pool, db } from "../db";
 import { eq, and } from "drizzle-orm";
@@ -50,7 +51,7 @@ async function generarCuotaCharges(
       `INSERT INTO charges
          (tenant_id, student_id, concept_id, plan_id,
           fecha_emision, fecha_vencimiento, monto_base_centavos, estado)
-       VALUES ($1,$2,$3,$4, CURRENT_DATE,$5,$6,'pendiente') RETURNING *`,
+       VALUES ($1,$2,$3,$4, ${SCHOOL_TODAY_SQL},$5,$6,'pendiente') RETURNING *`,
       [opts.tenantId, opts.studentId, opts.conceptId, opts.plan.id,
        fv.toISOString().split("T")[0], monto]
     );
@@ -689,7 +690,7 @@ export function registerMiscRoutes(app: Express): void {
           const newCh = await client.query(
             `INSERT INTO charges (tenant_id, student_id, concept_id, plan_id,
                fecha_emision, fecha_vencimiento, monto_base_centavos, estado)
-             VALUES ($1,$2,$3,NULL, CURRENT_DATE, CURRENT_DATE,$4,'pendiente') RETURNING id`,
+             VALUES ($1,$2,$3,NULL, ${SCHOOL_TODAY_SQL}, ${SCHOOL_TODAY_SQL},$4,'pendiente') RETURNING id`,
             [tenantId, plan.student_id, conceptIdReins, saldoPendiente]
           );
           newChargeId = (newCh.rows as any[])[0].id;
@@ -909,7 +910,7 @@ export function registerMiscRoutes(app: Express): void {
         SELECT s.id AS student_id, CONCAT(s.nombres,' ',s.apellido_paterno) AS estudiante,
           CONCAT(g.nombres,' ',g.apellido_paterno) AS nombre_familia, s.nivel_escolar AS nivel,
           COALESCE(SUM(CASE WHEN c.estado='pendiente' THEN c.monto_base_centavos ELSE 0 END),0) AS adeudo_centavos,
-          COALESCE(MAX(EXTRACT(DAY FROM (NOW()-c.fecha_vencimiento::date))) FILTER (WHERE c.estado='pendiente' AND c.fecha_vencimiento < NOW()::date),0) AS dias_vencido,
+          COALESCE(MAX(${SCHOOL_TODAY_SQL} - c.fecha_vencimiento::date) FILTER (WHERE c.estado='pendiente' AND c.fecha_vencimiento < ${SCHOOL_TODAY_SQL}),0) AS dias_vencido,
           COALESCE(ROUND(COUNT(p.id) FILTER (WHERE p.created_at > NOW()-INTERVAL '6 months')::numeric /
             NULLIF(COUNT(c2.id) FILTER (WHERE c2.created_at > NOW()-INTERVAL '6 months'),0)*100),0) AS tasa_pago_historica
         FROM students s
@@ -943,7 +944,7 @@ export function registerMiscRoutes(app: Express): void {
     try {
       const campusId = (req as any).user?.campus_id;
       const [paymentsRows, chargesRows, studentsRows, speiRows] = await Promise.all([
-        pool.query(`SELECT COALESCE(SUM(p.monto_centavos),0) as total FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND p.created_at>=date_trunc('month',NOW())`, [campusId]),
+        pool.query(`SELECT COALESCE(SUM(p.monto_centavos),0) as total FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND ${schoolDateSQL("p.created_at")}>=date_trunc('month',${SCHOOL_TODAY_SQL}::timestamp)`, [campusId]),
         pool.query(`SELECT COALESCE(SUM(c.monto_base_centavos),0) as total FROM charges c JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND c.estado='pendiente'`, [campusId]),
         pool.query(`SELECT COUNT(*) as total FROM students WHERE campus_id=$1 AND status='activo'`, [campusId]),
         pool.query(`SELECT COUNT(*) as cnt FROM bank_transactions WHERE campus_id=$1 AND estado_conciliacion='pendiente'`, [campusId]).catch(()=>({rows:[{cnt:0}]})),
@@ -1306,7 +1307,7 @@ export function registerMiscRoutes(app: Express): void {
     try {
       const campusId = (req as any).user?.campus_id;
       const [pagosRows, txRows] = await Promise.all([
-        pool.query(`SELECT COUNT(*) as cnt, COALESCE(SUM(p.monto_centavos),0) as total FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND DATE(p.created_at)=CURRENT_DATE`, [campusId]).catch(()=>({rows:[{cnt:0,total:0}]})),
+        pool.query(`SELECT COUNT(*) as cnt, COALESCE(SUM(p.monto_centavos),0) as total FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND ${schoolDateSQL("p.created_at")}=${SCHOOL_TODAY_SQL}`, [campusId]).catch(()=>({rows:[{cnt:0,total:0}]})),
         pool.query(`SELECT COUNT(*) as cnt FROM bank_transactions WHERE campus_id=$1 AND estado_conciliacion='pendiente'`, [campusId]).catch(()=>({rows:[{cnt:0}]})),
       ]);
       res.json({ pagos_hoy: Number((pagosRows.rows[0] as any)?.cnt||0), total_hoy: Number((pagosRows.rows[0] as any)?.total||0), spei_pendientes: Number((txRows.rows[0] as any)?.cnt||0) });

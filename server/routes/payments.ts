@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL, schoolDate } from "@shared/school-date";
 import type { Express } from "express";
 import { registerUnavailablePaymentRoutes } from "./unavailable-payments";
 import { pool, db } from "../db";
@@ -190,7 +191,7 @@ export function registerPaymentRoutes(app: Express): void {
         `INSERT INTO payments
           (tenant_id, charge_id, guardian_id, metodo, referencia_pasarela,
            monto_centavos, fecha_pago, estado)
-         VALUES ($1, $2, NULL, 'efectivo', $3, $4, NOW(), 'exitoso')
+         VALUES ($1, $2, NULL, 'efectivo', $3, $4, ${SCHOOL_TODAY_SQL}, 'exitoso')
          RETURNING id, charge_id, monto_centavos, fecha_pago`,
         [tenantId, charge_id, manualReference, amount_centavos],
       );
@@ -676,7 +677,7 @@ export function registerPaymentRoutes(app: Express): void {
             return String(val).trim();
           };
           const vigenciaInicio = parseXlsxDate(becaData.vigencia_inicio)
-            || new Date().toISOString().split('T')[0];
+            || schoolDate();
           const vigenciaFinParsed = parseXlsxDate(becaData.vigencia_fin);
           const vigenciaFin = vigenciaFinParsed || (() => {
             const d = new Date(vigenciaInicio);

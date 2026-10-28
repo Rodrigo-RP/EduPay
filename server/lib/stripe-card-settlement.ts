@@ -112,6 +112,14 @@ export async function settleStripeCardPaymentIntent(
     };
   } catch (error) {
     await client.query("ROLLBACK");
+    // Stripe ya cobró: el cobro nunca se pierde; queda registrado para revisión.
+    await pool.query(
+      `INSERT INTO payment_events (tenant_id, provider, provider_event_id, payload, status)
+       VALUES ($1,'stripe',$2,$3,'requires_review')
+       ON CONFLICT (provider, provider_event_id) DO NOTHING`,
+      [tenant, pi.id, rawPayload],
+    ).catch(reviewError =>
+      console.error("No se pudo registrar cobro Stripe para revisión", { pi: pi.id, reviewError }));
     throw error;
   } finally {
     client.release();

@@ -24,7 +24,7 @@ import { registerGuardianRoutes } from "../routes/guardian";
 import { registerStripeWebhookRoute } from "../routes/campus-payment";
 import Stripe from "stripe";
 import { randomUUID } from "node:crypto";
-import type { StripePaymentIntentResult } from "../lib/stripe-card-settlement";
+import { settleStripeCardPaymentIntent, type StripePaymentIntentResult } from "../lib/stripe-card-settlement";
 import type { StripeGuardianClient } from "../routes/guardian";
 
 import { JWT_SECRET } from "../routes/shared";
@@ -501,6 +501,50 @@ describe("Confirmación Stripe en la frontera del proveedor, sin llamadas extern
     expect(after.payments).toBe(1);
     expect(after.applications).toBe(1);
     expect(after.estado).toBe("pagado");
+  });
+
+  it("succeeded sobre cargo pagado conserva un solo evento requires_review y propaga el error en ambos intentos", async () => {
+    const { rows: charges } = await pool.query(
+      `INSERT INTO charges (student_id, tenant_id, concept_id, monto_base_centavos, estado, fecha_emision, fecha_vencimiento)
+       SELECT student_id, tenant_id, concept_id, 60000, 'pagado', CURRENT_DATE, CURRENT_DATE+30
+         FROM charges WHERE id=$1 RETURNING id`, [chargeConnectedId],
+    );
+    const chargeId = Number(charges[0].id);
+    const pi: StripePaymentIntentResult = {
+      id: `pi_offline_closed_${chargeId}`, status: "succeeded",
+      amount: 60000, amount_received: 60000, currency: "mxn",
+      transfer_data: { destination: MOCK_STRIPE_ACCT },
+      metadata: {
+        tenant_id: String(tenantId), guardian_id: String(guardianConnectedId),
+        campus_id: String(campusConnectedId), charge_id: String(chargeId),
+        stripe_account_id: MOCK_STRIPE_ACCT, edupay_payment_flow: "guardian_card",
+      },
+    };
+    const before = await snapshot(chargeId);
+    expect(before).toMatchObject({ estado: "pagado", payments: 0, applications: 0, invoices: 0 });
+    let firstPayload = "";
+    let reviewId: number | undefined;
+    for (const [attempt, error] of [
+      "Cargo cerrado antes de la confirmación Stripe",
+      "PaymentIntent ya registrado con otro alcance",
+    ].entries()) {
+      const eventId = `evt_offline_closed_${chargeId}_${attempt}`;
+      const payload = JSON.stringify({ id: eventId, type: "payment_intent.succeeded", data: { object: pi } });
+      if (!attempt) firstPayload = payload;
+      await expect(settleStripeCardPaymentIntent(pi, eventId, payload)).rejects.toThrow(error);
+      expect(await snapshot(chargeId)).toEqual({ ...before, events: before.events + 1 });
+      const { rows } = await pool.query(
+        `SELECT id, status, payload FROM payment_events
+          WHERE tenant_id=$1 AND provider='stripe' AND provider_event_id=$2`,
+        [tenantId, pi.id],
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ status: "requires_review", payload: firstPayload });
+      if (attempt) expect(rows[0].id).toBe(reviewId);
+      else reviewId = rows[0].id;
+    }
+    expect((await signedWebhook(pi, `evt_offline_closed_${chargeId}_signed_retry`)).status).toBe(500);
+    expect(await snapshot(chargeId)).toEqual({ ...before, events: before.events + 1 });
   });
 
   it("firma inválida o metadatos de otro tenant no acreditan cargos", async () => {

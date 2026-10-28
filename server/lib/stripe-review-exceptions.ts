@@ -8,7 +8,7 @@ type Reader = { query: (sql: string, values?: any[]) => Promise<any> };
 // payload es texto histórico: no hacer casts JSON en SQL que rompan toda la
 // bandeja ante un registro malformado. Nunca consultar Stripe ni confiar en
 // metadata.campus_id: el campus se obtiene exclusivamente del cargo.
-function intentOf(event: any) {
+export function stripeReviewIntent(event: any) {
   try {
     const raw = JSON.parse(event.payload);
     const pi = raw?.data?.object ?? raw;
@@ -29,7 +29,7 @@ export async function stripeReviewExceptions(scope: Scope, reader: Reader = pool
        FROM payment_events pe
       WHERE pe.tenant_id=$1 AND pe.provider='stripe' AND pe.status='requires_review'
       ORDER BY pe.created_at, pe.id`, [scope.tenant_id]);
-  const valid = events.rows.map((event: any) => ({ event, intent: intentOf(event) }))
+  const valid = events.rows.map((event: any) => ({ event, intent: stripeReviewIntent(event) }))
     .filter((item: any) => item.intent);
   if (!valid.length) return [];
   const charges = await reader.query(

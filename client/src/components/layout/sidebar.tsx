@@ -22,7 +22,7 @@ export default function Sidebar() {
     const token = localStorage.getItem("auth_token");
     if (!token) return;
 
-    fetch("/api/conciliacion/excepciones/count", {
+    const refresh = () => fetch("/api/conciliacion/excepciones/count", {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.ok ? r.json() : null)
@@ -32,6 +32,9 @@ export default function Sidebar() {
         }
       })
       .catch(() => {});
+    refresh();
+    window.addEventListener("exceptions-updated", refresh);
+    return () => window.removeEventListener("exceptions-updated", refresh);
   }, [user?.id]);
 
   // Definir elementos del menú con permisos

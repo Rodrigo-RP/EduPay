@@ -11,6 +11,7 @@ import { getParser } from "../lib/bank-parsers/index";
 import { MODULES, ACTIONS } from "@shared/permissions";
 import { payments, charges, students, invoices, guardians } from "@shared/schema";
 import { stripeReviewExceptions } from "../lib/stripe-review-exceptions";
+import { registerStripeReviewRoutes } from "./stripe-review";
 
 function fechaCiudadDeMexico(): string {
   return schoolDate();
@@ -538,6 +539,7 @@ export function computeRiesgoScore(params: {
 }
 
 export function registerConciliacionRoutes(app: Express): void {
+  registerStripeReviewRoutes(app);
   // ── 1. CENTRO DE COMANDOS ─────────────────────────────────────────────────
   app.get("/api/dashboard/comandos/:campusId", authenticateToken, async (req: any, res) => {
     if (!hasPermissionForUser(req.user, MODULES.FINANCIAL, ACTIONS.READ)) {

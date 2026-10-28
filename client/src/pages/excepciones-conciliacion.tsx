@@ -39,6 +39,7 @@ interface CargoDisponible {
 }
 
 interface ExcepcionesResponse {
+  puede_resolver_stripe?: boolean;
   excepciones: Excepcion[];
   cargos_disponibles: CargoDisponible[];
   total_pendiente: number;
@@ -237,7 +238,7 @@ export default function ExcepcionesConciliacion() {
           ) : (
             <div className="space-y-3">
               {excepciones.map((exc) => exc.origen === "stripe" ? (
-                <StripeReviewCard key={exc.id} item={exc} />
+                <StripeReviewCard key={exc.id} item={exc} canResolve={data?.puede_resolver_stripe === true} />
               ) : (
                 <div
                   key={exc.id}

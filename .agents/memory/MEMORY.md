@@ -80,3 +80,4 @@
 - [Seguridad de notificaciones](notification-safety-requirements.md) — aceptación no es entrega; conservar incidencias y separar revisión de activación.
 - [SSR aislado en Vitest](vitest-ui-transform.md) — el runner puede resolver otro transformador que el Vite principal; no reinstalar ni reiniciar para corregir JSX.
 - [Pools simulados en Vitest](vitest-pool-mocking.md) — separar el lector SQL real del pool cuyas conexiones se simulan para evitar recursión.
+- [Excepciones de porcentajes](financial-input-policy.md) — tipos de beca enteros y reglas automáticas positivas; preservar restricciones sin migrar ni redondear.

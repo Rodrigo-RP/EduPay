@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { StripeReviewCard } from "@/components/stripe-review-card";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +59,7 @@ interface DashboardData {
 }
 
 interface Excepcion {
+  origen?: string;
   id: number;
   fecha: string;
   descripcion: string;
@@ -156,9 +158,9 @@ export default function AdminDashboard() {
   });
 
   // ── Excepciones query ─────────────────────────────────────────────────────
-  const { data: excData, isLoading: excLoading, refetch: refetchExc } =
+  const { data: excData, isLoading: excLoading, isError: excError, refetch: refetchExc } =
     useQuery<ExcepcionesResponse>({
-      queryKey: ["/api/conciliacion/excepciones"],
+      queryKey: ["/api/conciliacion/excepciones", user?.id, user?.campus_id],
       enabled: !!user,
       queryFn: async () => {
         const res = await fetch("/api/conciliacion/excepciones", {
@@ -382,24 +384,24 @@ export default function AdminDashboard() {
             <button
               onClick={() => setLocation("/excepciones-conciliacion")}
               className={`rounded-lg border text-left p-3.5 transition-colors hover:border-red-300 ${
-                (al?.excepciones_pendientes ?? 0) > 0
+                excCount > 0
                   ? "border-red-200 bg-red-50"
                   : "border-slate-200 bg-slate-50"
               }`}
             >
               <div className="flex items-center gap-2 mb-2">
-                <Banknote className={`w-4 h-4 ${(al?.excepciones_pendientes ?? 0) > 0 ? "text-red-500" : "text-slate-400"}`} />
+                <Banknote className={`w-4 h-4 ${excCount > 0 ? "text-red-500" : "text-slate-400"}`} />
                 <span className={`text-xs font-semibold uppercase tracking-wide ${
-                  (al?.excepciones_pendientes ?? 0) > 0 ? "text-red-700" : "text-slate-500"
+                  excCount > 0 ? "text-red-700" : "text-slate-500"
                 }`}>Sin conciliar</span>
               </div>
               <p className={`text-2xl font-bold ${
-                (al?.excepciones_pendientes ?? 0) > 0 ? "text-red-700" : "text-slate-400"
+                excCount > 0 ? "text-red-700" : "text-slate-400"
               }`}>
-                {dashLoading ? "…" : al?.excepciones_pendientes ?? 0}
+                {excLoading ? "…" : excError ? "—" : excCount}
               </p>
               <p className="text-xs text-slate-500 mt-0.5">
-                {(al?.excepciones_pendientes ?? 0) === 0 ? "Todo conciliado ✓" : "transacciones → ver bandeja"}
+                {excLoading ? "Consultando…" : excError ? "No se pudo consultar" : excCount === 0 ? "Sin excepciones pendientes" : "cobros y transacciones → ver bandeja"}
               </p>
             </button>
 
@@ -578,6 +580,14 @@ export default function AdminDashboard() {
           ) : (
             <div className="space-y-2">
               {(excData?.excepciones ?? []).slice(0, 8).map((exc) => {
+                if (exc.origen === "stripe") return (
+                  <div key={`stripe-preview-${exc.id}`}>
+                    <StripeReviewCard item={exc} />
+                    <Button variant="outline" onClick={() => setLocation("/excepciones-conciliacion")}>
+                      Revisar cobro Stripe
+                    </Button>
+                  </div>
+                );
                 const sev = severityClass(exc.dias_sin_conciliar);
                 return (
                   <div key={exc.id} className={`border rounded-lg p-3.5 flex items-center gap-4 ${sev.border}`}>
@@ -600,11 +610,11 @@ export default function AdminDashboard() {
                         onClick={() => setLocation("/excepciones-conciliacion")}>
                         <CheckCircle className="w-3.5 h-3.5 mr-1" />Aplicar
                       </Button>
-                      <Button size="sm" variant="outline"
+                      {exc.origen !== "stripe" && <Button size="sm" variant="outline"
                         className="text-slate-600 border-slate-200 hover:bg-slate-50 text-xs h-7 px-2"
                         onClick={() => { setDiscardModal({ open: true, exc }); setDiscardMotivo(""); setDiscardNota(""); }}>
                         <XCircle className="w-3.5 h-3.5 mr-1" />Descartar
-                      </Button>
+                      </Button>}
                     </div>
                   </div>
                 );

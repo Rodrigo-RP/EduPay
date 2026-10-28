@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { StripeReviewCard, type StripeReviewItem } from "@/components/stripe-review-card";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +16,7 @@ import {
   Building2, Search, RefreshCw, DollarSign
 } from "lucide-react";
 
-interface Excepcion {
+interface Excepcion extends StripeReviewItem {
   id: number;
   fecha: string;
   descripcion: string;
@@ -47,6 +49,7 @@ const fmt = (cents: number) =>
   `$${(cents / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
 
 export default function ExcepcionesConciliacion() {
+  const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const token = () => localStorage.getItem("auth_token");
@@ -65,7 +68,8 @@ export default function ExcepcionesConciliacion() {
 
   // ── Queries ──────────────────────────────────────────────────────────────────
   const { data, isLoading, refetch } = useQuery<ExcepcionesResponse>({
-    queryKey: ["/api/conciliacion/excepciones"],
+    queryKey: ["/api/conciliacion/excepciones", user?.id, user?.campus_id],
+    enabled: !!user && !!user.campus_id,
     queryFn: async () => {
       const res = await fetch("/api/conciliacion/excepciones", {
         headers: { Authorization: `Bearer ${token()}` },
@@ -235,7 +239,9 @@ export default function ExcepcionesConciliacion() {
             </div>
           ) : (
             <div className="space-y-3">
-              {excepciones.map((exc) => (
+              {excepciones.map((exc) => exc.origen === "stripe" ? (
+                <StripeReviewCard key={exc.id} item={exc} />
+              ) : (
                 <div
                   key={exc.id}
                   className="border border-red-100 bg-red-50/30 rounded-lg p-4 flex items-center justify-between gap-4"

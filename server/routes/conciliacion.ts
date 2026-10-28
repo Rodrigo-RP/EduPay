@@ -10,6 +10,7 @@ import { authenticateToken, requireAuth, checkCampusTenant, hasPermissionForUser
 import { getParser } from "../lib/bank-parsers/index";
 import { MODULES, ACTIONS } from "@shared/permissions";
 import { payments, charges, students, invoices, guardians } from "@shared/schema";
+import { stripeReviewExceptions } from "../lib/stripe-review-exceptions";
 
 function fechaCiudadDeMexico(): string {
   return schoolDate();
@@ -1759,6 +1760,9 @@ export function registerConciliacionRoutes(app: Express): void {
     try {
       const user = req.user;
       const campusId = user?.campus_id;
+      if (!user?.tenant_id || !hasPermissionForUser(user, MODULES.PAYMENTS, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver excepciones" });
+      }
       const ROLES_OK = ['administrador_general','administrador_campus','super_admin','caja','auxiliar_caja','contador_general','asistente'];
       if (!campusId) return res.status(400).json({ message: "Campus requerido" });
       if (!user?.is_super_admin && !ROLES_OK.includes(user?.role)) {
@@ -1768,10 +1772,11 @@ export function registerConciliacionRoutes(app: Express): void {
       const result = await pool.query(
         `SELECT COUNT(*)::int AS total_pendiente
          FROM bank_transactions
-         WHERE campus_id = $1 AND estado_conciliacion = 'pendiente'`,
-        [campusId],
+         WHERE campus_id = $1 AND tenant_id=$2 AND estado_conciliacion = 'pendiente'`,
+        [campusId, user.tenant_id],
       );
-      res.json({ total_pendiente: Number(result.rows[0]?.total_pendiente ?? 0) });
+      const stripe = await stripeReviewExceptions(user);
+      res.json({ total_pendiente: Number(result.rows[0]?.total_pendiente ?? 0) + stripe.length });
     } catch {
       res.status(500).json({ message: "Error interno del servidor" });
     }
@@ -1784,6 +1789,9 @@ export function registerConciliacionRoutes(app: Express): void {
     try {
       const user      = req.user;
       const campusId  = user?.campus_id;
+      if (!user?.tenant_id || !hasPermissionForUser(user, MODULES.PAYMENTS, ACTIONS.READ)) {
+        return res.status(403).json({ message: "Sin permisos para ver excepciones" });
+      }
       const ROLES_OK  = ['administrador_general','administrador_campus','super_admin','caja','auxiliar_caja','contador_general','asistente'];
       if (!campusId) return res.status(400).json({ message: "Campus requerido" });
       if (!user?.is_super_admin && !ROLES_OK.includes(user?.role)) {
@@ -1796,9 +1804,9 @@ export function registerConciliacionRoutes(app: Express): void {
                bt.estado_conciliacion, bt.nota_conciliacion,
                GREATEST(0, ${SCHOOL_TODAY_SQL} - bt.fecha::date) AS dias_sin_conciliar
         FROM bank_transactions bt
-        WHERE bt.campus_id = $1 AND bt.estado_conciliacion = 'pendiente'
+        WHERE bt.campus_id = $1 AND bt.tenant_id=$2 AND bt.estado_conciliacion = 'pendiente'
         ORDER BY bt.fecha ASC, bt.id ASC
-      `, [campusId]);
+      `, [campusId, user.tenant_id]);
 
       const cargosRows = await pool.query(`
         SELECT c.id, c.fecha_vencimiento,
@@ -1810,14 +1818,18 @@ export function registerConciliacionRoutes(app: Express): void {
         FROM charges c
         JOIN students s ON s.id = c.student_id
         LEFT JOIN concepts con ON con.id = c.concept_id
-        WHERE s.campus_id = $1 AND c.estado = 'pendiente'
+        WHERE s.campus_id = $1 AND c.tenant_id=$2 AND c.estado = 'pendiente'
         ORDER BY c.fecha_vencimiento ASC, s.apellido_paterno ASC
-      `, [campusId]);
+      `, [campusId, user.tenant_id]);
+
+      const stripe = await stripeReviewExceptions(user);
+      const excepciones = [...rows.rows, ...stripe];
 
       res.json({
-        excepciones:        rows.rows,
+        excepciones,
         cargos_disponibles: cargosRows.rows,
-        total_pendiente:    rows.rows.length,
+        total_pendiente:    excepciones.length,
+        puede_resolver_stripe: hasPermissionForUser(user, MODULES.PAYMENTS, ACTIONS.PROCESS),
       });
     } catch (error: any) {
       res.status(500).json({ message: "Error interno del servidor" });

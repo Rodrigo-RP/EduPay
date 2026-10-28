@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { StripeReviewCard } from "@/components/stripe-review-card";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +59,7 @@ interface DashboardData {
 }
 
 interface Excepcion {
+  origen?: string;
   id: number;
   fecha: string;
   descripcion: string;
@@ -578,6 +580,14 @@ export default function AdminDashboard() {
           ) : (
             <div className="space-y-2">
               {(excData?.excepciones ?? []).slice(0, 8).map((exc) => {
+                if (exc.origen === "stripe") return (
+                  <div key={`stripe-preview-${exc.id}`}>
+                    <StripeReviewCard item={exc} />
+                    <Button variant="outline" onClick={() => setLocation("/excepciones-conciliacion")}>
+                      Revisar cobro Stripe
+                    </Button>
+                  </div>
+                );
                 const sev = severityClass(exc.dias_sin_conciliar);
                 return (
                   <div key={exc.id} className={`border rounded-lg p-3.5 flex items-center gap-4 ${sev.border}`}>
@@ -600,11 +610,11 @@ export default function AdminDashboard() {
                         onClick={() => setLocation("/excepciones-conciliacion")}>
                         <CheckCircle className="w-3.5 h-3.5 mr-1" />Aplicar
                       </Button>
-                      <Button size="sm" variant="outline"
+                      {exc.origen !== "stripe" && <Button size="sm" variant="outline"
                         className="text-slate-600 border-slate-200 hover:bg-slate-50 text-xs h-7 px-2"
                         onClick={() => { setDiscardModal({ open: true, exc }); setDiscardMotivo(""); setDiscardNota(""); }}>
                         <XCircle className="w-3.5 h-3.5 mr-1" />Descartar
-                      </Button>
+                      </Button>}
                     </div>
                   </div>
                 );

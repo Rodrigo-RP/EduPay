@@ -20,6 +20,7 @@ import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 
 const BASE       = "http://localhost:5000";
+const PLAN_START = new Date(Date.now() + 45 * 86_400_000).toISOString().slice(0, 10);
 import { JWT_SECRET } from "../routes/shared";
 
 // ── IDs de datos de prueba ────────────────────────────────────────────────────
@@ -201,7 +202,10 @@ describe("Planes de Pago — ADR-002", () => {
   });
 
   it("POST /api/planes-pago sin token → 401", async () => {
-    const r = await fetch(`${BASE}/api/planes-pago`, { method: "POST" });
+    const r = await fetch(`${BASE}/api/planes-pago`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ concept_id: conceptColegiaturaId, student_id: studentId, numero_pagos: 3, fecha_inicio: PLAN_START }),
+    });
     expect(r.status).toBe(401);
   });
 
@@ -219,7 +223,7 @@ describe("Planes de Pago — ADR-002", () => {
       charge_ids: [chargeId],
       numero_pagos: 3,
       frecuencia: "mensual",
-      fecha_inicio: "2026-08-01",
+      fecha_inicio: PLAN_START,
     }, token);
 
     expect(r.status).toBe(200);
@@ -252,7 +256,7 @@ describe("Planes de Pago — ADR-002", () => {
       charge_ids: [chargeId],
       numero_pagos: 3,
       frecuencia: "mensual",
-      fecha_inicio: "2026-08-01",
+      fecha_inicio: PLAN_START,
     }, token);
 
     expect(r.status).toBe(200);
@@ -280,9 +284,9 @@ describe("Planes de Pago — ADR-002", () => {
 
     const r = await post("/api/planes-pago", {
       charge_ids: [chBId],
-      numero_pagos: 2,
+      numero_pagos: 3,
       frecuencia: "mensual",
-      fecha_inicio: "2026-08-01",
+      fecha_inicio: PLAN_START,
     }, token); // token del tenant A
 
     expect(r.status).toBe(403);
@@ -294,9 +298,9 @@ describe("Planes de Pago — ADR-002", () => {
     await markChargeAsPaidForTest(pool, chargeId, 50_000, tenantId);
     const r = await post("/api/planes-pago", {
       charge_ids: [chargeId],
-      numero_pagos: 2,
+      numero_pagos: 3,
       frecuencia: "mensual",
-      fecha_inicio: "2026-08-01",
+      fecha_inicio: PLAN_START,
     }, token);
     expect(r.status).toBe(422);
     expect(r.body.message).toContain("'pagado'");
@@ -307,9 +311,9 @@ describe("Planes de Pago — ADR-002", () => {
     const chargeId = await mkCharge(50_000);
     const r = await post("/api/planes-pago", {
       charge_ids: [chargeId],
-      numero_pagos: 2,
+      numero_pagos: 3,
       frecuencia: "mensual",
-      fecha_inicio: "2026-08-01",
+      fecha_inicio: PLAN_START,
       recargo_centavos: 5_000,
       // Sin observaciones
     }, token);
@@ -328,10 +332,10 @@ describe("Planes de Pago — ADR-002", () => {
       charge_ids: [chargeId],
       numero_pagos: 4,
       frecuencia: "mensual",
-      fecha_inicio: "2026-09-01",
+      fecha_inicio: PLAN_START,
       // Campos trampa — no reconocidos por el handler Modo A
       total_adeudo_centavos: 999_999_999,
-      monto: 999_999_999,
+      monto: "500000.00", // importe sintácticamente válido que tampoco determina el adeudo
       monto_total: 999_999_999,
     }, token);
 
@@ -361,7 +365,7 @@ describe("Planes de Pago — ADR-002", () => {
       student_id: studentId,
       numero_pagos: 5,
       frecuencia: "mensual",
-      fecha_inicio: "2026-09-01",
+      fecha_inicio: PLAN_START,
     }, token);
 
     expect(r.status).toBe(200);
@@ -386,9 +390,9 @@ describe("Planes de Pago — ADR-002", () => {
     const r = await post("/api/planes-pago", {
       concept_id: cpId,
       student_id: studentId,
-      numero_pagos: 2,
+      numero_pagos: 3,
       frecuencia: "mensual",
-      fecha_inicio: "2026-09-01",
+      fecha_inicio: PLAN_START,
     }, token);
     expect(r.status).toBe(422);
     expect(r.body.message).toContain("cuota_plan");
@@ -399,9 +403,9 @@ describe("Planes de Pago — ADR-002", () => {
     const r = await post("/api/planes-pago", {
       concept_id: conceptColegiaturaId,
       student_id: studentId,
-      numero_pagos: 2,
+      numero_pagos: 3,
       frecuencia: "mensual",
-      fecha_inicio: "2026-09-01",
+      fecha_inicio: PLAN_START,
     }, tokenB); // token del tenant B, pero conceptColegiaturaId es del tenant A
     expect(r.status).toBe(403);
   });
@@ -409,7 +413,7 @@ describe("Planes de Pago — ADR-002", () => {
   // ── Modo ambiguo: ambos o ninguno → 400 ─────────────────────────────────
   it("Sin charge_ids ni concept_id → 400", async () => {
     const r = await post("/api/planes-pago", {
-      numero_pagos: 2, frecuencia: "mensual", fecha_inicio: "2026-09-01",
+      numero_pagos: 3, frecuencia: "mensual", fecha_inicio: PLAN_START,
     }, token);
     expect(r.status).toBe(400);
     expect(r.body.message).toContain("ninguno");
@@ -420,7 +424,7 @@ describe("Planes de Pago — ADR-002", () => {
     const r = await post("/api/planes-pago", {
       charge_ids: [chargeId],
       concept_id: conceptColegiaturaId,
-      numero_pagos: 2, frecuencia: "mensual", fecha_inicio: "2026-09-01",
+      numero_pagos: 3, frecuencia: "mensual", fecha_inicio: PLAN_START,
     }, token);
     expect(r.status).toBe(400);
     expect(r.body.message).toContain("no ambos");
@@ -450,7 +454,7 @@ describe("Planes de Pago — ADR-002", () => {
       charge_ids: [chargeId],
       numero_pagos: 3,
       frecuencia: "mensual",
-      fecha_inicio: "2026-11-01",
+      fecha_inicio: PLAN_START,
     }, token);
     expect(rCreate.status).toBe(200);
     const planId: number = rCreate.body.id;
@@ -520,7 +524,7 @@ describe("Planes de Pago — ADR-002", () => {
       student_id: studentId,
       numero_pagos: 3,
       frecuencia: "mensual",
-      fecha_inicio: "2026-10-01",
+      fecha_inicio: PLAN_START,
     }, token);
     expect(rCreate.status).toBe(200);
     const planId = rCreate.body.id;
@@ -565,7 +569,7 @@ describe("Planes de Pago — ADR-002", () => {
       charge_ids: [chId],
       numero_pagos: 3,
       frecuencia: "mensual",
-      fecha_inicio: "2026-10-01",
+      fecha_inicio: PLAN_START,
     }, token);
     expect(rCreate.status).toBe(200);
     const planId = rCreate.body.id;
@@ -609,7 +613,7 @@ describe("Planes de Pago — ADR-002", () => {
       charge_ids: [chId],
       numero_pagos: 3,
       frecuencia: "mensual",
-      fecha_inicio: "2026-11-01",
+      fecha_inicio: PLAN_START,
     }, token);
     expect(rCreate.status).toBe(200);
     const planId = rCreate.body.id;
@@ -656,9 +660,9 @@ describe("Planes de Pago — ADR-002", () => {
     const chId = await mkCharge(30_000);
     const rCreate = await post("/api/planes-pago", {
       charge_ids: [chId],
-      numero_pagos: 2,
+      numero_pagos: 3,
       frecuencia: "mensual",
-      fecha_inicio: "2026-10-01",
+      fecha_inicio: PLAN_START,
     }, token);
     expect(rCreate.status).toBe(200);
     const planId = rCreate.body.id;
@@ -674,9 +678,9 @@ describe("Planes de Pago — ADR-002", () => {
     const chId = await mkCharge(20_000);
     const rCreate = await post("/api/planes-pago", {
       charge_ids: [chId],
-      numero_pagos: 2,
+      numero_pagos: 3,
       frecuencia: "mensual",
-      fecha_inicio: "2026-10-01",
+      fecha_inicio: PLAN_START,
     }, token);
     expect(rCreate.status).toBe(200);
     const planId = rCreate.body.id;
@@ -701,9 +705,9 @@ describe("Planes de Pago — ADR-002", () => {
     const chId = await mkCharge(25_000);
     const rCreate = await post("/api/planes-pago", {
       charge_ids: [chId],
-      numero_pagos: 2,
+      numero_pagos: 3,
       frecuencia: "mensual",
-      fecha_inicio: "2026-10-01",
+      fecha_inicio: PLAN_START,
     }, token);
     expect(rCreate.status).toBe(200);
     const planId = rCreate.body.id;
@@ -719,9 +723,9 @@ describe("Planes de Pago — ADR-002", () => {
     const chId = await mkCharge(25_000);
     const rCreate = await post("/api/planes-pago", {
       charge_ids: [chId],
-      numero_pagos: 2,
+      numero_pagos: 3,
       frecuencia: "mensual",
-      fecha_inicio: "2026-10-01",
+      fecha_inicio: PLAN_START,
     }, token);
     expect(rCreate.status).toBe(200);
     const planId = rCreate.body.id;
@@ -743,9 +747,9 @@ describe("Planes de Pago — ADR-002", () => {
     // Reestructurar el charge (lo cancela)
     const rCreate = await post("/api/planes-pago", {
       charge_ids: [chargeId],
-      numero_pagos: 2,
+      numero_pagos: 3,
       frecuencia: "mensual",
-      fecha_inicio: "2026-10-01",
+      fecha_inicio: PLAN_START,
     }, token);
     expect(rCreate.status).toBe(200);
 

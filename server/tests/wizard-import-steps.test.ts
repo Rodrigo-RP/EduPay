@@ -496,7 +496,7 @@ describe("WIS — Paso adeudos (adeudos/migrados)", () => {
     expect(steps["adeudos"]).toBe(true);
   });
 
-  it("WIS-14: all-fail adeudos (monto=0) → successful=0; test NO llama PATCH; step sigue marcado (idempotente)", async () => {
+  it("WIS-14: adeudos con monto=0 → 400; test NO llama PATCH; step sigue marcado", async () => {
     // El step ya fue marcado en WIS-13 — verificamos que un import fallido
     // NO desmarca un step previamente completado (el PATCH es additive, no destructivo).
     const stepsBefore = await getStepsFromDB();
@@ -506,9 +506,8 @@ describe("WIS — Paso adeudos (adeudos/migrados)", () => {
     const { status, body } = await postImport(
       "/api/import/data/adeudos/migrados", csv, false
     );
-    expect(status).toBe(200);
-    expect(body.successful).toBe(0);
-    expect(body.failed).toBeGreaterThan(0);
+    expect(status).toBe(400);
+    expect(body.message).toMatch(/Fila 2.*monto/i);
 
     // El test NO llama PATCH (simulando lógica del cliente: if successful>=1 → PATCH)
     // El step 'adeudos' debe seguir marcado (PATCH additive no lo puede desmarcar)

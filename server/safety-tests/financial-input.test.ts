@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   centavos, pesosToCentavos, percentage, isoFinancialDate, orderedDates,
-  installments, splitInstallments, monthlyDueDate, positiveId, MAX_MONTO_CENTAVOS,
+  installments, splitInstallments, monthlyDueDate, positiveId, MAX_MONTO_CENTAVOS, scholarshipBenefitPercentage, automaticScholarshipPercentage,
 } from "../lib/financial-input";
 
 describe("Entradas financieras puras, sin conexión", () => {
+  it.each([0, 100.01])("beca automática rechaza %s sin conexión", value => {
+    expect(() => automaticScholarshipPercentage(value)).toThrow(/porcentaje/i);
+  });
+  it.each([0.01, 100])("beca automática admite %s sin conexión", value => {
+    expect(automaticScholarshipPercentage(value)).toBe(value);
+  });
   it.each(["-1", "abc", "", null, NaN, "1.234", "100.005", Infinity, true, {}, [], "1e2"])(
     "rechaza pesos inválidos %j", value => expect(() => pesosToCentavos(value)).toThrow(),
   );
@@ -28,6 +34,13 @@ describe("Entradas financieras puras, sin conexión", () => {
     expect(percentage(0)).toBe(0);
     expect(percentage("100")).toBe(100);
     expect(percentage("19.29")).toBe(19.29);
+  });
+  it("conserva la excepción entera de tipos de beca sin redondear", () => {
+    expect(() => scholarshipBenefitPercentage("12.50")).toThrow(/entero.*0 a 100/);
+    expect(scholarshipBenefitPercentage(25)).toBe(25);
+    expect(scholarshipBenefitPercentage(0)).toBe(0);
+    expect(scholarshipBenefitPercentage(100)).toBe(100);
+    expect(percentage("12.50")).toBe(12.5);
   });
   it.each(["2026-02-30", "2026-2-01", "2025-02-29", "0000-01-01", "", null])(
     "rechaza fecha %j", value => expect(() => isoFinancialDate(value)).toThrow(),

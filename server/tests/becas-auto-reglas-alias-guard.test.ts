@@ -27,6 +27,7 @@ import jwt from "jsonwebtoken";
 
 const BASE       = "http://localhost:5000";
 import { JWT_SECRET } from "../routes/shared";
+import { pool } from "../db";
 
 const CAMPUS_ID = 48;
 const TENANT_ID = 29;
@@ -57,6 +58,27 @@ describe("BAR-G — Guard SCHOLARSHIPS.ASSIGN en alias /api/becas-auto/reglas", 
     expect(r.status).toBe(200);
     // La respuesta es un array (puede ser vacío si no hay reglas configuradas)
     expect(Array.isArray(body)).toBe(true);
+  });
+
+  it.each([0.01, 100])("BAR-G-03: porcentaje %s aceptado y persistido sin redondeo", async value => {
+    let id: number | undefined;
+    try {
+      const response = await fetch(`${BASE}/api/becas-auto/reglas`, {
+        method: "POST",
+        headers: { ...H(tokenAdminCampus), "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: `Validación porcentaje ${Date.now()}`, tipo: "hermanos",
+          descuento_porcentaje: value, condicion_json: { min_hijos: 2 }, aplica_a: "todos",
+        }),
+      });
+      const body = await response.json();
+      id = Number(body.id) || undefined;
+      expect(response.status, JSON.stringify(body)).toBe(200);
+      const row = await pool.query("SELECT descuento_porcentaje FROM scholarship_auto_rules WHERE id=$1 AND campus_id=$2", [id, CAMPUS_ID]);
+      expect(Number(row.rows[0].descuento_porcentaje)).toBe(value);
+    } finally {
+      if (id) await pool.query("DELETE FROM scholarship_auto_rules WHERE id=$1 AND campus_id=$2", [id, CAMPUS_ID]);
+    }
   });
 
 });

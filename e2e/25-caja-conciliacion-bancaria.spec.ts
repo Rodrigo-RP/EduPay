@@ -258,7 +258,7 @@ test.describe("Caja — transferencias e importación/conciliación bancaria", (
     await expect(page.getByText(new RegExp(descripcion))).toBeVisible();
   });
 
-  test("CB-02: CSV por UI confirma importados, omitidos y fallidos reales", async ({ page }) => {
+  test("CB-02: CSV inválido no escribe; CSV corregido importa y cuenta duplicados reales", async ({ page }) => {
     const duplicateRef = `E2E-CAJA-${suffix}-DUP`;
     const importedRef = `E2E-CAJA-${suffix}-IMPORT`;
     await crearMovimiento({
@@ -279,10 +279,23 @@ test.describe("Caja — transferencias e importación/conciliación bancaria", (
     await page.getByRole("button", { name: /analizar csv/i }).click();
     await expect(page.getByText("4 transacciones detectadas", { exact: true })).toBeVisible();
 
+    const beforeInvalid = await db.query("SELECT COUNT(*)::int AS n FROM bank_transactions WHERE campus_id=$1", [campusId]);
+    const [invalidResponse] = await Promise.all([
+      page.waitForResponse(response => response.url().includes("/api/conciliacion/importar") && response.request().method() === "POST"),
+      page.getByRole("button", { name: /importar 4 transacciones/i }).click(),
+    ]);
+    expect(invalidResponse.status()).toBe(400);
+    expect((await invalidResponse.json()).message).toBeTruthy();
+    const afterInvalid = await db.query("SELECT COUNT(*)::int AS n FROM bank_transactions WHERE campus_id=$1", [campusId]);
+    expect(afterInvalid.rows).toEqual(beforeInvalid.rows);
+    await page.locator("textarea").fill(csv.split("\n").slice(0, 3).join("\n"));
+    await page.getByRole("button", { name: /analizar csv/i }).click();
+    await expect(page.getByText("2 transacciones detectadas", { exact: true })).toBeVisible();
+
     const imported = page.waitForResponse((response) =>
       response.url().includes("/api/conciliacion/importar") && response.request().method() === "POST",
     );
-    await page.getByRole("button", { name: /importar 4 transacciones/i }).click();
+    await page.getByRole("button", { name: /importar 2 transacciones/i }).click();
     const importedResponse = await imported;
     expect(importedResponse.status()).toBe(200);
     const result = await importedResponse.json() as {
@@ -292,7 +305,7 @@ test.describe("Caja — transferencias e importación/conciliación bancaria", (
     };
     expect(result.successful).toBe(1);
     expect(result.skipped).toBe(1);
-    expect(result.failed).toHaveLength(2);
+    expect(result.failed).toHaveLength(0);
     await expect(page.getByText("Importación confirmada", { exact: true }).first()).toBeVisible();
 
     const neon = await db.query(

@@ -293,21 +293,17 @@ describe("CF-IMPORT-BECAS — POST /api/import/data/becas/asignaciones", () => {
     expect(body.errors[0]).toMatch(/tipo_beca/i);
   });
 
-  it("IBK-07: fila sin valor_descuento → failed:1 (validación)", async () => {
+  it("IBK-07: fila sin valor_descuento → 400 antes de procesar filas", async () => {
     const csv = buildCsv([{ curp_estudiante: CURP_A, tipo_beca: "excelencia" }]);
     const { status, body } = await postImport(csv, tokenA);
-    expect(status).toBe(200);
-    expect(body.failed).toBe(1);
-    expect(body.successful).toBe(0);
-    expect(body.errors[0]).toMatch(/valor_descuento/i);
+    expect(status).toBe(400);
+    expect(body.message).toMatch(/Fila 2.*porcentaje/i);
   });
 
-  it("IBK-08: valor_descuento fuera de rango (> 100) → failed:1 (validación)", async () => {
+  it("IBK-08: valor_descuento fuera de rango (> 100) → 400 sin procesar filas", async () => {
     const csv = buildCsv([{ curp_estudiante: CURP_A, tipo_beca: "excelencia", valor_descuento: 150 }]);
     const { status, body } = await postImport(csv, tokenA);
-    expect(status).toBe(200);
-    expect(body.failed).toBe(1);
-    expect(body.successful).toBe(0);
-    expect(body.errors[0]).toMatch(/valor_descuento/i);
+    expect(status).toBe(400);
+    expect(body.message).toMatch(/Fila 2.*porcentaje/i);
   });
 });

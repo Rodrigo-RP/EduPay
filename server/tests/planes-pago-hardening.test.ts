@@ -11,6 +11,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import jwt from "jsonwebtoken";
 import { pool } from "../db";
+const PLAN_START = new Date(Date.now() + 45 * 86_400_000).toISOString().slice(0, 10);
 import { JWT_SECRET } from "../routes/shared";
 
 const BASE = "http://localhost:5000";
@@ -167,9 +168,9 @@ describe("Planes de Pago — hardening de concurrencia y aislamiento", () => {
 
     const reestructurar = await apiFetch("POST", "/api/planes-pago", tokenCampusA, {
       charge_ids: [chargeId],
-      numero_pagos: 2,
+      numero_pagos: 3,
       frecuencia: "mensual",
-      fecha_inicio: "2026-09-01",
+      fecha_inicio: PLAN_START,
     });
     expect(reestructurar.status).toBe(403);
 
@@ -183,18 +184,18 @@ describe("Planes de Pago — hardening de concurrencia y aislamiento", () => {
     const studentAjeno = await apiFetch("POST", "/api/planes-pago", tokenCampusA, {
       concept_id: conceptAId,
       student_id: studentBId,
-      numero_pagos: 2,
+      numero_pagos: 3,
       frecuencia: "mensual",
-      fecha_inicio: "2026-09-01",
+      fecha_inicio: PLAN_START,
     });
     expect(studentAjeno.status).toBe(403);
 
     const conceptAjeno = await apiFetch("POST", "/api/planes-pago", tokenCampusA, {
       concept_id: conceptBId,
       student_id: studentAId,
-      numero_pagos: 2,
+      numero_pagos: 3,
       frecuencia: "mensual",
-      fecha_inicio: "2026-09-01",
+      fecha_inicio: PLAN_START,
     });
     expect(conceptAjeno.status).toBe(403);
 
@@ -202,9 +203,9 @@ describe("Planes de Pago — hardening de concurrencia y aislamiento", () => {
       concept_id: conceptAId,
       student_id: studentAId,
       monto_inicial_centavos: -1,
-      numero_pagos: 2,
+      numero_pagos: 3,
       frecuencia: "mensual",
-      fecha_inicio: "2026-09-01",
+      fecha_inicio: PLAN_START,
     });
     expect(engancheNegativo.status).toBe(400);
   });
@@ -266,7 +267,7 @@ describe("Planes de Pago — hardening de concurrencia y aislamiento", () => {
 
     const [reestructurar, pagar] = await Promise.all([
       apiFetch("POST", "/api/planes-pago", tokenCampusA, {
-        charge_ids: [chargeId], numero_pagos: 2, frecuencia: "mensual", fecha_inicio: "2026-09-01",
+        charge_ids: [chargeId], numero_pagos: 3, frecuencia: "mensual", fecha_inicio: PLAN_START,
       }),
       apiFetch("POST", `/api/admin/charges/${chargeId}/pagar-manual`, tokenCampusA, { metodo: "efectivo" }),
     ]);

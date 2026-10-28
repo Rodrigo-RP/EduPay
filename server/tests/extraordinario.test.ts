@@ -255,6 +255,8 @@ describe("POST /api/admin/cargos/extraordinario", () => {
       student_id: studentAId,
       monto: "500",
       concept_id: conceptBId,
+      fecha_vencimiento: new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10),
+      motivo_override: "Validar aislamiento del concepto",
     }, tokenA);
 
     expect(r.status).toBe(403);

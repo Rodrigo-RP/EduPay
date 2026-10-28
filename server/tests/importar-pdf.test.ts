@@ -183,12 +183,12 @@ afterAll(async () => {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 it("IPF-00: sin token → 401", async () => {
-  const { status } = await postPdf(null);
+  const { status } = await postPdf(null, { file: buildBbvaPdf({ monto: "100.00" }), dryRun: true });
   expect(status).toBe(401);
 });
 
 it("IPF-00b: asistente (sin PAYMENTS.PROCESS) → 403", async () => {
-  const { status } = await postPdf(asistenteToken);
+  const { status } = await postPdf(asistenteToken, { file: buildBbvaPdf({ monto: "100.00" }), dryRun: true });
   expect(status, "asistente no debe poder importar PDF bancario").toBe(403);
 });
 

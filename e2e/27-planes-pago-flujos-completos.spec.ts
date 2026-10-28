@@ -132,7 +132,7 @@ test.describe("Planes de Pago — flujos completos con Neon", () => {
     await page.getByRole("option", { name: new RegExp("Concepto futuro") }).click();
     await dialog.locator('input[type="number"]').fill("100.00");
     await dialog.getByRole("combobox", { name: "Número de cuotas del convenio" }).click();
-    await page.getByRole("option", { name: "2 cuotas", exact: true }).click();
+    await page.getByRole("option", { name: "6 cuotas", exact: true }).click();
     await dialog.locator("textarea").fill("Acuerdo futuro verificado desde la interfaz");
     const [response] = await Promise.all([
       page.waitForResponse(r => r.request().method() === "POST" && r.url().endsWith("/api/planes-pago")),
@@ -147,7 +147,7 @@ test.describe("Planes de Pago — flujos completos con Neon", () => {
         WHERE pp.id=$1 GROUP BY pp.id`,
       [fixture.modeBPlan],
     );
-    expect(persisted.rows[0]).toMatchObject({ tipo_origen: "futuro", total_adeudo_centavos: "90000", monto_inicial_centavos: "10000", numero_pagos: 2, cuotas: 2 });
+    expect(persisted.rows[0]).toMatchObject({ tipo_origen: "futuro", total_adeudo_centavos: "90000", monto_inicial_centavos: "10000", numero_pagos: 6, cuotas: 6 });
     fixture.modeBQuota = Number((await db.query("SELECT id FROM charges WHERE plan_id=$1 ORDER BY id LIMIT 1", [fixture.modeBPlan])).rows[0].id);
     await expect(page.getByText("Alumna Planes", { exact: true }).first()).toBeVisible();
     await reloadPlanes(page);
@@ -164,7 +164,7 @@ test.describe("Planes de Pago — flujos completos con Neon", () => {
     await page.getByRole("option", { name: fixture.studentAName }).click();
     await dialog.getByRole("button", { name: new RegExp(`Cargo #${fixture.sourceCharge}`) }).click();
     await dialog.getByRole("combobox", { name: "Número de cuotas para reestructurar" }).click();
-    await page.getByRole("option", { name: "2 cuotas", exact: true }).click();
+    await page.getByRole("option", { name: "3 cuotas", exact: true }).click();
     await dialog.locator("textarea").fill("Reestructuración creada desde la acción visual");
     const [response] = await Promise.all([
       page.waitForResponse(r => r.request().method() === "POST" && r.url().endsWith("/api/planes-pago")),
@@ -179,7 +179,7 @@ test.describe("Planes de Pago — flujos completos con Neon", () => {
          FROM payment_plans pp WHERE pp.id=$1`,
       [fixture.modeAPlan, fixture.sourceCharge],
     );
-    expect(persisted.rows[0]).toMatchObject({ tipo_origen: "reestructuracion", total_adeudo_centavos: "120000", numero_pagos: 2, origen_estado: "cancelado", cuotas: 2 });
+    expect(persisted.rows[0]).toMatchObject({ tipo_origen: "reestructuracion", total_adeudo_centavos: "120000", numero_pagos: 3, origen_estado: "cancelado", cuotas: 3 });
     await expect(page.getByText("Reestructuración", { exact: true }).last()).toBeVisible();
     await reloadPlanes(page);
     const reloadedCard = page.locator(`[data-plan-card="${fixture.modeAPlan}"]`);
@@ -203,7 +203,7 @@ test.describe("Planes de Pago — flujos completos con Neon", () => {
         WHERE p.charge_id=$1 GROUP BY p.id,c.id ORDER BY p.id DESC LIMIT 1`,
       [fixture.modeBQuota],
     );
-    expect(ledger.rows[0]).toMatchObject({ estado: "exitoso", charge_id: fixture.modeBQuota, monto_centavos: "40000", applications: 1, charge_estado: "pagado" });
+    expect(ledger.rows[0]).toMatchObject({ estado: "exitoso", charge_id: fixture.modeBQuota, monto_centavos: "13333", applications: 1, charge_estado: "pagado" });
     await expect(card.getByText("Pagado", { exact: true }).first()).toBeVisible();
     await reloadPlanes(page);
     const reloaded = page.locator(`[data-plan-card="${fixture.modeBPlan}"]`);
@@ -263,5 +263,38 @@ test.describe("Planes de Pago — flujos completos con Neon", () => {
     expect(campusBList.some(plan => Number(plan.id) === fixture.campusBPlan && Number(plan.campus_id) === fixture.campusB)).toBe(true);
     expect(campusBList.some(plan => Number(plan.id) === fixture.modeBPlan)).toBe(false);
     await expect(page.getByText(fixture.studentAName)).toHaveCount(0);
+  });
+
+  test("PPX-06: rechaza siete cuotas sin crear cargos y explica el límite en pantalla", async ({ page }) => {
+    await openPlanes(page);
+    await page.getByRole("button", { name: "Nuevo convenio", exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("combobox", { name: "Estudiante del convenio" }).click();
+    await page.getByRole("option", { name: fixture.studentAName }).click();
+    await dialog.getByRole("combobox", { name: "Concepto del convenio" }).click();
+    await page.getByRole("option", { name: /Concepto futuro/ }).click();
+    const before = await db.query(
+      "SELECT (SELECT COUNT(*)::int FROM payment_plans WHERE tenant_id=$1) AS plans, (SELECT COUNT(*)::int FROM charges WHERE tenant_id=$1) AS charges",
+      [fixture.tenantId],
+    );
+    // Simula un cliente viejo/manipulado; la respuesta procede del servidor real.
+    await page.route("**/api/planes-pago", async route => {
+      if (route.request().method() !== "POST") return route.continue();
+      const body = route.request().postDataJSON();
+      await route.continue({ postData: JSON.stringify({ ...body, numero_pagos: 7 }) });
+    });
+    const [response] = await Promise.all([
+      page.waitForResponse(r => r.request().method() === "POST" && r.url().endsWith("/api/planes-pago")),
+      dialog.getByRole("button", { name: "Crear convenio y generar cuotas" }).click(),
+    ]);
+    expect(response.status()).toBe(400);
+    expect((await response.json()).message).toMatch(/3 a 6 cuotas mensuales/);
+    await expect(page.getByRole("status").filter({ hasText: "Error al crear plan" })).toContainText("3 a 6 cuotas mensuales");
+    const after = await db.query(
+      "SELECT (SELECT COUNT(*)::int FROM payment_plans WHERE tenant_id=$1) AS plans, (SELECT COUNT(*)::int FROM charges WHERE tenant_id=$1) AS charges",
+      [fixture.tenantId],
+    );
+    expect(after.rows).toEqual(before.rows);
+    await page.unroute("**/api/planes-pago");
   });
 });

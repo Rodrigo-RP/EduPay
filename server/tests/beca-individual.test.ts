@@ -235,9 +235,12 @@ describe("POST /api/admin/students/:studentId/beca — Suite A", () => {
     expect(body.vigencia_fin.slice(0, 10)).toBe(esperada.toISOString().split("T")[0]);
   });
 
-  it("A-4: 400 si porcentaje = 0", async () => {
-    const { status } = await postBeca(studentId, { porcentaje: 0 }, tokenAsignar);
-    expect(status).toBe(400);
+  it("A-4: acepta el extremo permitido de porcentaje 0 y lo persiste", async () => {
+    const { status, body } = await postBeca(studentId, { porcentaje: 0 }, tokenAsignar);
+    expect(status).toBe(201);
+    becasCreadas.push(body.id);
+    const stored = await pool.query("SELECT porcentaje FROM scholarships WHERE id=$1", [body.id]);
+    expect(Number(stored.rows[0].porcentaje)).toBe(0);
   });
 
   it("A-5: 400 si porcentaje = 101", async () => {
@@ -262,8 +265,8 @@ describe("POST /api/admin/students/:studentId/beca — Suite A", () => {
   });
 
   it("A-8: 404 si student_id no pertenece al campus del JWT", async () => {
-    // student_id 0 nunca existe
-    const { status } = await postBeca(0, { porcentaje: 10 }, tokenAsignar);
+    // ID positivo válido, sin alumno existente.
+    const { status } = await postBeca(2_000_000_000, { porcentaje: 10 }, tokenAsignar);
     expect(status).toBe(404);
   });
 
@@ -300,6 +303,18 @@ describe("ciclo administrativo de becas y catálogo", () => {
   let scholarshipTypeId: number;
   let lifecycleScholarshipId: number;
 
+  it("rechaza 12.50 en el tipo de beca sin crear un registro", async () => {
+    const before = await pool.query("SELECT COUNT(*)::int AS n FROM scholarship_types WHERE campus_id=$1", [campusId]);
+    const result = await scholarshipApi("POST", "/api/admin/scholarship-types", {
+      nombre: "Validación de porcentaje entero", categoria: "academica", algoritmo: "manual",
+      beneficio: { porcentaje_descuento: "12.50" },
+    }, tokenAsignar);
+    expect(result.status).toBe(400);
+    expect(result.body.message).toMatch(/entero.*0 a 100/);
+    const after = await pool.query("SELECT COUNT(*)::int AS n FROM scholarship_types WHERE campus_id=$1", [campusId]);
+    expect(after.rows).toEqual(before.rows);
+  });
+
   it("crea y consulta un tipo con beneficio y criterios persistidos", async () => {
     const created = await scholarshipApi("POST", "/api/admin/scholarship-types", {
       nombre: `Beca catálogo ${studentNombre}`,
@@ -308,7 +323,7 @@ describe("ciclo administrativo de becas y catálogo", () => {
       algoritmo: "manual",
       activo: true,
       beneficio: {
-        porcentaje_descuento: 35,
+        porcentaje_descuento: 25,
         aplica_conceptos: ["colegiatura"],
         vigencia_meses: 12,
       },
@@ -318,14 +333,14 @@ describe("ciclo administrativo de becas y catálogo", () => {
     expect(created.status).toBe(201);
     scholarshipTypeId = Number(created.body.id);
     tiposCreados.push(scholarshipTypeId);
-    expect(Number(created.body.beneficio.porcentaje_descuento)).toBe(35);
+    expect(Number(created.body.beneficio.porcentaje_descuento)).toBe(25);
     expect(created.body.criterios).toHaveLength(1);
 
     const listed = await scholarshipApi("GET", "/api/admin/scholarship-types", undefined, tokenAsignar);
     expect(listed.status).toBe(200);
     const type = listed.body.find((item: any) => Number(item.id) === scholarshipTypeId);
     expect(type.nombre).toMatch(/Beca catálogo/);
-    expect(Number(type.beneficio.porcentaje_descuento)).toBe(35);
+    expect(Number(type.beneficio.porcentaje_descuento)).toBe(25);
     expect(type.criterios[0].criterio).toBe("promedio_minimo");
   });
 

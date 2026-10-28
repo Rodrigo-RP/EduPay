@@ -323,13 +323,13 @@ describe("CF-11 — /api/payment-config/due-dates-complete (GET/POST/PUT/DELETE)
   it("CFC-11: asistente → 403 en PUT /api/payment-config/due-dates-complete/:id, día intacto", async () => {
     const { status } = await apiFetch(
       "PUT", `/api/payment-config/due-dates-complete/${dueDateBaseId}`, tokenAsistente,
-      { dia_vencimiento: 99 },
+      { dia_vencimiento: 25 },
     );
     expect(status).toBe(403);
     const row = await pool.query(
       `SELECT dia_vencimiento FROM payment_due_dates WHERE id=$1`, [dueDateBaseId],
     );
-    expect((row.rows[0] as any).dia_vencimiento).not.toBe(99);
+    expect((row.rows[0] as any).dia_vencimiento).not.toBe(25);
   });
 
   it("CFC-12: administrador_campus → 200 en PUT /api/payment-config/due-dates-complete/:id, día actualizado", async () => {
@@ -393,13 +393,18 @@ describe("CF-12 — POST /api/payment-config/surcharge-rules-complete [SETTINGS.
     const { status, body } = await apiFetch(
       "POST", "/api/payment-config/surcharge-rules-complete", tokenAdminCampus,
       { concepto_id: conceptoBaseId, dias_gracia: 3,
-        porcentaje_recargo: 5, tipo_calculo: "porcentaje_fijo", activo: true },
+        porcentaje_recargo: 0, tipo_calculo: "porcentaje_fijo", activo: true,
+        modo_acumulacion: "incremento_fijo", tipo_incremento_mensual: "porcentaje",
+        incremento_mensual_porcentaje: 0,
+        fecha_inicio_acumulacion: new Date().toISOString().slice(0, 10) },
     );
     expect(status).toBe(201);
     surchargeCreatedId = (body as any).id;
     expect(surchargeCreatedId).toBeGreaterThan(0);
-    const row = await pool.query(`SELECT id FROM payment_surcharge_rules WHERE id=$1`, [surchargeCreatedId]);
+    const row = await pool.query(`SELECT id, porcentaje, incremento_mensual_porcentaje FROM payment_surcharge_rules WHERE id=$1`, [surchargeCreatedId]);
     expect(row.rows.length).toBe(1);
+    expect(Number(row.rows[0].porcentaje)).toBe(0);
+    expect(Number(row.rows[0].incremento_mensual_porcentaje)).toBe(0);
   });
 });
 

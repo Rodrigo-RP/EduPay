@@ -108,7 +108,7 @@ describe("caja onError — servidor devuelve error, onSuccess no debe dispararse
   });
 
   // ── EC-02: transferencia-manual — monto no numérico ──────────────────────
-  it("EC-02: transferencia-manual con monto='INVALIDO' → 500, sin bank_transaction creada", async () => {
+  it("EC-02: transferencia-manual con monto='INVALIDO' → 400, sin bank_transaction creada", async () => {
     // Contar bank_transactions del campus antes
     const before = await pool.query(
       `SELECT COUNT(*) AS n FROM bank_transactions WHERE campus_id = $1`,
@@ -116,16 +116,15 @@ describe("caja onError — servidor devuelve error, onSuccess no debe dispararse
     );
     const countBefore = Number((before.rows as any[])[0].n);
 
-    // monto no numérico → parseFloat("INVALIDO") = NaN → Math.round(NaN * 100) = NaN
-    // → pg intenta insertar NaN en columna INTEGER → error de tipo → 500
+    // El valor inválido se rechaza antes de consultar o escribir SQL.
     const r = await httpPost(
       "/api/caja/transferencia-manual",
       { fecha: "2026-01-15", descripcion: "Pago test fallo", monto: "INVALIDO", tipo: "credito" },
       adminToken
     );
 
-    // 1. Server devuelve 500 → apiRequest lanza → onError se dispara (no onSuccess)
-    expect(r.status).toBe(500);
+    // 1. Server devuelve 400 → apiRequest lanza → onError se dispara (no onSuccess)
+    expect(r.status).toBe(400);
     expect((r.body as any).message).toBeTruthy();
 
     // 2. onSuccess no corrió → invalidateQueries(["/api/caja/movimientos-banco"]) no corrió

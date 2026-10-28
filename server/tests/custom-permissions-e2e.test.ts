@@ -110,7 +110,7 @@ const postCatalogo = (token: string) =>
   fetch(`${BASE}/api/admin/cargos/desde-catalogo`, {
     method:  "POST",
     headers: H(token),
-    body:    JSON.stringify({}),           // body vacío → 400/404 si guard pasa
+    body:    JSON.stringify({ producto_id: 2_000_000_000 }), // sintaxis válida, producto inexistente → 404 si guard pasa
   });
 
 const grantPerm  = (userId: number, perm: string) =>

@@ -237,7 +237,8 @@ describe("POST /api/admin/cargos/extraordinario — guard CHARGES.CREATE", () =>
       "POST",
       "/api/admin/cargos/extraordinario",
       tokenContadorGeneral,
-      { student_id: studentId, monto: "100", descripcion: "Intento CG" },
+      { student_id: studentId, monto: "100", descripcion: "Intento CG",
+        fecha_vencimiento: new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10), motivo_override: "Prueba de permisos" },
     );
 
     expect(status).toBe(403);
@@ -386,9 +387,9 @@ describe("POST /api/planes-pago — guard CHARGES.CREATE", () => {
       {
         charge_ids: [chargeFor403Plan],
         monto_inicial_centavos: 0,
-        numero_pagos: 2,
+        numero_pagos: 3,
         frecuencia: "mensual",
-        fecha_inicio: "2026-09-01",
+        fecha_inicio: new Date(Date.now() + 45 * 86_400_000).toISOString().slice(0, 10),
         student_id: studentId,
       },
     );
@@ -408,9 +409,9 @@ describe("POST /api/planes-pago — guard CHARGES.CREATE", () => {
       {
         charge_ids: [chargeForACPlan],
         monto_inicial_centavos: 0,
-        numero_pagos: 2,
+        numero_pagos: 3,
         frecuencia: "mensual",
-        fecha_inicio: "2026-09-01",
+        fecha_inicio: new Date(Date.now() + 45 * 86_400_000).toISOString().slice(0, 10),
         student_id: studentId,
       },
     );
@@ -427,9 +428,9 @@ describe("POST /api/planes-pago — guard CHARGES.CREATE", () => {
       {
         charge_ids: [chargeForAGPlan],
         monto_inicial_centavos: 0,
-        numero_pagos: 2,
+        numero_pagos: 3,
         frecuencia: "mensual",
-        fecha_inicio: "2026-09-01",
+        fecha_inicio: new Date(Date.now() + 45 * 86_400_000).toISOString().slice(0, 10),
         student_id: studentId,
       },
     );

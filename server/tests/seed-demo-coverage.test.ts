@@ -210,6 +210,57 @@ describe("SEED-02: datos demo completos para pantallas reales", () => {
     for (const row of rows) expect(row.alumnos).toBeGreaterThan(0);
   });
 
+  it("el resumen conserva descuentos históricos aunque la beca expire o se suspenda", async () => {
+    const client = await pool.connect();
+    await client.query("BEGIN");
+    const spy = vi.spyOn(pool, "query").mockImplementation(((...args: any[]) => (client.query as any)(...args)) as any);
+    try {
+      const { rows: [fixture] } = await client.query(
+        `SELECT c.tenant_id, s.campus_id, c.student_id, c.concept_id
+         FROM charges c JOIN students s ON s.id = c.student_id
+         JOIN campuses cp ON cp.id = s.campus_id
+         WHERE cp.nombre = 'Campus Norte' ORDER BY c.id LIMIT 1`,
+      );
+      await client.query(
+        `UPDATE scholarships SET vigencia_inicio = '2025-01-01', vigencia_fin = '2025-01-31', estado = 'activa'
+         WHERE student_id IN (SELECT id FROM students WHERE campus_id = $1) AND tenant_id = $2`,
+        [fixture.campus_id, fixture.tenant_id],
+      );
+      const { rows: [baseline] } = await client.query(
+        `SELECT COALESCE(SUM(ROUND(c.monto_base_centavos * COALESCE(c.beca_aplicada,0) / 100)),0)::bigint AS amount
+         FROM charges c JOIN students s ON s.id = c.student_id
+         WHERE s.campus_id=$1 AND c.tenant_id=$2 AND s.tenant_id=$2
+           AND c.fecha_emision >= '2025-01-01' AND c.fecha_emision < '2025-02-01'`,
+        [fixture.campus_id, fixture.tenant_id],
+      );
+      await client.query(
+        `INSERT INTO charges (tenant_id,student_id,concept_id,ciclo_escolar,fecha_emision,
+                              fecha_vencimiento,monto_base_centavos,beca_aplicada,estado)
+         VALUES ($1,$2,$3,'2024-2025','2025-01-15','2025-01-31',100000,25,'pendiente'),
+                ($1,$2,$3,'2024-2025','2025-02-15','2025-02-28',900000,50,'pendiente')`,
+        [fixture.tenant_id, fixture.student_id, fixture.concept_id],
+      );
+      const expected = `$${((Number(baseline.amount) + 25000) / 100).toLocaleString("es-MX", { minimumFractionDigits: 0 })}`;
+      for (const state of ["activa", "suspendida"]) {
+        await client.query(
+          `UPDATE scholarships SET estado=$1 WHERE tenant_id=$2
+           AND student_id IN (SELECT id FROM students WHERE campus_id=$3)`,
+          [state, fixture.tenant_id, fixture.campus_id],
+        );
+        const result = await executeAction("query:resumen_ejecutivo_mes", { mes: 1, anio: 2025 }, {
+          campusId: fixture.campus_id, tenantId: fixture.tenant_id, userId: 0,
+        });
+        expect(result.success).toBe(true);
+        expect(result.rows?.find(r => r.label === "Descuentos del periodo")?.value).toBe(expected);
+        expect(Number(result.rows?.find(r => r.label === "🎓 Alumnos con beca activa")?.value)).toBe(0);
+      }
+    } finally {
+      spy.mockRestore();
+      await client.query("ROLLBACK");
+      client.release();
+    }
+  });
+
   it("API y asistente excluyen suspendidas, futuras, vencidas, inactivos y otro campus/tenant; distinguen duplicados", async () => {
     const client = await pool.connect();
     await client.query("BEGIN");

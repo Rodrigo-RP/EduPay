@@ -146,6 +146,35 @@ No se revirtieron funciones del proyecto principal.
 - `npm run check`: 22 diagnósticos, ninguno en archivos modificados; el mismo
   comando en la base sincronizada devuelve 24.
 
+### Corrección de descuentos históricos
+
+La revisión detectó que el resumen mensual reutilizaba indebidamente el alcance
+de beneficiarios actuales al sumar cargos históricos. Se eliminó ese requisito:
+los descuentos del período se calculan con `charges.beca_aplicada` y
+`monto_base_centavos` de cargos emitidos en el período, conservando los filtros
+de campus y tenant. La vigencia actual sólo se usa para contar beneficiarios.
+
+La prueba de regresión crea, dentro de una transacción, un cargo de enero de
+2025 con 25% sobre $1,000 y un cargo de control fuera del período. Una beca
+vigente en enero de 2025 pero vencida hoy debe aportar $250 al período,
+aunque los beneficiarios actuales sean cero. También se comprueba que suspender
+esa beca no elimina el descuento emitido. Todo se revierte al terminar.
+
+La corrección pasó `npm run build` y la suite completa:
+
+```text
+Servidor:   6:24:38 PM [express] serving on port 5000
+Comando:    npm run test:unit
+Test Files  141 passed | 1 skipped (142)
+     Tests  1354 passed | 1 skipped (1355)
+  Start at  18:24:47
+  Duration  154.39s
+```
+
+`npm run check` sigue en 22 diagnósticos frente a 24 en la base, sin diagnósticos
+en los archivos modificados. Los recorridos de navegador del panel y del conteo
+actual no cambian con esta corrección; sus resultados se conservan arriba.
+
 ## CONSULTAS A LA BASE
 
 Estas fueron las consultas manuales de diagnóstico, todas de sólo lectura.
@@ -169,6 +198,17 @@ ORDER BY table_name, ordinal_position;
 
 Parámetros: `$1 = 'public'`; `$2 = ['scholarships', 'students', 'families',
 'family_students', 'student_guardian', 'concepts', 'guardians']`.
+
+Antes del nuevo fixture histórico se comprobaron además las columnas físicas:
+
+```sql
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_schema = $1 AND table_name = $2
+ORDER BY ordinal_position;
+```
+
+Parámetros: `['public', 'charges']`.
 
 ```sql
 SELECT c.nombre AS campus,

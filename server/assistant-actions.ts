@@ -424,13 +424,6 @@ async function queryResumenEjecutivoMes(params: Record<string, any>, ctx: Action
            AND c.fecha_emision >= $3::date
            AND c.fecha_emision < $4::date
            AND c.beca_aplicada > 0
-           AND EXISTS (
-             SELECT 1
-             FROM scholarships b
-             WHERE b.tenant_id = $1
-               AND b.student_id = c.student_id
-               AND ${currentScholarshipScope("b", "s", "$2", "$1")}
-           )
        )
        SELECT
          pagos_mes.cobrado_centavos,

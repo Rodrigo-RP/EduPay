@@ -20,3 +20,9 @@ La lectura de beneficiarios no debe depender del permiso de administrar el catá
 **Why:** Los lectores del campus pueden tener acceso a asignaciones sin autorización para asignar becas. Ampliar los permisos del catálogo para desbloquear el panel cambiaría el alcance de esos usuarios.
 
 **How to apply:** Mantener el catálogo administrativo protegido y mostrar a los lectores sólo los tipos demostrables por sus asignaciones, con etiquetas que no pretendan contar todo el catálogo.
+
+Los descuentos históricos de un período se obtienen de los cargos emitidos, sin exigir que la beca siga vigente hoy.
+
+**Why:** La vigencia actual mide elegibilidad, no revoca descuentos ya emitidos. Usarla en importes históricos hace desaparecer dinero de los reportes cuando una beca vence o se suspende.
+
+**How to apply:** Reservar el filtro de vigencia para beneficiarios actuales. Sumar los descuentos registrados en cargos del período solicitado, con campus y tenant, sin depender del estado presente de la asignación.

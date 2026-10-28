@@ -3,7 +3,8 @@
 ## RESUMEN
 
 El panel y el asistente cuentan alumnos distintos, activos, del campus autenticado,
-con una asignación activa y vigente hoy. Las asignaciones se muestran por separado.
+con una asignación activa y vigente en la fecha local escolar de México.
+Las asignaciones se muestran por separado.
 Las reglas de descuento sin alumno asignado no generan beneficiarios.
 
 El seed crea 14 hogares, 15 alumnos (incluida una hermana), 10 conceptos y 9
@@ -70,7 +71,7 @@ de esta tarea. No se utilizó la conexión alternativa.
     Duration  13.96s
   ```
 
-- `npm run test:unit`, corrida final completa. Servidor reiniciado:
+- `npm run test:unit`, corrida completa anterior a la sincronización. Servidor reiniciado:
   `6:06:05 PM [express] serving on port 5000`.
 
   ```text
@@ -97,7 +98,8 @@ de esta tarea. No se utilizó la conexión alternativa.
   No se reprodujo ni en la base ni en la corrida final limpia de esta rama.
   No se atribuye una causa ni se etiqueta como un fallo preexistente.
 
-- `npx playwright test --config e2e/becas-demo.config.ts`: **3 aprobadas, 25.2s**.
+- `npx playwright test --config e2e/becas-demo.config.ts`, antes de sincronizar:
+  **3 aprobadas, 25.2s**.
   Servidor iniciado a las `6:14:34 PM`, antes del recorrido.
   Incluye seed real desde la pantalla, cuentas reales del seed para ambos
   campus, comparación con SQL, cuatro niveles, listado del modal, CSV, consulta
@@ -108,6 +110,41 @@ de esta tarea. No se utilizó la conexión alternativa.
   devolvió 24. No quedan diagnósticos en los archivos modificados.
   Los dos eliminados pertenecían a datos simulados del panel.
 - `git diff --check`: aprobado.
+
+### Validación final después de sincronizar con el proyecto principal
+
+La base final es `10a08b1a76fd700c8d2a2dec86e1318a0c0904a7`.
+Se conservaron los cambios entrantes de fecha escolar en formulario y consultas,
+y se aplicó esa misma fecha al alcance común de becas y a sus pruebas.
+No se revirtieron funciones del proyecto principal.
+
+- `npm run build`, `npm run check:routes` y `npm run check:migration-policy`:
+  aprobados nuevamente.
+- `npm run test:safety`:
+
+  ```text
+  Test Files  6 passed (6)
+       Tests  76 passed (76)
+    Start at  18:17:37
+    Duration  2.37s
+  ```
+
+- `npm run test:unit`, servidor reiniciado:
+  `6:17:12 PM [express] serving on port 5000`.
+
+  ```text
+  Test Files  141 passed | 1 skipped (142)
+       Tests  1353 passed | 1 skipped (1354)
+    Start at  18:17:21
+    Duration  157.99s
+  ```
+
+  La base sincronizada incluye además las pruebas entrantes de fecha escolar,
+  por eso crece el total respecto de la corrida anterior.
+- `npx playwright test --config e2e/becas-demo.config.ts`: **3 aprobadas, 35.5s**,
+  con servidor iniciado a las `6:20:12 PM`. Comprueba nuevamente ambos campus.
+- `npm run check`: 22 diagnósticos, ninguno en archivos modificados; el mismo
+  comando en la base sincronizada devuelve 24.
 
 ## CONSULTAS A LA BASE
 
@@ -161,8 +198,9 @@ FROM scholarships sh
 JOIN students s ON s.id = sh.student_id
 WHERE s.campus_id = $1 AND sh.tenant_id = $2 AND s.status = 'activo'
   AND COALESCE(sh.estado, 'activa') = 'activa'
-  AND sh.vigencia_inicio <= CURRENT_DATE
-  AND (sh.vigencia_fin IS NULL OR sh.vigencia_fin >= CURRENT_DATE);
+  AND sh.vigencia_inicio <= (NOW() AT TIME ZONE 'America/Mexico_City')::date
+  AND (sh.vigencia_fin IS NULL OR
+       sh.vigencia_fin >= (NOW() AT TIME ZONE 'America/Mexico_City')::date);
 ```
 
 Parámetros: Norte `[1, 1]`, Sur `[2, 1]`.
@@ -202,12 +240,16 @@ La suite global de tipos no está limpia; la comparación con la base se detalla
 
 ## RAMA
 
-`becas-demo-coherentes`, creada desde
+Rama inicial: `becas-demo-coherentes`, creada desde
 `35a2b936109fd673b6d6641a91fe7ddd2a48c25a`.
+Después se sincronizó sobre `10a08b1a76fd700c8d2a2dec86e1318a0c0904a7`.
+La revisión final se sube a `becas-demo-coherentes-sincronizada`, sin sobrescribir
+por la fuerza la rama anterior.
 La configuración temporal del servidor para comparar la base se restauró:
 no hay cambios en `.replit`.
 
 ## COMMIT
 
-El hash completo y la comprobación `git ls-remote github refs/heads/becas-demo-coherentes`
+El hash completo y la comprobación
+`git ls-remote github refs/heads/becas-demo-coherentes-sincronizada`
 se proporcionan en el reporte final de entrega, después del push.

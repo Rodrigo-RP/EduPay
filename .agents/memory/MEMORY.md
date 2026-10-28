@@ -79,3 +79,4 @@
 - [Identidad de base y pruebas](database-environment-safety.md) — no inferir producción externa desde Publishing ni ejecutar suites sobre candidatas sin identificar.
 - [Seguridad de notificaciones](notification-safety-requirements.md) — aceptación no es entrega; conservar incidencias y separar revisión de activación.
 - [SSR aislado en Vitest](vitest-ui-transform.md) — el runner puede resolver otro transformador que el Vite principal; no reinstalar ni reiniciar para corregir JSX.
+- [Pools simulados en Vitest](vitest-pool-mocking.md) — separar el lector SQL real del pool cuyas conexiones se simulan para evitar recursión.

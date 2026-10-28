@@ -7,10 +7,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginAsAdmin, ADMIN_EMAIL } from "./helpers/auth";
 import { pool as db } from "../server/db";
+import { schoolDate, schoolDateSQL, SCHOOL_TODAY_SQL } from "../shared/school-date";
 
-const fechaHoy = new Intl.DateTimeFormat("sv-SE", {
-  timeZone: "America/Mexico_City",
-}).format(new Date());
+const fechaHoy = schoolDate();
 const suffix = `${Date.now()}`;
 
 let authToken = "";
@@ -82,7 +81,7 @@ test.describe("Caja — efectivo y cierre con persistencia", () => {
     const charge = await db.query(
       `INSERT INTO charges
          (tenant_id, student_id, concept_id, fecha_emision, fecha_vencimiento, monto_base_centavos, estado)
-       VALUES ($1,$2,$3,CURRENT_DATE,CURRENT_DATE,$4,'pendiente') RETURNING id`,
+       VALUES ($1,$2,$3,${SCHOOL_TODAY_SQL},${SCHOOL_TODAY_SQL},$4,'pendiente') RETURNING id`,
       [tenantId, studentId, conceptId, amountCentavos],
     );
     chargeId = Number(charge.rows[0].id);
@@ -205,7 +204,7 @@ test.describe("Caja — efectivo y cierre con persistencia", () => {
        JOIN students s ON s.id = c.student_id
        WHERE s.campus_id = $1
          AND p.estado = 'exitoso'
-         AND DATE(p.created_at) = $2::date`,
+         AND ${schoolDateSQL("p.created_at")} = $2::date`,
       [campusId, fechaHoy],
     );
     const expectedCashCentavos = Number(expectedSnapshot.rows[0].efectivo_registrado_centavos);

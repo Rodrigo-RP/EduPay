@@ -38,7 +38,8 @@ jobs:
       ALLOW_DEMO_SEED: "true"
       DATABASE_URL: postgresql://ci_test@127.0.0.1:5432/edupay_ci
       RUN_STRIPE_E2E: "0"
-      TZ: America/Mexico_City
+      # Igual que el espacio de trabajo; schoolDate() fija por separado la zona escolar.
+      TZ: UTC
 
     steps:
       - uses: actions/checkout@v4

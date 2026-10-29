@@ -60,8 +60,31 @@ jobs:
           }
           JS
 
+      - name: Resolver URLs del lockfile fuera de Replit
+        run: |
+          node --input-type=module <<'JS'
+          import { readFileSync, writeFileSync } from "node:fs";
+          const lock = JSON.parse(readFileSync("package-lock.json", "utf8"));
+          let replaced = 0;
+          for (const entry of Object.values(lock.packages)) {
+            if (entry.resolved?.startsWith("http://package-firewall.replit.internal/npm/")) {
+              entry.resolved = entry.resolved.replace(
+                "http://package-firewall.replit.internal/npm/",
+                "https://registry.npmjs.org/",
+              );
+              replaced++;
+            }
+          }
+          // Sólo cambia el transporte en esta copia del runner, no versiones ni integridades.
+          writeFileSync("package-lock.json", JSON.stringify(lock, null, 2) + "\n");
+          console.log(`URLs públicas en la copia efímera: ${replaced}`);
+          JS
+
       - name: Instalar dependencias
-        run: npm ci
+        run: |
+          npm ci
+          test -x node_modules/.bin/tsx
+          npm ls --all
 
       - name: Marcar únicamente la base desechable
         run: |
@@ -140,6 +163,7 @@ jobs:
             test-results/
             ${{ runner.temp }}/app.log
             ${{ runner.temp }}/postgres-bridge.log
+            ~/.npm/_logs/
           if-no-files-found: ignore
           retention-days: 14
 

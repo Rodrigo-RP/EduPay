@@ -42,6 +42,7 @@ let campusId:    number;
 let selfUserId:  number;
 // Usuario objetivo del admin reset (PCA-02) y super-admin reset (PCA-03)
 let targetUserId: number;
+let scopedSuperAdminId: number;
 // Admin que ejecuta el reset (campus 48)
 const adminUserId   = 80;   // admin.campus@jfr.edu.mx (seed demo)
 // Guardian (PCA-04)
@@ -94,7 +95,7 @@ function adminToken() {
 // Token de super-admin para ejecutar super-admin reset
 function superAdminToken() {
   return jwt.sign(
-    { id: 1, email: "superadmin@edupay.mx",
+    { id: scopedSuperAdminId,
       role: "super_admin", campus_id: campusId,
       tenant_id: tenantId, type: "user", is_super_admin: true },
     JWT_SECRET,
@@ -124,6 +125,13 @@ beforeAll(async () => {
   campusId = 48;
 
   const hash = await bcrypt.hash(PASS_OLD, 10);
+  // El actor real debe pertenecer al ámbito del objetivo; no reutilizar el
+  // usuario global id=1 y simular otro campus únicamente en el JWT.
+  scopedSuperAdminId = (await pool.query(
+    `INSERT INTO users (tenant_id,campus_id,email,password_hash,name,role,is_active,is_super_admin)
+     VALUES ($1,$2,$3,$4,'PCA Scoped SuperAdmin','super_admin',true,true) RETURNING id`,
+    [tenantId, campusId, `pca.root.${Date.now()}@test.invalid`, hash],
+  )).rows[0].id;
 
   // Usuario self-change (PCA-01)
   const s = await pool.query(
@@ -153,7 +161,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await pool.query(`DELETE FROM users    WHERE id IN ($1,$2)`, [selfUserId, targetUserId]);
+  await pool.query(`DELETE FROM users    WHERE id IN ($1,$2,$3)`, [selfUserId, targetUserId, scopedSuperAdminId]);
   await pool.query(`DELETE FROM guardians WHERE id = $1`, [guardianId]);
 });
 

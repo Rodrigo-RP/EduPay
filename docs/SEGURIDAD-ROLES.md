@@ -38,6 +38,30 @@ de expedientes. No se alteraron sus guardas ni su comportamiento. Las demás
 rutas de creación, edición, desactivación y cambio de rol no tienen excepciones.
 Las pruebas la excluyen por nombre, no por prefijo ni por entorno del runner.
 
+## Matriz de autorización esperada
+
+La matriz ejecutada cubre los siete roles contra los siete roles destino,
+creación/edición/estado/eliminación y los siete roles reasignables. Incluye
+557 casos contando catálogo, inventario, datos propios, ámbitos y campos
+protegidos. Los alias se prueban además mediante HTTP real con persistencia
+simulada, sin conexión a base ni llamadas a proveedores.
+
+| Actor | Crear/editar/desactivar/cambiar rol de inferiores | Iguales | Superiores |
+|---|---|---|---|
+| super_admin | Permitir con permiso de módulo; nuevo rol siempre inferior | 403 | No hay rol superior |
+| administrador_general | Permitir con permiso de módulo; nuevo rol siempre inferior | 403 | 403 |
+| administrador_campus | Permitir con permiso de módulo; nuevo rol siempre inferior | 403 | 403 |
+| contador_general | 403 por permisos de módulo del catálogo | 403 | 403 |
+| auxiliar_contable | 403 por permisos de módulo del catálogo | 403 | 403 |
+| asistente | 403 por permisos de módulo del catálogo | 403 | 403 |
+| admisiones | No hay rol inferior | 403 | 403 |
+
+Las extensiones de permisos existentes no permiten gestionar pares o
+superiores. Un destino ajeno al tenant/campus devuelve 404 antes de evaluar
+permisos o rango. Los datos básicos propios son la única excepción de
+autogestión; no permiten cambiar rol, estado ni permisos propios. El reset de
+contraseña propia por un alias administrativo conserva el 400 existente.
+
 Cambios de rol o estado invalidan sesiones mediante password_changed_at, ya
 existente. Las actualizaciones tienen lista de campos permitidos; los IDs,
 ámbito y factores de autenticación no se escriben desde el cuerpo de gestión.

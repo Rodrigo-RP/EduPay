@@ -8,6 +8,9 @@ export function registerDemoSeedRoute(app: Express): void {
   // reemplaza datos demo sólo para superadministrador, ALLOW_DEMO_SEED=true,
   // APP_ENV distinto de producción y marcador edupay:test o edupay:demo.
   // Las guardas de entorno/marcador viven en seedDemoData, antes de cualquier SQL destructivo.
+  // ÚNICA excepción autorizada también a la jerarquía de usuarios: este reemplazo
+  // de fixtures crea super_admin. Se excluye por nombre (POST /api/demo/seed) de
+  // esa regla sólo bajo las mismas guardas anteriores, sin modificar comportamiento.
   app.post("/api/demo/seed", requireSuperAdmin, async (_req, res) => {
     if (process.env.ALLOW_DEMO_SEED !== "true") {
       return res.status(403).json({

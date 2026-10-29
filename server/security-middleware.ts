@@ -10,7 +10,7 @@ import cors from 'cors';
 import ExpressBrute from 'express-brute';
 import { createHash } from 'crypto';
 import winston from 'winston';
-import expressWinston from 'express-winston';
+import { requestMetadataLogger } from './lib/request-log';
 import { loginRateConfig } from './lib/login-rate-config';
 import { AttackProtection, SecurityAudit, FraudDetection } from '@shared/security-engine';
 
@@ -375,26 +375,7 @@ export const secureCors = cors({
 // MIDDLEWARE DE LOGGING DE SEGURIDAD
 // ========================================
 
-export const securityLogging = expressWinston.logger({
-  winstonInstance: securityLogger,
-  meta: true,
-  msg: "HTTP {{req.method}} {{req.url}}",
-  expressFormat: true,
-  colorize: false,
-  ignoreRoute: function (req, res) {
-    // No logear rutas estáticas para reducir ruido
-    return req.url.startsWith('/assets/') || req.url.startsWith('/static/');
-  },
-  dynamicMeta: (req, res) => {
-    return {
-      userId: (req as any).user?.id,
-      ipAddress: req.ip,
-      userAgent: req.get('User-Agent'),
-      riskScore: (req as any).riskScore,
-      responseTime: res.get('X-Response-Time')
-    };
-  }
-});
+export const securityLogging = requestMetadataLogger(line => securityLogger.info(line));
 
 // ========================================
 // MIDDLEWARE DE MONITOREO DE INTEGRIDAD

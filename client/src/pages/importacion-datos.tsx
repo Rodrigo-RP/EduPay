@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getAuthToken } from "@/lib/authUtils";
-import MigrationDashboard from "@/components/migration-dashboard";
+import MigrationDashboard from "@/components/unavailable-feature";
 import DataValidationReport from "@/components/data-validation-report";
 
 interface TemplateCategory {
@@ -61,7 +61,6 @@ interface ImportResult {
 export default function ImportacionDatos() {
   const { toast } = useToast();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [importProgress, setImportProgress] = useState(0);
   const [isImporting, setIsImporting] = useState(false);
   const [previewResult, setPreviewResult] = useState<ImportResult | null>(null);
   const [previewContext, setPreviewContext] = useState<string | null>(null);
@@ -359,7 +358,6 @@ export default function ImportacionDatos() {
     setSelectedFile(null);
     setPreviewResult(null);
     setPreviewContext(null);
-    setImportProgress(0);
   };
 
   // Seleccionar o cambiar el archivo invalida siempre la vista previa anterior.
@@ -408,12 +406,10 @@ export default function ImportacionDatos() {
   const runPreview = async (categoryId: string, templateId: string) => {
     if (!selectedFile) return;
     setIsImporting(true);
-    setImportProgress(35);
     try {
       const result = await sendImportFile(categoryId, templateId, true);
       setPreviewResult(result);
       setPreviewContext(`${categoryId}/${templateId}`);
-      setImportProgress(100);
       toast({
         title: "Vista previa lista",
         description: `${result.successful} nuevos, ${result.skipped} omitidos y ${result.failed} con error. La base de datos no cambió.`,
@@ -428,7 +424,6 @@ export default function ImportacionDatos() {
       });
     } finally {
       setIsImporting(false);
-      setImportProgress(0);
     }
   };
 
@@ -436,52 +431,10 @@ export default function ImportacionDatos() {
   const processImport = async (categoryId: string, templateId: string) => {
     if (!selectedFile || previewContext !== `${categoryId}/${templateId}` || !previewResult) return;
     setIsImporting(true);
-    setImportProgress(0);
-    let progressInterval: ReturnType<typeof setInterval> | undefined;
 
     try {
-      // Actualizar estado a "en progreso"
-      await fetch('/api/migration/status', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${getAuthToken()}`
-        },
-        body: JSON.stringify({
-          category: categoryId,
-          templateId: templateId,
-          status: 'in_progress',
-          recordsProcessed: 0,
-          totalRecords: 0
-        })
-      });
-
-      // Progreso durante la carga
-      progressInterval = setInterval(() => {
-        setImportProgress(prev => Math.min(prev + 10, 90));
-      }, 200);
-
       const result = await sendImportFile(categoryId, templateId, false);
-      setImportProgress(100);
       setPreviewResult(result);
-
-      // Actualizar estado final
-      const finalStatus = result.failed > 0 ? 'error' : 'completed';
-      await fetch('/api/migration/status', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${getAuthToken()}`
-        },
-        body: JSON.stringify({
-          category: categoryId,
-          templateId: templateId,
-          status: finalStatus,
-          recordsProcessed: result.successful,
-          totalRecords: result.total,
-          errors: result.errors
-        })
-      });
 
       toast({
         title: "Importación Completada",
@@ -495,9 +448,7 @@ export default function ImportacionDatos() {
         variant: "destructive"
       });
     } finally {
-      if (progressInterval) clearInterval(progressInterval);
       setIsImporting(false);
-      setImportProgress(0);
     }
   };
 
@@ -894,10 +845,8 @@ export default function ImportacionDatos() {
                                   <CardContent className="pt-4">
                                     <div className="space-y-2">
                                       <div className="flex justify-between text-sm">
-                                        <span>Procesando datos...</span>
-                                        <span>{importProgress}%</span>
+                                        <span role="status">Importando…</span>
                                       </div>
-                                      <Progress value={importProgress} />
                                     </div>
                                   </CardContent>
                                 </Card>

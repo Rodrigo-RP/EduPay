@@ -45,7 +45,7 @@ import ReportesFinancieros from "@/pages/reportes-financieros";
 import ReportesAdmisiones from "@/pages/reportes-admisiones";
 import RoleBasedDashboard from "@/components/RoleBasedDashboard";
 import Profile from "@/pages/profile";
-import MigrationRefeerence from "@/pages/migration-refeerence";
+import MigrationRefeerence from "@/components/unavailable-feature";
 import Historial from "@/pages/historial";
 import DemoSetup from "@/pages/demo-setup";
 import CentroComandos from "@/pages/centro-comandos";

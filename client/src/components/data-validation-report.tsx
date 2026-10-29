@@ -20,15 +20,15 @@ import { useToast } from "@/hooks/use-toast";
 interface ValidationResult {
   category: string;
   checks: ValidationCheck[];
-  overallStatus: 'success' | 'warning' | 'error';
+  overallStatus: 'success' | 'warning' | 'error' | 'no_evaluado';
   summary: string;
 }
 
 interface ValidationCheck {
   name: string;
-  status: 'pass' | 'warning' | 'fail';
+  status: 'pass' | 'warning' | 'fail' | 'no_evaluado';
   message: string;
-  affectedRecords: number;
+  affectedRecords: number | null;
   details?: string[];
 }
 
@@ -115,6 +115,8 @@ export default function DataValidationReport() {
         return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
       case 'fail':
         return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'no_evaluado':
+        return <span className="text-slate-600">No evaluado</span>;
       default:
         return null;
     }
@@ -128,6 +130,8 @@ export default function DataValidationReport() {
         return <Badge className="bg-yellow-100 text-yellow-800">Advertencias</Badge>;
       case 'error':
         return <Badge variant="destructive">Errores Críticos</Badge>;
+      case 'no_evaluado':
+        return <Badge variant="outline">No evaluado</Badge>;
       default:
         return <Badge variant="outline">Desconocido</Badge>;
     }
@@ -236,7 +240,7 @@ export default function DataValidationReport() {
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-1">
                         <h4 className="font-medium">{check.name}</h4>
-                        {check.affectedRecords > 0 && (
+                        {check.affectedRecords != null && check.affectedRecords > 0 && (
                           <Badge variant="outline" className="text-xs">
                             {check.affectedRecords} registros afectados
                           </Badge>

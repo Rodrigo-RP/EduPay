@@ -1,6 +1,7 @@
 import { SCHOOL_TODAY_SQL, schoolDate } from "@shared/school-date";
 import type { Express } from "express";
 import { registerUnavailablePaymentRoutes } from "./unavailable-payments";
+import { unavailableFeature } from "./unavailable-feature";
 import { pool, db } from "../db";
 import { enqueueAuditLog } from "../audit-retry";
 import { createFamily, type TutorInput } from "../lib/family-service";
@@ -1250,128 +1251,11 @@ export function registerPaymentRoutes(app: Express): void {
   // Los reportes financieros reales viven en /api/reportes/financiero y
   // /api/reportes/estudiantes (RPT-01 / RPT-02).
 
-  // MIGRATION STATUS TRACKING
-  
-  // In-memory storage for migration progress (in production, use Redis or database)
-  let migrationStatus: any = {
-    estudiantes: {
-      estudiantes: { status: 'pending', recordsProcessed: 0, totalRecords: 0, errors: [] },
-      tutores: { status: 'pending', recordsProcessed: 0, totalRecords: 0, errors: [] },
-      relaciones: { status: 'pending', recordsProcessed: 0, totalRecords: 0, errors: [] }
-    },
-    financiero: {
-      conceptos: { status: 'pending', recordsProcessed: 0, totalRecords: 0, errors: [] },
-      calendario: { status: 'pending', recordsProcessed: 0, totalRecords: 0, errors: [] },
-      cargos_extraordinarios: { status: 'pending', recordsProcessed: 0, totalRecords: 0, errors: [] }
-    },
-    becas: {
-      tipos_becas: { status: 'pending', recordsProcessed: 0, totalRecords: 0, errors: [] },
-      asignaciones_becas: { status: 'pending', recordsProcessed: 0, totalRecords: 0, errors: [] }
-    }
-  };
-
-  // Get migration status
-  app.get("/api/migration/status", authenticateToken, (req, res) => {
-    try {
-      // Calculate overall progress
-      let totalTemplates = 0;
-      let completedTemplates = 0;
-      let totalErrors = 0;
-
-      Object.keys(migrationStatus).forEach(category => {
-        Object.keys(migrationStatus[category]).forEach(template => {
-          totalTemplates++;
-          if (migrationStatus[category][template].status === 'completed') {
-            completedTemplates++;
-          }
-          totalErrors += migrationStatus[category][template].errors.length;
-        });
-      });
-
-      const overallProgress = totalTemplates > 0 ? (completedTemplates / totalTemplates) * 100 : 0;
-
-      // Calculate category progress
-      const categories = {
-        estudiantes: {
-          completed: Object.values(migrationStatus.estudiantes).filter((t: any) => t.status === 'completed').length,
-          total: Object.keys(migrationStatus.estudiantes).length,
-          status: Object.values(migrationStatus.estudiantes).every((t: any) => t.status === 'completed') ? 'completed' : 
-                  Object.values(migrationStatus.estudiantes).some((t: any) => t.status === 'in_progress') ? 'in_progress' : 'pending'
-        },
-        financiero: {
-          completed: Object.values(migrationStatus.financiero).filter((t: any) => t.status === 'completed').length,
-          total: Object.keys(migrationStatus.financiero).length,
-          status: Object.values(migrationStatus.financiero).every((t: any) => t.status === 'completed') ? 'completed' : 
-                  Object.values(migrationStatus.financiero).some((t: any) => t.status === 'in_progress') ? 'in_progress' : 'pending'
-        },
-        becas: {
-          completed: Object.values(migrationStatus.becas).filter((t: any) => t.status === 'completed').length,
-          total: Object.keys(migrationStatus.becas).length,
-          status: Object.values(migrationStatus.becas).every((t: any) => t.status === 'completed') ? 'completed' : 
-                  Object.values(migrationStatus.becas).some((t: any) => t.status === 'in_progress') ? 'in_progress' : 'pending'
-        }
-      };
-
-      res.json({
-        overallProgress,
-        categories,
-        totalTemplates,
-        completedTemplates,
-        totalErrors,
-        detailedStatus: migrationStatus
-      });
-
-    } catch (error: any) {
-      res.status(500).json({ message: "Error getting migration status" });
-    }
-  });
-
-  // Update migration status
-  app.post("/api/migration/status", authenticateToken, (req, res) => {
-    try {
-      const { category, templateId, status, recordsProcessed = 0, totalRecords = 0, errors = [] } = req.body;
-
-      if (!migrationStatus[category] || !migrationStatus[category][templateId]) {
-        return res.status(400).json({ message: "Invalid category or template ID" });
-      }
-
-      migrationStatus[category][templateId] = {
-        status,
-        recordsProcessed,
-        totalRecords,
-        errors,
-        lastUpdated: new Date().toISOString()
-      };
-
-      res.json({ success: true, message: "Migration status updated" });
-
-    } catch (error: any) {
-      res.status(500).json({ message: "Error updating migration status" });
-    }
-  });
-
-  // Reset migration progress
-  app.post("/api/migration/reset", authenticateToken, (req, res) => {
-    try {
-      // Reset all statuses to pending
-      Object.keys(migrationStatus).forEach(category => {
-        Object.keys(migrationStatus[category]).forEach(template => {
-          migrationStatus[category][template] = {
-            status: 'pending',
-            recordsProcessed: 0,
-            totalRecords: 0,
-            errors: [],
-            lastUpdated: new Date().toISOString()
-          };
-        });
-      });
-
-      res.json({ success: true, message: "Migration progress reset" });
-
-    } catch (error: any) {
-      res.status(500).json({ message: "Error resetting migration progress" });
-    }
-  });
+  const migrationUnavailable = unavailableFeature(user =>
+    hasPermissionForUser(user, MODULES.SYSTEM, ACTIONS.IMPORT));
+  app.get("/api/migration/status", authenticateToken, migrationUnavailable);
+  app.post("/api/migration/status", authenticateToken, migrationUnavailable);
+  app.post("/api/migration/reset", authenticateToken, migrationUnavailable);
 
   // /api/migration/validate-token — verifica token de sesión de migración
   app.get("/api/migration/validate-token", authenticateToken, (req, res) => {
@@ -1426,41 +1310,19 @@ export function registerPaymentRoutes(app: Express): void {
   });
 
   // /api/migration/progress/:sessionId — progreso de una sesión de migración
-  app.get("/api/migration/progress/:sessionId", authenticateToken, async (req, res) => {
-    try {
-      const { sessionId } = req.params;
-      res.json({
-        sessionId,
-        status: "completed",
-        progress: 100,
-        recordsProcessed: 0,
-        totalRecords: 0,
-        errors: [],
-        message: "Proceso completado"
-      });
-    } catch (error: any) {
-      res.status(500).json({ message: "Error interno del servidor" });
-    }
-  });
+  app.get("/api/migration/progress/:sessionId", authenticateToken, migrationUnavailable);
 
   // /api/migration/download/:sessionId — descarga el archivo resultado de la migración
-  app.get("/api/migration/download/:sessionId", authenticateToken, async (req, res) => {
-    try {
-      const { sessionId } = req.params;
-      const csvContent = `id,resultado,mensaje\n1,ok,Migración completada para sesión ${sessionId}`;
-      res.setHeader("Content-Type", "text/csv");
-      res.setHeader("Content-Disposition", `attachment; filename="migracion_${sessionId}.csv"`);
-      res.send(csvContent);
-    } catch (error: any) {
-      res.status(500).json({ message: "Error interno del servidor" });
-    }
-  });
+  app.get("/api/migration/download/:sessionId", authenticateToken, migrationUnavailable);
 
   // DATA VALIDATION ENDPOINTS
   
   // Run cross-validation checks on imported data
   app.get("/api/validation/run", authenticateToken, async (req, res) => {
     try {
+      if (!hasPermissionForUser((req as any).user, MODULES.SYSTEM, ACTIONS.IMPORT)) {
+        return res.status(403).json({ message: "Sin permisos para validar importaciones" });
+      }
       const campusId = (req as any).user?.campus_id;
       if (!campusId) {
         return res.status(400).json({ message: "Campus ID requerido" });
@@ -1553,9 +1415,9 @@ export function registerPaymentRoutes(app: Express): void {
       // Check IVA configuration
       conceptosValidation.checks.push({
         name: "Configuración de IVA",
-        status: "pass",
-        message: "IVA configurado según normativa fiscal",
-        affectedRecords: 0
+        status: "no_evaluado",
+        message: "No disponible por ahora: no se ha evaluado la configuración de IVA",
+        affectedRecords: null
       });
 
       if (conceptosValidation.checks.some(c => c.status === 'fail')) {
@@ -1564,33 +1426,36 @@ export function registerPaymentRoutes(app: Express): void {
       } else if (conceptosValidation.checks.some(c => c.status === 'warning')) {
         conceptosValidation.overallStatus = 'warning';
         conceptosValidation.summary = `${conceptosValidation.checks.filter(c => c.status === 'warning').length} advertencias encontradas`;
+      } else {
+        conceptosValidation.overallStatus = 'warning';
+        conceptosValidation.summary = "Comprobaciones parciales: IVA no evaluado";
       }
 
       validationResults.push(conceptosValidation);
 
-      // Validation 3: Becas (simulated for demo)
+      // No certificar becas sin una comprobación implementada.
       const becasValidation = {
         category: "Becas y Descuentos",
-        overallStatus: "success" as const,
-        summary: "Todas las becas validadas correctamente",
+        overallStatus: "no_evaluado" as const,
+        summary: "No disponible por ahora: becas no evaluadas",
         checks: [
           {
             name: "Tipos de beca válidos",
-            status: "pass" as const,
-            message: "Todos los tipos de beca están registrados",
-            affectedRecords: 0
+            status: "no_evaluado" as const,
+            message: "Tipos de beca no evaluados",
+            affectedRecords: null
           },
           {
             name: "Estudiantes existentes",
-            status: "pass" as const,
-            message: "Todas las becas asignadas a estudiantes válidos",
-            affectedRecords: 0
+            status: "no_evaluado" as const,
+            message: "Asignaciones no evaluadas",
+            affectedRecords: null
           },
           {
             name: "Rangos de descuento",
-            status: "pass" as const,
-            message: "Todos los porcentajes están entre 0-100%",
-            affectedRecords: 0
+            status: "no_evaluado" as const,
+            message: "Rangos de descuento no evaluados",
+            affectedRecords: null
           }
         ]
       };
@@ -1605,7 +1470,8 @@ export function registerPaymentRoutes(app: Express): void {
           totalCategories: validationResults.length,
           categoriesWithErrors: validationResults.filter(r => r.overallStatus === 'error').length,
           categoriesWithWarnings: validationResults.filter(r => r.overallStatus === 'warning').length,
-          categoriesSuccess: validationResults.filter(r => r.overallStatus === 'success').length
+          categoriesSuccess: validationResults.filter(r => r.overallStatus === 'success').length,
+          categoriesNotEvaluated: validationResults.filter(r => r.overallStatus === 'no_evaluado').length
         }
       });
 
@@ -1615,27 +1481,5 @@ export function registerPaymentRoutes(app: Express): void {
   });
 
   // Get validation report
-  app.get("/api/validation/report", authenticateToken, async (req, res) => {
-    try {
-      // For now, return cached validation results
-      // In production, this would fetch from database
-      const reportData = {
-        timestamp: new Date().toISOString(),
-        campus: "Campus San Patricio",
-        status: "completed",
-        summary: {
-          totalCategories: 3,
-          categoriesWithErrors: 0,
-          categoriesWithWarnings: 1,
-          categoriesSuccess: 2,
-          lastRunDate: new Date().toISOString()
-        }
-      };
-
-      res.json(reportData);
-
-    } catch (error: any) {
-      res.status(500).json({ message: "Error generating validation report" });
-    }
-  });
+  app.get("/api/validation/report", authenticateToken, migrationUnavailable);
 }

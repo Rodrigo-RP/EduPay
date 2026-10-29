@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import UnavailableFeature from "@/components/unavailable-feature";
 import { apiRequest } from "@/lib/queryClient";
 import { 
   FileText, 
@@ -714,7 +715,8 @@ export default function FiscalContable() {
           </Card>
         </div>
 
-        {/* Generación reporte SAT */}
+        {/* No existe generación de este reporte; no prometer un archivo. */}
+        <UnavailableFeature />
       </div>
     );
   };
@@ -722,13 +724,7 @@ export default function FiscalContable() {
   // Flujo heredado no montado: no exponer como parte de las estadísticas.
   const ReportesSAT = () => {
     const generarReporteSAT = useMutation({
-      mutationFn: (data: any) => apiRequest("/api/fiscal/generar-reporte-sat", { method: "POST", body: JSON.stringify(data) }),
-      onSuccess: () => {
-        toast({
-          title: "Reporte SAT generado",
-          description: "El reporte mensual para SAT está listo"
-        });
-      }
+      mutationFn: async () => { throw new Error("No disponible por ahora"); }
     });
     return (
       <div className="space-y-6">
@@ -763,17 +759,16 @@ export default function FiscalContable() {
 
           <div className="flex items-center gap-2">
                 <CheckCircle className="w-5 h-5 text-green-600" />
-                <span className="text-sm text-green-700">Datos validados y completos</span>
+                <span className="text-sm text-slate-700">No disponible por ahora</span>
               </div>
             </div>
 
             <Button 
-              onClick={() => generarReporteSAT.mutate({ periodo: selectedPeriod })}
-              disabled={generarReporteSAT.isPending}
+              disabled
               className="w-full bg-green-600 hover:bg-green-700"
             >
               <FileText className="w-4 h-4 mr-2" />
-              Generar reporte mensual SAT
+              No disponible por ahora
             </Button>
           </CardContent>
         </Card>

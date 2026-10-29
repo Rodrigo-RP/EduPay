@@ -637,8 +637,7 @@ export function registerFiscalRoutes(app: Express): void {
       if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para ejecutar operaciones fiscales" });
       }
-      const { tipo, periodo } = req.body;
-      res.json({ url: null, mensaje: `Reporte ${tipo} generado para ${periodo}`, tipo, periodo });
+      res.status(501).json({ code: "NO_DISPONIBLE", message: "No disponible por ahora" });
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
@@ -647,8 +646,7 @@ export function registerFiscalRoutes(app: Express): void {
       if (!hasPermissionForUser((req as any).user, MODULES.FISCAL, ACTIONS.CONFIGURE)) {
         return res.status(403).json({ message: "Sin permisos para ejecutar operaciones fiscales" });
       }
-      const { tipo, periodo, formato } = req.body;
-      res.json({ url: null, mensaje: `Reporte SAT ${tipo} generado para ${periodo}`, tipo, periodo, formato: formato || 'xml' });
+      res.status(501).json({ code: "NO_DISPONIBLE", message: "No disponible por ahora" });
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 

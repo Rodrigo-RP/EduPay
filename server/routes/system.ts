@@ -9,6 +9,7 @@ import { canEditUser, UserRole, MODULES, ACTIONS } from "@shared/permissions";
 import { optimizeDatabase, checkQueryPerformance, cleanupObsoleteData, runMaintenanceTask } from "../optimize-database";
 import { registerDemoSeedRoute } from "./demo-seed";
 import { registerUnavailableSecurityRoutes } from "./unavailable-security";
+import { unavailableFeature } from "./unavailable-feature";
 import { wsManager } from "../websocket-manager";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -173,14 +174,7 @@ export function registerSystemRoutes(app: Express): void {
       if (!hasPermissionForUser((req as any).user, MODULES.SECURITY, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para ver métricas de seguridad" });
       }
-      const metrics = {
-        totalThreats: 127,
-        blockedAttacks: 89,
-        activeUsers: 1542,
-        securityScore: 94,
-        lastUpdate: new Date().toISOString()
-      };
-      res.json(metrics);
+      res.status(501).json({ code: "NO_DISPONIBLE", message: "No disponible por ahora" });
     } catch (error) {
       res.status(500).json({ error: "Error obteniendo métricas de seguridad" });
     }
@@ -192,27 +186,7 @@ export function registerSystemRoutes(app: Express): void {
       if (!hasPermissionForUser((req as any).user, MODULES.SECURITY, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para ver eventos de seguridad" });
       }
-      const events = [
-        {
-          id: "1",
-          type: "ATTACK_BLOCKED",
-          severity: "CRITICAL",
-          description: "Intento de inyección SQL bloqueado",
-          timestamp: new Date().toISOString(),
-          ipAddress: "192.168.1.100",
-          resolved: true
-        },
-        {
-          id: "2",
-          type: "LOGIN_ATTEMPT", 
-          severity: "HIGH",
-          description: "Múltiples intentos de login fallidos desde IP sospechosa",
-          timestamp: new Date().toISOString(),
-          ipAddress: "10.0.0.45",
-          resolved: true
-        }
-      ];
-      res.json(events);
+      res.status(501).json({ code: "NO_DISPONIBLE", message: "No disponible por ahora" });
     } catch (error) {
       res.status(500).json({ error: "Error obteniendo eventos de seguridad" });
     }
@@ -228,29 +202,7 @@ export function registerSystemRoutes(app: Express): void {
       if (!hasPermissionForUser((req as any).user, MODULES.SECURITY, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para ver el reporte de seguridad" });
       }
-      const report = {
-        generatedAt: new Date().toISOString(),
-        securityScore: 94,
-        metrics: {
-          totalThreats: 127,
-          blockedAttacks: 89,
-          activeUsers: 1542
-        },
-        compliance: {
-          "PCI DSS v4.0": 94,
-          "ISO 27001": 87,
-          "OWASP Top 10": 100,
-          "GDPR": 92
-        },
-        recommendations: [
-          "Actualizar contraseñas de administradores cada 90 días",
-          "Revisar permisos de usuarios inactivos",
-          "Implementar backup cifrado diario",
-          "Auditoría de accesos privilegiados mensual"
-        ]
-      };
-
-      res.json(report);
+      res.status(501).json({ code: "NO_DISPONIBLE", message: "No disponible por ahora" });
     } catch (error) {
       res.status(500).json({ error: "Error generando reporte de seguridad" });
     }
@@ -348,32 +300,7 @@ export function registerSystemRoutes(app: Express): void {
   });
 
   // Security scan (platform-wide)
-  app.post("/api/super-admin/security/scan", requireSuperAdmin, async (req, res) => {
-    try {
-      // Create security event
-      await storage.createSecurityEvent({
-        event_type: 'security_scan',
-        severity: 'low',
-        event_details: JSON.stringify({ initiated_by: (req as any).user.email, scan_type: 'platform_wide' }),
-        is_blocked: false
-      });
-
-      res.json({
-        message: "Escaneo de seguridad de plataforma iniciado",
-        estimatedTime: "5 segundos",
-        vulnerabilities: 0,
-        securityScore: 96,
-        platformScope: true,
-        recommendations: [
-          "Todas las escuelas operando con protecciones activas",
-          "Sistema de plataforma actualizado y seguro",
-          "Monitoreo en tiempo real funcionando correctamente"
-        ]
-      });
-    } catch (error: any) {
-      res.status(500).json({ message: "Error iniciando escaneo de seguridad" });
-    }
-  });
+  app.post("/api/super-admin/security/scan", requireSuperAdmin, unavailableFeature(() => true));
 
   // System health monitoring
   app.get("/api/super-admin/system/health", requireSuperAdmin, async (req, res) => {
@@ -469,62 +396,13 @@ export function registerSystemRoutes(app: Express): void {
         allStudents.push(...campusStudents.map((s: any) => ({ ...s, campus })));
       }
       
-      // Get users for this school - simplified implementation
-      const users: any[] = [
-        {
-          id: 1,
-          name: "Director Campus",
-          email: "director@" + (schoolId === 16 ? "jfr" : "montessori") + ".edu.mx",
-          role: "admin",
-          campus_id: campuses[0]?.id || 1,
-          status: "active",
-          created_at: new Date()
-        },
-        {
-          id: 2,
-          name: "Coordinador Académico",
-          email: "academico@" + (schoolId === 16 ? "jfr" : "montessori") + ".edu.mx",
-          role: "staff",
-          campus_id: campuses[0]?.id || 1,
-          status: "active",
-          created_at: new Date()
-        }
-      ];
-      
-      // Calculate financial metrics
-      const monthlyRevenue = Math.floor(Math.random() * 50000) + 10000;
-      const paidAmount = Math.floor(Math.random() * 80000) + 20000;
-      const pendingAmount = Math.floor(Math.random() * 15000) + 5000;
-      const overdueAmount = Math.floor(Math.random() * 8000) + 2000;
-      
-      // Recent activity
-      const recentActivity = [
-        {
-          description: "Nuevo estudiante registrado",
-          timestamp: "Hace 2 horas"
-        },
-        {
-          description: "Pago procesado exitosamente",
-          timestamp: "Hace 4 horas"
-        },
-        {
-          description: "Usuario administrativo creado",
-          timestamp: "Hace 1 día"
-        }
-      ];
-
       const schoolData = {
         campusCount: campuses.length,
         studentCount: allStudents.length,
-        userCount: users.length,
-        monthlyRevenue,
-        paidAmount,
-        pendingAmount,
-        overdueAmount,
         campuses,
         students: allStudents,
-        users,
-        recentActivity
+        unavailable: ["financial", "users", "activity"],
+        message: "No disponible"
       };
 
       res.json(schoolData);
@@ -669,35 +547,7 @@ export function registerSystemRoutes(app: Express): void {
   });
 
   // Block IP across platform
-  app.post("/api/super-admin/security/block-ip", requireSuperAdmin, async (req, res) => {
-    try {
-      const { ipAddress, reason } = req.body;
-      
-      if (!ipAddress) {
-        return res.status(400).json({ message: "IP address requerida" });
-      }
-
-      // Create security event
-      await storage.createSecurityEvent({
-        event_type: 'ip_blocked',
-        severity: 'medium',
-        ip_address: ipAddress,
-        event_details: JSON.stringify({ 
-          reason: reason || 'Manual block by super admin',
-          blocked_by: (req as any).user.email 
-        }),
-        is_blocked: true
-      });
-
-      res.json({
-        message: `IP ${ipAddress} bloqueada en toda la plataforma`,
-        blockedAt: new Date().toISOString(),
-        scope: 'platform_wide'
-      });
-    } catch (error: any) {
-      res.status(500).json({ message: "Error bloqueando IP" });
-    }
-  });
+  app.post("/api/super-admin/security/block-ip", requireSuperAdmin, unavailableFeature(() => true));
 
   // Create super admin user — requiere autenticación de super admin existente
   app.post("/api/super-admin/create", requireSuperAdmin, async (req, res) => {
@@ -737,362 +587,16 @@ export function registerSystemRoutes(app: Express): void {
   });
 
   // REAL-TIME CEO DASHBOARD APIs
-  app.get('/api/super-admin/live/revenue', requireSuperAdmin, async (req, res) => {
-    try {
-      const baseTime = Date.now();
-      const currentHour = new Date().getHours();
-      
-      // Realistic revenue patterns based on time of day
-      const baseRevenue = 2847320;
-      const hourlyVariation = Math.sin((currentHour / 24) * Math.PI * 2) * 50000;
-      const randomFluctuation = (Math.random() - 0.5) * 20000;
-      
-      const liveData = {
-        currentRevenue: Math.round(baseRevenue + hourlyVariation + randomFluctuation),
-        mrr: 456780 + Math.floor(Math.random() * 5000),
-        growth: 12.5 + (Math.random() - 0.5) * 2,
-        transactionsPerHour: 800 + Math.floor(Math.random() * 200),
-        successRate: 98 + Math.random() * 1.5,
-        churnRisk: 2.1 + (Math.random() - 0.5) * 0.5,
-        uptime: 99.94 + Math.random() * 0.05,
-        timestamp: baseTime
-      };
-      
-      res.json(liveData);
-    } catch (error) {
-      console.error("Error fetching live revenue:", error);
-      res.status(500).json({ message: "Failed to fetch live revenue data" });
-    }
-  });
+  app.get('/api/super-admin/live/revenue', requireSuperAdmin, unavailableFeature(() => true));
+  app.get('/api/super-admin/live/transactions', requireSuperAdmin, unavailableFeature(() => true));
+  app.get('/api/super-admin/analytics/regional', requireSuperAdmin, unavailableFeature(() => true));
+  app.get('/api/super-admin/alerts/executive', requireSuperAdmin, unavailableFeature(() => true));
 
-  app.get('/api/super-admin/live/transactions', requireSuperAdmin, async (req, res) => {
-    try {
-      const schools = [
-        "Colegio Cervantes", "Instituto Morelos", "Escuela Hidalgo", 
-        "Colegio Juárez", "Instituto Allende", "Escuela Reforma",
-        "Colegio Victoria", "Instituto Norte", "Escuela Central", "Colegio Sur"
-      ];
-      
-      const concepts = [
-        "Colegiatura Enero", "Inscripción 2025", "Seguro Escolar", 
-        "Uniforme", "Libros", "Laboratorio", "Actividades"
-      ];
-      
-      // Generate realistic transaction feed
-      const transactions = Array.from({ length: 12 }, (_, i) => {
-        const now = new Date();
-        now.setSeconds(now.getSeconds() - (i * 8));
-        
-        const amount = Math.floor(Math.random() * 4000) + 1200;
-        const isSuccess = Math.random() > 0.08; // 92% success rate
-        
-        return {
-          id: `TX${Date.now()}-${i}`,
-          time: now.toLocaleTimeString('es-MX', { hour12: false }),
-          school: schools[Math.floor(Math.random() * schools.length)],
-          concept: concepts[Math.floor(Math.random() * concepts.length)],
-          amount: amount,
-          status: isSuccess ? 'success' : 'failed',
-          method: Math.random() > 0.3 ? 'card' : 'transfer'
-        };
-      });
-      
-      res.json(transactions);
-    } catch (error) {
-      console.error("Error fetching live transactions:", error);
-      res.status(500).json({ message: "Failed to fetch live transactions" });
-    }
-  });
-
-  app.get('/api/super-admin/analytics/regional', requireSuperAdmin, async (req, res) => {
-    try {
-      const baseData = [
-        { region: "Ciudad de México", schools: 8, baseRevenue: 847000, baseStudents: 3200 },
-        { region: "Guadalajara", schools: 5, baseRevenue: 523000, baseStudents: 1980 },
-        { region: "Monterrey", schools: 3, baseRevenue: 398000, baseStudents: 1456 },
-        { region: "Puebla", schools: 2, baseRevenue: 267000, baseStudents: 890 },
-        { region: "Tijuana", schools: 1, baseRevenue: 156000, baseStudents: 634 }
-      ];
-      
-      // Add real-time variations
-      const regionalData = baseData.map(region => ({
-        ...region,
-        revenue: Math.round(region.baseRevenue + (Math.random() - 0.5) * 20000),
-        students: region.baseStudents + Math.floor((Math.random() - 0.5) * 50),
-        growth: (5 + Math.random() * 15).toFixed(1) + '%',
-        avgPayment: Math.round((region.baseRevenue / region.baseStudents) + (Math.random() - 0.5) * 200)
-      }));
-      
-      res.json(regionalData);
-    } catch (error) {
-      console.error("Error fetching regional analytics:", error);
-      res.status(500).json({ message: "Failed to fetch regional analytics" });
-    }
-  });
-
-  app.get('/api/super-admin/alerts/executive', requireSuperAdmin, async (req, res) => {
-    try {
-      const alertTypes = [
-        {
-          type: 'revenue',
-          severity: 'high',
-          title: 'Revenue Spike Detected',
-          message: 'Revenue increased 23% in the last hour - investigate cause',
-          action: 'Analyze payment patterns in Guadalajara region'
-        },
-        {
-          type: 'system',
-          severity: 'medium',
-          title: 'Payment Gateway Latency',
-          message: 'Average response time increased to 2.3s',
-          action: 'Contact Stripe support team'
-        },
-        {
-          type: 'business',
-          severity: 'low',
-          title: 'New School Onboarding',
-          message: 'Instituto Tecnológico del Norte completed setup',
-          action: 'Schedule welcome call with admin team'
-        },
-        {
-          type: 'security',
-          severity: 'high',
-          title: 'Unusual Login Pattern',
-          message: 'Multiple failed login attempts from single IP',
-          action: 'Review security logs and consider IP blocking'
-        }
-      ];
-      
-      // Generate 2-4 random alerts
-      const alertCount = 2 + Math.floor(Math.random() * 3);
-      const alerts = [];
-      
-      for (let i = 0; i < alertCount; i++) {
-        const alert = alertTypes[Math.floor(Math.random() * alertTypes.length)];
-        alerts.push({
-          id: Date.now() + i,
-          ...alert,
-          timestamp: new Date(Date.now() - Math.random() * 3600000).toISOString()
-        });
-      }
-      
-      res.json(alerts);
-    } catch (error) {
-      console.error("Error fetching executive alerts:", error);
-      res.status(500).json({ message: "Failed to fetch executive alerts" });
-    }
-  });
-
-  // FINANCIAL ANALYSIS CFO API - Dashboard ejecutivo financiero (con período)
-  app.get("/api/financial/analysis/:period", authenticateToken, async (req, res) => {
-    try {
-      const { period } = req.params;
-      const user = (req as any).user;
-      const campusId = user.campus_id || 1;
-
-      // Get real financial data from database
-      const students = await storage.getStudentsByCampus(campusId);
-      
-      // Calculate metrics based on actual student data
-      const studentData = {
-        total: students.length,
-        active: students.filter(s => s.status === 'activo').length
-      };
-      
-      // Financial calculations based on real student numbers
-      const avgTuitionPerStudent = 500000; // $5,000 pesos per student (50,000 centavos)
-      const grossRevenue = studentData.active * avgTuitionPerStudent;
-      const collectionEfficiency = 0.925; // 92.5% collection rate
-      const netRevenue = Math.round(grossRevenue * collectionEfficiency);
-      
-      // Cost structure based on industry benchmarks
-      const costBreakdown = {
-        personnel: Math.round(netRevenue * 0.706), // 70.6% for personnel
-        facilities: Math.round(netRevenue * 0.157), // 15.7% facilities
-        materials: Math.round(netRevenue * 0.069), // 6.9% materials
-        technology: Math.round(netRevenue * 0.047), // 4.7% technology
-        administration: Math.round(netRevenue * 0.022) // 2.2% administration
-      };
-      
-      const totalOperatingCosts = Object.values(costBreakdown).reduce((sum, cost) => sum + cost, 0);
-      const operatingProfit = netRevenue - totalOperatingCosts;
-      const profitMarginPercent = netRevenue > 0 ? (operatingProfit / netRevenue) * 100 : 0;
-
-      // Per-student financial metrics
-      const financialPerStudent = {
-        revenue: studentData.active > 0 ? netRevenue / studentData.active : 0,
-        cost: studentData.active > 0 ? totalOperatingCosts / studentData.active : 0,
-        profit: studentData.active > 0 ? operatingProfit / studentData.active : 0,
-        margin: 0
-      };
-      financialPerStudent.margin = financialPerStudent.revenue > 0 ? (financialPerStudent.profit / financialPerStudent.revenue) * 100 : 0;
-
-      // Collection and risk metrics
-      const unpaidAmount = grossRevenue - netRevenue;
-      const collectionRatePercent = grossRevenue > 0 ? (netRevenue / grossRevenue) * 100 : 0;
-
-      // Financial health indicators
-      const liquidityRatio = 2.35;
-      const studentRetentionRate = 94.2;
-      const revenueGrowthRate = 8.7;
-      const costEfficiencyScore = Math.min(100, Math.max(0, 100 - ((financialPerStudent.cost / 500000) * 100)));
-      const cashFlowScore = Math.min(100, collectionRatePercent + 10);
-
-      // Revenue breakdown
-      const revenueBreakdown = {
-        tuition: Math.round(netRevenue * 0.836), // 83.6% tuition
-        enrollment: Math.round(netRevenue * 0.100), // 10% enrollment
-        extras: Math.round(netRevenue * 0.044), // 4.4% extras
-        lateFeesCollected: Math.round(netRevenue * 0.020) // 2% late fees
-      };
-
-      // Generate monthly trends based on current metrics
-      const monthlyTrends = [];
-      for (let i = 5; i >= 0; i--) {
-        const baseRevenue = netRevenue * (0.9 + (Math.random() * 0.2));
-        const baseCosts = baseRevenue * 0.64;
-        const monthProfit = ((baseRevenue - baseCosts) / baseRevenue) * 100;
-        
-        monthlyTrends.push({
-          month: new Date(Date.now() - (i * 30 * 24 * 60 * 60 * 1000)).toLocaleDateString('es-ES', { month: 'short', year: 'numeric' }),
-          revenue: Math.round(baseRevenue),
-          costs: Math.round(baseCosts),
-          students: studentData.active + Math.floor(Math.random() * 10 - 5),
-          profitMargin: Math.round(monthProfit * 10) / 10
-        });
-      }
-
-      // Risk assessment
-      const riskFactors = [
-        { 
-          factor: "Concentración de ingresos", 
-          level: "BAJO", 
-          impact: "El 95% de ingresos proviene de colegiaturas regulares" 
-        },
-        { 
-          factor: "Estacionalidad", 
-          level: collectionRatePercent < 85 ? "MEDIO" : "BAJO", 
-          impact: `Tasa de cobro del ${collectionRatePercent.toFixed(1)}%` 
-        },
-        { 
-          factor: "Morosidad", 
-          level: unpaidAmount > (netRevenue * 0.1) ? "ALTO" : "BAJO", 
-          impact: `Cartera vencida: $${(unpaidAmount / 100).toFixed(2)}` 
-        },
-        { 
-          factor: "Costos fijos", 
-          level: "MEDIO", 
-          impact: "70% de costos son fijos (principalmente nómina)" 
-        }
-      ];
-
-      const overallRisk = riskFactors.some(r => r.level === "ALTO") ? "ALTO" : 
-                         riskFactors.some(r => r.level === "MEDIO") ? "MEDIO" : "BAJO";
-
-      // Industry benchmarks
-      const industryBenchmark = {
-        profitMarginIndustry: 25.0,
-        costPerStudentIndustry: 480000, // $4,800 pesos
-        collectionRateIndustry: 88.0,
-        studentRetentionIndustry: 91.0
-      };
-
-      const financialAnalysis = {
-        period: new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }),
-        totalStudents: studentData.total,
-        activeStudents: studentData.active,
-        totalRevenue: netRevenue,
-        totalCosts: totalOperatingCosts,
-        netProfit: operatingProfit,
-        
-        costPerStudent: {
-          directCosts: Math.round(financialPerStudent.cost * 0.66),
-          indirectCosts: Math.round(financialPerStudent.cost * 0.34),
-          totalCost: Math.round(financialPerStudent.cost),
-          revenuePerStudent: Math.round(financialPerStudent.revenue),
-          profitPerStudent: Math.round(financialPerStudent.profit),
-          profitMarginPerStudent: Math.round(financialPerStudent.margin * 10) / 10
-        },
-        
-        revenueBreakdown,
-        costStructure: costBreakdown,
-        
-        collectionMetrics: {
-          collectionRate: Math.round(collectionRatePercent * 10) / 10,
-          averageDaysToCollect: 8.5,
-          overdueAmount: unpaidAmount,
-          writeOffs: Math.round(netRevenue * 0.005),
-          lateFeesGenerated: Math.round(netRevenue * 0.031),
-          lateFeesCollected: revenueBreakdown.lateFeesCollected
-        },
-        
-        healthIndicators: {
-          liquidityRatio,
-          profitMargin: Math.round(profitMarginPercent * 10) / 10,
-          studentRetentionRate,
-          revenueGrowthRate,
-          costEfficiencyScore: Math.round(costEfficiencyScore * 10) / 10,
-          cashFlowScore: Math.round(cashFlowScore * 10) / 10
-        },
-        
-        monthlyTrends,
-        
-        riskAssessment: {
-          overallRisk,
-          riskFactors
-        },
-        
-        industryBenchmark
-      };
-
-      res.json(financialAnalysis);
-    } catch (error: any) {
-      console.error("Error generating financial analysis:", error);
-      res.status(500).json({ 
-        error: "Error generando análisis financiero" });
-    }
-  });
-
-  // FINANCIAL ANALYSIS CFO API - Dashboard ejecutivo financiero (sin período - usa actual)
-  // NOTA: datos simulados — pendiente conectar a BD real
-  app.get("/api/financial/analysis", authenticateToken, async (req: any, res) => {
-    try {
-      // TODO: reemplazar con consultas reales por tenant/campus
-      const totalStudents = 1051;
-      const baseRevenue = totalStudents * 62000;
-      const operatingCosts = baseRevenue * 0.68;
-      const netProfit = baseRevenue - operatingCosts;
-      
-      const financialAnalysis = {
-        period: new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }),
-        totalStudents: totalStudents,
-        activeStudents: 1012,
-        totalRevenue: baseRevenue,
-        totalCosts: operatingCosts,
-        netProfit: netProfit,
-        profitMargin: parseFloat(((netProfit / baseRevenue) * 100).toFixed(1)),
-        roi: 24.8,
-        operationalEfficiency: 89,
-        collectionRate: 85.2,
-        healthScore: 91,
-        
-        costPerStudent: {
-          directCosts: Math.round((operatingCosts * 0.66) / totalStudents),
-          indirectCosts: Math.round((operatingCosts * 0.34) / totalStudents),
-          totalCostPerStudent: Math.round(operatingCosts / totalStudents),
-          revenuePerStudent: Math.round(baseRevenue / totalStudents),
-          profitPerStudent: Math.round(netProfit / totalStudents),
-          profitMarginPerStudent: parseFloat(((netProfit / baseRevenue) * 100).toFixed(1))
-        }
-      };
-
-      res.json(financialAnalysis);
-    } catch (error: any) {
-      console.error("Error generating financial analysis:", error);
-      console.error("Error generating financial analysis:", error);
-      res.status(500).json({ error: "Error generando análisis financiero" });
-    }
-  });
+  // Retirado: no sustituir el ledger por estimaciones ni datos de ejemplo.
+  const financialUnavailable = unavailableFeature(user =>
+    hasPermissionForUser(user, MODULES.FINANCIAL, ACTIONS.READ));
+  app.get("/api/financial/analysis/:period", authenticateToken, financialUnavailable);
+  app.get("/api/financial/analysis", authenticateToken, financialUnavailable);
 
   // NOTIFICATION SYSTEM API - Sistema de notificaciones automáticas
   /**

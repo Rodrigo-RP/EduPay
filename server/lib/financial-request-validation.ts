@@ -24,7 +24,6 @@ export const financialContracts: Contract[] = [
     "/api/payment-config/late-fee-rules", "/api/payment-config/test-late-fee",
     "/api/receivables/follow-ups", "/api/receivables/notes", "/api/receivables/promises",
     "/api/receivables/reminders", "/api/receivables/escalations", "/api/receivables/collections",
-    "/api/fiscal/generar-reporte-contable", "/api/fiscal/generar-reporte-sat",
     "/api/becas-auto/reglas",
     "/api/reportes/consejo/exportar", "/api/reportes/contable/exportar",
     "/api/reportes/cobranza/exportar",

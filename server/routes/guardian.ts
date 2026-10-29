@@ -2053,11 +2053,6 @@ export async function registerGuardianRoutes(
     }
   });
 
-  // TEST endpoint - verify requests reach server
-  app.post("/api/test-create", authenticateToken, async (req, res) => {
-    res.json({ success: true, message: "Test endpoint works", receivedData: req.body });
-  });
-
   // Create payment due date configuration
   app.post("/api/payment-config/due-dates", authenticateToken, legacyPaymentConfigWriteGone, async (req, res) => {
     try {

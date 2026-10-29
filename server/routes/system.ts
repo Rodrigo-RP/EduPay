@@ -216,7 +216,7 @@ export function registerSystemRoutes(app: Express): void {
         return res.status(403).json({ message: "Sin permisos para ejecutar optimización de base de datos" });
       }
       const result = await optimizeDatabase();
-      res.json(result);
+      res.status(result.success === true ? 200 : 500).json(result);
     } catch (error: any) {
       res.status(500).json({ error: "Error optimizando base de datos", details: "Ver logs del servidor" });
     }
@@ -242,7 +242,7 @@ export function registerSystemRoutes(app: Express): void {
         return res.status(403).json({ message: "Sin permisos para ejecutar limpieza de base de datos" });
       }
       const result = await cleanupObsoleteData();
-      res.json(result);
+      res.status(result.success === true ? 200 : 500).json(result);
     } catch (error: any) {
       res.status(500).json({ error: "Error limpiando datos", details: "Ver logs del servidor" });
     }
@@ -255,7 +255,8 @@ export function registerSystemRoutes(app: Express): void {
         return res.status(403).json({ message: "Sin permisos para ejecutar mantenimiento de base de datos" });
       }
       const result = await runMaintenanceTask();
-      res.json(result);
+      const success = Object.values(result).every(operation => operation?.success === true);
+      res.status(success ? 200 : 500).json({ ...result, success });
     } catch (error: any) {
       res.status(500).json({ error: "Error ejecutando mantenimiento", details: "Ver logs del servidor" });
     }

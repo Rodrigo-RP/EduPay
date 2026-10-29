@@ -1,0 +1,1 @@
+export const SECURITY_EVENTS_RETENTION_DAYS = 365;

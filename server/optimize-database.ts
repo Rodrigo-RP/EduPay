@@ -6,6 +6,7 @@
 
 import { db } from './db';
 import { sql } from 'drizzle-orm';
+import { SECURITY_EVENTS_RETENTION_DAYS } from './lib/security-retention';
 
 export async function optimizeDatabase() {
   console.log('🔧 Iniciando optimización de base de datos...');
@@ -157,10 +158,10 @@ export async function cleanupObsoleteData() {
       WHERE expire < NOW();
     `);
     
-    // Eliminar logs de seguridad antiguos (más de 90 días)
+    // Política única de retención de eventos de seguridad.
     await db.execute(sql`
       DELETE FROM security_events 
-      WHERE created_at < NOW() - INTERVAL '90 days';
+      WHERE created_at < NOW() - ${SECURITY_EVENTS_RETENTION_DAYS} * INTERVAL '1 day';
     `);
     
     // Eliminar notificaciones leídas antiguas (más de 30 días)

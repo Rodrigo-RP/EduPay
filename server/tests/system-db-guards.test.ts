@@ -17,7 +17,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 import { JWT_SECRET } from "../routes/shared";
 
 const BASE = "http://localhost:5000";
@@ -112,19 +112,18 @@ describe("SYS — BLOQUEO (403): SECURITY.READ — rol sin permiso", () => {
 
 // ── CONTROL POSITIVO: SYSTEM.CONFIGURE ───────────────────────────────────────
 describe("SYS — CONTROL POSITIVO (2xx): SYSTEM.CONFIGURE — super_admin y administrador_general", () => {
-  it("SYS-13: super_admin POST /api/admin/cleanup-database → 200", async () => {
+  it("SYS-13: super_admin accede; HTTP refleja el resultado real del cleanup", async () => {
     const r = await hit("POST", "/api/admin/cleanup-database", T.superAdmin);
-    expect(r.status).toBe(200);
     const b = await r.json();
-    // cleanupObsoleteData retorna { success: true|false }; el guard es lo que verificamos.
-    expect(b).toHaveProperty("success");
+    expect(typeof b.success).toBe("boolean");
+    expect(r.status).toBe(b.success === true ? 200 : 500);
   });
 
-  it("SYS-14: administrador_general POST /api/admin/cleanup-database → 200 (SYSTEM.CONFIGURE recién otorgado)", async () => {
+  it("SYS-14: administrador_general accede; HTTP refleja el resultado real del cleanup", async () => {
     const r = await hit("POST", "/api/admin/cleanup-database", T.adminGeneral);
-    expect(r.status).toBe(200);
     const b = await r.json();
-    expect(b).toHaveProperty("success");
+    expect(typeof b.success).toBe("boolean");
+    expect(r.status).toBe(b.success === true ? 200 : 500);
   });
 });
 

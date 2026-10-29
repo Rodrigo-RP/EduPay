@@ -83,3 +83,4 @@
 - [Excepciones de porcentajes](financial-input-policy.md) — tipos de beca enteros y reglas automáticas positivas; preservar restricciones sin migrar ni redondear.
 - [Errores de consultas y diálogos](query-errors-and-dialogs.md) — los portales necesitan error local; una consulta deshabilitada no debe bloquear la pantalla.
 - [Jerarquía y aislamiento](role-and-assistant-isolation.md) — sin excepción para pares superadministradores; usuarios y asistente conservan tenant/campus de sesión.
+- [Retención de seguridad](security-retention-policy.md) — los 365 días son una decisión autorizada, no un parámetro que reducir al optimizar mantenimiento.

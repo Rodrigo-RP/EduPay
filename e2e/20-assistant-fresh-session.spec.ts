@@ -6,6 +6,8 @@ import { test, expect } from "@playwright/test";
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from "./helpers/auth";
 
 test.describe("Asistente desde una sesión nueva", () => {
+  // La tabla de deudores de este flujo la genera Claude, no el fallback sin proveedor.
+  test.skip(!process.env.ANTHROPIC_API_KEY, "Requiere ANTHROPIC_API_KEY configurada.");
   test("responde desde el widget sin rechazar el JWT recién emitido", async ({ page }) => {
     const assistantStatuses: number[] = [];
     const consoleMessages: string[] = [];

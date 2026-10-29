@@ -23,7 +23,7 @@ function isAffected(query: Query): boolean {
     || (query.state.fetchStatus === "fetching"
       && query.state.errorUpdatedAt > 0
       && query.state.errorUpdatedAt >= query.state.dataUpdatedAt);
-  return matches && query.getObserversCount() > 0 && failedOrRetrying;
+  return matches && query.isActive() && failedOrRetrying;
 }
 
 export default function DataReadBoundary({ children }: { children: ReactNode }) {

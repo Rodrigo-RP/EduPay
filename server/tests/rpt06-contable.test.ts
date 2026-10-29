@@ -347,18 +347,19 @@ describe("RPT-06 — GET /api/reportes/contable + POST exportar", () => {
   // Este test documenta empíricamente el riesgo: el stub no es un endpoint de
   // descarga. El comportamiento correcto está en CON-11 (magic bytes PK/xlsx).
 
-  it("CON-14 (riesgo stub): POST /api/fiscal/generar-reporte-contable devuelve JSON con url:null, no binario", async () => {
+  it("CON-14: reporte ficticio retirado devuelve 501, nunca éxito ni URL", async () => {
     const resp = await fetch(`${BASE}/api/fiscal/generar-reporte-contable`, {
       method:  "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokAdmin}` },
       body:    JSON.stringify({ tipo: "COMPLETO", periodo: "2025-06" }),
     });
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(501);
     // El stub responde application/json, no un blob binario
     expect(resp.headers.get("content-type") ?? "").toContain("application/json");
     const body = await resp.json() as any;
     // url es null → no hay ningún archivo que el navegador pueda descargar
-    expect(body.url).toBeNull();
-    expect(typeof body.mensaje).toBe("string");
+    expect(body).not.toHaveProperty("url");
+    expect(body.code).toBe("NO_DISPONIBLE");
+    expect(body.message).toBe("No disponible por ahora");
   });
 });

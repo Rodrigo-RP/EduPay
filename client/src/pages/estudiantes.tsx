@@ -71,7 +71,10 @@ export function TutoresPanel({ studentId, isOpen }: { studentId?: number; isOpen
     },
   });
 
-  const { data: historyData = [] } = useQuery<any[]>({
+  const {
+    data: historyData = [], isError: historyError,
+    isFetching: historyFetching, refetch: refetchHistory,
+  } = useQuery<any[]>({
     queryKey: ["/api/admin/magic-link/history", historyDialog?.guardianId],
     queryFn: async () => {
       const res = await fetch(`/api/admin/magic-link/history/${historyDialog!.guardianId}`, { headers });
@@ -343,7 +346,16 @@ export function TutoresPanel({ studentId, isOpen }: { studentId?: number; isOpen
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 max-h-80 overflow-y-auto">
-            {historyData.length === 0 ? (
+            {historyError ? (
+              <div role="alert" className="rounded border border-red-300 p-3">
+                <p>No se pudo cargar el historial de ligas.</p>
+                <Button disabled={historyFetching} onClick={() => void refetchHistory()}>
+                  Reintentar
+                </Button>
+              </div>
+            ) : historyFetching ? (
+              <p role="status">Cargando historial…</p>
+            ) : historyData.length === 0 ? (
               <p className="text-sm text-slate-500 text-center py-6">Sin ligas generadas aún.</p>
             ) : (
               historyData.map((h: any) => (

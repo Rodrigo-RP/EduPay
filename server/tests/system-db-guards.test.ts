@@ -137,17 +137,19 @@ describe("SYS — CONTROL POSITIVO (2xx): SYSTEM.READ / SECURITY.READ", () => {
     expect(r.status).toBe(200);
   });
 
-  it("SYS-16: administrador_campus GET /api/security/report → 200 (SECURITY.READ)", async () => {
+  it("SYS-16: administrador_campus GET /api/security/report → 501 (SECURITY.READ)", async () => {
     const r = await hit("GET", "/api/security/report", T.adminCampus);
-    expect(r.status).toBe(200);
+    expect(r.status).toBe(501);
     const b = await r.json();
-    expect(b.securityScore).toBeDefined();
+    expect(b.code).toBe("NO_DISPONIBLE");
+    expect(b.securityScore).toBeUndefined();
   });
 
-  it("SYS-17: administrador_campus GET /api/security/metrics → 200 (SECURITY.READ)", async () => {
+  it("SYS-17: administrador_campus GET /api/security/metrics → 501 (SECURITY.READ)", async () => {
     const r = await hit("GET", "/api/security/metrics", T.adminCampus);
-    expect(r.status).toBe(200);
+    expect(r.status).toBe(501);
     const b = await r.json();
-    expect(b.securityScore).toBeDefined();
+    expect(b.code).toBe("NO_DISPONIBLE");
+    expect(b.securityScore).toBeUndefined();
   });
 });

@@ -83,6 +83,10 @@ test.describe("Importación incremental de estudiantes", () => {
   });
 
   test("ISI-E2E-01: UI importa 14 y omite 1 duplicado con evidencia en Neon", async ({ page }) => {
+    const retiredRequests: string[] = [];
+    page.on("request", request => {
+      if (request.url().includes("/api/migration/status")) retiredRequests.push(request.url());
+    });
     await loginAsAdmin(page);
     await page.goto("/importacion-datos", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: "Importación de Datos" })).toBeVisible();
@@ -124,11 +128,21 @@ test.describe("Importación incremental de estudiantes", () => {
     );
     expect(Number(afterPreview.rows[0].total)).toBe(0);
 
+    // Retener únicamente la respuesta de la importación real para comprobar
+    // el indicador mientras llega; no se modifica el resultado del servidor.
+    await page.route("**/api/import/data/estudiantes/estudiantes", async route => {
+      const response = await route.fetch();
+      await new Promise(resolve => setTimeout(resolve, 1_000));
+      await route.fulfill({ response });
+    }, { times: 1 });
     await dialog.getByRole("button", { name: "Confirmar Importación" }).click();
+    await expect(dialog.getByText("Importando…", { exact: true })).toBeVisible();
+    await expect(dialog.getByText(/^\d+%$/)).toHaveCount(0);
     await expect(dialog.getByText("Resultado de importación")).toBeVisible();
     await expect(dialog.getByTestId("import-successful")).toHaveText("14");
     await expect(dialog.getByTestId("import-skipped")).toHaveText("1");
     await expect(dialog.getByTestId("import-failed")).toHaveText("0");
+    expect(retiredRequests).toEqual([]);
 
     const inserted = await db.query(
       `SELECT COUNT(*)::int AS total,

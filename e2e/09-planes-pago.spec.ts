@@ -310,7 +310,8 @@ test.describe("Planes de Pago — E2E (ADR-002)", () => {
     await goToPlanesPago(page);
 
     // Expandir todos los planes
-    const botonesExpandir = page.locator("button").filter({ has: page.locator(".lucide-chevron-down, .lucide-chevron-up") });
+    const botonesExpandir = page.getByTestId("expandir-convenio");
+    await botonesExpandir.first().waitFor({ state: "visible" });
     const count = await botonesExpandir.count();
     for (let i = 0; i < Math.min(count, 3); i++) {
       await botonesExpandir.nth(i).click().catch(() => {});

@@ -616,6 +616,7 @@ export default function PlanesPago() {
                          </Button>
                        )}
                        <Button
+                         data-testid="expandir-convenio"
                          variant="ghost"
                          size="sm"
                          onClick={() => setExpandedPlan(isExpanded ? null : plan.id)}

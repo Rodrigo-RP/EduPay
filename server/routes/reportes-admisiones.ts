@@ -128,7 +128,7 @@ function buildAlumnosQuery(
       COALESCE(descuento.total_descuento, 0)::bigint                    AS monto_descuento_centavos,
       NULLIF(CONCAT(g.nombres, ' ', COALESCE(g.apellido_paterno, '')), ' ') AS tutor,
       g.correo_institucional_familiar                                    AS tutor_email,
-      s.created_at                                                       AS fecha_registro
+      ${schoolDateSQL("s.created_at")}                                    AS fecha_registro
     FROM students s
 
     -- Beca más reciente del alumno (puede ser null si no tiene beca)

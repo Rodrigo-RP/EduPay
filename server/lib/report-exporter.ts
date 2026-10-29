@@ -90,10 +90,23 @@ export function formatCellValue(val: unknown, fmt?: FormatType): string {
       return `${num.toFixed(1)}%`;
     }
     case "date": {
-      const d = val instanceof Date ? val : new Date(String(val));
-      if (isNaN(d.getTime())) return String(val);
-      // Una fecha sin hora conserva su día; un instante usa la zona escolar.
-      const [yyyy, mm, dd] = schoolDate(typeof val === "string" ? val : d).split("-");
+      // DATE y timestamp sin zona llegan del controlador en hora local del
+      // proceso: los getters locales recuperan exactamente el día guardado.
+      if (val instanceof Date) {
+        if (isNaN(val.getTime())) return String(val);
+        const dd = String(val.getDate()).padStart(2, "0");
+        const mm = String(val.getMonth() + 1).padStart(2, "0");
+        return `${dd}/${mm}/${val.getFullYear()}`;
+      }
+      const text = String(val);
+      // "YYYY-MM-DD" ya es un día de calendario; un instante ISO va a la zona escolar.
+      if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+        const [y, m, d] = text.split("-");
+        return `${d}/${m}/${y}`;
+      }
+      const instant = new Date(text);
+      if (isNaN(instant.getTime())) return text;
+      const [yyyy, mm, dd] = schoolDate(instant).split("-");
       return `${dd}/${mm}/${yyyy}`;
     }
     case "integer": {

@@ -188,8 +188,8 @@ describe("FMT — formatCellValue() — formateo correcto por tipo", () => {
       expect(formatCellValue("2026-01-15", "date")).toBe("15/01/2026");
     });
 
-    it("FMT-11: objeto Date → día escolar en DD/MM/YYYY", () => {
-      expect(formatCellValue(new Date("2026-04-20T00:00:00Z"), "date")).toBe("19/04/2026");
+    it("FMT-11: objeto Date del calendario local → DD/MM/YYYY", () => {
+      expect(formatCellValue(new Date(2026, 3, 20), "date")).toBe("20/04/2026");
     });
 
     it("FMT-12: valor nulo/undefined → cadena vacía", () => {

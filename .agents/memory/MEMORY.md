@@ -84,4 +84,4 @@
 - [Errores de consultas y diálogos](query-errors-and-dialogs.md) — los portales necesitan error local; una consulta deshabilitada no debe bloquear la pantalla.
 - [Jerarquía y aislamiento](role-and-assistant-isolation.md) — sin excepción para pares superadministradores; usuarios y asistente conservan tenant/campus de sesión.
 - [Retención de seguridad](security-retention-policy.md) — los 365 días son una decisión autorizada, no un parámetro que reducir al optimizar mantenimiento.
-- [Resolución de dependencias](npm-peer-resolution.md) — Arborist puede fallar antes de corregir el árbol; no confundir ese bloqueo con correcciones aplicadas.
+- [Resolución de dependencias](npm-peer-resolution.md) — comprobar npm ci y npm ls en copia limpia; instalar sin errores no garantiza requisitos pares válidos.

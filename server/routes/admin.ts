@@ -286,7 +286,7 @@ export function registerAdminRoutes(app: Express): void {
           `SELECT COUNT(*) AS cnt FROM bank_transactions
            WHERE campus_id = $1 AND estado_conciliacion = 'pendiente'`,
           [campusId]
-        ).catch(() => ({ rows: [{ cnt: 0 }] })),
+        ),
         pool.query(`
           SELECT COUNT(*) AS cnt
           FROM charges c JOIN students s ON c.student_id = s.id
@@ -570,17 +570,10 @@ export function registerAdminRoutes(app: Express): void {
          WHERE stu.campus_id = $1
            AND s.tenant_id = $2
         ORDER BY stu.nombre_completo
-       `, [campusId, (req as any).user?.tenant_id]).catch((err: any) => {
-        // Catch visible: un error real de DB se registra en logs. El catch
-        // silencioso anterior ocultó la ausencia de scholarship_types durante
-        // tiempo indeterminado. Mantenemos degradación elegante (array vacío)
-        // pero ahora el error es visible en los logs del servidor.
-        console.error("[GET /api/scholarships] DB error:", err.message);
-        return { rows: [] };
-      });
+       `, [campusId, (req as any).user?.tenant_id]);
       res.json(rows.rows);
     } catch (error: any) {
-      res.status(500).json({ message: "Error fetching scholarships" });
+      res.status(500).json({ message: "No se pudieron cargar las becas. Reintenta." });
     }
   });
 
@@ -643,7 +636,7 @@ export function registerAdminRoutes(app: Express): void {
              )
            )`,
         [studentId]
-      ).catch(() => ({ rows: [{ saldo_a_favor: 0 }] }));
+      );
       const saldoAFavor = Number((creditRes.rows as any[])[0]?.saldo_a_favor ?? 0);
 
       // Resumen financiero

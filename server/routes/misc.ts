@@ -136,7 +136,7 @@ export function registerMiscRoutes(app: Express): void {
       const planes = await Promise.all((planesRows.rows as any[]).map(async p => {
         const cuotasR = await pool.query(
           `SELECT * FROM charges WHERE plan_id = $1 ORDER BY fecha_vencimiento ASC`, [p.id]
-        ).catch(() => ({ rows: [] }));
+        );
         const cuotas = cuotasR.rows as any[];
         const cuotasPagadas = cuotas.filter(c => c.estado === 'pagado').length;
         const base = Number(p.total_adeudo_centavos) - Number(p.monto_inicial_centavos || 0);
@@ -881,7 +881,7 @@ export function registerMiscRoutes(app: Express): void {
       const planes = await Promise.all((planesRows.rows as any[]).map(async p => {
         const cuotasR = await pool.query(
           `SELECT * FROM charges WHERE plan_id = $1 ORDER BY fecha_vencimiento ASC`, [p.id]
-        ).catch(() => ({ rows: [] }));
+        );
         const cuotas = cuotasR.rows as any[];
         const cuotasPagadas = cuotas.filter((c: any) => c.estado === 'pagado').length;
         const base = Number(p.total_adeudo_centavos) - Number(p.monto_inicial_centavos || 0);
@@ -943,7 +943,7 @@ export function registerMiscRoutes(app: Express): void {
         pool.query(`SELECT COALESCE(SUM(p.monto_centavos),0) as total FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND ${schoolDateSQL("p.created_at")}>=date_trunc('month',${SCHOOL_TODAY_SQL}::timestamp)`, [campusId]),
         pool.query(`SELECT COALESCE(SUM(c.monto_base_centavos),0) as total FROM charges c JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND c.estado='pendiente'`, [campusId]),
         pool.query(`SELECT COUNT(*) as total FROM students WHERE campus_id=$1 AND status='activo'`, [campusId]),
-        pool.query(`SELECT COUNT(*) as cnt FROM bank_transactions WHERE campus_id=$1 AND estado_conciliacion='pendiente'`, [campusId]).catch(()=>({rows:[{cnt:0}]})),
+        pool.query(`SELECT COUNT(*) as cnt FROM bank_transactions WHERE campus_id=$1 AND estado_conciliacion='pendiente'`, [campusId]),
       ]);
       const ingresos = Number((paymentsRows.rows[0] as any)?.total||0);
       const pendiente = Number((chargesRows.rows[0] as any)?.total||0);
@@ -981,7 +981,7 @@ export function registerMiscRoutes(app: Express): void {
         JOIN students s ON s.id = c.student_id
         WHERE s.campus_id=$1 AND c.estado='pendiente'
         ORDER BY c.fecha_vencimiento ASC LIMIT 500
-      `, [campusId]).catch(() => ({ rows: [] }));
+      `, [campusId]);
       res.json(rows.rows);
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
@@ -990,7 +990,7 @@ export function registerMiscRoutes(app: Express): void {
   app.get("/api/crm/prospects", authenticateToken, async (req, res) => {
     try {
       const campusId = (req as any).user?.campus_id;
-      const rows = await pool.query(`SELECT * FROM crm_prospects WHERE campus_id=$1 ORDER BY created_at DESC LIMIT 200`, [campusId]).catch(() => ({ rows: [] }));
+      const rows = await pool.query(`SELECT * FROM crm_prospects WHERE campus_id=$1 ORDER BY created_at DESC LIMIT 200`, [campusId]);
       res.json(rows.rows);
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
@@ -1002,8 +1002,9 @@ export function registerMiscRoutes(app: Express): void {
       const row = await pool.query(`
         INSERT INTO crm_prospects (campus_id, nombre, email, telefono, nivel_interes, nivel_escolar, notas)
         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *
-      `, [campusId, nombre, email || null, telefono || null, nivel_interes || 'medio', nivel_escolar || null, notas || null]).catch(() => ({ rows: [req.body] }));
-      res.status(201).json((row.rows as any[])[0] || req.body);
+      `, [campusId, nombre, email || null, telefono || null, nivel_interes || 'medio', nivel_escolar || null, notas || null]);
+      if (!row.rows[0]) throw new Error("El servidor no confirmó la creación del prospecto");
+      res.status(201).json(row.rows[0]);
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
@@ -1303,8 +1304,8 @@ export function registerMiscRoutes(app: Express): void {
     try {
       const campusId = (req as any).user?.campus_id;
       const [pagosRows, txRows] = await Promise.all([
-        pool.query(`SELECT COUNT(*) as cnt, COALESCE(SUM(p.monto_centavos),0) as total FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND ${schoolDateSQL("p.created_at")}=${SCHOOL_TODAY_SQL}`, [campusId]).catch(()=>({rows:[{cnt:0,total:0}]})),
-        pool.query(`SELECT COUNT(*) as cnt FROM bank_transactions WHERE campus_id=$1 AND estado_conciliacion='pendiente'`, [campusId]).catch(()=>({rows:[{cnt:0}]})),
+        pool.query(`SELECT COUNT(*) as cnt, COALESCE(SUM(p.monto_centavos),0) as total FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND ${schoolDateSQL("p.created_at")}=${SCHOOL_TODAY_SQL}`, [campusId]),
+        pool.query(`SELECT COUNT(*) as cnt FROM bank_transactions WHERE campus_id=$1 AND estado_conciliacion='pendiente'`, [campusId]),
       ]);
       res.json({ pagos_hoy: Number((pagosRows.rows[0] as any)?.cnt||0), total_hoy: Number((pagosRows.rows[0] as any)?.total||0), spei_pendientes: Number((txRows.rows[0] as any)?.cnt||0) });
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
@@ -1322,7 +1323,7 @@ export function registerMiscRoutes(app: Express): void {
          WHERE s.campus_id = $1
          ORDER BY c.created_at DESC
          LIMIT 500
-      `, [campusId]).catch(()=>({rows:[]}));
+      `, [campusId]);
       res.json(rows.rows);
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
@@ -1890,9 +1891,9 @@ export function registerMiscRoutes(app: Express): void {
     try {
       const campusId = (req as any).user?.campus_id;
       const [studentsRows, paymentsRows, chargesRows] = await Promise.all([
-        pool.query(`SELECT COUNT(*) as total FROM students WHERE campus_id=$1`, [campusId]).catch(() => ({ rows: [{ total: 0 }] })),
-        pool.query(`SELECT COALESCE(SUM(p.monto_centavos),0) as total FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1`, [campusId]).catch(() => ({ rows: [{ total: 0 }] })),
-        pool.query(`SELECT COALESCE(SUM(c.monto_base_centavos),0) as pendiente FROM charges c JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND c.estado='pendiente'`, [campusId]).catch(() => ({ rows: [{ pendiente: 0 }] })),
+        pool.query(`SELECT COUNT(*) as total FROM students WHERE campus_id=$1`, [campusId]),
+        pool.query(`SELECT COALESCE(SUM(p.monto_centavos),0) as total FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1`, [campusId]),
+        pool.query(`SELECT COALESCE(SUM(c.monto_base_centavos),0) as pendiente FROM charges c JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND c.estado='pendiente'`, [campusId]),
       ]);
       res.json({
         total_students: Number((studentsRows.rows[0] as any)?.total || 0),

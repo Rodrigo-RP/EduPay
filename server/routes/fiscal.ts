@@ -247,7 +247,7 @@ export function registerFiscalRoutes(app: Express): void {
          JOIN students s ON s.id = c.student_id
           WHERE s.campus_id = $1 AND s.tenant_id = $2`,
          [campusId, tenantId],
-      ).catch(() => ({ rows: [{ total_invoices: 0 }] }));
+      );
       res.json({ total_invoices: Number((rows.rows[0] as any)?.total_invoices || 0) });
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
@@ -294,9 +294,9 @@ export function registerFiscalRoutes(app: Express): void {
        const tenantId = (req as any).user?.tenant_id;
        if (!await checkCampusTenant(campusId, tenantId, res)) return;
       const [emitidosRows, pendientesRows, canceladosRows] = await Promise.all([
-         pool.query(`SELECT COUNT(*) as cnt, COALESCE(SUM(p.monto_centavos),0) as monto FROM invoices i JOIN payments p ON p.id=i.payment_id JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND s.tenant_id=$2 AND p.tenant_id=$2 AND c.tenant_id=$2 AND i.estado='emitido'`, [campusId, tenantId]).catch(() => ({ rows: [{ cnt: 0, monto: 0 }] })),
-         pool.query(`SELECT COUNT(*) as cnt FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id LEFT JOIN invoices i ON i.payment_id=p.id WHERE s.campus_id=$1 AND s.tenant_id=$2 AND p.tenant_id=$2 AND c.tenant_id=$2 AND i.id IS NULL`, [campusId, tenantId]).catch(() => ({ rows: [{ cnt: 0 }] })),
-         pool.query(`SELECT COUNT(*) as cnt FROM invoices i JOIN payments p ON p.id=i.payment_id JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND s.tenant_id=$2 AND p.tenant_id=$2 AND c.tenant_id=$2 AND i.estado='cancelado'`, [campusId, tenantId]).catch(() => ({ rows: [{ cnt: 0 }] })),
+         pool.query(`SELECT COUNT(*) as cnt, COALESCE(SUM(p.monto_centavos),0) as monto FROM invoices i JOIN payments p ON p.id=i.payment_id JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND s.tenant_id=$2 AND p.tenant_id=$2 AND c.tenant_id=$2 AND i.estado='emitido'`, [campusId, tenantId]),
+         pool.query(`SELECT COUNT(*) as cnt FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id LEFT JOIN invoices i ON i.payment_id=p.id WHERE s.campus_id=$1 AND s.tenant_id=$2 AND p.tenant_id=$2 AND c.tenant_id=$2 AND i.id IS NULL`, [campusId, tenantId]),
+         pool.query(`SELECT COUNT(*) as cnt FROM invoices i JOIN payments p ON p.id=i.payment_id JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND s.tenant_id=$2 AND p.tenant_id=$2 AND c.tenant_id=$2 AND i.estado='cancelado'`, [campusId, tenantId]),
       ]);
       res.json({
         emitidos:      Number((emitidosRows.rows[0] as any)?.cnt   || 0),

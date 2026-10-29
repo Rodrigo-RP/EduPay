@@ -551,9 +551,9 @@ export function registerConciliacionRoutes(app: Express): void {
       const campusId = parseInt(req.params.campusId) || req.user?.campus_id;
       if (!await checkCampusTenant(campusId, req.user?.tenant_id, res)) return;
       const [studentsRows, paymentsRows, chargesRows] = await Promise.all([
-        pool.query(`SELECT COUNT(*) as total FROM students WHERE campus_id = $1 AND status = 'activo'`, [campusId]).catch(() => ({ rows: [{ total: 0 }] })),
-        pool.query(`SELECT COALESCE(SUM(p.monto_centavos),0) as total FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND ${schoolDateSQL("p.created_at")}>=date_trunc('month',${SCHOOL_TODAY_SQL}::timestamp)`, [campusId]).catch(() => ({ rows: [{ total: 0 }] })),
-        pool.query(`SELECT COALESCE(SUM(c.monto_base_centavos),0) as total, COUNT(*) as cnt FROM charges c JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND c.estado='pendiente'`, [campusId]).catch(() => ({ rows: [{ total: 0, cnt: 0 }] })),
+        pool.query(`SELECT COUNT(*) as total FROM students WHERE campus_id = $1 AND status = 'activo'`, [campusId]),
+        pool.query(`SELECT COALESCE(SUM(p.monto_centavos),0) as total FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND ${schoolDateSQL("p.created_at")}>=date_trunc('month',${SCHOOL_TODAY_SQL}::timestamp)`, [campusId]),
+        pool.query(`SELECT COALESCE(SUM(c.monto_base_centavos),0) as total, COUNT(*) as cnt FROM charges c JOIN students s ON s.id=c.student_id WHERE s.campus_id=$1 AND c.estado='pendiente'`, [campusId]),
       ]);
       const ingresosRaw = Number((paymentsRows.rows[0] as any)?.total || 0);
       const pendienteRaw = Number((chargesRows.rows[0] as any)?.total || 0);
@@ -562,8 +562,8 @@ export function registerConciliacionRoutes(app: Express): void {
       const mora = totalRaw > 0 ? Math.round((pendienteRaw / totalRaw) * 100) : 0;
 
       const [speiRows, cfdiRows] = await Promise.all([
-        pool.query(`SELECT COUNT(*) as cnt FROM bank_transactions WHERE campus_id = $1 AND estado_conciliacion = 'pendiente'`, [campusId]).catch(() => ({ rows: [{cnt: 0}] })),
-        pool.query(`SELECT COUNT(*) as cnt FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id LEFT JOIN invoices i ON i.payment_id=p.id WHERE s.campus_id=$1 AND i.id IS NULL`, [campusId]).catch(() => ({ rows: [{cnt: 0}] })),
+        pool.query(`SELECT COUNT(*) as cnt FROM bank_transactions WHERE campus_id = $1 AND estado_conciliacion = 'pendiente'`, [campusId]),
+        pool.query(`SELECT COUNT(*) as cnt FROM payments p JOIN charges c ON c.id=p.charge_id JOIN students s ON s.id=c.student_id LEFT JOIN invoices i ON i.payment_id=p.id WHERE s.campus_id=$1 AND i.id IS NULL`, [campusId]),
       ]);
 
       res.json({
@@ -891,7 +891,7 @@ export function registerConciliacionRoutes(app: Express): void {
     }
     try {
       const campusId = (req as any).user?.campus_id;
-      const rows = await pool.query(`SELECT * FROM bank_transactions WHERE campus_id = $1 ORDER BY fecha DESC, id DESC LIMIT 100`, [campusId]).catch(() => ({ rows: [] }));
+      const rows = await pool.query(`SELECT * FROM bank_transactions WHERE campus_id = $1 ORDER BY fecha DESC, id DESC LIMIT 100`, [campusId]);
       res.json(rows.rows);
     } catch (error: any) {
       res.status(500).json({ message: "Error interno del servidor" });
@@ -959,9 +959,9 @@ export function registerConciliacionRoutes(app: Express): void {
     try {
       const campusId = (req as any).user?.campus_id;
       const [totalRows, conciliadosRows, pendientesRows] = await Promise.all([
-        pool.query(`SELECT COUNT(*) as total, COALESCE(SUM(monto_centavos),0) as monto FROM bank_transactions WHERE campus_id=$1`, [campusId]).catch(() => ({ rows: [{ total: 0, monto: 0 }] })),
-        pool.query(`SELECT COUNT(*) as total, COALESCE(SUM(monto_centavos),0) as monto FROM bank_transactions WHERE campus_id=$1 AND estado_conciliacion='conciliado'`, [campusId]).catch(() => ({ rows: [{ total: 0, monto: 0 }] })),
-        pool.query(`SELECT COUNT(*) as total, COALESCE(SUM(monto_centavos),0) as monto FROM bank_transactions WHERE campus_id=$1 AND estado_conciliacion='pendiente'`, [campusId]).catch(() => ({ rows: [{ total: 0, monto: 0 }] })),
+        pool.query(`SELECT COUNT(*) as total, COALESCE(SUM(monto_centavos),0) as monto FROM bank_transactions WHERE campus_id=$1`, [campusId]),
+        pool.query(`SELECT COUNT(*) as total, COALESCE(SUM(monto_centavos),0) as monto FROM bank_transactions WHERE campus_id=$1 AND estado_conciliacion='conciliado'`, [campusId]),
+        pool.query(`SELECT COUNT(*) as total, COALESCE(SUM(monto_centavos),0) as monto FROM bank_transactions WHERE campus_id=$1 AND estado_conciliacion='pendiente'`, [campusId]),
       ]);
       res.json({
         total_transacciones: Number((totalRows.rows[0] as any)?.total || 0),
@@ -993,7 +993,7 @@ export function registerConciliacionRoutes(app: Express): void {
         WHERE campus_id = $1 AND estado_conciliacion = 'pendiente'
           AND tipo = 'credito' AND monto_centavos > 0
         ORDER BY fecha ASC, id ASC
-      `, [campusId]).catch(() => ({ rows: [] }));
+      `, [campusId]);
 
       const { charges, fpsByClabe, tutoresByFamilyId } =
         await _cargarContextoScoring(tenantId, campusId);

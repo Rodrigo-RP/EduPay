@@ -59,6 +59,7 @@ import ExcepcionesConciliacion from "@/pages/excepciones-conciliacion";
 import MagicLinkRedirect from "@/pages/magic-link-redirect";
 import AssistantWidget from "@/components/AssistantWidget";
 import OnboardingGuard from "@/components/OnboardingGuard";
+import DataReadBoundary from "@/components/data-read-boundary";
 
 function AuthenticatedRoutes() {
   const { user, guardian, isLoading } = useAuth();
@@ -88,6 +89,7 @@ function AuthenticatedRoutes() {
         <div className="flex-1 flex flex-col">
           <Header />
           <main className="flex-1 p-6 bg-slate-50">
+            <DataReadBoundary>
             <Switch>
               <Route path="/" component={AdminDashboard} />
               <Route path="/admin" component={AdminDashboard} />
@@ -122,6 +124,7 @@ function AuthenticatedRoutes() {
               <Route path="/excepciones-conciliacion" component={ExcepcionesConciliacion} />
               <Route component={AdminDashboard} />
             </Switch>
+            </DataReadBoundary>
           </main>
         </div>
         <AssistantWidget />
@@ -147,7 +150,7 @@ function AuthenticatedRoutes() {
            * super_admin is handled in a separate routing block above and
            * is not wrapped by this guard.
            */}
-          <OnboardingGuard>
+          <DataReadBoundary><OnboardingGuard>
             <Switch>
               <Route path="/" component={getRoleBasedDashboard()} />
               <Route path="/admin" component={AdminDashboard} />
@@ -191,12 +194,16 @@ function AuthenticatedRoutes() {
               <Route path="/excepciones-conciliacion" component={ExcepcionesConciliacion} />
               <Route component={NotFound} />
             </Switch>
-          </OnboardingGuard>
+          </OnboardingGuard></DataReadBoundary>
         </main>
       </div>
       <AssistantWidget />
     </div>
   );
+}
+
+function StandaloneReceivables() {
+  return <DataReadBoundary><CuentasPorCobrarStandalone /></DataReadBoundary>;
 }
 
 function App() {
@@ -209,7 +216,7 @@ function App() {
               <TooltipProvider>
                 <div className="min-h-screen bg-slate-50">
                   <Switch>
-                    <Route path="/cuentas-standalone" component={CuentasPorCobrarStandalone} />
+                    <Route path="/cuentas-standalone" component={StandaloneReceivables} />
                     <Route path="/demo-setup" component={DemoSetup} />
                     <Route path="/pagar/:token" component={MagicLinkRedirect} />
                     <Route component={AuthenticatedRoutes} />

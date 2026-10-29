@@ -75,7 +75,7 @@ export function TutoresPanel({ studentId, isOpen }: { studentId?: number; isOpen
     queryKey: ["/api/admin/magic-link/history", historyDialog?.guardianId],
     queryFn: async () => {
       const res = await fetch(`/api/admin/magic-link/history/${historyDialog!.guardianId}`, { headers });
-      if (!res.ok) return [];
+      if (!res.ok) throw new Error("No se pudo cargar el historial de ligas");
       return res.json();
     },
     enabled: !!historyDialog?.open && !!historyDialog.guardianId,

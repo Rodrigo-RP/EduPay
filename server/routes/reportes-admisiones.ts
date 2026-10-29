@@ -293,9 +293,9 @@ export function registerReportesAdmisionesRoutes(app: Express): void {
              )
              AND p.estado = 'exitoso'`,
           [campusId, cicloCalc],
-        ).catch(() => ({ rows: [{ total: 0, monto_centavos: 0 }] })),
+        ),
 
-        // 4. Distribución por tipo de beca (con catch si scholarship_types no existe)
+        // 4. Distribución por tipo de beca: un fallo invalida el reporte.
         pool.query(
           `SELECT COALESCE(st.nombre, 'Sin tipo') AS tipo,
                   st.categoria                    AS categoria,
@@ -308,7 +308,7 @@ export function registerReportesAdmisionesRoutes(app: Express): void {
            GROUP BY st.id, st.nombre, st.categoria
            ORDER BY cantidad DESC`,
           [campusId],
-        ).catch(() => ({ rows: [] })),
+        ),
       ]);
 
       // ── Consulta por alumno ───────────────────────────────────────────────

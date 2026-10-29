@@ -179,7 +179,7 @@ export function registerChargesRoutes(app: Express): void {
          WHERE s.campus_id = $1
          ORDER BY c.created_at DESC
          LIMIT 200
-      `, [campusId]).catch(()=>({rows:[]}));
+      `, [campusId]);
       res.json(rows.rows);
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });

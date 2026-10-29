@@ -1274,7 +1274,7 @@ export function registerPaymentRoutes(app: Express): void {
       const rows = await pool.query(
         `SELECT id, nombre, estado, created_at FROM migration_projects WHERE campus_id=$1 ORDER BY created_at DESC LIMIT 50`,
         [campusId]
-      ).catch(() => ({ rows: [] }));
+      );
       res.json(rows.rows);
     } catch (error: any) {
       res.status(500).json({ message: "Error interno del servidor" });

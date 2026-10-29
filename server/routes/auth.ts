@@ -498,7 +498,7 @@ export function registerAuthRoutes(app: Express): void {
          WHERE mlt.guardian_id = $1 AND mlt.tenant_id = $2
          ORDER BY mlt.created_at DESC LIMIT 10`,
         [guardianId, tenantId]
-      ).catch(() => ({ rows: [] }));
+      );
 
       res.json(rows.rows.map((r: any) => ({
         id:           r.id,

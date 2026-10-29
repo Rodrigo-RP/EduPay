@@ -89,7 +89,8 @@ export default function Cargos() {
     queryKey: ["/api/admin/charges"],
     queryFn: async () => {
       const res = await fetch("/api/admin/charges", { headers: { Authorization: `Bearer ${token()}` } });
-      return res.ok ? res.json() : [];
+      if (!res.ok) throw new Error("No se pudieron cargar los cargos");
+      return res.json();
     },
   });
 

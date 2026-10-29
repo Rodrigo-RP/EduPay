@@ -34,7 +34,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 import { pool } from "../db";
 
 const BASE       = "http://localhost:5000";

@@ -5,7 +5,7 @@ import { schoolDate, SCHOOL_TODAY_SQL } from "../shared/school-date";
  * real del asistente y herramientas read-only contra la base de desarrollo.
  */
 import { test, expect } from "@playwright/test";
-import jwt from "jsonwebtoken";
+import jwt from "../server/test-support/session-jwt";
 import { executeAction } from "../server/assistant-actions";
 import { pool } from "../server/db";
 

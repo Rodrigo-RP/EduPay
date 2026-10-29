@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 import { pool } from "../db";
 import { storage } from "../storage";
 import { JWT_SECRET } from "../routes/shared";

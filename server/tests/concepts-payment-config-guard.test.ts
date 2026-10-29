@@ -38,7 +38,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { pool, db } from "../db";
 import { concepts, payment_due_dates, payment_surcharge_rules } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 
 const BASE = "http://localhost:5000";
 import { JWT_SECRET } from "../routes/shared";

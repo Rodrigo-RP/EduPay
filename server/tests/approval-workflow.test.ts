@@ -16,7 +16,7 @@ import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { pool } from "../db";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 
 const BASE       = "http://localhost:5000";
 import { JWT_SECRET } from "../routes/shared";

@@ -623,7 +623,8 @@ export function registerUserRoutes(app: Express): void {
           id: user.id, 
           email: user.email, 
           role: user.role,
-          profile_type: user.profile.profile_type
+          profile_type: user.profile.profile_type,
+          password_version: 0 // Acceso heredado a plataforma; no tiene password_changed_at en users.
         },
         JWT_SECRET,
         { expiresIn: '8h' }

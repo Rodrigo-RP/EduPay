@@ -1,5 +1,5 @@
 import express from "express";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 import { readFileSync, readdirSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 

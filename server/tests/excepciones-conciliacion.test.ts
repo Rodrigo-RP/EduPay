@@ -22,7 +22,7 @@ import {
   charges, concepts,
 } from "../../shared/schema";
 import { eq, or } from "drizzle-orm";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 
 const BASE       = "http://localhost:5000";
 import { JWT_SECRET } from "../routes/shared";

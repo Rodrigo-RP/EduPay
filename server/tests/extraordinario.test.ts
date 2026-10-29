@@ -20,7 +20,7 @@ import { db, pool } from "../db";
 import {
   tenants, campuses, students, concepts,
 } from "../../shared/schema";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 
 const BASE       = "http://localhost:5000";
 import { JWT_SECRET } from "../routes/shared";

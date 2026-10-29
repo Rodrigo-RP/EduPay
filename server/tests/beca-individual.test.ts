@@ -16,7 +16,7 @@ import { tenants, campuses, students } from "../../shared/schema";
 import { detectSuggestTrigger } from "../assistant-knowledge";
 import { resolveSuggestContext } from "../assistant-actions";
 import { resolveEffectiveScholarship } from "../lib/scholarship-engine";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 
 const BASE       = "http://localhost:5000";
 import { JWT_SECRET } from "../routes/shared";

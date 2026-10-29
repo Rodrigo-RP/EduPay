@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 import { pool } from "../db";
 
 const SERVER = "http://localhost:5000";

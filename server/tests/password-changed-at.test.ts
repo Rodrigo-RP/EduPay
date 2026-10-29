@@ -28,7 +28,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { pool } from "../db";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 
 const BASE       = "http://localhost:5000";
 import { JWT_SECRET } from "../routes/shared";
@@ -71,11 +71,13 @@ function staleGuardianToken(id: number) {
 }
 
 // Token emitido DESPUÉS del cambio (iat = ahora + 1s)
-function freshUserToken(id: number) {
+async function freshUserToken(id: number) {
+  const { rows } = await pool.query("SELECT password_changed_at FROM users WHERE id = $1", [id]);
+  const password_version = rows[0].password_changed_at ? new Date(rows[0].password_changed_at).getTime() : 0;
   const iat = Math.floor(Date.now() / 1000) + 1;
   return jwt.sign(
     { id, email: `user${id}@test.invalid`, role: "asistente",
-      campus_id: campusId, tenant_id: tenantId, type: "user", iat },
+      campus_id: campusId, tenant_id: tenantId, type: "user", iat, password_version },
     JWT_SECRET,
     { expiresIn: "24h" },
   );
@@ -188,7 +190,7 @@ describe("Invalidación de sesión tras cambio de contraseña (#138)", () => {
     expect(body.code).toBe("SESSION_INVALIDATED");
 
     // Fresh token (iat > password_changed_at) debe funcionar
-    const fresh = freshUserToken(selfUserId);
+    const fresh = await freshUserToken(selfUserId);
     const probe2 = await probeProtected(fresh);
     expect(probe2.status, "Fresh token aún funciona").not.toBe(401);
   });
@@ -288,7 +290,7 @@ describe("Invalidación de sesión tras cambio de contraseña (#138)", () => {
   // ── PCA-06: token emitido después del cambio sigue funcionando ────────────
   it("PCA-06 — token emitido después del cambio no es invalidado (sesiones legítimas intactas)", async () => {
     // selfUserId ya tiene password_changed_at set por PCA-01
-    const fresh = freshUserToken(selfUserId);
+    const fresh = await freshUserToken(selfUserId);
 
     const probe = await probeProtected(fresh);
     expect(probe.status, "Fresh token posterior al cambio funciona").not.toBe(401);

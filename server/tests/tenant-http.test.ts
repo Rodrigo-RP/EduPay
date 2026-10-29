@@ -17,7 +17,7 @@ import {
   charges, concepts,
 } from "../../shared/schema";
 import { eq, or } from "drizzle-orm";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 // resetPaymentRateLimitStore se llama globalmente desde tests/setup.ts
 
 const BASE_URL = "http://localhost:5000";

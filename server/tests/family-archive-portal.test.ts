@@ -10,7 +10,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 import { pool } from "../db";
 
 const BASE = "http://localhost:5000";

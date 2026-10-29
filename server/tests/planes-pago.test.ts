@@ -18,7 +18,7 @@ import {
   charges, concepts, payment_applications, payments,
 } from "../../shared/schema";
 import { eq } from "drizzle-orm";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 
 const BASE       = "http://localhost:5000";
 const PLAN_START = schoolDate(new Date(Date.now() + 45 * 86_400_000));

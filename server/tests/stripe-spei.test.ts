@@ -9,7 +9,7 @@ import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import express from "express";
 import type { Server } from "http";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 import { pool, db } from "../db";
 import { campuses, tenants } from "../../shared/schema";
 import { registerGuardianRoutes, type StripeGuardianClient } from "../routes/guardian";

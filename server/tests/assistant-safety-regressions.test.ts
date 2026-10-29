@@ -5,7 +5,7 @@
  * - Privacidad al desambiguar alumnos.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 import { matchIntent } from "../assistant-knowledge";
 import { pool } from "../db";
 

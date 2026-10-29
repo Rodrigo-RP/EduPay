@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 import { JWT_SECRET } from "../routes/shared";
 
 const BASE = "http://localhost:5000";

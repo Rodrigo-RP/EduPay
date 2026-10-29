@@ -13,7 +13,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { pool, db } from "../db";
 import { users } from "../../shared/schema";
 import { eq } from "drizzle-orm";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 import bcrypt from "bcrypt";
 
 const BASE = "http://localhost:5000";

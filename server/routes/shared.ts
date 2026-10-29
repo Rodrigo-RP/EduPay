@@ -10,6 +10,8 @@ import { createRequire } from "module";
 import { storage } from "../storage";
 import { pool } from "../db";
 import { hasPermission } from "@shared/permissions";
+export { isSessionInvalidated, passwordVersion } from "../lib/session-version";
+import { isSessionInvalidated } from "../lib/session-version";
 
 // ── createRequire para paquetes CJS en módulo ESM ────────────────────────────
 // "type":"module" en package.json rompe require(); usar esmRequire en su lugar.
@@ -66,16 +68,7 @@ export const upload = multer({
 export const MSG_SESSION_INVALIDATED =
   "Tu sesión ya no es válida, tu contraseña cambió. Inicia sesión de nuevo.";
 
-// ── Helper: verificar iat vs password_changed_at (#138) ──────────────────────
-// Devuelve true si el token se emitió ANTES del último cambio de contraseña.
-// iat es Unix seconds; passwordChangedAt es Date (ms).
-export function isSessionInvalidated(
-  iat: number | undefined,
-  passwordChangedAt: Date | null,
-): boolean {
-  if (!passwordChangedAt || iat == null) return false;
-  return iat < Math.floor(passwordChangedAt.getTime() / 1000);
-}
+// Se exige igualdad exacta de password_version, también dentro del mismo segundo.
 
 // ── Helper: cargar custom_permissions + password_changed_at en una sola query ─
 // ADR-003: fuente de verdad en DB (no JWT). La consulta ya existía para
@@ -104,7 +97,7 @@ export async function loadUserAuthData(
         : null,
     };
   } catch {
-    return { customPermissions: [], passwordChangedAt: null };
+    throw new Error("No se pudo validar la versión de sesión");
   }
 }
 
@@ -123,7 +116,7 @@ export async function loadGuardianPasswordChangedAt(
     const raw = (row.rows[0] as any)?.password_changed_at;
     return raw ? new Date(raw) : null;
   } catch {
-    return null;
+    throw new Error("No se pudo validar la versión de sesión");
   }
 }
 
@@ -141,7 +134,7 @@ export const authenticateToken = async (req: any, res: any, next: any) => {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     // Una sola query obtiene custom_permissions Y password_changed_at (ADR-003 + #138).
     const { customPermissions, passwordChangedAt } = await loadUserAuthData(decoded.id);
-    if (isSessionInvalidated(decoded.iat, passwordChangedAt)) {
+    if (isSessionInvalidated(decoded.password_version, passwordChangedAt)) {
       return res.status(401).json({
         message: MSG_SESSION_INVALIDATED,
         code:    "SESSION_INVALIDATED",
@@ -166,7 +159,7 @@ export const authenticateGuardian = async (req: any, res: any, next: any) => {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     if (decoded.type !== "guardian") return res.sendStatus(403);
     const passwordChangedAt = await loadGuardianPasswordChangedAt(decoded.id);
-    if (isSessionInvalidated(decoded.iat, passwordChangedAt)) {
+    if (isSessionInvalidated(decoded.password_version, passwordChangedAt)) {
       return res.status(401).json({
         message: MSG_SESSION_INVALIDATED,
         code:    "SESSION_INVALIDATED",
@@ -193,7 +186,7 @@ export const requireAuth = async (req: any, res: any, next: any) => {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     // Misma fuente de verdad que authenticateToken (ADR-003 + #138).
     const { customPermissions, passwordChangedAt } = await loadUserAuthData(decoded.id);
-    if (isSessionInvalidated(decoded.iat, passwordChangedAt)) {
+    if (isSessionInvalidated(decoded.password_version, passwordChangedAt)) {
       return res.status(401).json({
         error:   "Sesión inválida",
         message: MSG_SESSION_INVALIDATED,
@@ -225,7 +218,7 @@ export const requireSuperAdmin = async (req: any, res: any, next: any) => {
     if (!decoded?.id) return res.status(401).json({ message: "Token inválido" });
     const user = await storage.getUser(decoded.id);
     if (!user) return res.status(401).json({ message: "Usuario no encontrado" });
-    if (isSessionInvalidated(decoded.iat, (user as any).password_changed_at ?? null)) {
+    if (isSessionInvalidated(decoded.password_version, (user as any).password_changed_at ?? null)) {
       return res.status(401).json({
         message: MSG_SESSION_INVALIDATED,
         code:    "SESSION_INVALIDATED",

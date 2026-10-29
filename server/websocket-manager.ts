@@ -5,6 +5,7 @@ import { db } from './db';
 import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { JWT_SECRET } from './routes/shared';
+import { isSessionInvalidated } from './lib/session-version';
 
 interface AuthenticatedSocket extends WebSocket {
   user?: {
@@ -158,7 +159,8 @@ class WebSocketManager {
         .where(eq(users.id, decoded.id))
         .limit(1);
 
-      if (!user || !user.is_active || !user.campus_id || !user.tenant_id) {
+      if (!user || !user.is_active || !user.campus_id || !user.tenant_id ||
+          isSessionInvalidated(decoded.password_version, user.password_changed_at)) {
         ws.send(JSON.stringify({ 
           type: 'auth_error', 
           message: 'Usuario no encontrado, inactivo o datos incompletos' 

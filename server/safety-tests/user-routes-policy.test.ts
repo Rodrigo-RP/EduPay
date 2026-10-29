@@ -1,5 +1,5 @@
 import express from "express";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({

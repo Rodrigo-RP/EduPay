@@ -29,7 +29,7 @@ import express from "express";
 import type { Server } from "http";
 import { db, pool } from "../db";
 import { tenants, campuses } from "../../shared/schema";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 import {
   registerStripeWebhookRoute,
   registerCampusPaymentRoutes,

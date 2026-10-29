@@ -13,7 +13,7 @@ import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 import { pool } from "../db";          // pool del servidor — misma instancia, sin conexión extra
 
 import { JWT_SECRET } from "../routes/shared";

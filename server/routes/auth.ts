@@ -15,6 +15,7 @@ import {
   loadUserAuthData,
   loadGuardianPasswordChangedAt,
   isSessionInvalidated,
+  passwordVersion,
   MSG_SESSION_INVALIDATED,
 } from "./shared";
 
@@ -65,7 +66,7 @@ export function registerAuthRoutes(app: Express): void {
       }
 
       const token = jwt.sign(
-        { id: user.id, email: user.email, role: user.role, campus_id: user.campus_id, tenant_id: user.tenant_id, is_super_admin: user.is_super_admin, type: 'user' },
+        { id: user.id, email: user.email, role: user.role, campus_id: user.campus_id, tenant_id: user.tenant_id, is_super_admin: user.is_super_admin, type: 'user', password_version: passwordVersion(user.password_changed_at) },
         JWT_SECRET,
         { expiresIn: '24h' }
       );
@@ -198,7 +199,7 @@ export function registerAuthRoutes(app: Express): void {
         const passwordChangedAt = isGuardian
           ? await loadGuardianPasswordChangedAt(decoded.id)
           : (await loadUserAuthData(decoded.id)).passwordChangedAt;
-        if (isSessionInvalidated(decoded.iat, passwordChangedAt)) {
+        if (isSessionInvalidated(decoded.password_version, passwordChangedAt)) {
           return res.status(401).json({ message: MSG_SESSION_INVALIDATED, code: 'SESSION_INVALIDATED' });
         }
 
@@ -210,6 +211,7 @@ export function registerAuthRoutes(app: Express): void {
             campus_id: decoded.campus_id,
             tenant_id: decoded.tenant_id,
             type:      decoded.type || 'user',
+            password_version: passwordVersion(passwordChangedAt),
           },
           JWT_SECRET,
           { expiresIn: '24h' }
@@ -229,7 +231,7 @@ export function registerAuthRoutes(app: Express): void {
           const passwordChangedAt = isGuardian
             ? await loadGuardianPasswordChangedAt(decoded.id)
             : (await loadUserAuthData(decoded.id)).passwordChangedAt;
-          if (isSessionInvalidated(decoded.iat, passwordChangedAt)) {
+          if (isSessionInvalidated(decoded.password_version, passwordChangedAt)) {
             return res.status(401).json({ message: MSG_SESSION_INVALIDATED, code: 'SESSION_INVALIDATED' });
           }
 
@@ -245,6 +247,7 @@ export function registerAuthRoutes(app: Express): void {
               campus_id: isGuardian ? decoded.campus_id : user!.campus_id,
               tenant_id: isGuardian ? decoded.tenant_id : user!.tenant_id,
               type:      decoded.type || 'user',
+              password_version: passwordVersion(passwordChangedAt),
             },
             JWT_SECRET,
             { expiresIn: '24h' }
@@ -287,6 +290,7 @@ export function registerAuthRoutes(app: Express): void {
           tenant_id: (guardian as any).tenant_id,
           campus_id: (guardian as any).campus_id,   // requerido por /api/guardian/pagar → getActiveStripeAccountForCampus
           type:      'guardian',
+          password_version: passwordVersion(guardian.password_changed_at),
         },
         JWT_SECRET,
         { expiresIn: '24h' }
@@ -447,7 +451,7 @@ export function registerAuthRoutes(app: Express): void {
       // Si el guardian fue eliminado/reasignado después de emitir el token,
       // fallamos aquí sin emitir un JWT con identidad inconsistente.
       const gResult = await pool.query(
-        `SELECT nombres, apellido_paterno, correo_institucional_familiar, email, nombre_completo
+        `SELECT nombres, apellido_paterno, correo_institucional_familiar, email, nombre_completo, password_changed_at
          FROM guardians WHERE id = $1 AND tenant_id = $2`,
         [row.guardian_id, row.tenant_id]
       );
@@ -465,7 +469,7 @@ export function registerAuthRoutes(app: Express): void {
       // Generar JWT de tutor (4 horas)
       const guardianEmail = g.correo_institucional_familiar || g.email || null;
       const guardianJwt = jwt.sign(
-        { id: row.guardian_id, email: guardianEmail, tenant_id: row.tenant_id, type: 'guardian' },
+        { id: row.guardian_id, email: guardianEmail, tenant_id: row.tenant_id, type: 'guardian', password_version: passwordVersion(g.password_changed_at) },
         JWT_SECRET,
         { expiresIn: '4h' }
       );

@@ -1,6 +1,6 @@
 import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 import { pool } from "../db";
 import { JWT_SECRET } from "../routes/shared";
 

@@ -17,7 +17,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { pool, db } from "../db";
 import { charges, concepts, tenants, campuses, students, guardians, student_guardian, payment_applications, payments } from "../../shared/schema";
 import { eq, inArray } from "drizzle-orm";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 import { markChargeAsPaidForTest } from "./test-helpers";
 // resetPaymentRateLimitStore se llama globalmente desde tests/setup.ts
 

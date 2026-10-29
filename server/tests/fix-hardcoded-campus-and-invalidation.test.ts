@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 import { pool, db } from "../db";
 import { payment_rules, students } from "../../shared/schema";
 import { eq } from "drizzle-orm";

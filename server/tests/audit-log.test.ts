@@ -12,7 +12,7 @@
  *  - Student update / delete routes record audit entries
  */
 
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 
 const BASE = "http://localhost:5000";
 import { JWT_SECRET } from "../routes/shared";

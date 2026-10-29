@@ -19,7 +19,7 @@
 import { describe, it, expect, afterAll } from "vitest";
 import { pool } from "../db";
 import Stripe from "stripe";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 
 import { JWT_SECRET } from "../routes/shared";
 const STRIPE_KEY  = process.env.STRIPE_SECRET_KEY!;

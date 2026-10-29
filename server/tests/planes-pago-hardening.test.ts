@@ -10,7 +10,7 @@ import { schoolDate, SCHOOL_TODAY_SQL } from "../../shared/school-date";
  * - enganche no negativo.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 import { pool } from "../db";
 const PLAN_START = schoolDate(new Date(Date.now() + 45 * 86_400_000));
 import { JWT_SECRET } from "../routes/shared";

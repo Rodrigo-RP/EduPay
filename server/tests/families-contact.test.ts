@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import express from "express";
 import type { Server } from "http";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 import { pool } from "../db";
 import { storage } from "../storage";
 import { assertTestDatabase } from "../lib/database-safety";

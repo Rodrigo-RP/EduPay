@@ -20,7 +20,7 @@ import express from "express";
 import type { Server } from "http";
 import { pool, db } from "../db";
 import { tenants, campuses } from "../../shared/schema";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 import { registerGuardianRoutes } from "../routes/guardian";
 import { registerStripeWebhookRoute } from "../routes/campus-payment";
 import Stripe from "stripe";

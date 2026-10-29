@@ -1,5 +1,5 @@
 import express from "express";
-import jwt from "jsonwebtoken";
+import jwt from "../test-support/session-jwt";
 import { randomUUID } from "node:crypto";
 import { beforeAll, afterAll, beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({

@@ -8,112 +8,12 @@ import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import speakeasy from 'speakeasy';
 import jwt from 'jsonwebtoken';
-import { createHash, createCipher, createDecipher } from 'crypto';
-import { createHmac } from 'crypto';
 
 // ========================================
 // 1. ENCRIPTACIÓN Y HASHING AVANZADO
 // ========================================
 
-export interface EncryptionConfig {
-  algorithm: 'aes-256-gcm' | 'aes-256-cbc' | 'chacha20-poly1305';
-  keyLength: 32 | 64;
-  ivLength: 12 | 16;
-  tagLength: 16;
-  iterations: number;
-}
-
-export interface SecureData {
-  encryptedData: string;
-  iv: string;
-  tag: string;
-  salt: string;
-  algorithm: string;
-  timestamp: Date;
-}
-
 export class AdvancedEncryption {
-  private static readonly CONFIG: EncryptionConfig = {
-    algorithm: 'aes-256-gcm',
-    keyLength: 32,
-    ivLength: 12,
-    tagLength: 16,
-    iterations: 100000
-  };
-
-  /**
-   * Genera clave maestra derivada con PBKDF2
-   */
-  private static deriveKey(password: string, salt: Buffer): Buffer {
-    return crypto.pbkdf2Sync(
-      password,
-      salt,
-      this.CONFIG.iterations,
-      this.CONFIG.keyLength,
-      'sha256'
-    );
-  }
-
-  /**
-   * Encripta datos sensibles con AES-256-CBC (compatible con Node.js)
-   */
-  static encryptSensitiveData(data: string, masterKey: string): SecureData {
-    try {
-      const salt = crypto.randomBytes(16);
-      const iv = crypto.randomBytes(16);
-      const key = this.deriveKey(masterKey, salt);
-      
-      const cipher = crypto.createCipher('aes-256-cbc', key);
-      
-      let encrypted = cipher.update(data, 'utf8', 'hex');
-      encrypted += cipher.final('hex');
-      
-      // Para CBC usamos HMAC para integridad
-      const hmac = crypto.createHmac('sha256', key);
-      hmac.update(encrypted);
-      const tag = hmac.digest('hex');
-      
-      return {
-        encryptedData: encrypted,
-        iv: iv.toString('hex'),
-        tag: tag,
-        salt: salt.toString('hex'),
-        algorithm: 'aes-256-cbc',
-        timestamp: new Date()
-      };
-    } catch (error: any) {
-      throw new Error(`Error en encriptación: ${error.message}`);
-    }
-  }
-
-  /**
-   * Desencripta datos con validación de integridad
-   */
-  static decryptSensitiveData(secureData: SecureData, masterKey: string): string {
-    try {
-      const salt = Buffer.from(secureData.salt, 'hex');
-      const key = this.deriveKey(masterKey, salt);
-      
-      // Verificar integridad HMAC
-      const hmac = crypto.createHmac('sha256', key);
-      hmac.update(secureData.encryptedData);
-      const expectedTag = hmac.digest('hex');
-      
-      if (expectedTag !== secureData.tag) {
-        throw new Error('Integridad de datos comprometida');
-      }
-      
-      const decipher = crypto.createDecipher('aes-256-cbc', key);
-      
-      let decrypted = decipher.update(secureData.encryptedData, 'hex', 'utf8');
-      decrypted += decipher.final('utf8');
-      
-      return decrypted;
-    } catch (error: any) {
-      throw new Error(`Error en desencriptación: ${error.message}`);
-    }
-  }
-
   /**
    * Hash seguro para contraseñas con Argon2
    */

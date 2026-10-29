@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * Tests: acciones_seguimiento — motor genérico de workflow
  *
@@ -75,7 +76,7 @@ async function insertBankTx(ref: string, monto = 150000): Promise<number> {
     `INSERT INTO bank_transactions
        (campus_id, tenant_id, fecha, descripcion, monto_centavos, tipo,
         referencia, nombre_ordenante, estado_conciliacion)
-     VALUES ($1,$2,CURRENT_DATE,'Test ACS',$3,'credito',$4,'Test Ordenante','pendiente')
+     VALUES ($1,$2,${SCHOOL_TODAY_SQL},'Test ACS',$3,'credito',$4,'Test Ordenante','pendiente')
      RETURNING id`,
     [CAMPUS_ID, tenantId, monto, ref]
   );

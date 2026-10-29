@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * TESTS — Excepciones de Conciliación
  *
@@ -87,7 +88,7 @@ async function insertTx(monto: number, ref: string): Promise<number> {
   const r = await pool.query(
     `INSERT INTO bank_transactions
        (campus_id, tenant_id, fecha, descripcion, monto_centavos, tipo, referencia, estado_conciliacion)
-     VALUES ($1,$2,NOW()::date,'TEST excepcion',$3,'abono',$4,'pendiente')
+     VALUES ($1,$2,${SCHOOL_TODAY_SQL},'TEST excepcion',$3,'abono',$4,'pendiente')
      RETURNING id`,
     [campusId, tenantId, monto, ref]
   );
@@ -563,7 +564,7 @@ describe("Excepciones de Conciliación — motor financiero", () => {
     const r = await pool.query(
       `INSERT INTO bank_transactions
          (campus_id, tenant_id, fecha, descripcion, monto_centavos, tipo, referencia, estado_conciliacion)
-       VALUES (48,29,NOW()::date,'TEST cross-campus',100000,'abono',$1,'pendiente')
+       VALUES (48,29,${SCHOOL_TODAY_SQL},'TEST cross-campus',100000,'abono',$1,'pendiente')
        RETURNING id`,
       [`ref-crosscampus-${Date.now()}`]
     );

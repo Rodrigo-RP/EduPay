@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * assistant-suggest.test.ts — N4/N5: acciones con confirmación desde el asistente
  *
@@ -94,7 +95,7 @@ beforeAll(async () => {
   const c1 = await pool.query(
     `INSERT INTO charges (tenant_id, student_id, concept_id, monto_base_centavos,
                           fecha_emision, fecha_vencimiento, estado, ciclo_escolar)
-     VALUES ($1,$2,$3,120000, CURRENT_DATE, CURRENT_DATE + 30, 'pendiente','2025-2026')
+     VALUES ($1,$2,$3,120000, ${SCHOOL_TODAY_SQL}, ${SCHOOL_TODAY_SQL} + 30, 'pendiente','2025-2026')
      RETURNING id`,
     [tenantId, studentId, conceptId]
   );
@@ -104,7 +105,7 @@ beforeAll(async () => {
   const c2 = await pool.query(
     `INSERT INTO charges (tenant_id, student_id, concept_id, monto_base_centavos,
                           fecha_emision, fecha_vencimiento, estado, ciclo_escolar)
-     VALUES ($1,$2,$3,240000, CURRENT_DATE, CURRENT_DATE + 60, 'pendiente','2025-2026')
+     VALUES ($1,$2,$3,240000, ${SCHOOL_TODAY_SQL}, ${SCHOOL_TODAY_SQL} + 60, 'pendiente','2025-2026')
      RETURNING id`,
     [tenantId, studentId, conceptId]
   );

@@ -1,5 +1,9 @@
 # Barrido de éxitos simulados y errores disfrazados
 
+> Registro de la primera ronda. La clasificación de sus cinco fallos y los
+> fallbacks del pago en efectivo se corrigen en
+> [la ronda de correcciones](REPORTE-BARRIDO-CORRECCIONES.md).
+
 ## RESUMEN
 
 - Rama de revisión desde `506d472`; no se integra en `replit-en-vivo`.
@@ -134,7 +138,10 @@ Resultado base:
    Duration  138.17s (transform 2.83s, setup 19.88s, import 25.65s, tests 73.20s, environment 11ms)
 ```
 
-Los cinco fallos son preexistentes por comparación, no por inferencia:
+Los cinco fallos se reprodujeron en ambas ramas. Eso no justificaba
+clasificarlos como fallos preexistentes de la app: las pruebas compartían
+el cálculo UTC de «hoy», distinto del calendario escolar. Se conserva aquí
+la evidencia original; la corrección está en el reporte de la ronda siguiente:
 
 | Archivo y línea | Prueba | Aserción en revisión y base |
 | --- | --- | --- |
@@ -268,13 +275,13 @@ la app para forzar un resultado:
 
 - Los 24 diagnósticos TypeScript coinciden con la base; no se corrigieron
   archivos ajenos para ocultarlos.
-- Los cinco fallos unitarios de la tabla anterior se reproducen en la
-  base; quedan sin corregir.
+- Los cinco fallos unitarios de la tabla anterior se reprodujeron en la
+  base; la ronda siguiente corrige las fechas de las pruebas.
 - `/api/migration/project/:id` conserva el tratamiento de error como 404
   (`server/routes/payments.ts:1285`); no pertenece a las respuestas 2xx
   degradadas solicitadas.
-- Las búsquedas de cargo en el pago en efectivo conservan sus fallbacks
-  históricos (`server/routes/conciliacion.ts`); no se cambió el flujo de pagos.
+- Las búsquedas de cargo en el pago en efectivo conservaron sus fallbacks
+  en esta primera ronda; se retiran en la ronda de correcciones.
 - Mantenimiento conserva 200 con `success:false` cuando falla la operación
   (`server/routes/system.ts:216`, `:242`, `:255`, optimize/cleanup/maintenance).
   La limpieza de `security_events` a los 90 días

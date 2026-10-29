@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * TESTS — Approval Workflow: entity_id y tenant_id reales
  *
@@ -132,7 +133,7 @@ beforeAll(async () => {
   const chRow = await pool.query(
     `INSERT INTO charges (tenant_id, student_id, concept_id, fecha_emision, fecha_vencimiento,
                           monto_base_centavos, estado)
-     VALUES ($1, $2, $3, CURRENT_DATE, CURRENT_DATE + 30, 150000, 'pendiente') RETURNING id`,
+     VALUES ($1, $2, $3, ${SCHOOL_TODAY_SQL}, ${SCHOOL_TODAY_SQL} + 30, 150000, 'pendiente') RETURNING id`,
     [tenantId, studentId, conceptId]
   );
   chargeId = chRow.rows[0].id;
@@ -534,7 +535,7 @@ describe("Approval Workflow — entity_id y tenant_id reales", () => {
     const chRow = await pool.query(
       `INSERT INTO charges (tenant_id, student_id, concept_id, fecha_emision, fecha_vencimiento,
                             monto_base_centavos, estado)
-       VALUES ($1, $2, $3, CURRENT_DATE, CURRENT_DATE + 30, 100000, 'pendiente') RETURNING id`,
+       VALUES ($1, $2, $3, ${SCHOOL_TODAY_SQL}, ${SCHOOL_TODAY_SQL} + 30, 100000, 'pendiente') RETURNING id`,
       [tenantId, studentId, conceptId]
     );
     const freshChargeId: number = chRow.rows[0].id;
@@ -568,7 +569,7 @@ describe("Approval Workflow — entity_id y tenant_id reales", () => {
     // test confirma que el fix funciona de extremo a extremo.
     const schRow = await pool.query(
       `INSERT INTO scholarships (tenant_id, student_id, porcentaje, vigencia_inicio, vigencia_fin)
-       VALUES ($1, $2, 25.00, CURRENT_DATE, CURRENT_DATE + 365) RETURNING id`,
+       VALUES ($1, $2, 25.00, ${SCHOOL_TODAY_SQL}, ${SCHOOL_TODAY_SQL} + 365) RETURNING id`,
       [tenantId, studentId]
     );
     const scholarshipId: number = schRow.rows[0].id;
@@ -631,7 +632,7 @@ describe("Approval Workflow — entity_id y tenant_id reales", () => {
     const chRow = await pool.query(
       `INSERT INTO charges (tenant_id, student_id, concept_id, fecha_emision, fecha_vencimiento,
                             monto_base_centavos, estado)
-       VALUES ($1, $2, $3, CURRENT_DATE, CURRENT_DATE + 30, 50000, 'pendiente') RETURNING id`,
+       VALUES ($1, $2, $3, ${SCHOOL_TODAY_SQL}, ${SCHOOL_TODAY_SQL} + 30, 50000, 'pendiente') RETURNING id`,
       [tenantId, studentId, conceptId]
     );
     const deleteChargeId: number = chRow.rows[0].id;
@@ -694,7 +695,7 @@ describe("Approval Workflow — entity_id y tenant_id reales", () => {
     const chRow = await pool.query(
       `INSERT INTO charges (tenant_id, student_id, concept_id, fecha_emision, fecha_vencimiento,
                             monto_base_centavos, estado)
-       VALUES ($1, $2, $3, CURRENT_DATE, CURRENT_DATE + 30, 75000, 'pendiente') RETURNING id`,
+       VALUES ($1, $2, $3, ${SCHOOL_TODAY_SQL}, ${SCHOOL_TODAY_SQL} + 30, 75000, 'pendiente') RETURNING id`,
       [tenantId, studentId, conceptId]
     );
     const freshChargeId: number = chRow.rows[0].id;

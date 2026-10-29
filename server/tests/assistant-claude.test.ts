@@ -1,3 +1,4 @@
+import { schoolDate } from "../../shared/school-date";
 import { describe, expect, it, vi } from "vitest";
 import {
   answerWithClaude,
@@ -586,17 +587,17 @@ describe("fallback de Claude con herramientas read-only", () => {
     expect(intent.action).toMatchObject({
       actionId: "query:adeudos_nivel_periodo",
       params: {
-        mes: new Date().getMonth() + 1,
-        anio: new Date().getFullYear(),
+        mes: Number(schoolDate().slice(5, 7)),
+        anio: Number(schoolDate().slice(0, 4)),
         nivel: "",
       },
     });
   });
 
   it("usa el mes anterior cuando se pide la lista de deudores del último mes", () => {
-    const now = new Date();
-    const expectedMonth = now.getMonth() === 0 ? 12 : now.getMonth();
-    const expectedYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    const now = new Date(schoolDate() + "T12:00:00Z");
+    const expectedMonth = now.getUTCMonth() === 0 ? 12 : now.getUTCMonth();
+    const expectedYear = now.getUTCMonth() === 0 ? now.getUTCFullYear() - 1 : now.getUTCFullYear();
 
     expect(matchIntent("dame la lista de deudores del último mes", "super_admin").action).toMatchObject({
       actionId: "query:adeudos_nivel_periodo",

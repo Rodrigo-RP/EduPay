@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../shared/school-date";
 /**
  * Planes de Pago — evidencia completa UI → API → Neon → recarga.
  *
@@ -91,14 +92,14 @@ test.describe("Planes de Pago — flujos completos con Neon", () => {
     fixture.conceptB = Number(concepts.rows[1].id);
     const charge = await db.query(
       `INSERT INTO charges (tenant_id,student_id,concept_id,fecha_emision,fecha_vencimiento,monto_base_centavos,estado)
-       VALUES ($1,$2,$3,CURRENT_DATE,CURRENT_DATE,120000,'pendiente') RETURNING id`,
+       VALUES ($1,$2,$3,${SCHOOL_TODAY_SQL},${SCHOOL_TODAY_SQL},120000,'pendiente') RETURNING id`,
       [fixture.tenantId, fixture.studentA, fixture.conceptA],
     );
     fixture.sourceCharge = Number(charge.rows[0].id);
     const campusBPlan = await db.query(
       `INSERT INTO payment_plans
         (tenant_id,campus_id,student_id,total_adeudo_centavos,monto_inicial_centavos,numero_pagos,frecuencia,fecha_inicio,tipo_origen)
-       VALUES ($1,$2,$3,80000,0,2,'mensual',CURRENT_DATE,'futuro') RETURNING id`,
+       VALUES ($1,$2,$3,80000,0,2,'mensual',${SCHOOL_TODAY_SQL},'futuro') RETURNING id`,
       [fixture.tenantId, fixture.campusB, fixture.studentB],
     );
     fixture.campusBPlan = Number(campusBPlan.rows[0].id);

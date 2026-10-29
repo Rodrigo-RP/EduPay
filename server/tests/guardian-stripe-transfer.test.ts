@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * TESTS — Stripe Connect routing en POST /api/guardian/pagar
  *
@@ -178,7 +179,7 @@ beforeAll(async () => {
   const { rows: chA } = await pool.query(
     `INSERT INTO charges (student_id, tenant_id, concept_id, monto_base_centavos, estado,
                           fecha_emision, fecha_vencimiento)
-     VALUES ($1, $2, $3, 60000, 'pendiente', CURRENT_DATE, CURRENT_DATE + 30) RETURNING id`,
+     VALUES ($1, $2, $3, 60000, 'pendiente', ${SCHOOL_TODAY_SQL}, ${SCHOOL_TODAY_SQL} + 30) RETURNING id`,
     [studentNoConnectId, tenantId, conceptNoConnectId]
   );
   chargeNoConnectId = chA[0].id;
@@ -186,7 +187,7 @@ beforeAll(async () => {
   const { rows: chB1 } = await pool.query(
     `INSERT INTO charges (student_id, tenant_id, concept_id, monto_base_centavos, estado,
                           fecha_emision, fecha_vencimiento)
-     VALUES ($1, $2, $3, 60000, 'pendiente', CURRENT_DATE, CURRENT_DATE + 30) RETURNING id`,
+     VALUES ($1, $2, $3, 60000, 'pendiente', ${SCHOOL_TODAY_SQL}, ${SCHOOL_TODAY_SQL} + 30) RETURNING id`,
     [studentConnectedId, tenantId, conceptConnectedId]
   );
   chargeConnectedId = chB1[0].id;
@@ -194,7 +195,7 @@ beforeAll(async () => {
   const { rows: chB2 } = await pool.query(
     `INSERT INTO charges (student_id, tenant_id, concept_id, monto_base_centavos, estado,
                           fecha_emision, fecha_vencimiento)
-     VALUES ($1, $2, $3, 60000, 'pendiente', CURRENT_DATE, CURRENT_DATE + 30) RETURNING id`,
+     VALUES ($1, $2, $3, 60000, 'pendiente', ${SCHOOL_TODAY_SQL}, ${SCHOOL_TODAY_SQL} + 30) RETURNING id`,
     [studentConnectedId, tenantId, conceptConnectedId]
   );
   chargeConnectedId2 = chB2[0].id;
@@ -391,7 +392,7 @@ async function snapshot(chargeId: number) {
 async function newCardCharge(): Promise<number> {
   const { rows } = await pool.query(
     `INSERT INTO charges (student_id, tenant_id, concept_id, monto_base_centavos, estado, fecha_emision, fecha_vencimiento)
-     SELECT student_id, tenant_id, concept_id, 60000, 'pendiente', CURRENT_DATE, CURRENT_DATE+30
+     SELECT student_id, tenant_id, concept_id, 60000, 'pendiente', ${SCHOOL_TODAY_SQL}, ${SCHOOL_TODAY_SQL}+30
        FROM charges WHERE id=$1 RETURNING id`, [chargeConnectedId],
   );
   return Number(rows[0].id);
@@ -506,7 +507,7 @@ describe("Confirmación Stripe en la frontera del proveedor, sin llamadas extern
   it("succeeded sobre cargo pagado conserva un solo evento requires_review y propaga el error en ambos intentos", async () => {
     const { rows: charges } = await pool.query(
       `INSERT INTO charges (student_id, tenant_id, concept_id, monto_base_centavos, estado, fecha_emision, fecha_vencimiento)
-       SELECT student_id, tenant_id, concept_id, 60000, 'pagado', CURRENT_DATE, CURRENT_DATE+30
+       SELECT student_id, tenant_id, concept_id, 60000, 'pagado', ${SCHOOL_TODAY_SQL}, ${SCHOOL_TODAY_SQL}+30
          FROM charges WHERE id=$1 RETURNING id`, [chargeConnectedId],
     );
     const chargeId = Number(charges[0].id);

@@ -1,3 +1,4 @@
+import { schoolDate, SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * Prueba de regresión: guard CHARGES.CREATE / CHARGES.UPDATE en 4 endpoints
  * de administración de cargos y planes de pago.
@@ -88,7 +89,7 @@ async function mkCharge(monto = 100_000): Promise<number> {
   const r = await pool.query(
     `INSERT INTO charges (tenant_id, student_id, concept_id, fecha_emision,
                           fecha_vencimiento, monto_base_centavos, estado)
-     VALUES ($1,$2,$3,CURRENT_DATE,CURRENT_DATE+30,$4,'pendiente') RETURNING id`,
+     VALUES ($1,$2,$3,${SCHOOL_TODAY_SQL},${SCHOOL_TODAY_SQL}+30,$4,'pendiente') RETURNING id`,
     [tenantId, studentId, conceptId, monto],
   );
   return (r.rows as any[])[0].id as number;
@@ -99,7 +100,7 @@ async function mkPlan(): Promise<number> {
     `INSERT INTO payment_plans
        (campus_id, tenant_id, student_id, total_adeudo_centavos,
         monto_inicial_centavos, numero_pagos, frecuencia, fecha_inicio, tipo_origen)
-     VALUES ($1,$2,$3,100000,0,1,'mensual',CURRENT_DATE,'futuro') RETURNING id`,
+     VALUES ($1,$2,$3,100000,0,1,'mensual',${SCHOOL_TODAY_SQL},'futuro') RETURNING id`,
     [campusId, tenantId, studentId],
   );
   return (r.rows as any[])[0].id as number;
@@ -238,7 +239,7 @@ describe("POST /api/admin/cargos/extraordinario — guard CHARGES.CREATE", () =>
       "/api/admin/cargos/extraordinario",
       tokenContadorGeneral,
       { student_id: studentId, monto: "100", descripcion: "Intento CG",
-        fecha_vencimiento: new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10), motivo_override: "Prueba de permisos" },
+        fecha_vencimiento: schoolDate(new Date(Date.now() + 30 * 86_400_000)), motivo_override: "Prueba de permisos" },
     );
 
     expect(status).toBe(403);
@@ -255,7 +256,7 @@ describe("POST /api/admin/cargos/extraordinario — guard CHARGES.CREATE", () =>
       tokenAdminCampus,
       {
         student_id: studentId, monto: "200", descripcion: "Cargo AC extraordinario",
-        fecha_vencimiento: new Date(Date.now() + 30 * 86_400_000).toISOString().split("T")[0],
+        fecha_vencimiento: schoolDate(new Date(Date.now() + 30 * 86_400_000)),
         motivo_override: "Prueba de cargo extraordinario de administrador de campus",
       },
     );
@@ -272,7 +273,7 @@ describe("POST /api/admin/cargos/extraordinario — guard CHARGES.CREATE", () =>
       tokenAdminGeneral,
       {
         student_id: studentId, monto: "200", descripcion: "Cargo AG extraordinario",
-        fecha_vencimiento: new Date(Date.now() + 30 * 86_400_000).toISOString().split("T")[0],
+        fecha_vencimiento: schoolDate(new Date(Date.now() + 30 * 86_400_000)),
         motivo_override: "Prueba de cargo extraordinario de administrador general",
       },
     );
@@ -299,7 +300,7 @@ describe("POST /api/admin/cargos/extraordinario — guard CHARGES.CREATE", () =>
         tokenAdminCampus,
         {
           student_id: studentId, monto: "200", descripcion,
-          fecha_vencimiento: new Date(Date.now() + 30 * 86_400_000).toISOString().split("T")[0],
+          fecha_vencimiento: schoolDate(new Date(Date.now() + 30 * 86_400_000)),
         },
       );
       expect(status).toBe(400);
@@ -389,7 +390,7 @@ describe("POST /api/planes-pago — guard CHARGES.CREATE", () => {
         monto_inicial_centavos: 0,
         numero_pagos: 3,
         frecuencia: "mensual",
-        fecha_inicio: new Date(Date.now() + 45 * 86_400_000).toISOString().slice(0, 10),
+        fecha_inicio: schoolDate(new Date(Date.now() + 45 * 86_400_000)),
         student_id: studentId,
       },
     );
@@ -411,7 +412,7 @@ describe("POST /api/planes-pago — guard CHARGES.CREATE", () => {
         monto_inicial_centavos: 0,
         numero_pagos: 3,
         frecuencia: "mensual",
-        fecha_inicio: new Date(Date.now() + 45 * 86_400_000).toISOString().slice(0, 10),
+        fecha_inicio: schoolDate(new Date(Date.now() + 45 * 86_400_000)),
         student_id: studentId,
       },
     );
@@ -430,7 +431,7 @@ describe("POST /api/planes-pago — guard CHARGES.CREATE", () => {
         monto_inicial_centavos: 0,
         numero_pagos: 3,
         frecuencia: "mensual",
-        fecha_inicio: new Date(Date.now() + 45 * 86_400_000).toISOString().slice(0, 10),
+        fecha_inicio: schoolDate(new Date(Date.now() + 45 * 86_400_000)),
         student_id: studentId,
       },
     );

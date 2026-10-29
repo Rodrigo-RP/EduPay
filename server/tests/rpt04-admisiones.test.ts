@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * rpt04-admisiones.test.ts — RPT-04 Reporte de Admisiones y Becas
  *
@@ -162,7 +163,7 @@ beforeAll(async () => {
   // pago para s1 (inscripcion, 50% de 10000 = 5000 centavos)
   const pRow = await pool.query(
     `INSERT INTO payments (tenant_id, charge_id, metodo, monto_centavos, fecha_pago, estado)
-     VALUES ($1,$2,'efectivo',5000,CURRENT_DATE,'exitoso') RETURNING id`,
+     VALUES ($1,$2,'efectivo',5000,${SCHOOL_TODAY_SQL},'exitoso') RETURNING id`,
     [tenantId, cAId],
   );
   pAId = (pRow.rows[0] as any).id;

@@ -1,3 +1,4 @@
+import { schoolDate, SCHOOL_TODAY_SQL } from "../shared/school-date";
 /**
  * E2E real — fallback de Claude con datos aislados.
  * No simula Anthropic: usa ANTHROPIC_API_KEY configurada en Replit, el endpoint
@@ -11,8 +12,8 @@ import { pool } from "../server/db";
 const BASE = "http://localhost:5000";
 const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET;
 if (!JWT_SECRET) throw new Error("Se requiere JWT_SECRET o SESSION_SECRET para E2E.");
-const CURRENT_YEAR = new Date().getFullYear();
-const CURRENT_MONTH = new Date().getMonth() + 1;
+const CURRENT_YEAR = Number(schoolDate().slice(0, 4));
+const CURRENT_MONTH = Number(schoolDate().slice(5, 7));
 const CURRENT_MONTH_NAME = new Date(Date.UTC(CURRENT_YEAR, CURRENT_MONTH - 1, 1)).toLocaleDateString("es-MX", {
   month: "long",
   timeZone: "UTC",
@@ -133,8 +134,8 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
     const scholarships = await pool.query(
       `INSERT INTO scholarships (student_id, tenant_id, porcentaje, motivo, vigencia_inicio, vigencia_fin)
        VALUES
-         ($1, $2, 50, 'Beca E2E de Alma', CURRENT_DATE, CURRENT_DATE + INTERVAL '1 year'),
-         ($3, $2, 25, 'Beca E2E fuera de contexto', CURRENT_DATE, CURRENT_DATE + INTERVAL '1 year')
+         ($1, $2, 50, 'Beca E2E de Alma', ${SCHOOL_TODAY_SQL}, ${SCHOOL_TODAY_SQL} + INTERVAL '1 year'),
+         ($3, $2, 25, 'Beca E2E fuera de contexto', ${SCHOOL_TODAY_SQL}, ${SCHOOL_TODAY_SQL} + INTERVAL '1 year')
        RETURNING id`,
       [studentIds[0], tenantId, studentIds[2]],
     );

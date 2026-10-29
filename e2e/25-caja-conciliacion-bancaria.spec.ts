@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../shared/school-date";
 /**
  * Caja — banca, importación y conciliación.
  *
@@ -52,7 +53,7 @@ async function crearCargo(amountCentavos: number): Promise<number> {
   const charge = await db.query(
     `INSERT INTO charges
        (tenant_id, student_id, concept_id, fecha_emision, fecha_vencimiento, monto_base_centavos, estado)
-     VALUES ($1,$2,$3,CURRENT_DATE,CURRENT_DATE,$4,'pendiente') RETURNING id`,
+     VALUES ($1,$2,$3,${SCHOOL_TODAY_SQL},${SCHOOL_TODAY_SQL},$4,'pendiente') RETURNING id`,
     [tenantId, studentId, conceptId, amountCentavos],
   );
   const id = Number(charge.rows[0].id);

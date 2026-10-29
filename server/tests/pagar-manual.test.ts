@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * Tests dedicados para POST /api/admin/charges/:chargeId/pagar-manual
  *
@@ -60,7 +61,7 @@ async function mkCharge(estado: "pendiente" | "cancelado"): Promise<number> {
     `INSERT INTO charges
        (tenant_id, student_id, concept_id, fecha_emision, fecha_vencimiento,
         monto_base_centavos, estado)
-     VALUES ($1,$2,$3,CURRENT_DATE,CURRENT_DATE+30,80000,$4) RETURNING id`,
+     VALUES ($1,$2,$3,${SCHOOL_TODAY_SQL},${SCHOOL_TODAY_SQL}+30,80000,$4) RETURNING id`,
     [tenantId, studentId, conceptId, estado]
   );
   return (r.rows[0] as any).id as number;

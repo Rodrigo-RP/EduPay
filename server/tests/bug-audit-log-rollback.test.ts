@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * BUG INVESTIGATION: rollback silencioso cuando audit_log INSERT falla
  * ─────────────────────────────────────────────────────────────────────
@@ -117,7 +118,7 @@ async function insertTx(monto: number, ref: string): Promise<number> {
   const r = await pool.query(
     `INSERT INTO bank_transactions
        (campus_id, tenant_id, fecha, descripcion, monto_centavos, tipo, referencia, estado_conciliacion)
-     VALUES ($1,$2,NOW()::date,'BugAudit test',$3,'abono',$4,'pendiente')
+     VALUES ($1,$2,${SCHOOL_TODAY_SQL},'BugAudit test',$3,'abono',$4,'pendiente')
      RETURNING id`,
     [campusId, tenantId, monto, ref]
   );

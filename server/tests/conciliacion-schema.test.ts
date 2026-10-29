@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * conciliacion-schema.test.ts
  *
@@ -44,7 +45,7 @@ beforeAll(async () => {
   const txRow = await pool.query(
     `INSERT INTO bank_transactions
        (campus_id, fecha, descripcion, monto_centavos, tipo, estado_conciliacion)
-     VALUES ($1, CURRENT_DATE, 'TX test confianza_pct', 100000, 'credito', 'pendiente')
+     VALUES ($1, ${SCHOOL_TODAY_SQL}, 'TX test confianza_pct', 100000, 'credito', 'pendiente')
      RETURNING id`,
     [campusId]
   );

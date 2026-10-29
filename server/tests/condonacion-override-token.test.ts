@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * Prueba de regresión: Override token de condonación repetida.
  *
@@ -67,7 +68,7 @@ async function mkPlan(sid: number): Promise<number> {
        (campus_id, tenant_id, student_id, total_adeudo_centavos,
         monto_inicial_centavos, numero_pagos, frecuencia, fecha_inicio,
         tipo_origen, charge_ids_origen)
-     VALUES ($1,$2,$3,0,0,1,'mensual',CURRENT_DATE,'reestructuracion','[]') RETURNING id`,
+     VALUES ($1,$2,$3,0,0,1,'mensual',${SCHOOL_TODAY_SQL},'reestructuracion','[]') RETURNING id`,
     [campusId, tenantId, sid],
   );
   return (r.rows as any[])[0].id as number;

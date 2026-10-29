@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * server/tests/fiscal-timbrar-tenant.test.ts
  * ─────────────────────────────────────────────────────────────────────────────
@@ -95,7 +96,7 @@ beforeAll(async () => {
     `INSERT INTO charges
        (tenant_id, student_id, concept_id, monto_base_centavos, estado,
         fecha_emision, fecha_vencimiento)
-     VALUES ($1,$2,$3,350000,'pagado', CURRENT_DATE, CURRENT_DATE) RETURNING id`,
+     VALUES ($1,$2,$3,350000,'pagado', ${SCHOOL_TODAY_SQL}, ${SCHOOL_TODAY_SQL}) RETURNING id`,
     [tenantId, studentId, conceptId]
   );
   chargeId = chRow.rows[0].id;

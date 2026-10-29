@@ -38,6 +38,18 @@ commit base con el mismo comando y condiciones comparables. Si un escenario
 pasa aislado pero falla en la suite completa, reportarlo como dependiente del
 orden/estado de la suite, no como regresión ni como preexistente sin evidencia.
 
+Reproducir el fallo en la base no basta para atribuirlo a la app: ambas
+ramas pueden compartir una preparación incorrecta. Antes de clasificar
+fallos de vigencias, antigüedad o cortes, comprobar que las fechas de las
+pruebas y de SQL usan el mismo calendario escolar que el servidor.
+
+**Why:** Una comparación en la misma franja nocturna reprodujo fallos
+causados por fixtures UTC, no por las reglas de la app.
+
+**How to apply:** Distinguir fallo de preparación de fallo del producto y
+verificar el calendario de ambos lados, especialmente entre las 18:00 y
+las 24:00 de Ciudad de México; no debilitar las aserciones para hacerlo pasar.
+
 **Why:** El usuario explícitamente requiere este protocolo para asegurar calidad antes de marcar cualquier tarea como completa.
 
 **How to apply:** Cuando el usuario pida una auditoría, o antes de marcar como IMPLEMENTED cualquier tarea crítica (pagos, cargos, reportes, carga masiva), ejecutar este checklist completo y reportar resultados punto por punto.

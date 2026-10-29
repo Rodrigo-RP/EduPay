@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * TESTS — Condonación vía asistente (Suite C)
  *
@@ -107,7 +108,7 @@ beforeAll(async () => {
     `INSERT INTO payment_plans
        (campus_id, tenant_id, student_id, total_adeudo_centavos, numero_pagos,
         fecha_inicio, estado, tipo_origen)
-     VALUES ($1,$2,$3,100000,2,CURRENT_DATE,'activo','reestructuracion')
+     VALUES ($1,$2,$3,100000,2,${SCHOOL_TODAY_SQL},'activo','reestructuracion')
      RETURNING id`,
     [campusId, tenantId, studentId]
   );
@@ -118,7 +119,7 @@ beforeAll(async () => {
       `INSERT INTO charges
          (tenant_id, student_id, concept_id, plan_id,
           fecha_emision, fecha_vencimiento, monto_base_centavos, estado)
-       VALUES ($1,$2,$3,$4,CURRENT_DATE,CURRENT_DATE+30,50000,'pendiente')
+       VALUES ($1,$2,$3,$4,${SCHOOL_TODAY_SQL},${SCHOOL_TODAY_SQL}+30,50000,'pendiente')
        RETURNING id`,
       [tenantId, studentId, conceptId, planId]
     );
@@ -328,7 +329,7 @@ describe("Condonación E2E — PATCH real (Suite C)", () => {
       `INSERT INTO payment_plans
          (campus_id, tenant_id, student_id, total_adeudo_centavos, numero_pagos,
           fecha_inicio, estado, tipo_origen)
-       VALUES ($1,$2,$3,50000,1,CURRENT_DATE,'activo','reestructuracion')
+       VALUES ($1,$2,$3,50000,1,${SCHOOL_TODAY_SQL},'activo','reestructuracion')
        RETURNING id`,
       [campusId, tenantId, studentId]
     );
@@ -337,7 +338,7 @@ describe("Condonación E2E — PATCH real (Suite C)", () => {
       `INSERT INTO charges
          (tenant_id, student_id, concept_id, plan_id,
           fecha_emision, fecha_vencimiento, monto_base_centavos, estado)
-       VALUES ($1,$2,$3,$4,CURRENT_DATE,CURRENT_DATE+30,50000,'pendiente')`,
+       VALUES ($1,$2,$3,$4,${SCHOOL_TODAY_SQL},${SCHOOL_TODAY_SQL}+30,50000,'pendiente')`,
       [tenantId, studentId, conceptId, planId2]
     );
 

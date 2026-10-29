@@ -1,3 +1,4 @@
+import { schoolDate, SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * Hardening de Planes de Pago.
  *
@@ -11,7 +12,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import jwt from "jsonwebtoken";
 import { pool } from "../db";
-const PLAN_START = new Date(Date.now() + 45 * 86_400_000).toISOString().slice(0, 10);
+const PLAN_START = schoolDate(new Date(Date.now() + 45 * 86_400_000));
 import { JWT_SECRET } from "../routes/shared";
 
 const BASE = "http://localhost:5000";
@@ -44,7 +45,7 @@ async function createPlan(campusId: number, studentId: number): Promise<number> 
        (campus_id, tenant_id, student_id, total_adeudo_centavos,
         monto_inicial_centavos, numero_pagos, frecuencia, fecha_inicio,
         tipo_origen, charge_ids_origen)
-     VALUES ($1,$2,$3,10000,0,1,'mensual',CURRENT_DATE,'reestructuracion','[]')
+     VALUES ($1,$2,$3,10000,0,1,'mensual',${SCHOOL_TODAY_SQL},'reestructuracion','[]')
      RETURNING id`,
     [campusId, tenantId, studentId],
   );
@@ -130,7 +131,7 @@ describe("Planes de Pago — hardening de concurrencia y aislamiento", () => {
       `INSERT INTO charges
          (tenant_id, student_id, concept_id, fecha_emision, fecha_vencimiento,
           monto_base_centavos, recargo_aplicado_centavos, estado)
-       VALUES ($1,$2,$3,CURRENT_DATE,CURRENT_DATE + 30,10000,2500,'pendiente')
+       VALUES ($1,$2,$3,${SCHOOL_TODAY_SQL},${SCHOOL_TODAY_SQL} + 30,10000,2500,'pendiente')
        RETURNING id`,
       [tenantId, studentAId, conceptAId],
     )).rows[0].id);
@@ -162,7 +163,7 @@ describe("Planes de Pago — hardening de concurrencia y aislamiento", () => {
     const chargeId = Number((await pool.query(
       `INSERT INTO charges
          (tenant_id, student_id, concept_id, fecha_emision, fecha_vencimiento, monto_base_centavos, estado)
-       VALUES ($1,$2,$3,CURRENT_DATE,CURRENT_DATE + 30,10000,'pendiente') RETURNING id`,
+       VALUES ($1,$2,$3,${SCHOOL_TODAY_SQL},${SCHOOL_TODAY_SQL} + 30,10000,'pendiente') RETURNING id`,
       [tenantId, studentBId, conceptBId],
     )).rows[0].id);
 
@@ -261,7 +262,7 @@ describe("Planes de Pago — hardening de concurrencia y aislamiento", () => {
     const chargeId = Number((await pool.query(
       `INSERT INTO charges
          (tenant_id, student_id, concept_id, fecha_emision, fecha_vencimiento, monto_base_centavos, estado)
-       VALUES ($1,$2,$3,CURRENT_DATE,CURRENT_DATE + 30,20000,'pendiente') RETURNING id`,
+       VALUES ($1,$2,$3,${SCHOOL_TODAY_SQL},${SCHOOL_TODAY_SQL} + 30,20000,'pendiente') RETURNING id`,
       [tenantId, studentAId, conceptAId],
     )).rows[0].id);
 
@@ -289,7 +290,7 @@ describe("Planes de Pago — hardening de concurrencia y aislamiento", () => {
     const cuotaId = Number((await pool.query(
       `INSERT INTO charges
          (tenant_id, student_id, concept_id, plan_id, fecha_emision, fecha_vencimiento, monto_base_centavos, estado)
-       VALUES ($1,$2,$3,$4,CURRENT_DATE,CURRENT_DATE + 30,15000,'pendiente') RETURNING id`,
+       VALUES ($1,$2,$3,$4,${SCHOOL_TODAY_SQL},${SCHOOL_TODAY_SQL} + 30,15000,'pendiente') RETURNING id`,
       [tenantId, studentAId, conceptAId, planId],
     )).rows[0].id);
 

@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * TESTS — Regresión audit_log + comportamiento del helper insertarPagoYCerrarCargo
  *
@@ -94,7 +95,7 @@ async function insertTx(monto: number, ref: string): Promise<number> {
   const r = await pool.query(
     `INSERT INTO bank_transactions
        (campus_id, tenant_id, fecha, descripcion, monto_centavos, tipo, referencia, estado_conciliacion)
-     VALUES ($1,$2,NOW()::date,'EXA test',$3,'abono',$4,'pendiente')
+     VALUES ($1,$2,${SCHOOL_TODAY_SQL},'EXA test',$3,'abono',$4,'pendiente')
      RETURNING id`,
     [campusId, tenantId, monto, ref]
   );
@@ -344,7 +345,7 @@ describe("EXA — audit_log resolver_excepcion_manual + regresión insertarPagoY
     const txR = await pool.query(
       `INSERT INTO bank_transactions
          (campus_id, tenant_id, fecha, descripcion, monto_centavos, tipo, referencia, estado_conciliacion)
-       VALUES ($1,$2,NOW()::date,'EXA-04 test',200000,'credito',$3,'pendiente')
+       VALUES ($1,$2,${SCHOOL_TODAY_SQL},'EXA-04 test',200000,'credito',$3,'pendiente')
        RETURNING id`,
       [campusId, tenantId, `ref-apply-${Date.now()}`]
     );

@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * SDR — Drizzle ORM query real sobre scholarships con schema corregido
  *
@@ -52,7 +53,7 @@ beforeAll(async () => {
   // Insertar beca usando SQL crudo con los nombres reales de columna
   const bRow = await pool.query(
     `INSERT INTO scholarships (student_id, tenant_id, porcentaje, motivo, vigencia_inicio, vigencia_fin)
-     VALUES ($1,$2,$3,$4,CURRENT_DATE, CURRENT_DATE + INTERVAL '1 year') RETURNING id`,
+     VALUES ($1,$2,$3,$4,${SCHOOL_TODAY_SQL}, ${SCHOOL_TODAY_SQL} + INTERVAL '1 year') RETURNING id`,
     [studentId, tenantId, 25, `Beca SDR ${TS}`],
   );
   scholarshipId = (bRow.rows[0] as any).id;

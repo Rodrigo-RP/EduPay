@@ -37,7 +37,7 @@
  *   FIN-05  total_income = suma real de pagos exitosos (con filtro de fecha)
  *   FIN-06  income_by_concept refleja los conceptos del fixture
  *   FIN-07  payment_methods refleja el método del fixture
- *   FIN-08  monto_vencido > 0 (cB vence en 2024-01-01 < CURRENT_DATE)
+ *   FIN-08  monto_vencido > 0 (cB vence en 2024-01-01 < SCHOOL_TODAY_SQL)
  *   FIN-09  income_growth = null cuando no hay pagos en período anterior
  *   FIN-10  income_growth es número real cuando hay pagos en período anterior
  *   FIN-11  payment_growth = null cuando no hay pagos en período anterior
@@ -344,7 +344,7 @@ describe("RPT-01 GET — métricas calculadas con datos reales del fixture", () 
       tokAdminCampus,
     );
     expect(status).toBe(200);
-    // cB tiene fecha_vencimiento='2024-01-01' < CURRENT_DATE y estado='pendiente'
+    // cB tiene fecha_vencimiento='2024-01-01' < SCHOOL_TODAY_SQL y estado='pendiente'
     expect(body.summary.monto_vencido).toBeGreaterThanOrEqual(150_000);
     expect(body.summary.num_vencidos).toBeGreaterThanOrEqual(1);
   });

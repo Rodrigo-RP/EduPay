@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * SPEI Stripe Connect — creación asíncrona + liquidación por webhook firmado.
  *
@@ -110,7 +111,7 @@ beforeAll(async () => {
   const { rows: charges } = await pool.query(
     `INSERT INTO charges
        (student_id, tenant_id, concept_id, monto_base_centavos, estado, fecha_emision, fecha_vencimiento)
-     VALUES ($1, $2, $3, 25800, 'pendiente', CURRENT_DATE, CURRENT_DATE + 30)
+     VALUES ($1, $2, $3, 25800, 'pendiente', ${SCHOOL_TODAY_SQL}, ${SCHOOL_TODAY_SQL} + 30)
      RETURNING id`,
     [students[0].id, tenantId, concepts[0].id],
   );

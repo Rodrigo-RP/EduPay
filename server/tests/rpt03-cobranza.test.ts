@@ -1,3 +1,4 @@
+import { schoolDate, SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * rpt03-cobranza.test.ts — RPT-03 Reporte de Cargos y Cobranza
  *
@@ -156,7 +157,7 @@ beforeAll(async () => {
   const today = new Date();
   const futureDueDate = new Date(today);
   futureDueDate.setUTCDate(futureDueDate.getUTCDate() + 60);
-  cDId = await insertCharge(s3Id, colegiaturaId, CICLO_A, today.toISOString().split("T")[0], futureDueDate.toISOString().split("T")[0], 120_000, "0",  0,    "pendiente");
+  cDId = await insertCharge(s3Id, colegiaturaId, CICLO_A, schoolDate(today), schoolDate(futureDueDate), 120_000, "0",  0,    "pendiente");
   cEId = await insertCharge(s4Id, colegiaturaId, CICLO_A, "2025-08-01", "2025-09-01",  80_000, "0",  0,    "cancelado");
 
   // pagos + payment_applications
@@ -164,7 +165,7 @@ beforeAll(async () => {
     const r = await pool.query(
       `INSERT INTO payments
          (tenant_id, charge_id, metodo, monto_centavos, fecha_pago, estado)
-       VALUES ($1,$2,'efectivo',$3,CURRENT_DATE,'exitoso')
+       VALUES ($1,$2,'efectivo',$3,${SCHOOL_TODAY_SQL},'exitoso')
        RETURNING id`,
       [tenantId, chargeId, monto],
     );

@@ -1,3 +1,4 @@
+import { schoolDate } from "../shared/school-date";
 /**
  * Cargos y emisión.
  *
@@ -10,7 +11,7 @@ import { loginAsAdmin, ADMIN_EMAIL } from "./helpers/auth";
 import { pool as db } from "../server/db";
 
 const suffix = `${Date.now()}`;
-const futureDate = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+const futureDate = schoolDate(new Date(Date.now() + 21 * 24 * 60 * 60 * 1000));
 
 let authToken = "";
 let authUser = "";

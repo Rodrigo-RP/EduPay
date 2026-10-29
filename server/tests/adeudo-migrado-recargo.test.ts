@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * Exención de recargo para adeudo_migrado — rediseño a columna booleana
  *
@@ -127,8 +128,8 @@ beforeAll(async () => {
         fecha_emision, fecha_vencimiento, monto_base_centavos,
         beca_aplicada, recargo_aplicado_centavos, estado, es_adeudo_migrado)
      VALUES ($1,$2,$3,'2025-2026',
-             CURRENT_DATE - INTERVAL '60 days',
-             CURRENT_DATE - INTERVAL '30 days',
+             ${SCHOOL_TODAY_SQL} - INTERVAL '60 days',
+             ${SCHOOL_TODAY_SQL} - INTERVAL '30 days',
              100000, '0.00', 0, 'pendiente', TRUE)
      RETURNING id`,
     [TENANT_ID, testStudentId, conceptColegId],
@@ -142,8 +143,8 @@ beforeAll(async () => {
         fecha_emision, fecha_vencimiento, monto_base_centavos,
         beca_aplicada, recargo_aplicado_centavos, estado, es_adeudo_migrado)
      VALUES ($1,$2,$3,'2025-2026',
-             CURRENT_DATE - INTERVAL '60 days',
-             CURRENT_DATE - INTERVAL '30 days',
+             ${SCHOOL_TODAY_SQL} - INTERVAL '60 days',
+             ${SCHOOL_TODAY_SQL} - INTERVAL '30 days',
              200000, '0.00', 0, 'pendiente', FALSE)
      RETURNING id`,
     [TENANT_ID, testStudentId, conceptColegId],
@@ -157,8 +158,8 @@ beforeAll(async () => {
         fecha_emision, fecha_vencimiento, monto_base_centavos,
         beca_aplicada, recargo_aplicado_centavos, estado, es_adeudo_migrado)
      VALUES ($1,$2,$3,'2025-2026',
-             CURRENT_DATE - INTERVAL '60 days',
-             CURRENT_DATE - INTERVAL '30 days',
+             ${SCHOOL_TODAY_SQL} - INTERVAL '60 days',
+             ${SCHOOL_TODAY_SQL} - INTERVAL '30 days',
              150000, '0.00', 0, 'pendiente', TRUE)
      RETURNING id`,
     [TENANT_ID, testStudentId, conceptColegId],
@@ -205,7 +206,7 @@ describe("POST /api/admin/cargos/aplicar-recargos — exención es_adeudo_migrad
          JOIN students s ON s.id = c.student_id
          WHERE s.campus_id = $1
            AND c.estado = 'pendiente'
-           AND c.fecha_vencimiento < CURRENT_DATE
+           AND c.fecha_vencimiento < ${SCHOOL_TODAY_SQL}
            AND (c.recargo_aplicado_centavos IS NULL OR c.recargo_aplicado_centavos = 0)`,
         [CAMPUS_ID],
       );

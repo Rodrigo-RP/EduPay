@@ -1,3 +1,4 @@
+import { schoolDate } from "../shared/school-date";
 /**
  * E2E — Excepciones de Conciliación
  *
@@ -43,7 +44,7 @@ async function importTx(
     data: {
       transacciones: [
         {
-          fecha: new Date().toISOString().slice(0, 10),
+          fecha: schoolDate(),
           descripcion: `TEST E2E ${ref}`,
           monto: (monto / 100).toFixed(2),
           tipo: "credito",

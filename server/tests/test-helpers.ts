@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * Helpers compartidos para tests que necesitan manipular el ledger
  * sin violar el invariante: charge 'pagado' ⇒ existe payment_application.
@@ -29,7 +30,7 @@ export async function markChargeAsPaidForTest(
     const payR = await client.query(
       `INSERT INTO payments (tenant_id, charge_id, metodo, referencia_pasarela,
                              monto_centavos, fecha_pago, estado)
-       VALUES ($1,$2,'efectivo','TEST-HELPER-PAID',$3,CURRENT_DATE,'exitoso')
+       VALUES ($1,$2,'efectivo','TEST-HELPER-PAID',$3,${SCHOOL_TODAY_SQL},'exitoso')
        RETURNING id`,
       [tenantId, chargeId, amountCentavos]
     );

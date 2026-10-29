@@ -1,3 +1,4 @@
+import { schoolDate } from "../../shared/school-date";
 /**
  * RPT-07 — Antigüedad de Saldos
  *
@@ -6,7 +7,7 @@
  *
  * ─── Definición de buckets (ambos extremos INCLUSIVOS) ────────────────────────
  *
- *   al_corriente : dias_vencido = 0     (fecha_vencimiento >= CURRENT_DATE)
+ *   al_corriente : dias_vencido = 0     (fecha_vencimiento >= SCHOOL_TODAY_SQL)
  *   1_30         : 1  ≤ d ≤  30
  *   31_60        : 31 ≤ d ≤  60
  *   61_90        : 61 ≤ d ≤  90
@@ -103,7 +104,7 @@ function makeToken(userId: number, role: string): string {
 function daysAgo(n: number): string {
   const d = new Date();
   d.setDate(d.getDate() - n);
-  return d.toISOString().split("T")[0];
+  return schoolDate(d);
 }
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
@@ -174,9 +175,9 @@ beforeAll(async () => {
   ): Promise<number> {
     // fecha_emision = 30 días antes del vencimiento (calculado en JS para evitar
     // "inconsistent types deduced for parameter" al reutilizar $N con dos tipos)
-    const emisionDate = new Date(fechaVencimiento);
+    const emisionDate = new Date(fechaVencimiento + "T12:00:00Z");
     emisionDate.setDate(emisionDate.getDate() - 30);
-    const fechaEmision = emisionDate.toISOString().split("T")[0];
+    const fechaEmision = schoolDate(emisionDate);
 
     const r = await pool.query(
       `INSERT INTO charges

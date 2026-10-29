@@ -1,3 +1,4 @@
+import { schoolDate, SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * server/tests/rpt05-consejo.test.ts — RPT-05 Reporte Consejo Directivo
  * ─────────────────────────────────────────────────────────────────────────────
@@ -169,7 +170,7 @@ beforeAll(async () => {
        (tenant_id, student_id, concept_id, ciclo_escolar,
         fecha_emision, fecha_vencimiento,
         monto_base_centavos, beca_aplicada, recargo_aplicado_centavos, estado)
-     VALUES ($1,$2,$3,'2026-2027',CURRENT_DATE,CURRENT_DATE + INTERVAL '30 days',
+     VALUES ($1,$2,$3,'2026-2027',${SCHOOL_TODAY_SQL},${SCHOOL_TODAY_SQL} + INTERVAL '30 days',
              80000,'0',0,'pendiente')
      RETURNING id`,
     [tenantId, studentId, conceptId],
@@ -180,7 +181,7 @@ beforeAll(async () => {
   const p3Row = await pool.query(
     `INSERT INTO payments
        (tenant_id, charge_id, metodo, monto_centavos, fecha_pago, estado, created_at)
-     VALUES ($1,$2,'efectivo',55000,CURRENT_DATE,'exitoso',NOW())
+     VALUES ($1,$2,'efectivo',55000,${SCHOOL_TODAY_SQL},'exitoso',NOW())
      RETURNING id`,
     [tenantId, charge3Id],
   );
@@ -373,7 +374,7 @@ describe("CSJ — RPT-05 Reporte Consejo Directivo", () => {
     }
 
     // El último elemento = mes actual
-    const mesActual = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+    const mesActual = schoolDate().slice(0, 7); // "YYYY-MM"
     expect(t[11].mes).toBe(mesActual);
 
     // El mes actual debe contener payment3 (55000 ¢) como ingresos

@@ -1,3 +1,4 @@
+import { schoolDate } from "../../shared/school-date";
 /**
  * TESTS HTTP DE AISLAMIENTO MULTI-TENANT
  *
@@ -321,7 +322,7 @@ describe("Aislamiento multi-tenant — capa HTTP (IDOR)", () => {
       charge_ids: [chargeAId],   // charge pertenece a tenant A
       numero_pagos: 3,
       frecuencia: "mensual",
-      fecha_inicio: new Date(Date.now() + 45 * 86_400_000).toISOString().slice(0, 10),
+      fecha_inicio: schoolDate(new Date(Date.now() + 45 * 86_400_000)),
     }, tokenB);                  // token de tenant B → debe ser 403
     expect(r.status).toBe(403);
   });

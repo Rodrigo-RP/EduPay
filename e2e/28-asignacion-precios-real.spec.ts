@@ -1,3 +1,4 @@
+import { schoolDate } from "../shared/school-date";
 /**
  * Asignación de precios.
  *
@@ -9,7 +10,7 @@ import { loginAsAdmin, ADMIN_EMAIL } from "./helpers/auth";
 import { pool as db } from "../server/db";
 
 const suffix = `${Date.now()}`;
-const dueDate = new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+const dueDate = schoolDate(new Date(Date.now() + 28 * 24 * 60 * 60 * 1000));
 const productCode = `E2E-PRECIO-${suffix}`;
 const productName = `Producto E2E Precios ${suffix}`;
 const primaryPrice = 111_111;

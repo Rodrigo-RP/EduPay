@@ -1,3 +1,4 @@
+import { schoolDate } from "../../shared/school-date";
 /**
  * TESTS — Beca individual + integración con asistente
  *
@@ -225,14 +226,14 @@ describe("POST /api/admin/students/:studentId/beca — Suite A", () => {
   });
 
   it("A-3: vigencia_fin default = vigencia_inicio + 1 año", async () => {
-    const hoy = new Date().toISOString().split("T")[0];
+    const hoy = schoolDate();
     const { status, body } = await postBeca(studentId, { porcentaje: 5 }, tokenAsignar);
     expect(status).toBe(201);
     becasCreadas.push(body.id);
     // vigencia_fin debe ser un año después de hoy
-    const esperada = new Date(hoy);
+    const esperada = new Date(hoy + "T12:00:00Z");
     esperada.setFullYear(esperada.getFullYear() + 1);
-    expect(body.vigencia_fin.slice(0, 10)).toBe(esperada.toISOString().split("T")[0]);
+    expect(body.vigencia_fin.slice(0, 10)).toBe(schoolDate(esperada));
   });
 
   it("A-4: acepta el extremo permitido de porcentaje 0 y lo persiste", async () => {
@@ -399,7 +400,7 @@ describe("ciclo administrativo de becas y catálogo", () => {
     expect(suspended.status).toBe(200);
     expect(suspended.body.estado).toBe("suspendida");
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = schoolDate();
     const resolution = await resolveEffectiveScholarship(
       pool, lifecycleStudentId, tenantId, campusId, today,
     );

@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../shared/school-date";
 /**
  * E2E — Condonación repetida desde Planes de Pago.
  * Usa datos aislados y sesiones reales de administrador_general y
@@ -105,9 +106,9 @@ test.describe("Condonación repetida — UI de Planes de Pago", () => {
         (campus_id, tenant_id, student_id, total_adeudo_centavos, monto_inicial_centavos,
          numero_pagos, frecuencia, fecha_inicio, tipo_origen, charge_ids_origen)
        VALUES
-        ($1,$2,$3,0,0,1,'mensual',CURRENT_DATE,'reestructuracion','[]'),
-        ($1,$2,$3,0,0,1,'mensual',CURRENT_DATE,'reestructuracion','[]'),
-        ($1,$2,$3,0,0,1,'mensual',CURRENT_DATE,'reestructuracion','[]')
+        ($1,$2,$3,0,0,1,'mensual',${SCHOOL_TODAY_SQL},'reestructuracion','[]'),
+        ($1,$2,$3,0,0,1,'mensual',${SCHOOL_TODAY_SQL},'reestructuracion','[]'),
+        ($1,$2,$3,0,0,1,'mensual',${SCHOOL_TODAY_SQL},'reestructuracion','[]')
        RETURNING id`,
       [campusId, tenantId, studentId],
     );

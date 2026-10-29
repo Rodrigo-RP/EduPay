@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import jwt from "jsonwebtoken";
 import { pool } from "../db";
@@ -76,10 +77,10 @@ beforeAll(async () => {
        (tenant_id, student_id, concept_id, fecha_emision, fecha_vencimiento,
         monto_base_centavos, beca_aplicada, recargo_aplicado_centavos, estado, es_adeudo_migrado)
      VALUES
-       ($1, $2, $3, CURRENT_DATE - 30, CURRENT_DATE - 10, 10000, '0.00', 0, 'pendiente', false),
-       ($1, $2, $4, CURRENT_DATE - 30, CURRENT_DATE - 10, 10000, '0.00', 0, 'pendiente', false),
-       ($1, $2, $5, CURRENT_DATE - 30, CURRENT_DATE - 10, 20000, '0.00', 0, 'pendiente', false),
-       ($1, $2, $6, CURRENT_DATE - 30, CURRENT_DATE - 10, 10000, '0.00', 0, 'pendiente', false)
+       ($1, $2, $3, ${SCHOOL_TODAY_SQL} - 30, ${SCHOOL_TODAY_SQL} - 10, 10000, '0.00', 0, 'pendiente', false),
+       ($1, $2, $4, ${SCHOOL_TODAY_SQL} - 30, ${SCHOOL_TODAY_SQL} - 10, 10000, '0.00', 0, 'pendiente', false),
+       ($1, $2, $5, ${SCHOOL_TODAY_SQL} - 30, ${SCHOOL_TODAY_SQL} - 10, 20000, '0.00', 0, 'pendiente', false),
+       ($1, $2, $6, ${SCHOOL_TODAY_SQL} - 30, ${SCHOOL_TODAY_SQL} - 10, 10000, '0.00', 0, 'pendiente', false)
      RETURNING id`,
     [tenantId, studentId, ...conceptIds],
   );

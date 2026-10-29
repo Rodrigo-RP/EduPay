@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * Tests para Task #8: Núcleo de familia y ledger financiero.
  *
@@ -54,7 +55,7 @@ async function createTestStudent(tenantId: number, campusId: number): Promise<nu
 async function createTestCharge(studentId: number, montoCentavos: number): Promise<number> {
   const r = await pool.query(`
     INSERT INTO charges (student_id, monto_base_centavos, estado, fecha_emision, fecha_vencimiento)
-    VALUES ($1, $2, 'pendiente', CURRENT_DATE, CURRENT_DATE + INTERVAL '30 days')
+    VALUES ($1, $2, 'pendiente', ${SCHOOL_TODAY_SQL}, ${SCHOOL_TODAY_SQL} + INTERVAL '30 days')
     RETURNING id
   `, [studentId, montoCentavos]);
   return (r.rows[0] as any).id;

@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * Tests para Task #9: Máquinas de estado y auditoría inmutable.
  *
@@ -45,7 +46,7 @@ async function createTestStudent(tenantId: number, campusId: number): Promise<nu
 async function createTestCharge(studentId: number, tenantId: number, estado = "pendiente"): Promise<number> {
   const r = await pool.query(
     `INSERT INTO charges (student_id, monto_base_centavos, estado, fecha_emision, fecha_vencimiento, tenant_id)
-     VALUES ($1, 100000, $2, CURRENT_DATE, CURRENT_DATE + INTERVAL '30 days', $3) RETURNING id`,
+     VALUES ($1, 100000, $2, ${SCHOOL_TODAY_SQL}, ${SCHOOL_TODAY_SQL} + INTERVAL '30 days', $3) RETURNING id`,
     [studentId, estado, tenantId]
   );
   return (r.rows[0] as any).id;

@@ -1,3 +1,4 @@
+import { schoolDate } from "../shared/school-date";
 /**
  * E2E — Planes de Pago (ADR-002)
  *
@@ -123,7 +124,7 @@ async function crearPlanViaApi(request: any): Promise<void> {
       student_id: fixture.studentId,
       numero_pagos: 3,
       frecuencia:   "mensual",
-      fecha_inicio: new Date().toISOString().slice(0, 10),
+      fecha_inicio: schoolDate(),
       observaciones: "Plan E2E — creado por test automatizado",
     },
   });

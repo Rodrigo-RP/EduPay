@@ -1,3 +1,4 @@
+import { schoolDate, SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * TESTS — Planes de Pago (ADR-002)
  *
@@ -20,7 +21,7 @@ import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 
 const BASE       = "http://localhost:5000";
-const PLAN_START = new Date(Date.now() + 45 * 86_400_000).toISOString().slice(0, 10);
+const PLAN_START = schoolDate(new Date(Date.now() + 45 * 86_400_000));
 import { JWT_SECRET } from "../routes/shared";
 
 // ── IDs de datos de prueba ────────────────────────────────────────────────────
@@ -82,7 +83,7 @@ async function mkCharge(monto = 100_000, estado = "pendiente"): Promise<number> 
   const r = await pool.query(
     `INSERT INTO charges (tenant_id, student_id, concept_id, fecha_emision, fecha_vencimiento,
        monto_base_centavos, estado)
-     VALUES ($1,$2,$3,CURRENT_DATE,CURRENT_DATE + 30,$4,$5) RETURNING id`,
+     VALUES ($1,$2,$3,${SCHOOL_TODAY_SQL},${SCHOOL_TODAY_SQL} + 30,$4,$5) RETURNING id`,
     [tenantId, studentId, conceptColegiaturaId, monto, estado]
   );
   return (r.rows as any[])[0].id;
@@ -277,7 +278,7 @@ describe("Planes de Pago — ADR-002", () => {
     // Crear charge en el tenant B
     const r2 = await pool.query(
       `INSERT INTO charges (tenant_id, student_id, concept_id, fecha_emision, fecha_vencimiento, monto_base_centavos, estado)
-       VALUES ($1,$2,NULL,CURRENT_DATE,CURRENT_DATE+30,50000,'pendiente') RETURNING id`,
+       VALUES ($1,$2,NULL,${SCHOOL_TODAY_SQL},${SCHOOL_TODAY_SQL}+30,50000,'pendiente') RETURNING id`,
       [tenantBId, studentBId]
     );
     const chBId = (r2.rows as any[])[0].id;
@@ -762,7 +763,7 @@ describe("Planes de Pago — ADR-002", () => {
       `INSERT INTO bank_transactions
          (campus_id, tenant_id, fecha, descripcion, monto_centavos, tipo,
           referencia, estado_conciliacion)
-       VALUES ($1,$2,NOW()::date,'SPEI tardio test',$3,'abono','SPEI-TARDIO-PL','pendiente')
+       VALUES ($1,$2,${SCHOOL_TODAY_SQL},'SPEI tardio test',$3,'abono','SPEI-TARDIO-PL','pendiente')
        RETURNING id`,
       [campusId, tenantId, montoOriginal]
     );

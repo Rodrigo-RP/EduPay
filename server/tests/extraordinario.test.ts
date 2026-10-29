@@ -1,3 +1,4 @@
+import { schoolDate } from "../../shared/school-date";
 /**
  * Tests para POST /api/admin/cargos/extraordinario (charges.ts:181-235)
  *
@@ -255,7 +256,7 @@ describe("POST /api/admin/cargos/extraordinario", () => {
       student_id: studentAId,
       monto: "500",
       concept_id: conceptBId,
-      fecha_vencimiento: new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10),
+      fecha_vencimiento: schoolDate(new Date(Date.now() + 30 * 86_400_000)),
       motivo_override: "Validar aislamiento del concepto",
     }, tokenA);
 

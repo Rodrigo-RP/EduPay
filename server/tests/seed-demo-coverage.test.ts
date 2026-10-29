@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 import { beforeAll, describe, expect, it } from "vitest";
 import { pool } from "../db";
 import { seedDemoData } from "../seed-demo";
@@ -147,8 +148,8 @@ describe("SEED-02: datos demo completos para pantallas reales", () => {
        INNER JOIN students s ON s.id = sh.student_id
        WHERE s.campus_id = $1
          AND s.status = 'activo'
-         AND sh.vigencia_inicio <= CURRENT_DATE
-         AND (sh.vigencia_fin IS NULL OR sh.vigencia_fin >= CURRENT_DATE)`,
+         AND sh.vigencia_inicio <= ${SCHOOL_TODAY_SQL}
+         AND (sh.vigencia_fin IS NULL OR sh.vigencia_fin >= ${SCHOOL_TODAY_SQL})`,
       [campus.id],
     );
 

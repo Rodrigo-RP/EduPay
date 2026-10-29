@@ -1,3 +1,4 @@
+import { schoolDate, SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * server/tests/nit-narrative-insights.test.ts — Panel Narrativo NI-01…NI-05
  *
@@ -38,7 +39,7 @@ const TS         = Date.now().toString().slice(-6);
 // ─── Fechas helpers ────────────────────────────────────────────────────────────
 
 function isoDate(d: Date): string {
-  return d.toISOString().split("T")[0];
+  return schoolDate(d);
 }
 
 function daysAgo(n: number): string {
@@ -47,14 +48,14 @@ function daysAgo(n: number): string {
   return isoDate(d);
 }
 
-const now         = new Date();
-const currStart   = isoDate(new Date(now.getFullYear(), now.getMonth(), 1));
-const currEnd     = isoDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+const now         = new Date(schoolDate() + "T12:00:00Z");
+const currStart   = isoDate(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 12)));
+const currEnd     = isoDate(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 12)));
 
 // Mes anterior
-const prevLast    = new Date(now.getFullYear(), now.getMonth(), 0);
-const prevFirst   = new Date(prevLast.getFullYear(), prevLast.getMonth(), 1);
-const prevMid     = isoDate(new Date(prevLast.getFullYear(), prevLast.getMonth(), 15));
+const prevLast    = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0, 12));
+const prevFirst   = new Date(Date.UTC(prevLast.getUTCFullYear(), prevLast.getUTCMonth(), 1, 12));
+const prevMid     = isoDate(new Date(Date.UTC(prevLast.getUTCFullYear(), prevLast.getUTCMonth(), 15, 12)));
 const prevStart   = isoDate(prevFirst);
 const prevEnd     = isoDate(prevLast);
 
@@ -164,7 +165,7 @@ beforeAll(async () => {
          (tenant_id, student_id, concept_id, ciclo_escolar,
           fecha_emision, fecha_vencimiento,
           monto_base_centavos, beca_aplicada, recargo_aplicado_centavos, estado)
-       VALUES ($1,$2,$3,'2025-2026',CURRENT_DATE,$4,600000,'0',0,'pendiente')
+       VALUES ($1,$2,$3,'2025-2026',${SCHOOL_TODAY_SQL},$4,600000,'0',0,'pendiente')
        RETURNING id`,
       [tTenantId, sid, tConceptId, daysAgo(95)],
     );
@@ -203,7 +204,7 @@ beforeAll(async () => {
          (tenant_id, student_id, concept_id, ciclo_escolar,
           fecha_emision, fecha_vencimiento,
           monto_base_centavos, beca_aplicada, recargo_aplicado_centavos, estado)
-       VALUES ($1,$2,$3,'2025-2026',CURRENT_DATE,$4,600000,'0',0,'pendiente')
+       VALUES ($1,$2,$3,'2025-2026',${SCHOOL_TODAY_SQL},$4,600000,'0',0,'pendiente')
        RETURNING id`,
       [tTenantId, sid, tConceptId, daysAgo(41)],
     );
@@ -220,7 +221,7 @@ beforeAll(async () => {
          (tenant_id, student_id, concept_id, ciclo_escolar,
           fecha_emision, fecha_vencimiento,
           monto_base_centavos, beca_aplicada, recargo_aplicado_centavos, estado)
-       VALUES ($1,$2,$3,'2025-2026',CURRENT_DATE,$4,10000,'0',0,'pendiente')
+       VALUES ($1,$2,$3,'2025-2026',${SCHOOL_TODAY_SQL},$4,10000,'0',0,'pendiente')
        RETURNING id`,
       [tTenantId, sid, tConceptId, daysAgo(10)],
     );

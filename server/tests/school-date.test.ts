@@ -123,7 +123,7 @@ describe("Día financiero de la escuela con reloj fijo", () => {
     const next = new Date(day + "T12:00:00Z");
     next.setUTCDate(next.getUTCDate() + 1);
     const otherDay = await invoke("get", "/api/caja/pagos-efectivo", {}, {
-      fecha: next.toISOString().slice(0, 10),
+      fecha: schoolDate(next),
     });
     expect(otherDay.body).toEqual([]);
   });

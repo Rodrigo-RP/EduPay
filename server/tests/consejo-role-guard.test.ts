@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * CF-CONSEJO — guard de rol en GET /api/reportes/consejo (RPT-05)
  *
@@ -92,7 +93,7 @@ beforeAll(async () => {
   const bRow = await pool.query(
     `INSERT INTO scholarships
        (student_id, tenant_id, porcentaje, motivo, vigencia_inicio, vigencia_fin)
-     VALUES ($1,$2,30,$3, CURRENT_DATE, CURRENT_DATE + INTERVAL '1 year') RETURNING id`,
+     VALUES ($1,$2,30,$3, ${SCHOOL_TODAY_SQL}, ${SCHOOL_TODAY_SQL} + INTERVAL '1 year') RETURNING id`,
     [studentId, tenantId, `Beca CON ${TS}`],
   );
   scholarshipId = (bRow.rows[0] as any).id;

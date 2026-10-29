@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * Prueba de regresión: guard PAYMENTS.PROCESS en 4 endpoints de pago/caja
  *
@@ -70,7 +71,7 @@ async function mkCharge(monto = 100_000): Promise<number> {
   const r = await pool.query(
     `INSERT INTO charges (tenant_id, student_id, concept_id, fecha_emision,
                           fecha_vencimiento, monto_base_centavos, estado)
-     VALUES ($1,$2,$3,CURRENT_DATE,CURRENT_DATE+30,$4,'pendiente') RETURNING id`,
+     VALUES ($1,$2,$3,${SCHOOL_TODAY_SQL},${SCHOOL_TODAY_SQL}+30,$4,'pendiente') RETURNING id`,
     [tenantId, studentId, conceptId, monto],
   );
   const id = (r.rows as any[])[0].id as number;
@@ -87,7 +88,7 @@ async function mkCredit(amountCentavos: number): Promise<{ creditId: number; set
   const setupChargeRes = await pool.query(
     `INSERT INTO charges (tenant_id, student_id, concept_id, fecha_emision,
                           fecha_vencimiento, monto_base_centavos, estado)
-     VALUES ($1,$2,$3,CURRENT_DATE,CURRENT_DATE+30,$4,'pagado') RETURNING id`,
+     VALUES ($1,$2,$3,${SCHOOL_TODAY_SQL},${SCHOOL_TODAY_SQL}+30,$4,'pagado') RETURNING id`,
     [tenantId, studentId, conceptId, amountCentavos],
   );
   const setupChargeId = (setupChargeRes.rows as any[])[0].id as number;
@@ -96,7 +97,7 @@ async function mkCredit(amountCentavos: number): Promise<{ creditId: number; set
   // 2. Payment stub (exitoso)
   const payRes = await pool.query(
     `INSERT INTO payments (tenant_id, charge_id, metodo, monto_centavos, fecha_pago, estado)
-     VALUES ($1,$2,'efectivo',$3,CURRENT_DATE,'exitoso') RETURNING id`,
+     VALUES ($1,$2,'efectivo',$3,${SCHOOL_TODAY_SQL},'exitoso') RETURNING id`,
     [tenantId, setupChargeId, amountCentavos],
   );
   const paymentId = (payRes.rows as any[])[0].id as number;

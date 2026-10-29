@@ -1,3 +1,4 @@
+import { schoolDate } from "../../shared/school-date";
 /**
  * RPT-08 — Reporte de Riesgo de Cobranza
  *
@@ -91,7 +92,7 @@ function makeToken(userId: number, role: string): string {
 function daysAgo(n: number): string {
   const d = new Date();
   d.setDate(d.getDate() - n);
-  return d.toISOString().split("T")[0];
+  return schoolDate(d);
 }
 
 // ── Setup ─────────────────────────────────────────────────────────────────────

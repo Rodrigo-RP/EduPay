@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * conciliacion-revision-supervisor.test.ts
  *
@@ -54,7 +55,7 @@ async function mkCharge(montoCentavos: number): Promise<number> {
   const r = await pool.query(
     `INSERT INTO charges (tenant_id, student_id, concept_id, fecha_emision, fecha_vencimiento,
                           monto_base_centavos, estado)
-     VALUES ($1,$2,$3,CURRENT_DATE,CURRENT_DATE+30,$4,'pendiente') RETURNING id`,
+     VALUES ($1,$2,$3,${SCHOOL_TODAY_SQL},${SCHOOL_TODAY_SQL}+30,$4,'pendiente') RETURNING id`,
     [tenantId, studentId, conceptId, montoCentavos]
   );
   return r.rows[0].id;
@@ -68,7 +69,7 @@ async function mkBankTx(
     `INSERT INTO bank_transactions
        (campus_id, tenant_id, fecha, descripcion, monto_centavos, tipo,
         clabe_ordenante, nombre_ordenante, estado_conciliacion)
-     VALUES ($1,$2,CURRENT_DATE,'TX revision test',$3,'credito',$4,$5,'pendiente')
+     VALUES ($1,$2,${SCHOOL_TODAY_SQL},'TX revision test',$3,'credito',$4,$5,'pendiente')
      RETURNING id`,
     [campusId, tenantId, montoCentavos, opts.clabe ?? null, opts.nombre ?? null]
   );

@@ -1,3 +1,4 @@
+import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
 /**
  * TESTS — Concurrencia y Ledger: guardian/pagar, payments/process, caja/pago-efectivo
  *
@@ -80,7 +81,7 @@ async function mkCharge(monto = 100_000, estado = "pendiente"): Promise<number> 
   const r = await pool.query(
     `INSERT INTO charges (tenant_id, student_id, concept_id, fecha_emision, fecha_vencimiento,
                           monto_base_centavos, estado)
-     VALUES ($1,$2,$3,CURRENT_DATE,CURRENT_DATE+30,$4,$5) RETURNING id`,
+     VALUES ($1,$2,$3,${SCHOOL_TODAY_SQL},${SCHOOL_TODAY_SQL}+30,$4,$5) RETURNING id`,
     [tenantId, studentId, conceptId, monto, estado]
   );
   const id = (r.rows as any[])[0].id as number;
@@ -663,7 +664,7 @@ describe("caja/pago-efectivo — pago parcial y completion", () => {
     const payRow = await pool.query(
       `INSERT INTO payments (tenant_id, charge_id, metodo, referencia_pasarela,
                              monto_centavos, fecha_pago, estado)
-       VALUES ($1,$2,'efectivo','TEST-SALDO-CERO',$3,CURRENT_DATE,'exitoso') RETURNING id`,
+       VALUES ($1,$2,'efectivo','TEST-SALDO-CERO',$3,${SCHOOL_TODAY_SQL},'exitoso') RETURNING id`,
       [tenantId, chargeId, MONTO]
     );
     const fakePayId = (payRow.rows as any[])[0].id as number;
@@ -745,7 +746,7 @@ describe("family-credits/aplicar — validaciones y concurrencia", () => {
         `INSERT INTO charges
            (tenant_id, student_id, concept_id, fecha_emision, fecha_vencimiento,
             monto_base_centavos, estado)
-         VALUES ($1,$2,$3,CURRENT_DATE,CURRENT_DATE+30,80000,'pendiente') RETURNING id`,
+         VALUES ($1,$2,$3,${SCHOOL_TODAY_SQL},${SCHOOL_TODAY_SQL}+30,80000,'pendiente') RETURNING id`,
         [tenantId, student2Id, conceptId]
       ).then((r: any) => r.rows[0].id);
       createdChargeIds.push(charge2Id);

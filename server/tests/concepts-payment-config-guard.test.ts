@@ -1,3 +1,4 @@
+import { schoolDate } from "../../shared/school-date";
 /**
  * CF-02, CF-03, CF-04, CF-11, CF-12, CF-17
  * Guards de acceso al catálogo de conceptos y configuración de pagos
@@ -396,7 +397,7 @@ describe("CF-12 — POST /api/payment-config/surcharge-rules-complete [SETTINGS.
         porcentaje_recargo: 0, tipo_calculo: "porcentaje_fijo", activo: true,
         modo_acumulacion: "incremento_fijo", tipo_incremento_mensual: "porcentaje",
         incremento_mensual_porcentaje: 0,
-        fecha_inicio_acumulacion: new Date().toISOString().slice(0, 10) },
+        fecha_inicio_acumulacion: schoolDate() },
     );
     expect(status).toBe(201);
     surchargeCreatedId = (body as any).id;

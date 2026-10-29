@@ -1,0 +1,1 @@
+ALTER TABLE "guardians" ALTER COLUMN "email" DROP NOT NULL;

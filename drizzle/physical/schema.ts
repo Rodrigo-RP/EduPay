@@ -628,7 +628,7 @@ export const paymentSurchargeRules = pgTable("payment_surcharge_rules", {
 
 export const guardians = pgTable("guardians", {
 	id: serial().primaryKey().notNull(),
-	email: varchar({ length: 255 }).notNull(),
+email: varchar({ length: 255 }),
 	passwordHash: varchar("password_hash", { length: 255 }),
 	telefono: varchar({ length: 20 }),
 	nombreCompleto: varchar("nombre_completo", { length: 255 }).notNull(),

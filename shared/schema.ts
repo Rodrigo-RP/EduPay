@@ -208,7 +208,7 @@ export const guardians = pgTable("guardians", {
   telefono_casa_oficina: varchar("telefono_casa_oficina", { length: 20 }),
   
   // Campos para compatibilidad con sistema existente
-  email: varchar("email", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }),
   password_hash: varchar("password_hash", { length: 255 }),
   telefono: varchar("telefono", { length: 20 }),
   nombre_completo: varchar("nombre_completo", { length: 255 }).notNull(),

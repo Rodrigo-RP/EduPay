@@ -8,6 +8,7 @@
 import { expect, test } from "@playwright/test";
 import { loginAsAdmin, ADMIN_EMAIL } from "./helpers/auth";
 import { pool as db } from "../server/db";
+import { uniqueTestCurp } from "../server/test-support/test-curp";
 
 const run = Date.now();
 const referencePrefix = `E2E-INC-${run}`;
@@ -15,16 +16,11 @@ let tenantId = 0;
 let campusId = 0;
 let onboardingWasComplete = false;
 
-function makeCurp(prefix: string, offset: number): string {
-  const yy = String((run + offset) % 100).padStart(2, "0");
-  return `${prefix}${yy}0101HJCLLNA0`;
-}
-
-const existingCurp = makeCurp("EIZA", 0);
+const existingCurp = uniqueTestCurp("EIZA");
 const existingReference = `${referencePrefix}-EXISTING`;
 const newRows = Array.from({ length: 14 }, (_, index) => ({
   name: `Alumno E2E Incremental ${index + 1}`,
-  curp: makeCurp(`EIC${String.fromCharCode(65 + index)}`, index + 1),
+  curp: uniqueTestCurp(`EIC${String.fromCharCode(65 + index)}`),
   reference: `${referencePrefix}-${String(index + 1).padStart(2, "0")}`,
 }));
 

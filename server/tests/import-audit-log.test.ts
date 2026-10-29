@@ -16,6 +16,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { pool } from "../db";
 import jwt from "../test-support/session-jwt";
+import { uniqueTestCurp } from "../test-support/test-curp";
 
 const BASE       = "http://localhost:5000";
 import { JWT_SECRET } from "../routes/shared";
@@ -175,8 +176,7 @@ describe("POST /api/import/data — registro en audit_log", () => {
     const beforeReq = new Date().toISOString();
     // curpRow1 = CURP válido (no empieza con TEAT) → pasa validación y CHECK.
     // curpRow2 = CURP válido en formato pero viola CHECK NOT LIKE 'TEAT%' → error fatal DB.
-    const _tsIal = Date.now();
-    const curpRow1 = `AUID${String(_tsIal % 100).padStart(2,'0')}0101HNENNNA${_tsIal % 10}`;
+    const curpRow1 = uniqueTestCurp("AUID");
     const curpRow2 = `TEAT000101HNENNNA0`; // formato válido, viola chk_ial_test_rollback
     const csv = [
       "nombre_completo,curp",

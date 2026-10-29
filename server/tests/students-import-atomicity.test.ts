@@ -17,6 +17,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { pool } from "../db";
 import jwt from "../test-support/session-jwt";
+import { uniqueTestCurp } from "../test-support/test-curp";
 
 const BASE       = "http://localhost:5000";
 import { JWT_SECRET } from "../routes/shared";
@@ -44,14 +45,6 @@ const TOKEN = adminToken();
 const createdIds: number[] = [];
 
 const NOMBRE_LARGO_260 = "Z".repeat(260); // pasa validación, falla varchar(255) en DB
-
-/** Genera un CURP de exactamente 18 chars que pasa el patrón oficial SAT. */
-function mkCurp(ts: number, offset = 0): string {
-  // Codifica unicidad en los 2 dígitos de "año" (posiciones 5-6).
-  // Prefijo SIAT: S(letra), I(vocal), A, T — posiciones 1-4 válidas.
-  const yy = String((ts + offset) % 100).padStart(2, '0');
-  return `SIAT${yy}0101HNENNNA0`; // 18 chars, formato CURP oficial ✓
-}
 
 // Limpia cualquier residuo de corridas anteriores interrumpidas antes de arrancar.
 // afterAll cubre la corrida actual; beforeAll cubre el caso de que afterAll
@@ -122,7 +115,7 @@ describe("POST /api/admin/students/import — atomicidad + dry_run + auditoría"
   // ── SIA-03: dry_run=true → formato correcto, cero alumnos en DB ─────────────
   it("SIA-03: dry_run=true → misma forma de respuesta, ningún alumno escrito en DB", async () => {
     const ts = Date.now();
-    const curp = mkCurp(ts);
+    const curp = uniqueTestCurp("SIAT");
     const csv = [
       "Nombre Completo,CURP,Grado,Grupo,Estatus",
       csvRow(`DryRun ${ts}`, curp),
@@ -150,9 +143,9 @@ describe("POST /api/admin/students/import — atomicidad + dry_run + auditoría"
      "formato de respuesta igual al que espera estudiantes.tsx", async () => {
     const ts = Date.now();
     const curps = [
-      mkCurp(ts, 1),
-      mkCurp(ts, 2),
-      mkCurp(ts, 3),
+      uniqueTestCurp("SIAT"),
+      uniqueTestCurp("SIAT"),
+      uniqueTestCurp("SIAT"),
     ];
     const csv = [
       "Nombre Completo,CURP,Grado,Grupo,Estatus",
@@ -189,9 +182,9 @@ describe("POST /api/admin/students/import — atomicidad + dry_run + auditoría"
      "SAVEPOINT aísla el error, Alice y Dave se crean, " +
      "respuesta lleva errors[] con descripción del fallo", async () => {
     const ts = Date.now();
-    const curpAlice = mkCurp(ts, 10);
-    const curpBob   = mkCurp(ts, 11);
-    const curpDave  = mkCurp(ts, 12);
+    const curpAlice = uniqueTestCurp("SIAT");
+    const curpBob   = uniqueTestCurp("SIAT");
+    const curpDave  = uniqueTestCurp("SIAT");
 
     const csv = [
       "Nombre Completo,CURP,Grado,Grupo,Estatus",
@@ -229,7 +222,7 @@ describe("POST /api/admin/students/import — atomicidad + dry_run + auditoría"
   it("SIA-06: columnas CSV en minúsculas ('nombre_completo', 'curp') " +
      "también son aceptadas — parseo flexible sin cambios", async () => {
     const ts = Date.now();
-    const curp = mkCurp(ts, 20);
+    const curp = uniqueTestCurp("SIAT");
     const csv = [
       "nombre_completo,curp,grado,grupo,status",     // ← lowercase
       `Alumno Flex ${ts},${curp},1ro,A,activo`,
@@ -250,7 +243,7 @@ describe("POST /api/admin/students/import — atomicidad + dry_run + auditoría"
   //   (mismo patrón que el resto de endpoints de import).
   it("SIA-07: dry_run=true → body incluye committed=false (o al menos cero alumnos en DB)", async () => {
     const ts = Date.now();
-    const curp = mkCurp(ts, 30);
+    const curp = uniqueTestCurp("SIAT");
     const csv = [
       "Nombre Completo,CURP",
       `DryRun Check ${ts},${curp}`,
@@ -267,7 +260,7 @@ describe("POST /api/admin/students/import — atomicidad + dry_run + auditoría"
   // ── SIA-08: auditoría en audit_log después del commit ────────────────────────
   it("SIA-08: import real → enqueueAuditLog emitido (registro en audit_log dentro de 3 s)", async () => {
     const ts = Date.now();
-    const curp = mkCurp(ts, 40);
+    const curp = uniqueTestCurp("SIAT");
     const csv = [
       "Nombre Completo,CURP,Grado,Grupo,Estatus",
       `Alumno Audit ${ts},${curp},1ro,A,activo`,

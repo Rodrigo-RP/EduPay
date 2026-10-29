@@ -11,6 +11,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import jwt from "../test-support/session-jwt";
+import { uniqueTestCurp } from "../test-support/test-curp";
 import { pool } from "../db";
 import { JWT_SECRET } from "../routes/shared";
 
@@ -31,16 +32,11 @@ function adminToken() {
   }, JWT_SECRET, { expiresIn: "15m" });
 }
 
-function makeCurp(prefix: string, offset: number): string {
-  const yy = String((RUN + offset) % 100).padStart(2, "0");
-  return `${prefix}${yy}0101HJCLLNA0`;
-}
-
-const EXISTING_CURP = makeCurp("RIZA", 0);
+const EXISTING_CURP = uniqueTestCurp("RIZA");
 const EXISTING_REFERENCE = `${REFERENCE_PREFIX}-EXISTING`;
 const NEW_ROWS = Array.from({ length: 14 }, (_, index) => ({
   nombre: `Alumno Incremental ${index + 1}`,
-  curp: makeCurp(`RIC${String.fromCharCode(65 + index)}`, index + 1),
+  curp: uniqueTestCurp(`RIC${String.fromCharCode(65 + index)}`),
   referencia: `${REFERENCE_PREFIX}-${String(index + 1).padStart(2, "0")}`,
 }));
 
@@ -172,7 +168,7 @@ describe("ISI — importación incremental de estudiantes", () => {
   });
 
   it("ISI-03: matrícula existente se omite aunque el CURP sea nuevo", async () => {
-    const newCurp = makeCurp("RICO", 30);
+    const newCurp = uniqueTestCurp("RICO");
     const csv = buildCsv([{
       nombre: "Alumno Duplicado Matrícula",
       curp: newCurp,
@@ -210,7 +206,7 @@ describe("ISI — importación incremental de estudiantes", () => {
   });
 
   it("ISI-04: dos imports concurrentes insertan una sola vez", async () => {
-    const concurrentCurp = makeCurp("RICQ", 40);
+    const concurrentCurp = uniqueTestCurp("RICQ");
     const concurrentReference = `${REFERENCE_PREFIX}-CONCURRENT`;
     const csv = buildCsv([{
       nombre: "Alumno Concurrente",
@@ -245,12 +241,12 @@ describe("ISI — importación incremental de estudiantes", () => {
     const rows = [
       {
         nombre: "Alumno Concurrente Alfa",
-        curp: makeCurp("RIRA", 50),
+        curp: uniqueTestCurp("RIRA"),
         referencia: `${REFERENCE_PREFIX}-REVERSE-A`,
       },
       {
         nombre: "Alumno Concurrente Beta",
-        curp: makeCurp("RIRB", 51),
+        curp: uniqueTestCurp("RIRB"),
         referencia: `${REFERENCE_PREFIX}-REVERSE-B`,
       },
     ];

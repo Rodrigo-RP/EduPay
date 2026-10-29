@@ -17,6 +17,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import jwt from "../test-support/session-jwt";
+import { uniqueTestCurp } from "../test-support/test-curp";
 import { pool } from "../db";
 import {
   validarCurp,
@@ -351,9 +352,8 @@ describe("CB — CURP no-bloqueante: POST /api/import/data/estudiantes/estudiant
   // La CURP inválida va a errors[] (no aborta el batch) y la fila no se inserta.
   // La CURP válida se inserta normalmente — successful=1.
   it("CB-01: CSV con una CURP inválida y una válida → 200, failed=1, successful=1, fila inválida ausente en DB", async () => {
-    const tsCb1   = Date.now();
     // Prefijo CUBO: C(A-Z), U(vocal), B(A-Z), O(A-Z) — formato CURP válido
-    const curpOk  = `CUBO${String(tsCb1 % 100).padStart(2, "0")}0101HNENNNA${tsCb1 % 10}`;
+    const curpOk  = uniqueTestCurp("CUBO");
     createdCurps.push(curpOk);
 
     const csv = [

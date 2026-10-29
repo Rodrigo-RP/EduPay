@@ -34,6 +34,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { pool } from "../db";
 import jwt from "../test-support/session-jwt";
+import { uniqueTestCurp } from "../test-support/test-curp";
 
 
 const BASE       = "http://localhost:5000";
@@ -57,20 +58,11 @@ function adminToken() {
 const TOKEN = adminToken();
 
 // ── CURP helpers ─────────────────────────────────────────────────────────────
-// CURP de exactamente 18 chars: prefijo 4 + 14 dígitos del timestamp.
 const TS = Date.now();
 
-function mkCurp(prefix: string, offset = 0): string {
-  // Genera CURP de 18 chars que pasa el patrón oficial SAT.
-  // prefix debe ser: letra + vocal + letra + letra (ej: "WISA", "WISB").
-  // Unicidad codificada en 2 dígitos del "año" (posiciones 5-6).
-  const yy = String((TS + offset) % 100).padStart(2, "0");
-  return `${prefix}${yy}0101HNENNNA0`; // 4+2+4+1+2+3+1+1 = 18 ✓
-}
-
 // CURPs de los estudiantes creados por importación (para cleanup)
-const CURP_ALUMNO_IMPORT   = mkCurp("WISA", 1); // creado en WIS-02
-const CURP_SEED_STUDENT    = mkCurp("WISB", 2); // seed para familias/becas/adeudos
+const CURP_ALUMNO_IMPORT   = uniqueTestCurp("WISA"); // creado en WIS-02
+const CURP_SEED_STUDENT    = uniqueTestCurp("WISB"); // seed para familias/becas/adeudos
 const EMAIL_GUARDIAN       = `wis-guardian-${TS}@test.mx`;
 
 // IDs rastreados para cleanup

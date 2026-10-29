@@ -14,6 +14,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { pool } from "../db";
 import jwt from "../test-support/session-jwt";
+import { uniqueTestCurp } from "../test-support/test-curp";
 
 const BASE       = "http://localhost:5000";
 import { JWT_SECRET } from "../routes/shared";
@@ -167,8 +168,7 @@ describe("POST /api/import/data — guard de módulo y atomicidad", () => {
 
   it("IGM-05: administrador_campus → 200 en estudiantes/estudiantes, alumno insertado en DB", async () => {
     // GUMA: G(letra), U(vocal), M, A — prefijo válido para formato CURP.
-    const _ts5 = Date.now();
-    const curp = `GUMA${String(_ts5 % 100).padStart(2,'0')}0101HNENNNA${_ts5 % 10}`;
+    const curp = uniqueTestCurp("GUMA");
     createdStudentCurps.push(curp);
 
     const csv = `nombre_completo,curp\nAlumno IGM Import,${curp}`;
@@ -201,8 +201,7 @@ describe("POST /api/import/data — guard de módulo y atomicidad", () => {
 
   // ── IGM-07: Fila con error de validación → failed++, resto continúa ──────
   it("IGM-07: fila sin nombre_completo → failed=1, fila válida siguiente → successful=1", async () => {
-    const _ts7 = Date.now();
-    const curp = `GUMB${String(_ts7 % 100).padStart(2,'0')}0101HNENNNA${_ts7 % 10}`;
+    const curp = uniqueTestCurp("GUMB");
     createdStudentCurps.push(curp);
 
     // Fila 1: sin nombre_completo (error de validación)
@@ -230,8 +229,7 @@ describe("POST /api/import/data — guard de módulo y atomicidad", () => {
   it("IGM-08: error fatal (CHECK constraint) → HTTP 500 + rollback: ninguna fila queda en DB", async () => {
     // curpRow1 = CURP válido (no empieza con TEAT) → pasa validación y CHECK, se inserta.
     // curpRow2 = CURP válido en formato pero viola CHECK NOT LIKE 'TEAT%' → error fatal DB.
-    const _ts8 = Date.now();
-    const curpRow1 = `GUMC${String(_ts8 % 100).padStart(2,'0')}0101HNENNNA${_ts8 % 10}`;
+    const curpRow1 = uniqueTestCurp("GUMC");
     const curpRow2 = `TEAT000101HNENNNA0`; // formato CURP válido, viola chk_igm_test_rollback
 
     const csv = [

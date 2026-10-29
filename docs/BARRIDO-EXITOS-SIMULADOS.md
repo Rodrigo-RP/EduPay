@@ -18,7 +18,28 @@ ese panel y ambas vistas, pero conservar la importación real y su resultado.
 Las comprobaciones de IVA y becas no implementadas deben decir
 `no_evaluado`, no certificar cumplimiento.
 
-## Alcance y método
+## Estado de la revisión
+
+Se retiraron las 19 rutas solicitadas: conservan autenticación y denegación
+de acceso, pero el usuario autorizado recibe 501 `NO_DISPONIBLE`, sin
+escrituras. Migración usa `SYSTEM.IMPORT`; análisis financiero,
+`FINANCIAL.READ`. Se deshabilitaron el panel de migración y las páginas
+`/migracion` y `/migration-refeerence`.
+
+La importación real ya no llama a `/api/migration/status`. Durante la
+petición muestra «Importando…» sin porcentaje y después presenta los
+conteos que devuelve el servidor. No se reconstruyó ninguna función retirada.
+
+Las 20 lecturas de la tabla de respuestas degradadas, el alta de CRM y la
+lectura previa a la conciliación propagan el fallo con 500. Las vistas
+ocultan resultados y muestran error con «Reintentar».
+
+El [reporte de esta revisión](REPORTE-BARRIDO-SIMULADOS.md) contiene
+archivos, permisos, consultas y resultados de verificación. El inventario
+que sigue conserva los hallazgos y referencias del barrido original;
+no afirma que las rutas corregidas sigan devolviendo éxito.
+
+## Alcance y método del barrido original
 
 Base de trabajo: `f910c61`. Revisión estática de los 30 archivos
 `server/routes/*.ts`: 296 declaraciones de rutas; 278 con URL literal y

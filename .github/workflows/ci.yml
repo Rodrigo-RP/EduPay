@@ -1,21 +1,44 @@
-name: Validación
+name: Validación con PostgreSQL desechable
 
 on:
   push:
+    branches: ["**"]
   pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
   test:
-    name: Unitarias y E2E
+    name: Esquema, seguridad, unitarias y E2E
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci_test
+          POSTGRES_DB: edupay_ci
+          # Servicio exclusivo del runner; no contiene credenciales ni datos reales.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci_test -d edupay_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     env:
       CI: "true"
-      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
-      SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+      APP_ENV: test
+      ALLOW_DEMO_SEED: "true"
+      DATABASE_URL: postgresql://ci_test@127.0.0.1:5432/edupay_ci
+      RUN_STRIPE_E2E: "0"
+      TZ: America/Mexico_City
 
     steps:
       - uses: actions/checkout@v4
@@ -25,29 +48,105 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Verificar secretos requeridos
+      - name: Generar secretos efímeros de prueba
         run: |
-          if [ -z "$NEON_DATABASE_URL" ]; then
-            echo "::error::Configura el secreto NEON_DATABASE_URL en GitHub Actions antes de ejecutar la suite."
-            exit 1
-          fi
+          node --input-type=module <<'JS'
+          import { randomBytes } from "node:crypto";
+          import { appendFileSync } from "node:fs";
+          for (const key of ["SESSION_SECRET", "JWT_SECRET"]) {
+            const value = randomBytes(48).toString("hex");
+            console.log(`::add-mask::${value}`);
+            appendFileSync(process.env.GITHUB_ENV, `${key}=${value}\n`);
+          }
+          JS
 
       - name: Instalar dependencias
         run: npm ci
 
+      - name: Marcar únicamente la base desechable
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -c "COMMENT ON DATABASE edupay_ci IS 'edupay:test';" \
+            -c "SELECT current_database(), shobj_description(oid, 'pg_database') AS environment_marker FROM pg_database WHERE datname = current_database();"
+
+      - name: Crear esquema desde cero
+        run: npm run db:migrate
+
+      - run: npm run check
+      - run: npm run build
+      - run: npm run check:routes
+      - run: npm run check:migration-policy
+      - run: npm run test:safety
+
+      - name: Conectar el controlador Neon al PostgreSQL local
+        run: |
+          node .github/ci/postgres-bridge.mjs > "$RUNNER_TEMP/postgres-bridge.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/postgres-bridge.pid"
+          echo "NODE_OPTIONS=--import=$GITHUB_WORKSPACE/.github/ci/neon-config.mjs" >> "$GITHUB_ENV"
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:54330/health; then exit 0; fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/postgres-bridge.log"
+          exit 1
+
+      - name: Preparar fixtures en la base desechable
+        run: |
+          node --import tsx --input-type=module <<'JS'
+          import { seedDemoData } from "./server/seed-demo.ts";
+          import { pool } from "./server/db.ts";
+          try { await seedDemoData(); } finally { await pool.end(); }
+          JS
+
+      - name: Arrancar servidor de pruebas
+        run: |
+          npm run dev > "$RUNNER_TEMP/app.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/app.pid"
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:5000/ > /dev/null; then
+              grep "serving on port 5000" "$RUNNER_TEMP/app.log"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/app.log"
+          exit 1
+
+      - run: npm run test:unit
+
       - name: Instalar Chromium para Playwright
         run: npx playwright install --with-deps chromium
 
-      - name: Ejecutar validación completa
-        run: npm run test:all
+      - name: Detener servidor unitario antes del servidor propio de Playwright
+        run: |
+          pkill -f 'node.*server/index.ts' || true
+          for attempt in $(seq 1 30); do
+            if ! curl --silent http://127.0.0.1:5000/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          exit 1
 
-      - name: Publicar evidencias de Playwright
-        if: always()
+      - run: npm run test:e2e
+        env:
+          DEBUG: pw:webserver
+
+      - name: Subir evidencias si falla
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-evidence
+          name: ci-evidence-${{ github.run_attempt }}
           path: |
             playwright-report/
             test-results/
+            ${{ runner.temp }}/app.log
+            ${{ runner.temp }}/postgres-bridge.log
           if-no-files-found: ignore
           retention-days: 14
+
+      - name: Detener procesos de prueba
+        if: always()
+        run: |
+          pkill -f 'node.*server/index.ts' || true
+          if test -f "$RUNNER_TEMP/postgres-bridge.pid"; then
+            kill "$(cat "$RUNNER_TEMP/postgres-bridge.pid")" || true
+          fi

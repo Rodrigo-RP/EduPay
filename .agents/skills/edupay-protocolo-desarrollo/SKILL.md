@@ -28,6 +28,7 @@ Este archivo complementa, no reemplaza, `docs/PROTOCOLO-AUDITORIA.md` y la memor
 - No publiques, no hagas deploy y no reinicies nada de producción.
 - Si la tarea dice "solo diagnóstico" o "sin cambios", no modifiques ningún archivo de código.
 - Ejecuta las instrucciones de Rodrigo directamente en el hilo principal y en el orden indicado. Sus instrucciones ya son el plan, con pasos numerados y criterios de aceptación: no las conviertas en tareas en segundo plano, no generes un plan propio y no cambies el orden. Las tareas en segundo plano trabajan en copias aisladas y terminan con "Apply changes", cuyo hook ejecuta `db:migrate`; además, un plan propio puede reinterpretar requisitos ya acordados. Si ves una forma mejor de hacer algo, detente y pregúntalo (sección 9) o anótalo en el reporte. Usa tareas o Plan mode solo si Rodrigo lo pide expresamente.
+- Si una instrucción autoriza integrar bajo criterios y alguno no se cumple, no agregues cambios para cumplirlo: detente, no integres y repórtalo.
 - No crees, propongas como tarjeta ni arranques tareas de seguimiento por tu cuenta. Si detectas trabajo pendiente, inclúyelo en HALLAZGOS FUERA DE ALCANCE del reporte; Rodrigo decide qué sigue.
 - Trabaja en una rama de revisión nueva, creada desde la base que indique la tarea (normalmente el hash actual de `replit-en-vivo`). Antes de hacer push, confirma con `git merge-base --is-ancestor <base> HEAD` que partes de esa base y con `git log <base>..HEAD` que solo están tus commits. Una vez se coló una tarea descartada por no revisar esto.
 
@@ -62,6 +63,8 @@ La base de desarrollo (`DATABASE_URL`) es `heliumdb`, marcada `edupay:test`: sol
 - La idempotencia usa una clave generada en el servidor y una restricción única en la base. Una validación solo en código no basta, porque dos peticiones simultáneas la pasan las dos.
 - Webhooks, en este orden: guardar el evento crudo, validar la firma, descartar duplicados por id de evento con restricción única, responder 200 y procesar. Un evento tardío nunca regresa un estado avanzado a uno anterior.
 - Un pago asíncrono como SPEI no acredita cargos hasta el webhook confirmado y firmado.
+- Toda entrada financiera (montos, porcentajes, fechas, cuotas, IDs de cargos o pagos) se valida con `server/lib/financial-input.ts`. Si creas o cambias una ruta que la recibe, agrégala a la lista de `server/lib/financial-request-validation.ts`; una ruta fuera de esa lista queda sin validar.
+- Toda fecha de negocio ("hoy", el día de un pago, un vencimiento, un corte de caja) usa `shared/school-date.ts` y la zona de la escuela, también en las pruebas. Nunca `toISOString().slice(0, 10)`, `split("T")[0]`, `CURRENT_DATE`, `NOW()::date` ni la zona horaria del proceso.
 
 ## 5. Nada simulado se presenta como real
 
@@ -72,6 +75,7 @@ Este es el error que más se ha encontrado en EduPay: pantallas que mostraban "g
 - Si falta configurar un proveedor, el endpoint responde 503 con un código claro y la pantalla lo dice. Nunca muestra éxito.
 - Interruptores, campos y botones de configuración se conectan a persistencia real o se retiran. Un control que no guarda nada engaña al administrador.
 - Las estadísticas cuentan solo lo que tiene evidencia. Sin eventos del proveedor no se calcula una "tasa de entrega".
+- Un error de la base nunca se convierte en ceros, listas vacías o mensajes como "no hay cargos": responde 500 y la pantalla muestra el error con "Reintentar".
 
 ## 6. Seguridad
 
@@ -80,6 +84,7 @@ Este es el error que más se ha encontrado en EduPay: pantallas que mostraban "g
 - Los secretos viven solo en Replit Secrets y se validan con Zod al arrancar. Nunca van en código, logs, frontend, `replit.md`, `.agents/memory/` ni documentación. **El repositorio puede ser público:** no escribas contraseñas, tokens ni claves en ningún archivo, tampoco de cuentas demo.
 - Los logs no incluyen CURP completa, RFC, tokens, datos de tarjeta ni cuerpos de correo.
 - Escapa el HTML de todo dato variable que vaya a una plantilla.
+- Nunca usuarios, contraseñas ni accesos alternos escritos en el código. La única excepción documentada es la carga demo (`POST /api/demo/seed`), protegida por superadministrador, `APP_ENV` distinto de producción, `ALLOW_DEMO_SEED=true` y marcador `edupay:test` o `edupay:demo`.
 - Los endpoints públicos llevan rate limiting.
 - No crees roles nuevos ni amplíes permisos por tu cuenta. Si un alcance no está decidido, pregúntalo.
 
@@ -94,7 +99,7 @@ Este es el error que más se ha encontrado en EduPay: pantallas que mostraban "g
 
 ## 8. Reporte de entrega
 
-Haz push al remoto `github`, a la rama de revisión que indique la tarea. Nunca hagas push a `origin` ni directamente a `replit-en-vivo`: integrar a `replit-en-vivo` requiere autorización explícita después de la auditoría, y nunca mediante "Apply changes", porque su hook ejecuta `db:migrate`. Luego responde con esta estructura exacta:
+Haz push al remoto `github`, a la rama de revisión que indique la tarea, sin `[skip ci]`: el CI de GitHub prueba cada push con una base desechable, y una rama no está lista hasta que su corrida termine en verde. Nunca hagas push a `origin` ni directamente a `replit-en-vivo`: integrar a `replit-en-vivo` requiere autorización explícita después de la auditoría, y nunca mediante "Apply changes", porque su hook ejecuta `db:migrate`. Luego responde con esta estructura exacta:
 
 ```
 RESUMEN
@@ -124,6 +129,9 @@ Qué encontraste, en qué archivo, y por qué importa.
 
 RAMA
 Nombre de la rama de revisión, hash de su base y lista de commits sobre esa base.
+
+CI
+Enlace a la corrida de GitHub Actions del último push y su resultado.
 
 COMMIT
 Hash completo y salida de `git ls-remote github <rama de revisión>`, que debe coincidir.

@@ -9,7 +9,9 @@
  *   META — contentTypeFor() y filenameFor()
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import ExcelJS from "exceljs";
+import { PDFParse } from "pdf-parse";
 import {
   exportReport,
   formatCellValue,
@@ -186,8 +188,8 @@ describe("FMT — formatCellValue() — formateo correcto por tipo", () => {
       expect(formatCellValue("2026-01-15", "date")).toBe("15/01/2026");
     });
 
-    it("FMT-11: objeto Date → DD/MM/YYYY", () => {
-      expect(formatCellValue(new Date("2026-04-20"), "date")).toBe("20/04/2026");
+    it("FMT-11: objeto Date → día escolar en DD/MM/YYYY", () => {
+      expect(formatCellValue(new Date("2026-04-20T00:00:00Z"), "date")).toBe("19/04/2026");
     });
 
     it("FMT-12: valor nulo/undefined → cadena vacía", () => {
@@ -226,6 +228,49 @@ describe("FMT — formatCellValue() — formateo correcto por tipo", () => {
       expect(formatCellValue(undefined)).toBe("");
       expect(formatCellValue("")).toBe("");
     });
+  });
+});
+
+describe("Fechas independientes de TZ del proceso", () => {
+  it.each([
+    ["2026-01-15", "15/01/2026"],
+    ["2024-02-29", "29/02/2024"],
+    ["2026-01-01T00:30:00Z", "31/12/2025"],
+    ["2026-01-01T06:00:00Z", "01/01/2026"],
+    ["2026-10-30T02:05:06Z", "29/10/2026"],
+    ["2026-10-30T02:05:06-06:00", "30/10/2026"],
+    ["no es una fecha", "no es una fecha"],
+  ])("%s → %s", (value, expected) => {
+    expect(formatCellValue(value, "date")).toBe(expected);
+  });
+
+  it("la fecha de generación en Excel y PDF usa la zona escolar", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-30T02:05:06Z"));
+    try {
+      // Reloj escolar esperado, expresado en UTC sólo para formatear su texto
+      // con el mismo ICU (algunas versiones de Node usan 12 h en es-MX).
+      const expectedGenerated = new Date("2026-10-29T20:05:06Z")
+        .toLocaleString("es-MX", { timeZone: "UTC" });
+      const workbook = new ExcelJS.Workbook();
+      const excel = await exportReport(makeRequest("excel"));
+      await workbook.xlsx.load(new Uint8Array(excel).buffer);
+      const metadata = workbook.getWorksheet("Metadatos");
+      expect(metadata?.getCell("A4").value).toBe("Fecha de generación");
+      expect(metadata?.getCell("B4").value).toBe(expectedGenerated);
+      expect(workbook.getWorksheet("Reporte")?.getCell("D5").value).toBe("15/01/2026");
+
+      const parser = new PDFParse({ data: await exportReport(makeRequest("pdf")) });
+      try {
+        const { text } = await parser.getText();
+        expect(text).toContain(`Generado: ${expectedGenerated}`);
+        expect(text).toContain("15/01/2026");
+      } finally {
+        await parser.destroy();
+      }
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

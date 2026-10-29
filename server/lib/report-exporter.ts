@@ -11,6 +11,7 @@
  */
 
 import { createRequire } from "module";
+import { schoolDate, SCHOOL_TIME_ZONE } from "../../shared/school-date";
 const esmRequire = createRequire(import.meta.url);
 
 // ─── Tipos públicos ───────────────────────────────────────────────────────────
@@ -91,9 +92,9 @@ export function formatCellValue(val: unknown, fmt?: FormatType): string {
     case "date": {
       const d = val instanceof Date ? val : new Date(String(val));
       if (isNaN(d.getTime())) return String(val);
-      const dd = String(d.getDate()).padStart(2, "0");
-      const mm = String(d.getMonth() + 1).padStart(2, "0");
-      return `${dd}/${mm}/${d.getFullYear()}`;
+      // Una fecha sin hora conserva su día; un instante usa la zona escolar.
+      const [yyyy, mm, dd] = schoolDate(typeof val === "string" ? val : d).split("-");
+      return `${dd}/${mm}/${yyyy}`;
     }
     case "integer": {
       const num = Number(val);
@@ -244,7 +245,7 @@ async function buildExcel(req: ReportExportRequest): Promise<Buffer> {
     ["Campo", "Valor"],
     ["Título", req.title],
     ["Subtítulo", req.subtitle ?? ""],
-    ["Fecha de generación", new Date().toLocaleString("es-MX")],
+    ["Fecha de generación", new Date().toLocaleString("es-MX", { timeZone: SCHOOL_TIME_ZONE })],
     ["Generado por", req.generatedBy ?? "EduPay"],
     ["Total de filas", String(req.rows.length)],
     ["", ""],
@@ -424,7 +425,7 @@ async function buildPdf(req: ReportExportRequest): Promise<Buffer> {
     function drawFooters(): void {
       const range = doc.bufferedPageRange();
       const total = range.count;
-      const generated = new Date().toLocaleString("es-MX");
+      const generated = new Date().toLocaleString("es-MX", { timeZone: SCHOOL_TIME_ZONE });
 
       for (let i = 0; i < total; i++) {
         doc.switchToPage(range.start + i);

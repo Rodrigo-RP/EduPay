@@ -17,7 +17,6 @@ import {
   isSessionInvalidated,
   MSG_SESSION_INVALIDATED,
 } from "./shared";
-import { resetLoginRateLimitStore } from "../security-middleware";
 
 // Estado de enrolamiento 2FA — TTL 10 min, solo accesible dentro de este módulo
 const pendingTwofaEnrollment = new Map<number, { secret: string; expiresAt: number }>();
@@ -528,11 +527,5 @@ export function registerAuthRoutes(app: Express): void {
   // Solo disponible en desarrollo (NODE_ENV !== "production").
   // Usado por E2E tests para limpiar contadores entre runs consecutivos.
   // Protocolo §5: ruta condicional con export de función, sin NODE_ENV en handlers.
-  if (process.env.NODE_ENV !== "production") {
-    app.post("/api/test/reset-auth-rate-limit", (_req, res) => {
-      resetLoginRateLimitStore();
-      res.json({ ok: true });
-    });
-  }
 
 }

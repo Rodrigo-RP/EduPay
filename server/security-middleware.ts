@@ -11,6 +11,7 @@ import ExpressBrute from 'express-brute';
 import { createHash } from 'crypto';
 import winston from 'winston';
 import expressWinston from 'express-winston';
+import { loginRateConfig } from './lib/login-rate-config';
 import { AttackProtection, SecurityAudit, FraudDetection } from '@shared/security-engine';
 
 // ========================================
@@ -159,10 +160,11 @@ export function resetApiAuthRateLimitStore(): void {
 }
 
 // Diferentes límites según el endpoint
+const loginRate = loginRateConfig();
 export const rateLimits = {
   general:   createRateLimit(15 * 60 * 1000, 100, 'Demasiadas solicitudes generales'),
   // store explícito → permite resetear el bucket en tests (resetLoginRateLimitStore).
-  auth:      createRateLimit(15 * 60 * 1000,  10, 'Demasiados intentos de autenticación', _authLimiterStore),
+  auth:      createRateLimit(loginRate.windowMs, loginRate.max, 'Demasiados intentos de autenticación', _authLimiterStore),
   // store explícito → permite resetear el bucket en tests (resetPaymentRateLimitStore).
   payment:   createRateLimit(60 * 60 * 1000,  20, 'Demasiadas solicitudes de pago', _paymentLimiterStore),
   api:       createRateLimit(5  * 60 * 1000,  50, 'Demasiadas solicitudes a la API'),

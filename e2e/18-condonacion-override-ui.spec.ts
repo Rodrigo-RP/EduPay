@@ -116,7 +116,6 @@ test.describe("Condonación repetida — UI de Planes de Pago", () => {
     secondPlanId = plans.rows[1].id;
     campusPlanId = plans.rows[2].id;
     await pool.query("UPDATE campuses SET onboarding_completado = true WHERE id = $1", [campusId]);
-    await request.post(`${BASE}/api/test/reset-auth-rate-limit`);
     generalSession = await loginFixtureUser(request, generalEmail, generalPassword);
     campusSession = await loginFixtureUser(request, campusEmail, campusPassword);
   });

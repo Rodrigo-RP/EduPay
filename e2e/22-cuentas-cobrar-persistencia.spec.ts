@@ -14,7 +14,6 @@ let chargeId = 0;
 let onboardingWasComplete = false;
 
 test.beforeAll(async ({ request }) => {
-  await request.post(`${BASE}/api/test/reset-auth-rate-limit`);
   const login = await request.post(`${BASE}/api/auth/login`, {
     data: { email: "superadmin@edupay.mx", password: "Demo2025!" },
   });

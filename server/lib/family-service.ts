@@ -26,6 +26,7 @@
  */
 
 import { pool } from "../db";
+import { getFamilyGuardianIds, getGuardiansWithoutActiveFamilies } from "./family-access";
 
 // ── Interfaz de cliente DB (compatible con pool.connect() y PoolClient) ───────
 
@@ -81,6 +82,122 @@ export interface FamilyCreateResult {
   guardians_linked: Array<{ id: number }>;
   students_linked: number[];
   warnings: string[];
+}
+
+export interface FamilyActor { tenantId: number; campusId: number; userId: number }
+export const familyNumber = (id: number) => `FAM${String(id).padStart(3, "0")}`;
+const familyError = (message: string, status = 400) => Object.assign(new Error(message), { status });
+const guardianFields = [
+  "tipo_guardian", "nombres", "apellido_paterno", "apellido_materno",
+  "curp", "correo_institucional_familiar", "celular",
+  "calle", "numero_exterior", "numero_interior", "colonia", "codigo_postal",
+  "municipio", "estado", "contacto_emergencia_nombre",
+  "contacto_emergencia_telefono", "contacto_emergencia_relacion",
+] as const;
+
+/** Management writes share the transaction; imports retain their explicit linking contract. */
+export async function manageFamily(
+  operation: "create" | "update" | "status",
+  familyId: number | null,
+  input: any,
+  actor: FamilyActor,
+): Promise<any> {
+  if (![actor.tenantId, actor.campusId, actor.userId].every(id => Number.isInteger(id) && id > 0)) {
+    throw familyError("Sesión sin contexto administrativo válido", 403);
+  }
+  if (operation !== "create" && (!Number.isInteger(familyId) || Number(familyId) <= 0)) {
+    throw familyError("Identificador de familia inválido");
+  }
+  if (operation !== "status" &&
+      (!input?.nombre?.trim() || !Array.isArray(input.tutores) || !input.tutores.length)) {
+    throw familyError("Nombre de familia y al menos un tutor son obligatorios");
+  }
+  if (operation === "status" && !["activo", "archivada"].includes(input?.status)) {
+    throw familyError("Estatus de familia inválido");
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    let result: any;
+    let family: any;
+    if (operation !== "create") {
+      const found = await client.query(
+        `SELECT * FROM families WHERE id=$1 AND tenant_id=$2 AND campus_id=$3 FOR UPDATE`,
+        [familyId, actor.tenantId, actor.campusId],
+      );
+      family = found.rows[0];
+      if (!family) throw familyError("Familia no encontrada en este campus", 404);
+    }
+    if (operation === "create") {
+      result = await createFamily(input, actor.tenantId, actor.campusId, client);
+      familyId = result.family_id;
+    } else if (operation === "update") {
+      if (family.archived_at || family.status === "archivada") {
+        throw familyError("Reactiva la familia antes de editar sus datos", 409);
+      }
+      const linked = await getFamilyGuardianIds(client, familyId!, actor.tenantId);
+      for (const tutor of input.tutores) {
+        if (!linked.includes(Number(tutor.guardian_id))) {
+          throw familyError("Tutor no encontrado en esta familia", 404);
+        }
+        const keys = guardianFields.filter(key => tutor[key] !== undefined);
+        const values: any[] = keys.map(key => tutor[key] || null);
+        const assignments = keys.map((key, i) => `${key}=$${i + 1}`);
+        if (tutor.correo_institucional_familiar !== undefined) {
+          assignments.push(`email=$${values.push(tutor.correo_institucional_familiar)}`);
+        }
+        if (tutor.nombres !== undefined) {
+          assignments.push(`nombre_completo=$${values.push(
+            [tutor.nombres, tutor.apellido_paterno, tutor.apellido_materno].filter(Boolean).join(" "),
+          )}`);
+        }
+        if (assignments.length) {
+          values.push(tutor.guardian_id, actor.tenantId, actor.campusId);
+          await client.query(
+            `UPDATE guardians SET ${assignments.join(",")}, updated_at=NOW()
+             WHERE id=$${values.length - 2} AND tenant_id=$${values.length - 1} AND campus_id=$${values.length}`,
+            values,
+          );
+        }
+      }
+      await client.query(
+        `UPDATE families SET nombre=$1, updated_at=NOW() WHERE id=$2 AND tenant_id=$3 AND campus_id=$4`,
+        [input.nombre.trim(), familyId, actor.tenantId, actor.campusId],
+      );
+      result = { id: familyId, nombre: input.nombre.trim() };
+    } else {
+      await client.query(
+        `UPDATE families SET status=$1, archived_at=CASE WHEN $1='archivada' THEN NOW() ELSE NULL END,
+         archived_by=CASE WHEN $1='archivada' THEN $2::int ELSE NULL END, updated_at=NOW()
+         WHERE id=$3 AND tenant_id=$4 AND campus_id=$5`,
+        [input.status, actor.userId, familyId, actor.tenantId, actor.campusId],
+      );
+      let revoked: number[] = [];
+      if (input.status === "archivada") {
+        const linked = await getFamilyGuardianIds(client, familyId!, actor.tenantId);
+        revoked = await getGuardiansWithoutActiveFamilies(client, linked, actor.tenantId);
+        if (revoked.length) {
+          await client.query(
+            `UPDATE guardians SET password_changed_at=NOW()+INTERVAL '1 second',updated_at=NOW()
+             WHERE id=ANY($1::int[]) AND tenant_id=$2`, [revoked, actor.tenantId],
+          );
+          await client.query(
+            `UPDATE magic_link_tokens SET revoked_at=NOW()
+             WHERE guardian_id=ANY($1::int[]) AND tenant_id=$2 AND revoked_at IS NULL`,
+            [revoked, actor.tenantId],
+          );
+        }
+      }
+      result = { id: familyId, status: input.status, guardian_ids_revoked: revoked };
+    }
+    await client.query("COMMIT");
+    return { ...result, numero_familia: familyNumber(familyId!) };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 // ── Función central ────────────────────────────────────────────────────────────

@@ -1,9 +1,8 @@
 import { SCHOOL_TODAY_SQL, schoolDate } from "@shared/school-date";
 import type { Express } from "express";
 import { pool, db } from "../db";
-import { createFamily } from "../lib/family-service";
+import { manageFamily } from "../lib/family-service";
 import { guardianResponsibilityHandler } from "../lib/guardian-responsibility";
-import { getFamilyGuardianIds, getGuardiansWithoutActiveFamilies } from "../lib/family-access";
 import { enqueueAuditLog } from "../audit-retry";
 import { eq, and, gte, lt } from "drizzle-orm";
 import { storage } from "../storage";
@@ -2143,16 +2142,16 @@ export function registerAdminRoutes(app: Express): void {
         return res.status(400).json({ message: "tutores debe ser un array no vacío" });
       }
 
-      const result = await createFamily(
+      const result = await manageFamily(
+        "create", null,
         { nombre: nombre.trim(), student_ids, tutores },
-        tenantId,
-        campusId,
+        { tenantId, campusId, userId: Number(req.user?.id) },
       );
 
       res.status(201).json(result);
     } catch (error: any) {
       const status  = typeof error.status === "number" ? error.status : 500;
-      const message = error.message || "Error interno del servidor";
+      const message = status < 500 ? error.message : "No se pudo guardar la familia";
       res.status(status).json({ message });
     }
   });
@@ -2165,10 +2164,6 @@ export function registerAdminRoutes(app: Express): void {
    */
   app.patch("/api/admin/families/:familyId", authenticateToken, async (req: any, res) => {
     const familyId = Number(req.params.familyId);
-    const { nombre, tutores } = req.body || {};
-    if (!Number.isInteger(familyId) || !Array.isArray(tutores) || tutores.length === 0) {
-      return res.status(400).json({ message: "familyId y tutores son requeridos" });
-    }
     const administrativeRoles = ["super_admin", "administrador_general", "administrador_campus"];
     if (
       !hasPermissionForUser(req.user, MODULES.FAMILIES, ACTIONS.UPDATE) ||
@@ -2179,82 +2174,13 @@ export function registerAdminRoutes(app: Express): void {
 
     const tenantId = Number(req.user?.tenant_id);
     const campusId = Number(req.user?.campus_id);
-    const client = await pool.connect();
     try {
-      await client.query("BEGIN");
-      const family = await client.query(
-        `SELECT id, nombre FROM families
-          WHERE id = $1 AND tenant_id = $2 AND campus_id = $3
-          FOR UPDATE`,
-        [familyId, tenantId, campusId],
-      );
-      if (!family.rows.length) {
-        await client.query("ROLLBACK");
-        return res.status(404).json({ message: "Familia no encontrada en este campus" });
-      }
-
-      if (nombre?.trim()) {
-        await client.query(
-          `UPDATE families SET nombre = $1, updated_at = NOW() WHERE id = $2`,
-          [nombre.trim(), familyId],
-        );
-      }
-
-      const linked = await client.query(
-        `SELECT DISTINCT g.id
-           FROM family_students fs
-           JOIN student_guardian sg ON sg.student_id = fs.student_id
-           JOIN guardians g ON g.id = sg.guardian_id
-          WHERE fs.family_id = $1 AND g.tenant_id = $2`,
-        [familyId, tenantId],
-      );
-      const linkedIds = new Set(linked.rows.map((row: any) => Number(row.id)));
-      for (const tutor of tutores) {
-        const guardianId = Number(tutor.guardian_id);
-        if (!Number.isInteger(guardianId) || !linkedIds.has(guardianId)) {
-          throw Object.assign(new Error("Tutor no vinculado a esta familia"), { status: 422 });
-        }
-        for (const [field, value] of [
-          ["celular", tutor.celular],
-          ["contacto_emergencia_telefono", tutor.contacto_emergencia_telefono],
-        ] as const) {
-          if (!value || !/^\+[1-9]\d{7,14}$/.test(value)) {
-            throw Object.assign(new Error(`${field} debe estar en formato E.164`), { status: 422 });
-          }
-        }
-        if (!tutor.calle || !tutor.numero_exterior || !tutor.colonia ||
-            !tutor.codigo_postal || !/^\d{5}$/.test(tutor.codigo_postal) ||
-            !tutor.municipio || !tutor.estado ||
-            !tutor.contacto_emergencia_nombre || !tutor.contacto_emergencia_relacion) {
-          throw Object.assign(
-            new Error("Domicilio y contacto de emergencia completos son obligatorios para cada tutor"),
-            { status: 422 },
-          );
-        }
-        await client.query(
-          `UPDATE guardians
-              SET calle = $1, numero_exterior = $2, numero_interior = $3,
-                  colonia = $4, codigo_postal = $5, municipio = $6, estado = $7,
-                  contacto_emergencia_nombre = $8,
-                  contacto_emergencia_telefono = $9,
-                  contacto_emergencia_relacion = $10,
-                  updated_at = NOW()
-            WHERE id = $11 AND tenant_id = $12`,
-          [
-            tutor.calle, tutor.numero_exterior, tutor.numero_interior || null,
-            tutor.colonia, tutor.codigo_postal, tutor.municipio, tutor.estado,
-            tutor.contacto_emergencia_nombre, tutor.contacto_emergencia_telefono,
-            tutor.contacto_emergencia_relacion, guardianId, tenantId,
-          ],
-        );
-      }
-      await client.query("COMMIT");
-      return res.json({ id: familyId, nombre: nombre?.trim() || family.rows[0].nombre, tutores });
+      return res.json(await manageFamily("update", familyId, req.body, {
+        tenantId, campusId, userId: Number(req.user?.id),
+      }));
     } catch (error: any) {
-      await client.query("ROLLBACK").catch(() => {});
-      return res.status(error.status || 500).json({ message: error.message || "No se pudo actualizar la familia" });
-    } finally {
-      client.release();
+      const status = error.status || 500;
+      return res.status(status).json({ message: status < 500 ? error.message : "No se pudo actualizar la familia" });
     }
   });
 
@@ -2282,91 +2208,11 @@ export function registerAdminRoutes(app: Express): void {
     const tenantId = Number(req.user?.tenant_id);
     const campusId = Number(req.user?.campus_id);
     const userId = Number(req.user?.id);
-    const client = await pool.connect();
     try {
-      await client.query("BEGIN");
-      const familyResult = await client.query(
-        `SELECT id, nombre, status
-           FROM families
-          WHERE id = $1 AND tenant_id = $2 AND campus_id = $3
-          FOR UPDATE`,
-        [familyId, tenantId, campusId],
-      );
-      const family = familyResult.rows[0] as any;
-      if (!family) {
-        await client.query("ROLLBACK");
-        return res.status(404).json({ message: "Familia no encontrada en este campus" });
-      }
-
-      await client.query(
-        `UPDATE families
-            SET status = $1::varchar,
-                archived_at = CASE WHEN $1::varchar = 'archivada' THEN NOW() ELSE NULL END,
-                archived_by = CASE WHEN $1::varchar = 'archivada' THEN $2::integer ELSE NULL END,
-                updated_at = NOW()
-          WHERE id = $3`,
-        [requestedStatus, userId, familyId],
-      );
-
-      let guardianIdsRevoked: number[] = [];
-      if (requestedStatus === "archivada") {
-        const linkedGuardianIds = await getFamilyGuardianIds(client, familyId, tenantId);
-        guardianIdsRevoked = await getGuardiansWithoutActiveFamilies(client, linkedGuardianIds, tenantId);
-        if (guardianIdsRevoked.length) {
-          // Reutiliza la invalidación canónica de sesiones de tutor.
-          await client.query(
-            `UPDATE guardians
-                -- JWT.iat tiene precisión de segundos. El margen evita que un
-                -- token emitido en el mismo segundo sobreviva al archivado.
-                SET password_changed_at = NOW() + INTERVAL '1 second', updated_at = NOW()
-              WHERE id = ANY($1::int[]) AND tenant_id = $2`,
-            [guardianIdsRevoked, tenantId],
-          );
-          await client.query(
-            `UPDATE magic_link_tokens
-                SET revoked_at = NOW()
-              WHERE guardian_id = ANY($1::int[])
-                AND tenant_id = $2
-                AND revoked_at IS NULL`,
-            [guardianIdsRevoked, tenantId],
-          );
-        }
-      }
-      await client.query("COMMIT");
-
-      const auditPayload = {
-        tenant_id: tenantId,
-        user_id: userId || null,
-        action: requestedStatus === "archivada" ? "archive" : "reactivate",
-        entity_type: "family",
-        entity_id: familyId,
-        metadata: {
-          family_nombre: family.nombre,
-          previous_status: family.status,
-          new_status: requestedStatus,
-          guardian_ids_revoked: guardianIdsRevoked,
-        },
-      };
-      pool.query(
-        `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata)
-         VALUES ($1,$2,$3,$4,$5,$6::jsonb)`,
-        [auditPayload.tenant_id, auditPayload.user_id, auditPayload.action, auditPayload.entity_type,
-         auditPayload.entity_id, JSON.stringify(auditPayload.metadata)],
-      ).catch((error) => enqueueAuditLog(auditPayload, error));
-
-      return res.json({
-        id: familyId,
-        status: requestedStatus,
-        guardian_ids_revoked: guardianIdsRevoked,
-        message: requestedStatus === "archivada"
-          ? "Familia archivada y accesos de tutores revocados cuando correspondía."
-          : "Familia reactivada. Los tutores pueden iniciar una nueva sesión.",
-      });
+      return res.json(await manageFamily("status", familyId, req.body, { tenantId, campusId, userId }));
     } catch (error: any) {
-      await client.query("ROLLBACK").catch(() => {});
-      return res.status(500).json({ message: error.message || "No se pudo cambiar el estatus de la familia" });
-    } finally {
-      client.release();
+      const status = error.status || 500;
+      return res.status(status).json({ message: status < 500 ? error.message : "No se pudo cambiar el estatus de la familia" });
     }
   });
 }

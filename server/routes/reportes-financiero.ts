@@ -1,4 +1,4 @@
-import { SCHOOL_TODAY_SQL, schoolDate, schoolDateSQL } from "@shared/school-date";
+import { SCHOOL_TODAY_SQL, schoolDate } from "@shared/school-date";
 /**
  * reportes-financiero.ts — RPT-01 Reporte Financiero
  *
@@ -490,7 +490,7 @@ export function registerReportesFinancieroRoutes(app: Express): void {
         // Filas de detalle para el reporte
         const { rows } = await pool.query(
           `SELECT
-             ${schoolDateSQL("p.fecha_pago")} AS fecha_pago,
+             p.fecha_pago::date AS fecha_pago, -- día escolar guardado; no es instante UTC
              s.nombre_completo                 AS alumno,
              co.nombre                         AS concepto_nombre,
              COALESCE(c.ciclo_escolar, '')      AS ciclo_escolar,

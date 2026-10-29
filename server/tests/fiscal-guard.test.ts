@@ -113,7 +113,7 @@ beforeAll(async () => {
   tokenAsistente  = makeToken(asistenteId,  "asistente");
   tokenAdmisiones = makeToken(admisionesId, "admisiones");
   tokenSinPerm    = jwt.sign(
-    { id: 88882, email: `unknown@fsc${TS}.test`, role: "desconocido",
+    { id: adminId, email: `unknown@fsc${TS}.test`, role: "desconocido",
       campus_id: campusId, tenant_id: tenantId, type: "user" },
     JWT_SECRET, { expiresIn: "1h" }
   );

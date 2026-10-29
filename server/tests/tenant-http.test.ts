@@ -18,6 +18,8 @@ import {
 } from "../../shared/schema";
 import { eq, or } from "drizzle-orm";
 import jwt from "../test-support/session-jwt";
+import { storage } from "../storage";
+import { randomUUID } from "node:crypto";
 // resetPaymentRateLimitStore se llama globalmente desde tests/setup.ts
 
 const BASE_URL = "http://localhost:5000";
@@ -115,8 +117,15 @@ describe("Aislamiento multi-tenant — capa HTTP (IDOR)", () => {
     }).returning();
     chargeA2Id = ch2.id;
 
-    userAId = 10000 + tenantAId;
-    userBId = 10000 + tenantBId;
+    for (const [tenant_id, campus_id] of [[tenantAId, campusAId], [tenantBId, campusBId]]) {
+      const actor = await storage.createUser({
+        name: "Fixture aislamiento", email: `tenant-http-${randomUUID()}@example.test`,
+        password_hash: randomUUID(), role: "administrador_campus",
+        tenant_id, campus_id, is_active: true,
+      });
+      if (tenant_id === tenantAId) userAId = actor.id;
+      else userBId = actor.id;
+    }
 
     // ── Setup para T13: crear un pago + crédito en tenant A ──────────────────
     // Admin de tenant B intentará aplicarlo — debe recibir 403.
@@ -139,6 +148,8 @@ describe("Aislamiento multi-tenant — capa HTTP (IDOR)", () => {
     const tIds = [tenantAId, tenantBId].filter(Boolean);
     if (!tIds.length) return;
     const tList = tIds.join(",");
+    await pool.query("DELETE FROM audit_log WHERE tenant_id = ANY($1)", [tIds]);
+    await pool.query("DELETE FROM users WHERE id = ANY($1)", [[userAId, userBId].filter(Boolean)]);
 
     await db.execute(`DELETE FROM invoices        WHERE tenant_id IN (${tList})` as any).catch(() => {});
     await db.execute(`DELETE FROM family_credits  WHERE tenant_id IN (${tList})` as any).catch(() => {});

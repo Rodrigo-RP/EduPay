@@ -194,7 +194,7 @@ describe("Bug: audit_log FK violation dentro de transacción — evidencia empí
   }, 15_000);
 
   // ── PASO 2: CASO CRÍTICO — user eliminado con JWT aún válido ───────────────
-  it("PASO 2 — CASO CRÍTICO: user eliminado de DB (JWT sigue válido) → ¿qué devuelve el servidor?", async () => {
+  it("PASO 2 — usuario eliminado con firma válida → 401, operación y auditoría intactas", async () => {
     // 1. Crear usuario real → JWT con user_id real
     const { userId, token } = await createUser();
 
@@ -242,69 +242,20 @@ describe("Bug: audit_log FK violation dentro de transacción — evidencia empí
     }
     console.log(`${"═".repeat(60)}\n`);
 
-    // ── ASERCIÓN: el único resultado inaceptable es 200 + rollback silencioso
-    // ── POST-FIX: el UPDATE se commita antes de intentar el audit_log.
-    // Aunque el INSERT en audit_log falle (FK violation por user eliminado),
-    // la bank_tx ya fue actualizada y el servidor responde 200 verdadero.
-    // El fallo del audit se encola en audit_retry_queue para reintento.
-    expect(r.status).toBe(200);
-    expect(dbState).toBe("ignorado"); // el UPDATE sí persistió
-
-    // ── SONDEO: esperar a que enqueueAuditLog complete su INSERT ─────────────
-    // enqueueAuditLog es fire-and-forget en el proceso del servidor. El test
-    // llama al servidor por HTTP (proceso separado), así que ninguna variable
-    // interna del servidor es observable desde aquí. La única forma fiable de
-    // saber que el INSERT completó es verlo aparecer en la DB.
-    //
-    // Sondeamos cada 50 ms hasta que la fila aparece (enqueueFound = true).
-    // Si después de ENQUEUE_WAIT_MS la FK sí estaba aplicada (PASO 0 = true)
-    // y aún no hay fila → fallo explícito: el INSERT tardó más de lo esperado.
-    // Si la FK NO estaba aplicada, el audit INSERT tuvo éxito y no hay fila en
-    // audit_retry_queue; en ese caso el sondeo termina en el primer ciclo con
-    // enqueueFound = false, y NO es un error (fkWasEnforced guarda el contexto).
-    const ENQUEUE_POLL_MS = 50;
-    const ENQUEUE_WAIT_MS = 2_000;
-    const enqueueDeadline = Date.now() + ENQUEUE_WAIT_MS;
-    let enqueueFound = false;
-
-    // Leer si la FK estuvo aplicada (resultado documentado por PASO 0 en audit_log)
-    const fkCheck = await pool.query(
-      `SELECT COUNT(*)::int AS n FROM audit_log
-       WHERE action = 'test_fk_probe' AND tenant_id = $1`,
+    // La firma no basta: un actor eliminado se rechaza antes de resolver.
+    expect(r.status).toBe(401);
+    expect(dbState).toBe("pendiente");
+    const audit = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM audit_log WHERE entity_id = $1 AND action = 'resolver_excepcion_manual'",
+      [txId]
+    );
+    expect(audit.rows[0].n).toBe(0);
+    const retries = await pool.query(
+      `SELECT COUNT(*)::int AS n FROM audit_retry_queue
+       WHERE (payload->>'tenant_id')::int = $1
+         AND (payload->>'metadata')::jsonb->>'referencia' LIKE 'ref-deleted-user-%'`,
       [tenantId]
     );
-    // Si PASO 0 pudo insertar → FK NO aplicada (fkWasEnforced = false)
-    const fkWasEnforced = ((fkCheck.rows[0] as any).n as number) === 0;
-
-    while (true) {
-      const qr = await pool.query(
-        `SELECT COUNT(*)::int AS n
-         FROM audit_retry_queue
-         WHERE (payload->>'tenant_id')::int = $1
-           AND (payload->>'metadata')::jsonb->>'referencia' LIKE 'ref-deleted-user-%'`,
-        [tenantId]
-      );
-      enqueueFound = ((qr.rows[0] as any).n as number) > 0;
-      if (enqueueFound) break; // fila apareció → INSERT completó
-
-      if (Date.now() >= enqueueDeadline) {
-        if (fkWasEnforced) {
-          // FK aplicada → debería haber fila → fallo explícito
-          throw new Error(
-            `PASO 2 sondeo: audit_retry_queue no recibió la fila de enqueue ` +
-            `para tenant_id=${tenantId} en ${ENQUEUE_WAIT_MS} ms. ` +
-            `La FK de user_id SÍ estaba aplicada (PASO 0), así que se esperaba ` +
-            `una fila. El entorno puede estar bajo carga extrema o el endpoint tardó más.`
-          );
-        }
-        // FK no aplicada → sin fila es correcto, salir sin error
-        break;
-      }
-      await new Promise<void>((resolve) => setTimeout(resolve, ENQUEUE_POLL_MS));
-    }
-    console.log(
-      `[PASO 2 sondeo] fkWasEnforced=${fkWasEnforced}  enqueueFound=${enqueueFound}` +
-      `  → afterAll puede limpiar con seguridad`
-    );
+    expect(retries.rows[0].n).toBe(0);
   }, 20_000);
 });

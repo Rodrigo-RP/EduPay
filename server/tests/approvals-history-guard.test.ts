@@ -11,6 +11,8 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { pool } from "../db";
 import jwt from "../test-support/session-jwt";
+import { storage } from "../storage";
+import { randomUUID } from "node:crypto";
 
 const BASE       = "http://localhost:5000";
 import { JWT_SECRET } from "../routes/shared";
@@ -18,7 +20,7 @@ import { JWT_SECRET } from "../routes/shared";
 const TENANT  = 29;
 const CAMPUS  = 48;
 const USER_A  = 80;   // asistente en la DB
-const USER_B  = 82;   // auxiliar_contable en la DB
+let USER_B: number;   // auxiliar activo creado por este archivo
 
 function makeToken(id: number, role: string) {
   return jwt.sign({ id, role, tenant_id: TENANT, campus_id: CAMPUS }, JWT_SECRET, { expiresIn: "10m" });
@@ -36,6 +38,12 @@ const seededApprovals: number[] = [];
 const seededNotifs: number[] = [];
 
 beforeAll(async () => {
+  const actor = await storage.createUser({
+    name: "Fixture AHG", email: `ahg-${randomUUID()}@example.test`,
+    password_hash: randomUUID(), role: "auxiliar_contable",
+    tenant_id: TENANT, campus_id: CAMPUS, is_active: true,
+  });
+  USER_B = actor.id;
   // Aprobación histórica solicitada por USER_A (asistente)
   const rA = await pool.query(`
     INSERT INTO pending_approvals
@@ -66,6 +74,7 @@ afterAll(async () => {
     await pool.query(`DELETE FROM approval_workflow_logs WHERE approval_id = ANY($1)`, [seededApprovals]);
   if (seededApprovals.length)
     await pool.query(`DELETE FROM pending_approvals WHERE id = ANY($1)`, [seededApprovals]);
+  if (USER_B) await pool.query("DELETE FROM users WHERE id = $1", [USER_B]);
 });
 
 describe("AHG — GET /api/approvals/history restricción por rol", () => {

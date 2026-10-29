@@ -63,10 +63,10 @@ let chargeApplyBId:   number;   // EXA-04 segundo cargo applyReconciliation
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Token SIN user_id → if(tenantId && user?.id) es false → no audit_log */
+/** Token deliberadamente SIN actor: debe rechazarse antes de cualquier operación. */
 function tokenSinId(): string {
   return jwt.sign(
-    { email: "ctrl@test.com", role: "administrador_campus",
+    { id: undefined, email: "ctrl@test.com", role: "administrador_campus",
       campus_id: campusId, tenant_id: tenantId, type: "user" },
     JWT_SECRET, { expiresIn: "1h" }
   );
@@ -192,10 +192,8 @@ describe("EXA — audit_log resolver_excepcion_manual + regresión insertarPagoY
   //
   // Token sin 'id' → user?.id es undefined → la guarda
   //   if (tenantId && user?.id)
-  // es false → no se inserta nada en audit_log.
-  // Este caso reproduce exactamente el escenario pre-fix: el pago se aplica
-  // correctamente pero no deja rastro de auditoría.
-  it("EXA-01 — control: 'aplicar' con token sin user_id → NO escribe audit_log", async () => {
+  // no autoriza una operación: ahora la autenticación exige un usuario real.
+  it("EXA-01 — token sin user_id → 401, sin pago ni audit_log", async () => {
     const txId = await insertTx(100000, `ref-ctrl-${Date.now()}`);
 
     // Contar filas ANTES
@@ -210,7 +208,11 @@ describe("EXA — audit_log resolver_excepcion_manual + regresión insertarPagoY
       { accion: "aplicar", charge_id: chargeCtrlId },
       tokenSinId()
     );
-    expect(r.status).toBe(200);
+    expect(r.status).toBe(401);
+    const unchanged = await pool.query("SELECT estado FROM charges WHERE id = $1", [chargeCtrlId]);
+    expect(unchanged.rows[0].estado).toBe("pendiente");
+    const created = await pool.query("SELECT COUNT(*)::int AS n FROM payments WHERE charge_id = $1", [chargeCtrlId]);
+    expect(created.rows[0].n).toBe(0);
 
     // Esperar brevemente para que el fire-and-forget (si lo hubiera) se ejecute
     await new Promise(res => setTimeout(res, 500));
@@ -290,11 +292,12 @@ describe("EXA — audit_log resolver_excepcion_manual + regresión insertarPagoY
   //   • payment_application con amount_centavos = 100 000
   //   • bank_transaction → 'conciliado', enlazada al cargo y al pago
   it("EXA-03 — regresión resolver: mismo estado DB que antes de la extracción del helper", async () => {
+    if (realUserId === null) throw new Error("La operación requiere un actor real y activo");
     const txId = await insertTx(100000, `ref-regr-${Date.now()}`);
     const r = await post(
       `/api/conciliacion/excepciones/${txId}/resolver`,
       { accion: "aplicar", charge_id: chargeRegrId },
-      tokenSinId()
+      tokenConId(realUserId)
     );
     expect(r.status).toBe(200);
     const paymentId = Number(r.body.payment_id);

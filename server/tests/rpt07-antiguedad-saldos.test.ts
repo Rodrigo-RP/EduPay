@@ -271,7 +271,7 @@ describe("RPT-07 — GET /api/reportes/antiguedad-saldos + POST exportar", () =>
 
   it("AGS-02: rol desconocido → 403", async () => {
     const tok = jwt.sign(
-      { id: 99991, email: `unknown@ags${TS}.test`, role: "desconocido",
+      { email: `unknown@ags${TS}.test`, role: "desconocido",
         campus_id: campusId, tenant_id: tenantId, type: "user" },
       JWT_SECRET, { expiresIn: "1h" },
     );

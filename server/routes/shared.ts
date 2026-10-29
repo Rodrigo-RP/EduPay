@@ -76,25 +76,24 @@ export const MSG_SESSION_INVALIDATED =
 interface UserAuthData {
   customPermissions: string[];
   passwordChangedAt: Date | null;
+  active: boolean;
 }
 export async function loadUserAuthData(
   userId: number | undefined,
 ): Promise<UserAuthData> {
-  if (!userId) return { customPermissions: [], passwordChangedAt: null };
+  if (!userId) return { customPermissions: [], passwordChangedAt: null, active: false };
   try {
     const row = await pool.query(
-      `SELECT custom_permissions, password_changed_at
+      `SELECT custom_permissions, password_changed_at, is_active
          FROM users WHERE id = $1 LIMIT 1`,
       [userId],
     );
     const r = row.rows[0] as any;
     return {
-      customPermissions: Array.isArray(r?.custom_permissions)
-        ? r.custom_permissions
-        : [],
-      passwordChangedAt: r?.password_changed_at
-        ? new Date(r.password_changed_at)
-        : null,
+      customPermissions: Array.isArray(r?.custom_permissions) ? r.custom_permissions : [],
+      passwordChangedAt: r?.password_changed_at ? new Date(r.password_changed_at) : null,
+      // Usuario inexistente o desactivado: la sesión deja de valer de inmediato.
+      active: !!r && r.is_active !== false,
     };
   } catch {
     throw new Error("No se pudo validar la versión de sesión");
@@ -133,8 +132,8 @@ export const authenticateToken = async (req: any, res: any, next: any) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     // Una sola query obtiene custom_permissions Y password_changed_at (ADR-003 + #138).
-    const { customPermissions, passwordChangedAt } = await loadUserAuthData(decoded.id);
-    if (isSessionInvalidated(decoded.password_version, passwordChangedAt)) {
+    const { customPermissions, passwordChangedAt, active } = await loadUserAuthData(decoded.id);
+    if (!active || isSessionInvalidated(decoded.password_version, passwordChangedAt)) {
       return res.status(401).json({
         message: MSG_SESSION_INVALIDATED,
         code:    "SESSION_INVALIDATED",
@@ -185,8 +184,8 @@ export const requireAuth = async (req: any, res: any, next: any) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     // Misma fuente de verdad que authenticateToken (ADR-003 + #138).
-    const { customPermissions, passwordChangedAt } = await loadUserAuthData(decoded.id);
-    if (isSessionInvalidated(decoded.password_version, passwordChangedAt)) {
+    const { customPermissions, passwordChangedAt, active } = await loadUserAuthData(decoded.id);
+    if (!active || isSessionInvalidated(decoded.password_version, passwordChangedAt)) {
       return res.status(401).json({
         error:   "Sesión inválida",
         message: MSG_SESSION_INVALIDATED,
@@ -218,7 +217,7 @@ export const requireSuperAdmin = async (req: any, res: any, next: any) => {
     if (!decoded?.id) return res.status(401).json({ message: "Token inválido" });
     const user = await storage.getUser(decoded.id);
     if (!user) return res.status(401).json({ message: "Usuario no encontrado" });
-    if (isSessionInvalidated(decoded.password_version, (user as any).password_changed_at ?? null)) {
+    if (user.is_active === false || isSessionInvalidated(decoded.password_version, (user as any).password_changed_at ?? null)) {
       return res.status(401).json({
         message: MSG_SESSION_INVALIDATED,
         code:    "SESSION_INVALIDATED",

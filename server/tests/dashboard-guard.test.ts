@@ -61,7 +61,7 @@ function makeToken(userId: number, role: string): string {
 /** Token con rol fuera de ROLE_PERMISSIONS — prueba el caso de vulnerabilidad */
 function makeUnknownRoleToken(role: string): string {
   return jwt.sign(
-    { id: 88881, email: `unknown@dsh${TS}.test`, role,
+    { id: (jwt.decode(tokenAdmin) as any).id, email: `unknown@dsh${TS}.test`, role,
       campus_id: campusId, tenant_id: tenantId, type: "user" },
     JWT_SECRET,
     { expiresIn: "1h" }

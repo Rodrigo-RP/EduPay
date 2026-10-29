@@ -47,3 +47,16 @@ res.json({ message: "..." });
 
 - Cualquier escritura secundaria no crítica (audit_log, notificaciones, métricas) que corre dentro de un bloque `BEGIN/COMMIT` usando el mismo `client`.
 - Aplica a toda la app: buscar patrones `.catch(() => {})` con `client.query()` dentro de transacciones.
+
+## Identidad en pruebas
+
+No eludir la FK omitiendo el `id` del JWT ni usando usuarios inexistentes.
+Las pruebas de operaciones necesitan un actor real y activo y deben limpiar
+su propia auditoría; las pruebas de sesión inválida deben conservar el rechazo.
+
+**Why:** La comprobación de existencia y estado del usuario forma parte de la
+autenticación. Evitarla para saltar auditoría ocultaría el comportamiento real.
+
+**How to apply:** Usar fixtures válidos para probar permisos y operaciones.
+Para demostrar rechazo por ausencia de identidad, emitir deliberadamente un
+token sin actor, sin normalizarlo mediante el adaptador de fixtures.

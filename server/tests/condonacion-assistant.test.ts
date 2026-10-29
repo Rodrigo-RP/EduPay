@@ -12,7 +12,7 @@ import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
  *          El asistente no reintenta ni bypasea el flujo — solo superficie el error
  */
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { db, pool } from "../db";
 import { tenants, campuses, students } from "../../shared/schema";
 import { detectSuggestTrigger } from "../assistant-knowledge";
@@ -276,12 +276,14 @@ describe("Condonación E2E — PATCH real (Suite C)", () => {
     expect(planRows[0].estado).toBe("cancelado");
 
     // Verificar audit saldo_condonado
-    const { rows: auditRows } = await pool.query(
-      `SELECT id FROM audit_log
-       WHERE tenant_id = $1 AND action = 'saldo_condonado' AND entity_id = $2`,
-      [tenantId, planId]
-    );
-    expect(auditRows.length).toBeGreaterThanOrEqual(1);
+    await vi.waitFor(async () => {
+      const { rows: auditRows } = await pool.query(
+        `SELECT id FROM audit_log
+         WHERE tenant_id = $1 AND action = 'saldo_condonado' AND entity_id = $2`,
+        [tenantId, planId]
+      );
+      expect(auditRows.length).toBeGreaterThanOrEqual(1);
+    }, { timeout: 3000, interval: 50 });
   });
 
   it("C-5: 403 para rol sin CHARGES.UPDATE (asistente)", async () => {

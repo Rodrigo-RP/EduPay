@@ -196,10 +196,11 @@ export function registerAuthRoutes(app: Express): void {
 
         // Verificar que la contraseña no cambió después de que se emitió el token (#138).
         const isGuardian = decoded.type === 'guardian';
+        const userAuth = isGuardian ? null : await loadUserAuthData(decoded.id);
         const passwordChangedAt = isGuardian
           ? await loadGuardianPasswordChangedAt(decoded.id)
-          : (await loadUserAuthData(decoded.id)).passwordChangedAt;
-        if (isSessionInvalidated(decoded.password_version, passwordChangedAt)) {
+          : userAuth!.passwordChangedAt;
+        if ((!isGuardian && !userAuth!.active) || isSessionInvalidated(decoded.password_version, passwordChangedAt)) {
           return res.status(401).json({ message: MSG_SESSION_INVALIDATED, code: 'SESSION_INVALIDATED' });
         }
 
@@ -228,10 +229,11 @@ export function registerAuthRoutes(app: Express): void {
 
           // Verificar que la contraseña no cambió después de que se emitió el token (#138).
           const isGuardian = decoded.type === 'guardian';
+          const userAuth = isGuardian ? null : await loadUserAuthData(decoded.id);
           const passwordChangedAt = isGuardian
             ? await loadGuardianPasswordChangedAt(decoded.id)
-            : (await loadUserAuthData(decoded.id)).passwordChangedAt;
-          if (isSessionInvalidated(decoded.password_version, passwordChangedAt)) {
+            : userAuth!.passwordChangedAt;
+          if ((!isGuardian && !userAuth!.active) || isSessionInvalidated(decoded.password_version, passwordChangedAt)) {
             return res.status(401).json({ message: MSG_SESSION_INVALIDATED, code: 'SESSION_INVALIDATED' });
           }
 

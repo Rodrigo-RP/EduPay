@@ -53,6 +53,18 @@ ajenos a la prueba ni amplía permisos de las rutas de la app.
 **How to apply:** Mantener el archivado en la gestión de expedientes y
 limitar la limpieza de pruebas a IDs creados y registrados por cada prueba.
 
+El reemplazo de datos demo desde la aplicación es la única excepción
+destructiva autorizada a esa regla; no equivale a una autorización genérica
+para crear otras rutas de reinicialización ni para retirar sus guardas.
+
+**Why:** El dueño pidió expresamente conservar la carga demo y su botón,
+sin cambiar su comportamiento, separándolos de la gestión ordinaria de
+expedientes y de la limpieza de fixtures propios.
+
+**How to apply:** Mantener la excepción identificada por nombre en las
+pruebas de no borrado y verificar conjuntamente superadministrador,
+habilitación explícita, entorno no productivo y marcador test/demo.
+
 `APP_ENV=development` debe configurarse únicamente como variable del entorno
 `development`, nunca en `shared` ni en los Secrets de publicación.
 

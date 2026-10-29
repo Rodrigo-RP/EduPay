@@ -313,6 +313,7 @@ describe("POST /api/admin/families", () => {
           guardian_id: preGuardianId,
           nombres: "Tutor existente", apellido_paterno: "Prueba", tipo_guardian: "otro",
           correo_institucional_familiar: `existente-fcm-${Date.now()}@example.test`,
+          celular: "+525512345678",
           es_responsable_pago: true,
         },
       ],
@@ -364,6 +365,7 @@ describe("POST /api/admin/families", () => {
           nombres: "Tutor Conflict",
           apellido_paterno: "Prueba", tipo_guardian: "otro",
           correo_institucional_familiar: "conflict@test.mx",
+          celular: "+525512345678",
           es_responsable_pago: true,
         },
       ],
@@ -484,6 +486,7 @@ describe("POST /api/admin/families", () => {
           nombres: "Tutor Unico FCM06",
           apellido_paterno: "Prueba", tipo_guardian: "otro",
           correo_institucional_familiar: `fcm06-${ts}@test.mx`,
+          celular: "+525512345678",
           es_responsable_pago: true,
           // sin porcentaje_responsabilidad — debe defaultear a 100.00
         },

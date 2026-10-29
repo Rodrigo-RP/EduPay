@@ -162,12 +162,15 @@ afterAll(async () => {
 
 describe("POST /api/guardian/spei-intent", () => {
   it("SPEI-01 crea Customer + PI Connect y deja el cargo pendiente", async () => {
+    // Fixture propio: ausencia real de correo, no un valor ficticio.
+    await pool.query("UPDATE guardians SET email=NULL, correo_institucional_familiar=NULL WHERE id=$1", [guardianId]);
     const result = await post("/api/guardian/spei-intent", { charge_ids: [chargeId] });
 
     expect(result.status).toBe(201);
     expect(result.body.payment_intent_id).toBe(PAYMENT_INTENT_ID);
     expect(result.body.client_secret).toBe(`${PAYMENT_INTENT_ID}_secret_test`);
     expect(mockCustomerCreate).toHaveBeenCalledTimes(1);
+    expect(mockCustomerCreate.mock.calls[0][0].email).toBeUndefined();
     expect(mockPiCreate).toHaveBeenCalledTimes(1);
     expect(mockPiCreate).toHaveBeenCalledWith(expect.objectContaining({
       amount: 25800,

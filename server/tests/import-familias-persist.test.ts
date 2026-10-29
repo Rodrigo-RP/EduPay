@@ -73,7 +73,7 @@ function buildCsv(studentRef: string, tutorEmail: string): string {
   const header = "nombre_familia,id_referencia_alumno,curp_alumno,tipo_guardian," +
     "nombres_tutor,apellido_paterno_tutor,apellido_materno_tutor," +
     "curp_tutor,email_tutor,celular_tutor,es_responsable_pago,porcentaje_responsabilidad";
-  const row = `Familia Persist Test,${studentRef},,padre,Tutor Persist,,,,${tutorEmail},,true,`;
+  const row = `Familia Persist Test,${studentRef},,padre,Tutor Persist,,,,${tutorEmail},+525512345678,true,`;
   return `${header}\n${row}`;
 }
 

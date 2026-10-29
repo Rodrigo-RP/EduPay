@@ -168,7 +168,7 @@ export interface IStorage {
   updateUserStatus(userId: number, status: string): Promise<void>;
   updateUserPassword(userId: number, password_hash: string): Promise<void>;
   updateUserProfile(userId: number, updates: { name?: string; email?: string; telefono?: string; foto_url?: string }): Promise<void>;
-  updateGuardianProfile(guardianId: number, updates: { nombre_completo?: string; email?: string; telefono?: string; foto_url?: string; password_hash?: string }): Promise<void>;
+  updateGuardianProfile(guardianId: number, updates: { nombre_completo?: string; email?: string | null; telefono?: string; foto_url?: string; password_hash?: string }): Promise<void>;
   
   // Dashboard KPIs
   getDashboardKPIs(campusId: number): Promise<{
@@ -1017,12 +1017,14 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId));
   }
 
-  async updateGuardianProfile(guardianId: number, updates: { nombre_completo?: string; email?: string; telefono?: string; foto_url?: string; password_hash?: string; password_changed_at?: Date }): Promise<void> {
+  async updateGuardianProfile(guardianId: number, updates: { nombre_completo?: string; email?: string | null; telefono?: string; foto_url?: string; password_hash?: string; password_changed_at?: Date }): Promise<void> {
     const now = new Date();
+    const email = updates.email !== undefined ? normalizeGuardianEmail(updates.email) : undefined;
+    const contact = email !== undefined ? { email, correo_institucional_familiar: email } : {};
     // Si se actualiza el hash de contraseña, marcar password_changed_at automáticamente.
     const extra = updates.password_hash ? { password_changed_at: now } : {};
     await db.update(guardians)
-      .set({ ...updates, ...extra, updated_at: now })
+      .set({ ...updates, ...contact, ...extra, updated_at: now })
       .where(eq(guardians.id, guardianId));
   }
 

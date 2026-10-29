@@ -13,7 +13,7 @@ interface User {
 
 interface Guardian {
   id: number;
-  email: string;
+  email: string | null;
   nombre_completo: string;
   telefono?: string;
   foto_url?: string;

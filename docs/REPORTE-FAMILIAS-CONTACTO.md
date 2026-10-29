@@ -108,3 +108,25 @@ No se cambió la distribución de responsabilidades de pago.
 
 El formulario identifica al principal real al editar y marca sólo su celular
 como obligatorio. Correo se muestra opcional; no se inventan direcciones.
+
+## Casos de prueba del ajuste
+
+- Diez casos nuevos contra la base: cinco requisitos de contacto; importación
+  sin correo; vaciado explícito con alias anterior; emisión/canje de liga;
+  búsqueda real por nombre; principal en segunda posición y edición secundaria.
+- SPEI-01 se extendió con un tutor cuyo correo es realmente nulo y una aserción
+  sobre los parámetros recibidos por el cliente Stripe simulado. No se llama
+  a Stripe real ni se crea un correo de sustitución.
+- Siete casos de seguridad aislados para normalización y destinatario omitido.
+- El recorrido E2E existente de familias deja el correo sin capturar, comprueba
+  que sólo el celular principal es obligatorio y verifica NULL en la base tras
+  el alta, además de recargar, editar y archivar.
+- Se completaron teléfonos sintéticos de los fixtures válidos de FCM-02,
+  FCM-03, FCM-06 e IFT-01/02/03 para que sigan alcanzando sus reglas originales.
+  Sus aserciones de conflicto, atomicidad, porcentajes y dry-run no cambiaron.
+
+La primera selección detectó esos seis fixtures sin celular y un payload de
+edición del test nuevo sin nombre familiar; se corrigieron los datos de prueba,
+no se relajaron las reglas. La repetición de los tres archivos afectados
+aprobó sus 21 casos. Los resultados de las suites completas se documentan
+al terminar su ejecución.

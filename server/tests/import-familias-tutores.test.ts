@@ -242,6 +242,7 @@ describe("POST /api/import/data/familias/tutores", () => {
         nombres_tutor:        "Tutor IFT01",
         apellido_paterno_tutor: "García",
         email_tutor:          tutorEmail,
+        celular_tutor:        "+525512345678",
         es_responsable_pago:  "true",
       },
       {
@@ -251,6 +252,7 @@ describe("POST /api/import/data/familias/tutores", () => {
         nombres_tutor:        "Tutor IFT01",
         apellido_paterno_tutor: "García",
         email_tutor:          tutorEmail,
+        celular_tutor:        "+525512345678",
         es_responsable_pago:  "true",
       },
     ]);
@@ -324,6 +326,7 @@ describe("POST /api/import/data/familias/tutores", () => {
         tipo_guardian:        "madre",
         nombres_tutor:        "Tutor IFT02 OK",
         email_tutor:          tutorFreeEmail,
+        celular_tutor:        "+525512345678",
         es_responsable_pago:  "true",
       },
       // Grupo conflicto (2 filas — studentC en familyX, studentD en familyY)
@@ -434,6 +437,7 @@ describe("POST /api/import/data/familias/tutores", () => {
         tipo_guardian:        "tutor",
         nombres_tutor:        "Tutor Dry IFT03",
         email_tutor:          dryEmail,
+        celular_tutor:        "+525512345678",
         es_responsable_pago:  "true",
       },
     ]);

@@ -55,19 +55,23 @@ test("familia real: alta con madre sola, recarga, edición y archivado con motiv
   for (const [label, value] of [
     ["Nombres *", `Tutora E2E ${stamp}`], ["Primer apellido *", "Prueba"], ["Segundo apellido", "Familia"],
     ["CURP", "TEAT040501HDFRRSA0"], ["RFC persona física", "TEAT040501001"],
-    ["Correo *", `familia-e2e-${stamp}@example.test`], ["Celular *", "55 1234 5678"],
+    ["Celular *", "55 1234 5678"],
     ["Teléfono de casa u oficina", "55 8765 4321"], ["Calle", "Calle original"],
     ["Número exterior", "12"], ["Número interior", "3"], ["Colonia", "Prueba"],
     ["Código postal", "01000"], ["Municipio", "Prueba"], ["Estado", "Ciudad de México"],
     ["Contacto de emergencia", "Contacto E2E"], ["Teléfono de emergencia", "55 1122 3344"],
     ["Relación del contacto", "Otra"],
   ]) await dialog.getByLabel(label, { exact: true }).fill(value);
+  await expect(dialog.getByLabel("Correo (opcional)", { exact: true })).not.toHaveAttribute("required", "");
+  await expect(dialog.getByLabel("Celular *", { exact: true })).toHaveAttribute("required", "");
   const created = page.waitForResponse(r => r.url().endsWith("/api/admin/families") && r.request().method() === "POST");
   await dialog.getByRole("button", { name: "Guardar familia", exact: true }).click();
   const response = await created;
   expect(response.status()).toBe(201);
   const data = await response.json();
   familyId = data.family_id; guardianIds = data.guardians_created.map((g: any) => g.id);
+  const contact = await pool.query("SELECT email,correo_institucional_familiar FROM guardians WHERE id=$1", [guardianIds[0]]);
+  expect(contact.rows[0]).toEqual({ email: null, correo_institucional_familiar: null });
   await expect(dialog).not.toBeVisible();
   await page.reload();
   const card = page.getByTestId(`family-${familyId}`);

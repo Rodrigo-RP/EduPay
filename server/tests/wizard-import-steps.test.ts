@@ -226,7 +226,7 @@ function csvFamilias(curpAlumno: string, emailTutor: string): string {
   const row = [
     "Familia WIS Test", "", curpAlumno,
     "padre", "Tutor WIS", "Apellido WIS", "",
-    "", emailTutor, "", "true", "100",
+    "", emailTutor, "+525512345678", "true", "100",
   ].join(",");
   return `${header}\n${row}`;
 }

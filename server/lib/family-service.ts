@@ -90,6 +90,9 @@ export interface FamilyCreateResult {
 export interface FamilyActor { tenantId: number; campusId: number; userId: number }
 export const familyNumber = (id: number) => `FAM${String(id).padStart(3, "0")}`;
 const familyError = (message: string, status = 400) => Object.assign(new Error(message), { status });
+const redactIdentifiers = (text: string) => text
+  .replace(new RegExp(`\\b${CURP_RE.source.slice(1, -1)}\\b`, "gi"), value => `****${value.slice(-4)}`)
+  .replace(/\b[A-ZÑ&]{4}\d{6}[A-Z0-9]{3}\b/gi, value => `****${value.slice(-4)}`);
 const guardianFields = [
   "tipo_guardian", "nombres", "apellido_paterno", "apellido_materno",
   "curp", "rfc", "correo_institucional_familiar", "celular", "telefono_casa_oficina",
@@ -132,6 +135,23 @@ function normalizedTutor(raw: any): TutorInput {
     }
   }
   return tutor;
+}
+
+function validateResponsibilities(tutores: TutorInput[]) {
+  const responsables = tutores.filter(t => t.es_responsable_pago);
+  if (!responsables.length) throw familyError("Debe haber al menos un tutor con es_responsable_pago=true");
+  const specified = responsables.filter(t => t.porcentaje_responsabilidad != null);
+  if (specified.length && specified.length !== responsables.length) {
+    throw familyError("Si especifica porcentaje_responsabilidad, todos los tutores con es_responsable_pago=true deben tenerlo especificado.", 422);
+  }
+  if (specified.length) {
+    const suma = responsables.reduce((sum, t) => sum + Number(t.porcentaje_responsabilidad), 0);
+    if (Math.round(suma * 100) !== 10000) {
+      throw familyError(`La suma de porcentaje_responsabilidad de los tutores responsables es ${suma.toFixed(2)}%. Debe ser exactamente 100.`, 422);
+    }
+  } else if (responsables.length > 1) {
+    throw familyError(`Con ${responsables.length} tutores responsables de pago, debe especificar porcentaje_responsabilidad para cada uno (suma = 100).`, 422);
+  }
 }
 
 async function rejectDuplicateTutors(client: DbClient, tutores: TutorInput[], actor: FamilyActor) {
@@ -224,6 +244,7 @@ export async function manageFamily(
     !Array.isArray(input.student_ids) || !input.student_ids.length ||
     input.student_ids.some((id: any) => !Number.isInteger(id) || id <= 0)
   )) throw familyError("Vincula al menos un alumno mediante identificadores válidos");
+  if (operation === "create") validateResponsibilities(input.tutores);
   if (operation === "status" && input.status === "archivada" &&
       (typeof input.motivo !== "string" || !input.motivo.trim() ||
        input.confirmacion !== true || input.confirmacion_final !== true)) {
@@ -367,7 +388,7 @@ export async function manageFamily(
         operation === "status" ? input.status === "archivada" ? "archive" : "reactivate" : operation,
         familyId, JSON.stringify({
           campus_id: actor.campusId, cambios: changes,
-          ...(operation === "status" && input.status === "archivada" ? { motivo: input.motivo.trim() } : {}),
+          ...(operation === "status" && input.status === "archivada" ? { motivo: redactIdentifiers(input.motivo.trim()) } : {}),
         })],
     );
     await client.query("COMMIT");
@@ -393,43 +414,7 @@ export async function createFamily(
 
   // ── Paso 1: Validación de porcentajes (sin queries) ─────────────────────────
 
-  const responsables = tutores.filter(t => t.es_responsable_pago);
-  if (responsables.length === 0) {
-    const err = new Error("Debe haber al menos un tutor con es_responsable_pago=true") as any;
-    err.status = 400;
-    throw err;
-  }
-
-  const conPorcentaje = responsables.filter(t => t.porcentaje_responsabilidad != null);
-
-  if (conPorcentaje.length > 0) {
-    if (conPorcentaje.length !== responsables.length) {
-      const err = new Error(
-        "Si especifica porcentaje_responsabilidad, todos los tutores con " +
-        "es_responsable_pago=true deben tenerlo especificado.",
-      ) as any;
-      err.status = 422;
-      throw err;
-    }
-    const suma = responsables.reduce(
-      (s, t) => s + Number(t.porcentaje_responsabilidad ?? 0), 0,
-    );
-    if (Math.round(suma * 100) !== 10000) {
-      const err = new Error(
-        `La suma de porcentaje_responsabilidad de los tutores responsables es ` +
-        `${suma.toFixed(2)}%. Debe ser exactamente 100.`,
-      ) as any;
-      err.status = 422;
-      throw err;
-    }
-  } else if (responsables.length > 1) {
-    const err = new Error(
-      `Con ${responsables.length} tutores responsables de pago, debe especificar ` +
-      `porcentaje_responsabilidad para cada uno (suma = 100).`,
-    ) as any;
-    err.status = 422;
-    throw err;
-  }
+  validateResponsibilities(tutores);
   // Un solo responsable sin porcentaje → OK (se usará "100.00" implícito).
 
   if (student_ids.length === 0) {

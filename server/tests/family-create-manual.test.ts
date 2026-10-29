@@ -7,15 +7,13 @@
  *          → family creada, guardian_id_principal = primer responsable,
  *            ambos student_guardian insertados.
  *
- * FCM-02  Segundo alumno enviado a una familia ya existente (mismo tutor)
- *          → se vincula a la familia existente, nombre de la familia conservado,
- *            no se crea familia nueva.
+ * FCM-02  Alta manual con tutor/familia existente → 409, no vincula ni cambia datos.
+ *          El contrato de reutilización se conserva sólo en el importador.
  *
  * FCM-03  Los alumnos del body pertenecen a familias distintas entre sí
  *          → 422, nada escrito en DB.
  *
- * FCM-04  Tutor identificado por CURP con email distinto en el input
- *          → se usa el guardian del CURP, email del input ignorado, warning presente.
+ * FCM-04  Tutor identificado por CURP con email distinto → 409, tutor intacto.
  *
  * FCM-05  Suma de porcentajes de responsables ≠ 100 (70 + 20 = 90)
  *          → 422, nada escrito.
@@ -60,7 +58,7 @@ let familyXId:          number;  // FCM-03
 let familyYId:          number;  // FCM-03
 let curpGuardianId:     number;  // FCM-04: guardian con CURP conocido
 
-const CURP_FCM = "FCMT800101MDFXXXX4"; // CURP exclusivo de este test
+const CURP_FCM = "FEAT800101MDFRRS04"; // CURP sintética con formato oficial
 
 // IDs creados DURANTE los tests (para limpiar en afterAll)
 const created = {
@@ -299,7 +297,7 @@ describe("POST /api/admin/families", () => {
   });
 
   it("FCM-02: segundo alumno a familia existente (mismo tutor por guardian_id) " +
-     "→ vincula a familia existente, nombre de la familia conservado, no crea familia nueva", async () => {
+     "→ 409, conserva nombre y vínculos sin crear familia nueva", async () => {
     // studentExistA ya está en preFamilyId. Enviamos studentExistB al mismo nombre.
     const familyCountBefore = await pool.query(
       `SELECT COUNT(*) AS n FROM families WHERE tenant_id = $1`,
@@ -313,14 +311,15 @@ describe("POST /api/admin/families", () => {
       tutores: [
         {
           guardian_id: preGuardianId,
+          nombres: "Tutor existente", apellido_paterno: "Prueba", tipo_guardian: "otro",
+          correo_institucional_familiar: `existente-fcm-${Date.now()}@example.test`,
           es_responsable_pago: true,
         },
       ],
     }, tokenAdmin);
 
-    expect(status).toBe(201);
-    // Debe usar la familia existente, no crear una nueva
-    expect(body.family_id).toBe(preFamilyId);
+    expect(status).toBe(409);
+    expect(body.message).toContain(`FAM${String(preFamilyId).padStart(3, "0")}`);
 
     // No se debe haber creado ninguna familia nueva
     const familyCountAfter = await pool.query(
@@ -335,21 +334,20 @@ describe("POST /api/admin/families", () => {
       [preFamilyId],
     );
     expect((famRow.rows[0] as any).nombre).toBe("Familia Pre-Existente FCM");
-    expect(body.family_nombre).toBe("Familia Pre-Existente FCM");
 
-    // studentExistB ahora está vinculado a la familia
+    // El 409 no agrega al segundo alumno.
     const fsRow = await pool.query(
       `SELECT 1 FROM family_students WHERE family_id = $1 AND student_id = $2`,
       [preFamilyId, studentExistBId],
     );
-    expect((fsRow.rows as any[]).length).toBe(1);
+    expect((fsRow.rows as any[]).length).toBe(0);
 
-    // student_guardian para studentExistB + preGuardian existe
+    // Tampoco crea una relación alumno-tutor.
     const sgRow = await pool.query(
       `SELECT 1 FROM student_guardian WHERE student_id = $1 AND guardian_id = $2`,
       [studentExistBId, preGuardianId],
     );
-    expect((sgRow.rows as any[]).length).toBe(1);
+    expect((sgRow.rows as any[]).length).toBe(0);
   });
 
   it("FCM-03: alumnos pertenecen a familias distintas → 422, nada escrito en DB", async () => {
@@ -364,6 +362,7 @@ describe("POST /api/admin/families", () => {
       tutores: [
         {
           nombres: "Tutor Conflict",
+          apellido_paterno: "Prueba", tipo_guardian: "otro",
           correo_institucional_familiar: "conflict@test.mx",
           es_responsable_pago: true,
         },
@@ -389,8 +388,7 @@ describe("POST /api/admin/families", () => {
     expect((gRow.rows as any[]).length).toBe(0);
   });
 
-  it("FCM-04: tutor por CURP existente con email distinto → usa guardian del CURP, " +
-     "email ignorado, warning presente, celular existente conservado", async () => {
+  it("FCM-04: tutor por CURP existente con email distinto → 409 y datos existentes conservados", async () => {
     const ts = Date.now();
     const { status, body } = await postFamily({
       nombre: `Familia FCM-04-${ts}`,
@@ -400,29 +398,15 @@ describe("POST /api/admin/families", () => {
           curp: CURP_FCM,
           correo_institucional_familiar: "curp-DISTINTO@fcm.mx", // difiere del original
           nombres: "Este Nombre No Se Debe Usar",
+          apellido_paterno: "Prueba", tipo_guardian: "otro",
           celular: "+525599900000", // difiere de '5550000001'
           es_responsable_pago: true,
         },
       ],
     }, tokenAdmin);
 
-    // Si studentNewFamId ya tiene familia de FCM-01, el endpoint lo detecta y la reutiliza.
-    // El punto central es que curpGuardianId sea el guardian vinculado.
-    expect([200, 201]).toContain(status);
-
-    // Registrar para limpieza si se creó familia nueva
-    if (body.family_id && !created.familyIds.includes(body.family_id)) {
-      created.familyIds.push(body.family_id);
-    }
-
-    // El guardian usado debe ser el del CURP, no uno nuevo
-    const linked = body.guardians_linked as any[];
-    expect(linked.some((g: any) => g.id === curpGuardianId)).toBe(true);
-    expect(body.guardians_created.length).toBe(0);
-
-    // Warning sobre CURP/email presente
-    expect(body.warnings.length).toBeGreaterThan(0);
-    expect(body.warnings.some((w: string) => w.includes("CURP") || w.includes("curp"))).toBe(true);
+    expect(status).toBe(409);
+    expect(body.message).toMatch(/CURP o correo ya registrado/);
 
     // Email del guardian NO fue sobrescrito
     const gRow = await pool.query(
@@ -447,12 +431,14 @@ describe("POST /api/admin/families", () => {
       tutores: [
         {
           nombres: "Tutor A FCM05",
+          apellido_paterno: "Prueba", tipo_guardian: "otro",
           correo_institucional_familiar: `fcm05a-${ts}@test.mx`,
           es_responsable_pago: true,
           porcentaje_responsabilidad: "70.00",
         },
         {
           nombres: "Tutor B FCM05",
+          apellido_paterno: "Prueba", tipo_guardian: "otro",
           correo_institucional_familiar: `fcm05b-${ts}@test.mx`,
           es_responsable_pago: true,
           porcentaje_responsabilidad: "20.00",
@@ -496,6 +482,7 @@ describe("POST /api/admin/families", () => {
       tutores: [
         {
           nombres: "Tutor Unico FCM06",
+          apellido_paterno: "Prueba", tipo_guardian: "otro",
           correo_institucional_familiar: `fcm06-${ts}@test.mx`,
           es_responsable_pago: true,
           // sin porcentaje_responsabilidad — debe defaultear a 100.00

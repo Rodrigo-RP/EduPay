@@ -3150,7 +3150,7 @@ export default function Familias() {
                 <div className="bg-green-50 p-4 rounded-lg">
                   <h3 className="font-semibold text-green-900 mb-3 flex items-center">
                     <Users className="w-5 h-5 mr-2" />
-                    Padre/Tutor Principal
+                    Tutor principal
                   </h3>
                   <div className="space-y-2">
                     <p><strong>Nombre:</strong> {viewingFamily.padre_nombre}</p>
@@ -3165,7 +3165,7 @@ export default function Familias() {
                 <div className="bg-purple-50 p-4 rounded-lg">
                   <h3 className="font-semibold text-purple-900 mb-3 flex items-center">
                     <Users className="w-5 h-5 mr-2" />
-                    Madre/Tutora
+                    Otro tutor
                   </h3>
                   <div className="space-y-2">
                     <p><strong>Nombre:</strong> {viewingFamily.madre_nombre}</p>

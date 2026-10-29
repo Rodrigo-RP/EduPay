@@ -55,7 +55,12 @@ async function setFamilyStatus(familyId: number, status: "activo" | "archivada")
       Authorization: `Bearer ${adminToken()}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({
+      status,
+      ...(status === "archivada" ? {
+        motivo: "Archivado de fixture de acceso", confirmacion: true, confirmacion_final: true,
+      } : {}),
+    }),
   });
   return { response, body: await response.json() as any };
 }

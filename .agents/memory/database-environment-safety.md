@@ -18,8 +18,8 @@ de presentar el preflight y recibir aprobación explícita. Revisar también el
 arranque de servidores de pruebas: puede escribir antes del setup global.
 
 El dueño autorizó el 2026-10-26 clasificar como pruebas el destino entonces
-configurado en `DATABASE_URL`. Esa autorización no incluye
-`NEON_DATABASE_URL` ni destinos futuros si cambia la configuración.
+configurado en `DATABASE_URL`. Esa autorización no incluye otras conexiones
+ni destinos futuros si cambia la configuración.
 
 **Why:** Identificar una base como de pruebas es una decisión del dueño, no
 algo que pueda inferirse de su nombre o de que tenga fixtures. El marcador

@@ -10,7 +10,7 @@ No es un ERP ni un LMS. No debe describirse como lista para producción ni como 
 
 Última evidencia de ejecución: 27 de octubre de 2026, código `f84a9fb`.
 
-- `DATABASE_URL` se verificó como la base de pruebas `heliumdb`, con comentario físico `edupay:test`. Ese resultado identifica la conexión de esa verificación, no cualquier conexión futura ni `NEON_DATABASE_URL`.
+- `DATABASE_URL` se verificó como la base de pruebas `heliumdb`, con comentario físico `edupay:test`. Ese resultado identifica la conexión de esa verificación, no otras conexiones ni destinos futuros.
 - Unitarias: 1333 aprobadas, 1 omitida y 0 fallos; 140 archivos aprobados y 1 omitido.
 - E2E: 90 aprobadas en 31 archivos, sin fallos, omisiones ni casos inestables. EM-02 se ejecutó.
 - Evidencia local de esa corrida: `generated-artifacts/fix-suite-heliumdb/round3/` (`preflight.json`, `unit.log`, `e2e-results.json` y `check.log`). Son artefactos ignorados por Git; no suponer que acompañan a un clon nuevo.
@@ -72,7 +72,7 @@ En correo, `aceptado` sólo se registra tras aceptación del proveedor; `entrega
 - `APP_ENV` es independiente de `NODE_ENV`. Las guardas de escritura exigen `development` o `test` y el marcador físico correspondiente; el nombre de la base por sí solo no autoriza nada.
 - `DATABASE_MARKER_SQL`, en `server/lib/database-safety.ts`, lee el comentario PostgreSQL. Las pruebas requieren `edupay:test`; los seeds admiten `edupay:test` o `edupay:demo`. Nunca crear el marcador automáticamente para desbloquear una operación.
 - `.replit` define `APP_ENV=development` y `ALLOW_DEMO_SEED=true` únicamente en `[userenv.development]`. No llevar esa habilitación a `shared` ni a publicación. El seed exige además sus guardas y una autorización de ejecución.
-- `NEON_DATABASE_URL` es una conexión obsoleta según el responsable del proyecto. El CI aún la exige y la configura; la aplicación usa `DATABASE_URL`. No tratarlas como equivalentes ni modificar la primera para hacer pasar pruebas.
+- La aplicación usa `DATABASE_URL`. El CI configura esa variable con su PostgreSQL 16 desechable, no con una conexión compartida ni con Secrets de bases externas.
 - Los Secrets se administran por el mecanismo de Secrets del proyecto; su existencia no acredita validez, modo de operación o configuración por campus.
 
 ## Cuentas de prueba
@@ -108,7 +108,7 @@ La identidad efectiva y el campus se deben obtener de la sesión o consultar en 
 
 ## Pendientes conocidos
 
-- Preparar CI con una base desechable, sin depender de la conexión obsoleta `NEON_DATABASE_URL` ni reutilizar una base compartida.
+- CI con base desechable: implementado en `.github/workflows/ci.yml`; consultar la corrida del commit antes de afirmar que pasó. No reutilizar una base compartida.
 - Retirar la ruta HTTP `/api/test/reset-auth-rate-limit`, registrada cuando `NODE_ENV !== "production"` en `server/routes/auth.ts`; contradice la prohibición de rutas de prueba condicionales del protocolo.
 - Auditoría de dependencias del 27 de octubre de 2026: **53 vulnerabilidades** (5 bajas, 18 moderadas, 25 altas y 5 críticas). Comando de sólo lectura: `npm audit --json --ignore-scripts`; no se aplicaron correcciones.
 - **24 diagnósticos de TypeScript** en la comprobación de `f84a9fb`, idénticos al comparar con la base de esa ronda. No confundir las suites aprobadas con un `npm run check` aprobado.

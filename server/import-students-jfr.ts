@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { db } from './db';
+import { normalizeGuardianEmail } from './lib/guardian-contact';
 import { students, guardians, student_guardian } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import * as fs from 'fs';
@@ -43,20 +44,21 @@ export async function importStudentsFromCSV(filePath: string, campusId: number) 
           rfc_tutor: values[7]?.trim() || ''
         };
         
-        if (!record.curp || !record.nombre_completo || !record.email_tutor) {
+        if (!record.curp || !record.nombre_completo) {
           errors.push(`Línea ${i + 1}: Faltan datos obligatorios`);
           continue;
         }
         
         // Crear o encontrar tutor
-        let guardian = await db.select()
+        const email = normalizeGuardianEmail(record.email_tutor);
+        let guardian = email ? await db.select()
           .from(guardians)
-          .where(eq(guardians.email, record.email_tutor))
-          .limit(1);
+          .where(eq(guardians.email, email))
+          .limit(1) : [];
         
         if (guardian.length === 0) {
           const [newGuardian] = await db.insert(guardians).values({
-            email: record.email_tutor,
+            email,
             nombre_completo: record.tutor,
             telefono: record.telefono,
             rfc: record.rfc_tutor || null

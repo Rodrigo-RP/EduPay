@@ -5,6 +5,7 @@ import { unavailableFeature } from "./unavailable-feature";
 import { pool, db } from "../db";
 import { enqueueAuditLog } from "../audit-retry";
 import { createFamily, type TutorInput } from "../lib/family-service";
+import { normalizeGuardianEmail, normalizeGuardianMobile } from "../lib/guardian-contact";
 import { eq, and, gte, lt } from "drizzle-orm";
 import { storage } from "../storage";
 import { authenticateToken, requireAuth, authenticateGuardian, checkCampusTenant, upload, esmRequire, JWT_SECRET, hasPermissionForUser} from "./shared";
@@ -818,8 +819,17 @@ export function registerPaymentRoutes(app: Express): void {
           const tutorData = jsonData[index] as any;
 
           // ── Validación
-          if (!tutorData.nombre_completo || !tutorData.email) {
-            results.errors.push(`Fila ${index + 2}: Nombre completo y email son requeridos`);
+          if (!tutorData.nombre_completo) {
+            results.errors.push(`Fila ${index + 2}: Nombre completo es requerido`);
+            results.failed++;
+            continue;
+          }
+          let email: string | null, celular: string | null;
+          try {
+            email = normalizeGuardianEmail(tutorData.email);
+            celular = normalizeGuardianMobile(tutorData.telefono);
+          } catch (error: any) {
+            results.errors.push(`Fila ${index + 2}: ${error.message}`);
             results.failed++;
             continue;
           }
@@ -827,7 +837,7 @@ export function registerPaymentRoutes(app: Express): void {
           // ── INSERT (si falla → propaga → ROLLBACK)
           // ATENCIÓN — implementación inline deliberada (misma razón que students).
           // Si storage.createGuardian añade lógica nueva, replicar aquí.
-          // correo_institucional_familiar y nombres son NOT NULL en guardians.
+          // El correo ausente se persiste como NULL en ambas columnas.
           await client.query(
             `INSERT INTO guardians
                (nombres, nombre_completo, email, correo_institucional_familiar, celular,
@@ -836,9 +846,9 @@ export function registerPaymentRoutes(app: Express): void {
             [
               tutorData.nombre_completo || '',
               tutorData.nombre_completo || '',
-              tutorData.email || '',
-              tutorData.email || '',
-              tutorData.telefono || '',
+              email,
+              email,
+              celular,
               campusId,
               tenantId,
             ],

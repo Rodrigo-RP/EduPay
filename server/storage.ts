@@ -25,6 +25,7 @@ import {
 } from "@shared/schema";
 import { transition, InvalidStateTransitionError, type StateMachineEntity } from "./state-machines";
 import { db, pool } from "./db";
+import { normalizeGuardianEmail } from "./lib/guardian-contact";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
@@ -357,10 +358,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createGuardian(insertGuardian: InsertGuardian): Promise<Guardian> {
-    const email = insertGuardian.correo_institucional_familiar?.trim();
-    if (!email) {
-      throw new Error("El correo institucional familiar es obligatorio");
-    }
+    const email = normalizeGuardianEmail(insertGuardian.correo_institucional_familiar);
     const nombre_completo = [
       insertGuardian.nombres,
       insertGuardian.apellido_paterno,
@@ -378,6 +376,7 @@ export class DatabaseStorage implements IStorage {
       .values({
         ...insertGuardian,
         email,
+        correo_institucional_familiar: email,
         nombre_completo,
         telefono,
         password_hash: hashedPassword,

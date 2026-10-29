@@ -341,7 +341,7 @@ function StepContent({ stepId, onConfirm, onImportAdvance, markStepComplete, con
           templateId="tutores"
           importEndpoint="/api/import/data/familias/tutores"
           templateFileName="plantilla_familias_tutores.csv"
-          fieldsNote="Columnas clave: nombre_familia (agrupa tutores de la misma familia), id_referencia_alumno o curp_alumno, tipo_guardian, nombres_tutor, apellido_paterno_tutor, email_tutor."
+          fieldsNote="Columnas clave: nombre_familia (agrupa tutores de la misma familia), id_referencia_alumno o curp_alumno, tipo_guardian, nombres_tutor, apellido_paterno_tutor. email_tutor es opcional; celular_tutor es obligatorio para el tutor principal."
           markStepComplete={markStepComplete}
           onAdvance={onImportAdvance}
         />

@@ -316,7 +316,7 @@ export function registerAuthRoutes(app: Express): void {
 
       // Verificar que el tutor pertenece al tenant del usuario
       const guardianCheck = await pool.query(
-        `SELECT id, nombres, apellido_paterno, correo_institucional_familiar, email, tenant_id
+        `SELECT id, nombres, apellido_paterno, correo_institucional_familiar, email, celular, tenant_id
          FROM guardians WHERE id = $1 AND tenant_id = $2`,
         [guardian_id, tenantId]
       );
@@ -365,10 +365,15 @@ export function registerAuthRoutes(app: Express): void {
       res.json({
         url,
         expires_at: expiresAt.toISOString(),
+        contact_message: guardian.correo_institucional_familiar || guardian.email ? null
+          : guardian.celular
+            ? "Este tutor no tiene correo. Comparte la liga por su celular registrado; no se envió automáticamente."
+            : "Este tutor no tiene correo ni celular. Copia la liga para compartirla por otro medio.",
         guardian: {
           id:     guardian.id,
           nombre: `${guardian.nombres} ${guardian.apellido_paterno}`.trim(),
-          email:  guardian.correo_institucional_familiar || guardian.email,
+          email:  guardian.correo_institucional_familiar || guardian.email || null,
+          celular: guardian.celular || null,
         },
       });
     } catch (error: any) {
@@ -455,7 +460,7 @@ export function registerAuthRoutes(app: Express): void {
       const g = gResult.rows[0] as any;
 
       // Generar JWT de tutor (4 horas)
-      const guardianEmail = g.correo_institucional_familiar || g.email || `guardian_${row.guardian_id}@noemail`;
+      const guardianEmail = g.correo_institucional_familiar || g.email || null;
       const guardianJwt = jwt.sign(
         { id: row.guardian_id, email: guardianEmail, tenant_id: row.tenant_id, type: 'guardian' },
         JWT_SECRET,

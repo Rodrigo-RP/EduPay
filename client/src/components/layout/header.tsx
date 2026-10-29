@@ -130,7 +130,7 @@ export default function Header() {
               {/* User Info */}
               <div className="text-right">
                 <p className="text-sm font-medium text-slate-900">
-                  {user?.email || guardian?.email}
+                  {user?.email || guardian?.email || "Sin correo"}
                 </p>
                 <p className="text-xs text-slate-500">
                   {user ? (user.role === 'administrador_general' ? 'Administrador General' : 

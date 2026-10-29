@@ -59,6 +59,7 @@ export function TutoresPanel({ studentId, isOpen }: { studentId?: number; isOpen
       return res.json();
     },
     onSuccess: (data: any) => {
+      if (data.contact_message) toast({ title: "Liga lista para compartir", description: data.contact_message });
       setMagicLinkDialog({
         open:     true,
         url:      data.url,
@@ -166,7 +167,7 @@ export function TutoresPanel({ studentId, isOpen }: { studentId?: number; isOpen
     [t.nombres, t.apellido_paterno, t.apellido_materno].filter(Boolean).join(" ");
 
   const contacto = (t: GuardianRow) =>
-    t.email ?? t.correo_institucional_familiar ?? t.celular ?? t.telefono ?? "Sin contacto";
+    t.email || t.correo_institucional_familiar || t.celular || t.telefono || "Sin contacto";
 
   const tipoLabel = (t: GuardianRow) => {
     if (t.es_madre) return "Madre";
@@ -2067,7 +2068,7 @@ export default function Estudiantes() {
                 </div>
                 
                 <div>
-                  <Label htmlFor="padre_correo_institucional_familiar">Correo institucional familiar *</Label>
+                  <Label htmlFor="padre_correo_institucional_familiar">Correo institucional familiar (opcional)</Label>
                   <Input
                     id="padre_correo_institucional_familiar"
                     type="email"

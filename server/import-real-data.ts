@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { db } from './db';
+import { normalizeGuardianEmail } from './lib/guardian-contact';
 import { students, guardians, student_guardian, concepts } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import * as XLSX from 'xlsx';
@@ -236,10 +237,11 @@ export class RealDataImporter {
 
   private async findOrCreateGuardian(guardianData: RealGuardianData) {
     // Buscar tutor existente por email
-    const existing = await db.select()
+    const email = normalizeGuardianEmail(guardianData.email);
+    const existing = email ? await db.select()
       .from(guardians)
-      .where(eq(guardians.email, guardianData.email))
-      .limit(1);
+      .where(eq(guardians.email, email))
+      .limit(1) : [];
 
     if (existing.length > 0) {
       return existing[0];
@@ -247,7 +249,7 @@ export class RealDataImporter {
 
     // Crear nuevo tutor
     const [guardian] = await db.insert(guardians).values({
-      email: guardianData.email,
+      email,
       nombre_completo: guardianData.nombre_completo,
       telefono: guardianData.telefono,
       rfc: guardianData.rfc || null

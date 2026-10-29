@@ -6,7 +6,8 @@
  * Los autoFix son conservadores: nunca eliminan datos, solo completan lo faltante.
  */
 
-import { pool } from "./db";
+import { pool as auditPool } from "./db";
+import { assistantScopedPool as pool, withAssistantScope } from "./lib/assistant-scoped-reads";
 import { storage } from "./storage";
 
 // ── Tipos públicos ────────────────────────────────────────────────────────────
@@ -614,6 +615,14 @@ export const MODULE_CHECKS: ModuleCheck[] = [
   },
 ];
 
+// Los checks también se pueden invocar individualmente desde pruebas.
+for (const module of MODULE_CHECKS) {
+  for (const check of module.checks) {
+    const run = check.run;
+    check.run = ctx => withAssistantScope(ctx, () => run(ctx));
+  }
+}
+
 // ── Capas de Auditoría (Protocolo E2E) ───────────────────────────────────────
 
 /**
@@ -744,25 +753,16 @@ async function auditLayer3_ExternalServices(moduleId: string, ctx: CheckContext)
  */
 async function auditLayer4_Resilience(moduleId: string, ctx: CheckContext): Promise<AuditLayer> {
   try {
-    // Intentar insertar un registro con FK inválida; si la BD lo rechaza correctamente = resiliente
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-      // Intento de charge con student_id inexistente (FK debe fallar)
-      await client.query(
-        `INSERT INTO charges (student_id, concept_id, monto, estado, ciclo_escolar, fecha_vencimiento)
-         VALUES (-99999, -99999, 0, 'pendiente', '____TEST____', NOW())`
-      );
-      // Si llegó aquí, la restricción FK no está activa — problema de resiliencia
-      await client.query("ROLLBACK");
-      return { layer: 4, name: "Resiliencia y manejo de errores", ok: false, detail: "La BD aceptó datos inválidos sin restricción — riesgo de corrupción" };
-    } catch {
-      // Error esperado: FK violada → sistema rechaza correctamente
-      await client.query("ROLLBACK");
-      return { layer: 4, name: "Resiliencia y manejo de errores", ok: true, detail: "BD rechaza datos inválidos correctamente — restricciones activas" };
-    } finally {
-      client.release();
-    }
+    // Verificación estructural de sólo lectura: no crear cargos ficticios ni
+    // abrir una conexión que eluda el lector acotado del asistente.
+    const result = await pool.query(
+      `SELECT convalidated FROM pg_catalog.pg_constraint
+       WHERE conrelid = 'public.charges'::regclass
+         AND confrelid = 'public.students'::regclass AND contype = 'f'`,
+    );
+    const ok = result.rows.some((row: any) => row.convalidated === true);
+    return { layer: 4, name: "Resiliencia y manejo de errores", ok,
+      detail: ok ? "FK cargos-alumnos validada en catálogo; sin escritura de prueba" : "No se encontró la FK validada de cargos a alumnos" };
   } catch (e: any) {
     return { layer: 4, name: "Resiliencia y manejo de errores", ok: false, detail: `Error en prueba de resiliencia: ${e.message}` };
   }
@@ -779,6 +779,10 @@ export async function runDiagnostic(
   ctx: CheckContext,
   autoFixConfirmed = false
 ): Promise<DiagnosticResult | null> {
+  return withAssistantScope(ctx, () => runScopedDiagnostic(moduleId, ctx, autoFixConfirmed));
+}
+
+async function runScopedDiagnostic(moduleId: string, ctx: CheckContext, autoFixConfirmed: boolean): Promise<DiagnosticResult | null> {
   const mod = MODULE_CHECKS.find((m) => m.moduleId === moduleId);
   if (!mod) return null;
 
@@ -831,7 +835,7 @@ export async function runDiagnostic(
     
     // Registrar en audit_log
     if (fixRes.ok) {
-      await pool.query(
+      await auditPool.query(
         `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
          VALUES ($1, $2, 'assistant_autofix', 'system', $3, $4, NOW())`,
         [
@@ -846,7 +850,7 @@ export async function runDiagnostic(
 
   // Registrar issue en audit_log si hay error
   if (!allOk) {
-    await pool.query(
+    await auditPool.query(
       `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
        VALUES ($1, $2, 'assistant_issue_report', 'system', $3, $4, NOW())`,
       [

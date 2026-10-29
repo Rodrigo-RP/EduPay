@@ -28,14 +28,47 @@ siendo necesarios: estar por encima en la jerarquía no concede permisos.
 | server/routes/users.ts | PUT /api/profile/password | Contraseña propia, verificación de contraseña actual y mismo ámbito |
 | server/routes/system.ts | PUT /api/profile/photo | Sólo foto propia, mismo ámbito |
 | server/routes/auth.ts | POST /api/auth/2fa/confirm; DELETE /api/auth/2fa | Segundo factor propio; no asignan roles |
+| server/routes/demo-seed.ts | POST /api/demo/seed | ÚNICA excepción autorizada a la jerarquía; reemplazo demo con superadministrador, APP_ENV no productivo, ALLOW_DEMO_SEED=true y marcador test/demo |
 
 Los endpoints de tutores editan guardians, no usuarios administrativos.
-Los scripts y el seed no son rutas de gestión de usuarios: se mantienen sus
-guardas existentes, sin ejecutarlos directamente ni ampliar sus facultades.
+Los scripts no son rutas HTTP. El seed sí tiene una ruta y crea usuarios,
+incluido super_admin. El dueño confirmó expresamente conservarla como única
+excepción también a la jerarquía, junto con la excepción previa de reemplazo
+de expedientes. No se alteraron sus guardas ni su comportamiento. Las demás
+rutas de creación, edición, desactivación y cambio de rol no tienen excepciones.
+Las pruebas la excluyen por nombre, no por prefijo ni por entorno del runner.
 
 Cambios de rol o estado invalidan sesiones mediante password_changed_at, ya
 existente. Las actualizaciones tienen lista de campos permitidos; los IDs,
 ámbito y factores de autenticación no se escriben desde el cuerpo de gestión.
+
+## Aislamiento del asistente
+
+Las herramientas y sus resolutores reciben el ámbito de la sesión. Un lector
+común acota las relaciones SQL mediante CTE antes de ejecutar agregados,
+subconsultas o joins. Sólo admite SELECT/WITH internos parametrizados y
+relaciones inventariadas; una relación desconocida se niega. La calificación
+`public` o las comillas no eluden el filtro. El ámbito concurrente es independiente
+por llamada y no puede sustituirse desde una llamada anidada.
+
+Cada relación con campus se comprueba contra campuses, cuyo tenant debe ser el
+de sesión. Cargos y becas se acotan por alumnos; pagos por cargos; aplicaciones
+por sus pagos y cargos; facturas por pagos. Un tenant explícito distinto se
+excluye aunque coincida el campus. Un tenant histórico nulo sólo se admite si
+su padre ya acotado acredita la pertenencia: no se rellenan datos ni se hace
+fallback a toda la institución. Las filas sin padre atribuible no se exponen.
+
+Los checks de diagnóstico usan el mismo lector. La prueba destructiva de FK
+se sustituyó por consulta del catálogo estructural: informa que comprueba una
+FK validada, no afirma haber ejecutado una inserción inválida. Las sondas de
+esquema con WHERE false LIMIT 0 y el catálogo estructural no devuelven datos
+de familias; no requieren un tenant ficticio para inspeccionar columnas.
+La auditoría conserva tenant, usuario y campus de sesión.
+
+Una referencia explícita a un campus numérico distinto se rechaza antes de
+consultar herramientas o al proveedor y se registra como assistant_scope_denied,
+con IDs y motivo, sin guardar el texto. La bandeja de incidencias del asistente
+también filtra tenant y campus, no sólo tenant.
 
 ## Consultas previas (sólo lectura)
 

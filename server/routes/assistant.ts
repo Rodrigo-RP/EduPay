@@ -9,6 +9,7 @@ import { SCHOOL_TODAY_SQL } from "@shared/school-date";
  */
 
 import type { Express } from "express";
+import { requestedForeignCampus } from "../lib/assistant-scoped-reads";
 import { authenticateToken, hasPermissionForUser } from "./shared";
 import { MODULES, ACTIONS } from "@shared/permissions";
 import {
@@ -163,6 +164,21 @@ export function registerAssistantRoutes(app: Express): void {
       const campusId: number = req.user?.campus_id;
       const tenantId: number = req.user?.tenant_id;
       const userId: number   = req.user?.id;
+      if (![campusId, tenantId].every(n => Number.isSafeInteger(n) && n > 0)) {
+        return res.status(403).json({ error: "El asistente requiere tenant y campus de sesión." });
+      }
+      const requestedCampus = requestedForeignCampus(message, { tenantId, campusId });
+      if (requestedCampus !== null) {
+        // Registrar sólo IDs y motivo, nunca el texto del usuario ni datos personales.
+        await pool.query(
+          `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata, created_at)
+           VALUES ($1,$2,'assistant_scope_denied','assistant',$3,$4,NOW())`,
+          [tenantId, userId || null, campusId, JSON.stringify({
+            campus_id: campusId, requested_campus_id: requestedCampus, reason: "session_scope",
+          })],
+        );
+        return res.status(403).json({ error: "El asistente sólo puede consultar el campus de tu sesión." });
+      }
       const conversationSession = getAssistantConversationSession(
         req.header("authorization"),
         req.user,
@@ -514,19 +530,21 @@ export function registerAssistantRoutes(app: Express): void {
   app.get("/api/assistant/issue-reports", authenticateToken, async (req: any, res) => {
     try {
       const tenantId: number = req.user?.tenant_id;
-      if (!tenantId) return res.status(403).json({ error: "Sin tenant." });
+      const campusId: number = req.user?.campus_id;
+      if (!tenantId || !campusId) return res.status(403).json({ error: "Sin tenant o campus." });
 
       const result = await pool.query(
         `SELECT al.id, al.created_at, al.action, al.entity_id AS campus_id,
                 al.metadata,
                 u.name AS user_name, u.email AS user_email
          FROM audit_log al
-         LEFT JOIN users u ON al.user_id = u.id
+         LEFT JOIN users u ON al.user_id = u.id AND u.tenant_id = $1 AND u.campus_id = $2
          WHERE al.tenant_id = $1
+           AND al.entity_id = $2
            AND al.action IN ('assistant_issue_report','assistant_autofix')
          ORDER BY al.created_at DESC
          LIMIT 50`,
-        [tenantId]
+        [tenantId, campusId]
       );
 
       const reports = result.rows.map((row: any) => {

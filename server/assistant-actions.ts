@@ -10,7 +10,7 @@ import { SCHOOL_TODAY_SQL, schoolDate } from "@shared/school-date";
  *   action:*  — escriben datos, requieren confirmación
  */
 
-import { pool } from "./db";
+import { assistantScopedPool as pool, withAssistantScope } from "./lib/assistant-scoped-reads";
 import { runAllProbes } from "./assistant-validation";
 import type { SuggestActionSignal, SuggestActionTrigger } from "./assistant-knowledge";
 
@@ -994,6 +994,10 @@ export async function executeAction(
   params: Record<string, any>,
   ctx: ActionContext
 ): Promise<ActionResult> {
+  return withAssistantScope(ctx, () => executeScopedAction(actionId, params, ctx));
+}
+
+async function executeScopedAction(actionId: string, params: Record<string, any>, ctx: ActionContext): Promise<ActionResult> {
   // ── §5.6 Guarda dura financiera ───────────────────────────────────────────
   // Si la acción está en la lista protegida y no viene con confirmación
   // explícita del administrador, bloqueamos completamente. Las acciones
@@ -1051,6 +1055,10 @@ export async function resolveSuggestContext(
   trigger: SuggestActionTrigger,
   ctx: { campusId: number; tenantId: number }
 ): Promise<SuggestContextResult> {
+  return withAssistantScope(ctx, () => resolveScopedSuggestContext(trigger, ctx));
+}
+
+async function resolveScopedSuggestContext(trigger: SuggestActionTrigger, ctx: { campusId: number; tenantId: number }): Promise<SuggestContextResult> {
   const { campusId, tenantId } = ctx;
 
   // ── pagar_manual ──────────────────────────────────────────────────────────

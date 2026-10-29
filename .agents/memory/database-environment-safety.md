@@ -42,6 +42,17 @@ no extender esa garantía a otros eventos ni al borrado de ramas, que puede
 evaluarse con el commit de la rama predeterminada. Si no puede evitarse una
 suite prohibida sin cambiar configuración, detenerse y pedir autorización.
 
+La prohibición de borrar familias, tutores o alumnos desde la aplicación
+no prohíbe que un teardown borre los registros que su propia prueba creó
+en `heliumdb`, después de verificar el marcador `edupay:test`.
+
+**Why:** El dueño distinguió expresamente la conservación de expedientes
+de la limpieza aislada de fixtures; la excepción no autoriza borrar datos
+ajenos a la prueba ni amplía permisos de las rutas de la app.
+
+**How to apply:** Mantener el archivado en la gestión de expedientes y
+limitar la limpieza de pruebas a IDs creados y registrados por cada prueba.
+
 `APP_ENV=development` debe configurarse únicamente como variable del entorno
 `development`, nunca en `shared` ni en los Secrets de publicación.
 

@@ -685,7 +685,7 @@ export function registerConciliacionRoutes(app: Express): void {
            WHERE c.id = $1 AND s.id = $2 AND s.campus_id = $3
              AND c.estado NOT IN ('pagado','cancelado')`,
           [chargeIdOverride, estudiante_id, campusId]
-        ).catch(() => ({ rows: [] as any[] }));
+        );
         chargeId = (explicitRow.rows as any[])[0]?.id;
       } else {
         // Auto-selección: cargo más antiguo no-terminal del alumno (fuera de la txn — lectura)
@@ -696,7 +696,7 @@ export function registerConciliacionRoutes(app: Express): void {
              AND c.estado NOT IN ('pagado','cancelado')
            ORDER BY c.fecha_vencimiento ASC LIMIT 1`,
           [estudiante_id, campusId]
-        ).catch(() => ({ rows: [] as any[] }));
+        );
         chargeId = (candidateRow.rows as any[])[0]?.id;
       }
       if (!chargeId) {

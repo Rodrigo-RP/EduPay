@@ -67,6 +67,16 @@ const retired: [string, string][] = [
   ["GET", "/api/validation/report"], ["GET", "/api/migration/status"],
   ["POST", "/api/migration/status"], ["POST", "/api/migration/reset"],
 ];
+it.each([true, false])("pago en efectivo: falla de consulta (cargo explícito=%s) → 500 sin iniciar pago", async explicit => {
+  const response = await hit("/api/caja/pago-efectivo", "POST", "super_admin", {
+    estudiante_id: 1, monto: 100, ...(explicit ? { charge_id: 2 } : {}),
+  });
+  expect(response.status).toBe(500);
+  expect(await response.text()).not.toContain("No hay cargos pendientes");
+  expect(mocks.query).toHaveBeenCalledTimes(1);
+  expect(mocks.connect).not.toHaveBeenCalled();
+  expect(mocks.storage).not.toHaveBeenCalled();
+});
 describe.each(retired)("%s %s retirada", (method, path) => {
   it.each([
     ["super_admin", 501], ["asistente", 403], [null, 401],

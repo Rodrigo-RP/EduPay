@@ -58,6 +58,16 @@ jobs:
             console.log(`::add-mask::${value}`);
             appendFileSync(process.env.GITHUB_ENV, `${key}=${value}\n`);
           }
+          // Satisfacen la configuración y el constructor del SDK, no autorizan cobros.
+          // La prueba de Stripe real permanece omitida mediante RUN_STRIPE_E2E=0.
+          for (const [key, prefix] of [
+            ["VITE_STRIPE_PUBLISHABLE_KEY", "pk_test_ci_"],
+            ["STRIPE_SECRET_KEY", "sk_test_ci_"],
+          ]) {
+            const value = prefix + randomBytes(24).toString("hex");
+            console.log(`::add-mask::${value}`);
+            appendFileSync(process.env.GITHUB_ENV, `${key}=${value}\n`);
+          }
           JS
 
       - name: Resolver URLs del lockfile fuera de Replit

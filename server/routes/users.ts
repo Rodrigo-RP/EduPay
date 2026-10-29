@@ -2,7 +2,6 @@ import type { Express } from "express";
 import { authorizeUserCreation, authorizeUserMutation, userInSessionScope, userUpdateData } from "../lib/user-authorization";
 import crypto from "node:crypto";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { db, pool } from "../db";
 import { eq, and } from "drizzle-orm";
@@ -11,7 +10,7 @@ import { insertUserSchema, insertGuardianSchema, insertInstitutionalInfoSchema }
 import { canEditUser,MODULES, ACTIONS, UserRole } from "@shared/permissions";
 import { storage } from "../storage";
 import { wsManager } from "../websocket-manager";
-import { authenticateToken, authenticateGuardian, requireSuperAdmin, serializeUser, esmRequire, JWT_SECRET, hasPermissionForUser} from "./shared";
+import { authenticateToken, authenticateGuardian, requireSuperAdmin, serializeUser, esmRequire, hasPermissionForUser} from "./shared";
 import { enqueueAuditLog, type AuditLogPayload } from "../audit-retry";
 
 // ── Generador de contraseñas criptográficamente seguro ────────────────────────
@@ -549,101 +548,6 @@ export function registerUserRoutes(app: Express): void {
     }
   });
 
-  // PLATFORM LOGIN for Support and Implementation users
-  app.post("/api/auth/platform-login", async (req, res) => {
-    try {
-      const { email, password, profile_type } = req.body;
-
-      if (!email || !password || !profile_type) {
-        return res.status(400).json({ message: "Email, password and profile type are required" });
-      }
-
-      // Demo users for testing
-      const platformUsers = {
-        "ana.soporte@edupay.com": {
-          id: 100,
-          email: "ana.soporte@edupay.com",
-          name: "Ana García",
-          role: "support",
-          password: "Support123!",
-          profile: {
-            profile_type: "support",
-            specialization: "technical_support",
-            access_level: "read_write",
-            support_tier: "tier2",
-            assigned_schools: ["16", "17", "18"],
-            permissions: ["view_tickets", "respond_tickets", "escalate_tickets", "view_metrics"]
-          }
-        },
-        "carlos.implementacion@edupay.com": {
-          id: 101,
-          email: "carlos.implementacion@edupay.com",
-          name: "Carlos Ramírez",
-          role: "implementation",
-          password: "Implement123!",
-          profile: {
-            profile_type: "implementation",
-            specialization: "onboarding_specialist",
-            access_level: "full_access",
-            implementation_phase: "all_phases",
-            assigned_schools: ["16", "17", "19"],
-            permissions: ["manage_projects", "configure_systems", "train_users", "go_live_support"]
-          }
-        },
-        "luis.configuracion@edupay.com": {
-          id: 102,
-          email: "luis.configuracion@edupay.com",
-          name: "Luis Martínez",
-          role: "implementation",
-          password: "Config123!",
-          profile: {
-            profile_type: "implementation",
-            specialization: "integration_expert",
-            access_level: "read_write",
-            implementation_phase: "setup",
-            assigned_schools: ["20", "21"],
-            permissions: ["configure_systems", "data_migration", "integration_setup"]
-          }
-        }
-      };
-
-      const user = platformUsers[email as keyof typeof platformUsers];
-      
-      if (!user || user.password !== password) {
-        return res.status(401).json({ message: "Invalid credentials" });
-      }
-
-      // Verify profile type matches
-      if (user.role !== profile_type) {
-        return res.status(403).json({ message: "Access denied for this profile type" });
-      }
-
-      const token = jwt.sign(
-        { 
-          id: user.id, 
-          email: user.email, 
-          role: user.role,
-          profile_type: user.profile.profile_type,
-          password_version: 0 // Acceso heredado a plataforma; no tiene password_changed_at en users.
-        },
-        JWT_SECRET,
-        { expiresIn: '8h' }
-      );
-
-      res.json({ 
-        token, 
-        user: { 
-          id: user.id, 
-          email: user.email, 
-          name: user.name, 
-          role: user.role 
-        },
-        profile: user.profile
-      });
-    } catch (error: any) {
-      res.status(500).json({ message: "Platform login failed" });
-    }
-  });
 
   // Get institutional information
   app.get("/api/institutional-info", authenticateToken, async (req, res) => {

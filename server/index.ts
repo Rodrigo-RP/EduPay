@@ -5,6 +5,7 @@ import { wsManager } from "./websocket-manager";
 import { initAuditRetryQueue, startAuditRetryWorker } from "./audit-retry";
 import { resendWebhookRateLimit, resendWebhookBodyError } from "./routes/email-webhooks";
 import { requestMetadataLogger } from "./lib/request-log";
+import { apiNotFound } from "./lib/api-not-found";
 
 // Global error handling
 process.on('unhandledRejection', () => {
@@ -37,6 +38,7 @@ app.use(express.urlencoded({ extended: false, limit: '10mb' }));
   startAuditRetryWorker();
 
   const server = await registerRoutes(app);
+  app.use("/api", apiNotFound);
 
   // Initialize WebSocket manager
   wsManager.initialize(server);

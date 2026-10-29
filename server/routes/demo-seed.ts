@@ -4,6 +4,10 @@ import { seedDemoData } from "../seed-demo";
 import { DatabaseSafetyError } from "../lib/database-safety";
 
 export function registerDemoSeedRoute(app: Express): void {
+  // ÚNICA excepción autorizada al no borrado de familias/tutores/alumnos:
+  // reemplaza datos demo sólo para superadministrador, ALLOW_DEMO_SEED=true,
+  // APP_ENV distinto de producción y marcador edupay:test o edupay:demo.
+  // Las guardas de entorno/marcador viven en seedDemoData, antes de cualquier SQL destructivo.
   app.post("/api/demo/seed", requireSuperAdmin, async (_req, res) => {
     if (process.env.ALLOW_DEMO_SEED !== "true") {
       return res.status(403).json({

@@ -27,6 +27,7 @@
 
 import { pool } from "../db";
 import { getFamilyGuardianIds, getGuardiansWithoutActiveFamilies } from "./family-access";
+import { CURP_RE } from "./validators";
 
 // ── Interfaz de cliente DB (compatible con pool.connect() y PoolClient) ───────
 
@@ -97,6 +98,97 @@ const guardianFields = [
   "contacto_emergencia_telefono", "contacto_emergencia_relacion",
 ] as const;
 
+function normalizedTutor(raw: any): TutorInput {
+  if (!raw || typeof raw !== "object") throw familyError("Tutor inválido");
+  const tutor: any = { ...raw };
+  for (const key of guardianFields) {
+    if (raw[key] != null && typeof raw[key] !== "string") throw familyError(`${key} debe ser texto`);
+    if (typeof raw[key] === "string") tutor[key] = raw[key].trim();
+  }
+  tutor.correo_institucional_familiar =
+    String(tutor.correo_institucional_familiar || tutor.email || "").trim().toLowerCase();
+  if (!tutor.nombres || !tutor.apellido_paterno) throw familyError("Nombre y primer apellido del tutor son obligatorios");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(tutor.correo_institucional_familiar)) {
+    throw familyError("El correo del tutor no es válido");
+  }
+  if (!["padre", "madre", "otro"].includes(tutor.tipo_guardian)) {
+    throw familyError("El tipo de tutor debe ser padre, madre u otro");
+  }
+  tutor.curp = tutor.curp?.toUpperCase() || null;
+  tutor.rfc = tutor.rfc?.toUpperCase() || null;
+  if (tutor.curp && !CURP_RE.test(tutor.curp)) throw familyError("CURP con formato oficial inválido");
+  if (tutor.rfc && !/^[A-ZÑ&]{4}\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])[A-Z0-9]{3}$/.test(tutor.rfc)) {
+    throw familyError("RFC de persona física inválido: debe tener 13 caracteres");
+  }
+  if (tutor.codigo_postal && !/^\d{5}$/.test(tutor.codigo_postal)) {
+    throw familyError("El código postal debe tener cinco dígitos");
+  }
+  for (const field of ["celular", "telefono_casa_oficina", "contacto_emergencia_telefono"]) {
+    if (!tutor[field]) continue;
+    const phone = tutor[field].replace(/[\s().-]/g, "");
+    tutor[field] = /^\d{10}$/.test(phone) ? `+52${phone}` : /^52\d{10}$/.test(phone) ? `+${phone}` : phone;
+    if (!/^\+52\d{10}$/.test(tutor[field])) {
+      throw familyError(`${field}: escribe diez dígitos nacionales, con prefijo +52 opcional`);
+    }
+  }
+  return tutor;
+}
+
+async function rejectDuplicateTutors(client: DbClient, tutores: TutorInput[], actor: FamilyActor) {
+  // Sin migraciones: serializa altas/ediciones concurrentes por las claves de identidad
+  // de la institución. Orden global para evitar inversión de bloqueos entre tutores.
+  const keys = Array.from(new Set(tutores.flatMap(t => [
+    ...(t.curp ? [`${actor.tenantId}:curp:${t.curp}`] : []),
+    `${actor.tenantId}:email:${t.correo_institucional_familiar}`,
+  ]))).sort();
+  for (const key of keys) await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [key]);
+  for (const tutor of tutores) {
+    const duplicate = await client.query(
+      `SELECT g.id,g.campus_id,
+         (SELECT f.id FROM families f LEFT JOIN family_students fs ON fs.family_id=f.id
+          LEFT JOIN student_guardian sg ON sg.student_id=fs.student_id
+          WHERE f.tenant_id=g.tenant_id AND (sg.guardian_id=g.id OR f.guardian_id_principal=g.id)
+          ORDER BY f.id LIMIT 1) AS family_id
+       FROM guardians g WHERE g.tenant_id=$1 AND g.id<>$2
+       AND (($3::text IS NOT NULL AND UPPER(TRIM(g.curp))=$3)
+         OR LOWER(TRIM(g.email))=$4 OR LOWER(TRIM(g.correo_institucional_familiar))=$4)
+       LIMIT 1`,
+      [actor.tenantId, tutor.guardian_id || 0, tutor.curp || null, tutor.correo_institucional_familiar],
+    );
+    if (duplicate.rows.length) {
+      const found = duplicate.rows[0];
+      const reference = found.campus_id !== actor.campusId
+        ? "otra familia de la institución (campus distinto)"
+        : found.family_id ? `la familia ${familyNumber(found.family_id)}` : "un tutor existente sin familia vinculada";
+      throw familyError(`CURP o correo ya registrado en ${reference}`, 409);
+    }
+  }
+}
+
+async function assertNoFamilyDebt(client: DbClient, familyId: number, actor: FamilyActor) {
+  // Se bloquean los mismos cargos que bloquea el cobro antes de leer aplicaciones.
+  const charges = await client.query(
+    `SELECT c.id FROM charges c JOIN students s ON s.id=c.student_id
+     JOIN family_students fs ON fs.student_id=s.id
+     WHERE fs.family_id=$1 AND c.tenant_id=$2 AND s.campus_id=$3
+       AND c.estado NOT IN ('cancelado','condonado')
+     ORDER BY c.id FOR UPDATE OF c`,
+    [familyId, actor.tenantId, actor.campusId],
+  );
+  if (!charges.rows.length) return;
+  const debt = await client.query(
+    `SELECT COALESCE(SUM(GREATEST(0,
+       ROUND(c.monto_base_centavos*(1-COALESCE(c.beca_aplicada,0)::numeric/100))
+       + COALESCE(c.recargo_aplicado_centavos,0)
+       - COALESCE((SELECT SUM(pa.amount_centavos) FROM payment_applications pa WHERE pa.charge_id=c.id),0)
+     )),0) AS saldo FROM charges c WHERE c.id=ANY($1::int[]) AND c.tenant_id=$2`,
+    [charges.rows.map(c => c.id), actor.tenantId],
+  );
+  if (Number(debt.rows[0].saldo) > 0) {
+    throw familyError("No se puede archivar: la familia tiene saldo pendiente", 409);
+  }
+}
+
 /** Management writes share the transaction; imports retain their explicit linking contract. */
 export async function manageFamily(
   operation: "create" | "update" | "status",
@@ -111,17 +203,38 @@ export async function manageFamily(
     throw familyError("Identificador de familia inválido");
   }
   if (operation !== "status" &&
-      (!input?.nombre?.trim() || !Array.isArray(input.tutores) || !input.tutores.length)) {
+      (typeof input?.nombre !== "string" || !input.nombre.trim() ||
+       !Array.isArray(input.tutores) || !input.tutores.length)) {
     throw familyError("Nombre de familia y al menos un tutor son obligatorios");
   }
   if (operation === "status" && !["activo", "archivada"].includes(input?.status)) {
     throw familyError("Estatus de familia inválido");
+  }
+  if (operation !== "status") {
+    input = { ...input, tutores: input.tutores.map(normalizedTutor) };
+    const seen = new Set<string>();
+    for (const tutor of input.tutores) {
+      for (const key of [tutor.curp && `curp:${tutor.curp}`, `email:${tutor.correo_institucional_familiar}`].filter(Boolean)) {
+        if (seen.has(key as string)) throw familyError("Hay tutores repetidos en el formulario", 409);
+        seen.add(key as string);
+      }
+    }
+  }
+  if (operation === "create" && (
+    !Array.isArray(input.student_ids) || !input.student_ids.length ||
+    input.student_ids.some((id: any) => !Number.isInteger(id) || id <= 0)
+  )) throw familyError("Vincula al menos un alumno mediante identificadores válidos");
+  if (operation === "status" && input.status === "archivada" &&
+      (typeof input.motivo !== "string" || !input.motivo.trim() ||
+       input.confirmacion !== true || input.confirmacion_final !== true)) {
+    throw familyError("Archivar exige un motivo y las dos confirmaciones");
   }
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     let result: any;
     let family: any;
+    let beforeTutors: any[] = [];
     if (operation !== "create") {
       const found = await client.query(
         `SELECT * FROM families WHERE id=$1 AND tenant_id=$2 AND campus_id=$3 FOR UPDATE`,
@@ -129,8 +242,42 @@ export async function manageFamily(
       );
       family = found.rows[0];
       if (!family) throw familyError("Familia no encontrada en este campus", 404);
+      if (operation === "status" && family.status === input.status) {
+        await client.query("COMMIT");
+        return { id: familyId, status: family.status, numero_familia: familyNumber(familyId!), guardian_ids_revoked: [] };
+      }
+      if (operation === "update") {
+        const linked = await getFamilyGuardianIds(client, familyId!, actor.tenantId);
+        beforeTutors = (await client.query(
+          `SELECT * FROM guardians WHERE id=ANY($1::int[]) AND tenant_id=$2 AND campus_id=$3 ORDER BY id FOR UPDATE`,
+          [linked, actor.tenantId, actor.campusId],
+        )).rows;
+        for (const tutor of input.tutores) {
+          if (!beforeTutors.some(g => g.id === Number(tutor.guardian_id))) {
+            throw familyError("Tutor no encontrado en esta familia", 404);
+          }
+        }
+      }
     }
+    if (operation !== "status") await rejectDuplicateTutors(client, input.tutores, actor);
     if (operation === "create") {
+      const students = await client.query(
+        `SELECT id FROM students WHERE id=ANY($1::int[]) AND tenant_id=$2 AND campus_id=$3 ORDER BY id FOR UPDATE`,
+        [input.student_ids, actor.tenantId, actor.campusId],
+      );
+      if (students.rows.length !== new Set(input.student_ids).size) {
+        throw familyError("Alumno no encontrado en este campus", 404);
+      }
+      const existing = await client.query(
+        `SELECT DISTINCT f.id FROM families f JOIN family_students fs ON fs.family_id=f.id
+         WHERE fs.student_id=ANY($1::int[]) AND f.tenant_id=$2 ORDER BY f.id`,
+        [input.student_ids, actor.tenantId],
+      );
+      if (existing.rows.length > 1) throw familyError("Los alumnos pertenecen a familias distintas", 422);
+      if (existing.rows.length) throw familyError(`Alumno vinculado a la familia ${familyNumber(existing.rows[0].id)}`, 409);
+      if (input.tutores.some((t: TutorInput) => t.guardian_id)) {
+        throw familyError("El tutor ya existe; edita su familia en lugar de crear otra", 409);
+      }
       result = await createFamily(input, actor.tenantId, actor.campusId, client);
       familyId = result.family_id;
     } else if (operation === "update") {
@@ -168,9 +315,10 @@ export async function manageFamily(
       );
       result = { id: familyId, nombre: input.nombre.trim() };
     } else {
+      if (input.status === "archivada") await assertNoFamilyDebt(client, familyId!, actor);
       await client.query(
-        `UPDATE families SET status=$1, archived_at=CASE WHEN $1='archivada' THEN NOW() ELSE NULL END,
-         archived_by=CASE WHEN $1='archivada' THEN $2::int ELSE NULL END, updated_at=NOW()
+        `UPDATE families SET status=$1::varchar, archived_at=CASE WHEN $1::varchar='archivada' THEN NOW() ELSE NULL END,
+         archived_by=CASE WHEN $1::varchar='archivada' THEN $2::int ELSE NULL END, updated_at=NOW()
          WHERE id=$3 AND tenant_id=$4 AND campus_id=$5`,
         [input.status, actor.userId, familyId, actor.tenantId, actor.campusId],
       );
@@ -192,6 +340,36 @@ export async function manageFamily(
       }
       result = { id: familyId, status: input.status, guardian_ids_revoked: revoked };
     }
+    const changes: any[] = [];
+    if (operation === "status") {
+      changes.push({ campo: "status", antes: family.status, despues: input.status });
+    } else {
+      if (family?.nombre !== input.nombre.trim()) changes.push({ campo: "nombre" });
+      for (const [index, tutor] of input.tutores.entries()) {
+        const before = beforeTutors.find(g => g.id === Number(tutor.guardian_id)) || {};
+        for (const key of guardianFields) {
+          if (tutor[key] !== undefined && (before[key] || null) !== (tutor[key] || null)) {
+            const change: any = { campo: `tutores.${tutor.guardian_id || index}.${key}` };
+            // Ni los errores ni el audit contienen CURP/RFC completos.
+            if (key === "curp" || key === "rfc") {
+              change.antes = before[key] ? `****${String(before[key]).slice(-4)}` : null;
+              change.despues = tutor[key] ? `****${String(tutor[key]).slice(-4)}` : null;
+            }
+            changes.push(change);
+          }
+        }
+      }
+    }
+    if (changes.length) await client.query(
+      `INSERT INTO audit_log (tenant_id,user_id,action,entity_type,entity_id,metadata)
+       VALUES ($1,$2,$3,'family',$4,$5::jsonb)`,
+      [actor.tenantId, actor.userId,
+        operation === "status" ? input.status === "archivada" ? "archive" : "reactivate" : operation,
+        familyId, JSON.stringify({
+          campus_id: actor.campusId, cambios: changes,
+          ...(operation === "status" && input.status === "archivada" ? { motivo: input.motivo.trim() } : {}),
+        })],
+    );
     await client.query("COMMIT");
     return { ...result, numero_familia: familyNumber(familyId!) };
   } catch (error) {

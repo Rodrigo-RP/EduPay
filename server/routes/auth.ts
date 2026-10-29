@@ -2,7 +2,8 @@ import type { Express } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { db, pool } from "../db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
+import { userInSessionScope } from "../lib/user-authorization";
 import { users } from "@shared/schema";
 import { storage } from "../storage";
 import { guardianHasActiveFamily } from "../lib/family-access";
@@ -83,7 +84,7 @@ export function registerAuthRoutes(app: Express): void {
   app.post("/api/auth/2fa/setup", authenticateToken, require2faRole, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user?.id);
-      if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+      if (!userInSessionScope(req.user, user)) return res.status(404).json({ message: "Usuario no encontrado" });
 
       const speakeasy = esmRequire("speakeasy") as typeof import("speakeasy");
       const qrcode    = esmRequire("qrcode") as typeof import("qrcode");
@@ -117,6 +118,8 @@ export function registerAuthRoutes(app: Express): void {
       if (!totp_code) return res.status(400).json({ message: "totp_code requerido" });
 
       // Leer secreto del estado server-side — el cliente no puede inyectar uno
+      const currentUser = await storage.getUser(req.user.id);
+      if (!userInSessionScope(req.user, currentUser)) return res.status(404).json({ message: "Usuario no encontrado" });
       const pending = pendingTwofaEnrollment.get(req.user.id);
       if (!pending) {
         return res.status(400).json({ message: "No hay enrolamiento pendiente. Inicia el proceso desde Perfil > Seguridad." });
@@ -133,7 +136,7 @@ export function registerAuthRoutes(app: Express): void {
       // Persistir y limpiar estado pendiente (consumo único)
       await db.update(users)
         .set({ twofa_secret: pending.secret, updated_at: new Date() })
-        .where(eq(users.id, req.user.id));
+        .where(and(eq(users.id, req.user.id), eq(users.tenant_id, req.user.tenant_id), eq(users.campus_id, req.user.campus_id)));
       pendingTwofaEnrollment.delete(req.user.id);
 
       res.json({ message: "Autenticación de dos factores activada correctamente." });
@@ -150,6 +153,7 @@ export function registerAuthRoutes(app: Express): void {
       if (!totp_code) return res.status(400).json({ message: "totp_code requerido" });
 
       const user = await storage.getUser(req.user.id);
+      if (!userInSessionScope(req.user, user)) return res.status(404).json({ message: "Usuario no encontrado" });
       if (!user?.twofa_secret) return res.status(400).json({ message: "El 2FA no está activado en esta cuenta." });
 
       const speakeasy = esmRequire("speakeasy") as typeof import("speakeasy");
@@ -158,7 +162,7 @@ export function registerAuthRoutes(app: Express): void {
 
       await db.update(users)
         .set({ twofa_secret: null, updated_at: new Date() })
-        .where(eq(users.id, req.user.id));
+        .where(and(eq(users.id, req.user.id), eq(users.tenant_id, req.user.tenant_id), eq(users.campus_id, req.user.campus_id)));
 
       res.json({ message: "Autenticación de dos factores desactivada." });
     } catch (error: any) {

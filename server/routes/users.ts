@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { authorizeUserCreation, authorizeUserMutation, userInSessionScope, userUpdateData } from "../lib/user-authorization";
 import crypto from "node:crypto";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -50,7 +51,7 @@ export function registerUserRoutes(app: Express): void {
       
       // Get current user data
       const currentUser = await storage.getUser(userId);
-      if (!currentUser) {
+      if (!userInSessionScope((req as any).user, currentUser)) {
         return res.status(404).json({ message: "User not found" });
       }
       
@@ -99,6 +100,7 @@ export function registerUserRoutes(app: Express): void {
       
       // Verify current password
       const user = await storage.getUser(userId);
+      if (!userInSessionScope((req as any).user, user)) return res.status(404).json({ message: "Usuario no encontrado" });
       if (!user || !await bcrypt.compare(currentPassword, user.password_hash)) {
         return res.status(401).json({ message: "Current password is incorrect" });
       }
@@ -221,6 +223,8 @@ export function registerUserRoutes(app: Express): void {
     try {
       const user = (req as any).user;
       const campusId = user.campus_id;
+      const denied = authorizeUserCreation(user, req.body);
+      if (denied) return res.status(denied.status).json({ message: denied.message });
       
       if (!campusId) {
         return res.status(400).json({ message: "Campus ID requerido" });
@@ -237,7 +241,7 @@ export function registerUserRoutes(app: Express): void {
       }
 
       // SEGURIDAD: Verificar que el usuario actual puede crear usuarios con el rol especificado
-      if (user.role !== 'super_admin' && !canEditUser(user.role as UserRole, role as UserRole)) {
+      if (!canEditUser(user.role as UserRole, role as UserRole)) {
         return res.status(403).json({ 
           message: "No tienes permisos para crear usuarios con este rol",
           detail: `Un ${user.role} no puede crear usuarios con rol ${role}`
@@ -256,8 +260,8 @@ export function registerUserRoutes(app: Express): void {
         foto_url: foto_url || null,
         twofa_secret: null,   // siempre null — se configura via /api/auth/2fa/setup
         is_active: is_active !== undefined ? is_active : true,
-        is_super_admin: is_super_admin || false,
-        platform_permissions: platform_permissions || [],
+        is_super_admin: false,
+        platform_permissions: [],
         custom_permissions: custom_permissions || []
       };
 
@@ -292,17 +296,19 @@ export function registerUserRoutes(app: Express): void {
 
       // Only allow updating users from the same campus
       const existingUser = await storage.getUser(userId);
-      if (!existingUser || existingUser.campus_id !== user.campus_id) {
+      const denied = authorizeUserMutation(user, existingUser, req.body, "edit");
+      if (denied) return res.status(denied.status).json({ message: denied.message });
+      if (!userInSessionScope(user, existingUser)) {
         return res.status(404).json({ message: "Usuario no encontrado" });
       }
       
       // SEGURIDAD: Verificar permiso de módulo ANTES de evaluar jerarquía
-      if (!hasPermissionForUser(user, MODULES.USERS, ACTIONS.UPDATE)) {
+      if (user.id !== userId && !hasPermissionForUser(user, MODULES.USERS, ACTIONS.UPDATE)) {
         return res.status(403).json({ message: "No tienes permiso para editar usuarios" });
       }
 
       // SEGURIDAD: Verificar que el usuario actual puede editar al usuario objetivo
-      if (user.role !== 'super_admin' && !canEditUser(user.role as UserRole, existingUser.role as UserRole)) {
+      if (user.id !== userId && !canEditUser(user.role as UserRole, existingUser.role as UserRole)) {
         return res.status(403).json({ 
           message: "No tienes permisos para editar este usuario",
           detail: `Un ${user.role} no puede editar usuarios con rol ${existingUser.role}`
@@ -311,7 +317,7 @@ export function registerUserRoutes(app: Express): void {
 
       // Eliminar campos protegidos del cuerpo de actualización.
       // twofa_secret solo se puede modificar via /api/auth/2fa/* (flujo seguro).
-      const { id, campus_id, tenant_id, created_at, updated_at, password_hash, twofa_secret: _ignored, ...updateData } = req.body;
+      const updateData = userUpdateData(req.body, existingUser);
 
       const updatedUser = await storage.updateUser(userId, updateData);
       if (!updatedUser) {
@@ -344,7 +350,9 @@ export function registerUserRoutes(app: Express): void {
 
       // Only allow deleting users from the same campus
       const existingUser = await storage.getUser(userId);
-      if (!existingUser || existingUser.campus_id !== user.campus_id) {
+      const denied = authorizeUserMutation(user, existingUser, req.body, "delete");
+      if (denied) return res.status(denied.status).json({ message: denied.message });
+      if (!userInSessionScope(user, existingUser)) {
         return res.status(404).json({ message: "Usuario no encontrado" });
       }
 
@@ -354,7 +362,7 @@ export function registerUserRoutes(app: Express): void {
       }
       
       // SEGURIDAD: Verificar que el usuario actual puede eliminar al usuario objetivo
-      if (user.role !== 'super_admin' && !canEditUser(user.role as UserRole, existingUser.role as UserRole)) {
+      if (!canEditUser(user.role as UserRole, existingUser.role as UserRole)) {
         return res.status(403).json({ 
           message: "No tienes permisos para eliminar este usuario",
           detail: `Un ${user.role} no puede eliminar usuarios con rol ${existingUser.role}`
@@ -409,7 +417,9 @@ export function registerUserRoutes(app: Express): void {
       const userId = parseInt(req.params.id);
       if (isNaN(userId)) return res.status(400).json({ message: "ID inválido" });
       const existingUser = await storage.getUser(userId);
-      if (!existingUser || existingUser.campus_id !== user.campus_id) return res.status(404).json({ message: "Usuario no encontrado" });
+      if (!existingUser) return res.status(404).json({ message: "Usuario no encontrado" });
+      const denied = authorizeUserMutation(user, existingUser, req.body || {}, "delete");
+      if (denied) return res.status(denied.status).json({ message: denied.message });
       if (userId === user.id) return res.status(400).json({ message: "No puedes eliminar tu propia cuenta" });
       // SEGURIDAD: Verificar permiso de módulo ANTES de evaluar jerarquía
       if (!hasPermissionForUser(user, MODULES.USERS, ACTIONS.DELETE)) {
@@ -417,7 +427,7 @@ export function registerUserRoutes(app: Express): void {
       }
       // SEGURIDAD: misma guardia de jerarquía que /api/users/:id (línea 329).
       // Sin este check cualquier usuario autenticado podía borrar a uno de mayor rango.
-      if (user.role !== 'super_admin' && !canEditUser(user.role as UserRole, existingUser.role as UserRole)) {
+      if (!canEditUser(user.role as UserRole, existingUser.role as UserRole)) {
         return res.status(403).json({
           message: "No tienes permisos para eliminar este usuario",
           detail: `Un ${user.role} no puede eliminar usuarios con rol ${existingUser.role}`
@@ -471,7 +481,9 @@ export function registerUserRoutes(app: Express): void {
 
       // Solo usuarios del mismo campus
       const targetUser = await storage.getUser(targetId);
-      if (!targetUser || targetUser.campus_id !== actor.campus_id) {
+      const denied = authorizeUserMutation(actor, targetUser, req.body || {}, "password");
+      if (denied) return res.status(denied.status).json({ message: denied.message });
+      if (!userInSessionScope(actor, targetUser)) {
         return res.status(404).json({ message: "Usuario no encontrado" });
       }
 
@@ -486,7 +498,7 @@ export function registerUserRoutes(app: Express): void {
       }
 
       // SEGURIDAD: Jerarquía — no se puede resetear a alguien de igual o mayor nivel
-      if (actor.role !== 'super_admin' && !canEditUser(actor.role as UserRole, targetUser.role as UserRole)) {
+      if (!canEditUser(actor.role as UserRole, targetUser.role as UserRole)) {
         return res.status(403).json({
           message: "No tienes permisos para resetear la contraseña de este usuario",
           detail:  `Un ${actor.role} no puede editar usuarios con rol ${targetUser.role}`,

@@ -10,7 +10,7 @@ export type UserRole = 'super_admin' | 'administrador_general' | 'administrador_
  * Un rol más alto en la jerarquía puede editar roles más bajos
  */
 export const ROLE_HIERARCHY: Record<UserRole, number> = {
-  'super_admin': 7,           // Máximo nivel - puede editar todos
+  'super_admin': 7,           // Máximo nivel - sólo roles inferiores, no pares
   'administrador_general': 6, // Puede editar administrador_campus hacia abajo
   'administrador_campus': 5,  // Puede editar contador_general hacia abajo
   'contador_general': 4,      // Puede editar auxiliar_contable hacia abajo
@@ -26,12 +26,8 @@ export function canEditUser(editorRole: UserRole, targetRole: UserRole): boolean
   const editorLevel = ROLE_HIERARCHY[editorRole] || 0;
   const targetLevel = ROLE_HIERARCHY[targetRole] || 0;
   
-  // Solo puede editar usuarios de nivel inferior o igual (pero no del mismo nivel si es administrador)
-  if (editorRole === 'administrador_campus' && targetRole === 'administrador_general') {
-    return false; // Administrador de campus NO puede editar al administrador general
-  }
-  
-  return editorLevel > targetLevel;
+  // Desconocidos se niegan; tampoco existe excepción para super_admin.
+  return editorLevel > 0 && targetLevel > 0 && editorLevel > targetLevel;
 }
 
 /**

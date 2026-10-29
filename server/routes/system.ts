@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { authorizeUserCreation, authorizeUserMutation, userInSessionScope, userUpdateData } from "../lib/user-authorization";
 import { pool, db } from "../db";
 import { eq, and } from "drizzle-orm";
 import { storage } from "../storage";
@@ -140,7 +141,7 @@ export function registerSystemRoutes(app: Express): void {
 
       // Get current user
       const user = await storage.getUserById(userId);
-      if (!user) {
+      if (!userInSessionScope((req as any).user, user)) {
         return res.status(404).json({ message: "Usuario no encontrado" });
       }
 
@@ -149,11 +150,7 @@ export function registerSystemRoutes(app: Express): void {
       const base64Image = `data:${req.file.mimetype};base64,${imageBuffer.toString('base64')}`;
 
       // Update user photo URL
-      const updateData = {
-        ...user,
-        foto_url: base64Image,
-        updated_at: new Date()
-      };
+      const updateData = { foto_url: base64Image };
 
       await storage.updateUser(userId, updateData);
 
@@ -415,8 +412,11 @@ export function registerSystemRoutes(app: Express): void {
   app.post("/api/super-admin/create-user", requireSuperAdmin, async (req, res) => {
     try {
       const { email, nombre_completo, password, role, campus_id, tenant_id } = req.body;
+      const actor = (req as any).user;
+      const denied = authorizeUserCreation(actor, req.body);
+      if (denied) return res.status(denied.status).json({ message: denied.message });
       
-      if (!email || !nombre_completo || !password || !role || !campus_id) {
+      if (!email || !nombre_completo || !password || !role) {
         return res.status(400).json({ message: "Todos los campos son requeridos" });
       }
 
@@ -428,8 +428,8 @@ export function registerSystemRoutes(app: Express): void {
         name: nombre_completo,
         password_hash,
         role,
-        campus_id: parseInt(campus_id),
-        tenant_id: parseInt(tenant_id),
+        campus_id: actor.campus_id,
+        tenant_id: actor.tenant_id,
         is_active: true,
         is_super_admin: false
       });
@@ -497,12 +497,16 @@ export function registerSystemRoutes(app: Express): void {
   app.post("/api/super-admin/update-user-status", requireSuperAdmin, async (req, res) => {
     try {
       const { userId, status } = req.body;
+      const target = await storage.getUser(Number(userId));
+      const denied = authorizeUserMutation((req as any).user, target, {}, "status");
+      if (denied) return res.status(denied.status).json({ message: denied.message });
       
-      if (!userId || !status) {
+      if (!userId || status === undefined) {
         return res.status(400).json({ message: "User ID y status son requeridos" });
       }
 
-      await storage.updateUserStatus(userId, status);
+      if (typeof status !== "boolean") return res.status(400).json({ message: "El estado debe ser verdadero o falso" });
+      await storage.updateUser(Number(userId), userUpdateData({ is_active: status }, target));
       
       res.json({ 
         message: `Estado de usuario actualizado a ${status}`,
@@ -518,6 +522,9 @@ export function registerSystemRoutes(app: Express): void {
   app.post("/api/super-admin/reset-password", requireSuperAdmin, async (req, res) => {
     try {
       const { userId, newPassword } = req.body;
+      const target = await storage.getUser(Number(userId));
+      const denied = authorizeUserMutation((req as any).user, target, {}, "password");
+      if (denied) return res.status(denied.status).json({ message: denied.message });
       
       if (!userId || !newPassword) {
         return res.status(400).json({ message: "User ID y nueva contraseña son requeridos" });
@@ -552,6 +559,9 @@ export function registerSystemRoutes(app: Express): void {
   // Create super admin user — requiere autenticación de super admin existente
   app.post("/api/super-admin/create", requireSuperAdmin, async (req, res) => {
     try {
+      // El rol máximo tampoco puede asignar un rol igual al propio.
+      const denied = authorizeUserCreation((req as any).user, { role: "super_admin" });
+      if (denied) return res.status(denied.status).json({ message: denied.message });
       const { email, password, name } = req.body;
       
       if (!email || !password || !name) {

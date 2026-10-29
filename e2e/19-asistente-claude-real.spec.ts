@@ -116,7 +116,7 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
         studentIds[0],
         studentIds[1],
         `${CURRENT_YEAR}-${String(CURRENT_MONTH).padStart(2, "0")}-15`,
-        `${CURRENT_YEAR}-${String(CURRENT_MONTH).padStart(2, "0")}-28`,
+        schoolDate(), // Vence hoy: por cobrar y dentro del mes consultado.
       ],
     );
     chargeIds = charges.rows.map((row: any) => row.id);

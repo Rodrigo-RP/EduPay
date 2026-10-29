@@ -2035,7 +2035,7 @@ export function registerConciliacionRoutes(app: Express): void {
 
         // ── COMMIT primero — el UPDATE debe persistir incluso si el audit falla
         await client.query('COMMIT');
-        res.json({ message: "Excepción descartada y registrada en auditoría" });
+        res.json({ message: "Excepción descartada." });
 
         // ── Cerrar acción de seguimiento (fire-and-forget, ADR-001) ────────────
         cerrarAccionBankTx(txId, campusId, 'ignorado',

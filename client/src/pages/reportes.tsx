@@ -7,15 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { FileText, Download, Search, Filter, Calendar, TrendingUp, DollarSign, Users, GraduationCap, FileSpreadsheet, Printer, Settings, BarChart3 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { useInstitution } from "@/hooks/use-institution";
 import { useQuery } from "@tanstack/react-query";
-import { jsPDF } from 'jspdf';
+import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
 import { generateCiclosList, getCurrentCiclo } from "@/hooks/use-academic-filter";
 
 export default function Reportes() {
   const { toast } = useToast();
-  const { logoUrl, institutionName } = useInstitution();
   
   // Estados para filtros
   const [fechaInicio, setFechaInicio] = useState("");
@@ -203,307 +201,13 @@ export default function Reportes() {
     setConcepto("todos");
   };
 
-  const handleGenerarReporte = () => {
-    const nombreReporte = getTipoReporteNombre();
-    
-    toast({
-      title: "Generando Reporte",
-      description: `Procesando datos para ${nombreReporte}...`,
-      duration: 2000,
-    });
-
-    setTimeout(() => {
-      const fechaGeneracion = new Date().toLocaleDateString('es-MX');
-      const fechaInicioFiltro = fechaInicio || 'No especificada';
-      const fechaFinFiltro = fechaFin || 'No especificada';
-      
-      const contenido = `${nombreReporte.toUpperCase()} - INSTITUTO JFR
-Ciclo Escolar: ${cicloEscolar}
-Fecha de generación: ${fechaGeneracion}
-
-═══════════════════════════════════════════════════════════════════════════════
-FILTROS APLICADOS
-═══════════════════════════════════════════════════════════════════════════════
-
-Período: ${fechaInicioFiltro} - ${fechaFinFiltro}
-Sección Educativa: ${seccionesEducativas.find(s => s.value === seccionEducativa)?.label}
-Nivel Académico: ${nivelesAcademicos.find(n => n.value === nivelAcademico)?.label}
-Concepto: ${conceptos.find(c => c.value === concepto)?.label}
-Búsqueda: ${busquedaFamiliaEstudiante || 'Sin filtro específico'}
-
-═══════════════════════════════════════════════════════════════════════════════
-RESUMEN DEL REPORTE
-═══════════════════════════════════════════════════════════════════════════════
-
-Tipo de Reporte: ${nombreReporte}
-Total de Registros: Pendiente de procesamiento
-Monto Total: Pendiente de procesamiento
-Última Actualización: ${fechaGeneracion}
-
-═══════════════════════════════════════════════════════════════════════════════
-NOTA IMPORTANTE
-═══════════════════════════════════════════════════════════════════════════════
-
-Este reporte se genera con los datos reales del sistema.
-Para obtener información detallada, conectar con la base de datos.
-Los filtros aplicados determinan el contenido final del reporte.
-
----
-Generado por Edupay - Sistema de Pagos Escolares
-Instituto JFR - ${fechaGeneracion}`;
-
-      const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `JFR_${tipoReporte}_${fechaGeneracion.replace(/\//g, '-')}.txt`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      toast({
-        title: "✅ Reporte Generado Exitosamente",
-        description: `${nombreReporte} descargado correctamente`,
-        duration: 4000,
-      });
-    }, 2000);
-  };
-
-  const handleExportarExcel = () => {
-    const nombreReporte = getTipoReporteNombre();
-    
-    toast({
-      title: "Exportar Excel",
-      description: `Procesando datos para exportación en formato Excel...`,
-      duration: 2000,
-    });
-
-    setTimeout(() => {
-      const fechaGeneracion = new Date().toLocaleDateString('es-MX');
-      const fechaInicioFiltro = fechaInicio || 'No especificada';
-      const fechaFinFiltro = fechaFin || 'No especificada';
-      
-      let csvContent = `${nombreReporte.toUpperCase()} - INSTITUTO JFR\nCiclo Escolar,${cicloEscolar}\nFecha de generación,${fechaGeneracion}\n\nFILTROS APLICADOS\nFiltro,Valor\n`;
-      csvContent += `Período,${fechaInicioFiltro} - ${fechaFinFiltro}\n`;
-      csvContent += `Sección Educativa,${seccionesEducativas.find(s => s.value === seccionEducativa)?.label}\n`;
-      csvContent += `Nivel Académico,${nivelesAcademicos.find(n => n.value === nivelAcademico)?.label}\n`;
-      csvContent += `Concepto,${conceptos.find(c => c.value === concepto)?.label}\n`;
-      csvContent += `Búsqueda,${busquedaFamiliaEstudiante || 'Sin filtro específico'}\n\n`;
-      
-      // Agregar encabezados según el tipo de reporte
-      if (tipoReporte.includes('ingresos')) {
-        csvContent += `DATOS DE INGRESOS\nFecha,Concepto,Familia/Estudiante,Monto,Estado\n`;
-        csvContent += `01/01/2025,${nombreReporte},Ejemplo Familia,1500.00,Pagado\n`;
-        csvContent += `02/01/2025,${nombreReporte},Otra Familia,1200.00,Pendiente\n`;
-      } else if (tipoReporte.includes('lista_estudiantes')) {
-        csvContent += `LISTA DE ESTUDIANTES\nNombre Completo,Grado,Grupo,Familia,Teléfono,Email\n`;
-        csvContent += `Juan Pérez García,1°,A,Familia Pérez,555-1234,familia.perez@email.com\n`;
-        csvContent += `María López Rodríguez,1°,B,Familia López,555-5678,familia.lopez@email.com\n`;
-      } else {
-        csvContent += `DATOS DEL REPORTE\nConcepto,Valor,Observaciones\n`;
-        csvContent += `Registros Totales,Pendiente,Conectar con base de datos\n`;
-        csvContent += `Último Procesamiento,${fechaGeneracion},Sistema Edupay\n`;
-      }
-
-      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `JFR_${tipoReporte}_${fechaGeneracion.replace(/\//g, '-')}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      toast({
-        title: "✅ Excel Generado",
-        description: `${nombreReporte} exportado exitosamente a Excel`,
-        duration: 4000,
-      });
-    }, 2000);
-  };
-
-  const handleExportarPDF = async () => {
-    const nombreReporte = getTipoReporteNombre();
-    
-    try {
-      toast({
-        title: "🔄 Exportar PDF",
-        description: `Generando ${nombreReporte} en formato PDF profesional...`,
-        duration: 3000,
-      });
-
-      setTimeout(async () => {
-        const doc = new jsPDF('portrait', 'mm', 'a4');
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const margin = 20;
-        const fechaGeneracion = new Date().toLocaleDateString('es-MX', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        });
-        const horaGeneracion = new Date().toLocaleTimeString('es-MX', {
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-
-        // Header profesional
-        doc.setFillColor(40, 116, 166);
-        doc.rect(0, 0, pageWidth, 40, 'F');
-        
-        doc.setFillColor(244, 208, 63);
-        doc.rect(0, 38, pageWidth, 2, 'F');
-        
-        // Logo JFR
-        doc.setFillColor(255, 255, 255);
-        doc.circle(30, 17.5, 8, 'F');
-        doc.setTextColor(40, 116, 166);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.text('JFR', 25.5, 20);
-        
-        // Nombre de la institución
-        doc.setTextColor(255, 255, 255);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(18);
-        doc.text('INSTITUTO JFR', 45, 15);
-        
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.text('Sistema Integrado de Gestión Escolar', 45, 22);
-        doc.text('RFC: IJF123456789 | Tel: (555) 123-4567', 45, 28);
-        
-        // Información del reporte
-        const rightX = pageWidth - 80;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.text(nombreReporte.toUpperCase(), rightX, 15);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        doc.text(`Ciclo: ${cicloEscolar}`, rightX, 22);
-        doc.text(`Generado: ${fechaGeneracion}`, rightX, 27);
-        doc.text(`Hora: ${horaGeneracion}`, rightX, 32);
-
-        // Contenido principal
-        let currentY = 50;
-        doc.setTextColor(0, 0, 0);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(14);
-        doc.text(nombreReporte.toUpperCase(), margin, currentY);
-        
-        currentY += 15;
-        
-        // Marco de información básica
-        doc.setDrawColor(200, 200, 200);
-        doc.setLineWidth(0.5);
-        doc.rect(margin, currentY, pageWidth - (margin * 2), 50);
-        
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.text('FILTROS APLICADOS', margin + 5, currentY + 10);
-        
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        const fechaInicioFiltro = fechaInicio || 'No especificada';
-        const fechaFinFiltro = fechaFin || 'No especificada';
-        doc.text(`Período: ${fechaInicioFiltro} - ${fechaFinFiltro}`, margin + 5, currentY + 20);
-        doc.text(`Sección: ${seccionesEducativas.find(s => s.value === seccionEducativa)?.label}`, margin + 5, currentY + 27);
-        doc.text(`Nivel: ${nivelesAcademicos.find(n => n.value === nivelAcademico)?.label}`, margin + 5, currentY + 34);
-        doc.text(`Concepto: ${conceptos.find(c => c.value === concepto)?.label}`, margin + 5, currentY + 41);
-
-        currentY += 65;
-
-        // Resumen del reporte
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.setTextColor(40, 116, 166);
-        doc.text('RESUMEN DEL REPORTE', margin, currentY);
-        
-        currentY += 10;
-        doc.setDrawColor(40, 116, 166);
-        doc.setLineWidth(1);
-        doc.line(margin, currentY, pageWidth - margin, currentY);
-        
-        currentY += 10;
-        doc.setTextColor(0, 0, 0);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        
-        const resumenData = [
-          '• Tipo de Reporte: ' + nombreReporte,
-          '• Total de Registros: Pendiente de procesamiento',
-          '• Monto Total: Pendiente de procesamiento',
-          '• Última Actualización: ' + fechaGeneracion
-        ];
-        
-        resumenData.forEach((item, index) => {
-          doc.text(item, margin + 5, currentY + (index * 8));
-        });
-        
-        currentY += 50;
-
-        // Nota importante
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(220, 53, 69);
-        doc.text('NOTA IMPORTANTE', margin, currentY);
-        
-        currentY += 10;
-        doc.setTextColor(0, 0, 0);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        doc.text('Este reporte se genera con los datos reales del sistema.', margin, currentY);
-        doc.text('Para obtener información detallada, conectar con la base de datos.', margin, currentY + 6);
-        doc.text('Los filtros aplicados determinan el contenido final del reporte.', margin, currentY + 12);
-
-        // Footer
-        const footerY = pageHeight - 30;
-        doc.setDrawColor(200, 200, 200);
-        doc.setLineWidth(0.5);
-        doc.line(margin, footerY - 8, pageWidth - margin, footerY - 8);
-        
-        doc.setTextColor(100, 100, 100);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.text('Generado por Edupay - Sistema de Pagos Escolares', margin, footerY);
-        doc.text(`Documento generado el ${fechaGeneracion} a las ${horaGeneracion}`, margin, footerY + 4);
-        doc.text('Página 1 de 1', pageWidth - 40, footerY);
-        
-        // Marca de agua
-        doc.setTextColor(240, 240, 240);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(60);
-        doc.text('JFR', pageWidth/2 - 20, pageHeight/2, { angle: 45 });
-        
-        doc.save(`JFR_${tipoReporte}_${fechaGeneracion.replace(/\s/g, '_')}.pdf`);
-        
-        toast({
-          title: "PDF Generado Exitosamente",
-          description: `${nombreReporte} exportado correctamente`,
-          duration: 3000,
-        });
-      }, 2000);
-      
-    } catch (error) {
-      console.error('Error generando PDF:', error);
-      toast({
-        title: "Error",
-        description: "Hubo un problema generando el PDF",
-        variant: "destructive",
-        duration: 3000,
-      });
-    }
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Sistema de Reportes</h1>
           <p className="mt-2 text-sm text-gray-600">
-            Generación intuitiva de reportes de ingresos y listas estudiantiles con filtros avanzados
+            Consulta los reportes disponibles en sus módulos especializados
           </p>
           {conceptosPersonalizados.length > 0 && (
             <div className="mt-2">
@@ -520,10 +224,33 @@ Instituto JFR - ${fechaGeneracion}`;
         <div className="flex items-center space-x-2">
           <Badge variant="outline" className="text-blue-600 border-blue-600">
             <BarChart3 className="w-4 h-4 mr-1" />
-            Sistema Activo
+            Exportación genérica no disponible
           </Badge>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Reportes disponibles</CardTitle>
+          <CardDescription>
+            Estos módulos consultan los registros del sistema y conservan sus permisos de acceso.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-4">
+          <Button asChild variant="outline">
+            <Link href="/cargos">Reporte de cobranza</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/reporte-antiguedad-saldos">Antigüedad de saldos</Link>
+          </Button>
+          <div>
+            <Button asChild variant="outline">
+              <Link href="/fiscal-contable">Reportes contables</Link>
+            </Button>
+            <p className="mt-1 text-sm text-gray-600">En la pestaña Contadores Externos.</p>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Selección de tipo de reporte */}
       <Card>
@@ -802,28 +529,28 @@ Instituto JFR - ${fechaGeneracion}`;
         </Card>
       )}
 
-      {/* Botones de acción principal - SIN CAMBIOS */}
+      {/* Sin fuente de datos no se genera ningún documento ni se anuncia éxito. */}
       {tipoReporte && (
         <Card>
           <CardHeader>
             <CardTitle>Generar y Exportar Reporte</CardTitle>
             <CardDescription>
-              {getTipoReporteNombre()} - Todos los formatos disponibles
+              {getTipoReporteNombre()} — No disponible por ahora. Usa los reportes de los módulos anteriores.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-4">
-              <Button onClick={handleGenerarReporte} className="bg-blue-600 hover:bg-blue-700">
+              <Button disabled>
                 <FileText className="w-4 h-4 mr-2" />
-                Generar Reporte
+                Generar Reporte — No disponible por ahora
               </Button>
-              <Button onClick={handleExportarExcel} variant="outline">
+              <Button disabled variant="outline">
                 <FileSpreadsheet className="w-4 h-4 mr-2" />
-                Exportar Excel
+                Exportar CSV — No disponible por ahora
               </Button>
-              <Button onClick={handleExportarPDF} variant="outline">
+              <Button disabled variant="outline">
                 <Printer className="w-4 h-4 mr-2" />
-                Exportar PDF
+                Exportar PDF — No disponible por ahora
               </Button>
             </div>
           </CardContent>

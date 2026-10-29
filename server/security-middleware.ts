@@ -7,7 +7,6 @@ import { Request, Response, NextFunction } from 'express';
 import rateLimit, { MemoryStore } from 'express-rate-limit';
 import helmet from 'helmet';
 import cors from 'cors';
-import ExpressBrute from 'express-brute';
 import { createHash } from 'crypto';
 import winston from 'winston';
 import { requestMetadataLogger } from './lib/request-log';
@@ -35,35 +34,6 @@ const securityLogger = winston.createLogger({
       )
     })
   ]
-});
-
-// ========================================
-// PROTECCIÓN CONTRA BRUTE FORCE
-// ========================================
-
-const bruteForceStore = new ExpressBrute.MemoryStore();
-const bruteForce = new ExpressBrute(bruteForceStore, {
-  freeRetries: 5,
-  minWait: 5 * 60 * 1000, // 5 minutos
-  maxWait: 60 * 60 * 1000, // 1 hora
-  failCallback: (req: Request, res: Response, next: NextFunction) => {
-    SecurityAudit.logSecurityEvent({
-      userId: (req as any).user?.id,
-      action: 'BRUTE_FORCE_DETECTED',
-      resource: req.path,
-      result: 'BLOCKED',
-      ipAddress: req.ip || 'unknown',
-      userAgent: req.get('User-Agent') || 'unknown',
-      metadata: { attempts: req.body },
-      severity: 'CRITICAL'
-    });
-
-    res.status(429).json({
-      error: 'Demasiados intentos fallidos',
-      message: 'Su cuenta ha sido bloqueada temporalmente por seguridad',
-      retryAfter: 300
-    });
-  }
 });
 
 // ========================================
@@ -423,7 +393,6 @@ export const integrityCheck = (req: Request, res: Response, next: NextFunction) 
 // ========================================
 
 export {
-  bruteForce,
   securityLogger
 };
 
@@ -435,6 +404,5 @@ export default {
   securityHeaders,
   secureCors,
   securityLogging,
-  integrityCheck,
-  bruteForce
+  integrityCheck
 };

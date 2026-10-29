@@ -34,7 +34,7 @@
 - [Students nombre_completo NOT NULL](students-nombre-completo.md) — nombre_completo es NOT NULL en la DB real; storage.createStudent lo computa automáticamente; test beforeAll debe usar API no SQL directo.
 - [Charges schema columns](charges-schema-columns.md) — columnas reales de charges vs Drizzle; descripcion y es_adeudo_migrado requieren migraciones; concepts no tiene columna activo.
 - [Import test disambiguation](import-test-disambiguation.md) — usar tipo ficticio exclusivo del test para evitar colisiones con seed demo al probar desambigüación de concept_id.
-- [Guardians email NOT NULL drift](guardians-email-drift.md) — columna email en DB real tiene NOT NULL; Drizzle schema la declara nullable; INSERT directo debe incluir email=correo_institucional_familiar.
+- [Contacto de tutores](guardians-email-drift.md) — correo opcional y nulo si falta; celular obligatorio del principal, no de los secundarios.
 - [git credential.helper comillas simples](git-credential-helper.md) — usar comillas SIMPLES obligatoriamente; dobles expanden el token al escribir ~/.gitconfig y lo exponen en git config --list.
 - [Test JWT secret](test-jwt-secret.md) — tests usan process.env.JWT_SECRET || "fallback-secret-key" (NO SESSION_SECRET); el servidor usa JWT_SECRET de shared.ts:19; confundirlos da 403 "Token inválido".
 - [Guardians schema real](guardians-schema-real.md) — guardians NO tiene family_id; relación familia→guardian es vía family_students→student_guardian→guardians. nombre_completo es NOT NULL en DB real.

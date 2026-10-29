@@ -84,3 +84,27 @@ sus números correspondan al código entregado.
 - Herramientas heredadas `import-real-data.ts` e `import-students-jfr.ts`:
   omiten la búsqueda por email cuando falta, validan/normalizan el capturado
   y escriben nulo. No se ejecutaron estos scripts ni sus cargas.
+
+## Servicio y formulario
+
+El correo sólo se valida cuando existe; se escribe nulo en ambas columnas
+cuando se omite o vacía. Vaciar explícitamente el campo canónico no recupera
+silenciosamente el correo anterior del alias `email`.
+La detección de duplicados omite las claves y predicados de email cuando no
+hay correo; si tampoco hay CURP no ejecuta una búsqueda vacía. CURP conserva
+su comprobación institucional.
+
+El alta manual exige celular del primer responsable (el principal asignado
+por el servicio). La edición comprueba el principal real de la familia,
+no el primer tutor del payload; un celular omitido en PATCH se conserva y uno
+vaciado explícitamente se rechaza para el principal. Los secundarios pueden
+no tener celular. Un solo tutor es el principal.
+
+El importador central también normaliza correo/celular, crea correos nulos
+y comprueba el celular real del principal dentro de su transacción. Si falta,
+revierte el grupo. Los tutores existentes conservan la regla previa de no
+sobrescribir contactos al reutilizarlos, sin backfill de contactos históricos.
+No se cambió la distribución de responsabilidades de pago.
+
+El formulario identifica al principal real al editar y marca sólo su celular
+como obligatorio. Correo se muestra opcional; no se inventan direcciones.

@@ -1,8 +1,9 @@
 // @ts-nocheck
-import { db } from './db';
+import { db, pool } from './db';
+import { assertTestDatabase } from './lib/database-safety';
 import { normalizeGuardianEmail } from './lib/guardian-contact';
 import { students, guardians, student_guardian, concepts } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import * as XLSX from 'xlsx';
 
 interface RealStudentData {
@@ -38,6 +39,7 @@ export class RealDataImporter {
 
   // Importar alumnos desde Excel/CSV real
   async importStudentsFromExcel(filePath: string): Promise<{ success: boolean; imported: number; errors: string[] }> {
+    await assertTestDatabase(pool);
     try {
       console.log('📊 Importando alumnos desde archivo real...');
       
@@ -99,6 +101,7 @@ export class RealDataImporter {
 
   // Configurar conceptos de pago reales del Instituto JFR
   async setupRealPaymentConcepts(): Promise<void> {
+    await assertTestDatabase(pool);
     try {
       console.log('💰 Configurando conceptos de pago reales...');
       
@@ -240,7 +243,7 @@ export class RealDataImporter {
     const email = normalizeGuardianEmail(guardianData.email);
     const existing = email ? await db.select()
       .from(guardians)
-      .where(eq(guardians.email, email))
+      .where(sql`LOWER(TRIM(${guardians.email})) = ${email}`)
       .limit(1) : [];
 
     if (existing.length > 0) {
@@ -261,6 +264,7 @@ export class RealDataImporter {
 
 // Función de configuración inicial para datos reales
 export async function setupRealSystemData(campusId: number) {
+  await assertTestDatabase(pool);
   const importer = new RealDataImporter(campusId);
   
   console.log('🏗️  Configurando sistema con datos reales...');

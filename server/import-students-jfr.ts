@@ -1,8 +1,9 @@
 // @ts-nocheck
-import { db } from './db';
+import { db, pool } from './db';
+import { assertTestDatabase } from './lib/database-safety';
 import { normalizeGuardianEmail } from './lib/guardian-contact';
 import { students, guardians, student_guardian } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import * as fs from 'fs';
 
 interface StudentRecord {
@@ -17,6 +18,7 @@ interface StudentRecord {
 }
 
 export async function importStudentsFromCSV(filePath: string, campusId: number) {
+  await assertTestDatabase(pool);
   try {
     console.log('📚 Importando alumnos del Instituto JFR...');
     
@@ -53,7 +55,7 @@ export async function importStudentsFromCSV(filePath: string, campusId: number) 
         const email = normalizeGuardianEmail(record.email_tutor);
         let guardian = email ? await db.select()
           .from(guardians)
-          .where(eq(guardians.email, email))
+          .where(sql`LOWER(TRIM(${guardians.email})) = ${email}`)
           .limit(1) : [];
         
         if (guardian.length === 0) {

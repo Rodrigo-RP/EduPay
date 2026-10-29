@@ -20,14 +20,14 @@
  *    BEGIN/COMMIT/ROLLBACK propios. El llamador es responsable de la txn.
  *    Usar SAVEPOINTs en el llamador para garantizar rollback parcial si falla.
  *
- * Nota de schema drift:
- *  - guardians.email tiene NOT NULL en la DB real aunque Drizzle lo declara
- *    nullable. El INSERT duplica correo_institucional_familiar en email.
+ * Contacto: correo opcional y NULL en ambas columnas si está ausente.
+ * El tutor principal debe tener celular mexicano; no se inventan contactos.
  */
 
 import { pool } from "../db";
 import { getFamilyGuardianIds, getGuardiansWithoutActiveFamilies } from "./family-access";
 import { CURP_RE } from "./validators";
+import { normalizeGuardianEmail, normalizeGuardianMobile } from "./guardian-contact";
 
 // ── Interfaz de cliente DB (compatible con pool.connect() y PoolClient) ───────
 
@@ -50,11 +50,11 @@ export interface TutorInput {
   nombres?: string;
   apellido_paterno?: string;
   apellido_materno?: string;
-  correo_institucional_familiar?: string;
-  email?: string;         // alias reconocido de correo_institucional_familiar
+  correo_institucional_familiar?: string | null;
+  email?: string | null;  // alias reconocido de correo_institucional_familiar
   curp?: string;
   rfc?: string;
-  celular?: string;
+  celular?: string | null;
   telefono_casa_oficina?: string;
   calle?: string;
   numero_exterior?: string;
@@ -108,12 +108,11 @@ function normalizedTutor(raw: any): TutorInput {
     if (raw[key] != null && typeof raw[key] !== "string") throw familyError(`${key} debe ser texto`);
     if (typeof raw[key] === "string") tutor[key] = raw[key].trim();
   }
-  tutor.correo_institucional_familiar =
-    String(tutor.correo_institucional_familiar || tutor.email || "").trim().toLowerCase();
+  tutor.correo_institucional_familiar = normalizeGuardianEmail(
+    raw.correo_institucional_familiar !== undefined ? raw.correo_institucional_familiar : raw.email,
+  );
+  tutor.celular = raw.celular === undefined ? undefined : normalizeGuardianMobile(raw.celular);
   if (!tutor.nombres || !tutor.apellido_paterno) throw familyError("Nombre y primer apellido del tutor son obligatorios");
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(tutor.correo_institucional_familiar)) {
-    throw familyError("El correo del tutor no es válido");
-  }
   if (!["padre", "madre", "otro"].includes(tutor.tipo_guardian)) {
     throw familyError("El tipo de tutor debe ser padre, madre u otro");
   }
@@ -135,6 +134,12 @@ function normalizedTutor(raw: any): TutorInput {
     }
   }
   return tutor;
+}
+
+function requirePrincipalMobile(tutor: any) {
+  if (!normalizeGuardianMobile(tutor?.celular)) {
+    throw familyError("El celular del tutor principal es obligatorio: escribe diez dígitos nacionales, con prefijo +52 opcional");
+  }
 }
 
 function validateResponsibilities(tutores: TutorInput[]) {
@@ -159,10 +164,11 @@ async function rejectDuplicateTutors(client: DbClient, tutores: TutorInput[], ac
   // de la institución. Orden global para evitar inversión de bloqueos entre tutores.
   const keys = Array.from(new Set(tutores.flatMap(t => [
     ...(t.curp ? [`${actor.tenantId}:curp:${t.curp}`] : []),
-    `${actor.tenantId}:email:${t.correo_institucional_familiar}`,
+    ...(t.correo_institucional_familiar ? [`${actor.tenantId}:email:${t.correo_institucional_familiar}`] : []),
   ]))).sort();
   for (const key of keys) await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [key]);
   for (const tutor of tutores) {
+    if (!tutor.curp && !tutor.correo_institucional_familiar) continue;
     const duplicate = await client.query(
       `SELECT g.id,g.campus_id,
          (SELECT f.id FROM families f LEFT JOIN family_students fs ON fs.family_id=f.id
@@ -171,9 +177,9 @@ async function rejectDuplicateTutors(client: DbClient, tutores: TutorInput[], ac
           ORDER BY f.id LIMIT 1) AS family_id
        FROM guardians g WHERE g.tenant_id=$1 AND g.id<>$2
        AND (($3::text IS NOT NULL AND UPPER(TRIM(g.curp))=$3)
-         OR LOWER(TRIM(g.email))=$4 OR LOWER(TRIM(g.correo_institucional_familiar))=$4)
+         OR ($4::text IS NOT NULL AND (LOWER(TRIM(g.email))=$4 OR LOWER(TRIM(g.correo_institucional_familiar))=$4)))
        LIMIT 1`,
-      [actor.tenantId, tutor.guardian_id || 0, tutor.curp || null, tutor.correo_institucional_familiar],
+      [actor.tenantId, tutor.guardian_id || 0, tutor.curp || null, tutor.correo_institucional_familiar || null],
     );
     if (duplicate.rows.length) {
       const found = duplicate.rows[0];
@@ -234,7 +240,7 @@ export async function manageFamily(
     input = { ...input, tutores: input.tutores.map(normalizedTutor) };
     const seen = new Set<string>();
     for (const tutor of input.tutores) {
-      for (const key of [tutor.curp && `curp:${tutor.curp}`, `email:${tutor.correo_institucional_familiar}`].filter(Boolean)) {
+      for (const key of [tutor.curp && `curp:${tutor.curp}`, tutor.correo_institucional_familiar && `email:${tutor.correo_institucional_familiar}`].filter(Boolean)) {
         if (seen.has(key as string)) throw familyError("Hay tutores repetidos en el formulario", 409);
         seen.add(key as string);
       }
@@ -244,7 +250,10 @@ export async function manageFamily(
     !Array.isArray(input.student_ids) || !input.student_ids.length ||
     input.student_ids.some((id: any) => !Number.isInteger(id) || id <= 0)
   )) throw familyError("Vincula al menos un alumno mediante identificadores válidos");
-  if (operation === "create") validateResponsibilities(input.tutores);
+  if (operation === "create") {
+    validateResponsibilities(input.tutores);
+    requirePrincipalMobile(input.tutores.find((t: TutorInput) => t.es_responsable_pago) || input.tutores[0]);
+  }
   if (operation === "status" && input.status === "archivada" &&
       (typeof input.motivo !== "string" || !input.motivo.trim() ||
        input.confirmacion !== true || input.confirmacion_final !== true)) {
@@ -278,6 +287,10 @@ export async function manageFamily(
             throw familyError("Tutor no encontrado en esta familia", 404);
           }
         }
+        const principal = beforeTutors.find(g => g.id === family.guardian_id_principal)
+          || (beforeTutors.length === 1 ? beforeTutors[0] : null);
+        const updatedPrincipal = input.tutores.find((t: any) => Number(t.guardian_id) === principal?.id);
+        requirePrincipalMobile(updatedPrincipal?.celular !== undefined ? updatedPrincipal : principal);
       }
     }
     if (operation !== "status") await rejectDuplicateTutors(client, input.tutores, actor);
@@ -409,7 +422,14 @@ export async function createFamily(
   campusId: number,
   externalClient?: DbClient,
 ): Promise<FamilyCreateResult> {
-  const { nombre, student_ids, tutores } = input;
+  const { nombre, student_ids } = input;
+  const tutores = input.tutores.map(t => ({
+    ...t,
+    correo_institucional_familiar: normalizeGuardianEmail(
+      t.correo_institucional_familiar !== undefined ? t.correo_institucional_familiar : t.email,
+    ),
+    celular: normalizeGuardianMobile(t.celular),
+  }));
   const warnings: string[] = [];
 
   // ── Paso 1: Validación de porcentajes (sin queries) ─────────────────────────
@@ -564,14 +584,14 @@ export async function createFamily(
           if ((byCurp.rows as any[]).length > 0) found = byCurp.rows[0];
         }
 
-        const emailInput = tutor.correo_institucional_familiar || tutor.email || null;
+        const emailInput = tutor.correo_institucional_familiar ?? null;
 
         if (!found && emailInput) {
           const byEmail = await client.query(
             `SELECT id, celular, nombres, apellido_paterno,
                     correo_institucional_familiar, email
              FROM guardians
-             WHERE (correo_institucional_familiar = $1 OR email = $1)
+             WHERE (LOWER(TRIM(correo_institucional_familiar)) = $1 OR LOWER(TRIM(email)) = $1)
                AND tenant_id = $2
              LIMIT 1`,
             [emailInput, tenantId],
@@ -607,13 +627,6 @@ export async function createFamily(
         } else {
           // Crear nuevo guardian
           const emailFinal = emailInput;
-          if (!emailFinal) {
-            const err = new Error(
-              "Tutor nuevo requiere correo_institucional_familiar o email",
-            ) as any;
-            err.status = 422;
-            throw err;
-          }
           if (!tutor.nombres) {
             const err = new Error("Tutor nuevo requiere el campo 'nombres'") as any;
             err.status = 422;
@@ -623,8 +636,7 @@ export async function createFamily(
           const nombreCompleto = [tutor.nombres, tutor.apellido_paterno, tutor.apellido_materno]
             .filter(Boolean).join(" ");
 
-          // Nota: guardians.email tiene NOT NULL en la DB real (drift vs Drizzle schema).
-          // Se duplica correo_institucional_familiar en email ($5 usado dos veces).
+          // Un correo ausente se escribe como NULL en ambas columnas ($5).
           const ins = await client.query(
             `INSERT INTO guardians
                 (tipo_guardian, nombres, apellido_paterno, apellido_materno,
@@ -708,6 +720,16 @@ export async function createFamily(
           [studentId, rt.guardian_id, rt.es_responsable_pago, rt.porcentaje],
         );
       }
+    }
+
+    // El importador también debe comprobar el contacto real del principal.
+    // En tutores reutilizados se lee el celular conservado, no uno inventado.
+    if (firstResponsableId !== null) {
+      const principal = await client.query(
+        "SELECT celular FROM guardians WHERE id=$1 AND tenant_id=$2",
+        [firstResponsableId, tenantId],
+      );
+      requirePrincipalMobile(principal.rows[0]);
     }
 
     // ── Paso 4d: Poblar guardian_id_principal ────────────────────────────────────

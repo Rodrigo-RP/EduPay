@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 const fields = [
   ["nombres", "Nombres", true], ["apellido_paterno", "Primer apellido", true],
   ["apellido_materno", "Segundo apellido"], ["curp", "CURP"], ["rfc", "RFC persona física"],
-  ["correo_institucional_familiar", "Correo", true], ["celular", "Celular", true],
+  ["correo_institucional_familiar", "Correo"], ["celular", "Celular"],
   ["telefono_casa_oficina", "Teléfono de casa u oficina"],
   ["calle", "Calle"], ["numero_exterior", "Número exterior"], ["numero_interior", "Número interior"],
   ["colonia", "Colonia"], ["codigo_postal", "Código postal"], ["municipio", "Municipio"],
@@ -45,6 +45,9 @@ export function FamilyEditor({ family, onSaved, onClose }: {
   })) || [blankTutor()]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const principalIndex = family
+    ? Math.max(0, tutores.findIndex(t => t.guardian_id === family.guardian_id_principal))
+    : 0;
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (saving) return;
@@ -70,6 +73,7 @@ export function FamilyEditor({ family, onSaved, onClose }: {
       <DialogHeader><DialogTitle>{family ? `Editar ${family.numero_familia}` : "Agregar familia"}</DialogTitle></DialogHeader>
       <p id="family-editor-description" className="text-sm text-slate-600">
         El número de familia lo asigna el servidor. Puede haber un solo tutor, sin obligación de que sea el padre.
+        El correo es opcional. El tutor principal debe tener celular de diez dígitos, con prefijo +52 opcional; los demás pueden no tenerlo.
       </p>
       <form onSubmit={submit} className="space-y-5">
         <Label htmlFor="family-name">Nombre de la familia</Label>
@@ -79,15 +83,15 @@ export function FamilyEditor({ family, onSaved, onClose }: {
           <p className="text-sm text-slate-500">Al menos un alumno de tu campus que todavía no pertenezca a otra familia.</p>
         </div>}
         {tutores.map((tutor, index) => <fieldset key={tutor.guardian_id || index} className="border rounded-lg p-4 space-y-3">
-          <legend className="font-semibold">Tutor {index + 1}{!family && index === 0 ? " · responsable principal" : ""}</legend>
+          <legend className="font-semibold">Tutor {index + 1}{index === principalIndex ? " · responsable principal" : ""}</legend>
           <Label htmlFor={`family-tutor-${index}-tipo`}>Tipo de tutor</Label>
           <select id={`family-tutor-${index}-tipo`} value={tutor.tipo_guardian} className="block border rounded p-2 w-full"
             onChange={e => setTutores(list => list.map((t, i) => i === index ? { ...t, tipo_guardian: e.target.value } : t))}>
             <option value="padre">Padre</option><option value="madre">Madre</option><option value="otro">Otro</option>
           </select>
           <div className="grid md:grid-cols-2 gap-3">{fields.map(([key, label, required]) => <div key={key}>
-            <Label htmlFor={`family-tutor-${index}-${key}`}>{label}{required ? " *" : ""}</Label>
-            <Input id={`family-tutor-${index}-${key}`} required={Boolean(required)}
+            <Label htmlFor={`family-tutor-${index}-${key}`}>{label}{required || (key === "celular" && index === principalIndex) ? " *" : key === "correo_institucional_familiar" ? " (opcional)" : ""}</Label>
+            <Input id={`family-tutor-${index}-${key}`} required={Boolean(required) || (key === "celular" && index === principalIndex)}
               type={key === "correo_institucional_familiar" ? "email" : "text"}
               value={tutor[key] || ""} onChange={e => setTutores(list => list.map((t, i) => i === index ? { ...t, [key]: e.target.value } : t))} />
           </div>)}</div>

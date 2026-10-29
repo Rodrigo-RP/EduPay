@@ -1,4 +1,5 @@
 import { SCHOOL_TODAY_SQL, schoolDateSQL } from "@shared/school-date";
+import { familyNumber } from "../lib/family-service";
 import type { Express } from "express";
 import { centavos, FinancialInputError, installments, isoFinancialDate, monthlyDueDate, splitInstallments } from "../lib/financial-input";
 import { pool, db } from "../db";
@@ -1350,6 +1351,9 @@ export function registerMiscRoutes(app: Express): void {
       if (!hasPermissionForUser(user, MODULES.FAMILIES, ACTIONS.READ)) {
         return res.status(403).json({ message: "Sin permisos para ver familias" });
       }
+      if (Number(user?.campus_id) !== campusId) {
+        return res.status(404).json({ message: "Campus no encontrado" });
+      }
       const tenantId = user?.tenant_id;
       if (!tenantId) return res.status(403).json({ message: "Sin contexto de tenant" });
 
@@ -1358,13 +1362,18 @@ export function registerMiscRoutes(app: Express): void {
       if (!campus) return res.status(403).json({ message: "Campus no autorizado para este tenant" });
 
       // Obtener familias del campus
-      const familyList = await storage.getFamiliesByTenant(tenantId, campusId);
+      const requestedStatus = String(req.query.status || "activo");
+      if (!["activo", "archivada", "all"].includes(requestedStatus)) {
+        return res.status(400).json({ message: "Filtro de estatus inválido" });
+      }
+      const familyList = (await storage.getFamiliesByTenant(tenantId, campusId))
+        .filter(f => requestedStatus === "all" || f.status === requestedStatus);
 
       // Calcular balance para cada familia en paralelo
       const withBalance = await Promise.all(
         familyList.map(async (f) => {
           const balance = await storage.getFamilyBalance(f.id, tenantId);
-          return { ...f, ...balance };
+          return { ...f, ...balance, numero_familia: familyNumber(f.id) };
         })
       );
 
@@ -1375,13 +1384,14 @@ export function registerMiscRoutes(app: Express): void {
             `SELECT s.id, s.nombre_completo, s.grado, s.grupo
              FROM family_students fs
              JOIN students s ON s.id = fs.student_id
-             WHERE fs.family_id = $1`,
-            [f.id]
+             WHERE fs.family_id = $1 AND s.tenant_id=$2 AND s.campus_id=$3`,
+            [f.id, tenantId, campusId]
           );
           const guardians = await pool.query(
             `SELECT DISTINCT g.id, g.tipo_guardian, g.nombres, g.apellido_paterno,
                     g.apellido_materno, g.nombre_completo, g.email,
-                    g.correo_institucional_familiar, g.celular, g.calle,
+                    g.correo_institucional_familiar, g.curp, g.rfc, g.celular,
+                    g.telefono_casa_oficina, g.calle,
                     g.numero_exterior, g.numero_interior, g.colonia,
                     g.codigo_postal, g.municipio, g.estado,
                     g.contacto_emergencia_nombre, g.contacto_emergencia_telefono,
@@ -1390,9 +1400,9 @@ export function registerMiscRoutes(app: Express): void {
                FROM family_students fs
                JOIN student_guardian sg ON sg.student_id = fs.student_id
                JOIN guardians g ON g.id = sg.guardian_id
-              WHERE fs.family_id = $1
+              WHERE fs.family_id = $1 AND g.tenant_id=$2 AND g.campus_id=$3
               ORDER BY g.id`,
-            [f.id],
+            [f.id, tenantId, campusId],
           );
           return { ...f, estudiantes: rows.rows, tutores: guardians.rows };
         })

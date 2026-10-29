@@ -52,7 +52,9 @@ export interface TutorInput {
   correo_institucional_familiar?: string;
   email?: string;         // alias reconocido de correo_institucional_familiar
   curp?: string;
+  rfc?: string;
   celular?: string;
+  telefono_casa_oficina?: string;
   calle?: string;
   numero_exterior?: string;
   numero_interior?: string;
@@ -89,7 +91,7 @@ export const familyNumber = (id: number) => `FAM${String(id).padStart(3, "0")}`;
 const familyError = (message: string, status = 400) => Object.assign(new Error(message), { status });
 const guardianFields = [
   "tipo_guardian", "nombres", "apellido_paterno", "apellido_materno",
-  "curp", "correo_institucional_familiar", "celular",
+  "curp", "rfc", "correo_institucional_familiar", "celular", "telefono_casa_oficina",
   "calle", "numero_exterior", "numero_interior", "colonia", "codigo_postal",
   "municipio", "estado", "contacto_emergencia_nombre",
   "contacto_emergencia_telefono", "contacto_emergencia_relacion",
@@ -466,8 +468,8 @@ export async function createFamily(
                  correo_institucional_familiar, email, curp, celular,
                  calle, numero_exterior, numero_interior, colonia, codigo_postal, municipio, estado,
                  contacto_emergencia_nombre, contacto_emergencia_telefono, contacto_emergencia_relacion,
-                 nombre_completo, tenant_id, campus_id)
-             VALUES ($1,$2,$3,$4,$5,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+                 nombre_completo, tenant_id, campus_id, rfc, telefono_casa_oficina)
+             VALUES ($1,$2,$3,$4,$5,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
              RETURNING id`,
             [
               tutor.tipo_guardian || "tutor",
@@ -490,6 +492,8 @@ export async function createFamily(
               nombreCompleto,
               tenantId,
               campusId,
+              tutor.rfc || null,
+              tutor.telefono_casa_oficina || null,
             ],
           );
           guardianId = (ins.rows[0] as any).id;

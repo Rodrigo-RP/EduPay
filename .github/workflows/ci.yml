@@ -115,7 +115,6 @@ jobs:
         run: |
           node .github/ci/postgres-bridge.mjs > "$RUNNER_TEMP/postgres-bridge.log" 2>&1 &
           echo "$!" > "$RUNNER_TEMP/postgres-bridge.pid"
-          echo "NODE_OPTIONS=--import=$GITHUB_WORKSPACE/.github/ci/neon-config.mjs" >> "$GITHUB_ENV"
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:54330/health; then exit 0; fi
             sleep 1
@@ -124,6 +123,8 @@ jobs:
           exit 1
 
       - name: Preparar fixtures en la base desechable
+        env:
+          NODE_OPTIONS: --import=${{ github.workspace }}/.github/ci/neon-config.mjs
         run: |
           node --import tsx --input-type=module <<'JS'
           import { seedDemoData } from "./server/seed-demo.ts";
@@ -132,6 +133,8 @@ jobs:
           JS
 
       - name: Arrancar servidor de pruebas
+        env:
+          NODE_OPTIONS: --import=${{ github.workspace }}/.github/ci/neon-config.mjs
         run: |
           npm run dev > "$RUNNER_TEMP/app.log" 2>&1 &
           echo "$!" > "$RUNNER_TEMP/app.pid"
@@ -146,6 +149,8 @@ jobs:
           exit 1
 
       - run: npm run test:unit
+        env:
+          NODE_OPTIONS: --import=${{ github.workspace }}/.github/ci/neon-config.mjs
 
       - name: Instalar Chromium para Playwright
         run: npx playwright install --with-deps chromium
@@ -161,6 +166,7 @@ jobs:
 
       - run: npm run test:e2e
         env:
+          NODE_OPTIONS: --import=${{ github.workspace }}/.github/ci/neon-config.mjs
           DEBUG: pw:webserver
 
       - name: Subir evidencias si falla

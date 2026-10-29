@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { FamilyEditor, FamilyArchiveDialog } from "@/components/family-editor";
 import { generateCiclosList, getCurrentCiclo } from "@/hooks/use-academic-filter";
 import { Home, Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Users, CreditCard, FileText, Link2, Download, Upload, AlertCircle, AlertTriangle, Eye, UserCheck, UserX, Settings, FileSpreadsheet } from "lucide-react";
 
@@ -19,7 +20,7 @@ export default function Familias() {
   const [selectedSeccion, setSelectedSeccion]       = useState("all");
   const [selectedGrado, setSelectedGrado]           = useState("all");
   const [selectedGrupo, setSelectedGrupo]           = useState("all");
-  const [selectedEstatus, setSelectedEstatus]       = useState("all");
+  const [selectedEstatus, setSelectedEstatus]       = useState("activo");
   const [selectedCodigoPostal, setSelectedCodigoPostal] = useState("all");
   const [selectedCicloFamilias, setSelectedCicloFamilias]       = useState("all");
   const [selectedPeriodoFamilias, setSelectedPeriodoFamilias]   = useState("all");
@@ -28,6 +29,8 @@ export default function Familias() {
   const [showAdvancedFilters, setShowAdvancedFilters]           = useState(false);
   const [showResumenFamilias, setShowResumenFamilias]           = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [archivingFamily, setArchivingFamily] = useState<any>(null);
   const [selectedFamily, setSelectedFamily] = useState<any>(null);
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -118,11 +121,11 @@ export default function Familias() {
 
   // Normalizar solamente campos reales del servidor; nunca inventar domicilio ni estatus.
   const normalizeFamilia = (f: any) => {
-    const padre = (f.tutores || []).find((t: any) => t.tipo_guardian === "padre") || f.tutores?.[0] || {};
-    const madre = (f.tutores || []).find((t: any) => t.tipo_guardian === "madre") || f.tutores?.[1] || {};
+    const padre = (f.tutores || []).find((t: any) => t.id === f.guardian_id_principal) || f.tutores?.[0] || {};
+    const madre = (f.tutores || []).find((t: any) => t.id !== padre.id) || {};
     return ({
     ...f,
-    numero_familia: `FAM${String(f.id).padStart(3, "0")}`,
+    numero_familia: f.numero_familia,
     padre_nombre: padre.nombre_completo || "",
     padre_telefono: padre.celular || "",
     padre_email: padre.correo_institucional_familiar || padre.email || "",
@@ -161,7 +164,7 @@ export default function Familias() {
         setLoadError("No se encontró campus del usuario. Inicia sesión nuevamente.");
         return;
       }
-      const res = await fetch(`/api/families/${campusId}`, {
+      const res = await fetch(`/api/families/${campusId}?status=all`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error(`Error ${res.status}: ${await res.text()}`);
@@ -634,7 +637,7 @@ export default function Familias() {
       setImportPreview(null);
       setImportStep('idle');
       if (fileInputRef.current) fileInputRef.current.value = "";
-      setShowAddModal(false);
+      setShowImportDialog(false);
       // ── Recargar desde el servidor — prueba de que no es cosmético ──────────
       await loadFamilias();
     } catch {
@@ -885,132 +888,6 @@ export default function Familias() {
     setShowViewModal(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validaciones básicas
-    if (!formData.padre_nombres || !formData.padre_primer_apellido || !formData.padre_telefono) {
-      toast({
-        title: "Error",
-        description: "Por favor complete los campos obligatorios: nombres del padre, primer apellido y teléfono.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Validar RFC si se proporciona (compatibilidad)
-    if (formData.rfc && formData.rfc.length < 12) {
-      toast({
-        title: "Error",
-        description: "El RFC debe tener al menos 12 caracteres.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Validar datos fiscales múltiples
-    const invalidRfc = datosFiscales.find(dato => dato.rfc && dato.rfc.length < 12);
-    if (invalidRfc) {
-      toast({
-        title: "Error",
-        description: "Todos los RFC deben tener al menos 12 caracteres.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Validar que haya al menos un RFC principal
-    const principalRfc = datosFiscales.find(dato => dato.es_principal);
-    if (!principalRfc) {
-      toast({
-        title: "Error",
-        description: "Debe seleccionar un RFC como principal.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Combinar nombres separados para compatibilidad
-    const padreNombreCompleto = combineNames(
-      formData.padre_nombres, 
-      formData.padre_primer_apellido, 
-      formData.padre_segundo_apellido
-    );
-    const madreNombreCompleto = combineNames(
-      formData.madre_nombres, 
-      formData.madre_primer_apellido, 
-      formData.madre_segundo_apellido
-    );
-
-    if (editingFamily) {
-      // Actualizar familia existente
-      const updatedFamily = {
-        ...editingFamily,
-        padre_nombre: padreNombreCompleto,
-        padre_telefono: formData.padre_telefono,
-        padre_email: formData.padre_email,
-        madre_nombre: madreNombreCompleto,
-        madre_telefono: formData.madre_telefono,
-        madre_email: formData.madre_email,
-        direccion: formData.direccion,
-        ciudad: formData.ciudad,
-        codigo_postal: formData.codigo_postal,
-        razon_social: formData.razon_social || padreNombreCompleto,
-        rfc: formData.rfc,
-        estatus: formData.estatus,
-        // Incluir múltiples datos fiscales
-        datos_fiscales: datosFiscales
-      };
-
-      setFamilias(prev => prev.map(f => f.id === editingFamily.id ? updatedFamily : f));
-      
-      toast({
-        title: "Familia actualizada",
-        description: `Los datos de la familia ${formData.padre_primer_apellido} han sido actualizados exitosamente.`
-      });
-
-      resetForm();
-      setEditingFamily(null);
-      setShowEditModal(false);
-    } else {
-      // Crear nueva familia
-      const newId = Math.max(...familias.map(f => f.id)) + 1;
-      const numeroFamilia = `FAM${String(newId).padStart(3, '0')}`;
-      
-      const newFamily = {
-        id: newId,
-        numero_familia: numeroFamilia,
-        padre_nombre: padreNombreCompleto,
-        padre_telefono: formData.padre_telefono,
-        padre_email: formData.padre_email,
-        madre_nombre: madreNombreCompleto,
-        madre_telefono: formData.madre_telefono,
-        madre_email: formData.madre_email,
-        direccion: formData.direccion,
-        ciudad: formData.ciudad,
-        codigo_postal: formData.codigo_postal,
-        razon_social: formData.razon_social || padreNombreCompleto,
-        rfc: formData.rfc,
-        estatus: formData.estatus,
-        estudiantes_vinculados: [],
-        saldo_total: 0,
-        fecha_registro: new Date().toISOString().split('T')[0],
-        // Incluir múltiples datos fiscales
-        datos_fiscales: datosFiscales
-      };
-
-      setFamilias(prev => [...prev, newFamily]);
-      
-      toast({
-        title: "Familia registrada",
-        description: `La familia ${formData.padre_primer_apellido} ha sido registrada exitosamente con número ${numeroFamilia}.`
-      });
-
-      resetForm();
-      setShowAddModal(false);
-    }
-  };
-
   const normalizeMexicanPhone = (value: string) => {
     const digits = value.replace(/\D/g, "");
     return digits.startsWith("52") && digits.length === 12 ? `+${digits}` : `+52${digits}`;
@@ -1101,7 +978,7 @@ export default function Familias() {
     }
   };
 
-  const handleDelete = (familiaId: number) => updateFamilyStatus(familiaId, "archivada");
+  const handleDelete = (familiaId: number) => setArchivingFamily(familias.find(f => f.id === familiaId));
 
   // ── Opciones derivadas de los datos reales ─────────────────────────────────
   const seccionesBD = Array.from(new Set(
@@ -1851,7 +1728,7 @@ export default function Familias() {
                 </div>
               ) : null}
               {hasActiveSearch && filteredFamilias.map((familia) => (
-                <div key={familia.id} className="p-6 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors border-l-4 border-blue-500">
+                <div key={familia.id} data-testid={`family-${familia.id}`} className="p-6 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors border-l-4 border-blue-500">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start space-x-4">
                       <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-2xl flex items-center justify-center">
@@ -1941,6 +1818,9 @@ export default function Familias() {
                       <Button size="sm" variant="outline" onClick={() => loadFamilyForView(familia)} title="Ver información de la familia">
                         <Eye className="w-4 h-4" />
                       </Button>
+                      {familia.estatus !== "archivada" && <Button size="sm" variant="outline" onClick={() => loadFamilyForEdit(familia)} title="Editar familia">
+                        <Edit className="w-4 h-4" />
+                      </Button>}
                       <Button size="sm" variant="outline" onClick={() => {
                         setSelectedFamily(familia);
                         setShowLinkModal(true);
@@ -1977,24 +1857,29 @@ export default function Familias() {
         </CardContent>
       </Card>
 
-      {/* Modal para agregar/editar familia */}
-      <Dialog open={showAddModal || showEditModal} onOpenChange={(open) => {
+      {(showAddModal || showEditModal) && <FamilyEditor family={editingFamily} onSaved={loadFamilias} onClose={() => {
+        setShowAddModal(false); setShowEditModal(false); setEditingFamily(null); resetForm();
+      }} />}
+      {archivingFamily && <FamilyArchiveDialog family={archivingFamily} onSaved={loadFamilias} onClose={() => setArchivingFamily(null)} />}
+      {/* El diálogo heredado se conserva exclusivamente para el importador CSV.
+          Sus pestañas individuales ya no se montan: FamilyEditor captura sólo columnas reales. */}
+      <Button variant="outline" onClick={() => { setEditingFamily(null); setShowImportDialog(true); }}>Importar familias CSV</Button>
+      <Button variant="outline" onClick={() => setSelectedEstatus(selectedEstatus === "archivada" ? "activo" : "archivada")}>
+        {selectedEstatus === "archivada" ? "Ver activas" : "Ver archivadas"}
+      </Button>
+      <Dialog open={showImportDialog} onOpenChange={(open) => {
         if (!open) {
-          setShowAddModal(false);
-          setShowEditModal(false);
-          setEditingFamily(null);
-          resetForm();
+          setShowImportDialog(false);
         }
       }}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingFamily ? 'Editar Familia' : 'Gestión de Familias'}</DialogTitle>
+            <DialogTitle>Importar familias CSV</DialogTitle>
           </DialogHeader>
           
           {!editingFamily ? (
-            <Tabs defaultValue="individual" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="individual">Individual</TabsTrigger>
+            <Tabs value="excel" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-1">
                 <TabsTrigger value="excel">Importar Excel</TabsTrigger>
               </TabsList>
 

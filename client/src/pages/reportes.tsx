@@ -10,7 +10,7 @@ import { FileText, Download, Search, Filter, Calendar, TrendingUp, DollarSign, U
 import { useToast } from "@/hooks/use-toast";
 import { useInstitution } from "@/hooks/use-institution";
 import { useQuery } from "@tanstack/react-query";
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import { generateCiclosList, getCurrentCiclo } from "@/hooks/use-academic-filter";
 
 export default function Reportes() {

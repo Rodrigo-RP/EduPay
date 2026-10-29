@@ -150,7 +150,7 @@ test("PM-01: confirma pago real, evita reintento duplicado y genera recibo del a
   await receipt.getByRole("button", { name: /close/i }).click().catch(() => {});
   const reloadedPayments = page.waitForResponse("**/api/payments");
   await page.reload();
-  await page.waitForLoadState("networkidle");
+  await page.getByRole("heading", { name: "Gestión de Pagos", exact: true }).waitFor({ state: "visible", timeout: 20_000 });
   const payments = await (await reloadedPayments).json() as Array<{ id: number }>;
   expect(payments.some((payment) => Number(payment.id) === paymentId)).toBe(true);
 });

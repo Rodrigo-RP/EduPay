@@ -28,7 +28,7 @@ async function restoreSession(page: Page) {
     localStorage.setItem("auth_user", user);
   }, { token: authToken, user: authUser });
   await page.reload();
-  await page.waitForLoadState("networkidle");
+  await page.locator('aside a[href="/admin"]').waitFor({ state: "visible", timeout: 20_000 });
 }
 
 async function navigateToConfiguration(page: Page) {
@@ -108,7 +108,7 @@ test.describe("Calendario de vencimientos por periodicidad — E2E", () => {
     expect(persisted.rows[0].activo).toBe(true);
 
     await page.reload();
-    await page.waitForLoadState("networkidle");
+    await page.getByRole("tab", { name: /fechas de vencimiento/i }).waitFor({ state: "visible", timeout: 20_000 });
     await page.getByRole("tab", { name: /fechas de vencimiento/i }).click();
     await expect(page.getByText(`${conceptName} · ANUAL`)).toBeVisible();
 

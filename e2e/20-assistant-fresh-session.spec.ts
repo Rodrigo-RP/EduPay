@@ -17,7 +17,8 @@ test.describe("Asistente desde una sesión nueva", () => {
     });
     page.on("console", (message) => consoleMessages.push(message.text()));
 
-    await page.goto("/", { waitUntil: "networkidle" });
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.locator("#email").waitFor({ state: "visible", timeout: 20_000 });
     await page.locator("#email").fill(ADMIN_EMAIL);
     await page.locator("#password").fill(ADMIN_PASSWORD);
     await page.getByRole("button", { name: "Ingresar al Sistema" }).click();

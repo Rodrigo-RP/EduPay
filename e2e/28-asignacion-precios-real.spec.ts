@@ -36,7 +36,7 @@ async function restoreSession(page: Page) {
     localStorage.setItem("auth_user", user);
   }, { token: authToken, user: authUser });
   await page.reload();
-  await page.waitForLoadState("networkidle");
+  await page.locator('aside a[href="/admin"]').waitFor({ state: "visible", timeout: 20_000 });
 }
 
 test.describe.configure({ mode: "serial" });

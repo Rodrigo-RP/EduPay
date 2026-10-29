@@ -8,7 +8,8 @@ import { test, expect } from "@playwright/test";
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from "./helpers/auth";
 
 test("renderiza tablas Markdown y conserva la conversación al minimizar", async ({ page }) => {
-  await page.goto("/", { waitUntil: "networkidle" });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.locator("#email").waitFor({ state: "visible", timeout: 20_000 });
   await page.locator("#email").fill(ADMIN_EMAIL);
   await page.locator("#password").fill(ADMIN_PASSWORD);
   await page.getByRole("button", { name: "Ingresar al Sistema" }).click();

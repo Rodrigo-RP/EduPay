@@ -46,7 +46,7 @@ async function restaurarSesion(page: Page) {
     localStorage.setItem("auth_user", user);
   }, { token: authToken, user: authUser });
   await page.reload();
-  await page.waitForLoadState("networkidle");
+  await page.locator('aside a[href="/admin"]').waitFor({ state: "visible", timeout: 20_000 });
 }
 
 async function crearCargo(amountCentavos: number): Promise<number> {

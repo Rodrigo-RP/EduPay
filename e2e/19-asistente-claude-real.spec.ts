@@ -284,7 +284,8 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
       storedCampusId: campusId,
       storedWidgetUserId: widgetUserId,
     });
-    await page.reload({ waitUntil: "networkidle" });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: "Abrir asistente EduPay" }).waitFor({ state: "visible", timeout: 20_000 });
     const assistantButton = page.getByRole("button", { name: "Abrir asistente EduPay" });
     await expect(assistantButton).toBeVisible();
     await assistantButton.click();
@@ -410,7 +411,8 @@ test.describe("Claude real — consulta de adeudos con tool use", () => {
       storedCampusId: campusId,
       storedWidgetUserId: widgetUserId,
     });
-    await page.reload({ waitUntil: "networkidle" });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: "Abrir asistente EduPay" }).waitFor({ state: "visible", timeout: 20_000 });
     await page.getByRole("button", { name: "Abrir asistente EduPay" }).click();
     const dialog = page.getByRole("dialog", { name: "Asistente EduPay" });
     await dialog.getByPlaceholder("¿Dónde está...? / No funciona...").fill(question);

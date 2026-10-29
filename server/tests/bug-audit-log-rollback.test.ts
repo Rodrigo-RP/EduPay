@@ -5,16 +5,15 @@ import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
  * Usa el mismo pool del servidor (db.ts) para evitar problemas de límite
  * de conexiones concurrentes con Neon serverless.
  *
- * Escenario real de producción probado:
- *   Usuario tiene JWT válido, pero su cuenta es eliminada de la DB.
- *   El JWT pasa authenticateToken (firma válida), pero cuando el endpoint
- *   intenta INSERT INTO audit_log con ese user_id → FK violation.
- *   Pregunta: ¿200+UPDATE persistido, 200+rollback silencioso, o 500?
+ * Un actor eliminado se rechaza antes de operar. Para cubrir ADR-001 se
+ * conserva un actor válido y se simula el fallo del INSERT de auditoría:
+ * operación confirmada, reintento durable y recuperación exactamente una vez.
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import jwt from "../test-support/session-jwt";
 import { pool } from "../db";          // pool del servidor — misma instancia, sin conexión extra
+import { resolveWithFailedAudit, assertAuditRecoveredOnce } from "../test-support/audit-insert-failure";
 
 import { JWT_SECRET } from "../routes/shared";
 const BASE = "http://localhost:5000";
@@ -257,5 +256,29 @@ describe("Bug: audit_log FK violation dentro de transacción — evidencia empí
       [tenantId]
     );
     expect(retries.rows[0].n).toBe(0);
+  }, 20_000);
+
+  it("PASO 3 — actor válido + audit fallido: descarte persistido, cola durable y recuperación única", async () => {
+    const { userId, token } = await createUser();
+    const ref = `ref-audit-failure-${Date.now()}`;
+    const txId = await insertTx(20000, ref);
+    const motivo = "Descarte con auditoría pendiente";
+    const response = await resolveWithFailedAudit(txId, token, { accion: "descartar", motivo });
+    expect(response.status).toBe(200);
+    expect(response.body.message).toContain("descartada");
+    expect(response.failures).toBe(1);
+    const state = await pool.query(
+      "SELECT estado_conciliacion, nota_conciliacion, charge_id, payment_id FROM bank_transactions WHERE id=$1", [txId],
+    );
+    expect(state.rows).toEqual([{
+      estado_conciliacion: "ignorado", nota_conciliacion: motivo, charge_id: null, payment_id: null,
+    }]);
+    expect((await pool.query("SELECT id FROM payments WHERE tenant_id=$1", [tenantId])).rows).toHaveLength(0);
+    await assertAuditRecoveredOnce({
+      tenant_id: tenantId, user_id: userId, action: "descartar_excepcion",
+      entity_type: "bank_transaction", entity_id: txId,
+      metadata: { motivo, nota: null, referencia: ref, monto_centavos: 20000 },
+    });
+    expect(await getDbState(txId)).toBe("ignorado");
   }, 20_000);
 });

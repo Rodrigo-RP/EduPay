@@ -1,8 +1,21 @@
 ---
 name: audit_log FK silent rollback
-description: FK en audit_log.user_id causa rollback silencioso cuando el INSERT falla dentro de una transacción abierta con pool.connect()
+description: Fallos de auditoría fuera de la transacción y pruebas con actores válidos.
 ---
 
+# Cobertura de fallos con sesión válida
+
+Para probar el reintento durable sin alterar ADR-001, simular el fallo del
+INSERT de auditoría manteniendo un actor real y activo. La respuesta debe
+coincidir con la operación confirmada, la cola conservar sus datos y dos
+procesamientos consecutivos no duplicar la auditoría recuperada.
+
+**Why:** El dueño confirmó que una falla de auditoría no revierte ni convierte
+en error una operación financiera ya confirmada. Eliminar al actor sólo prueba
+la revocación de sesión, no el fallo posterior de auditoría.
+
+**How to apply:** Conservar las pruebas de actor inválido por separado y usar
+dobles locales al proceso de prueba, nunca un bypass HTTP en la aplicación.
 ## La regla
 
 El INSERT en `audit_log` **debe ocurrir FUERA de la transacción principal** usando `pool.query()` (fire-and-forget), no `client.query()` dentro de un bloque BEGIN/COMMIT.

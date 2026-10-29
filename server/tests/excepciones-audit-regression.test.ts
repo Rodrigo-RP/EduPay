@@ -31,15 +31,15 @@ import { SCHOOL_TODAY_SQL } from "../../shared/school-date";
  *      • Dos payment_applications
  *      • bank_transaction → 'conciliado', charge_id = primer chargeId
  *
- * Estrategia de user_id en EXA-02:
- *   El audit_log tiene FK → users.id. Necesitamos un user_id que exista en la
- *   DB real. Obtenemos dinámicamente el primer admin del tenant de demo (48/29)
- *   en beforeAll; si no existe ninguno, el test se salta con skip.
+ * EXA-05 simula fallo de audit_log con un actor válido del tenant y campus
+ * propios del fixture. El ledger persiste completo y la cola lo recupera una
+ * sola vez, sin convertir la auditoría en parte de la transacción financiera.
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { pool, db } from "../db";
 import { applyReconciliation } from "../routes/conciliacion";
+import { resolveWithFailedAudit, assertAuditRecoveredOnce } from "../test-support/audit-insert-failure";
 import {
   tenants, campuses, students, guardians, student_guardian, charges,
 } from "../../shared/schema";
@@ -154,12 +154,13 @@ describe("EXA — audit_log resolver_excepcion_manual + regresión insertarPagoY
     chargeApplyAId = await mkCharge(studentId);
     chargeApplyBId = await mkCharge(studentId);
 
-    // Buscar un user_id real en la DB (campus 48 del seed demo)
-    // para poder escribir en audit_log sin FK violation.
+    // Actor válido propio del fixture: mismo tenant y campus, sin depender del seed.
     const uRow = await pool.query(
-      `SELECT id FROM users WHERE campus_id = 48 LIMIT 1`
+      `INSERT INTO users (tenant_id, campus_id, name, email, password_hash, role, is_active)
+       VALUES ($1,$2,'Actor EXA',$3,'x','administrador_campus',true) RETURNING id`,
+      [tenantId, campusId, `actor-exa-${ts}@test.internal`],
     );
-    realUserId = uRow.rows.length > 0 ? (uRow.rows[0] as any).id as number : null;
+    realUserId = Number(uRow.rows[0].id);
   });
 
   afterAll(async () => {
@@ -184,6 +185,9 @@ describe("EXA — audit_log resolver_excepcion_manual + regresión insertarPagoY
     ).catch(() => {});
     await pool.query(`DELETE FROM students  WHERE tenant_id=$1`, [tenantId]).catch(() => {});
     await pool.query(`DELETE FROM guardians WHERE tenant_id=$1`, [tenantId]).catch(() => {});
+    await pool.query(`DELETE FROM audit_retry_queue WHERE (payload->>'tenant_id')::int=$1`, [tenantId]);
+    await pool.query(`DELETE FROM audit_log WHERE tenant_id=$1`, [tenantId]);
+    await pool.query(`DELETE FROM users WHERE tenant_id=$1`, [tenantId]);
     await pool.query(`DELETE FROM campuses  WHERE tenant_id=$1`, [tenantId]).catch(() => {});
     await pool.query(`DELETE FROM tenants   WHERE id=$1`, [tenantId]).catch(() => {});
   });
@@ -332,6 +336,50 @@ describe("EXA — audit_log resolver_excepcion_manual + regresión insertarPagoY
     expect((bt.rows[0] as any).estado_conciliacion).toBe("conciliado");
     expect(Number((bt.rows[0] as any).charge_id)).toBe(chargeRegrId);
     expect(Number((bt.rows[0] as any).payment_id)).toBe(paymentId);
+  });
+
+  it("EXA-05 — audit fallido con actor válido: pago y ledger completos, reintento durable único", async () => {
+    if (realUserId === null) throw new Error("La operación requiere un actor real y activo");
+    const chargeId = await mkCharge(studentId);
+    const ref = `ref-audit-queue-${Date.now()}`;
+    const txId = await insertTx(100000, ref);
+    const response = await resolveWithFailedAudit(txId, tokenConId(realUserId), {
+      accion: "aplicar", charge_id: chargeId, nota: "Auditoría en reintento",
+    });
+    expect(response.status).toBe(200);
+    expect(response.body.message).toBe("Pago aplicado correctamente al cargo seleccionado");
+    expect(response.failures).toBe(1);
+    const paymentId = response.body.payment_id;
+    expect(paymentId).toBeGreaterThan(0);
+    const assertCompleteLedger = async () => {
+      const charge = await pool.query("SELECT estado FROM charges WHERE id=$1", [chargeId]);
+      expect(charge.rows).toEqual([{ estado: "pagado" }]);
+      const payments = await pool.query(
+        "SELECT id, monto_centavos, estado, metodo FROM payments WHERE charge_id=$1", [chargeId],
+      );
+      expect(payments.rows).toHaveLength(1);
+      expect(Number(payments.rows[0].id)).toBe(paymentId);
+      expect(Number(payments.rows[0].monto_centavos)).toBe(100000);
+      expect(payments.rows[0]).toMatchObject({ estado: "exitoso", metodo: "spei" });
+      const applications = await pool.query(
+        "SELECT payment_id, amount_centavos FROM payment_applications WHERE charge_id=$1", [chargeId],
+      );
+      expect(applications.rows).toHaveLength(1);
+      expect(Number(applications.rows[0].payment_id)).toBe(paymentId);
+      expect(Number(applications.rows[0].amount_centavos)).toBe(100000);
+      const bank = await pool.query(
+        "SELECT estado_conciliacion, charge_id, payment_id FROM bank_transactions WHERE id=$1", [txId],
+      );
+      expect(bank.rows).toEqual([{ estado_conciliacion: "conciliado", charge_id: chargeId, payment_id: paymentId }]);
+    };
+    await assertCompleteLedger();
+    await assertAuditRecoveredOnce({
+      tenant_id: tenantId, user_id: realUserId, action: "resolver_excepcion_manual",
+      entity_type: "bank_transaction", entity_id: txId,
+      metadata: { charge_id: chargeId, payment_id: paymentId, monto_centavos: 100000,
+        monto_neto: 100000, referencia: ref, nota: "Auditoría en reintento" },
+    });
+    await assertCompleteLedger();
   });
 
   // ── EXA-04: Regresión de comportamiento — applyReconciliation() ───────────

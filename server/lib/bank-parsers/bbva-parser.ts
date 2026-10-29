@@ -336,7 +336,7 @@ export class BBVAParser implements BankStatementParser {
         const y = Math.round(item.transform[5]);
 
         let matchedY: number | undefined;
-        for (const ky of lineMap.keys()) {
+        for (const ky of Array.from(lineMap.keys())) {
           if (Math.abs(ky - y) <= 3) { matchedY = ky; break; }
         }
         if (matchedY !== undefined) {

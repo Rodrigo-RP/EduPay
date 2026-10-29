@@ -1059,7 +1059,7 @@ export function registerPaymentRoutes(app: Express): void {
 
         // Paso 2: Procesar cada grupo
         let groupSeq = 0;
-        for (const [groupName, groupRows] of familyGroups) {
+        for (const [groupName, groupRows] of Array.from(familyGroups.entries())) {
           groupSeq++;
           const rowCount = groupRows.length;
           const sp = `sp_fam_${groupSeq}`;

@@ -146,7 +146,7 @@ const HEADER_ROW_H = 22;
 // ─── EXCEL ────────────────────────────────────────────────────────────────────
 
 async function buildExcel(req: ReportExportRequest): Promise<Buffer> {
-  const ExcelJS = esmRequire("exceljs");
+  const ExcelJS: typeof import("exceljs") = esmRequire("exceljs");
   const wb = new ExcelJS.Workbook();
   wb.creator = req.generatedBy ?? "EduPay";
   wb.created = new Date();

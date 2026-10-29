@@ -172,7 +172,7 @@ export function registerReportesContableRoutes(app: Express): void {
           { key: "ingreso_centavos", header: "Ingreso",     format: "currency_mxn", width: 18, align: "right" },
           { key: "total_cfdis",      header: "CFDIs",       format: "integer",      width: 12, align: "right" },
         ],
-        rows:           reportes,
+        rows:           reportes.map(row => ({ ...row })),
         appliedFilters,
         format:         formato,
         filename:       filenameFor("reporte-contable", formato),

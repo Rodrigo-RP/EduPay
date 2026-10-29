@@ -61,7 +61,7 @@ function jaccardNombre(a: string, b: string): number {
   const tb = new Set(_tokenizar(b));
   if (ta.size === 0 || tb.size === 0) return 0;
   let inter = 0;
-  for (const t of ta) { if (tb.has(t)) inter++; }
+  for (const t of Array.from(ta)) { if (tb.has(t)) inter++; }
   const union = ta.size + tb.size - inter;
   return union === 0 ? 0 : inter / union;
 }
@@ -123,9 +123,9 @@ async function _cargarContextoScoring(tenantId: number, campusId: number): Promi
   }
 
   // Tutores (nombre_completo) de cada familia con cargos pendientes — para Jaccard
-  const familyIds = [...new Set(
+  const familyIds = Array.from(new Set(
     charges.map(c => c.family_id).filter((id): id is number => id !== null)
-  )];
+  ));
   const tutoresByFamilyId = new Map<number, string[]>();
   if (familyIds.length > 0) {
     const tutoresR = await pool.query(`
@@ -173,7 +173,7 @@ function _buscarMejorCandidato(
 
   let mejor: CandidatoScore | null = null;
 
-  for (const [fkey, fCharges] of byFamily) {
+  for (const [fkey, fCharges] of Array.from(byFamily.entries())) {
     const pool4 = fCharges.slice(0, 4); // K=4 máx por familia
     const familyId = fkey > 0 ? fkey : null;
 

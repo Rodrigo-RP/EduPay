@@ -1508,7 +1508,7 @@ ${b.nombre}:
                     {beca.criterios && (
                       <p className="text-sm text-muted-foreground">Criterios: {beca.criterios}</p>
                     )}
-                    {beca.empresas_convenio && (
+                    {"empresas_convenio" in beca && Array.isArray(beca.empresas_convenio) && (
                       <div>
                         <p className="text-sm font-medium">Empresas con Convenio:</p>
                         <p className="text-sm text-muted-foreground">{beca.empresas_convenio.join(", ")}</p>

@@ -305,7 +305,7 @@ export function registerReportesRiesgoRoutes(app: Express): void {
           { key: "tasa_pago_historica", header: "Tasa pago 6m %",   format: "integer",      width: 16, align: "right" },
           { key: "historial_descripcion", header: "Historial",      format: "string",       width: 20 },
         ],
-        rows:           detalle,
+        rows:           detalle.map(row => ({ ...row })),
         appliedFilters,
         format:         formato,
         filename:       filenameFor("reporte-riesgo", formato),

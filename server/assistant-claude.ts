@@ -372,11 +372,11 @@ function normalizeClaudeTurns(value: unknown): ClaudeConversationTurn[] {
           return input ? [{ name: (tool as any).name, input }] : [];
         })
       : [];
-    const studentTargets = Array.isArray((candidate as any).studentTargets)
-      ? Array.from(new Map(
-        (candidate as any).studentTargets.flatMap((target: unknown) => {
-          const id = Number((target as any)?.id);
-          const name = safeHistoryText((target as any)?.name);
+    const studentTargets = "studentTargets" in candidate && Array.isArray(candidate.studentTargets)
+      ? Array.from(new Map<number, StudentNavigationTarget>(
+        candidate.studentTargets.flatMap((target: unknown): [number, StudentNavigationTarget][] => {
+          const id = Number(target && typeof target === "object" && "id" in target ? target.id : undefined);
+          const name = safeHistoryText(target && typeof target === "object" && "name" in target ? target.name : undefined);
           return Number.isSafeInteger(id) && id > 0 && name ? [[id, { id, name }]] : [];
         }),
       ).values())

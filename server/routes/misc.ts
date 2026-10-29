@@ -254,7 +254,7 @@ export function registerMiscRoutes(app: Express): void {
             });
           }
 
-          const uniqueStudents = [...new Set(saldoRows.map(r => r.student_id))];
+          const uniqueStudents = Array.from(new Set(saldoRows.map(r => r.student_id)));
           if (uniqueStudents.length > 1) {
             await client.query('ROLLBACK');
             return res.status(422).json({ message: "Todos los cargos deben pertenecer al mismo alumno" });
@@ -1121,7 +1121,7 @@ export function registerMiscRoutes(app: Express): void {
       const { stepId } = req.params;
       if (!VALID_ONBOARDING_STEPS.has(stepId)) {
         return res.status(400).json({
-          message: `stepId inválido: '${stepId}'. Válidos: ${[...VALID_ONBOARDING_STEPS].join(", ")}`,
+          message: `stepId inválido: '${stepId}'. Válidos: ${Array.from(VALID_ONBOARDING_STEPS).join(", ")}`,
         });
       }
       const campusId = (req as any).user?.campus_id;

@@ -7,7 +7,7 @@ import { MODULES, ACTIONS } from "@shared/permissions";
 import { NotificationSystem as ServerNotificationSystem } from "../notification-system";
 import { wsManager } from "../websocket-manager";
 import { users, students, guardians, charges, payments, concepts, scholarships, payment_surcharge_rules } from "@shared/schema";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { registerEmailRuntime } from "../lib/email/runtime";
 import type { EmailDatabase } from "../lib/email/repository";
 

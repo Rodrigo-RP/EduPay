@@ -1,4 +1,5 @@
-import { z } from "zod";
+import { z } from "zod/v4";
+import { integerWithExistingLimits } from "../../shared/zod-compat";
 import { assertNonProductionEnvironment, assertDatabaseMarker } from "./database-safety";
 import { decryptTotp, encryptTotp, readTotpKey } from "./totp-crypto";
 
@@ -17,7 +18,7 @@ export async function migratePlaintextTotp(client: {
       "SELECT id, twofa_secret FROM users WHERE twofa_secret IS NOT NULL ORDER BY id FOR UPDATE",
     );
     let encrypted = 0, unchanged = 0;
-    const rows = z.array(z.object({ id: z.number().int(), twofa_secret: z.string() })).parse(result.rows);
+    const rows = z.array(z.object({ id: integerWithExistingLimits(z.number()), twofa_secret: z.string() })).parse(result.rows);
     for (const row of rows) {
       if (row.twofa_secret.startsWith("v1:")) {
         decryptTotp(row.twofa_secret, row.id, key); // Verifica integridad/clave antes de declarar idempotencia.

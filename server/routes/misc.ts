@@ -9,7 +9,7 @@ import { authenticateToken, requireAuth, checkCampusTenant, hasPermissionForUser
 import { MODULES, ACTIONS } from "@shared/permissions";
 import { students, guardians, charges, payments, concepts, invoices, families, family_students, payment_applications, payment_events, audit_log } from "@shared/schema";
 import { enqueueAuditLog } from "../audit-retry";
-import { z } from "zod";
+import { z } from "zod/v4";
 import jwt from "jsonwebtoken";
 
 // ── ADR-002: Helpers para planes de pago integrados al ledger ─────────────────

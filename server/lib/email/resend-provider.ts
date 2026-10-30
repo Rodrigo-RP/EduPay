@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v4";
 import type { EmailConfig, EmailContent, EmailProvider, ProviderResult } from "./types";
 
 // Direct REST adapter: no SDK automatic retries; ambiguity is handled by our ledger.
@@ -33,7 +33,7 @@ export class ResendEmailProvider implements EmailProvider {
       const limited = response.headers.get("ratelimit-remaining") === "0";
       const pauseMs = Math.max(0, Number.isFinite(retryMs) ? retryMs : 0, limited && Number.isFinite(reset) ? reset : 0);
       if (response.ok) {
-        const id = z.string().uuid().safeParse(raw?.id);
+        const id = z.guid({ error: "Invalid uuid" }).safeParse(raw?.id);
         return id.success ? { kind: "accepted", messageId: id.data, pauseMs } : { kind: "uncertain", code: "RESPUESTA_SIN_EVIDENCIA", pauseMs };
       }
       // Never persist provider messages: they can echo recipient, key or content.

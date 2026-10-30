@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { authorizeUserCreation, authorizeUserMutation, userInSessionScope, userUpdateData } from "../lib/user-authorization";
 import crypto from "node:crypto";
 import bcrypt from "bcrypt";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { db, pool } from "../db";
 import { eq, and } from "drizzle-orm";
 import { users, institutional_info, institutional_credentials, guardians } from "@shared/schema";
@@ -293,7 +293,7 @@ export function registerUserRoutes(app: Express): void {
     } catch (error: any) {
       console.error('Error creating user:', error);
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Datos de usuario inválidos", errors: error.errors });
+        return res.status(400).json({ message: "Datos de usuario inválidos", errors: error.issues });
       }
       res.status(500).json({ message: "Error interno del servidor" });
     }

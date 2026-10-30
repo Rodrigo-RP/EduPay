@@ -14,7 +14,7 @@ import { unavailableFeature } from "./unavailable-feature";
 import { wsManager } from "../websocket-manager";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 export function registerSystemRoutes(app: Express): void {
   registerDemoSeedRoute(app);

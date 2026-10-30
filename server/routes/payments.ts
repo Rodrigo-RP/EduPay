@@ -17,7 +17,8 @@ import { wsManager } from "../websocket-manager";
 import * as XLSX from "xlsx";
 import { financialImportPreflight } from "../lib/financial-import";
 import { centavos, percentage } from "../lib/financial-input";
-import { z } from "zod";
+import { z } from "zod/v4";
+import { integerWithExistingLimits } from "../../shared/zod-compat";
 
 export function registerPaymentRoutes(app: Express): void {
   app.get("/api/payments/manual-options", authenticateToken, async (req: any, res) => {
@@ -94,9 +95,9 @@ export function registerPaymentRoutes(app: Express): void {
     }
 
     const parsed = z.object({
-      student_id: z.coerce.number().int().positive(),
-      charge_id: z.coerce.number().int().positive(),
-      amount_centavos: z.coerce.number().int().positive(),
+      student_id: integerWithExistingLimits(z.coerce.number()).positive(),
+      charge_id: integerWithExistingLimits(z.coerce.number()).positive(),
+      amount_centavos: integerWithExistingLimits(z.coerce.number()).positive(),
       idempotency_key: z.string().min(16).max(100),
       recibido_por: z.string().trim().min(1).max(255),
       observaciones: z.string().trim().max(2000).optional().default(""),

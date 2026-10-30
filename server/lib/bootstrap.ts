@@ -1,6 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import bcrypt from "bcrypt";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { revokeStaffRealtime } from "./staff-realtime";
 
 // Se usa el JSONB de onboarding ya migrado. Esta clave reservada sólo la

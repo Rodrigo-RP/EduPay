@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { randomBytes, createHash } from "node:crypto";
-import { z } from "zod";
+import { z } from "zod/v4";
+import { integerWithExistingLimits } from "../../shared/zod-compat";
 import { pool } from "../db";
 import { storage } from "../storage";
 import { authenticateToken, esmRequire, JWT_SECRET, hasPermissionForUser } from "./shared";
@@ -16,10 +17,10 @@ type StaffRequest = Request & { user: {
   custom_permissions?: string[]; session_started_at?: number; iat: number; password_version: number;
 } };
 const staffClaims = z.object({
-  id: z.number().int(), role: z.enum(["super_admin", "administrador_general", "administrador_campus", "contador_general", "auxiliar_contable", "asistente", "admisiones"]),
-  campus_id: z.number().int().nullable(), tenant_id: z.number().int().nullable(),
+  id: integerWithExistingLimits(z.number()), role: z.enum(["super_admin", "administrador_general", "administrador_campus", "contador_general", "auxiliar_contable", "asistente", "admisiones"]),
+  campus_id: integerWithExistingLimits(z.number()).nullable(), tenant_id: integerWithExistingLimits(z.number()).nullable(),
   custom_permissions: z.array(z.string()).optional(), session_started_at: z.number().optional(),
-  iat: z.number(), password_version: z.number().int().nonnegative(),
+  iat: z.number(), password_version: integerWithExistingLimits(z.number()).nonnegative(),
 });
 const withStaff = (handler: (req: StaffRequest, res: Response) => Promise<unknown>) =>
   async (req: Request, res: Response) => {

@@ -11,7 +11,7 @@ import { students, guardians, student_guardian, charges, payments, concepts, sch
 import { insertChargeSchema } from "@shared/schema";
 import { getAcademicLevel } from "@shared/academic-levels";
 import { wsManager } from "../websocket-manager";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { resolveEffectiveScholarship } from "../lib/scholarship-engine";
 import { applyMonthlySurcharges } from "../lib/surcharge-accrual";
 import {

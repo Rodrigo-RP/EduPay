@@ -12,7 +12,7 @@ import {
 } from "./shared";
 import { MODULES, ACTIONS } from "@shared/permissions";
 import { invoices, payments, charges, students, campus_invoicing_config } from "@shared/schema";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { getInvoicingProvider, getInvoicingProviderStatus } from "../lib/invoicing/get-invoicing-provider";
 import { registerSatStatisticsRoute } from "./sat-statistics";
 import {

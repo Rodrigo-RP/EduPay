@@ -1,9 +1,10 @@
-import { z } from "zod";
+import { z } from "zod/v4";
+import { integerWithExistingLimits } from "../../shared/zod-compat";
 
 export const STRICT_LOGIN_RATE = Object.freeze({ windowMs: 15 * 60 * 1000, max: 10 });
 const limits = z.object({
-  AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(1_000_000).default(STRICT_LOGIN_RATE.max),
-  AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).max(86_400_000).default(STRICT_LOGIN_RATE.windowMs),
+  AUTH_RATE_LIMIT_MAX: integerWithExistingLimits(z.coerce.number()).min(1).max(1_000_000).default(STRICT_LOGIN_RATE.max),
+  AUTH_RATE_LIMIT_WINDOW_MS: integerWithExistingLimits(z.coerce.number()).min(1000).max(86_400_000).default(STRICT_LOGIN_RATE.windowMs),
 });
 
 export function loginRateConfig(env: NodeJS.ProcessEnv = process.env) {

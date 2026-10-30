@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import type { Pool } from "@neondatabase/serverless";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 const payloadSchema = z.object({
   es_responsable_pago: z.boolean().optional(),

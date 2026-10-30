@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v4";
 import { emailAllowed } from "./config";
 import type { Candidate, EmailConfig, Recipient } from "./types";
 

@@ -1,7 +1,7 @@
 import { pgTable, pgEnum, text, serial, integer, boolean, varchar, bigint, bigserial, numeric, date, time, timestamp, primaryKey, jsonb, uniqueIndex, smallint, check } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
+import { z } from "zod/v4";
 export * from "./email-schema";
 export * from "./email-webhook-schema";
 

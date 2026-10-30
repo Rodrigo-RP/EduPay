@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v4";
 import { Webhook } from "svix";
 import type { IncomingHttpHeaders } from "node:http";
 import type { VerifiedEmailEvent } from "./webhook-types";
@@ -22,7 +22,7 @@ const eventSchema = z.object({
   type: z.string().min(1).max(128),
   created_at: z.string().datetime({ offset: true }),
   data: z.object({
-    email_id: z.string().uuid(),
+    email_id: z.guid({ error: "Invalid uuid" }),
     bounce: z.object({type:providerCode,subType:providerCode}).optional(),
     failed: z.object({reason:providerCode}).optional(),
   }),

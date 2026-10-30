@@ -16,7 +16,7 @@ import { getAcademicLevel } from "@shared/academic-levels";
 import { wsManager } from "../websocket-manager";
 import { seedAdmissionsData } from "../seed-admissions-data";
 import * as XLSX from "xlsx";
-import { z } from "zod";
+import { z } from "zod/v4";
 import bcrypt from "bcrypt";
 import { NotificationSystem as ServerNotificationSystem } from '../notification-system';
 import Stripe from "stripe";

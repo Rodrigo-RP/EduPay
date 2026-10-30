@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { z } from "zod";
+import { z } from "zod/v4";
+import { integerWithExistingLimits } from "../../../shared/zod-compat";
 import { renderEmail, TEMPLATE_VERSION } from "./templates";
 import { prepareRecipients } from "./recipients";
 import type { EmailRepository, Selection } from "./repository";
@@ -9,8 +10,8 @@ import { digest } from "./identity";
 export const tipoSchema = z.enum(["RECORDATORIO_VENCIMIENTO","AVISO_MORA","CARGO_EMITIDO"]);
 const selectionSchema = z.object({
   tipo: tipoSchema, canal:z.literal("EMAIL"), modo:z.enum(["masivo","individual"]),
-  estudiantesIds:z.array(z.number().int().positive()).max(5000).optional(),
-  resendOf:z.string().uuid().optional(),
+  estudiantesIds:z.array(integerWithExistingLimits(z.number()).positive()).max(5000).optional(),
+  resendOf:z.guid({ error: "Invalid uuid" }).optional(),
 }).strict();
 export function configFingerprint(c: EmailConfig) { return digest([c.environment,c.from]); }
 

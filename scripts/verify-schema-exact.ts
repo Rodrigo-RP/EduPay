@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Pool } from "pg";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { assertNonProductionEnvironment, assertDatabaseMarker } from "../server/lib/database-safety";
 import { readSchemaCatalog, compareSchemaCatalog } from "./lib/schema-catalog";
 
@@ -18,7 +18,7 @@ try {
     await fs.writeFile(filename, JSON.stringify(actual, null, 2) + "\n");
     console.log("[schema:exact] Catálogo de referencia registrado; solo metadatos");
   } else {
-    const expected = z.record(z.array(z.unknown())).parse(JSON.parse(await fs.readFile(filename, "utf8")));
+    const expected = z.record(z.string(), z.array(z.unknown())).parse(JSON.parse(await fs.readFile(filename, "utf8")));
     const differences = compareSchemaCatalog(expected, actual);
     if (differences.length) {
       throw new Error(`Diferencias exactas de esquema: ${differences.join(", ")}. No se modificó la base ni el catálogo esperado.`);

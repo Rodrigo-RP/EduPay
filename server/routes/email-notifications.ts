@@ -1,5 +1,6 @@
 import type { Express, RequestHandler, Response } from "express";
-import { z } from "zod";
+import { z } from "zod/v4";
+import { integerWithExistingLimits } from "../../shared/zod-compat";
 import { EmailService } from "../lib/email/service";
 import { EmailError, type EmailScope } from "../lib/email/types";
 
@@ -23,7 +24,7 @@ export function registerEmailNotificationRoutes(app: Express, deps: EmailRouteDe
     async (req:any,res:any) => {
       try {
         if (!can(req.user,action)) throw new EmailError(403,"EMAIL_PERMISO_DENEGADO","No tiene permiso para esta operación");
-        const ctx=z.object({tenant_id:z.number().int().positive(),campus_id:z.number().int().positive(),id:z.number().int().positive()}).safeParse(req.user);
+        const ctx=z.object({tenant_id:integerWithExistingLimits(z.number()).positive(),campus_id:integerWithExistingLimits(z.number()).positive(),id:integerWithExistingLimits(z.number()).positive()}).safeParse(req.user);
         if (!ctx.success) throw new EmailError(403,"EMAIL_SCOPE_DENEGADO","Se requiere un campus y una institución autorizados");
         const scope={tenantId:ctx.data.tenant_id,campusId:ctx.data.campus_id,userId:ctx.data.id};
         await service.authorize(scope);
@@ -35,7 +36,7 @@ export function registerEmailNotificationRoutes(app: Express, deps: EmailRouteDe
       }
     };
   const uuid=(value:unknown) => {
-    const parsed=z.string().uuid().safeParse(value);
+    const parsed=z.guid({ error: "Invalid uuid" }).safeParse(value);
     if (!parsed.success) throw new EmailError(422,"EMAIL_ID_INVALIDO","Identificador no válido");
     return parsed.data;
   };
@@ -55,7 +56,7 @@ export function registerEmailNotificationRoutes(app: Express, deps: EmailRouteDe
   }));
   app.post("/api/notifications/email/confirm",authenticate,guard("process",async (req,s,res)=>{
     emailChannel(req.body);
-    const data=z.object({intentId:z.string().uuid(),canal:z.literal("EMAIL")}).strict().safeParse(req.body);
+    const data=z.object({intentId:z.guid({ error: "Invalid uuid" }),canal:z.literal("EMAIL")}).strict().safeParse(req.body);
     if (!data.success) throw new EmailError(422,"EMAIL_CONFIRMACION_INVALIDA","Revise la confirmación");
     reply(res.status(202),await service.confirm(s,data.data.intentId));
   }));

@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 // Base64 canónico: exactamente 32 bytes, nunca una contraseña ni un valor por defecto.
 export const totpEncryptionKeySchema = z.string().regex(/^[A-Za-z0-9+/]{43}=$/).refine(

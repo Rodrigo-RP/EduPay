@@ -13,7 +13,8 @@ import { insertInstitutionalInfoSchema } from "@shared/schema";
 import { getAcademicLevel } from "@shared/academic-levels";
 import { seedAdmissionsData } from "../seed-admissions-data";
 import * as XLSX from "xlsx";
-import { z } from "zod";
+import { z } from "zod/v4";
+import { integerWithExistingLimits } from "../../shared/zod-compat";
 import jwt from "jsonwebtoken";
 import { wsManager } from "../websocket-manager";
 
@@ -58,13 +59,13 @@ const scholarshipCriterionSchema = z.object({
 });
 
 const scholarshipBenefitSchema = z.object({
-  porcentaje_descuento: z.coerce.number().int().min(0).max(100),
+  porcentaje_descuento: integerWithExistingLimits(z.coerce.number()).min(0).max(100),
   aplica_conceptos: z.array(z.string().trim().min(1).max(100)).min(1).max(20).optional()
     .default(["colegiatura"]),
-  vigencia_meses: z.coerce.number().int().min(1).max(120).nullable().optional().default(12),
+  vigencia_meses: integerWithExistingLimits(z.coerce.number()).min(1).max(120).nullable().optional().default(12),
 }).strict();
 
-const scholarshipTypePayloadSchema = z.object({
+export const scholarshipTypePayloadSchema = z.object({
   nombre: z.string().trim().min(1).max(100),
   categoria: z.enum([
     "academica", "socioeconomica", "deportiva", "cultural",

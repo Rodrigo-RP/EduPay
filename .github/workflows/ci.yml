@@ -92,6 +92,12 @@ jobs:
       - name: Crear esquema desde cero
         run: npm run db:migrate
 
+      - name: Comparar exactamente el esquema vacío con el catálogo verificado
+        run: npx tsx scripts/verify-schema-exact.ts
+
+      - name: Probar guardas y bootstrap sin conexiones reales
+        run: npx vitest run --config vitest.production.config.ts
+
       - run: npm run check
       - run: npm run build
       - run: npm run check:routes
@@ -154,6 +160,9 @@ jobs:
       - run: npm run test:e2e
         env:
           NODE_OPTIONS: --import=${{ github.workspace }}/.github/ci/neon-config.mjs
+
+      - name: Confirmar que arranque y suites no introdujeron DDL
+        run: npx tsx scripts/verify-schema-exact.ts
 
       - name: Subir evidencias si falla
         if: failure()

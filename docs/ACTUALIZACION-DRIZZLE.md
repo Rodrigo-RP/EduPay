@@ -49,3 +49,100 @@ sin modificar código de la aplicación, sin any, supresiones ni casts.
 
 No se cambian Vite, SQL de la aplicación, esquema físico, catálogo de referencia,
 snapshots ni las siete migraciones.
+
+## Pruebas reproducibles sin heliumdb
+
+### Generación
+
+```bash
+npx tsx scripts/verify-drizzle-generation.ts
+```
+
+Ejecuta `npm run db:generate` en una copia temporal de la configuración,
+`drizzle` y `shared`, con una URL inaccesible. Exige tanto la salida positiva
+como hashes idénticos de todos los SQL, snapshots y journal.
+
+Salida relevante:
+
+```text
+64 tables
+...
+No schema changes, nothing to migrate 😴
+[drizzle:generate] Cero archivos nuevos o modificados; snapshots y journal idénticos.
+```
+
+Kit puede devolver 0 ante un error de importación; no basta el exit code.
+La primera preparación temporal omitía `shared/email-schema`: se corrigió
+la copia del entorno de prueba, no el esquema ni la app. No se contabilizó esa
+invocación como generación aprobada.
+
+### Esquema vacío con el migrador nuevo
+
+En PostgreSQL 16.10 temporal, creado exclusivamente para esta prueba, con
+APP_ENV=test y marcador edupay:test:
+
+```text
+DATABASE_URL → edupay_drizzle_fresh, servidor local temporal
+npm run db:migrate
+[db:migrate] Migraciones aplicadas correctamente
+npx tsx scripts/verify-schema-exact.ts
+[schema:exact] 12 categorías; cero diferencias (sin normalización)
+```
+
+Consulta completa y resultado:
+
+```sql
+SELECT current_database(), count(*) AS migraciones_aplicadas
+FROM drizzle.__drizzle_migrations;
+-- edupay_drizzle_fresh | 7
+```
+
+### Compatibilidad del ledger anterior
+
+```bash
+APP_ENV=test DATABASE_URL=<base-local-desechable> \
+  npx tsx scripts/verify-drizzle-migrator-compat.ts <paquete-ORM-0.39.3>
+```
+
+La prueba rechaza antes de conectar cualquier destino no local, todo nombre
+que no empiece por `edupay_drizzle_` y APP_ENV distinto de test. Exige el
+marcador antes de escribir. Instala las siete migraciones usando realmente
+el paquete 0.39.3, verifica hashes/timestamps y el catálogo esperado, y luego
+invoca al migrador 0.45.4 sobre ese mismo ledger.
+
+Consultas propias completas:
+
+```sql
+SELECT current_database() AS database_name;
+-- edupay_drizzle_compat_local
+
+SELECT shobj_description(oid, 'pg_database') AS environment_marker
+FROM pg_database WHERE datname = current_database();
+-- edupay:test
+
+SELECT count(*)::integer AS total
+FROM information_schema.tables
+WHERE table_schema NOT IN ('pg_catalog', 'information_schema');
+-- 0 antes de migrar
+
+SELECT id, hash, created_at::text AS created_at
+FROM drizzle.__drizzle_migrations ORDER BY id;
+-- 7 filas antes y después, con idénticos id, hash y created_at.
+```
+
+Las doce consultas completas de catálogo son las ya versionadas en
+`scripts/lib/schema-catalog.ts`; se imprimen íntegramente en el paso de CI.
+Se comparan sus resultados con `drizzle/schema-catalog.json` y entre sí.
+
+El logger del migrador nuevo permite únicamente comprobar el schema/tabla
+del ledger, seleccionar su última fila y abrir/cerrar la transacción.
+Se rechaza cualquier sentencia de reejecución de los SQL de las migraciones.
+
+```text
+[drizzle:compat] Las siete migraciones se aplicaron con ORM 0.39.3.
+[drizzle:compat] ORM 0.45.4 reconoce 7/7; cero migraciones reejecutadas, ledger idéntico y cero diferencias en 12 categorías.
+```
+
+El PostgreSQL temporal local se detuvo después de las dos pruebas. No se
+consultó ni migró heliumdb. El CI repite generación, esquema vacío, conteo
+de siete entradas y compatibilidad en bases desechables.

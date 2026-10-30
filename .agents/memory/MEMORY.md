@@ -74,7 +74,7 @@
 - [Deuda de configuración de pagos](payment-config-debt.md) — las pantallas y APIs heredadas siguen alcanzables; sólo la ruta completa es el camino activo hasta consolidarlas.
 - [Recargos mensuales acumulables](monthly-surcharge-accumulation.md) — la acumulación es un ledger mensual idempotente y nunca regulariza meses anteriores a su activación.
 - [Calendario por periodicidad](due-date-periodicity.md) — vencimientos institucionales siempre configurados; periodos largos son explícitos y el override sólo existe para extraordinarios.
-- [Drizzle baseline introspection](drizzle-baseline-introspection.md) — `drizzle-kit pull` puede corromper opclasses, arrays y checks NOT VALID; adoptar sólo con comparación transaccional del catálogo.
+- [Drizzle baseline y CLI](drizzle-baseline-introspection.md) — introspección y generación requieren comparación exacta; exit 0 del CLI no demuestra éxito.
 - [Importación incremental de alumnos](incremental-student-import.md) — `/importacion-datos` es el flujo continuo; dedup concurrente bloquea todas las claves del archivo en orden global.
 - [Identidad de base y pruebas](database-environment-safety.md) — no inferir producción externa desde Publishing ni ejecutar suites sobre candidatas sin identificar.
 - [Seguridad de notificaciones](notification-safety-requirements.md) — aceptación no es entrega; conservar incidencias y separar revisión de activación.

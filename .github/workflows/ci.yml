@@ -90,10 +90,25 @@ jobs:
             -c "SELECT current_database(), shobj_description(oid, 'pg_database') AS environment_marker FROM pg_database WHERE datname = current_database();"
 
       - name: Crear esquema desde cero
-        run: npm run db:migrate
+        run: |
+          npm run db:migrate
+          count=$(psql "$DATABASE_URL" -At -v ON_ERROR_STOP=1 -c 'SELECT count(*) FROM drizzle.__drizzle_migrations')
+          echo "SELECT count(*) FROM drizzle.__drizzle_migrations -> $count"
+          test "$count" = 7
 
       - name: Comparar exactamente el esquema vacío con el catálogo verificado
         run: npx tsx scripts/verify-schema-exact.ts
+
+      - name: Verificar generación sin cambios y ledger de Drizzle anterior
+        run: |
+          npx tsx scripts/verify-drizzle-generation.ts
+          legacy="$RUNNER_TEMP/drizzle-legacy"
+          npm install --prefix "$legacy" --no-save --package-lock=false --ignore-scripts drizzle-orm@0.39.3 pg@8.23.1
+          createdb -h 127.0.0.1 -U ci_test edupay_drizzle_compat_ci
+          export DATABASE_URL=postgresql://ci_test@127.0.0.1:5432/edupay_drizzle_compat_ci
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "COMMENT ON DATABASE edupay_drizzle_compat_ci IS 'edupay:test';"
+          npx tsx scripts/verify-drizzle-migrator-compat.ts "$legacy/node_modules/drizzle-orm"
+          dropdb -h 127.0.0.1 -U ci_test edupay_drizzle_compat_ci
 
       - name: Probar guardas y bootstrap sin conexiones reales
         run: npx vitest run --config vitest.production.config.ts

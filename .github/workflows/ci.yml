@@ -98,6 +98,15 @@ jobs:
       - name: Probar guardas y bootstrap sin conexiones reales
         run: npx vitest run --config vitest.production.config.ts
 
+      - name: Probar transacción y concurrencia del bootstrap en otra base desechable
+        run: |
+          createdb -h 127.0.0.1 -U ci_test edupay_bootstrap_ci
+          export DATABASE_URL=postgresql://ci_test@127.0.0.1:5432/edupay_bootstrap_ci
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "COMMENT ON DATABASE edupay_bootstrap_ci IS 'edupay:test';"
+          npm run db:migrate
+          npx tsx scripts/verify-bootstrap-disposable.ts
+          dropdb -h 127.0.0.1 -U ci_test edupay_bootstrap_ci
+
       - run: npm run check
       - run: npm run build
       - run: npm run check:routes

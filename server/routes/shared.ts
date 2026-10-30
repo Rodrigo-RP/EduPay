@@ -12,6 +12,7 @@ import { pool } from "../db";
 import { hasPermission } from "@shared/permissions";
 export { isSessionInvalidated, passwordVersion } from "../lib/session-version";
 import { isSessionInvalidated } from "../lib/session-version";
+import { BOOTSTRAP_PASSWORD_PENDING_SQL } from "../lib/bootstrap";
 
 // ── createRequire para paquetes CJS en módulo ESM ────────────────────────────
 // "type":"module" en package.json rompe require(); usar esmRequire en su lugar.
@@ -77,15 +78,18 @@ interface UserAuthData {
   customPermissions: string[];
   passwordChangedAt: Date | null;
   active: boolean;
+  requiresPasswordChange: boolean;
 }
 export async function loadUserAuthData(
   userId: number | undefined,
 ): Promise<UserAuthData> {
-  if (!userId) return { customPermissions: [], passwordChangedAt: null, active: false };
+  if (!userId) return { customPermissions: [], passwordChangedAt: null, active: false, requiresPasswordChange: false };
   try {
     const row = await pool.query(
-      `SELECT custom_permissions, password_changed_at, is_active
-         FROM users WHERE id = $1 LIMIT 1`,
+      `SELECT u.custom_permissions, u.password_changed_at, u.is_active,
+              ${BOOTSTRAP_PASSWORD_PENDING_SQL} AS requires_password_change
+         FROM users u LEFT JOIN campuses c ON c.id = u.campus_id AND c.tenant_id = u.tenant_id
+        WHERE u.id = $1 LIMIT 1`,
       [userId],
     );
     const r = row.rows[0] as any;
@@ -94,6 +98,7 @@ export async function loadUserAuthData(
       passwordChangedAt: r?.password_changed_at ? new Date(r.password_changed_at) : null,
       // Usuario inexistente o desactivado: la sesión deja de valer de inmediato.
       active: !!r && r.is_active !== false,
+      requiresPasswordChange: r?.requires_password_change === true,
     };
   } catch {
     throw new Error("No se pudo validar la versión de sesión");
@@ -132,14 +137,17 @@ export const authenticateToken = async (req: any, res: any, next: any) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     // Una sola query obtiene custom_permissions Y password_changed_at (ADR-003 + #138).
-    const { customPermissions, passwordChangedAt, active } = await loadUserAuthData(decoded.id);
+    const { customPermissions, passwordChangedAt, active, requiresPasswordChange } = await loadUserAuthData(decoded.id);
     if (!active || isSessionInvalidated(decoded.password_version, passwordChangedAt)) {
       return res.status(401).json({
         message: MSG_SESSION_INVALIDATED,
         code:    "SESSION_INVALIDATED",
       });
     }
-    req.user = { ...decoded, custom_permissions: customPermissions };
+    if (requiresPasswordChange && !(req.method === "PUT" && req.originalUrl.split("?")[0] === "/api/profile/password")) {
+      return res.status(403).json({ message: "Cambia tu contraseña temporal antes de continuar.", code: "PASSWORD_CHANGE_REQUIRED" });
+    }
+    req.user = { ...decoded, custom_permissions: customPermissions, requires_password_change: requiresPasswordChange };
     req.tenantId = decoded.tenant_id ?? null;
     next();
   } catch {
@@ -184,13 +192,16 @@ export const requireAuth = async (req: any, res: any, next: any) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     // Misma fuente de verdad que authenticateToken (ADR-003 + #138).
-    const { customPermissions, passwordChangedAt, active } = await loadUserAuthData(decoded.id);
+    const { customPermissions, passwordChangedAt, active, requiresPasswordChange } = await loadUserAuthData(decoded.id);
     if (!active || isSessionInvalidated(decoded.password_version, passwordChangedAt)) {
       return res.status(401).json({
         error:   "Sesión inválida",
         message: MSG_SESSION_INVALIDATED,
         code:    "SESSION_INVALIDATED",
       });
+    }
+    if (requiresPasswordChange) {
+      return res.status(403).json({ message: "Cambia tu contraseña temporal antes de continuar.", code: "PASSWORD_CHANGE_REQUIRED" });
     }
     req.user = { ...decoded, custom_permissions: customPermissions };
     req.tenantId = decoded.tenant_id ?? null;

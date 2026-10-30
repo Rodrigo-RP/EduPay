@@ -46,6 +46,7 @@ export function registerAuthRoutes(app: Express): void {
       if (!user || !await bcrypt.compare(password, user.password_hash)) {
         return res.status(401).json({ message: "Credenciales inválidas" });
       }
+      const { requiresPasswordChange } = await loadUserAuthData(user.id);
 
       // ── Verificación TOTP (2FA) ──────────────────────────────────────────
       if (user.twofa_secret) {
@@ -71,7 +72,7 @@ export function registerAuthRoutes(app: Express): void {
         { expiresIn: '24h' }
       );
 
-      res.json({ token, user: { id: user.id, email: user.email, name: user.name ?? "", role: user.role, campus_id: user.campus_id, tenant_id: user.tenant_id } });
+      res.json({ token, user: { id: user.id, email: user.email, name: user.name ?? "", role: user.role, campus_id: user.campus_id, tenant_id: user.tenant_id, requires_password_change: requiresPasswordChange } });
     } catch (error: any) {
       res.status(500).json({ message: "Login failed" });
     }

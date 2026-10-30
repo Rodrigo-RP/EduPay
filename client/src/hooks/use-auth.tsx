@@ -7,6 +7,7 @@ interface User {
   name: string;
   role: string;
   campus_id: number;
+  requires_password_change?: boolean;
   telefono?: string;
   foto_url?: string;
 }

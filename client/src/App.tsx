@@ -60,6 +60,7 @@ import MagicLinkRedirect from "@/pages/magic-link-redirect";
 import AssistantWidget from "@/components/AssistantWidget";
 import OnboardingGuard from "@/components/OnboardingGuard";
 import DataReadBoundary from "@/components/data-read-boundary";
+import InitialPasswordChange from "@/components/initial-password-change";
 
 function AuthenticatedRoutes() {
   const { user, guardian, isLoading } = useAuth();
@@ -75,6 +76,7 @@ function AuthenticatedRoutes() {
   if (!user && !guardian) {
     return <Login />;
   }
+  if (user?.requires_password_change) return <InitialPasswordChange />;
 
   // Guardians authenticated via magic-link or password go directly to the payment portal.
   if (guardian) {

@@ -24,6 +24,9 @@ it("login real y canje real no registran JWT, liga, credenciales, PII ni headers
   const credential = randomUUID(), email = `${randomUUID()}@fixture.invalid`;
   mocks.getUserByEmail.mockResolvedValue({ id: 1, email, role: "asistente",
     password_hash: await bcrypt.hash(credential, 4), password_changed_at: null });
+  mocks.query.mockResolvedValue({ rows: [{
+    is_active: true, password_changed_at: null, custom_permissions: [], requires_password_change: false,
+  }] });
   const login = await fetch(`${base}/api/auth/login?correo=${email}`, {
     method: "POST", headers: { "Content-Type": "application/json", "X-Correlation-ID": credential },
     body: JSON.stringify({ email, password: credential, curp: credential, rfc: credential, telefono: credential }),

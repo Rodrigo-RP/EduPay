@@ -44,6 +44,7 @@ import { pool } from "./db";
 import { registerEmailWebhookRuntime } from "./lib/email/webhook-runtime";
 
 import { financialRequestValidation } from "./lib/financial-request-validation";
+import { registerBootstrapRoute } from "./routes/bootstrap";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // ── Trust proxy (Replit reverse proxy) ──────────────────────────────────────
@@ -62,6 +63,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(sanitizeInput);
   app.use(financialRequestValidation);
   app.use(integrityCheck);
+  registerBootstrapRoute(app, pool);
 
   // ── Página pública de Cuentas por Cobrar ─────────────────────────────────────
   app.get("/cuentas", (_req, res) => {

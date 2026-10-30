@@ -10,8 +10,9 @@ import { insertUserSchema, insertGuardianSchema, insertInstitutionalInfoSchema }
 import { canEditUser,MODULES, ACTIONS, UserRole } from "@shared/permissions";
 import { storage } from "../storage";
 import { wsManager } from "../websocket-manager";
-import { authenticateToken, authenticateGuardian, requireSuperAdmin, serializeUser, esmRequire, hasPermissionForUser} from "./shared";
+import { authenticateToken, authenticateGuardian, requireSuperAdmin, serializeUser, esmRequire, hasPermissionForUser } from "./shared";
 import { enqueueAuditLog, type AuditLogPayload } from "../audit-retry";
+import { changeInitialPassword, BootstrapError, isInitialPasswordSession } from "../lib/bootstrap";
 
 // ── Generador de contraseñas criptográficamente seguro ────────────────────────
 // crypto.randomInt(min, max) usa CSPRNG del SO, sin modulo bias.
@@ -103,13 +104,28 @@ export function registerUserRoutes(app: Express): void {
       if (!user || !await bcrypt.compare(currentPassword, user.password_hash)) {
         return res.status(401).json({ message: "Current password is incorrect" });
       }
+      // Capturado por el middleware en esta petición: no releer la bandera
+      // después de verificar la temporal (evita una carrera con otro cambio).
+      const requiresPasswordChange = isInitialPasswordSession(req);
+      if (requiresPasswordChange && (
+        typeof newPassword !== "string" || newPassword.length < 12 ||
+        newPassword === currentPassword || Buffer.byteLength(newPassword, "utf8") > 72
+      )) {
+        return res.status(400).json({ message: "Elige una contraseña distinta de la temporal, de al menos 12 caracteres y máximo 72 bytes." });
+      }
       
       // Hash new password
       const hashedPassword = await bcrypt.hash(newPassword, 10);
-      await storage.updateUserPassword(userId, hashedPassword);
+      if (requiresPasswordChange) {
+        if (!user.tenant_id || !user.campus_id) return res.status(403).json({ message: "No se pudo verificar la institución del usuario." });
+        await changeInitialPassword(pool, { id: userId, tenantId: user.tenant_id, campusId: user.campus_id }, user.password_hash, hashedPassword);
+      } else {
+        await storage.updateUserPassword(userId, hashedPassword);
+      }
       
       res.json({ message: "Password updated successfully" });
     } catch (error: any) {
+      if (error instanceof BootstrapError) return res.status(error.status).json({ message: error.message });
       res.status(500).json({ message: "Error updating password" });
     }
   });

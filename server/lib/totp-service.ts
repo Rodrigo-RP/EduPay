@@ -11,6 +11,17 @@ export class TotpError extends Error {
 export interface StaffScope { id: number; tenantId: number | null; campusId: number | null }
 type QueryPool = BootstrapPool;
 const TTL = 10 * 60 * 1000;
+const enrollmentLocks = new Map<number, Promise<void>>();
+/** Serializa también la entrega del QR: un setup concurrente no responde después de confirmar. */
+export async function withTotpEnrollmentLock<T>(userId: number, operation: () => Promise<T>): Promise<T> {
+  const previous = enrollmentLocks.get(userId) ?? Promise.resolve();
+  let release: () => void = () => {};
+  const current = new Promise<void>(resolve => { release = resolve; });
+  enrollmentLocks.set(userId, current);
+  await previous;
+  try { return await operation(); }
+  finally { release(); if (enrollmentLocks.get(userId) === current) enrollmentLocks.delete(userId); }
+}
 
 /** Sólo ciphertext en memoria, incluso antes de confirmar; no sobrevive reinicios. */
 export class PendingTotpEnrollments {

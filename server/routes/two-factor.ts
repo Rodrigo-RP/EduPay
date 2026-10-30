@@ -6,7 +6,7 @@ import { storage } from "../storage";
 import { authenticateToken, esmRequire, JWT_SECRET, hasPermissionForUser } from "./shared";
 import { MODULES, ACTIONS, canEditUser, type UserRole } from "@shared/permissions";
 import { userInSessionScope } from "../lib/user-authorization";
-import { pendingTotp, confirmTotp, TotpError } from "../lib/totp-service";
+import { pendingTotp, confirmTotp, TotpError, withTotpEnrollmentLock } from "../lib/totp-service";
 import { signStaffSession } from "../lib/staff-session";
 import { revokeStaffRealtime } from "../lib/staff-realtime";
 
@@ -24,7 +24,7 @@ const withStaff = (handler: (req: StaffRequest, res: Response) => Promise<unknow
   async (req: Request, res: Response) => {
     const parsed = staffClaims.safeParse("user" in req ? req.user : undefined);
     if (!parsed.success) { res.status(403).json({ message: "Sesión de personal no válida." }); return; }
-    await handler(Object.assign(req, { user: parsed.data }), res);
+    await withTotpEnrollmentLock(parsed.data.id, () => handler(Object.assign(req, { user: parsed.data }), res));
   };
 const resetChallenges = new Map<string, { actor: number; target: number; reason: string; version: string; expires: number }>();
 const resetInput = z.object({ reason: z.string().trim().min(1, "Escribe el motivo.").max(1000), confirmation: z.literal(true) });

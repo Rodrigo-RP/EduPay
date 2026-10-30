@@ -7,7 +7,7 @@ export default defineConfig({
   test: {
     environment: "node",
     fileParallelism: false,
-    include: ["server/tests/{migration-environment,production-startup,bootstrap,schema-comparison,audit-retry-initialization}.test.ts"],
+    include: ["server/tests/{migration-environment,production-startup,bootstrap,schema-comparison,audit-retry-initialization,totp-crypto}.test.ts"],
     env: { JWT_SECRET: randomBytes(32).toString("hex") },
   },
   resolve: { alias: { "@shared": path.resolve(import.meta.dirname, "shared") } },

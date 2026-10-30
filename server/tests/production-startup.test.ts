@@ -9,11 +9,12 @@ const env = (): NodeJS.ProcessEnv => ({
   DATABASE_URL: "postgresql://localhost/never_connected",
   SESSION_SECRET: randomBytes(32).toString("hex"),
   JWT_SECRET: randomBytes(32).toString("hex"),
+  TOTP_ENCRYPTION_KEY: randomBytes(32).toString("base64"),
   STRIPE_SECRET_KEY: randomBytes(32).toString("hex"),
 });
 
 describe("arranque seguro de producción", () => {
-  it.each(["SESSION_SECRET", "JWT_SECRET", "DATABASE_URL", "STRIPE_SECRET_KEY", "APP_ENV"])("sin %s rechaza antes de conectar", async key => {
+  it.each(["SESSION_SECRET", "JWT_SECRET", "DATABASE_URL", "STRIPE_SECRET_KEY", "APP_ENV", "TOTP_ENCRYPTION_KEY"])("sin %s rechaza antes de conectar", async key => {
     const values = env();
     delete values[key];
     const read = vi.fn();

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { totpEncryptionKeySchema } from "./totp-crypto";
 
 export class ProductionStartupError extends Error {}
 const productionEnvironment = z.object({
@@ -7,6 +8,7 @@ const productionEnvironment = z.object({
   DATABASE_URL: z.string().url(),
   SESSION_SECRET: z.string().min(32),
   JWT_SECRET: z.string().min(32),
+  TOTP_ENCRYPTION_KEY: totpEncryptionKeySchema,
   // El módulo de pagos construye su SDK al importarse; no se llama al proveedor.
   STRIPE_SECRET_KEY: z.string().min(1),
   BOOTSTRAP_TOKEN: z.string().min(32).optional(),

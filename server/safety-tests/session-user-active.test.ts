@@ -49,6 +49,14 @@ it("sin id no hay usuario activo y su token es rechazado", async () => {
   } });
   expect(response.status).toBe(401);
 });
+it("un JWT malformado conserva el contrato 403 sin consultar datos", async () => {
+  state.failed = true;
+  try {
+    const response = await fetch(`${base}/probe/token`, { headers: { Authorization: "Bearer jwt-administrativo-expirado" } });
+    expect(response.status).toBe(403);
+    expect((await response.json()).message).toBe("Token inválido");
+  } finally { state.failed = false; }
+});
 it("un error de base no se transforma en usuario activo", async () => {
   state.failed = true;
   await expect(loadUserAuthData(701)).rejects.toThrow("No se pudo validar la versión de sesión");

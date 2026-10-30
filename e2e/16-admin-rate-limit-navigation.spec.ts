@@ -94,7 +94,7 @@ test("un JWT administrativo inválido se descarta antes de consultar onboarding"
 
   await expect(page.locator("#email")).toBeVisible({ timeout: 10_000 });
   await page.waitForTimeout(750);
-  expect(authStatuses, "La sesión inválida se rechaza una sola vez antes de renderizar pantallas").toEqual([401]);
+  expect(authStatuses, "El JWT malformado recibe el 403 del contrato de autenticación, una sola vez").toEqual([403]);
   expect(requests, "Una sesión inválida no debe consultar onboarding").toHaveLength(0);
   expect(await page.evaluate(() => localStorage.getItem("auth_token"))).toBeNull();
 });

@@ -75,3 +75,33 @@ drizzle-zod 0.8.3 y @hookform/resolvers 5.9.1, sin rangos.
 - `server/routes/system.ts`
 - `server/routes/misc.ts`
 - `server/routes/guardian.ts`
+
+## Evidencia del arreglo grande
+
+Mismo esquema de `aplica_conceptos` (cadenas recortadas, longitud 1–100,
+arreglo de 1–20 elementos), con 10,000 valores nulos y cuerpo JSON de
+50,022 bytes:
+
+| Medición aislada | Antes: Zod 3.25.76 | Después: Zod 4.6.7 |
+| --- | ---: | ---: |
+| Errores generados | 10,001 | 1 |
+| Tiempo de una ejecución | 78.12 ms | 2.65 ms |
+| Incremento de heap observado | 12,807,256 bytes | 156,744 bytes |
+
+Los tiempos y deltas de heap son muestras individuales, sensibles a GC y
+carga del entorno; no constituyen una garantía de rendimiento.
+
+`server/safety-tests/zod4-validation.test.ts` verifica además:
+
+- La ruta real `POST /api/admin/scholarship-types`, con dependencias de base
+  simuladas, rechaza con 400 el cuerpo completo de unos 50 KB y no llama a SQL
+  ni abre una conexión.
+- El esquema real genera un solo error de máximo veinte conceptos.
+- Un proceso Node con heap de V8 limitado a 64 MiB conserva 250 resultados
+  de estas validaciones: 250 errores en total, termina sin agotamiento.
+  Ese límite no representa el RSS total del proceso.
+- Se conservan límites de conceptos y porcentajes, coerción, defaults,
+  comprobación de enteros, UUID permisivos y el mensaje español del formulario.
+
+El código de producción no importa `zod/v3`. No se modifican migraciones ni
+el esquema físico de Drizzle.

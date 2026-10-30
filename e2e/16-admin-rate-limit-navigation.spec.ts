@@ -67,8 +67,12 @@ test("una sesión administrativa normal conserva un presupuesto saludable", asyn
   }
 });
 
-test("un JWT administrativo inválido se descarta tras el primer rechazo de onboarding", async ({ page }) => {
+test("un JWT administrativo inválido se descarta antes de consultar onboarding", async ({ page }) => {
   const requests: string[] = [];
+  const authStatuses: number[] = [];
+  page.on("response", response => {
+    if (new URL(response.url()).pathname === "/api/auth/user") authStatuses.push(response.status());
+  });
   page.on("request", (request) => {
     if (new URL(request.url()).pathname === "/api/admin/configuracion/onboarding-status") {
       requests.push(request.url());
@@ -90,5 +94,7 @@ test("un JWT administrativo inválido se descarta tras el primer rechazo de onbo
 
   await expect(page.locator("#email")).toBeVisible({ timeout: 10_000 });
   await page.waitForTimeout(750);
-  expect(requests, "Una sesión inválida no debe reintentar onboarding en bucle").toHaveLength(1);
+  expect(authStatuses, "La sesión inválida se rechaza una sola vez antes de renderizar pantallas").toEqual([401]);
+  expect(requests, "Una sesión inválida no debe consultar onboarding").toHaveLength(0);
+  expect(await page.evaluate(() => localStorage.getItem("auth_token"))).toBeNull();
 });

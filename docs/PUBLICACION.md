@@ -45,12 +45,17 @@ gestor de contraseñas. No los pongas en Git, documentos, chats ni capturas.
 | `DATABASE_URL` | La conexión que Replit asigna a **su nueva base de producción**, nunca la de desarrollo. |
 | `SESSION_SECRET` | Nuevo valor aleatorio, mínimo 32 caracteres. |
 | `JWT_SECRET` | Otro nuevo valor aleatorio, mínimo 32 caracteres; no reutilizar `SESSION_SECRET`. |
+| `TOTP_ENCRYPTION_KEY` | Secret nuevo: exactamente 32 bytes aleatorios en base64 canónico. No copiar el de desarrollo ni cambiarlo después sin recifrar los secretos TOTP. |
 | `STRIPE_SECRET_KEY` | Clave de la cuenta y entorno de Stripe elegidos para producción. El SDK la exige al arrancar. No copiar la de desarrollo. |
 | `VITE_STRIPE_PUBLISHABLE_KEY` | Clave pública de la misma cuenta y entorno de Stripe; es configuración del build, no una contraseña. Sustituye la clave de pruebas compartida. |
 | `STRIPE_WEBHOOK_SECRET` | Secreto nuevo del endpoint de webhook de esta publicación. Sin él no se deben aceptar liquidaciones del proveedor. |
 | `BOOTSTRAP_TOKEN` | Nuevo valor aleatorio de al menos 32 caracteres, de un solo uso lógico. Mantenerlo sólo mientras se crea la institución. |
 
 No habilites `ALLOW_DEMO_SEED`: debe estar ausente o ser `false`.
+
+Después del cambio de contraseña temporal, el administrador inicial registra
+su autenticador y guarda sus diez códigos de respaldo. Todo el personal debe
+completar ese registro antes de usar la app. Consulta `docs/SEGURIDAD-2FA.md`.
 `ALLOW_DEMO_SEED=true` impide el arranque de producción.
 
 Los proveedores opcionales (correo, Facturapi, Anthropic y los demás que

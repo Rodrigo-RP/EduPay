@@ -45,7 +45,8 @@ export function useRealTime(options: UseRealTimeOptions = {}) {
   const minConnectionInterval = 1000; // Minimum 1 second between connection attempts
 
   const connect = useCallback(() => {
-    if (!user || wsRef.current?.readyState === WebSocket.OPEN || wsRef.current?.readyState === WebSocket.CONNECTING) {
+    if (!user || user.requires_password_change || user.requires_twofa_setup ||
+      wsRef.current?.readyState === WebSocket.OPEN || wsRef.current?.readyState === WebSocket.CONNECTING) {
       return;
     }
 
@@ -117,6 +118,10 @@ export function useRealTime(options: UseRealTimeOptions = {}) {
         }
 
         onDisconnect?.();
+        if (event.code === 4001) {
+          window.dispatchEvent(new Event("auth:invalid-session"));
+          return;
+        }
 
         // Intentar reconectar si no fue un cierre intencional
         if (event.code !== 1000 && reconnectAttempts.current < maxReconnectAttempts) {

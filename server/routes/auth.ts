@@ -67,6 +67,7 @@ export function registerAuthRoutes(app: Express): void {
       const userId = (req as any).user?.id;
       const user = await storage.getUserById(userId);
       if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+      if (user.twofa_secret && !(req as any).user.twofa_verified) return res.status(401).json({ message: "Inicia sesión de nuevo y verifica tus dos factores." });
       res.json({ ...serializeUser(user), requires_password_change: (req as any).user.requires_password_change,
         requires_twofa_setup: (req as any).user.twofa_verified !== true });
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }

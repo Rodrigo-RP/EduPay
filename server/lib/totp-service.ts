@@ -8,7 +8,7 @@ const speakeasy: typeof import("speakeasy") = require("speakeasy");
 export class TotpError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
-export interface StaffScope { id: number; tenantId: number | null; campusId: number | null }
+export interface StaffScope { id: number; tenantId: number | null; campusId: number | null; passwordVersion?: number }
 type QueryPool = BootstrapPool;
 const TTL = 10 * 60 * 1000;
 const enrollmentLocks = new Map<number, Promise<void>>();
@@ -82,11 +82,14 @@ export async function confirmTotp(pool: QueryPool, scope: StaffScope, code: unkn
   try {
     await client.query("BEGIN");
     const row = await client.query(
-      `SELECT twofa_secret FROM users WHERE id=$1 AND tenant_id IS NOT DISTINCT FROM $2
+      `SELECT twofa_secret, password_changed_at FROM users WHERE id=$1 AND tenant_id IS NOT DISTINCT FROM $2
        AND campus_id IS NOT DISTINCT FROM $3 AND is_active=true FOR UPDATE`,
       [scope.id, scope.tenantId, scope.campusId],
     );
     if (!row.rows.length) throw new TotpError(404, "Usuario no encontrado.");
+    const changed = row.rows[0].password_changed_at;
+    const version = changed instanceof Date ? changed.getTime() : changed ? new Date(String(changed)).getTime() : 0;
+    if (version !== (scope.passwordVersion ?? 0)) throw new TotpError(401, "La sesión cambió. Inicia sesión de nuevo.");
     if (row.rows[0].twofa_secret) throw new TotpError(409, "La cuenta ya tiene dos factores configurados.");
     if (pendingTotp.encrypted(scope.id) !== encrypted) throw new TotpError(409, "El QR fue reemplazado. Usa el más reciente.");
     const backups = createBackupCodes(scope.id);

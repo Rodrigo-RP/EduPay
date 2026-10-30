@@ -60,20 +60,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = localStorage.getItem("auth_token");
     const userType = localStorage.getItem("auth_type");
     
-    if (token && userType) {
-      // Verify token and get user data
+    if (token && userType === "user") {
+      // No renderizar pantallas de personal a partir de un indicador viejo o
+      // manipulado en localStorage: la sesión y el paso pendiente los decide el servidor.
+      fetch("/api/auth/user", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" })
+        .then(async response => {
+          if (!response.ok) throw new Error("Sesión inválida");
+          const loaded: User = await response.json();
+          localStorage.setItem("auth_user", JSON.stringify(loaded));
+          setUser(loaded);
+        })
+        .catch(clearInvalidSession)
+        .finally(() => setIsLoading(false));
+    } else if (token && userType) {
       setIsLoading(false);
-      
-      // In a real app, you'd verify the token with the server
-      // For now, we'll assume the token is valid
       const userData = localStorage.getItem("auth_user");
       if (userData) {
         const parsedUser = JSON.parse(userData);
-        if (userType === "user") {
-          setUser(parsedUser);
-        } else {
-          setGuardian(parsedUser);
-        }
+        setGuardian(parsedUser);
       }
     } else {
       setIsLoading(false);

@@ -48,6 +48,16 @@ describe("registro pendiente privado y cifrado", () => {
     expect(validTotp(pendingTotp.encrypted(7), 7, speakeasy.totp({ secret: enrollment.manual_code, encoding: "base32" }))).toBe(true);
     expect(validTotp(pendingTotp.encrypted(7), 7, "not-a-code")).toBe(false);
   });
+  it("una contraseña cambiada durante la confirmación impide escribir con la sesión anterior", async () => {
+    const enrollment = pendingTotp.begin({ id: 7, email: "account@example.invalid" });
+    const code = speakeasy.totp({ secret: enrollment.manual_code, encoding: "base32" });
+    const query = vi.fn(async (sql: string) => ({ rows: sql.startsWith("SELECT")
+      ? [{ twofa_secret: null, password_changed_at: new Date() }] : [] }));
+    const pool = { connect: async () => ({ query, release() {} }) };
+    await expect(confirmTotp(pool, { id: 7, tenantId: 1, campusId: 1, passwordVersion: 0 }, code)).rejects.toThrow("La sesión cambió");
+    expect(query.mock.calls.some(([sql]) => sql.startsWith("UPDATE"))).toBe(false);
+    expect(query).toHaveBeenLastCalledWith("ROLLBACK");
+  });
 });
 describe("10 códigos de respaldo de un solo uso", () => {
   it("sólo almacena hashes y dos consumos simultáneos no repiten el código", async () => {

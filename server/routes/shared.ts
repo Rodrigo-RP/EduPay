@@ -145,7 +145,8 @@ export const authenticateToken = async (req: any, res: any, next: any) => {
         code:    "SESSION_INVALIDATED",
       });
     }
-    if (requiresPasswordChange && !(req.method === "PUT" && req.originalUrl.split("?")[0] === "/api/profile/password")) {
+    const ownAuthRead = req.method === "GET" && req.originalUrl.split("?")[0] === "/api/auth/user";
+    if (requiresPasswordChange && !ownAuthRead && !(req.method === "PUT" && req.originalUrl.split("?")[0] === "/api/profile/password")) {
       return res.status(403).json({ message: "Cambia tu contraseña temporal antes de continuar.", code: "PASSWORD_CHANGE_REQUIRED" });
     }
     const denial = staffAccessDenial(decoded, req.method, req.originalUrl);

@@ -13,12 +13,13 @@ import { revokeStaffRealtime } from "../lib/staff-realtime";
 // Request.user es enriquecido por authenticateToken, no por el body.
 type StaffRequest = Request & { user: {
   id: number; role: UserRole; campus_id: number | null; tenant_id: number | null;
-  custom_permissions?: string[]; session_started_at?: number;
+  custom_permissions?: string[]; session_started_at?: number; iat: number; password_version: number;
 } };
 const staffClaims = z.object({
   id: z.number().int(), role: z.enum(["super_admin", "administrador_general", "administrador_campus", "contador_general", "auxiliar_contable", "asistente", "admisiones"]),
   campus_id: z.number().int().nullable(), tenant_id: z.number().int().nullable(),
   custom_permissions: z.array(z.string()).optional(), session_started_at: z.number().optional(),
+  iat: z.number(), password_version: z.number().int().nonnegative(),
 });
 const withStaff = (handler: (req: StaffRequest, res: Response) => Promise<unknown>) =>
   async (req: Request, res: Response) => {
@@ -52,9 +53,10 @@ export function registerTwoFactorRoutes(app: Express): void {
     try {
       const user = await storage.getUser(req.user.id);
       if (!userInSessionScope(req.user, user)) return res.status(404).json({ message: "Usuario no encontrado." });
-      const codes = await confirmTotp(pool, { id: user!.id, tenantId: user!.tenant_id, campusId: user!.campus_id }, req.body.totp_code);
+      const codes = await confirmTotp(pool, { id: user!.id, tenantId: user!.tenant_id, campusId: user!.campus_id,
+        passwordVersion: req.user.password_version }, req.body.totp_code);
       res.json({ message: "Dos factores activados. Guarda tus códigos de respaldo.", backup_codes: codes,
-        token: signStaffSession(user!, JWT_SECRET, true, req.user.session_started_at) });
+        token: signStaffSession(user!, JWT_SECRET, true, req.user.session_started_at ?? req.user.iat) });
     } catch (error) { failure(res, error); }
   }));
   // La 2FA es obligatoria: no existe desactivación propia. El restablecimiento requiere otro administrador.

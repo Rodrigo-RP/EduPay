@@ -1,7 +1,7 @@
 import jwt, { type JwtPayload } from "jsonwebtoken";
 import { passwordVersion } from "./session-version";
 
-export const STAFF_SESSION_SECONDS = 24 * 60 * 60;
+export const STAFF_SESSION_SECONDS = 8 * 60 * 60;
 export function staffSessionExpired(claims: JwtPayload, nowSeconds = Math.floor(Date.now() / 1000)): boolean {
   const start = claims.session_started_at ?? claims.iat;
   return typeof start !== "number" || start > nowSeconds + 30 || nowSeconds - start >= STAFF_SESSION_SECONDS;

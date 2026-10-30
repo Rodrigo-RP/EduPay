@@ -28,7 +28,7 @@ try {
     CREATE TABLE IF NOT EXISTS "drizzle"."__drizzle_migrations" (
       id SERIAL PRIMARY KEY,
       hash text NOT NULL,
-      created_at numeric
+      created_at bigint
     )
   `);
   const existing = await client.query(

@@ -15,6 +15,40 @@ autoriza al agente a entrar a la base de producción.
 4. El build es `npm run build` y el arranque es `npm run start`. Ninguno debe
    ejecutar DDL, seeds ni scripts de mantenimiento.
 
+### Modalidad obligatoria: Reserved VM, una sola instancia
+
+Publica EduPay como **Reserved VM con una sola instancia y un solo proceso
+servidor Node.js**. No uses Autoscale, réplicas ni un administrador de procesos
+en modo cluster con la implementación actual. Selecciona y verifica Reserved VM
+en Publishing antes de confirmar cualquier publicación.
+
+La documentación oficial consultada el 30 de octubre de 2026 describe Reserved
+VM, pero no especifica un valor de `deploymentTarget` para esa modalidad.
+Por eso no se cambia `.replit` ni se inventa un valor: actualmente conserva
+`deploymentTarget = "autoscale"`. **Ese valor no cumple este requisito**; no
+publiques si el panel sigue mostrando Autoscale. Confirma explícitamente la
+modalidad Reserved VM en el panel.
+
+Esta restricción es necesaria por cuatro motivos:
+
+- **Procesos de fondo:** el worker de reintentos de auditoría necesita un
+  proceso continuamente disponible. La cola sí es durable en PostgreSQL,
+  pero su procesamiento depende del worker.
+- **WebSockets:** las conexiones abiertas y el registro usado para cerrarlas
+  al cambiar contraseña o restablecer 2FA pertenecen al proceso servidor.
+  Actualmente no existe coordinación para cerrarlas en otras instancias.
+- **Registro pendiente de 2FA:** el secreto pendiente se conserva cifrado en
+  memoria durante un máximo de diez minutos. Otra instancia no comparte ese
+  registro; un reinicio lo pierde y exige comenzar un registro nuevo.
+- **Límites de intentos:** sus contadores están en memoria por proceso.
+  Varias instancias repartirían los intentos entre contadores independientes;
+  un reinicio también reinicia esos contadores.
+
+Reserved VM no vuelve durable la memoria ni evita reinicios. Los secretos TOTP
+confirmados, los hashes de respaldo y la cola de auditoría permanecen en la base.
+Antes de admitir varias instancias se necesita estado pendiente y límites
+compartidos, además de coordinación de revocaciones de WebSocket.
+
 ### Las migraciones nunca se corren en producción
 
 **No ejecutes `npm run db:migrate`, `db:baseline:mark`, `db:push`, SQL de
@@ -197,3 +231,5 @@ de base ni los proveedores reales. No hacen cobros, envíos ni timbrados.
 Referencias oficiales consultadas:
 - [Bases de desarrollo y producción](https://docs.replit.com/features/data-and-storage/development-and-production).
 - [Secrets](https://docs.replit.com/core-concepts/project-editor/app-setup/secrets).
+- [Tipos de publicación: Reserved VM](https://docs.replit.com/features/publishing/deployment-types) — consultada el 30 de octubre de 2026.
+- [Configuración de Replit](https://docs.replit.com/features/project-setup/configuration) — consultada el 30 de octubre de 2026.

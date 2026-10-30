@@ -59,6 +59,9 @@ ALLOW_DEMO_SEED = "true"
 AUTH_RATE_LIMIT_MAX = "10000"
 AUTH_RATE_LIMIT_WINDOW_MS = "900000"
 
+[userenv.production]
+APP_ENV = "production"
+
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 240000

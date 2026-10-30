@@ -1,11 +1,30 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
-import { wsManager } from "./websocket-manager";
-import { initAuditRetryQueue, startAuditRetryWorker } from "./audit-retry";
-import { resendWebhookRateLimit, resendWebhookBodyError } from "./routes/email-webhooks";
-import { requestMetadataLogger } from "./lib/request-log";
-import { apiNotFound } from "./lib/api-not-found";
+import { Pool } from "pg";
+import { validateProductionStartup, ProductionStartupError } from "./lib/production-startup";
+import { DATABASE_MARKER_SQL } from "./lib/database-safety";
+
+async function main() {
+// Primero guardas, después módulos de aplicación, workers y servidor.
+// Los imports dinámicos impiden que un import estático con efectos se adelante.
+await validateProductionStartup(process.env, async () => {
+  const reader = new Pool({ connectionString: process.env.DATABASE_URL });
+  try {
+    const result = await reader.query(DATABASE_MARKER_SQL);
+    return result.rows[0]?.environment_marker;
+  } finally {
+    await reader.end();
+  }
+});
+const [
+  { registerRoutes }, { setupVite, serveStatic, log }, { wsManager },
+  { initAuditRetryQueue, startAuditRetryWorker },
+  { resendWebhookRateLimit, resendWebhookBodyError },
+  { requestMetadataLogger }, { apiNotFound },
+] = await Promise.all([
+  import("./routes"), import("./vite"), import("./websocket-manager"),
+  import("./audit-retry"), import("./routes/email-webhooks"),
+  import("./lib/request-log"), import("./lib/api-not-found"),
+]);
 
 // Global error handling
 process.on('unhandledRejection', () => {
@@ -31,9 +50,7 @@ app.use("/api/notifications/webhooks/resend", resendWebhookRateLimit(), express.
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
-(async () => {
-  // ── Cola de reintentos de audit_log (tabla + worker) ─────────────────────
-  // Debe inicializarse antes de que lleguen requests para que la tabla exista.
+  // ── Verificar cola migrada antes de iniciar su worker ──────────────────
   await initAuditRetryQueue();
   startAuditRetryWorker();
 
@@ -72,4 +89,8 @@ app.use(express.urlencoded({ extended: false, limit: '10mb' }));
     log(`serving on port ${port}`);
     log(`WebSocket server ready for real-time updates`);
   });
-})();
+}
+void main().catch(error => {
+  console.error(error instanceof ProductionStartupError ? error.message : "No se pudo iniciar EduPay. Revisa la configuración y el esquema de la base.");
+  process.exitCode = 1;
+});

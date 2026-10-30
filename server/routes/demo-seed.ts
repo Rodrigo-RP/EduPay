@@ -4,6 +4,8 @@ import { seedDemoData } from "../seed-demo";
 import { DatabaseSafetyError } from "../lib/database-safety";
 
 export function registerDemoSeedRoute(app: Express): void {
+  // En producción no se registra la ruta, ni siquiera para superadministrador.
+  if (process.env.APP_ENV === "production") return;
   // ÚNICA excepción autorizada al no borrado de familias/tutores/alumnos:
   // reemplaza datos demo sólo para superadministrador, ALLOW_DEMO_SEED=true,
   // APP_ENV distinto de producción y marcador edupay:test o edupay:demo.

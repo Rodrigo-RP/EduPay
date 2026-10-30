@@ -12,7 +12,7 @@ import { JWT_SECRET } from "../routes/shared";
 afterEach(() => { vi.unstubAllEnvs(); vi.resetAllMocks(); });
 
 describe("Excepción demo: guardas reales antes de cualquier borrado", () => {
-  it.each(["production", "sin bandera", "sin marcador"])("%s: 403 y ningún borrado", async scenario => {
+  it.each(["production", "sin bandera", "sin marcador"])("%s: negado y ningún borrado", async scenario => {
     vi.stubEnv("APP_ENV", scenario === "production" ? "production" : "development");
     vi.stubEnv("ALLOW_DEMO_SEED", scenario === "sin bandera" ? "" : "true");
     mocks.getUser.mockResolvedValue({ id: 80, is_super_admin: true });
@@ -25,7 +25,7 @@ describe("Excepción demo: guardas reales antes de cualquier borrado", () => {
       const response = await fetch(`http://127.0.0.1:${(server.address() as any).port}/api/demo/seed`, {
         method: "POST", headers: { Authorization: `Bearer ${jwt.sign({ id: 80 }, JWT_SECRET)}` },
       });
-      expect(response.status).toBe(403);
+      expect(response.status).toBe(scenario === "production" ? 404 : 403);
       expect(mocks.insert).not.toHaveBeenCalled();
       expect(mocks.query.mock.calls.every(([sql]) => /^\s*SELECT\b/.test(sql))).toBe(true);
       expect(mocks.query).toHaveBeenCalledTimes(scenario === "sin marcador" ? 1 : 0);

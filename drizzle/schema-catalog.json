@@ -10277,6 +10277,18 @@
       "identity_kind": "",
       "generated_kind": "",
       "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "users",
+      "name": "twofa_backup_hashes",
+      "position": 19,
+      "type": "text[]",
+      "not_null": false,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
     }
   ],
   "constraints": [

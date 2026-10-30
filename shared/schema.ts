@@ -48,6 +48,8 @@ export const users = pgTable("users", {
   // columna pasará a guardar solo la URL del objeto, no el contenido en base64.
   foto_url: text("foto_url"),
   twofa_secret: varchar("twofa_secret", { length: 255 }),
+  // Sólo hashes SHA-256 de códigos aleatorios de 128 bits. Nunca códigos legibles.
+  twofa_backup_hashes: text("twofa_backup_hashes").array(),
   is_active: boolean("is_active").default(true),
   is_super_admin: boolean("is_super_admin").default(false),
   platform_permissions: text("platform_permissions").array(),

@@ -8,6 +8,7 @@ import { SCHOOL_TODAY_SQL } from "../shared/school-date";
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import bcrypt from "bcrypt";
 import { pool } from "../server/db";
+import { staffApiLogin } from "./helpers/auth";
 
 const BASE = "http://localhost:5000";
 let tenantId: number;
@@ -32,9 +33,7 @@ async function loginFixtureUser(
   email: string,
   password: string,
 ): Promise<FixtureSession> {
-  const response = await request.post(`${BASE}/api/auth/login`, {
-    data: { email, password },
-  });
+  const response = await staffApiLogin(request, email, password, BASE);
   expect(response.status(), `El usuario temporal ${email} debe iniciar sesión`).toBe(200);
   const body = await response.json();
   expect(body.token).toBeTruthy();

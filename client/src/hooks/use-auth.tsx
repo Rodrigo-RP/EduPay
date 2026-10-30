@@ -8,6 +8,7 @@ interface User {
   role: string;
   campus_id: number;
   requires_password_change?: boolean;
+  requires_twofa_setup?: boolean;
   telefono?: string;
   foto_url?: string;
 }
@@ -27,6 +28,7 @@ interface AuthContextType {
   login: (email: string, password: string, totp_code?: string) => Promise<void>;
   guardianLogin: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  completeTwofa: (token: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,6 +37,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [guardian, setGuardian] = useState<Guardian | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const completeTwofa = (token: string) => {
+    if (!user) return;
+    const updated = { ...user, requires_twofa_setup: false };
+    localStorage.setItem("auth_token", token);
+    localStorage.setItem("auth_user", JSON.stringify(updated));
+    setUser(updated);
+  };
 
   useEffect(() => {
     const clearInvalidSession = () => {
@@ -143,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         guardianLogin,
         logout,
+        completeTwofa,
       }}
     >
       {children}

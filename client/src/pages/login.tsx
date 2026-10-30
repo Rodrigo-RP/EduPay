@@ -182,16 +182,15 @@ export default function Login() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="totp" className="text-slate-700">Código de verificación</Label>
+                    <Label htmlFor="totp" className="text-slate-700">Código del autenticador o de respaldo</Label>
                     <Input
                       id="totp"
                       type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]{6}"
-                      maxLength={6}
+                      autoComplete="one-time-code"
+                      maxLength={35}
                       placeholder="000000"
                       value={totpCode}
-                      onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      onChange={(e) => setTotpCode(e.target.value.trim())}
                       required
                       autoFocus
                       className="bg-white border-slate-300 focus:border-blue-500 text-center text-2xl tracking-[0.5em] font-mono"

@@ -28,7 +28,7 @@ for (const scenario of ["inexistente", "desactivado", "activo"] as const) {
   it(`usuario ${scenario}: guardas y refresh normal/expirado verifican estado actual`, async () => {
     // Se emite ANTES de desactivar/eliminar, con una versión todavía coincidente.
     state.exists = true; state.active = true;
-    const payload = { id: 701, type: "user", role: "super_admin", password_version: 0 };
+    const payload = { id: 701, type: "user", role: "super_admin", password_version: 0, twofa_verified: true };
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "1h" });
     const expired = jwt.sign({ ...payload, iat: Math.floor(Date.now() / 1000) - 120, exp: Math.floor(Date.now() / 1000) - 60 }, JWT_SECRET);
     state.exists = scenario !== "inexistente"; state.active = scenario !== "desactivado";

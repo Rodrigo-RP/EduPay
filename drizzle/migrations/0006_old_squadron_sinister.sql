@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "twofa_backup_hashes" text[];

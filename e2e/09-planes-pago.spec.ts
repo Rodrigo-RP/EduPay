@@ -19,14 +19,13 @@ import { test, expect, type Page } from "@playwright/test";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { pool as db } from "../server/db";
+import { staffApiLogin, ADMIN_EMAIL, ADMIN_PASSWORD } from "./helpers/auth";
 
 const BASE = "http://localhost:5000";
 
 // ── Helpers API ───────────────────────────────────────────────────────────────
 async function getAdminToken(request: any): Promise<string> {
-  const res = await request.post(`${BASE}/api/auth/login`, {
-    data: { email: "admin.campus@jfr.edu.mx", password: "Demo2025!" },
-  });
+  const res = await staffApiLogin(request, ADMIN_EMAIL, ADMIN_PASSWORD, BASE);
   expect(res.status(), "El login administrativo de preparación debe funcionar").toBe(200);
   const body = await res.json();
   return body.token as string;
@@ -105,9 +104,7 @@ async function crearFixture(request: any): Promise<void> {
     client.release();
   }
 
-  const login = await request.post(`${BASE}/api/auth/login`, {
-    data: { email: fixture.userEmail, password: fixture.userPassword },
-  });
+  const login = await staffApiLogin(request, fixture.userEmail, fixture.userPassword, BASE);
   expect(login.status(), "El administrador temporal debe iniciar sesión").toBe(200);
   const auth = await login.json();
   fixture.token = auth.token;

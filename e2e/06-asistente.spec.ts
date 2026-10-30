@@ -9,6 +9,7 @@
  *   - El intent "verifica todo" ejecuta los probes y devuelve resultado
  */
 import { test, expect } from "@playwright/test";
+import { staffApiLogin, ADMIN_EMAIL, ADMIN_PASSWORD } from "./helpers/auth";
 
 const BASE = "http://localhost:5000";
 
@@ -17,9 +18,7 @@ const BASE = "http://localhost:5000";
  * El asistente requiere sesión autenticada.
  */
 async function getAdminToken(request: import("@playwright/test").APIRequestContext) {
-  const res = await request.post(`${BASE}/api/auth/login`, {
-    data: { email: "admin.campus@jfr.edu.mx", password: "Demo2025!" },
-  });
+  const res = await staffApiLogin(request, ADMIN_EMAIL, ADMIN_PASSWORD, BASE);
   if (res.status() !== 200) return null;
   const body = await res.json().catch(() => null);
   return body?.token ?? body?.accessToken ?? null;

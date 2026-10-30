@@ -30,7 +30,7 @@ describe("Matriz completa: roles, acciones y relación jerárquica", () => {
           ["post", "put", "patch", "delete"].includes(node.expression.name.text) &&
           node.arguments[0] && ts.isStringLiteral(node.arguments[0])) {
           const body = node.getText(source);
-          if (/\b(?:createSuperAdmin|createUser|updateUser(?:Profile|Password|Status)?|deleteUser|seedDemoData)\s*\(|\.update\s*\(\s*users\s*\)|\b(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+users\b/i.test(body)) {
+          if (/\b(?:createSuperAdmin|createUser|updateUser(?:Profile|Password|Status)?|deleteUser|seedDemoData|confirmTotp)\s*\(|\.update\s*\(\s*users\s*\)|\b(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+users\b/i.test(body)) {
             const route = `${node.expression.name.text.toUpperCase()} ${node.arguments[0].text}`;
             found.push(route);
             if (!hierarchyExceptions.has(route)) {
@@ -43,7 +43,9 @@ describe("Matriz completa: roles, acciones y relación jerárquica", () => {
       visit(source);
     }
     expect(found).toContain("POST /api/demo/seed");
+    // Desactivar 2FA ya no escribe; confirmTotp persiste desde el servicio y reset es nueva.
     expect(found.filter(route => !hierarchyExceptions.has(route))).toHaveLength(14);
+    expect(found).toContain("POST /api/admin/users/:id/2fa/reset");
     expect(Array.from(hierarchyExceptions)).toEqual(["POST /api/demo/seed"]);
   });
   for (const { a, b, rank, otherRank } of pairs) {

@@ -40,7 +40,7 @@
  */
 
 import { test, expect, type APIRequestContext } from "@playwright/test";
-import { loginAsAdmin } from "./helpers/auth";
+import { loginAsAdmin, completeStaffLogin } from "./helpers/auth";
 
 // ── Datos únicos por corrida ────────────────────────────────────────────────
 const TS = Date.now().toString().slice(-7);
@@ -407,6 +407,7 @@ test.describe("U09-02: Asistente — visibilidad de botones de acción", () => {
       (await assistantLogin).status(),
       "El login del usuario asistente debe responder exitosamente",
     ).toBe(200);
+    await completeStaffLogin(page, ASISTENTE.email);
     await expect(page.locator("aside, nav").first()).toBeVisible({ timeout: 15_000 });
 
     // 3. Navegar directamente a /usuarios

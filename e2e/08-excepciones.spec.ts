@@ -19,15 +19,13 @@ import { schoolDate } from "../shared/school-date";
  */
 
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin } from "./helpers/auth";
+import { loginAsAdmin, staffApiLogin, ADMIN_EMAIL, ADMIN_PASSWORD } from "./helpers/auth";
 
 const BASE = "http://localhost:5000";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 async function getAdminToken(request: any): Promise<string> {
-  const res = await request.post(`${BASE}/api/auth/login`, {
-    data: { email: "admin.campus@jfr.edu.mx", password: "Demo2025!" },
-  });
+  const res = await staffApiLogin(request, ADMIN_EMAIL, ADMIN_PASSWORD, BASE);
   const body = await res.json();
   return body.token as string;
 }

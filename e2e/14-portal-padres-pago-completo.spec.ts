@@ -6,15 +6,13 @@
  */
 import { test, expect, type Page } from "@playwright/test";
 import { pool } from "../server/db";
-import { ADMIN_PASSWORD, SUPERADMIN_EMAIL } from "./helpers/auth";
+import { ADMIN_PASSWORD, SUPERADMIN_EMAIL, staffApiLogin } from "./helpers/auth";
 
 const G1_EMAIL = "lopez.carlos@demo.mx";
 const G2_EMAIL = "garcia.javier@demo.mx";
 
 test.beforeAll(async ({ request }) => {
-  const login = await request.post("/api/auth/login", {
-    data: { email: SUPERADMIN_EMAIL, password: ADMIN_PASSWORD },
-  });
+  const login = await staffApiLogin(request, SUPERADMIN_EMAIL, ADMIN_PASSWORD);
   expect(login.status()).toBe(200);
   const { token } = await login.json();
   const seed = await request.post("/api/demo/seed", { headers: { Authorization: `Bearer ${token}` } });

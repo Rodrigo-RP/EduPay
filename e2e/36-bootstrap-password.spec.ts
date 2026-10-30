@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { randomBytes } from "node:crypto";
+import { completeStaffLogin } from "./helpers/auth";
 import bcrypt from "bcrypt";
 import { pool } from "../server/db";
 import { assertTestDatabase } from "../server/lib/database-safety";
@@ -64,6 +65,8 @@ test("el primer administrador debe cambiar la temporal antes de usar el sistema"
   await page.locator('input[type="password"]').fill(replacement);
   await page.getByRole("button", { name: /ingresar al sistema/i }).click();
   await expect(page.getByRole("heading", { name: "Cambia tu contraseña temporal" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Configura la autenticación de dos factores" })).toBeVisible();
+  await completeStaffLogin(page, email);
   await expect.poll(async () => {
     const token = await page.evaluate(() => localStorage.getItem("auth_token"));
     return (await page.request.get("/api/profile", { headers: { Authorization: `Bearer ${token}` } })).status();

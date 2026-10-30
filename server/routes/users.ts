@@ -36,7 +36,7 @@ export function registerUserRoutes(app: Express): void {
       }
       
       // Return user profile without password or 2FA secret; expose only has_twofa flag
-      const { password_hash, twofa_secret, ...profile } = user;
+      const { password_hash, twofa_secret, twofa_backup_hashes, ...profile } = user;
       res.json({ ...profile, has_twofa: !!twofa_secret });
     } catch (error: any) {
       res.status(500).json({ message: "Error fetching profile" });

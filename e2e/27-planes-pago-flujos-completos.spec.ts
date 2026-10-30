@@ -8,6 +8,7 @@ import { SCHOOL_TODAY_SQL } from "../shared/school-date";
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import bcrypt from "bcrypt";
 import { pool as db } from "../server/db";
+import { staffApiLogin } from "./helpers/auth";
 
 const BASE = "http://localhost:5000";
 const fixture = {
@@ -18,7 +19,7 @@ const fixture = {
 };
 
 async function login(request: APIRequestContext, email: string, password: string) {
-  const response = await request.post(`${BASE}/api/auth/login`, { data: { email, password } });
+  const response = await staffApiLogin(request, email, password, BASE);
   expect(response.status()).toBe(200);
   return response.json() as Promise<{ token: string; user: unknown }>;
 }

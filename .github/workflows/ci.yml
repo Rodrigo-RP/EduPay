@@ -57,8 +57,8 @@ jobs:
           node --input-type=module <<'JS'
           import { randomBytes } from "node:crypto";
           import { appendFileSync } from "node:fs";
-          for (const key of ["SESSION_SECRET", "JWT_SECRET"]) {
-            const value = randomBytes(48).toString("hex");
+          for (const key of ["SESSION_SECRET", "JWT_SECRET", "TOTP_ENCRYPTION_KEY"]) {
+            const value = key === "TOTP_ENCRYPTION_KEY" ? randomBytes(32).toString("base64") : randomBytes(48).toString("hex");
             console.log(`::add-mask::${value}`);
             appendFileSync(process.env.GITHUB_ENV, `${key}=${value}\n`);
           }

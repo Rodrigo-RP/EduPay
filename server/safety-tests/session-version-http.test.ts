@@ -2,7 +2,7 @@ import { beforeAll, afterAll, expect, it, vi } from "vitest";
 import express from "express";
 // Librería real: NO usar el adaptador de fixtures para probar ausencia de versión.
 import jwt from "jsonwebtoken";
-const state = vi.hoisted(() => ({ changed: new Date("2026-10-29T00:00:00.900Z") }));
+const state = vi.hoisted(() => ({ changed: new Date(Math.floor(Date.now() / 1000) * 1000 + 900) }));
 vi.mock("../db", () => ({ db: {}, pool: { query: async () => ({
   rows: [{ password_changed_at: state.changed, custom_permissions: [] }],
 }) } }));
@@ -29,6 +29,7 @@ it("HTTP: cuatro guardas y refresh rechazan antes del cambio en el mismo segundo
   for (const route of ["token", "guardian", "auth", "super", "refresh"]) {
     const issue = (password_version?: number) => jwt.sign({
       id: 1, type: route === "guardian" ? "guardian" : "user",
+      twofa_verified: true,
       iat: Math.floor(before / 1000), password_version,
     }, JWT_SECRET, { expiresIn: "10y" });
     const request = (token: string) => fetch(`${base}${route === "refresh" ? "/api/auth/refresh" : `/probe/${route}`}`, {

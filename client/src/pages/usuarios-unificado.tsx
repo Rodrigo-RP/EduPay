@@ -16,6 +16,7 @@ import { Users, Plus, Edit, Trash2, UserCheck, UserX, Shield, Mail, AlertTriangl
 import { USER_ROLES, PERMISSIONS, hasPermission, getUserPermissions, getRoleDisplayName, getRoleDescription, UserRole } from "@shared/user-roles";
 import { canEditUser, getEditableRoles, ROLE_HIERARCHY } from "@shared/permissions";
 import { useAuth } from "@/hooks/use-auth";
+import TwoFactorResetButton from "@/components/two-factor-reset-button";
 
 export default function UsuariosUnificado() {
   const { toast } = useToast();
@@ -529,6 +530,9 @@ export default function UsuariosUnificado() {
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
+                  {currentUser?.role === "administrador_general" && currentUser.id !== user.id &&
+                    canEditUser("administrador_general", user.role as UserRole) &&
+                    <TwoFactorResetButton userId={user.id} name={user.nombre_completo} />}
                   {/* Solo mostrar botones si el usuario actual puede editar al usuario objetivo */}
                   {(currentUser?.role === 'super_admin' || canEditUser(currentUser?.role as UserRole, user.role as UserRole)) && (
                     <>

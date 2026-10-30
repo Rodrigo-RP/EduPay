@@ -7,6 +7,9 @@ import { userInSessionScope } from "../lib/user-authorization";
 import { users } from "@shared/schema";
 import { storage } from "../storage";
 import { guardianHasActiveFamily } from "../lib/family-access";
+import { registerTwoFactorRoutes } from "./two-factor";
+import { validTotp, consumeBackupCode } from "../lib/totp-service";
+import { signStaffSession, staffSessionExpired, STAFF_SESSION_SECONDS } from "../lib/staff-session";
 import {
   authenticateToken,
   esmRequire,
@@ -19,22 +22,10 @@ import {
   MSG_SESSION_INVALIDATED,
 } from "./shared";
 
-// Estado de enrolamiento 2FA — TTL 10 min, solo accesible dentro de este módulo
-const pendingTwofaEnrollment = new Map<number, { secret: string; expiresAt: number }>();
-
-// Roles autorizados para 2FA
-const ROLES_2FA = ['administrador_general','administrador_campus','super_admin',
-                   'contador_general','auxiliar_contable','asistente','admisiones'];
-const require2faRole = (req: any, res: any, next: any) => {
-  const u = req.user;
-  if (u?.type === "guardian" || (!u?.is_super_admin && !ROLES_2FA.includes(u?.role))) {
-    return res.status(403).json({ message: "Solo los administradores pueden configurar 2FA" });
-  }
-  next();
-};
-
 export function registerAuthRoutes(app: Express): void {
+  registerTwoFactorRoutes(app);
   app.post("/api/auth/login", async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
     try {
       const { email, password, totp_code } = req.body;
       
@@ -43,7 +34,7 @@ export function registerAuthRoutes(app: Express): void {
       }
 
       const user = await storage.getUserByEmail(email);
-      if (!user || !await bcrypt.compare(password, user.password_hash)) {
+      if (!user || user.is_active === false || !await bcrypt.compare(password, user.password_hash)) {
         return res.status(401).json({ message: "Credenciales inválidas" });
       }
       const { requiresPasswordChange } = await loadUserAuthData(user.id);
@@ -54,130 +45,30 @@ export function registerAuthRoutes(app: Express): void {
           // Primer paso correcto; indicar al cliente que se necesita el código TOTP
           return res.json({ requires_totp: true });
         }
-        const speakeasy = esmRequire("speakeasy") as typeof import("speakeasy");
-        const verified = speakeasy.totp.verify({
-          secret:   user.twofa_secret,
-          encoding: "base32",
-          token:    String(totp_code),
-          window:   1,  // tolera ±30 s de desfase de reloj
-        });
+        const verified = validTotp(user.twofa_secret, user.id, totp_code) ||
+          await consumeBackupCode(pool, { id: user.id, twofa_secret: user.twofa_secret }, totp_code);
         if (!verified) {
           return res.status(401).json({ message: "Código de verificación incorrecto. Intenta de nuevo." });
         }
       }
 
-      const token = jwt.sign(
-        { id: user.id, email: user.email, role: user.role, campus_id: user.campus_id, tenant_id: user.tenant_id, is_super_admin: user.is_super_admin, type: 'user', password_version: passwordVersion(user.password_changed_at) },
-        JWT_SECRET,
-        { expiresIn: '24h' }
-      );
+      const token = signStaffSession(user, JWT_SECRET, !!user.twofa_secret);
 
-      res.json({ token, user: { id: user.id, email: user.email, name: user.name ?? "", role: user.role, campus_id: user.campus_id, tenant_id: user.tenant_id, requires_password_change: requiresPasswordChange } });
+      res.json({ token, user: { id: user.id, email: user.email, name: user.name ?? "", role: user.role, campus_id: user.campus_id, tenant_id: user.tenant_id, requires_password_change: requiresPasswordChange, requires_twofa_setup: !user.twofa_secret } });
     } catch (error: any) {
       res.status(500).json({ message: "Login failed" });
     }
   });
 
-  // ── POST /api/auth/2fa/setup ───────────────────────────────────────────────
-  // Genera un secreto TOTP temporal, lo almacena server-side vinculado al
-  // user_id con TTL de 10 min, y devuelve el QR. El cliente NUNCA maneja
-  // el secreto — /2fa/confirm lo lee del Map, no del body.
-  app.post("/api/auth/2fa/setup", authenticateToken, require2faRole, async (req: any, res) => {
-    try {
-      const user = await storage.getUser(req.user?.id);
-      if (!userInSessionScope(req.user, user)) return res.status(404).json({ message: "Usuario no encontrado" });
-
-      const speakeasy = esmRequire("speakeasy") as typeof import("speakeasy");
-      const qrcode    = esmRequire("qrcode") as typeof import("qrcode");
-
-      const secret = speakeasy.generateSecret({
-        name:   `Instituto JFR (${user.email})`,
-        length: 32,
-        issuer: "Edupay",
-      });
-
-      // Guardar estado de enrolamiento pendiente — expira en 10 minutos
-      pendingTwofaEnrollment.set(req.user.id, {
-        secret:    secret.base32 as string,
-        expiresAt: Date.now() + 10 * 60 * 1000,
-      });
-
-      const qrDataUrl = await qrcode.toDataURL(secret.otpauth_url as string);
-      // No se devuelve el secreto base32 al cliente — solo el QR y el código manual
-      res.json({ qr_data_url: qrDataUrl, manual_code: secret.base32 });
-    } catch (error: any) {
-      res.status(500).json({ message: "Error interno del servidor" });
-    }
-  });
-
-  // ── POST /api/auth/2fa/confirm ─────────────────────────────────────────────
-  // Verifica el primer código TOTP contra el secreto pendiente guardado
-  // server-side. Ignora cualquier secreto enviado por el cliente.
-  app.post("/api/auth/2fa/confirm", authenticateToken, require2faRole, async (req: any, res) => {
-    try {
-      const { totp_code } = req.body;
-      if (!totp_code) return res.status(400).json({ message: "totp_code requerido" });
-
-      // Leer secreto del estado server-side — el cliente no puede inyectar uno
-      const currentUser = await storage.getUser(req.user.id);
-      if (!userInSessionScope(req.user, currentUser)) return res.status(404).json({ message: "Usuario no encontrado" });
-      const pending = pendingTwofaEnrollment.get(req.user.id);
-      if (!pending) {
-        return res.status(400).json({ message: "No hay enrolamiento pendiente. Inicia el proceso desde Perfil > Seguridad." });
-      }
-      if (Date.now() > pending.expiresAt) {
-        pendingTwofaEnrollment.delete(req.user.id);
-        return res.status(410).json({ message: "El enrolamiento expiró. Escanea el QR de nuevo." });
-      }
-
-      const speakeasy = esmRequire("speakeasy") as typeof import("speakeasy");
-      const verified = speakeasy.totp.verify({ secret: pending.secret, encoding: "base32", token: String(totp_code), window: 1 });
-      if (!verified) return res.status(401).json({ message: "Código incorrecto. Verifica tu app de autenticación." });
-
-      // Persistir y limpiar estado pendiente (consumo único)
-      await db.update(users)
-        .set({ twofa_secret: pending.secret, updated_at: new Date() })
-        .where(and(eq(users.id, req.user.id), eq(users.tenant_id, req.user.tenant_id), eq(users.campus_id, req.user.campus_id)));
-      pendingTwofaEnrollment.delete(req.user.id);
-
-      res.json({ message: "Autenticación de dos factores activada correctamente." });
-    } catch (error: any) {
-      res.status(500).json({ message: "Error interno del servidor" });
-    }
-  });
-
-  // ── DELETE /api/auth/2fa ───────────────────────────────────────────────────
-  // Desactiva el 2FA después de verificar el código TOTP actual.
-  app.delete("/api/auth/2fa", authenticateToken, require2faRole, async (req: any, res) => {
-    try {
-      const { totp_code } = req.body;
-      if (!totp_code) return res.status(400).json({ message: "totp_code requerido" });
-
-      const user = await storage.getUser(req.user.id);
-      if (!userInSessionScope(req.user, user)) return res.status(404).json({ message: "Usuario no encontrado" });
-      if (!user?.twofa_secret) return res.status(400).json({ message: "El 2FA no está activado en esta cuenta." });
-
-      const speakeasy = esmRequire("speakeasy") as typeof import("speakeasy");
-      const verified = speakeasy.totp.verify({ secret: user.twofa_secret, encoding: "base32", token: String(totp_code), window: 1 });
-      if (!verified) return res.status(401).json({ message: "Código incorrecto. No se desactivó el 2FA." });
-
-      await db.update(users)
-        .set({ twofa_secret: null, updated_at: new Date() })
-        .where(and(eq(users.id, req.user.id), eq(users.tenant_id, req.user.tenant_id), eq(users.campus_id, req.user.campus_id)));
-
-      res.json({ message: "Autenticación de dos factores desactivada." });
-    } catch (error: any) {
-      res.status(500).json({ message: "Error interno del servidor" });
-    }
-  });
-
   // GET /api/auth/user — perfil del usuario autenticado (usado por caja-conciliacion y fiscal-contable)
   app.get("/api/auth/user", authenticateToken, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
     try {
       const userId = (req as any).user?.id;
       const user = await storage.getUserById(userId);
       if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
-      res.json(serializeUser(user));
+      res.json({ ...serializeUser(user), requires_password_change: (req as any).user.requires_password_change,
+        requires_twofa_setup: (req as any).user.twofa_verified !== true });
     } catch (error: any) { res.status(500).json({ message: "Error interno del servidor" }); }
   });
 
@@ -197,6 +88,7 @@ export function registerAuthRoutes(app: Express): void {
 
         // Verificar que la contraseña no cambió después de que se emitió el token (#138).
         const isGuardian = decoded.type === 'guardian';
+        if (!isGuardian && staffSessionExpired(decoded)) return res.status(401).json({ message: "Tu sesión terminó. Inicia sesión de nuevo." });
         const userAuth = isGuardian ? null : await loadUserAuthData(decoded.id);
         const passwordChangedAt = isGuardian
           ? await loadGuardianPasswordChangedAt(decoded.id)
@@ -214,9 +106,10 @@ export function registerAuthRoutes(app: Express): void {
             tenant_id: decoded.tenant_id,
             type:      decoded.type || 'user',
             password_version: passwordVersion(passwordChangedAt),
+            ...(!isGuardian ? { twofa_verified: decoded.twofa_verified === true, session_started_at: decoded.session_started_at ?? decoded.iat, is_super_admin: decoded.is_super_admin } : {}),
           },
           JWT_SECRET,
-          { expiresIn: '24h' }
+          { expiresIn: isGuardian ? 86400 : Math.max(1, (decoded.session_started_at ?? decoded.iat) + STAFF_SESSION_SECONDS - Math.floor(Date.now() / 1000)) }
         );
         res.json({ token: newToken });
       } catch (jwtError) {
@@ -230,6 +123,7 @@ export function registerAuthRoutes(app: Express): void {
 
           // Verificar que la contraseña no cambió después de que se emitió el token (#138).
           const isGuardian = decoded.type === 'guardian';
+          if (!isGuardian && staffSessionExpired(decoded)) return res.status(401).json({ message: "Tu sesión terminó. Inicia sesión de nuevo." });
           const userAuth = isGuardian ? null : await loadUserAuthData(decoded.id);
           const passwordChangedAt = isGuardian
             ? await loadGuardianPasswordChangedAt(decoded.id)
@@ -251,9 +145,10 @@ export function registerAuthRoutes(app: Express): void {
               tenant_id: isGuardian ? decoded.tenant_id : user!.tenant_id,
               type:      decoded.type || 'user',
               password_version: passwordVersion(passwordChangedAt),
+              ...(!isGuardian ? { twofa_verified: decoded.twofa_verified === true, session_started_at: decoded.session_started_at ?? decoded.iat, is_super_admin: user!.is_super_admin } : {}),
             },
             JWT_SECRET,
-            { expiresIn: '24h' }
+            { expiresIn: isGuardian ? 86400 : Math.max(1, (decoded.session_started_at ?? decoded.iat) + STAFF_SESSION_SECONDS - Math.floor(Date.now() / 1000)) }
           );
           return res.json({ token: newToken });
         } catch {

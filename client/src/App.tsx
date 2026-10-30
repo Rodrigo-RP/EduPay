@@ -61,6 +61,7 @@ import AssistantWidget from "@/components/AssistantWidget";
 import OnboardingGuard from "@/components/OnboardingGuard";
 import DataReadBoundary from "@/components/data-read-boundary";
 import InitialPasswordChange from "@/components/initial-password-change";
+import RequiredTwoFactor from "@/components/required-two-factor";
 
 function AuthenticatedRoutes() {
   const { user, guardian, isLoading } = useAuth();
@@ -77,6 +78,7 @@ function AuthenticatedRoutes() {
     return <Login />;
   }
   if (user?.requires_password_change) return <InitialPasswordChange />;
+  if (user?.requires_twofa_setup) return <RequiredTwoFactor />;
 
   // Guardians authenticated via magic-link or password go directly to the payment portal.
   if (guardian) {

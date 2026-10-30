@@ -43,6 +43,13 @@
       "when": 1793240538547,
       "tag": "0005_white_hellcat",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793326719272,
+      "tag": "0006_old_squadron_sinister",
+      "breakpoints": true
     }
   ]
 }

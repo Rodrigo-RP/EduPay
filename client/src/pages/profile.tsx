@@ -78,7 +78,6 @@ export default function Profile() {
   const [twofaSecret, setTwofaSecret]       = useState("");
   const [twofaQrUrl, setTwofaQrUrl]         = useState("");
   const [twofaCode, setTwofaCode]           = useState("");
-  const [twofaDisableCode, setTwofaDisableCode] = useState("");
 
   const isGuardian = !!guardian;
   const profileEndpoint = isGuardian ? "/api/guardian/profile" : "/api/profile";
@@ -302,25 +301,6 @@ export default function Profile() {
     onError: (err: any) => toast({ title: "Código incorrecto", description: err.message, variant: "destructive" }),
   });
 
-  const disable2faMutation = useMutation({
-    mutationFn: async () => {
-      const token = localStorage.getItem("auth_token");
-      const res = await fetch("/api/auth/2fa", {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ totp_code: twofaDisableCode }),
-      });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
-      return res.json();
-    },
-    onSuccess: () => {
-      toast({ title: "2FA desactivado", description: "Autenticación de dos factores desactivada." });
-      setTwofaStep("idle");
-      setTwofaDisableCode("");
-      queryClient.invalidateQueries({ queryKey: [profileEndpoint] });
-    },
-    onError: (err: any) => toast({ title: "Código incorrecto", description: err.message, variant: "destructive" }),
-  });
 
   // Institutional credential mutations
   const credentialMutation = useMutation({
@@ -989,45 +969,7 @@ export default function Profile() {
                   </div>
                 )}
 
-                {/* ── DESACTIVAR 2FA ──────────────────────────────── */}
-                {(profileData as any)?.has_twofa && twofaStep === "idle" && (
-                  <Button
-                    variant="outline"
-                    className="border-red-200 text-red-600 hover:bg-red-50"
-                    onClick={() => { setTwofaStep("disabling"); setTwofaDisableCode(""); }}
-                  >
-                    <Shield className="w-4 h-4 mr-2" />
-                    Desactivar 2FA
-                  </Button>
-                )}
-
-                {twofaStep === "disabling" && (
-                  <div className="space-y-3 border border-red-200 rounded-lg p-5 bg-red-50">
-                    <p className="font-medium text-red-800">Confirma tu identidad para desactivar 2FA</p>
-                    <p className="text-sm text-red-600">Ingresa el código de 6 dígitos de tu aplicación de autenticación:</p>
-                    <div className="flex gap-3">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={6}
-                        placeholder="000000"
-                        value={twofaDisableCode}
-                        onChange={(e) => setTwofaDisableCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                        className="flex-1 border rounded-md px-3 py-2 text-center text-lg tracking-widest font-mono focus:outline-none focus:ring-2 focus:ring-red-400"
-                      />
-                      <Button
-                        onClick={() => disable2faMutation.mutate()}
-                        disabled={twofaDisableCode.length < 6 || disable2faMutation.isPending}
-                        className="bg-red-600 hover:bg-red-700 text-white"
-                      >
-                        {disable2faMutation.isPending ? "Desactivando..." : "Desactivar"}
-                      </Button>
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={() => { setTwofaStep("idle"); setTwofaDisableCode(""); }}>
-                      Cancelar
-                    </Button>
-                  </div>
-                )}
+                <p className="text-sm text-slate-600">La autenticación de dos factores es obligatoria. Si perdiste tu autenticador y tus códigos de respaldo, solicita un restablecimiento al administrador general.</p>
               </CardContent>
             </Card>
           </TabsContent>

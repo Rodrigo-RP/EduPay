@@ -5,7 +5,7 @@
  * recarga de la SPA → actividad aún visible.
  */
 import { expect, test } from "@playwright/test";
-import { loginAsAdmin } from "./helpers/auth";
+import { loginAsAdmin, staffApiLogin, SUPERADMIN_EMAIL, ADMIN_PASSWORD } from "./helpers/auth";
 import { pool as db } from "../server/db";
 
 const BASE = "http://localhost:5000";
@@ -14,9 +14,7 @@ let chargeId = 0;
 let onboardingWasComplete = false;
 
 test.beforeAll(async ({ request }) => {
-  const login = await request.post(`${BASE}/api/auth/login`, {
-    data: { email: "superadmin@edupay.mx", password: "Demo2025!" },
-  });
+  const login = await staffApiLogin(request, SUPERADMIN_EMAIL, ADMIN_PASSWORD, BASE);
   expect(login.status(), "El login de preparación debe funcionar").toBe(200);
   const { token } = await login.json();
   const seed = await request.post(`${BASE}/api/demo/seed`, {

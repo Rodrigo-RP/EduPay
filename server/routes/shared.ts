@@ -13,6 +13,7 @@ import { hasPermission } from "@shared/permissions";
 export { isSessionInvalidated, passwordVersion } from "../lib/session-version";
 import { isSessionInvalidated } from "../lib/session-version";
 import { BOOTSTRAP_PASSWORD_PENDING_SQL } from "../lib/bootstrap";
+import { staffAccessDenial } from "../lib/staff-session";
 
 // ── createRequire para paquetes CJS en módulo ESM ────────────────────────────
 // "type":"module" en package.json rompe require(); usar esmRequire en su lugar.
@@ -147,7 +148,9 @@ export const authenticateToken = async (req: any, res: any, next: any) => {
     if (requiresPasswordChange && !(req.method === "PUT" && req.originalUrl.split("?")[0] === "/api/profile/password")) {
       return res.status(403).json({ message: "Cambia tu contraseña temporal antes de continuar.", code: "PASSWORD_CHANGE_REQUIRED" });
     }
-    req.user = { ...decoded, custom_permissions: customPermissions, requires_password_change: requiresPasswordChange };
+    const denial = staffAccessDenial(decoded, req.method, req.originalUrl);
+    if (denial) return res.status(denial.code === "SESSION_EXPIRED" ? 401 : 403).json(denial);
+    req.user = { ...decoded, custom_permissions: customPermissions, requires_password_change: requiresPasswordChange, requires_twofa_setup: decoded.twofa_verified !== true };
     req.tenantId = decoded.tenant_id ?? null;
     next();
   } catch {
@@ -203,6 +206,8 @@ export const requireAuth = async (req: any, res: any, next: any) => {
     if (requiresPasswordChange) {
       return res.status(403).json({ message: "Cambia tu contraseña temporal antes de continuar.", code: "PASSWORD_CHANGE_REQUIRED" });
     }
+    const denial = staffAccessDenial(decoded, req.method, req.originalUrl);
+    if (denial) return res.status(denial.code === "SESSION_EXPIRED" ? 401 : 403).json(denial);
     req.user = { ...decoded, custom_permissions: customPermissions };
     req.tenantId = decoded.tenant_id ?? null;
     next();
@@ -234,6 +239,8 @@ export const requireSuperAdmin = async (req: any, res: any, next: any) => {
         code:    "SESSION_INVALIDATED",
       });
     }
+    const denial = staffAccessDenial(decoded, req.method, req.originalUrl);
+    if (denial) return res.status(denial.code === "SESSION_EXPIRED" ? 401 : 403).json(denial);
     if (!user.is_super_admin) {
       return res.status(403).json({ message: "Acceso denegado - Super Admin requerido" });
     }
@@ -252,7 +259,7 @@ export const requireSuperAdmin = async (req: any, res: any, next: any) => {
 // ── Helper: serialización segura de usuario ──────────────────────────────────
 // Nunca exponer password_hash ni twofa_secret en respuestas de API.
 export function serializeUser(user: any): any {
-  const { password_hash, twofa_secret, ...safe } = user ?? {};
+  const { password_hash, twofa_secret, twofa_backup_hashes, ...safe } = user ?? {};
   return { ...safe, has_twofa: !!twofa_secret };
 }
 

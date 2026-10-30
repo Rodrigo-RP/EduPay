@@ -927,6 +927,7 @@ export const users = pgTable("users", {
 	passwordHash: varchar("password_hash", { length: 255 }).notNull(),
 	role: varchar({ length: 50 }).notNull(),
 	twofaSecret: varchar("twofa_secret", { length: 255 }),
+twofaBackupHashes: text("twofa_backup_hashes").array(),
 	isActive: boolean("is_active").default(true),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
 	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),

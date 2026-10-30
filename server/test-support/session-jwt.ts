@@ -14,7 +14,7 @@ const fixtureJwt = {
   ...jwt,
   sign: ((payload: object | string | Buffer, ...args: any[]) => {
     const claims = payload && typeof payload === "object" && !Buffer.isBuffer(payload)
-      ? { id: SESSION_FIXTURE_USER_ID, password_version: 0, ...payload } : payload;
+      ? { id: SESSION_FIXTURE_USER_ID, password_version: 0, twofa_verified: true, ...payload } : payload;
     return (jwt.sign as (...parameters: any[]) => any)(claims, ...args);
   }) as typeof jwt.sign,
 };

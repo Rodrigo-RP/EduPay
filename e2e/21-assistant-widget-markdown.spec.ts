@@ -5,7 +5,7 @@
  * - minimizar y restaurar conserva el historial.
  */
 import { test, expect } from "@playwright/test";
-import { ADMIN_EMAIL, ADMIN_PASSWORD } from "./helpers/auth";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, completeStaffLogin } from "./helpers/auth";
 
 test("renderiza tablas Markdown y conserva la conversación al minimizar", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
@@ -13,6 +13,7 @@ test("renderiza tablas Markdown y conserva la conversación al minimizar", async
   await page.locator("#email").fill(ADMIN_EMAIL);
   await page.locator("#password").fill(ADMIN_PASSWORD);
   await page.getByRole("button", { name: "Ingresar al Sistema" }).click();
+  await completeStaffLogin(page, ADMIN_EMAIL);
 
   const assistantButton = page.getByRole("button", { name: "Abrir asistente EduPay" });
   await expect(assistantButton).toBeVisible();

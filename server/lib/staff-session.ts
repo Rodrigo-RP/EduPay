@@ -10,12 +10,13 @@ export function signStaffSession(user: {
   id: number; email: string; role: string; campus_id: number | null; tenant_id: number | null;
   is_super_admin?: boolean | null; password_changed_at?: Date | string | null;
 }, key: string, verified: boolean, sessionStartedAt = Math.floor(Date.now() / 1000)): string {
+  const now = Math.floor(Date.now() / 1000);
   return jwt.sign({
     id: user.id, email: user.email, role: user.role, campus_id: user.campus_id,
     tenant_id: user.tenant_id, is_super_admin: user.is_super_admin, type: "user",
     password_version: passwordVersion(user.password_changed_at ? new Date(user.password_changed_at) : null),
-    twofa_verified: verified, session_started_at: sessionStartedAt,
-  }, key, { expiresIn: Math.max(1, sessionStartedAt + STAFF_SESSION_SECONDS - Math.floor(Date.now() / 1000)) });
+    twofa_verified: verified, session_started_at: sessionStartedAt, iat: now,
+  }, key, { expiresIn: Math.max(1, sessionStartedAt + STAFF_SESSION_SECONDS - now) });
 }
 
 export function staffAccessDenial(claims: JwtPayload, method: string, url: string): { code: string; message: string } | null {

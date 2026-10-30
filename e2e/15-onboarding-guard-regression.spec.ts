@@ -22,6 +22,7 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { completeStaffLogin } from "./helpers/auth";
 
 // ── Credenciales ──────────────────────────────────────────────────────────────
 const ADMIN_EMAIL    = "admin.campus@jfr.edu.mx";
@@ -80,6 +81,7 @@ async function loginAs(
   await page.locator("#email").fill(email);
   await page.locator("#password").fill(password);
   await page.locator('button[type="submit"]').click();
+  await completeStaffLogin(page, email);
   await page.waitForSelector("nav, aside, [class*='sidebar']", {
     timeout: 15_000,
   });

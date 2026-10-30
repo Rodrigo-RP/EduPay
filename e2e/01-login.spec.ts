@@ -13,7 +13,7 @@
  *   - Logout limpia la sesión (vuelve al form de login)
  */
 import { test, expect } from "@playwright/test";
-import { ADMIN_EMAIL, ADMIN_PASSWORD } from "./helpers/auth";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, completeStaffLogin } from "./helpers/auth";
 
 test.describe("Login – Administrador", () => {
   test.beforeEach(async ({ page }) => {
@@ -37,6 +37,7 @@ test.describe("Login – Administrador", () => {
     await page.locator('button[type="submit"]').click();
 
     // Después del login el sidebar del panel debe aparecer (el form desaparece)
+    await completeStaffLogin(page, ADMIN_EMAIL);
     await expect(
       page.locator("nav, aside, [class*='sidebar']").first()
     ).toBeVisible({ timeout: 15_000 });
@@ -67,6 +68,7 @@ test.describe("Login – Administrador", () => {
     await page.locator("#email").fill(ADMIN_EMAIL);
     await page.locator("#password").fill(ADMIN_PASSWORD);
     await page.locator('button[type="submit"]').click();
+    await completeStaffLogin(page, ADMIN_EMAIL);
     await expect(page.locator("nav, aside, [class*='sidebar']").first()).toBeVisible({ timeout: 15_000 });
 
     // Logout — buscar botón en menú o header

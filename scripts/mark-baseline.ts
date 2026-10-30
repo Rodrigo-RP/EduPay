@@ -1,8 +1,11 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { migrationPool } from "./migration-db";
 import { assertBaselineCompatible } from "./baseline-compatibility";
+import { assertMigrationEnvironment } from "../server/lib/migration-environment";
+
+assertMigrationEnvironment();
+const { migrationPool } = await import("./migration-db");
 
 const migrationFolder = path.resolve(process.cwd(), "drizzle/migrations");
 const journalPath = path.join(migrationFolder, "meta", "_journal.json");

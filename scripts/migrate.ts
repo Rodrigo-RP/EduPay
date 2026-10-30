@@ -2,7 +2,11 @@ import path from "node:path";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { migrationDb, migrationPool } from "./migration-db";
+import { assertMigrationEnvironment } from "../server/lib/migration-environment";
+
+// Antes incluso de importar el pool: la negativa funciona sin DATABASE_URL.
+assertMigrationEnvironment();
+const { migrationDb, migrationPool } = await import("./migration-db");
 
 try {
   const migrationFolder = path.resolve(process.cwd(), "drizzle/migrations");

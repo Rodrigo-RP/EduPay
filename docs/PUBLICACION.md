@@ -26,6 +26,8 @@ rechazan `APP_ENV=production` o `NODE_ENV=production`, antes de importar el
 pool o ejecutar SQL. Esto también vale cuando la base de producción todavía
 no tiene tablas. Si falta una tabla en producción, se revisa la estructura de
 desarrollo y se vuelve a publicar; no se intenta repararla desde el arranque.
+En desarrollo/CI ambos comandos exigen además entorno explícito `development`
+o `test` y el marcador físico `edupay:test`, antes de cualquier escritura.
 
 `Apply changes` no es el procedimiento de integración de este proyecto:
 su hook instala dependencias, corre migraciones de desarrollo y recompila.

@@ -1,3 +1,5 @@
+import { assertNonProductionEnvironment } from "./database-safety";
+
 /** El esquema de producción lo administra Publishing, nunca el proceso Node. */
 export function assertMigrationEnvironment(env: NodeJS.ProcessEnv = process.env): void {
   if (env.APP_ENV === "production" || env.NODE_ENV === "production") {
@@ -5,4 +7,5 @@ export function assertMigrationEnvironment(env: NodeJS.ProcessEnv = process.env)
       "Migraciones bloqueadas en producción: la estructura la aplica Replit al publicar. No se ejecutó SQL.",
     );
   }
+  assertNonProductionEnvironment(env);
 }

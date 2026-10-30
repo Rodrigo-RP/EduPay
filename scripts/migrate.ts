@@ -3,12 +3,14 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { assertMigrationEnvironment } from "../server/lib/migration-environment";
+import { assertTestDatabase } from "../server/lib/database-safety";
 
 // Antes incluso de importar el pool: la negativa funciona sin DATABASE_URL.
 assertMigrationEnvironment();
 const { migrationDb, migrationPool } = await import("./migration-db");
 
 try {
+  await assertTestDatabase(migrationPool);
   const migrationFolder = path.resolve(process.cwd(), "drizzle/migrations");
   const journal = JSON.parse(
     fs.readFileSync(path.join(migrationFolder, "meta", "_journal.json"), "utf8"),

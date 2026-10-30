@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { assertBaselineCompatible } from "./baseline-compatibility";
 import { assertMigrationEnvironment } from "../server/lib/migration-environment";
+import { assertTestDatabase } from "../server/lib/database-safety";
 
 assertMigrationEnvironment();
 const { migrationPool } = await import("./migration-db");
@@ -24,6 +25,7 @@ const client = await migrationPool.connect();
 
 try {
   await client.query("BEGIN");
+  await assertTestDatabase(client);
   await assertBaselineCompatible(client, sql.toString("utf8"));
   console.log("[db:baseline:mark] Catálogo compatible con el baseline");
   await client.query(`CREATE SCHEMA IF NOT EXISTS "drizzle"`);

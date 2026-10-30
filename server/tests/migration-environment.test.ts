@@ -12,6 +12,10 @@ describe("migraciones nunca en producción", () => {
     expect(() => assertMigrationEnvironment({ APP_ENV: "test" })).not.toThrow();
     expect(() => assertMigrationEnvironment({ APP_ENV: "development" })).not.toThrow();
   });
+  it("sin entorno explícito o con uno desconocido tampoco permite escrituras", () => {
+    expect(() => assertMigrationEnvironment({})).toThrow("APP_ENV debe ser");
+    expect(() => assertMigrationEnvironment({ APP_ENV: "desconocido" })).toThrow("APP_ENV debe ser");
+  });
   it.each(["migrate.ts", "mark-baseline.ts"])("%s se niega sin importar ni conectar el pool", script => {
     const result = spawnSync(process.execPath, [
       "--import", "tsx", path.resolve(import.meta.dirname, "../../scripts", script),

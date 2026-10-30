@@ -1,4 +1,5 @@
 import { SCHOOL_TODAY_SQL } from "@shared/school-date";
+import { revokeStaffRealtime } from "./lib/staff-realtime";
 import { 
   tenants, campuses, users, students, guardians, student_guardian, concepts, 
   charges, payments, payment_methods, invoices, scholarships, discounts,
@@ -241,6 +242,7 @@ export class DatabaseStorage implements IStorage {
       .set(updates)
       .where(eq(users.id, id))
       .returning();
+    if (user && (updates.password_hash !== undefined || updates.password_changed_at !== undefined)) revokeStaffRealtime(id);
     return user || undefined;
   }
 
@@ -1009,6 +1011,7 @@ export class DatabaseStorage implements IStorage {
     await db.update(users)
       .set({ password_hash, password_changed_at: now, updated_at: now })
       .where(eq(users.id, userId));
+    revokeStaffRealtime(userId);
   }
 
   async updateUserProfile(userId: number, updates: { name?: string; email?: string; telefono?: string; foto_url?: string }): Promise<void> {

@@ -6,6 +6,8 @@ import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { JWT_SECRET } from './routes/shared';
 import { isSessionInvalidated } from './lib/session-version';
+import { staffSessionExpired, STAFF_SESSION_SECONDS } from "./lib/staff-session";
+import { registerStaffSocket, staffRealtimeGeneration } from "./lib/staff-realtime";
 
 interface AuthenticatedSocket extends WebSocket {
   user?: {
@@ -146,6 +148,10 @@ class WebSocketManager {
       }
 
       const decoded = jwt.verify(token, JWT_SECRET) as any;
+      if (decoded.type === "guardian" || decoded.twofa_verified !== true || staffSessionExpired(decoded)) {
+        ws.close(4001, "Sesión no autorizada"); return;
+      }
+      const generation = staffRealtimeGeneration(decoded.id);
       
       // Validar estructura del token
       if (!decoded || !decoded.id || typeof decoded.id !== 'number') {
@@ -179,6 +185,8 @@ class WebSocketManager {
       };
 
       // Registrar cliente
+      const expiresAt = Math.min(decoded.exp ?? Infinity, (decoded.session_started_at ?? decoded.iat) + STAFF_SESSION_SECONDS) * 1000;
+      if (!registerStaffSocket(user.id, ws, expiresAt, generation)) return;
       this.addClient(ws);
 
       // Confirmar autenticación

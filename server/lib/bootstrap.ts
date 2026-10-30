@@ -1,6 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import bcrypt from "bcrypt";
 import { z } from "zod";
+import { revokeStaffRealtime } from "./staff-realtime";
 
 // Se usa el JSONB de onboarding ya migrado. Esta clave reservada sólo la
 // escribe bootstrap; el wizard mezcla pasos de una lista cerrada, no la borra.
@@ -141,6 +142,7 @@ export async function changeInitialPassword(
       }),
     ]);
     await client.query("COMMIT");
+    revokeStaffRealtime(actor.id);
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

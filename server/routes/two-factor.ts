@@ -8,6 +8,7 @@ import { MODULES, ACTIONS, canEditUser, type UserRole } from "@shared/permission
 import { userInSessionScope } from "../lib/user-authorization";
 import { pendingTotp, confirmTotp, TotpError } from "../lib/totp-service";
 import { signStaffSession } from "../lib/staff-session";
+import { revokeStaffRealtime } from "../lib/staff-realtime";
 
 // Request.user es enriquecido por authenticateToken, no por el body.
 type StaffRequest = Request & { user: {
@@ -116,6 +117,7 @@ export function registerTwoFactorRoutes(app: Express): void {
       finally { client.release(); }
       resetChallenges.delete(key);
       pendingTotp.clear(target.id);
+      revokeStaffRealtime(target.id);
       res.json({ message: "Dos factores restablecidos. La cuenta debe registrarlos de nuevo." });
     } catch (error) { failure(res, error); }
   }));

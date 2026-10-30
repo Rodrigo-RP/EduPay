@@ -14,7 +14,7 @@
  *
  * Modelo:
  *   - PostgreSQL como cola (sin Redis/BullMQ — sin nueva infraestructura).
- *   - Tabla: audit_retry_queue (creada via CREATE TABLE IF NOT EXISTS al startup).
+ *   - Tabla: audit_retry_queue (creada por la migración 0000_baseline.sql).
  *   - Worker: setInterval cada 30 s, procesa registros pendientes.
  *   - Reintentos: hasta 3 intentos con backoff de 5 min por intento.
  *   - Dead letter: después de 3 fallos → status='dead' + log de error nivel
@@ -64,21 +64,15 @@ export interface AuditLogPayload {
   previous_value?: Record<string, unknown>;
 }
 
-// ── Init tabla ─────────────────────────────────────────────────────────────
+// ── Comprobación de la tabla creada por migraciones ─────────────────────────
 export async function initAuditRetryQueue(): Promise<void> {
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS audit_retry_queue (
-      id            BIGSERIAL PRIMARY KEY,
-      payload       JSONB NOT NULL,
-      attempts      INT NOT NULL DEFAULT 0,
-      max_attempts  INT NOT NULL DEFAULT 3,
-      last_error    TEXT,
-      status        VARCHAR(20) NOT NULL DEFAULT 'pending',
-      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      next_retry_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
+    SELECT id, payload, attempts, max_attempts, last_error, status,
+           created_at, next_retry_at
+      FROM audit_retry_queue
+     LIMIT 0
   `);
-  auditLogger.info("audit_retry_queue inicializada");
+  auditLogger.info("audit_retry_queue disponible (creada por migraciones)");
 }
 
 // ── Encolar un fallo de audit_log ─────────────────────────────────────────

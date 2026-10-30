@@ -60,3 +60,17 @@ mtime_ms = 1793076009885
 storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:1d65db5a-9a24-4d3f-bc7c-b90a11d39927/fd78f48a-caf8-4e2f-a4a4-4d677f3a16d6/918f7d65-895c-4be3-a1e0-eceb1641fac8"
 storage_version_token = "1793076030224764"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "yYBa2n_y-tRq2c3a4qQHk"
+uri = "file://generated-artifacts/preparacion-produccion/COMPARACION-ESQUEMA.md"
+type = "text"
+title = "Comparación completa del esquema"
+description = "Equivalencia de la cola, todas las diferencias y consultas SELECT completas. Preparación detenida por el tipo del ledger de migraciones."
+logical_id = "24d1c636-362d-49b6-8134-bac155571b84"
+content_hash = "sha256:bb7e673b8defccae3fb547bb590310446cf4f80a99310071a214462fa0919b70"
+size = 22244
+mtime_ms = 1793318545774
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:1d65db5a-9a24-4d3f-bc7c-b90a11d39927/24d1c636-362d-49b6-8134-bac155571b84/349b9b5d-235b-4547-ab8a-7ef1a9fe87e5"
+storage_version_token = "1793318546809959"
+content_type = "text/markdown"

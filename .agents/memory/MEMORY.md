@@ -85,3 +85,4 @@
 - [Jerarquía y aislamiento](role-and-assistant-isolation.md) — sin excepción para pares superadministradores; usuarios y asistente conservan tenant/campus de sesión.
 - [Retención de seguridad](security-retention-policy.md) — los 365 días son una decisión autorizada, no un parámetro que reducir al optimizar mantenimiento.
 - [Resolución de dependencias](npm-peer-resolution.md) — comprobar npm ci y npm ls en copia limpia; instalar sin errores no garantiza requisitos pares válidos.
+- [Procesos hijos y preload de CI](ci-child-process-policy.md) — las negativas de producción deben alcanzar la guarda del comando, sin heredar el adaptador de pruebas.

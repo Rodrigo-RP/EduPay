@@ -16,7 +16,8 @@ describe("migraciones nunca en producción", () => {
     const result = spawnSync(process.execPath, [
       "--import", "tsx", path.resolve(import.meta.dirname, "../../scripts", script),
     ], {
-      env: { ...process.env, APP_ENV: "production", DATABASE_URL: "" },
+      // La negativa debe ejecutar el script, sin módulos precargados de pruebas.
+      env: { ...process.env, APP_ENV: "production", DATABASE_URL: "", NODE_OPTIONS: "" },
       encoding: "utf8",
     });
     expect(result.status).not.toBe(0);

@@ -146,3 +146,19 @@ Se rechaza cualquier sentencia de reejecución de los SQL de las migraciones.
 El PostgreSQL temporal local se detuvo después de las dos pruebas. No se
 consultó ni migró heliumdb. El CI repite generación, esquema vacío, conteo
 de siete entradas y compatibilidad en bases desechables.
+
+## Auditoría de dependencias
+
+`npm audit --json`, 30 de octubre de 2026:
+
+- `drizzle-orm` ya no aparece en las vulnerabilidades.
+- Antes: 22 vulnerabilidades (6 bajas, 11 moderadas, 5 altas).
+- Después: 21 (6 bajas, 11 moderadas, 4 altas; ninguna crítica).
+- Sólo cambiaron las versiones instaladas de drizzle-orm y drizzle-kit.
+  No se actualizó Vite ni otra dependencia de versión mayor.
+- `npm ls --all` terminó con código 0 en el proyecto y en una copia limpia
+  instalada con `npm ci --ignore-scripts` (sin ignorar requisitos pares).
+  El CI ejecuta además `npm ci` normal y `npm ls --all`.
+
+Las vulnerabilidades pendientes no se corrigen ni se presentan como resueltas.
+No se ejecutó `npm audit fix`.

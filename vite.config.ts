@@ -40,6 +40,8 @@ export default defineConfig({
   },
   root: path.resolve(import.meta.dirname, "client"),
   build: {
+    // Conserva el soporte de navegadores de Vite 5; Vite 7/8 elevan el default.
+    target: ["es2020", "edge88", "firefox78", "chrome87", "safari14"],
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
   },

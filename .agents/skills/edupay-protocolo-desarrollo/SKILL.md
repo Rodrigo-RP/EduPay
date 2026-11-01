@@ -64,7 +64,7 @@ La base de desarrollo (`DATABASE_URL`) es `heliumdb`, marcada `edupay:test`: sol
 - Webhooks, en este orden: guardar el evento crudo, validar la firma, descartar duplicados por id de evento con restricción única, responder 200 y procesar. Un evento tardío nunca regresa un estado avanzado a uno anterior.
 - Un pago asíncrono como SPEI no acredita cargos hasta el webhook confirmado y firmado.
 - Toda entrada financiera (montos, porcentajes, fechas, cuotas, IDs de cargos o pagos) se valida con `server/lib/financial-input.ts`. Si creas o cambias una ruta que la recibe, agrégala a la lista de `server/lib/financial-request-validation.ts`; una ruta fuera de esa lista queda sin validar.
-- Toda fecha de negocio ("hoy", el día de un pago, un vencimiento, un corte de caja) usa `shared/school-date.ts` y la zona de la escuela, también en las pruebas. Nunca `toISOString().slice(0, 10)`, `split("T")[0]`, `CURRENT_DATE`, `NOW()::date` ni la zona horaria del proceso.
+- Toda fecha de negocio ("hoy", el día de un pago, un vencimiento, un corte de caja) usa `shared/school-date.ts` y la zona de la escuela, también en las pruebas. Nunca `toISOString().slice(0, 10)`, `split("T")[0]`, `CURRENT_DATE`, `NOW()::date` ni la zona horaria del proceso. Ni getMonth(), getFullYear(), getDate() ni getDay() sobre new Date().
 
 ## 5. Nada simulado se presenta como real
 

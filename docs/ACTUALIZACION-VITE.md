@@ -41,3 +41,21 @@ Se conservan las opciones de middleware y HMR.
 El paso de producción del CI informa el tamaño final del cliente y del
 servidor. El tiempo de una sola compilación no es una prueba de rendimiento
 de la aplicación.
+
+## Smoke de producción en CI
+
+Tras el build, CI clona el esquema desechable ya migrado a
+`edupay_production_smoke_ci`, sin aplicar migraciones adicionales.
+`npm run start` usa APP_ENV y NODE_ENV de producción, sin permitir seeds.
+La guarda de producción se mantiene: la base temporal nueva no tiene
+marcador de pruebas/demo.
+
+El adaptador de transporte separado sólo admite CI, el usuario `ci_test`,
+el puerto 5432 y ese nombre exacto de base en loopback. No modifica el
+adaptador habitual ni se carga en la aplicación publicada.
+
+Se comprueban el HTTP 200 y los bytes de todos los archivos del bundle,
+la página principal renderizada en Chromium, errores JavaScript y el
+HTTP 200 de los recursos efectivamente cargados, incluidos los externos.
+Se informa el tamaño sin comprimir/gzip y se detiene el proceso incluso
+si falla la prueba. La base temporal se elimina al terminar.

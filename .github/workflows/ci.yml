@@ -139,6 +139,18 @@ jobs:
           cat "$RUNNER_TEMP/postgres-bridge.log"
           exit 1
 
+      - name: Instalar Chromium para Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Probar el bundle con npm run start en modo producción
+        run: |
+          # Copia del esquema vacío ya verificado, sin ejecutar otra migración.
+          # La base nueva no hereda el comentario de pg_database del template.
+          createdb -h 127.0.0.1 -U ci_test --template=edupay_ci edupay_production_smoke_ci
+          trap 'dropdb --force -h 127.0.0.1 -U ci_test edupay_production_smoke_ci' EXIT
+          set -o pipefail
+          node .github/ci/production-smoke.mjs | tee "$RUNNER_TEMP/production-smoke.log"
+
       - name: Preparar fixtures en la base desechable
         env:
           NODE_OPTIONS: --import=${{ github.workspace }}/.github/ci/neon-config.mjs
@@ -169,9 +181,6 @@ jobs:
         env:
           NODE_OPTIONS: --import=${{ github.workspace }}/.github/ci/neon-config.mjs
 
-      - name: Instalar Chromium para Playwright
-        run: npx playwright install --with-deps chromium
-
       - name: Detener servidor unitario antes del servidor propio de Playwright
         run: |
           pkill -f 'node.*server/index.ts' || true
@@ -198,6 +207,7 @@ jobs:
             test-results/
             ${{ runner.temp }}/app.log
             ${{ runner.temp }}/postgres-bridge.log
+            ${{ runner.temp }}/production-smoke.log
             ~/.npm/_logs/
           if-no-files-found: ignore
           retention-days: 14

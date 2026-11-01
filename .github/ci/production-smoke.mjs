@@ -59,6 +59,21 @@ try {
   }
   browser = await chromium.launch({ args: ["--no-sandbox"] });
   const page = await browser.newPage();
+  // Analiza el HTML realmente servido, sin ejecutarlo. Los scripts añadidos
+  // después por SDKs no son scripts declarados por nuestro documento HTML.
+  const htmlResponse = await fetch(base);
+  assert.equal(htmlResponse.status, 200);
+  const externalScripts = await page.evaluate(({ html, url }) => {
+    const document = new DOMParser().parseFromString(html, "text/html");
+    const baseHref = document.querySelector("base[href]")?.getAttribute("href");
+    const resolutionBase = new URL(baseHref || url, url);
+    return Array.from(document.querySelectorAll("script[src]"))
+      .map(script => new URL(script.getAttribute("src"), resolutionBase))
+      .filter(source => source.origin !== new URL(url).origin)
+      .map(source => source.href);
+  }, { html: await htmlResponse.text(), url: htmlResponse.url });
+  assert.deepEqual(externalScripts, [], "El HTML servido declara scripts externos");
+  console.log("[production:html] Cero scripts de dominios externos en el HTML servido.");
   const failures = [];
   const resourceTypes = new Set(["document", "script", "stylesheet", "image", "font", "media"]);
   page.on("pageerror", error => failures.push(`JavaScript: ${error.message}`));

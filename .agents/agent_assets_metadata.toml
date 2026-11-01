@@ -74,3 +74,17 @@ mtime_ms = 1793318545774
 storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:1d65db5a-9a24-4d3f-bc7c-b90a11d39927/24d1c636-362d-49b6-8134-bac155571b84/349b9b5d-235b-4547-ab8a-7ef1a9fe87e5"
 storage_version_token = "1793318546809959"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "B5MM6ngBowOjY8N9DUUEV"
+uri = "file://generated-artifacts/actualizacion-vite-helium-schema.txt"
+type = "text"
+title = "heliumdb: comparación exacta de esquema"
+description = "Las 14 consultas SELECT completas, conteos de metadatos y resultado: 12 categorías, cero diferencias contra drizzle/schema-catalog.json."
+logical_id = "33c0ab35-58d3-4a35-99f4-4848429da596"
+content_hash = "sha256:e1c976f9c7e475c5705e81be59692f6b391e7eca5933cd8b87e55ea4792028aa"
+size = 4543
+mtime_ms = 1793493216261
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:1d65db5a-9a24-4d3f-bc7c-b90a11d39927/33c0ab35-58d3-4a35-99f4-4848429da596/8a9a1482-24a8-4575-978d-7b5bbe086128"
+storage_version_token = "1793493224056289"
+content_type = "text/plain"

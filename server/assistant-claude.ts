@@ -5,6 +5,7 @@
  * Claude nunca recibe SQL, endpoints de escritura ni identificadores sensibles.
  */
 import Anthropic from "@anthropic-ai/sdk";
+import { schoolDate } from "@shared/school-date";
 import { ACTIONS, MODULES } from "@shared/permissions";
 import {
   executeAction,
@@ -706,9 +707,9 @@ function serializeToolResult(toolName: string, result: ActionResult): Record<str
 }
 
 function currentSystemPrompt(): string {
-  const now = new Date();
-  const currentYear = new Date().getFullYear();
-  const currentMonth = now.getMonth() + 1;
+  const today = schoolDate();
+  const currentYear = Number(today.slice(0, 4));
+  const currentMonth = Number(today.slice(5, 7));
   return [
     "Eres el asistente de EduPay para consultas administrativas de solo lectura.",
     "Responde en español claro y breve. Usa una herramienta read-only cuando necesites datos; no inventes cifras.",

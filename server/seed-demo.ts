@@ -1,5 +1,6 @@
 // @ts-nocheck
 import bcrypt from "bcrypt";
+import { schoolDate } from "@shared/school-date";
 import { db, pool } from "./db";
 import {
   tenants, campuses, users, students, guardians,
@@ -47,13 +48,7 @@ function isoDate(date: Date): string {
 
 function addDays(date: Date, days: number): Date {
   const result = new Date(date);
-  result.setDate(result.getDate() + days);
-  return result;
-}
-
-function startOfDay(date: Date): Date {
-  const result = new Date(date);
-  result.setHours(0, 0, 0, 0);
+  result.setUTCDate(result.getUTCDate() + days);
   return result;
 }
 
@@ -475,8 +470,8 @@ export async function seedDemoData() {
       },
     ];
 
-    const today = startOfDay(new Date());
-    const thisYear = today.getFullYear();
+    const today = new Date(schoolDate() + "T00:00:00Z");
+    const thisYear = today.getUTCFullYear();
     const demoStudents: Array<{
       id: number;
       campusId: number;

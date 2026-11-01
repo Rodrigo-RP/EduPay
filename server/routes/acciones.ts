@@ -240,9 +240,9 @@ export function registerAccionesRoutes(app: Express): void {
 
       res.json({
         periodo_desde: (() => {
-          const d = new Date();
-          d.setMonth(d.getMonth() - 2);
-          d.setDate(1);
+          const d = new Date(schoolDate() + "T12:00:00Z");
+          d.setUTCDate(1);
+          d.setUTCMonth(d.getUTCMonth() - 2);
           return schoolDate(d);
         })(),
         por_tipo:         q1Rows.rows,

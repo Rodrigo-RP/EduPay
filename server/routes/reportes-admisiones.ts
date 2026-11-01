@@ -1,4 +1,4 @@
-import { schoolDateSQL } from "@shared/school-date";
+import { schoolDate, schoolDateSQL } from "@shared/school-date";
 /**
  * reportes-admisiones.ts — RPT-04 Reporte de Admisiones y Becas
  *
@@ -217,9 +217,8 @@ export function registerReportesAdmisionesRoutes(app: Express): void {
       const params: AdmisionesParams = { ciclo, nivel, estado, fecha_desde, fecha_hasta };
 
       // ── Ciclo para inscripciones (usa el parámetro o el año en curso) ──────
-      const cicloCalc =
-        ciclo ??
-        `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
+      const currentYear = Number(schoolDate().slice(0, 4));
+      const cicloCalc = ciclo ?? `${currentYear}-${currentYear + 1}`;
 
       // ── Filtros comunes para consultas de resumen ─────────────────────────
       const { clauses: sfC, values: sfV } = buildStudentFilters(params, 2);

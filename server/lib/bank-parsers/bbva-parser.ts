@@ -1,3 +1,4 @@
+import { schoolDate } from "@shared/school-date";
 /**
  * server/lib/bank-parsers/bbva-parser.ts
  * ──────────────────────────────────────────────────────────────────────────────
@@ -312,7 +313,7 @@ export class BBVAParser implements BankStatementParser {
     const pdf = await loadingTask.promise;
 
     // ── Año desde metadata del PDF ──────────────────────────────────────────
-    let year = new Date().getFullYear();
+    let year = Number(schoolDate().slice(0, 4));
     try {
       const meta = await pdf.getMetadata();
       const cd   = (meta?.info as any)?.CreationDate as string | undefined;

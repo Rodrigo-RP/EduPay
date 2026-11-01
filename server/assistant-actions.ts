@@ -326,9 +326,9 @@ async function queryResumenFinanciero(_p: Record<string, any>, ctx: ActionContex
  * Todos los indicadores son agregados: nunca devuelve alumnos, IDs ni datos sensibles.
  */
 async function queryResumenEjecutivoMes(params: Record<string, any>, ctx: ActionContext): Promise<ActionResult> {
-  const now = new Date();
-  const month = params.mes === undefined ? now.getMonth() + 1 : Number(params.mes);
-  const year = params.anio === undefined ? now.getFullYear() : Number(params.anio);
+  const today = schoolDate();
+  const month = params.mes === undefined ? Number(today.slice(5, 7)) : Number(params.mes);
+  const year = params.anio === undefined ? Number(today.slice(0, 4)) : Number(params.anio);
 
   if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 2000 || year > 2100) {
     return {
@@ -1285,7 +1285,7 @@ async function resolveScopedSuggestContext(trigger: SuggestActionTrigger, ctx: {
 
     const hoy = schoolDate();
     const d   = new Date(hoy);
-    d.setFullYear(d.getFullYear() + 1);
+    d.setUTCFullYear(d.getUTCFullYear() + 1);
     const vigenciaFin = d.toISOString().split("T")[0];
 
     return {

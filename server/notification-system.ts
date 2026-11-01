@@ -17,8 +17,8 @@ export class NotificationSystem {
   static async checkExpiringCredentials(userId: number, campusId: number): Promise<CredentialNotification[]> {
     try {
       const today = new Date();
-      const warningDate = new Date();
-      warningDate.setDate(today.getDate() + 15); // 15 días de anticipación
+      // Anticipación por duración; conservar la hora, no truncar a medianoche.
+      const warningDate = new Date(today.getTime() + 15 * 24 * 60 * 60 * 1000);
 
       const expiringCredentials = await db
         .select({

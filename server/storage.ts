@@ -918,8 +918,8 @@ export class DatabaseStorage implements IStorage {
       .from(payments);
 
     // Get security events from last 30 days
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // Ventana móvil de instantes: no convertir en un corte de día escolar.
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     
     const [securityCount] = await db
       .select({ count: sql<number>`COUNT(*)` })

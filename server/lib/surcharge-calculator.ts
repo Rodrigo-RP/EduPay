@@ -1,4 +1,5 @@
 import { SEP_NON_WORKING_DAYS_2025_2026 } from "@shared/payment-rules";
+import { schoolDate } from "@shared/school-date";
 
 export type SurchargeType = "porcentaje" | "fijo" | "progresivo";
 export type SurchargeAccumulationMode = "ninguno" | "incremento_fijo" | "compuesto";
@@ -131,7 +132,7 @@ export function calculateSurcharge(
   rule: SurchargeRuleForCalculation,
   baseAmountCentavos: number,
   dueDate: Date | string,
-  calculationDate: Date | string = new Date(),
+  calculationDate: Date | string = schoolDate(),
 ): SurchargeCalculation {
   const due = toLocalCalendarDate(dueDate);
   const asOf = toLocalCalendarDate(calculationDate);

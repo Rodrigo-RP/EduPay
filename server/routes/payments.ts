@@ -686,7 +686,7 @@ export function registerPaymentRoutes(app: Express): void {
           const vigenciaFinParsed = parseXlsxDate(becaData.vigencia_fin);
           const vigenciaFin = vigenciaFinParsed || (() => {
             const d = new Date(vigenciaInicio);
-            d.setFullYear(d.getFullYear() + 1);
+            d.setUTCFullYear(d.getUTCFullYear() + 1);
             return d.toISOString().split('T')[0];
           })();
           const motivo = becaData.motivo || becaData.observaciones || String(becaData.tipo_beca);

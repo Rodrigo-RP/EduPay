@@ -1497,7 +1497,7 @@ export function registerAdminRoutes(app: Express): void {
         vfin = String(vigencia_fin).trim();
       } else {
         const d = new Date(vinicio);
-        d.setFullYear(d.getFullYear() + 1);
+        d.setUTCFullYear(d.getUTCFullYear() + 1);
         vfin = d.toISOString().split("T")[0];
       }
 

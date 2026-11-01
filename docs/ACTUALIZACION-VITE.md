@@ -96,3 +96,22 @@ Los pendientes se agrupan en:
 los avisos permanecieron. No se presentan como corregidos ni se
 introducen overrides para forzar versiones fuera de los rangos de
 los padres.
+
+## Evidencia de PPX-05
+
+Los CI 41083388666 y 41087348673 no tienen artefactos:
+`GET /repos/Rodrigo-RP/EduPay/actions/runs/<id>/artifacts` devuelve
+`total_count: 0`. El workflow anterior sólo subía evidencias si el job
+fallaba, y una prueba que pasaba al reintentarse no activaba ese paso.
+Además, `on-first-retry` no grababa la primera ejecución fallida.
+
+El log de 41087348673 sitúa el fallo en `openPlanes`, al esperar el
+encabezado después de cambiar al campus B. No es suficiente para afirmar
+que el fallo pertenece a la prueba o a la app. Los otros artefactos
+disponibles contienen PPX-05 aprobado u omitido, no esa traza fallida.
+No se cambia la prueba basándose únicamente en una hipótesis.
+
+CI ahora conserva trazas de la primera ejecución fallida, deshabilita
+los reintentos y sube los reportes también en verde. Repite diez veces
+el archivo completo porque PPX-05 usa el convenio creado por los casos
+anteriores del grupo serial. No cambia aserciones ni límites de tiempo.

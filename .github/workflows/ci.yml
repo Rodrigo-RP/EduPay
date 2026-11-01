@@ -190,15 +190,30 @@ jobs:
           done
           exit 1
 
-      - run: npm run test:e2e
+      - name: E2E completa sin reintentos, conservando la primera traza fallida
+        run: npm run test:e2e -- --retries=0 --trace=retain-on-failure
+        env:
+          NODE_OPTIONS: --import=${{ github.workspace }}/.github/ci/neon-config.mjs
+
+      - name: Conservar el reporte completo antes de repetir Planes de Pago
+        if: always()
+        run: |
+          if test -d playwright-report; then
+            cp -R playwright-report "$RUNNER_TEMP/e2e-full-report"
+          fi
+
+      - name: PPX-05 diez veces al primer intento con sus prerrequisitos seriales
+        run: |
+          npm run test:e2e -- e2e/27-planes-pago-flujos-completos.spec.ts \
+            --repeat-each=10 --retries=0 --trace=retain-on-failure
         env:
           NODE_OPTIONS: --import=${{ github.workspace }}/.github/ci/neon-config.mjs
 
       - name: Confirmar que arranque y suites no introdujeron DDL
         run: npx tsx scripts/verify-schema-exact.ts
 
-      - name: Subir evidencias si falla
-        if: failure()
+      - name: Subir evidencias incluso cuando el CI termina en verde
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ci-evidence-${{ github.run_attempt }}
@@ -208,6 +223,7 @@ jobs:
             ${{ runner.temp }}/app.log
             ${{ runner.temp }}/postgres-bridge.log
             ${{ runner.temp }}/production-smoke.log
+            ${{ runner.temp }}/e2e-full-report/
             ~/.npm/_logs/
           if-no-files-found: ignore
           retention-days: 14

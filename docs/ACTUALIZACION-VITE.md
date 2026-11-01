@@ -59,3 +59,40 @@ la página principal renderizada en Chromium, errores JavaScript y el
 HTTP 200 de los recursos efectivamente cargados, incluidos los externos.
 Se informa el tamaño sin comprimir/gzip y se detiene el proceso incluso
 si falla la prueba. La base temporal se elimina al terminar.
+
+## Correcciones compatibles de seguridad
+
+Se ejecutó `npm audit fix --legacy-peer-deps`, nunca `--force`.
+Cambios de las cuatro dependencias altas:
+
+- body-parser 1.20.8 → 1.20.9.
+- follow-redirects 1.16.1 → 1.16.2.
+- multer 2.4.0 → 2.5.0.
+- node-forge 1.4.0 → 1.4.2.
+
+La resolución automática dejó Vitest 4.1.12 junto a coverage-v8 4.1.11,
+con pares incompatibles. Se alinearon ambos en la línea 4.1.12, sin
+ignorar el resultado de `npm ls`. La instalación normal y `npm ci` en
+una copia limpia terminaron correctamente; ambos árboles pasaron
+`npm ls --all`.
+
+Auditoría final local: **21 pendientes, 6 bajas y 15 moderadas;
+cero altas y cero críticas**. Vite y Drizzle ORM ya no aparecen.
+
+Los pendientes se agrupan en:
+
+- Drizzle Kit / esbuild-kit / esbuild: npm propone retroceder Kit a
+  0.18.1 con cambio incompatible; se conserva el migrador verificado.
+- ExcelJS / archiver / glob / minimatch / uuid y derivados: la propuesta
+  global exige retroceder ExcelJS a 3.4.0; no se cambia su API.
+- typography / postcss-selector-parser: npm propone otra línea de
+  typography, fuera de las correcciones compatibles autorizadas.
+- SendGrid / deepmerge y csurf / cookie: las propuestas globales son
+  retrocesos incompatibles de sus dependencias principales.
+
+`@sendgrid/client`, `rimraf` y `zip-stream` indican además
+`fixAvailable: true`. Se intentó su actualización compatible con
+`npm update @sendgrid/client rimraf zip-stream --ignore-scripts`;
+los avisos permanecieron. No se presentan como corregidos ni se
+introducen overrides para forzar versiones fuera de los rangos de
+los padres.

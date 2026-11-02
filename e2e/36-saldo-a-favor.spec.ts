@@ -96,6 +96,13 @@ test("saldo familiar: dos confirmaciones, propuesta de $500 y aplicación explí
 });
 
 test("el padre ve crédito separado y no tiene botón para aplicarlo", async ({ page }) => {
+  const nonGuardianRequests: string[] = [];
+  page.on("request", request => {
+    const path = new URL(request.url()).pathname;
+    if (path.startsWith("/api/") && !path.startsWith("/api/guardian/") && path !== "/api/auth/guardian-login") {
+      nonGuardianRequests.push(path);
+    }
+  });
   await page.goto("/");
   const login = await page.request.post("/api/auth/guardian-login", {
     data: { email: guardianEmail, password: ADMIN_PASSWORD },
@@ -112,6 +119,7 @@ test("el padre ve crédito separado y no tiene botón para aplicarlo", async ({ 
   await expect(page.getByText(`A tu favor: $${expected}`, { exact: false })).toBeVisible();
   await expect(page.getByText("La escuela lo aplicará a tu próximo cargo", { exact: false })).toBeVisible();
   await expect(page.getByRole("button", { name: "Aplicar como sugiere" })).toHaveCount(0);
+  expect(nonGuardianRequests).toEqual([]);
   const token = await page.evaluate(() => localStorage.getItem("auth_token"));
   const denied = await page.request.post("/api/admin/family-credits/aplicar-propuesta", {
     headers: { Authorization: `Bearer ${token}` },

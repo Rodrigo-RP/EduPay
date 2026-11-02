@@ -1,5 +1,6 @@
 import { SCHOOL_TODAY_SQL, schoolDate } from "@shared/school-date";
 import type { Express } from "express";
+import { registerGuardianInstitutionRoute } from "./guardian-institution";
 import { centavos, pesosToCentavos } from "../lib/financial-input";
 import { createHash } from "node:crypto";
 import { settleConfirmedStripePaymentIntent } from "../lib/stripe-spei-settlement";
@@ -214,6 +215,7 @@ export async function registerGuardianRoutes(
   app: Express,
   stripeOverride?: StripeGuardianClient
 ): Promise<void> {
+  registerGuardianInstitutionRoute(app);
   const sg = stripeOverride ?? defaultStripeGuardian;
   /**
    * POST /api/guardian/spei-intent

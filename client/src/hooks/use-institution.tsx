@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "./use-auth";
 
 interface InstitutionContextType {
   institutionName: string;
@@ -14,21 +15,23 @@ interface InstitutionContextType {
 const InstitutionContext = createContext<InstitutionContextType | undefined>(undefined);
 
 export function InstitutionProvider({ children }: { children: ReactNode }) {
+  const { user, guardian } = useAuth();
+  const endpoint = guardian ? "/api/guardian/institutional-info" : "/api/institutional-info";
   const [institutionName, setInstitutionName] = useState<string>("Instituto JFR");
   const [campusName, setCampusName] = useState<string>("Campus Principal");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   // Cargar datos institucionales usando React Query
   const { data: institutionalData } = useQuery({
-    queryKey: ['/api/institutional-info'],
+    queryKey: [endpoint, guardian?.id ?? user?.id],
     queryFn: async () => {
-      const response = await apiRequest('/api/institutional-info');
+      const response = await apiRequest(endpoint);
       return response.json();
     },
     retry: 1,
     staleTime: 0, // Siempre refrescar datos
     gcTime: 0, // No mantener cache
-    enabled: !!localStorage.getItem('auth_token') // Solo ejecutar si hay token
+    enabled: !!(guardian || user) // Nunca usar token de tutor durante la carga del personal.
   });
 
   // Actualizar estado cuando se cargan los datos

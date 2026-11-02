@@ -88,3 +88,17 @@ mtime_ms = 1793493216261
 storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:1d65db5a-9a24-4d3f-bc7c-b90a11d39927/33c0ab35-58d3-4a35-99f4-4848429da596/8a9a1482-24a8-4575-978d-7b5bbe086128"
 storage_version_token = "1793493224056289"
 content_type = "text/plain"
+
+[[outputs]]
+id = "XdZEC-8kNt9uLexsMoTNz"
+uri = "file://generated-artifacts/saldo-a-favor/REPORTE.md"
+type = "text"
+title = "Reporte de saldo a favor — pendiente de cierre"
+description = "Inventario completo, consultas SELECT, resultados de las seis corridas, diagnóstico del portal y hashes verificados. CI final fallido; rama no integrada."
+logical_id = "c01d9458-0b1c-4559-abcc-db4353bc0872"
+content_hash = "sha256:ad8cb2876d249779262a6470b37b1b4ec4f60aa2bc253d0ddf565cca238d1a01"
+size = 13894
+mtime_ms = 1793586948993
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:1d65db5a-9a24-4d3f-bc7c-b90a11d39927/c01d9458-0b1c-4559-abcc-db4353bc0872/97800f18-581a-44bb-88da-9ca563519b06"
+storage_version_token = "1793586986134716"
+content_type = "text/markdown"

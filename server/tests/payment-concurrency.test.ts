@@ -28,6 +28,7 @@ import { JWT_SECRET } from "../routes/shared";
 let tenantId:    number;
 let campusId:    number;
 let studentId:   number;
+let creditFamilyId: number;
 let guardianId:  number;
 let conceptId:   number;
 let adminToken:  string;  // JWT de usuario admin
@@ -164,6 +165,10 @@ beforeAll(async () => {
     status:          "activo",
   }).returning();
   studentId = stu.id;
+  creditFamilyId = (await pool.query(
+    "INSERT INTO families (tenant_id,campus_id,nombre) VALUES ($1,$2,'Familia concurrencia') RETURNING id",
+    [tenantId, campusId])).rows[0].id;
+  await pool.query("INSERT INTO family_students (family_id,student_id) VALUES ($1,$2)", [creditFamilyId, studentId]);
 
   const [grd] = await db.insert(guardians).values({
     tenant_id:                    tenantId,
@@ -246,6 +251,8 @@ afterAll(async () => {
     [tenantId]
   );
   await pool.query(`DELETE FROM student_guardian WHERE student_id=$1`, [studentId]);
+  await pool.query("DELETE FROM family_students WHERE family_id=$1", [creditFamilyId]);
+  await pool.query("DELETE FROM families WHERE id=$1", [creditFamilyId]);
   await pool.query(`DELETE FROM students WHERE id=$1`,   [studentId]);
   await pool.query(`DELETE FROM guardians WHERE id=$1`,  [guardianId]);
   await pool.query(`DELETE FROM concepts WHERE id=$1`,   [conceptId]);
@@ -490,15 +497,12 @@ describe("caja/pago-efectivo — pago parcial y completion", () => {
     // El saldo a favor visible es AL MENOS el excedente de este pago
     expect(resumenAntes.saldo_a_favor_centavos).toBeGreaterThanOrEqual(EXCEDENTE);
 
-    // saldo_neto = max(0, saldo_pendiente - saldo_a_favor) — el endpoint lo calcula
+    // El crédito sin aplicar no rebaja lo que se debe pagar (contrato familiar).
     expect(resumenAntes.saldo_neto_centavos).toBe(
-      Math.max(0, resumenAntes.saldo_pendiente_centavos - resumenAntes.saldo_a_favor_centavos)
+      resumenAntes.saldo_pendiente_centavos
     );
 
-    // El saldo_neto es MENOR al saldo_pendiente bruto (el crédito sí rebaja)
-    expect(resumenAntes.saldo_neto_centavos).toBeLessThan(
-      resumenAntes.saldo_pendiente_centavos + 1  // +1 por si ambos son 0
-    );
+    expect(resumenAntes.saldo_a_favor_centavos).toBeGreaterThan(0);
   });
 
   /**

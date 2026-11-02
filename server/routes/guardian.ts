@@ -21,6 +21,7 @@ import bcrypt from "bcrypt";
 import { NotificationSystem as ServerNotificationSystem } from '../notification-system';
 import Stripe from "stripe";
 import { getActiveStripeAccountForCampus } from "./campus-payment";
+import { chargeBalance } from "../../shared/charge-balance";
 import { resolveEffectiveScholarship } from "../lib/scholarship-engine";
 import { parseProgressiveSurchargeTiers } from "../lib/surcharge-calculator";
 import {
@@ -513,23 +514,20 @@ export async function registerGuardianRoutes(
           // Pre-leer saldo (optimista, sin lock) solo para el monto del PaymentIntent.
           // La txn DB lo reconfirma con FOR UPDATE antes de insertar el pago.
           const preRes = await pool.query(
-            `SELECT c.monto_base_centavos, c.recargo_aplicado_centavos,
+            `SELECT c.monto_base_centavos, c.beca_aplicada, c.recargo_aplicado_centavos,
                     COALESCE(SUM(pa.amount_centavos), 0)::bigint AS ya_pagado
                FROM charges c
                 JOIN students s ON s.id = c.student_id
                LEFT JOIN payment_applications pa ON pa.charge_id = c.id
                WHERE c.id = $1 AND c.tenant_id = $2 AND s.tenant_id = $2 AND s.campus_id = $3
-              GROUP BY c.monto_base_centavos, c.recargo_aplicado_centavos`,
+              GROUP BY c.monto_base_centavos, c.beca_aplicada, c.recargo_aplicado_centavos`,
             [chargeId, tenantIdLote, guardianCampusId]
           );
           if (!preRes.rows.length) {
             return res.status(404).json({ message: `Cargo ${chargeId} no encontrado` });
           }
           const pre = preRes.rows[0] as any;
-          saldoPrevio =
-            Number(pre.monto_base_centavos) +
-            Number(pre.recargo_aplicado_centavos || 0) -
-            Number(pre.ya_pagado);
+          saldoPrevio = chargeBalance(pre).pendiente_centavos;
           if (saldoPrevio <= 0) {
             return res.status(409).json({ message: `El cargo ${chargeId} ya tiene saldo cero` });
           }

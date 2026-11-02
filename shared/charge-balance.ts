@@ -17,10 +17,10 @@ export function chargeBalance(charge: ChargeBalanceInput) {
     throw new Error("Importes del cargo inválidos");
   }
   const [whole, decimals = ""] = percentage.split(".");
-  const basisPoints = BigInt(whole) * 100n + BigInt(decimals.padEnd(2, "0"));
-  if (basisPoints > 10000n) throw new Error("Beca del cargo inválida");
+  const basisPoints = BigInt(whole) * BigInt(100) + BigInt(decimals.padEnd(2, "0"));
+  if (basisPoints > BigInt(10000)) throw new Error("Beca del cargo inválida");
   // ROUND de PostgreSQL para cantidades no negativas, sin error binario del .5.
-  const discounted = Number((BigInt(base) * (10000n - basisPoints) + 5000n) / 10000n);
+  const discounted = Number((BigInt(base) * (BigInt(10000) - basisPoints) + BigInt(5000)) / BigInt(10000));
   const total = ["cancelado", "reestructurado"].includes(charge.estado ?? "") ? 0 : discounted + surcharge;
   if (!Number.isSafeInteger(total)) throw new Error("Importe del cargo fuera de rango");
   return { total_centavos: total, aplicado_centavos: applied,

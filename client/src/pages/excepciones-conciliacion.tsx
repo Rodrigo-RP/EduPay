@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { StripeReviewCard, type StripeReviewItem } from "@/components/stripe-review-card";
+import { FamilyCreditCard } from "@/components/family-credit-card";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -240,7 +241,9 @@ export default function ExcepcionesConciliacion() {
             </div>
           ) : (
             <div className="space-y-3">
-              {excepciones.map((exc) => exc.origen === "stripe" ? (
+              {excepciones.map((exc) => ["family_credit", "orphan_credit"].includes(exc.origen ?? "") ? (
+                <FamilyCreditCard key={exc.id} item={exc} canApply={data?.puede_resolver_stripe === true} />
+              ) : exc.origen === "stripe" ? (
                 <StripeReviewCard key={exc.id} item={exc} canResolve={data?.puede_resolver_stripe === true} />
               ) : (
                 <div

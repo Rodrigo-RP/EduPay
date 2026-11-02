@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { StripeReviewCard } from "@/components/stripe-review-card";
+import { FamilyCreditCard } from "@/components/family-credit-card";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +60,10 @@ interface DashboardData {
 }
 
 interface Excepcion {
+  credito_ids?: number[];
+  cargos?: { id: number; concepto: string; pendiente_centavos: number }[];
+  familias?: { id: number; nombre: string }[];
+  saldo_a_favor_centavos?: number;
   origen?: string;
   id: number;
   fecha: string;
@@ -580,6 +585,12 @@ export default function AdminDashboard() {
           ) : (
             <div className="space-y-2">
               {(excData?.excepciones ?? []).slice(0, 8).map((exc) => {
+                if (["family_credit", "orphan_credit"].includes(exc.origen ?? "")) return (
+                  <div key={`credit-preview-${exc.id}`}>
+                    <FamilyCreditCard item={exc} />
+                    <Button variant="outline" onClick={() => setLocation("/excepciones-conciliacion")}>Revisar saldo a favor</Button>
+                  </div>
+                );
                 if (exc.origen === "stripe") return (
                   <div key={`stripe-preview-${exc.id}`}>
                     <StripeReviewCard item={exc} />

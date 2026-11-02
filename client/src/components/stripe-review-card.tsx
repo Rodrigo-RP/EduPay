@@ -16,6 +16,10 @@ export interface StripeReviewItem {
   fecha: string;
   payment_intent_id?: string;
   descripcion: string;
+  credito_ids?: number[];
+  cargos?: { id: number; concepto: string; pendiente_centavos: number }[];
+  familias?: { id: number; nombre: string }[];
+  saldo_a_favor_centavos?: number;
 }
 
 export function StripeReviewCard({ item, canResolve = false }: { item: StripeReviewItem; canResolve?: boolean }) {

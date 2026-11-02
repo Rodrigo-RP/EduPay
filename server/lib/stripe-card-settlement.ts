@@ -1,4 +1,5 @@
 import { SCHOOL_TODAY_SQL } from "@shared/school-date";
+import { chargeBalance } from "../../shared/charge-balance";
 import { pool } from "../db";
 import { enqueueAuditLog, type AuditLogPayload } from "../audit-retry";
 
@@ -41,7 +42,7 @@ export async function settleStripeCardPaymentIntent(
   try {
     await client.query("BEGIN");
     const locked = await client.query(
-      `SELECT c.id, c.monto_base_centavos, c.recargo_aplicado_centavos, c.estado
+      `SELECT c.id, c.monto_base_centavos, c.beca_aplicada, c.recargo_aplicado_centavos, c.estado
          FROM charges c JOIN students s ON s.id = c.student_id
         WHERE c.id = $1 AND c.tenant_id = $2
           AND s.tenant_id = $2 AND s.campus_id = $4
@@ -73,8 +74,7 @@ export async function settleStripeCardPaymentIntent(
       `SELECT COALESCE(SUM(amount_centavos), 0)::bigint AS ya_pagado
          FROM payment_applications WHERE charge_id = $1`, [chargeId],
     );
-    const balance = Number(charge.monto_base_centavos) + Number(charge.recargo_aplicado_centavos || 0)
-      - Number(applied.rows[0].ya_pagado);
+    const balance = chargeBalance({ ...charge, ya_pagado: applied.rows[0].ya_pagado }).pendiente_centavos;
     if (balance !== pi.amount || balance <= 0) throw new Error("El saldo cambió antes de la confirmación Stripe");
 
     // La UNIQUE existente (provider, provider_event_id) recibe el ID del PI,

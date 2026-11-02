@@ -14,6 +14,8 @@ import { MODULES, ACTIONS } from "@shared/permissions";
 import { payments, charges, students, invoices, guardians } from "@shared/schema";
 import { stripeReviewExceptions } from "../lib/stripe-review-exceptions";
 import { registerStripeReviewRoutes } from "./stripe-review";
+import { registerFamilyCreditRoutes } from "./family-credits";
+import { familyCreditExceptions } from "../lib/family-credit-service";
 
 function fechaCiudadDeMexico(): string {
   return schoolDate();
@@ -542,6 +544,7 @@ export function computeRiesgoScore(params: {
 
 export function registerConciliacionRoutes(app: Express): void {
   registerStripeReviewRoutes(app);
+  registerFamilyCreditRoutes(app);
   // ── 1. CENTRO DE COMANDOS ─────────────────────────────────────────────────
   app.get("/api/dashboard/comandos/:campusId", authenticateToken, async (req: any, res) => {
     if (!hasPermissionForUser(req.user, MODULES.FINANCIAL, ACTIONS.READ)) {
@@ -1781,7 +1784,8 @@ export function registerConciliacionRoutes(app: Express): void {
         [campusId, user.tenant_id],
       );
       const stripe = await stripeReviewExceptions(user);
-      res.json({ total_pendiente: Number(result.rows[0]?.total_pendiente ?? 0) + stripe.length });
+      const credits = await familyCreditExceptions(user);
+      res.json({ total_pendiente: Number(result.rows[0]?.total_pendiente ?? 0) + stripe.length + credits.length });
     } catch {
       res.status(500).json({ message: "Error interno del servidor" });
     }
@@ -1828,7 +1832,8 @@ export function registerConciliacionRoutes(app: Express): void {
       `, [campusId, user.tenant_id]);
 
       const stripe = await stripeReviewExceptions(user);
-      const excepciones = [...rows.rows, ...stripe];
+      const credits = await familyCreditExceptions(user);
+      const excepciones = [...rows.rows, ...stripe, ...credits];
 
       res.json({
         excepciones,

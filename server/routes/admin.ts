@@ -1,4 +1,5 @@
 import { SCHOOL_TODAY_SQL, schoolDate } from "@shared/school-date";
+import { chargeBalance } from "../../shared/charge-balance";
 import type { Express } from "express";
 import { pool, db } from "../db";
 import { manageFamily } from "../lib/family-service";
@@ -168,20 +169,30 @@ export function registerAdminRoutes(app: Express): void {
       const paymentMethods = await storage.getPaymentMethodsByGuardian(guardianId);
 
       // Calculate total pending balance
-      const totalPending = pendingCharges.reduce((sum, charge) => {
-        const baseAmount = charge.monto_base_centavos;
-        const discount = baseAmount * (Number(charge.beca_aplicada) / 100);
-        const finalAmount = baseAmount - discount + (charge.recargo_aplicado_centavos || 0);
-        return sum + finalAmount;
-      }, 0);
+      const applications = await pool.query(
+        `SELECT charge_id,SUM(amount_centavos)::bigint AS ya_pagado FROM payment_applications
+         WHERE charge_id=ANY($1::int[]) GROUP BY charge_id`, [pendingCharges.map(c => c.id)]);
+      const applied = new Map(applications.rows.map(row => [Number(row.charge_id), Number(row.ya_pagado)]));
+      const chargePending = (charge: typeof pendingCharges[number]) =>
+        chargeBalance({ ...charge, ya_pagado: applied.get(charge.id) ?? 0 }).pendiente_centavos;
+      const totalPending = pendingCharges.reduce((sum, charge) => sum + chargePending(charge), 0);
+      const creditBalance = await pool.query(
+        `SELECT COALESCE(SUM(fc.amount_centavos),0)::bigint AS available
+         FROM family_credits fc JOIN families f ON f.id=fc.family_id
+         WHERE fc.tenant_id=$1 AND f.tenant_id=$1 AND fc.campus_id=f.campus_id AND fc.status='activo'
+           AND EXISTS (SELECT 1 FROM family_students fs JOIN student_guardian sg ON sg.student_id=fs.student_id
+             JOIN students s ON s.id=fs.student_id
+             WHERE fs.family_id=f.id AND sg.guardian_id=$2 AND s.tenant_id=$1 AND s.campus_id=f.campus_id)`,
+        [tenantId, guardianId]);
 
       res.json({
         students: tenantStudents,
         pendingCharges: pendingCharges.map(charge => ({
           ...charge,
-          total_amount_centavos: charge.monto_base_centavos - (charge.monto_base_centavos * Number(charge.beca_aplicada) / 100) + (charge.recargo_aplicado_centavos || 0),
+          total_amount_centavos: chargePending(charge),
         })),
         totalPendingBalance: totalPending / 100, // Convert to pesos
+        saldo_a_favor_centavos: Number(creditBalance.rows[0].available),
         paymentHistory,
         paymentMethods,
       });
@@ -628,14 +639,11 @@ export function registerAdminRoutes(app: Express): void {
       const creditRes = await pool.query(
         `SELECT COALESCE(SUM(fc.amount_centavos), 0)::bigint AS saldo_a_favor
          FROM family_credits fc
-         WHERE fc.status = 'activo'
-           AND (
-             fc.student_id = $1
-             OR fc.family_id IN (
-               SELECT fs.family_id FROM family_students fs WHERE fs.student_id = $1
-             )
+         WHERE fc.status = 'activo' AND fc.tenant_id=$2 AND fc.campus_id=$3
+           AND fc.family_id IN (
+             SELECT fs.family_id FROM family_students fs WHERE fs.student_id=$1
            )`,
-        [studentId]
+        [studentId, req.user.tenant_id, req.user.campus_id]
       );
       const saldoAFavor = Number((creditRes.rows as any[])[0]?.saldo_a_favor ?? 0);
 
@@ -645,7 +653,8 @@ export function registerAdminRoutes(app: Express): void {
       const totalDescuentos = cargos.reduce((s, c) => s + Number(c.descuento_centavos), 0);
       const totalRecargos = cargos.reduce((s, c) => s + Number(c.recargo_aplicado_centavos || 0), 0);
       const totalPagado = cargos.reduce((s, c) => s + Number(c.pagado_centavos), 0);
-      const saldoPendiente = totalCargos - totalDescuentos + totalRecargos - totalPagado;
+      const saldoPendiente = cargos.reduce((sum, c) => sum +
+        chargeBalance({ ...c, ya_pagado: c.pagado_centavos }).pendiente_centavos, 0);
 
       res.json({
         alumno: student,
@@ -661,7 +670,7 @@ export function registerAdminRoutes(app: Express): void {
           total_pagado_centavos:     totalPagado,
           saldo_a_favor_centavos:    saldoAFavor,
           saldo_pendiente_centavos:  Math.max(0, saldoPendiente),
-          saldo_neto_centavos:       Math.max(0, saldoPendiente - saldoAFavor),
+          saldo_neto_centavos:       saldoPendiente,
         },
       });
     } catch (error: any) {
@@ -1140,15 +1149,19 @@ export function registerAdminRoutes(app: Express): void {
 
         // ── Bloquear el crédito y verificar que sigue activo ─────────────────
         const creditLock = await client.query(
-          `SELECT id, payment_id, amount_centavos, status, student_id, family_id, tenant_id
-           FROM family_credits WHERE id = $1 FOR UPDATE`,
-          [creditId]
+          `SELECT id, payment_id, amount_centavos, status, student_id, family_id, tenant_id, origen
+           FROM family_credits WHERE id = $1 AND tenant_id=$2 AND campus_id=$3 FOR UPDATE`,
+          [creditId, tenantId, campusId]
         );
         if (!creditLock.rows.length) {
           await client.query("ROLLBACK");
           return res.status(404).json({ message: "Crédito no encontrado" });
         }
         const credit = creditLock.rows[0] as any;
+        if (!credit.family_id) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ message: "Asigna primero el crédito a una familia" });
+        }
         if (Number(credit.tenant_id) !== tenantId) {
           await client.query("ROLLBACK");
           return res.status(403).json({ message: "El crédito no pertenece a tu institución" });
@@ -1160,7 +1173,7 @@ export function registerAdminRoutes(app: Express): void {
 
         // ── Bloquear el cargo y verificar que está pendiente ─────────────────
         const chargeLock = await client.query(
-          `SELECT c.id, c.monto_base_centavos, c.estado, c.student_id, s.campus_id
+          `SELECT c.id, c.monto_base_centavos, c.beca_aplicada, c.recargo_aplicado_centavos, c.estado, c.student_id, s.campus_id
            FROM charges c JOIN students s ON s.id = c.student_id
            WHERE c.id = $1 AND c.tenant_id = $2 FOR UPDATE`,
           [chargeId, tenantId]
@@ -1211,7 +1224,7 @@ export function registerAdminRoutes(app: Express): void {
           [chargeId]
         );
         const yaPagado = Number(saldoRes.rows[0].ya_pagado);
-        const saldoPendiente = Number(charge.monto_base_centavos) - yaPagado;
+        const saldoPendiente = chargeBalance({ ...charge, ya_pagado: yaPagado }).pendiente_centavos;
 
         if (saldoPendiente <= 0) {
           await client.query("ROLLBACK");
@@ -1256,12 +1269,12 @@ export function registerAdminRoutes(app: Express): void {
             `INSERT INTO family_credits
                (tenant_id, campus_id, family_id, student_id, payment_id,
                 amount_centavos, origen, descripcion)
-             VALUES ($1, $2, $3, $4, $5, $6, 'excedente_caja',
+             VALUES ($1, $2, $3, $4, $5, $6, $8,
                      'Remanente de crédito #' || $7 || ' tras aplicación parcial')
              RETURNING id`,
             [
               tenantId, campusId, credit.family_id, credit.student_id,
-              credit.payment_id, remanente, creditId,
+              credit.payment_id, remanente, creditId, credit.origen,
             ]
           );
           newCreditId = (remRes.rows as any[])[0].id;

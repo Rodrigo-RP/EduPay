@@ -1,6 +1,7 @@
 import { SCHOOL_TODAY_SQL } from "@shared/school-date";
 import { revokeStaffRealtime } from "./lib/staff-realtime";
-import { 
+import { chargeBalance } from "../shared/charge-balance";
+import {
   tenants, campuses, users, students, guardians, student_guardian, concepts, 
   charges, payments, payment_methods, invoices, scholarships, discounts,
   security_events, platform_metrics, system_health, pending_approvals,
@@ -634,7 +635,7 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(student_guardian.guardian_id, guardianId),
           eq(student_guardian.es_responsable_pago, true),   // solo cargos del tutor pagador
-          eq(charges.estado, "pendiente")
+          inArray(charges.estado, ["pendiente", "parcial", "vencido"])
         )
       )
       .orderBy(charges.fecha_vencimiento);
@@ -1545,15 +1546,20 @@ export class DatabaseStorage implements IStorage {
     // Sum all charges for students in this family
     const chargesResult = await db.execute(sql`
       SELECT
-        COALESCE(SUM(c.monto_base_centavos), 0)::bigint AS total_cargos,
-        COUNT(DISTINCT c.id)::integer AS num_cargos
+        c.monto_base_centavos, c.beca_aplicada, c.recargo_aplicado_centavos, c.estado
       FROM family_students fs
       JOIN charges c ON c.student_id = fs.student_id
-      WHERE fs.family_id = ${familyId}
+      JOIN students s ON s.id=c.student_id
+      WHERE fs.family_id = ${familyId} AND c.tenant_id=${tenantId}
+        AND s.tenant_id=${tenantId} AND s.campus_id=${family.campus_id}
     `);
-    const chargesRow = (chargesResult.rows as any[])[0] || {};
-    const total_cargos_centavos = Number(chargesRow.total_cargos ?? 0);
-    const num_cargos = Number(chargesRow.num_cargos ?? 0);
+    const total_cargos_centavos = chargesResult.rows.reduce((sum, row) => sum + chargeBalance({
+      monto_base_centavos: Number(row.monto_base_centavos),
+      beca_aplicada: String(row.beca_aplicada ?? 0),
+      recargo_aplicado_centavos: Number(row.recargo_aplicado_centavos ?? 0),
+      estado: String(row.estado),
+    }).total_centavos, 0);
+    const num_cargos = chargesResult.rows.length;
 
     // Sum all payment applications for charges belonging to students in this family
     const paidResult = await db.execute(sql`
@@ -1563,7 +1569,9 @@ export class DatabaseStorage implements IStorage {
       FROM family_students fs
       JOIN charges c ON c.student_id = fs.student_id
       JOIN payment_applications pa ON pa.charge_id = c.id
-      WHERE fs.family_id = ${familyId}
+      JOIN students s ON s.id=c.student_id
+      WHERE fs.family_id = ${familyId} AND c.tenant_id=${tenantId}
+        AND s.tenant_id=${tenantId} AND s.campus_id=${family.campus_id}
     `);
     const paidRow = (paidResult.rows as any[])[0] || {};
     const total_pagado_centavos = Number(paidRow.total_pagado ?? 0);
@@ -1574,18 +1582,14 @@ export class DatabaseStorage implements IStorage {
     const creditResult = await db.execute(sql`
       SELECT COALESCE(SUM(fc.amount_centavos), 0)::bigint AS saldo_a_favor
       FROM family_credits fc
-      WHERE fc.status = 'activo'
-        AND (
-          fc.family_id = ${familyId}
-          OR fc.student_id IN (
-            SELECT fs2.student_id FROM family_students fs2 WHERE fs2.family_id = ${familyId}
-          )
-        )
+      WHERE fc.status = 'activo' AND fc.tenant_id = ${tenantId}
+        AND fc.family_id = ${familyId} AND fc.campus_id=${family.campus_id}
     `);
     const saldo_a_favor_centavos = Number((creditResult.rows as any[])[0]?.saldo_a_favor ?? 0);
 
     const saldo_pendiente_centavos = total_cargos_centavos - total_pagado_centavos;
-    const saldo_neto_centavos = Math.max(0, saldo_pendiente_centavos - saldo_a_favor_centavos);
+    // Alias histórico: la deuda nunca descuenta crédito todavía sin aplicar.
+    const saldo_neto_centavos = saldo_pendiente_centavos;
 
     return {
       total_cargos_centavos,

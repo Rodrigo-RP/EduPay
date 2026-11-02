@@ -137,6 +137,13 @@ export const authenticateToken = async (req: any, res: any, next: any) => {
   if (!token) return res.status(401).json({ message: "Token requerido" });
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
+    // Un token de tutor nunca autentica rutas del personal, aunque su id coincida con un usuario.
+    if (decoded.type === "guardian") {
+      return res.status(403).json({
+        message: "Acceso no permitido para esta sesión",
+        code: "TOKEN_TYPE_INVALID",
+      });
+    }
     // Una sola query obtiene custom_permissions Y password_changed_at (ADR-003 + #138).
     const { customPermissions, passwordChangedAt, active, requiresPasswordChange } = await loadUserAuthData(decoded.id);
     if (!active || isSessionInvalidated(decoded.password_version, passwordChangedAt)) {

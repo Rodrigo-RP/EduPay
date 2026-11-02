@@ -102,10 +102,11 @@ test("el padre ve crédito separado y no tiene botón para aplicarlo", async ({ 
   });
   expect(login.status()).toBe(200);
   const session = await login.json();
-  await page.evaluate(token => {
+  await page.evaluate(({ token, guardian }) => {
     localStorage.setItem("auth_token", token);
     localStorage.setItem("auth_type", "guardian");
-  }, session.token);
+    localStorage.setItem("auth_user", JSON.stringify(guardian));
+  }, session);
   await page.reload();
   const expected = ((guardianCreditBefore + 50000) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 });
   await expect(page.getByText(`A tu favor: $${expected}`, { exact: false })).toBeVisible();

@@ -14,6 +14,7 @@ import Sidebar from "@/components/layout/sidebar";
 import ParentPortal from "@/pages/parent-portal";
 import AdminDashboard from "@/pages/admin-dashboard";
 import Login from "@/pages/login";
+import GuardianLogin from "@/pages/guardian-login";
 import Checkout from "@/pages/checkout";
 import NotFound from "@/pages/not-found";
 import ConfiguracionInicial from "@/pages/configuracion-inicial";
@@ -220,6 +221,7 @@ function App() {
               <TooltipProvider>
                 <div className="min-h-screen bg-slate-50">
                   <Switch>
+                    <Route path="/acceso-padres" component={GuardianLogin} />
                     <Route path="/cuentas-standalone" component={StandaloneReceivables} />
                     <Route path="/demo-setup" component={DemoSetup} />
                     <Route path="/pagar/:token" component={MagicLinkRedirect} />

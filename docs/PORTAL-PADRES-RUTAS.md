@@ -9,7 +9,7 @@ Revisión sobre `saldo-a-favor`; no se cambian permisos ni reglas financieras.
 | `hooks/use-institution.tsx`, proveedor global de ambas pantallas | Antes GET `/api/institutional-info`, que es del personal. Ahora GET `/api/guardian/institutional-info` con sesión de tutor | Única llamada HTTP del personal encontrada en el árbol del portal; corregida. Se habilita después de resolver el tipo de sesión. |
 | `components/layout/mobile-header.tsx` | Ninguna | Recibe el nombre por propiedades. |
 | `components/payment-modal.tsx` → `pages/checkout.tsx` | Ninguna API; enlace interno `/portal-3clics?cargo=...` | No consume rutas del personal. |
-| `pages/magic-link-redirect.tsx` | `/api/auth/magic-login` | Canje público de liga del tutor; no es ruta autenticada del personal. |
+| `pages/magic-link-redirect.tsx` | GET `/api/auth/magic/:token` | Canje público de liga del tutor; no es ruta autenticada del personal. |
 | `hooks/use-auth.tsx`, `lib/auth.ts` | POST `/api/auth/guardian-login` al entrar como tutor | Autenticación de tutor, no personal. GET `/api/auth/user` sólo cuando `auth_type=user`. |
 | `hooks/use-academic-filter.tsx` | Ninguna | Estado local. |
 | `components/RealTimeProvider.tsx` → `hooks/use-realtime.tsx` | Sin conexión WebSocket cuando no hay usuario del personal | El tutor no abre el canal del personal ni ejecuta sus invalidaciones. |

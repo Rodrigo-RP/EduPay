@@ -87,6 +87,7 @@ export const APP_ROUTES: AppRoute[] = [
   { path: "/configuracion-pagos-completa",   label: "Configuración de Pagos",        keywords: ["configuracion de pagos", "metodos de pago", "pasarela de pago", "configurar pagos"] },
 
   // ── Portal de padres ──────────────────────────────────────────────────────
+  { path: "/acceso-padres", label: "Acceso de padres", keywords: ["acceso padres", "iniciar sesion padres"] },
   { path: "/portal-3clics",    label: "Portal de Padres",           keywords: ["portal padres", "portal de pago", "liga de pago", "pago en linea padres"] },
 
   // ── Herramientas técnicas / rutas excluidas del asistente ─────────────────

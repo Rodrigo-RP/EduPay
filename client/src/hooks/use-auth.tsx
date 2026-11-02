@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { apiRequest } from "@/lib/queryClient";
+import { redirectGuardianToLogin } from "@/lib/guardian-session";
 
 interface User {
   id: number;
@@ -47,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const clearInvalidSession = () => {
+      if (localStorage.getItem("auth_type") === "guardian") redirectGuardianToLogin();
       localStorage.removeItem("auth_token");
       localStorage.removeItem("auth_type");
       localStorage.removeItem("auth_user");

@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { pool } from "../server/db";
 import { reviewFixture } from "../server/tests/helpers/stripe-review-fixtures";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, loginAsAdmin } from "./helpers/auth";
@@ -95,14 +96,7 @@ test("saldo familiar: dos confirmaciones, propuesta de $500 y aplicación explí
   await page.screenshot({ path: "test-results/saldo-a-favor-admin.png", fullPage: true });
 });
 
-test("el padre ve crédito separado y no tiene botón para aplicarlo", async ({ page }) => {
-  const nonGuardianRequests: string[] = [];
-  page.on("request", request => {
-    const path = new URL(request.url()).pathname;
-    if (path.startsWith("/api/") && !path.startsWith("/api/guardian/") && path !== "/api/auth/guardian-login") {
-      nonGuardianRequests.push(path);
-    }
-  });
+async function loginFixtureGuardian(page: Page) {
   await page.goto("/");
   const login = await page.request.post("/api/auth/guardian-login", {
     data: { email: guardianEmail, password: ADMIN_PASSWORD },
@@ -114,7 +108,17 @@ test("el padre ve crédito separado y no tiene botón para aplicarlo", async ({ 
     localStorage.setItem("auth_type", "guardian");
     localStorage.setItem("auth_user", JSON.stringify(guardian));
   }, session);
-  await page.reload();
+  await page.reload({ waitUntil: "domcontentloaded" });
+}
+test("el padre ve crédito separado y no tiene botón para aplicarlo", async ({ page }) => {
+  const nonGuardianRequests: string[] = [];
+  page.on("request", request => {
+    const path = new URL(request.url()).pathname;
+    if (path.startsWith("/api/") && !path.startsWith("/api/guardian/") && path !== "/api/auth/guardian-login") {
+      nonGuardianRequests.push(path);
+    }
+  });
+  await loginFixtureGuardian(page);
   const expected = ((guardianCreditBefore + 50000) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 });
   await expect(page.getByText(`A tu favor: $${expected}`, { exact: false })).toBeVisible();
   await expect(page.getByText("La escuela lo aplicará a tu próximo cargo", { exact: false })).toBeVisible();
@@ -128,3 +132,17 @@ test("el padre ve crédito separado y no tiene botón para aplicarlo", async ({ 
   expect(denied.status()).toBe(403);
   await page.screenshot({ path: "test-results/saldo-a-favor-padre.png", fullPage: true });
 });
+
+for (const status of [401, 403]) {
+  test(`sesión del padre: ${status} lleva a acceso de padres, nunca al administrativo`, async ({ page }) => {
+    await page.route("**/api/guardian/dashboard", route => route.fulfill({
+      status, json: { message: "Sesión no disponible" },
+    }));
+    await loginFixtureGuardian(page);
+    await expect(page).toHaveURL(/\/acceso-padres$/);
+    await expect(page.getByRole("heading", { name: "Acceso de padres", exact: true })).toBeVisible();
+    await expect(page.getByRole("alert")).toContainText("Ingresa de nuevo al portal de padres");
+    await expect(page.getByText("Acceso Administrativo", { exact: true })).toHaveCount(0);
+    expect(await page.evaluate(() => localStorage.getItem("auth_token"))).toBeNull();
+  });
+}

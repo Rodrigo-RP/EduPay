@@ -1,7 +1,15 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { redirectGuardianToLogin } from "./guardian-session";
 
-async function notifyInvalidSession(res: Response) {
+async function notifyInvalidSession(res: Response, requestToken: string | null) {
   if (typeof window === "undefined") return;
+  // Una respuesta de la sesión anterior no invalida la que acaba de entrar.
+  if (localStorage.getItem("auth_token") !== requestToken) return;
+  if (localStorage.getItem("auth_type") === "guardian" && (res.status === 401 || res.status === 403)) {
+    redirectGuardianToLogin();
+    window.dispatchEvent(new Event("auth:invalid-session"));
+    return;
+  }
   const body = await res.clone().json().catch(() => null) as { code?: string; message?: string } | null;
   const invalidatedByServer = res.status === 401 && body?.code === "SESSION_INVALIDATED";
   const invalidJwt = res.status === 403 && body?.message === "Token inválido";
@@ -10,9 +18,9 @@ async function notifyInvalidSession(res: Response) {
   }
 }
 
-async function throwIfResNotOk(res: Response) {
+async function throwIfResNotOk(res: Response, requestToken: string | null) {
   if (!res.ok) {
-    await notifyInvalidSession(res);
+    await notifyInvalidSession(res, requestToken);
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
   }
@@ -46,7 +54,7 @@ export async function apiRequest(
     credentials: "include",
   });
 
-  await throwIfResNotOk(res);
+  await throwIfResNotOk(res, token);
   return res;
 }
 
@@ -71,14 +79,20 @@ export const getQueryFn: <T>(options: {
     });
 
     // Query response processed
+    if ((res.status === 401 || res.status === 403) && localStorage.getItem("auth_token") !== token) {
+      await throwIfResNotOk(res, token);
+    }
 
+    if (localStorage.getItem("auth_type") === "guardian" && (res.status === 401 || res.status === 403)) {
+      await throwIfResNotOk(res, token);
+    }
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      await notifyInvalidSession(res);
+      await notifyInvalidSession(res, token);
       return null;
     }
 
     if (res.status === 401) {
-      await notifyInvalidSession(res);
+      await notifyInvalidSession(res, token);
       // Session expired or invalid — clear and redirect to login.
       // NEVER auto-reauthenticate: doing so with stored credentials is a
       // privilege-escalation risk (e.g. a guardian JWT expiring could silently
@@ -95,7 +109,7 @@ export const getQueryFn: <T>(options: {
       throw new Error("403: No tienes permiso para realizar esta acción");
     }
 
-    await throwIfResNotOk(res);
+    await throwIfResNotOk(res, token);
     return await res.json();
   };
 

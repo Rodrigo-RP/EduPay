@@ -49,6 +49,13 @@ No vence ni se pone a cero por cambio de ciclo. Nunca se aplica automáticamente
 la propuesta necesita confirmación del administrador. El padre no puede aplicarlo.
 Un crédito sin familia aparece como incidencia para asignación administrativa.
 
+No se encontró un cierre de ciclo que venza o ponga a cero `family_credits`.
+Las escrituras ordinarias encontradas son creación, consumo, remanente y
+asignación administrativa; la tabla no tiene columna de vencimiento ni ciclo.
+La excepción demo protegida reemplaza fixtures y no es un cierre de ciclo.
+La prueba de permanencia compara 2026 y 2036 conservando el mismo crédito,
+sin predicados temporales ni de ciclo sobre los créditos.
+
 Pago, crédito y resolución Stripe se confirman juntos; auditoría posterior con
 reintento durable (ADR-001). No se hacen llamadas a Stripe ni devoluciones.
 

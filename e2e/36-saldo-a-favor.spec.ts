@@ -84,6 +84,8 @@ test("saldo familiar: dos confirmaciones, propuesta de $500 y aplicación explí
   expect(rows.rows).toHaveLength(1);
   expect(Number(rows.rows[0].amount_centavos)).toBe(50000);
   expect(rows.rows[0].origen).toBe("stripe_no_aplicado");
+  await page.goto("/familias");
+  await expect(page.getByTestId(`family-credit-balance-${familyId}`)).toHaveText("A tu favor: $500.00");
   await page.screenshot({ path: "test-results/saldo-a-favor-admin.png", fullPage: true });
 });
 

@@ -10,6 +10,7 @@ export interface FamilyCreditItem {
   cargos?: { id: number; concepto: string; pendiente_centavos: number }[];
   familias?: { id: number; nombre: string }[];
   saldo_a_favor_centavos?: number;
+  alumno?: string | null;
 }
 const money = (n: number) => `$${(n / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
 
@@ -48,6 +49,7 @@ export function FamilyCreditCard({ item, canApply = false }: { item: FamilyCredi
   const selected = item.cargos?.find(c => String(c.id) === charge);
   return <Card data-testid={`family-credit-${item.id}`}><CardContent className="p-4 space-y-3">
     <h3 className="font-semibold">{orphan ? "Saldo a favor sin familia asignada" : item.descripcion}</h3>
+    {orphan && <p>Alumno: {item.alumno ?? "Sin alumno identificado"}</p>}
     {orphan ? <p>{money(item.monto_centavos)} por asignar. El dinero permanece registrado.</p> :
       <p>Aplicar {money(Math.min(item.saldo_a_favor_centavos ?? item.monto_centavos, selected?.pendiente_centavos ?? 0))} al cargo {selected?.concepto} #{selected?.id}</p>}
     {canApply && (orphan ? <>

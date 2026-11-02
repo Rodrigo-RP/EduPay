@@ -1,6 +1,6 @@
 import { pool } from "../db";
 import { chargeBalance, type ChargeBalanceInput } from "../../shared/charge-balance";
-import { schoolDate } from "../../shared/school-date";
+import { schoolDate, schoolDateSQL } from "../../shared/school-date";
 import { creditAudit } from "./credit-audit";
 import { CreditError, type CreditScope } from "./stripe-family-credit";
 
@@ -8,6 +8,7 @@ interface CreditRow {
   id: number; tenant_id: number; campus_id: number; family_id: number | null;
   student_id: number | null; payment_id: number; amount_centavos: string;
   origen: string; status: string; familia: string | null; alumno: string | null;
+  fecha: string;
 }
 interface FamilyCharge extends ChargeBalanceInput {
   id: number; student_id: number; concepto: string; fecha_vencimiento: string;
@@ -18,11 +19,13 @@ export interface CreditException {
   credito_ids: number[]; cargos: { id: number; concepto: string; pendiente_centavos: number }[];
   familias: { id: number; nombre: string }[];
   saldo_a_favor_centavos?: number;
+  alumno?: string | null;
 }
 
 export async function familyCreditExceptions(scope: Pick<CreditScope, "tenant_id" | "campus_id">): Promise<CreditException[]> {
   const credits = await pool.query<CreditRow>(
-    `SELECT fc.*, f.nombre AS familia, s.nombre_completo AS alumno
+    `SELECT fc.*, f.nombre AS familia, s.nombre_completo AS alumno,
+       ${schoolDateSQL("fc.created_at")}::text AS fecha
      FROM family_credits fc
      LEFT JOIN families f ON f.id=fc.family_id AND f.tenant_id=$1 AND f.campus_id=$2
      LEFT JOIN students s ON s.id=fc.student_id AND s.tenant_id=$1 AND s.campus_id=$2
@@ -37,7 +40,7 @@ export async function familyCreditExceptions(scope: Pick<CreditScope, "tenant_id
   for (const credit of orphan) result.push({
     id: `orphan:${credit.id}`, origen: "orphan_credit",
     descripcion: "Saldo a favor sin familia asignada", monto_centavos: Number(credit.amount_centavos),
-    fecha: schoolDate(), family_id: null, credito_ids: [credit.id], cargos: [], familias: families,
+    fecha: credit.fecha, family_id: null, credito_ids: [credit.id], cargos: [], familias: families, alumno: credit.alumno,
   });
   for (const familyId of Array.from(new Set(credits.rows.flatMap(c => c.family_id === null ? [] : [c.family_id])))) {
     const own = credits.rows.filter(c => c.family_id === familyId);

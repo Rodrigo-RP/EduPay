@@ -180,9 +180,9 @@ export function registerAdminRoutes(app: Express): void {
         `SELECT COALESCE(SUM(fc.amount_centavos),0)::bigint AS available
          FROM family_credits fc JOIN families f ON f.id=fc.family_id
          WHERE fc.tenant_id=$1 AND f.tenant_id=$1 AND fc.campus_id=f.campus_id AND fc.status='activo'
-           AND EXISTS (SELECT 1 FROM family_students fs JOIN student_guardian sg ON sg.student_id=fs.student_id
+           AND (f.guardian_id_principal=$2 OR EXISTS (SELECT 1 FROM family_students fs JOIN student_guardian sg ON sg.student_id=fs.student_id
              JOIN students s ON s.id=fs.student_id
-             WHERE fs.family_id=f.id AND sg.guardian_id=$2 AND s.tenant_id=$1 AND s.campus_id=f.campus_id)`,
+             WHERE fs.family_id=f.id AND sg.guardian_id=$2 AND s.tenant_id=$1 AND s.campus_id=f.campus_id))`,
         [tenantId, guardianId]);
 
       res.json({

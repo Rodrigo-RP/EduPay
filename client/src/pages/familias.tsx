@@ -147,6 +147,7 @@ export default function Familias() {
       grupo: s.grupo || "",
     })),
     saldo_total: f.saldo_pendiente_centavos ?? 0,
+    saldo_a_favor_centavos: f.saldo_a_favor_centavos ?? 0,
     fecha_registro: f.created_at ? f.created_at.split("T")[0] : "",
     });
   };
@@ -1813,6 +1814,9 @@ export default function Familias() {
                     <div className="text-right">
                       <div className="font-semibold text-lg">${(familia.saldo_total / 100).toLocaleString()}</div>
                       <div className="text-xs text-slate-500">Saldo pendiente</div>
+                      <div data-testid={`family-credit-balance-${familia.id}`} className="text-sm text-green-700">
+                        A tu favor: ${(familia.saldo_a_favor_centavos / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                      </div>
                     </div>
                     <div className="flex space-x-1">
                       <Button size="sm" variant="outline" onClick={() => loadFamilyForView(familia)} title="Ver información de la familia">
@@ -3143,6 +3147,7 @@ export default function Familias() {
                       </Badge>
                     </p>
                     <p><strong>Saldo Total:</strong> ${(viewingFamily.saldo_total / 100).toLocaleString()}</p>
+                    <p><strong>Saldo a favor sin aplicar:</strong> ${((viewingFamily.saldo_a_favor_centavos ?? 0) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</p>
                   </div>
                 </div>
 

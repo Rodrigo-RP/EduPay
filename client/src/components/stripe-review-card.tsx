@@ -22,6 +22,7 @@ export function StripeReviewCard({ item, canResolve = false }: { item: StripeRev
   const [step, setStep] = useState(0);
   const [reason, setReason] = useState("");
   const [pending, setPending] = useState(false);
+  const [action, setAction] = useState<"resolved_manual" | "resolved_credit">("resolved_manual");
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const resolve = async () => {
@@ -31,7 +32,7 @@ export function StripeReviewCard({ item, canResolve = false }: { item: StripeRev
       const response = await fetch(`/api/conciliacion/excepciones/stripe/${item.event_id}/resolver`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("auth_token")}` },
-        body: JSON.stringify({ accion: "resolved_manual", justificacion: reason,
+        body: JSON.stringify({ accion: action, justificacion: reason,
           confirmacion_inicial: true, confirmacion_final: true }),
       });
       const result = await response.json();
@@ -54,13 +55,17 @@ export function StripeReviewCard({ item, canResolve = false }: { item: StripeRev
         <p>Monto: ${(item.monto_centavos / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
           {" · "}Fecha local: {item.fecha}</p>
         <p className="text-sm break-all">PaymentIntent: {item.payment_intent_id}</p>
-        <p className="text-sm text-slate-600">Saldo a favor no disponible para este cobro: el mecanismo actual necesita un pago registrado.</p>
-        {canResolve && <Button onClick={() => { setReason(""); setStep(1); }}>Resuelto fuera del sistema</Button>}
+        {canResolve && <>
+          <Button onClick={() => { setAction("resolved_manual"); setReason(""); setStep(1); }}>Resuelto fuera del sistema</Button>
+          <Button onClick={() => { setAction("resolved_credit"); setReason(""); setStep(1); }}>Registrar como saldo a favor</Button>
+        </>}
         <Dialog open={step > 0} onOpenChange={(open) => { if (!pending && !open) setStep(0); }}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{step === 1 ? "Primera confirmación" : "Confirmación final"}</DialogTitle>
-              <DialogDescription>Esta acción no devuelve dinero, no registra un pago y no cambia el cargo.</DialogDescription>
+              <DialogDescription>{action === "resolved_credit"
+                ? "Registra el dinero ya cobrado como saldo a favor familiar. No lo aplica a ningún cargo ni devuelve dinero."
+                : "Esta acción no devuelve dinero, no registra un pago y no cambia el cargo."}</DialogDescription>
             </DialogHeader>
             <p>{item.alumno} · {item.payment_intent_id}</p>
             {step === 1 ? <>
@@ -70,9 +75,9 @@ export function StripeReviewCard({ item, canResolve = false }: { item: StripeRev
               <Button disabled={!reason.trim()} onClick={() => setStep(2)}>Confirmar y continuar</Button>
             </> : <>
               <p>Justificación: {reason}</p>
-              <p>¿Confirmas que este cobro ya se resolvió fuera de EduPay?</p>
+              <p>{action === "resolved_credit" ? "¿Confirmas registrar este cobro como saldo a favor?" : "¿Confirmas que este cobro ya se resolvió fuera de EduPay?"}</p>
               <Button disabled={pending} variant="outline" onClick={() => setStep(1)}>Volver</Button>
-              <Button disabled={pending} onClick={resolve}>{pending ? "Guardando…" : "Confirmar resolución fuera del sistema"}</Button>
+              <Button disabled={pending} onClick={resolve}>{pending ? "Guardando…" : action === "resolved_credit" ? "Confirmar saldo a favor" : "Confirmar resolución fuera del sistema"}</Button>
             </>}
           </DialogContent>
         </Dialog>

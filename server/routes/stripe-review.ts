@@ -3,6 +3,7 @@ import { pool } from "../db";
 import { authenticateToken, hasPermissionForUser } from "./shared";
 import { MODULES, ACTIONS } from "../../shared/permissions";
 import { stripeReviewIntent } from "../lib/stripe-review-exceptions";
+import { registerStripeFamilyCredit, CreditError } from "../lib/stripe-family-credit";
 
 export function registerStripeReviewRoutes(app: Express) {
   app.post("/api/conciliacion/excepciones/stripe/:id/resolver", authenticateToken, async (req: any, res) => {
@@ -14,13 +15,17 @@ export function registerStripeReviewRoutes(app: Express) {
     const id = Number(req.params.id);
     const { accion, justificacion, confirmacion_inicial, confirmacion_final } = req.body;
     if (!Number.isSafeInteger(id) || id <= 0 || id > 2147483647 ||
-        accion !== "resolved_manual" || typeof justificacion !== "string" ||
+        !["resolved_manual", "resolved_credit"].includes(accion) || typeof justificacion !== "string" ||
         !justificacion.trim() || justificacion.length > 2000 ||
         confirmacion_inicial !== true || confirmacion_final !== true) {
       return res.status(400).json({ message: "Escribe la justificación y confirma dos veces la resolución fuera del sistema" });
     }
     let client;
     try {
+      if (accion === "resolved_credit") {
+        const result = await registerStripeFamilyCredit(user, id, justificacion.trim());
+        return res.json({ ...result, message: "Saldo a favor registrado. No se aplicó a ningún cargo." });
+      }
       client = await pool.connect();
       await client.query("BEGIN");
       const rows = await client.query(
@@ -62,9 +67,11 @@ export function registerStripeReviewRoutes(app: Express) {
           JSON.stringify({ status: "requires_review" }), JSON.stringify({ status: "resolved_manual" })]);
       await client.query("COMMIT");
       res.json({ message: "Cobro resuelto fuera del sistema. No se crearon pagos ni se modificaron cargos.", duplicate: false });
-    } catch {
+    } catch (error) {
       if (client) await client.query("ROLLBACK").catch(() => {});
-      res.status(500).json({ message: "No se pudo guardar la resolución. Inténtalo de nuevo." });
+      res.status(error instanceof CreditError ? error.status : 500).json({
+        message: error instanceof CreditError ? error.message : "No se pudo guardar la resolución. Inténtalo de nuevo.",
+      });
     } finally {
       client?.release();
     }

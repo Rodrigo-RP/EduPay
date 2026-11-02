@@ -1,8 +1,10 @@
 import { test, expect } from "@playwright/test";
 import { pool } from "../server/db";
 import { reviewFixture } from "../server/tests/helpers/stripe-review-fixtures";
-import { ADMIN_EMAIL, GUARDIAN_EMAIL, loginAsAdmin, loginAsGuardian } from "./helpers/auth";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, loginAsAdmin } from "./helpers/auth";
 import { assertTestDatabase } from "../server/lib/database-safety";
+import bcrypt from "bcrypt";
+import { randomUUID } from "node:crypto";
 
 test.describe.configure({ mode: "serial" });
 
@@ -14,6 +16,7 @@ let onboarding: boolean;
 let campusId: number;
 let eventId: number;
 let guardianCreditBefore = 0;
+const guardianEmail = `credit.${randomUUID()}@test.invalid`;
 
 test.beforeAll(async () => {
   await assertTestDatabase(pool);
@@ -24,10 +27,10 @@ test.beforeAll(async () => {
   onboarding = admin.onboarding_completado;
   await pool.query("UPDATE campuses SET onboarding_completado=true WHERE id=$1", [campusId]);
   fixture = await reviewFixture(admin);
-  guardianId = (await pool.query(`SELECT DISTINCT g.id FROM guardians g
-    JOIN student_guardian sg ON sg.guardian_id=g.id JOIN students s ON s.id=sg.student_id
-    WHERE (g.email=$1 OR g.correo_institucional_familiar=$1) AND s.tenant_id=$2 AND s.campus_id=$3`,
-    [GUARDIAN_EMAIL, fixture.tenant, campusId])).rows[0].id;
+  guardianId = (await pool.query(
+    `INSERT INTO guardians (nombre_completo,email,password_hash,tenant_id,campus_id)
+     VALUES ('Tutor saldo E2E',$1,$2,$3,$4) RETURNING id`,
+    [guardianEmail, await bcrypt.hash(ADMIN_PASSWORD, 4), fixture.tenant, campusId])).rows[0].id;
   guardianCreditBefore = Number((await pool.query(
     `SELECT COALESCE(SUM(fc.amount_centavos),0) AS n FROM family_credits fc
      WHERE fc.tenant_id=$1 AND fc.campus_id=$2 AND fc.status='activo'
@@ -62,6 +65,7 @@ test.afterAll(async () => {
     await pool.query("DELETE FROM student_guardian WHERE student_id=$1", [fixture.student]);
     await pool.query("DELETE FROM family_students WHERE family_id=$1", [familyId]);
     await pool.query("DELETE FROM families WHERE id=$1", [familyId]);
+    await pool.query("DELETE FROM guardians WHERE id=$1", [guardianId]);
     await fixture.cleanup();
   }
   if (campusId) await pool.query("UPDATE campuses SET onboarding_completado=$1 WHERE id=$2", [onboarding, campusId]);
@@ -92,7 +96,17 @@ test("saldo familiar: dos confirmaciones, propuesta de $500 y aplicación explí
 });
 
 test("el padre ve crédito separado y no tiene botón para aplicarlo", async ({ page }) => {
-  await loginAsGuardian(page);
+  await page.goto("/");
+  const login = await page.request.post("/api/auth/guardian-login", {
+    data: { email: guardianEmail, password: ADMIN_PASSWORD },
+  });
+  expect(login.status()).toBe(200);
+  const session = await login.json();
+  await page.evaluate(token => {
+    localStorage.setItem("auth_token", token);
+    localStorage.setItem("auth_type", "guardian");
+  }, session.token);
+  await page.reload();
   const expected = ((guardianCreditBefore + 50000) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 });
   await expect(page.getByText(`A tu favor: $${expected}`, { exact: false })).toBeVisible();
   await expect(page.getByText("La escuela lo aplicará a tu próximo cargo", { exact: false })).toBeVisible();

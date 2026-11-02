@@ -1175,8 +1175,10 @@ export function registerAdminRoutes(app: Express): void {
         const chargeLock = await client.query(
           `SELECT c.id, c.monto_base_centavos, c.beca_aplicada, c.recargo_aplicado_centavos, c.estado, c.student_id, s.campus_id
            FROM charges c JOIN students s ON s.id = c.student_id
-           WHERE c.id = $1 AND c.tenant_id = $2 FOR UPDATE`,
-          [chargeId, tenantId]
+           WHERE c.id = $1 AND c.tenant_id = $2 AND s.campus_id=$3
+             AND EXISTS (SELECT 1 FROM family_students fs WHERE fs.student_id=c.student_id AND fs.family_id=$4)
+           FOR UPDATE OF c`,
+          [chargeId, tenantId, campusId, credit.family_id]
         );
         if (!chargeLock.rows.length) {
           await client.query("ROLLBACK");

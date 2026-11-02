@@ -369,7 +369,7 @@ function PortalPadres3ClicsInner() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-green-700 font-medium">Saldo pendiente total</p>
+                <p className="text-sm text-green-700 font-medium">Pendiente:</p>
                 <p className="text-2xl font-bold text-green-800">
                   ${(dashboardData?.totalPendingBalance || 0).toLocaleString("es-MX", {
                     minimumFractionDigits: 2,
@@ -379,6 +379,9 @@ function PortalPadres3ClicsInner() {
               </div>
               <DollarSign className="w-10 h-10 text-green-600 opacity-60" />
             </div>
+            <p className="mt-3 text-sm">A tu favor: ${((dashboardData?.saldo_a_favor_centavos ?? 0) / 100).toLocaleString("es-MX", {
+              minimumFractionDigits: 2,
+            })}. La escuela lo aplicará a tu próximo cargo</p>
           </CardContent>
         </Card>
 

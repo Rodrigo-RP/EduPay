@@ -41,6 +41,7 @@ interface DashboardData {
   students: Student[];
   pendingCharges: PendingCharge[];
   totalPendingBalance: number;
+  saldo_a_favor_centavos: number;
   paymentMethods: PaymentMethod[];
 }
 
@@ -144,6 +145,10 @@ export default function ParentPortal() {
       />
 
       {/* Student Selector */}
+      <section className="p-4 bg-white" aria-label="Saldo familiar">
+        <p>Pendiente: {formatCurrency(Math.round(dashboardData.totalPendingBalance * 100))}</p>
+        <p>A tu favor: {formatCurrency(dashboardData.saldo_a_favor_centavos ?? 0)}. La escuela lo aplicará a tu próximo cargo</p>
+      </section>
       {dashboardData.students.length > 1 && (
         <div className="px-4 py-3 bg-white border-b border-slate-100">
       <div className="flex items-center space-x-3">

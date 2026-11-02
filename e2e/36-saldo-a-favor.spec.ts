@@ -118,7 +118,12 @@ test("el padre ve crédito separado y no tiene botón para aplicarlo", async ({ 
       nonGuardianRequests.push(path);
     }
   });
+  const institutionResponse = page.waitForResponse(response =>
+    new URL(response.url()).pathname === "/api/guardian/institutional-info" && response.status() === 200);
   await loginFixtureGuardian(page);
+  const institution = await (await institutionResponse).json();
+  await expect(page.getByTestId("guardian-institution-name")).toHaveText(institution.nombre_legal);
+  await expect(page.getByTestId("guardian-institution-name")).not.toContainText("Ciclo");
   const expected = ((guardianCreditBefore + 50000) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 });
   await expect(page.getByText(`A tu favor: $${expected}`, { exact: false })).toBeVisible();
   await expect(page.getByText("La escuela lo aplicará a tu próximo cargo", { exact: false })).toBeVisible();

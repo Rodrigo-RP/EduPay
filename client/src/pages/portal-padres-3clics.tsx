@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
 import {
   CreditCard,
   Smartphone,
@@ -197,6 +198,11 @@ function SpeiPaymentElementForm({
 function PortalPadres3ClicsInner() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { guardian } = useAuth();
+  const { data: institution, isError: institutionError } = useQuery<{ nombre_legal: string; logo_url: string | null }>({
+    queryKey: ["/api/guardian/institutional-info", guardian?.id],
+    enabled: !!guardian,
+  });
 
   // Hooks de Stripe — llamados al nivel del componente que está dentro de <Elements>
   const stripe = useStripe();
@@ -888,7 +894,11 @@ function PortalPadres3ClicsInner() {
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-slate-900">Mi Portal de Pagos</h1>
-          <p className="text-slate-500 text-sm">Instituto JFR — Ciclo 2025-2026</p>
+          <p className="text-slate-500 text-sm" data-testid="guardian-institution-name">
+            {institution?.nombre_legal || (institutionError ? "No pudimos cargar el nombre de tu escuela." : "Consultando nombre de tu escuela…")}
+          </p>
+          {/* No hay fuente persistida de ciclo vigente: no inferirlo del reloj ni de los cargos.
+              Hasta que exista esa configuración, se omite el ciclo en vez de inventarlo. */}
         </div>
 
         {/* Tabs */}

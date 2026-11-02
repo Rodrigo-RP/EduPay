@@ -42,7 +42,7 @@ test("SR-01: revisa Stripe con doble confirmación, recarga y contador real, sin
   await expect(card).toContainText("123.45");
   await expect(card).toContainText("2026-10-28");
   await expect(card).toContainText("Stripe cobró, pero el pago no se pudo aplicar al cargo");
-  await expect(card).toContainText("Saldo a favor no disponible");
+  await expect(card.getByRole("button", { name: "Registrar como saldo a favor", exact: true })).toBeVisible();
   await card.getByRole("button", { name: "Resuelto fuera del sistema", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Primera confirmación" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Confirmar y continuar" })).toBeDisabled();

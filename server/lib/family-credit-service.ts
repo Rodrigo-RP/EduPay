@@ -66,7 +66,7 @@ export async function familyCreditExceptions(scope: Pick<CreditScope, "tenant_id
   return result;
 }
 
-/** Tanto la ruta histórica como la propuesta usan este mismo mecanismo.
+/** Aplicación de la propuesta con la misma fórmula de pendiente que la ruta histórica.
  * Los IDs de créditos son el snapshot de la propuesta. Nunca se reemplazan por
  * nuevos remanentes en un reintento: el lock + consumido impide el segundo gasto.
  */

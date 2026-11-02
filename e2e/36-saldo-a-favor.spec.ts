@@ -24,7 +24,9 @@ test.beforeAll(async () => {
   onboarding = admin.onboarding_completado;
   await pool.query("UPDATE campuses SET onboarding_completado=true WHERE id=$1", [campusId]);
   fixture = await reviewFixture(admin);
-  guardianId = (await pool.query("SELECT id FROM guardians WHERE email=$1 AND tenant_id=$2 AND campus_id=$3",
+  guardianId = (await pool.query(`SELECT DISTINCT g.id FROM guardians g
+    JOIN student_guardian sg ON sg.guardian_id=g.id JOIN students s ON s.id=sg.student_id
+    WHERE (g.email=$1 OR g.correo_institucional_familiar=$1) AND s.tenant_id=$2 AND s.campus_id=$3`,
     [GUARDIAN_EMAIL, fixture.tenant, campusId])).rows[0].id;
   guardianCreditBefore = Number((await pool.query(
     `SELECT COALESCE(SUM(fc.amount_centavos),0) AS n FROM family_credits fc

@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { GUARDIAN_SESSION_MESSAGE } from "@/lib/guardian-session";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -29,7 +29,7 @@ export default function GuardianLogin() {
   }
   return <main className="min-h-screen flex items-center justify-center p-4">
     <Card className="w-full max-w-md">
-      <CardHeader><CardTitle>Acceso de padres</CardTitle></CardHeader>
+      <CardHeader><h1 className="text-2xl font-semibold leading-none tracking-tight">Acceso de padres</h1></CardHeader>
       <CardContent>
         <p className="mb-4">Ingresa para consultar tus pendientes y pagos.</p>
         {message && <p role="alert" className="mb-4">{message}</p>}

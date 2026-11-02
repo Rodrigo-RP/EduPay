@@ -22,7 +22,7 @@ export function registerFamilyCreditRoutes(app: Express) {
           return res.json(await assignOrphanCredit(user, positiveId(req.body.credit_id),
             positiveId(req.body.family_id), reason.trim()));
         }
-        if (!Array.isArray(req.body.credit_ids) || !req.body.credit_ids.length || req.body.credit_ids.length > 100) {
+        if (!Array.isArray(req.body.credit_ids) || !req.body.credit_ids.length) {
           return res.status(400).json({ message: "Selecciona los créditos de la propuesta" });
         }
         return res.json(await applyFamilyCredits(user, req.body.credit_ids.map((id: unknown) => positiveId(id)),

@@ -34,12 +34,11 @@ async function createTestCampus(tenantId: number): Promise<number> {
 }
 
 async function createTestGuardian(tenantId: number, campusId: number, email: string): Promise<number> {
-  // guardians no tiene tenant_id ni campus_id — usa student_guardian para la relación
   const r = await pool.query(`
-    INSERT INTO guardians (nombre_completo, email, password_hash)
-    VALUES ('Guardian Ledger Test', $1, 'hash')
+    INSERT INTO guardians (nombre_completo, email, password_hash, tenant_id, campus_id)
+    VALUES ('Guardian Ledger Test', $1, 'hash', $2, $3)
     RETURNING id
-  `, [email]);
+  `, [email, tenantId, campusId]);
   return (r.rows[0] as any).id;
 }
 
@@ -54,19 +53,19 @@ async function createTestStudent(tenantId: number, campusId: number): Promise<nu
 
 async function createTestCharge(studentId: number, montoCentavos: number): Promise<number> {
   const r = await pool.query(`
-    INSERT INTO charges (student_id, monto_base_centavos, estado, fecha_emision, fecha_vencimiento)
-    VALUES ($1, $2, 'pendiente', ${SCHOOL_TODAY_SQL}, ${SCHOOL_TODAY_SQL} + INTERVAL '30 days')
+    INSERT INTO charges (student_id, monto_base_centavos, estado, fecha_emision, fecha_vencimiento, tenant_id)
+    VALUES ($1, $2, 'pendiente', ${SCHOOL_TODAY_SQL}, ${SCHOOL_TODAY_SQL} + INTERVAL '30 days', $3)
     RETURNING id
-  `, [studentId, montoCentavos]);
+  `, [studentId, montoCentavos, tenantId]);
   return (r.rows[0] as any).id;
 }
 
 async function createTestPayment(guardianId: number, chargeId: number, montoCentavos: number): Promise<number> {
   const r = await pool.query(`
-    INSERT INTO payments (guardian_id, charge_id, monto_centavos, estado, metodo)
-    VALUES ($1, $2, $3, 'exitoso', 'transferencia')
+    INSERT INTO payments (guardian_id, charge_id, monto_centavos, estado, metodo, tenant_id)
+    VALUES ($1, $2, $3, 'exitoso', 'transferencia', $4)
     RETURNING id
-  `, [guardianId, chargeId, montoCentavos]);
+  `, [guardianId, chargeId, montoCentavos, tenantId]);
   return (r.rows[0] as any).id;
 }
 

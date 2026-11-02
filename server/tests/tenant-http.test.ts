@@ -338,8 +338,8 @@ describe("Aislamiento multi-tenant — capa HTTP (IDOR)", () => {
     expect(r.status).toBe(403);
   });
 
-  it("T13: admin de Tenant B no puede aplicar crédito de Tenant A → 403", async () => {
-    // El endpoint verifica credit.tenant_id === req.user.tenant_id antes de proceder.
+  it("T13: admin de Tenant B no puede aplicar crédito de Tenant A → 404", async () => {
+    // La consulta por ID también filtra tenant/campus y no revela el crédito.
     // Admin B intenta consumir un family_credit que pertenece a tenant A.
     const tokenB = makeAdminToken(userBId, tenantBId, campusBId);
     const r = await httpPost(
@@ -347,7 +347,7 @@ describe("Aislamiento multi-tenant — capa HTTP (IDOR)", () => {
       { charge_id: chargeA2Id },   // cargo de tenant A
       tokenB
     );
-    expect(r.status).toBe(403);
+    expect(r.status).toBe(404);
 
     // El crédito de tenant A sigue activo — no fue tocado
     const creditAfter = await pool.query(

@@ -733,7 +733,7 @@ describe("family-credits/aplicar — validaciones y concurrencia", () => {
   });
 
   // ── PC-13: cargo de alumno sin familia compartida ─────────────────────────
-  it("PC-13: aplicar crédito de un alumno a cargo de otro alumno sin familia compartida → 403", async () => {
+  it("PC-13: aplicar crédito de un alumno a cargo de otro alumno sin familia compartida → 404", async () => {
     const creditId = await mkCreditViaCaja(50_000);
 
     // Segundo alumno, mismo campus/tenant, sin ninguna fila en family_students compartida
@@ -760,8 +760,8 @@ describe("family-credits/aplicar — validaciones y concurrencia", () => {
         { charge_id: charge2Id },
         adminToken
       );
-      // Crédito del alumno principal; cargo del alumno2 sin familia compartida → 403
-      expect(r.status).toBe(403);
+      // La búsqueda aislada no revela cargos fuera de la familia.
+      expect(r.status).toBe(404);
       expect(await countApplications(charge2Id)).toBe(0);
 
       // El crédito sigue activo
@@ -775,7 +775,7 @@ describe("family-credits/aplicar — validaciones y concurrencia", () => {
   });
 
   // ── PC-14: admin de otro tenant ───────────────────────────────────────────
-  it("PC-14: admin de otro tenant intentando aplicar crédito ajeno → 403", async () => {
+  it("PC-14: admin de otro tenant intentando aplicar crédito ajeno → 404", async () => {
     const creditId = await mkCreditViaCaja(50_000);
     const chargeId = await mkCharge(50_000);
 
@@ -796,7 +796,7 @@ describe("family-credits/aplicar — validaciones y concurrencia", () => {
       { charge_id: chargeId },
       alienToken
     );
-    expect(r.status).toBe(403);
+    expect(r.status).toBe(404);
     // Sin payment_application; crédito intacto
     expect(await countApplications(chargeId)).toBe(0);
     const creditAfter = await pool.query(

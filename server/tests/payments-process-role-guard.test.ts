@@ -26,6 +26,7 @@ let tenantId:  number;
 let campusId:  number;
 let studentId: number;
 let conceptId: number;
+let familyId: number;
 
 // Charges para pago-efectivo (uno por test para no reutilizar pagados)
 let chargeFor403:   number;
@@ -112,9 +113,9 @@ async function mkCredit(amountCentavos: number): Promise<{ creditId: number; set
   // 4. Family credit activo
   const creditRes = await pool.query(
     `INSERT INTO family_credits
-       (payment_id, student_id, amount_centavos, status, tenant_id, campus_id)
-     VALUES ($1,$2,$3,'activo',$4,$5) RETURNING id`,
-    [paymentId, studentId, amountCentavos, tenantId, campusId],
+       (payment_id, student_id, amount_centavos, status, tenant_id, campus_id, family_id)
+     VALUES ($1,$2,$3,'activo',$4,$5,$6) RETURNING id`,
+    [paymentId, studentId, amountCentavos, tenantId, campusId, familyId],
   );
   const creditId = (creditRes.rows as any[])[0].id as number;
 
@@ -144,6 +145,10 @@ beforeAll(async () => {
     [tenantId, campusId],
   );
   studentId = sRow.rows[0].id;
+  familyId = (await pool.query(
+    "INSERT INTO families (tenant_id,campus_id,nombre) VALUES ($1,$2,'Familia permisos créditos') RETURNING id",
+    [tenantId, campusId])).rows[0].id;
+  await pool.query("INSERT INTO family_students (family_id,student_id) VALUES ($1,$2)", [familyId, studentId]);
 
   const conRow = await pool.query(
     `INSERT INTO concepts (tenant_id, campus_id, nombre, tipo, periodicidad, monto_centavos)
@@ -233,6 +238,8 @@ afterAll(async () => {
     `DELETE FROM audit_retry_queue WHERE (payload->>'tenant_id')::int = $1`,
     [tenantId],
   );
+  await pool.query("DELETE FROM family_students WHERE family_id=$1", [familyId]);
+  await pool.query("DELETE FROM families WHERE id=$1", [familyId]);
   await pool.query(`DELETE FROM students WHERE id=$1`,  [studentId]);
   await pool.query(`DELETE FROM concepts WHERE id=$1`,  [conceptId]);
   await pool.query(`DELETE FROM campuses WHERE id=$1`,  [campusId]);

@@ -5,6 +5,7 @@
  */
 
 import jwt from "jsonwebtoken";
+import { guardianSessionExpired } from "../lib/guardian-session-limits";
 import multer from "multer";
 import { createRequire } from "module";
 import { storage } from "../storage";
@@ -176,6 +177,7 @@ export const authenticateGuardian = async (req: any, res: any, next: any) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     if (decoded.type !== "guardian") return res.sendStatus(403);
+    if (guardianSessionExpired(decoded)) return res.status(401).json({ message: "Tu sesión terminó. Solicita una nueva liga de acceso." });
     const passwordChangedAt = await loadGuardianPasswordChangedAt(decoded.id);
     if (isSessionInvalidated(decoded.password_version, passwordChangedAt)) {
       return res.status(401).json({

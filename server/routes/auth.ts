@@ -10,6 +10,7 @@ import { guardianHasActiveFamily } from "../lib/family-access";
 import { registerTwoFactorRoutes } from "./two-factor";
 import { validTotp, consumeBackupCode } from "../lib/totp-service";
 import { signStaffSession, staffSessionExpired, STAFF_SESSION_SECONDS } from "../lib/staff-session";
+import { GUARDIAN_TOKEN_SECONDS, guardianSessionExpired, guardianSessionStart, guardianTokenSeconds } from "../lib/guardian-session-limits";
 import {
   authenticateToken,
   esmRequire,
@@ -89,6 +90,7 @@ export function registerAuthRoutes(app: Express): void {
 
         // Verificar que la contraseña no cambió después de que se emitió el token (#138).
         const isGuardian = decoded.type === 'guardian';
+        if (isGuardian && guardianSessionExpired(decoded)) return res.status(401).json({ message: "Tu sesión terminó. Solicita una nueva liga de acceso." });
         if (!isGuardian && staffSessionExpired(decoded)) return res.status(401).json({ message: "Tu sesión terminó. Inicia sesión de nuevo." });
         const userAuth = isGuardian ? null : await loadUserAuthData(decoded.id);
         const passwordChangedAt = isGuardian
@@ -107,10 +109,11 @@ export function registerAuthRoutes(app: Express): void {
             tenant_id: decoded.tenant_id,
             type:      decoded.type || 'user',
             password_version: passwordVersion(passwordChangedAt),
+            ...(isGuardian ? { session_started_at: guardianSessionStart(decoded) } : {}),
             ...(!isGuardian ? { twofa_verified: decoded.twofa_verified === true, session_started_at: decoded.session_started_at ?? decoded.iat, is_super_admin: decoded.is_super_admin } : {}),
           },
           JWT_SECRET,
-          { expiresIn: isGuardian ? 86400 : Math.max(1, (decoded.session_started_at ?? decoded.iat) + STAFF_SESSION_SECONDS - Math.floor(Date.now() / 1000)) }
+          { expiresIn: isGuardian ? guardianTokenSeconds(decoded) : Math.max(1, (decoded.session_started_at ?? decoded.iat) + STAFF_SESSION_SECONDS - Math.floor(Date.now() / 1000)) }
         );
         res.json({ token: newToken });
       } catch (jwtError) {
@@ -124,6 +127,7 @@ export function registerAuthRoutes(app: Express): void {
 
           // Verificar que la contraseña no cambió después de que se emitió el token (#138).
           const isGuardian = decoded.type === 'guardian';
+          if (isGuardian && guardianSessionExpired(decoded)) return res.status(401).json({ message: "Tu sesión terminó. Solicita una nueva liga de acceso." });
           if (!isGuardian && staffSessionExpired(decoded)) return res.status(401).json({ message: "Tu sesión terminó. Inicia sesión de nuevo." });
           const userAuth = isGuardian ? null : await loadUserAuthData(decoded.id);
           const passwordChangedAt = isGuardian
@@ -146,10 +150,11 @@ export function registerAuthRoutes(app: Express): void {
               tenant_id: isGuardian ? decoded.tenant_id : user!.tenant_id,
               type:      decoded.type || 'user',
               password_version: passwordVersion(passwordChangedAt),
+              ...(isGuardian ? { session_started_at: guardianSessionStart(decoded) } : {}),
               ...(!isGuardian ? { twofa_verified: decoded.twofa_verified === true, session_started_at: decoded.session_started_at ?? decoded.iat, is_super_admin: user!.is_super_admin } : {}),
             },
             JWT_SECRET,
-            { expiresIn: isGuardian ? 86400 : Math.max(1, (decoded.session_started_at ?? decoded.iat) + STAFF_SESSION_SECONDS - Math.floor(Date.now() / 1000)) }
+            { expiresIn: isGuardian ? guardianTokenSeconds(decoded) : Math.max(1, (decoded.session_started_at ?? decoded.iat) + STAFF_SESSION_SECONDS - Math.floor(Date.now() / 1000)) }
           );
           return res.json({ token: newToken });
         } catch {
@@ -368,9 +373,9 @@ export function registerAuthRoutes(app: Express): void {
       // Generar JWT de tutor (4 horas)
       const guardianEmail = g.correo_institucional_familiar || g.email || null;
       const guardianJwt = jwt.sign(
-        { id: row.guardian_id, email: guardianEmail, tenant_id: row.tenant_id, type: 'guardian', password_version: passwordVersion(g.password_changed_at) },
+        { id: row.guardian_id, email: guardianEmail, tenant_id: row.tenant_id, type: 'guardian', password_version: passwordVersion(g.password_changed_at), session_started_at: Math.floor(Date.now() / 1000) },
         JWT_SECRET,
-        { expiresIn: '4h' }
+        { expiresIn: GUARDIAN_TOKEN_SECONDS }
       );
 
       res.json({

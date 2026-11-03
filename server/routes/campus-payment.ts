@@ -46,6 +46,8 @@ import {
   hasPermissionForUser,
 } from "./shared";
 import { MODULES, ACTIONS } from "../../shared/permissions";
+import { processRefundWebhook } from "../lib/credit-refund-stripe";
+import { refundSnapshot } from "../lib/refund-provider";
 
 // SDK inicializado una sola vez por módulo.
 const defaultStripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -197,6 +199,16 @@ export function registerStripeWebhookRoute(
         }
       }
 
+      if (event.type === "refund.created" || event.type === "refund.updated" || event.type === "refund.failed") {
+        try {
+          await processRefundWebhook({ id: event.id, type: event.type, created: event.created,
+            refund: refundSnapshot(event.data.object) });
+        } catch {
+          // No acuse de éxito si no se persistió; Stripe debe reintentar.
+          return res.status(500).json({ message: "No se pudo registrar la devolución confirmada" });
+        }
+      }
+      // charge.refunded nunca decide el resultado de una devolución.
       return res.json({ received: true });
     }
   );

@@ -24,7 +24,7 @@ z.object({ version: z.literal("0.45.4") }).parse(
   JSON.parse(await fs.readFile("node_modules/drizzle-orm/package.json", "utf8")),
 );
 const journal = z.object({
-  entries: z.array(z.object({ tag: z.string(), when: z.number() })).length(7),
+  entries: z.array(z.object({ tag: z.string(), when: z.number() })).min(7),
 }).parse(JSON.parse(await fs.readFile("drizzle/migrations/meta/_journal.json", "utf8")));
 const expectedCatalog = z.record(z.string(), z.array(z.unknown())).parse(
   JSON.parse(await fs.readFile("drizzle/schema-catalog.json", "utf8")),
@@ -51,11 +51,11 @@ try {
   }
   const legacyDb: unknown = oldDriver.drizzle(pool);
   await oldMigrator.migrate(legacyDb, { migrationsFolder: "drizzle/migrations" });
-  console.log("[drizzle:compat] Las siete migraciones se aplicaron con ORM 0.39.3.");
+  console.log(`[drizzle:compat] ${journal.entries.length} migraciones aplicadas con ORM 0.39.3.`);
 
   const before = await pool.query<{ id: number; hash: string; created_at: string }>(ledgerSQL);
   console.log(ledgerSQL, JSON.stringify(before.rows));
-  assert.equal(before.rows.length, 7);
+  assert.equal(before.rows.length, journal.entries.length);
   for (const [index, entry] of journal.entries.entries()) {
     const hash = crypto.createHash("sha256")
       .update(await fs.readFile(`drizzle/migrations/${entry.tag}.sql`)).digest("hex");
@@ -88,7 +88,7 @@ try {
     );
     console.log("[drizzle:compat:sql]", query);
   }
-  console.log("[drizzle:compat] ORM 0.45.4 reconoce 7/7; cero migraciones reejecutadas, ledger idéntico y cero diferencias en 12 categorías.");
+  console.log(`[drizzle:compat] ORM 0.45.4 reconoce ${journal.entries.length}/${journal.entries.length}; cero migraciones reejecutadas, ledger idéntico y cero diferencias en 12 categorías.`);
 } finally {
   await pool.end();
 }

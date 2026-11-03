@@ -132,6 +132,53 @@ export const familyCredits = pgTable("family_credits", {
 	check("family_credits_amount_centavos_check", sql`amount_centavos > 0`),
 ]);
 
+export const creditRefunds = pgTable("credit_refunds", {
+id: serial().primaryKey().notNull(),
+tenantId: integer("tenant_id").notNull().references(() => tenants.id),
+campusId: integer("campus_id").notNull().references(() => campuses.id),
+creditId: integer("credit_id").notNull().references(() => familyCredits.id),
+paymentId: integer("payment_id").notNull().references(() => payments.id),
+amountCentavos: bigint("amount_centavos", { mode: "number" }).notNull(),
+method: varchar({ length: 24 }).notNull(),
+status: varchar({ length: 24 }).default("preparada").notNull(),
+reason: text().notNull(),
+createdBy: integer("created_by").notNull().references(() => users.id),
+createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+confirmedAt: timestamp("confirmed_at", { withTimezone: true, mode: "string" }),
+businessDate: date("business_date"),
+trackingKey: varchar("tracking_key", { length: 100 }),
+idempotencyKey: varchar("idempotency_key", { length: 100 }).notNull().unique(),
+stripeRefundId: varchar("stripe_refund_id", { length: 100 }).unique(),
+paymentIntentId: varchar("payment_intent_id", { length: 100 }),
+destination: varchar({ length: 100 }),
+stripeStatus: varchar("stripe_status", { length: 30 }),
+attemptedAt: timestamp("attempted_at", { withTimezone: true, mode: "string" }),
+lastEventCreated: bigint("last_event_created", { mode: "number" }).default(0).notNull(),
+returnStatus: varchar("return_status", { length: 24 }).default("no_necesario").notNull(),
+returnKey: varchar("return_key", { length: 100 }).notNull().unique(),
+returnTransferId: varchar("return_transfer_id", { length: 100 }).unique(),
+returnAttemptedAt: timestamp("return_attempted_at", { withTimezone: true, mode: "string" }),
+incident: text(),
+}, table => [
+check("credit_refunds_amount_positive", sql`${table.amountCentavos} > 0`),
+check("credit_refunds_method", sql`${table.method} IN ('stripe','efectivo','transferencia_escuela')`),
+check("credit_refunds_status", sql`${table.status} IN ('preparada','pendiente','requiere_accion','exitosa','fallida','rechazada')`),
+check("credit_refunds_return_status", sql`${table.returnStatus} IN ('no_necesario','esperando_fondos','pendiente','fallido','completo')`),
+check("credit_refunds_manual_evidence", sql`${table.method} <> 'transferencia_escuela' OR ${table.status} <> 'exitosa' OR (${table.trackingKey} IS NOT NULL AND ${table.businessDate} IS NOT NULL)`),
+index("credit_refunds_scope").on(table.tenantId, table.campusId),
+index("credit_refunds_payment").on(table.paymentId),
+uniqueIndex("credit_refunds_one_live_credit").on(table.creditId).where(sql`${table.status} IN ('preparada','pendiente','requiere_accion','exitosa') OR ${table.returnStatus} IN ('esperando_fondos','pendiente','fallido')`),
+]);
+
+export const creditRefundEvents = pgTable("credit_refund_events", {
+id: serial().primaryKey().notNull(),
+tenantId: integer("tenant_id").notNull().references(() => tenants.id),
+refundId: integer("refund_id").notNull().references(() => creditRefunds.id),
+providerEventId: varchar("provider_event_id", { length: 100 }).notNull().unique(),
+payload: text().notNull(),
+createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
 export const scholarshipCriteria = pgTable("scholarship_criteria", {
 	id: serial().primaryKey().notNull(),
 	scholarshipTypeId: integer("scholarship_type_id"),

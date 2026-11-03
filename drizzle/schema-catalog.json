@@ -266,6 +266,38 @@
     },
     {
       "schema_name": "public",
+      "name": "credit_refund_events",
+      "kind": "r",
+      "rls": false,
+      "force_rls": false,
+      "reloptions": null
+    },
+    {
+      "schema_name": "public",
+      "name": "credit_refund_events_id_seq",
+      "kind": "S",
+      "rls": false,
+      "force_rls": false,
+      "reloptions": null
+    },
+    {
+      "schema_name": "public",
+      "name": "credit_refunds",
+      "kind": "r",
+      "rls": false,
+      "force_rls": false,
+      "reloptions": null
+    },
+    {
+      "schema_name": "public",
+      "name": "credit_refunds_id_seq",
+      "kind": "S",
+      "rls": false,
+      "force_rls": false,
+      "reloptions": null
+    },
+    {
+      "schema_name": "public",
       "name": "crm_prospects",
       "kind": "r",
       "rls": false,
@@ -3305,6 +3337,390 @@
       "identity_kind": "",
       "generated_kind": "",
       "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refund_events",
+      "name": "id",
+      "position": 1,
+      "type": "integer",
+      "not_null": true,
+      "default_value": "nextval('credit_refund_events_id_seq'::regclass)",
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refund_events",
+      "name": "tenant_id",
+      "position": 2,
+      "type": "integer",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refund_events",
+      "name": "refund_id",
+      "position": 3,
+      "type": "integer",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refund_events",
+      "name": "provider_event_id",
+      "position": 4,
+      "type": "character varying(100)",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refund_events",
+      "name": "payload",
+      "position": 5,
+      "type": "text",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refund_events",
+      "name": "created_at",
+      "position": 6,
+      "type": "timestamp with time zone",
+      "not_null": true,
+      "default_value": "now()",
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "id",
+      "position": 1,
+      "type": "integer",
+      "not_null": true,
+      "default_value": "nextval('credit_refunds_id_seq'::regclass)",
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "tenant_id",
+      "position": 2,
+      "type": "integer",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "campus_id",
+      "position": 3,
+      "type": "integer",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_id",
+      "position": 4,
+      "type": "integer",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "payment_id",
+      "position": 5,
+      "type": "integer",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "amount_centavos",
+      "position": 6,
+      "type": "bigint",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "method",
+      "position": 7,
+      "type": "character varying(24)",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "status",
+      "position": 8,
+      "type": "character varying(24)",
+      "not_null": true,
+      "default_value": "'preparada'::character varying",
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "reason",
+      "position": 9,
+      "type": "text",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "created_by",
+      "position": 10,
+      "type": "integer",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "created_at",
+      "position": 11,
+      "type": "timestamp with time zone",
+      "not_null": true,
+      "default_value": "now()",
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "confirmed_at",
+      "position": 12,
+      "type": "timestamp with time zone",
+      "not_null": false,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "business_date",
+      "position": 13,
+      "type": "date",
+      "not_null": false,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "tracking_key",
+      "position": 14,
+      "type": "character varying(100)",
+      "not_null": false,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "idempotency_key",
+      "position": 15,
+      "type": "character varying(100)",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "stripe_refund_id",
+      "position": 16,
+      "type": "character varying(100)",
+      "not_null": false,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "payment_intent_id",
+      "position": 17,
+      "type": "character varying(100)",
+      "not_null": false,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "destination",
+      "position": 18,
+      "type": "character varying(100)",
+      "not_null": false,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "stripe_status",
+      "position": 19,
+      "type": "character varying(30)",
+      "not_null": false,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "attempted_at",
+      "position": 20,
+      "type": "timestamp with time zone",
+      "not_null": false,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "last_event_created",
+      "position": 21,
+      "type": "bigint",
+      "not_null": true,
+      "default_value": "0",
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "return_status",
+      "position": 22,
+      "type": "character varying(24)",
+      "not_null": true,
+      "default_value": "'no_necesario'::character varying",
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "return_key",
+      "position": 23,
+      "type": "character varying(100)",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "return_transfer_id",
+      "position": 24,
+      "type": "character varying(100)",
+      "not_null": false,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "return_attempted_at",
+      "position": 25,
+      "type": "timestamp with time zone",
+      "not_null": false,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "incident",
+      "position": 26,
+      "type": "text",
+      "not_null": false,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
     },
     {
       "schema_name": "public",
@@ -10964,6 +11380,196 @@
     },
     {
       "schema_name": "public",
+      "table_name": "credit_refund_events",
+      "name": "credit_refund_events_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refund_events",
+      "name": "credit_refund_events_provider_event_id_unique",
+      "type": "u",
+      "definition": "UNIQUE (provider_event_id)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refund_events",
+      "name": "credit_refund_events_refund_id_credit_refunds_id_fk",
+      "type": "f",
+      "definition": "FOREIGN KEY (refund_id) REFERENCES credit_refunds(id)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refund_events",
+      "name": "credit_refund_events_tenant_id_tenants_id_fk",
+      "type": "f",
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_refunds_amount_positive",
+      "type": "c",
+      "definition": "CHECK ((amount_centavos > 0))",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_refunds_campus_id_campuses_id_fk",
+      "type": "f",
+      "definition": "FOREIGN KEY (campus_id) REFERENCES campuses(id)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_refunds_created_by_users_id_fk",
+      "type": "f",
+      "definition": "FOREIGN KEY (created_by) REFERENCES users(id)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_refunds_credit_id_family_credits_id_fk",
+      "type": "f",
+      "definition": "FOREIGN KEY (credit_id) REFERENCES family_credits(id)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_refunds_idempotency_key_unique",
+      "type": "u",
+      "definition": "UNIQUE (idempotency_key)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_refunds_manual_evidence",
+      "type": "c",
+      "definition": "CHECK ((((method)::text <> 'transferencia_escuela'::text) OR ((status)::text <> 'exitosa'::text) OR ((tracking_key IS NOT NULL) AND (business_date IS NOT NULL))))",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_refunds_method",
+      "type": "c",
+      "definition": "CHECK (((method)::text = ANY ((ARRAY['stripe'::character varying, 'efectivo'::character varying, 'transferencia_escuela'::character varying])::text[])))",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_refunds_payment_id_payments_id_fk",
+      "type": "f",
+      "definition": "FOREIGN KEY (payment_id) REFERENCES payments(id)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_refunds_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_refunds_return_key_unique",
+      "type": "u",
+      "definition": "UNIQUE (return_key)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_refunds_return_status",
+      "type": "c",
+      "definition": "CHECK (((return_status)::text = ANY ((ARRAY['no_necesario'::character varying, 'esperando_fondos'::character varying, 'pendiente'::character varying, 'fallido'::character varying, 'completo'::character varying])::text[])))",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_refunds_return_transfer_id_unique",
+      "type": "u",
+      "definition": "UNIQUE (return_transfer_id)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_refunds_status",
+      "type": "c",
+      "definition": "CHECK (((status)::text = ANY ((ARRAY['preparada'::character varying, 'pendiente'::character varying, 'requiere_accion'::character varying, 'exitosa'::character varying, 'fallida'::character varying, 'rechazada'::character varying])::text[])))",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_refunds_stripe_refund_id_unique",
+      "type": "u",
+      "definition": "UNIQUE (stripe_refund_id)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_refunds_tenant_id_tenants_id_fk",
+      "type": "f",
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
       "table_name": "crm_prospects",
       "name": "crm_prospects_pkey",
       "type": "p",
@@ -12928,6 +13534,66 @@
     },
     {
       "schema_name": "public",
+      "table_name": "credit_refund_events",
+      "name": "credit_refund_events_pkey",
+      "definition": "CREATE UNIQUE INDEX credit_refund_events_pkey ON public.credit_refund_events USING btree (id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refund_events",
+      "name": "credit_refund_events_provider_event_id_unique",
+      "definition": "CREATE UNIQUE INDEX credit_refund_events_provider_event_id_unique ON public.credit_refund_events USING btree (provider_event_id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_refunds_idempotency_key_unique",
+      "definition": "CREATE UNIQUE INDEX credit_refunds_idempotency_key_unique ON public.credit_refunds USING btree (idempotency_key)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_refunds_one_live_credit",
+      "definition": "CREATE UNIQUE INDEX credit_refunds_one_live_credit ON public.credit_refunds USING btree (credit_id) WHERE (((status)::text = ANY ((ARRAY['preparada'::character varying, 'pendiente'::character varying, 'requiere_accion'::character varying, 'exitosa'::character varying])::text[])) OR ((return_status)::text = ANY ((ARRAY['esperando_fondos'::character varying, 'pendiente'::character varying, 'fallido'::character varying])::text[])))"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_refunds_payment",
+      "definition": "CREATE INDEX credit_refunds_payment ON public.credit_refunds USING btree (payment_id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_refunds_pkey",
+      "definition": "CREATE UNIQUE INDEX credit_refunds_pkey ON public.credit_refunds USING btree (id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_refunds_return_key_unique",
+      "definition": "CREATE UNIQUE INDEX credit_refunds_return_key_unique ON public.credit_refunds USING btree (return_key)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_refunds_return_transfer_id_unique",
+      "definition": "CREATE UNIQUE INDEX credit_refunds_return_transfer_id_unique ON public.credit_refunds USING btree (return_transfer_id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_refunds_scope",
+      "definition": "CREATE INDEX credit_refunds_scope ON public.credit_refunds USING btree (tenant_id, campus_id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "credit_refunds",
+      "name": "credit_refunds_stripe_refund_id_unique",
+      "definition": "CREATE UNIQUE INDEX credit_refunds_stripe_refund_id_unique ON public.credit_refunds USING btree (stripe_refund_id)"
+    },
+    {
+      "schema_name": "public",
       "table_name": "crm_prospects",
       "name": "crm_prospects_pkey",
       "definition": "CREATE UNIQUE INDEX crm_prospects_pkey ON public.crm_prospects USING btree (id)"
@@ -13738,6 +14404,28 @@
     {
       "schema_name": "public",
       "name": "concepts_id_seq",
+      "type": "integer",
+      "seqstart": "1",
+      "seqincrement": "1",
+      "seqmax": "2147483647",
+      "seqmin": "1",
+      "seqcache": "1",
+      "seqcycle": false
+    },
+    {
+      "schema_name": "public",
+      "name": "credit_refund_events_id_seq",
+      "type": "integer",
+      "seqstart": "1",
+      "seqincrement": "1",
+      "seqmax": "2147483647",
+      "seqmin": "1",
+      "seqcache": "1",
+      "seqcycle": false
+    },
+    {
+      "schema_name": "public",
+      "name": "credit_refunds_id_seq",
       "type": "integer",
       "seqstart": "1",
       "seqincrement": "1",

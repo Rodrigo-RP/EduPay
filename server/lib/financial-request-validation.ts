@@ -17,6 +17,7 @@ export const financialContracts: Contract[] = [
     "/api/payment-config/surcharge-rules-complete", "/api/payment-config/due-dates",
     "/api/payment-config/surcharge-rules", "/api/admin/family-credits/:creditId/aplicar",
     "/api/admin/family-credits/aplicar-propuesta", "/api/admin/family-credits/asignar-familia",
+    "/api/admin/credit-refunds/preparar", "/api/admin/credit-refunds/confirmar", "/api/admin/credit-refunds/reintentar",
     "/api/admin/alertas/condonaciones/:planId/override-token", "/api/admin/students/:studentId/beca",
     "/api/admin/scholarship-types", "/api/caja/pago-efectivo", "/api/caja/transferencia-manual",
     "/api/caja/cerrar-dia", "/api/conciliacion/importar", "/api/conciliacion/importar-pdf",

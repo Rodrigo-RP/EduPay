@@ -15,6 +15,8 @@ import { payments, charges, students, invoices, guardians } from "@shared/schema
 import { stripeReviewExceptions } from "../lib/stripe-review-exceptions";
 import { registerStripeReviewRoutes } from "./stripe-review";
 import { registerFamilyCreditRoutes } from "./family-credits";
+import { registerCreditRefundRoutes, refundExceptions } from "./credit-refunds";
+import { cashRefundOutflows } from "../lib/refund-cash";
 import { familyCreditExceptions } from "../lib/family-credit-service";
 
 function fechaCiudadDeMexico(): string {
@@ -545,6 +547,7 @@ export function computeRiesgoScore(params: {
 export function registerConciliacionRoutes(app: Express): void {
   registerStripeReviewRoutes(app);
   registerFamilyCreditRoutes(app);
+  registerCreditRefundRoutes(app);
   // ── 1. CENTRO DE COMANDOS ─────────────────────────────────────────────────
   app.get("/api/dashboard/comandos/:campusId", authenticateToken, async (req: any, res) => {
     if (!hasPermissionForUser(req.user, MODULES.FINANCIAL, ACTIONS.READ)) {
@@ -1075,6 +1078,9 @@ export function registerConciliacionRoutes(app: Express): void {
 
   const seleccionarCierreCaja = `
     SELECT cc.id, cc.fecha, cc.efectivo_capturado_centavos,
+           (SELECT COALESCE(SUM(r.amount_centavos),0)::bigint FROM credit_refunds r
+             WHERE r.tenant_id=cc.tenant_id AND r.campus_id=cc.campus_id
+               AND r.method='efectivo' AND r.status='exitosa' AND r.business_date=cc.fecha) AS devoluciones_efectivo_centavos,
            cc.efectivo_registrado_centavos, cc.ingresos_bancarios_centavos,
            cc.total_cobrado_centavos, cc.diferencia_efectivo_centavos,
            cc.pagos_procesados, cc.observaciones, cc.created_at,
@@ -1092,6 +1098,7 @@ export function registerConciliacionRoutes(app: Express): void {
       fecha,
       efectivo_capturado_centavos: Number(cierre.efectivo_capturado_centavos),
       efectivo_registrado_centavos: Number(cierre.efectivo_registrado_centavos),
+      devoluciones_efectivo_centavos: Number(cierre.devoluciones_efectivo_centavos ?? 0),
       ingresos_bancarios_centavos: Number(cierre.ingresos_bancarios_centavos),
       total_cobrado_centavos: Number(cierre.total_cobrado_centavos),
       diferencia_efectivo_centavos: Number(cierre.diferencia_efectivo_centavos),
@@ -1163,8 +1170,11 @@ export function registerConciliacionRoutes(app: Express): void {
     let cierre: any;
     let duplicate = false;
     let transactionError: unknown = null;
+    let devolucionesEfectivo = 0;
     try {
       await client.query("BEGIN");
+      await client.query("SELECT pg_advisory_xact_lock($1,$2)", [tenantId, campusId]);
+      devolucionesEfectivo = await cashRefundOutflows(client, tenantId, campusId, fecha);
       const resumen = await client.query(
         `SELECT COUNT(*)::int AS pagos_procesados,
                 COALESCE(SUM(p.monto_centavos), 0)::bigint AS total_cobrado_centavos,
@@ -1200,11 +1210,12 @@ export function registerConciliacionRoutes(app: Express): void {
         [
           tenantId, campusId, userId, fecha,
           efectivoCapturado, efectivoRegistrado, ingresosBancarios, totalCobrado,
-          efectivoCapturado - efectivoRegistrado, pagosProcesados,
+          efectivoCapturado - (efectivoRegistrado - devolucionesEfectivo), pagosProcesados,
           observaciones?.trim() || null,
         ],
       );
       cierre = (inserted.rows as any[])[0];
+      cierre.devoluciones_efectivo_centavos = devolucionesEfectivo;
       await client.query("COMMIT");
     } catch (error: any) {
       await client.query("ROLLBACK").catch(() => {});
@@ -1785,7 +1796,8 @@ export function registerConciliacionRoutes(app: Express): void {
       );
       const stripe = await stripeReviewExceptions(user);
       const credits = await familyCreditExceptions(user);
-      res.json({ total_pendiente: Number(result.rows[0]?.total_pendiente ?? 0) + stripe.length + credits.length });
+      const refunds = await refundExceptions(user);
+      res.json({ total_pendiente: Number(result.rows[0]?.total_pendiente ?? 0) + stripe.length + credits.length + refunds.length });
     } catch {
       res.status(500).json({ message: "Error interno del servidor" });
     }
@@ -1833,7 +1845,8 @@ export function registerConciliacionRoutes(app: Express): void {
 
       const stripe = await stripeReviewExceptions(user);
       const credits = await familyCreditExceptions(user);
-      const excepciones = [...rows.rows, ...stripe, ...credits];
+      const refunds = await refundExceptions(user);
+      const excepciones = [...rows.rows, ...stripe, ...credits, ...refunds];
 
       res.json({
         excepciones,

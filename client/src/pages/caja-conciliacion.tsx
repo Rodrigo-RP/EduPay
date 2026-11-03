@@ -1626,6 +1626,7 @@ export default function CajaConciliacion() {
             <p className="font-medium">Caja cerrada para el {cierreExistente.fecha}</p>
             <p>
               Efectivo capturado: ${((Number(cierreExistente.efectivo_capturado_centavos) || 0) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}.
+              {" "}Devoluciones en efectivo registradas por la escuela: ${((Number(cierreExistente.devoluciones_efectivo_centavos) || 0) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}.
               {cierreExistente.cerrado_por ? ` Registró: ${cierreExistente.cerrado_por}.` : ""}
             </p>
           </div>

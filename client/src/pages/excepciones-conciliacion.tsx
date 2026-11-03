@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { StripeReviewCard, type StripeReviewItem } from "@/components/stripe-review-card";
 import { FamilyCreditCard } from "@/components/family-credit-card";
+import { CreditRefundsPanel } from "@/components/credit-refunds-panel";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -173,6 +174,7 @@ export default function ExcepcionesConciliacion() {
         </div>
       </div>
 
+      {["super_admin", "administrador_general"].includes(user?.role ?? "") && <CreditRefundsPanel />}
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         <Card>
@@ -243,6 +245,11 @@ export default function ExcepcionesConciliacion() {
             <div className="space-y-3">
               {excepciones.map((exc) => ["family_credit", "orphan_credit"].includes(exc.origen ?? "") ? (
                 <FamilyCreditCard key={exc.id} item={exc} canApply={data?.puede_resolver_stripe === true} />
+              ) : exc.origen === "credit_refund" ? (
+                <Card key={exc.id}><CardContent className="p-4">
+                  <p>{exc.descripcion}</p><p>{fmt(exc.monto_centavos)} · {exc.fecha}</p>
+                  <a className="underline" href="#devoluciones">Revisar devolución y fondos de la escuela</a>
+                </CardContent></Card>
               ) : exc.origen === "stripe" ? (
                 <StripeReviewCard key={exc.id} item={exc} canResolve={data?.puede_resolver_stripe === true} />
               ) : (

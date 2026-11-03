@@ -77,13 +77,18 @@ describe("Día financiero de la escuela con reloj fijo", () => {
       students AS (SELECT 3 AS id, 992 AS campus_id,
         'Prueba calendario'::text AS nombre_completo, '1'::text AS grado,
         'CALENDARIO'::text AS id_referencia),
-      concepts AS (SELECT 4 AS id, 'Prueba'::text AS nombre)`;
+      concepts AS (SELECT 4 AS id, 'Prueba'::text AS nombre),
+      credit_refunds AS (
+        SELECT 991 AS tenant_id, 992 AS campus_id, 'efectivo'::text AS method,
+          'exitosa'::text AS status, '${day}'::date AS business_date,
+          0::bigint AS amount_centavos WHERE FALSE)`;
     const sqlRead = async (sql: string, params: any[] = []) =>
       execute(`${ctes} ${sql.replaceAll("NOW()", `'${instant}'::timestamptz`)}`, params);
     const seen: string[] = [];
     const query = vi.fn(async (sql: string, params: any[] = []) => {
       seen.push(sql);
       if (sql.includes("FROM payments p")) return sqlRead(sql, params);
+      if (sql.includes("FROM credit_refunds")) return sqlRead(sql, params);
       if (sql.startsWith("INSERT INTO cash_closures")) {
         const [, , userId, fecha, efectivo, registrado, banco, total, diferencia, pagos] = params;
         return { rows: [{ id: 1, fecha, closed_by_user_id: userId,

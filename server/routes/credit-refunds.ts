@@ -81,6 +81,6 @@ export function registerCreditRefundRoutes(app: Express, provider?: RefundProvid
 function respondError(res: import("express").Response, error: unknown) {
   const status = error instanceof CreditError ? error.status :
     error instanceof Error && error.name === "FinancialInputError" ? 400 : 500;
-  res.status(status).json({ message: status < 500 && error instanceof Error ? error.message :
+  res.status(status).json({ message: (status < 500 || error instanceof CreditError) && error instanceof Error ? error.message :
     "No se pudo completar la devolución. El dinero sigue registrado; revisa su estado antes de reintentar." });
 }

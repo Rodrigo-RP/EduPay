@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { CreditError } from "./stripe-family-credit";
 
 export interface RefundPayment {
   id: string; amount: number; refunded: number; created: number;
@@ -34,7 +35,7 @@ export function stripeRefundProvider(): RefundProvider {
   let instance: Stripe | undefined;
   const sdk = () => {
     const key = process.env.STRIPE_SECRET_KEY;
-    if (!key) throw new Error("Proveedor de devoluciones no configurado");
+    if (!key) throw new CreditError(503, "Stripe no está configurado para devolver este pago. Contacta a la administración.");
     return instance ??= new Stripe(key);
   };
   return {

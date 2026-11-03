@@ -86,7 +86,9 @@ export async function processRefundWebhook(event: {
        VALUES ($1,$2,$3,$4) ON CONFLICT (provider_event_id) DO NOTHING RETURNING id`,
       [row.tenant_id, row.id, event.id, JSON.stringify(event)]);
     const terminal = ["exitosa", "fallida", "rechazada"].includes(row.status);
-    if (receipt.rows.length && !terminal && event.created >= Number(row.last_event_created)) {
+    const olderPending = row.status === "requiere_accion" && refund.status === "pending" &&
+      event.created <= Number(row.last_event_created);
+    if (receipt.rows.length && !terminal && !olderPending && event.created >= Number(row.last_event_created)) {
       const state = refund.status === "succeeded" ? "exitosa" :
         ["failed", "canceled"].includes(refund.status ?? "") ? "fallida" :
           refund.status === "requires_action" ? "requiere_accion" :

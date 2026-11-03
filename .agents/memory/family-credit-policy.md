@@ -19,6 +19,19 @@ Los escenarios de navegador de créditos deben preparar su propio tutor,
 vinculado explícitamente a su familia y al campus probado; no reutilizar
 implícitamente al tutor global del helper de autenticación.
 
+Las devoluciones manuales de efectivo y transferencia escolar se acreditan
+por declaración expresa del administrador, no por webhook. Deben identificarse
+como “Registrada por la escuela”, nunca como verificación bancaria.
+
+**Why:** El dueño distinguió expresamente la evidencia de Stripe de una entrega
+fuera del proveedor; esos métodos no generan un webhook de Stripe.
+
+**How to apply:** Mantener motivo, doble confirmación y TOTP vigente. En una
+transferencia escolar exigir rastreo y fecha sin almacenar datos bancarios del
+padre. No trasladar a tarjetas el plazo SPEI de 180 días. Tras una devolución
+Stripe fallida con fondos recuperados de la escuela, no habilitar la alternativa
+escolar antes de confirmar que esos fondos regresaron a su cuenta conectada.
+
 **Why:** Encontrar una cuenta demo por correo no garantiza que pertenezca al
 campus del administrador ni que conserve sus vínculos durante la suite completa.
 

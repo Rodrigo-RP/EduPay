@@ -29,7 +29,7 @@ interface Excepcion extends StripeReviewItem {
   nombre_ordenante: string | null;
   estado_conciliacion: string;
   nota_conciliacion: string | null;
-  dias_sin_conciliar: number;
+  dias_sin_conciliar?: number;
 }
 
 interface CargoDisponible {
@@ -93,6 +93,12 @@ export default function ExcepcionesConciliacion() {
   });
 
   const cargosDisponibles = data?.cargos_disponibles ?? [];
+  const diasConciliables = (data?.excepciones ?? [])
+    .map((e) => e.dias_sin_conciliar)
+    .filter((dias): dias is number => typeof dias === "number" && Number.isFinite(dias));
+  const promedioDias = diasConciliables.length
+    ? `${Math.round(diasConciliables.reduce((suma, dias) => suma + dias, 0) / diasConciliables.length)}d`
+    : "—";
 
   // ── Mutations ────────────────────────────────────────────────────────────────
   const resolverMutation = useMutation({
@@ -197,12 +203,7 @@ export default function ExcepcionesConciliacion() {
           <CardContent className="p-4 text-center">
             <Clock className="w-8 h-8 text-blue-500 mx-auto mb-2" />
             <div className="text-2xl font-bold text-blue-600">
-              {(data?.excepciones ?? []).length > 0
-                ? Math.round(
-                    (data!.excepciones.reduce((s, e) => s + Number(e.dias_sin_conciliar), 0)) /
-                    data!.excepciones.length
-                  )
-                : 0}d
+              {promedioDias}
             </div>
             <div className="text-sm text-slate-600">Días promedio sin conciliar</div>
           </CardContent>
@@ -262,7 +263,7 @@ export default function ExcepcionesConciliacion() {
                       <span className="font-semibold text-slate-800">
                         {fmt(Number(exc.monto_centavos))}
                       </span>
-                      {diasBadge(exc.dias_sin_conciliar)}
+                      {typeof exc.dias_sin_conciliar === "number" && diasBadge(exc.dias_sin_conciliar)}
                       <Badge variant="outline" className="text-xs capitalize">
                         {exc.tipo || "crédito"}
                       </Badge>

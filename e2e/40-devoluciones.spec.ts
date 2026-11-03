@@ -53,6 +53,10 @@ test("devolución en efectivo: dos confirmaciones, TOTP y evidencia escolar sin 
     localStorage.setItem("auth_type", "user");
   }, token);
   await page.goto("/excepciones-conciliacion");
+  const promedio = page.getByText("Días promedio sin conciliar", { exact: true }).locator("..");
+  await expect(page.getByText("Saldo a favor sin familia asignada", { exact: false }).first()).toBeVisible();
+  await expect(promedio).toContainText("—");
+  await expect(promedio).not.toContainText("NaN");
   const panel = page.locator("#devoluciones");
   await expect(panel.getByText(`Crédito #${credit}`, { exact: false })).toBeVisible();
   await panel.getByRole("button", { name: "Devolver", exact: true }).click();
@@ -78,4 +82,28 @@ test("devolución en efectivo: dos confirmaciones, TOTP y evidencia escolar sin 
     "SELECT amount_centavos::text,origen FROM family_credits WHERE payment_id=$1 AND status='activo'", [payment])).rows;
   expect(remainder).toEqual([{ amount_centavos: "50000", origen: "excedente_caja" }]);
   await page.screenshot({ path: "test-results/devolucion-efectivo.png", fullPage: true });
+});
+
+test("promedio de días: excluye créditos sin días y valores no numéricos", async ({ page }) => {
+  await page.addInitScript(value => {
+    localStorage.setItem("auth_token", value);
+    localStorage.setItem("auth_type", "user");
+  }, token);
+  await page.route("**/api/conciliacion/excepciones", async route => {
+    const response = await route.fetch();
+    const body = await response.json();
+    const credito = body.excepciones.find((item: { origen: string }) => item.origen === "orphan_credit");
+    expect(credito).toBeTruthy();
+    await route.fulfill({ response, json: { ...body, excepciones: [
+      credito,
+      { ...credito, id: -101, dias_sin_conciliar: 4 },
+      { ...credito, id: -102, dias_sin_conciliar: 8 },
+      { ...credito, id: -103, dias_sin_conciliar: null },
+      { ...credito, id: -104, dias_sin_conciliar: "100" },
+    ] } });
+  });
+  await page.goto("/excepciones-conciliacion");
+  const promedio = page.getByText("Días promedio sin conciliar", { exact: true }).locator("..");
+  await expect(promedio).toContainText("6d");
+  await expect(promedio).not.toContainText("NaN");
 });

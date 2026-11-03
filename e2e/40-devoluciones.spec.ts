@@ -48,7 +48,10 @@ test.afterAll(async () => {
   await fixture.cleanup();
 });
 test("devolución en efectivo: dos confirmaciones, TOTP y evidencia escolar sin verificación bancaria", async ({ page }) => {
-  await page.addInitScript(value => localStorage.setItem("auth_token", value), token);
+  await page.addInitScript(value => {
+    localStorage.setItem("auth_token", value);
+    localStorage.setItem("auth_type", "user");
+  }, token);
   await page.goto("/excepciones-conciliacion");
   const panel = page.locator("#devoluciones");
   await expect(panel.getByText(`Crédito #${credit}`, { exact: false })).toBeVisible();

@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import type { Pool } from "@neondatabase/serverless";
+import type { Pool } from "pg";
 import { z } from "zod/v4";
 
 const payloadSchema = z.object({

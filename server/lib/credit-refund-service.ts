@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { PoolClient } from "@neondatabase/serverless";
+import type { PoolClient } from "pg";
 import { pool } from "../db";
 import { creditAudit } from "./credit-audit";
 import { validTotp } from "./totp-service";

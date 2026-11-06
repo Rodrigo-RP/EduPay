@@ -1,4 +1,4 @@
-import type { PoolClient } from "@neondatabase/serverless";
+import type { PoolClient } from "pg";
 
 /** Movimientos confirmados, no una reducción ficticia de ingresos históricos. */
 export async function cashRefundOutflows(reader: Pick<PoolClient, "query">, tenant: number, campus: number, day: string) {

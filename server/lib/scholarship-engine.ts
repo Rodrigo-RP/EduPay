@@ -1,5 +1,5 @@
 import { schoolDate } from "@shared/school-date";
-import type { Pool, PoolClient } from "@neondatabase/serverless";
+import type { Pool, PoolClient } from "pg";
 
 type Queryable = Pick<Pool, "query"> | Pick<PoolClient, "query">;
 

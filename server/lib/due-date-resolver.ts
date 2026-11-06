@@ -1,4 +1,4 @@
-import type { Pool, PoolClient } from "@neondatabase/serverless";
+import type { Pool, PoolClient } from "pg";
 
 type SqlClient = Pick<Pool | PoolClient, "query">;
 

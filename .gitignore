@@ -9,3 +9,13 @@ test-results/
 # Archivos subidos por el usuario — nunca deben comprometerse al repo
 attached_assets/
 /generated-artifacts/
+
+# Secretos y configuración local: nunca deben comprometerse al repo.
+# (.env.example, si existiera, se versiona con "git add -f" o quitando su excepción.)
+.env
+.env.*
+!.env.example
+.neon
+
+# Registros locales de seguridad y auditoría (en producción solo van a consola)
+server/logs/

@@ -1,0 +1,34 @@
+# Secretos y configuración local: nunca deben entrar a la imagen.
+.env
+.env.*
+.neon
+*.pem
+*.key
+
+# Dependencias y salidas: se regeneran dentro del build.
+node_modules
+dist
+server/public
+server/logs
+logs
+
+# Control de versiones y herramientas.
+.git
+.github
+.agents
+.claude
+.vscode
+.replit
+replit.nix
+
+# Material que no forma parte de la aplicación.
+docs
+screenshots
+e2e
+playwright-report
+test-results
+attached_assets
+*.csv
+*.tsv
+reporte-*.md
+resumen-*.md

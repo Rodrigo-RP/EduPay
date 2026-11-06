@@ -34,10 +34,13 @@ export const auditLogger = winston.createLogger({
   ),
   defaultMeta: { service: "audit-retry" },
   transports: [
-    new winston.transports.File({
-      filename: "logs/audit-error.log",
-      level: "error",
-    }),
+    // En producción el disco del contenedor es efímero: solo consola (Cloud Logging).
+    ...(process.env.NODE_ENV === "production" ? [] : [
+      new winston.transports.File({
+        filename: "logs/audit-error.log",
+        level: "error",
+      }),
+    ]),
     new winston.transports.Console({
       format: winston.format.combine(
         winston.format.colorize(),

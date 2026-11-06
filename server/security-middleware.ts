@@ -25,8 +25,11 @@ const securityLogger = winston.createLogger({
     winston.format.json()
   ),
   transports: [
-    new winston.transports.File({ filename: 'logs/security-error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'logs/security-combined.log' }),
+    // En producción el disco del contenedor es efímero: solo consola (Cloud Logging).
+    ...(process.env.NODE_ENV === 'production' ? [] : [
+      new winston.transports.File({ filename: 'logs/security-error.log', level: 'error' }),
+      new winston.transports.File({ filename: 'logs/security-combined.log' }),
+    ]),
     new winston.transports.Console({
       format: winston.format.combine(
         winston.format.colorize(),

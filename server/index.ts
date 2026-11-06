@@ -77,10 +77,9 @@ app.use(express.urlencoded({ extended: false, limit: '10mb' }));
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
+  // Sirve la API y el cliente. Replit expone el 5000; Cloud Run asigna PORT.
+  const configuredPort = Number.parseInt(process.env.PORT ?? "", 10);
+  const port = Number.isInteger(configuredPort) && configuredPort > 0 ? configuredPort : 5000;
   server.listen({
     port,
     host: "0.0.0.0",

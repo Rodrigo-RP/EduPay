@@ -1,7 +1,7 @@
 # EduPay para Cloud Run: un solo proceso Node.js (ver docs/PUBLICACION.md).
 # La imagen no contiene secretos ni ejecuta migraciones, seeds ni DDL.
 
-FROM node:20-slim AS build
+FROM node:22-slim AS build
 WORKDIR /app
 
 # El lockfile versionado apunta al registro interno de Replit; se corrige solo
@@ -17,7 +17,7 @@ ARG VITE_STRIPE_PUBLISHABLE_KEY
 ENV VITE_STRIPE_PUBLISHABLE_KEY=$VITE_STRIPE_PUBLISHABLE_KEY
 RUN npm run build && npm prune --omit=dev
 
-FROM node:20-slim AS runtime
+FROM node:22-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 

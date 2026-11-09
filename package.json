@@ -23,6 +23,7 @@
     "test:facturapi:sandbox": "tsx server/scripts/facturapi-sandbox-smoke.mts",
     "test:unit": "cd server && npx vitest run --config vitest.config.ts",
     "test:safety": "cd server && npx vitest run --config vitest.safety.config.ts",
+    "sync:firebase-bridge": "tsx --env-file-if-exists=.env.local --env-file-if-exists=.env server/scripts/sync-firebase-bridge.ts",
     "test:e2e": "npx playwright test",
     "test:e2e:ui": "npx playwright test --ui",
     "test:all": "npm run test:unit && npm run validate:assistant && npm run check:routes && npm run test:e2e",

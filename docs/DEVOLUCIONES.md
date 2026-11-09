@@ -74,7 +74,7 @@ solicitud ni libera dinero basándose en la ausencia de respuesta.
 `0007_quick_sue_storm.sql` agrega únicamente `credit_refunds` y
 `credit_refund_events`, sus claves, restricciones e índices. No altera tablas
 financieras existentes. Generada y **no aplicada a heliumdb**.
-El catálogo exacto y las comprobaciones de CI incluyen las ocho migraciones.
+El catálogo exacto y las comprobaciones de CI incluyen las nueve migraciones.
 
 “Apply changes” no forma parte de la entrega: el hook `scripts/post-merge.sh`
 ejecuta `npm run db:migrate` sobre la base configurada.

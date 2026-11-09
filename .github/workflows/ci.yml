@@ -94,7 +94,7 @@ jobs:
           npm run db:migrate
           count=$(psql "$DATABASE_URL" -At -v ON_ERROR_STOP=1 -c 'SELECT count(*) FROM drizzle.__drizzle_migrations')
           echo "SELECT count(*) FROM drizzle.__drizzle_migrations -> $count"
-          test "$count" = 8
+          test "$count" = 9
 
       - name: Comparar exactamente el esquema vacío con el catálogo verificado
         run: npx tsx scripts/verify-schema-exact.ts

@@ -953,6 +953,7 @@ export class DatabaseStorage implements IStorage {
         cfdi_pac_id: tenants.cfdi_pac_id,
         created_at: tenants.created_at,
         updated_at: tenants.updated_at,
+        firebase_id_escuela: tenants.firebase_id_escuela,
         campusCount: sql<number>`COUNT(DISTINCT ${campuses.id})`,
         studentCount: sql<number>`COUNT(DISTINCT ${students.id})`,
       })

@@ -13,6 +13,8 @@ export const tenants = pgTable("tenants", {
   cfdi_pac_id: varchar("cfdi_pac_id", { length: 255 }),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
+  /** idEscuela de la escuela en Firebase (Dashboard-Refereence); une el inicio de sesión único con el tenant. */
+  firebase_id_escuela: varchar("firebase_id_escuela", { length: 64 }),
 });
 
 // CAMPUSES (School divisions)
@@ -264,6 +266,39 @@ export const student_guardian = pgTable("student_guardian", {
   return {
     pk: primaryKey({ columns: [table.student_id, table.guardian_id] }),
   };
+});
+
+// EXTERNAL IDENTITIES — uid de Firebase Auth ligado a un usuario de personal o a un tutor.
+// Un uid pertenece a una sola persona de EduPay y viceversa (ver migración 0003).
+export const external_identities = pgTable("external_identities", {
+  id:            serial("id").primaryKey(),
+  provider:      varchar("provider", { length: 32 }).default("firebase").notNull(),
+  subject:       varchar("subject", { length: 128 }).notNull(),
+  tenant_id:     integer("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  user_id:       integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+  guardian_id:   integer("guardian_id").references(() => guardians.id, { onDelete: "cascade" }),
+  linked_by:     integer("linked_by").references(() => users.id, { onDelete: "set null" }),
+  created_at:    timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  last_login_at: timestamp("last_login_at", { withTimezone: true }),
+});
+
+// FIREBASE STUDENTS — uid de Firebase de un alumno ↔ alumno de EduPay. La llena la sincronización del puente
+// (docs/SINCRONIZACION-DASHBOARD.md); un uid y un alumno se corresponden uno a uno por escuela.
+export const firebase_students = pgTable("firebase_students", {
+  id:           serial("id").primaryKey(),
+  tenant_id:    integer("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  firebase_uid: varchar("firebase_uid", { length: 128 }).notNull(),
+  student_id:   integer("student_id").references(() => students.id, { onDelete: "cascade" }).notNull(),
+  created_at:   timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// FIREBASE CAMPUS MAP — nivel escolar de Firebase → campus de EduPay, por escuela. Lo mantiene la escuela;
+// `claveCentro` no se usa porque no es confiable (docs/HANDOFF-puente-dashboard-edupay.md §5).
+export const firebase_campus_map = pgTable("firebase_campus_map", {
+  id:        serial("id").primaryKey(),
+  tenant_id: integer("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  nivel:     varchar("nivel", { length: 50 }).notNull(),
+  campus_id: integer("campus_id").references(() => campuses.id, { onDelete: "cascade" }).notNull(),
 });
 
 // PAYMENT CONCEPTS

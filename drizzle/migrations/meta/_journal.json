@@ -57,6 +57,13 @@
       "when": 1793665316024,
       "tag": "0007_quick_sue_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794259419790,
+      "tag": "0008_lively_layla_miller",
+      "breakpoints": true
     }
   ]
 }

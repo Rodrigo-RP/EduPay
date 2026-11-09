@@ -386,6 +386,22 @@
     },
     {
       "schema_name": "public",
+      "name": "external_identities",
+      "kind": "r",
+      "rls": false,
+      "force_rls": false,
+      "reloptions": null
+    },
+    {
+      "schema_name": "public",
+      "name": "external_identities_id_seq",
+      "kind": "S",
+      "rls": false,
+      "force_rls": false,
+      "reloptions": null
+    },
+    {
+      "schema_name": "public",
       "name": "families",
       "kind": "r",
       "rls": false,
@@ -451,6 +467,38 @@
     {
       "schema_name": "public",
       "name": "financial_events_id_seq",
+      "kind": "S",
+      "rls": false,
+      "force_rls": false,
+      "reloptions": null
+    },
+    {
+      "schema_name": "public",
+      "name": "firebase_campus_map",
+      "kind": "r",
+      "rls": false,
+      "force_rls": false,
+      "reloptions": null
+    },
+    {
+      "schema_name": "public",
+      "name": "firebase_campus_map_id_seq",
+      "kind": "S",
+      "rls": false,
+      "force_rls": false,
+      "reloptions": null
+    },
+    {
+      "schema_name": "public",
+      "name": "firebase_students",
+      "kind": "r",
+      "rls": false,
+      "force_rls": false,
+      "reloptions": null
+    },
+    {
+      "schema_name": "public",
+      "name": "firebase_students_id_seq",
       "kind": "S",
       "rls": false,
       "force_rls": false,
@@ -4852,6 +4900,114 @@
     },
     {
       "schema_name": "public",
+      "table_name": "external_identities",
+      "name": "id",
+      "position": 1,
+      "type": "integer",
+      "not_null": true,
+      "default_value": "nextval('external_identities_id_seq'::regclass)",
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "external_identities",
+      "name": "provider",
+      "position": 2,
+      "type": "character varying(32)",
+      "not_null": true,
+      "default_value": "'firebase'::character varying",
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "external_identities",
+      "name": "subject",
+      "position": 3,
+      "type": "character varying(128)",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "external_identities",
+      "name": "tenant_id",
+      "position": 4,
+      "type": "integer",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "external_identities",
+      "name": "user_id",
+      "position": 5,
+      "type": "integer",
+      "not_null": false,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "external_identities",
+      "name": "guardian_id",
+      "position": 6,
+      "type": "integer",
+      "not_null": false,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "external_identities",
+      "name": "linked_by",
+      "position": 7,
+      "type": "integer",
+      "not_null": false,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "external_identities",
+      "name": "created_at",
+      "position": 8,
+      "type": "timestamp with time zone",
+      "not_null": true,
+      "default_value": "now()",
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "external_identities",
+      "name": "last_login_at",
+      "position": 9,
+      "type": "timestamp with time zone",
+      "not_null": false,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
       "table_name": "families",
       "name": "id",
       "position": 1,
@@ -5374,6 +5530,114 @@
       "type": "integer",
       "not_null": false,
       "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_campus_map",
+      "name": "id",
+      "position": 1,
+      "type": "integer",
+      "not_null": true,
+      "default_value": "nextval('firebase_campus_map_id_seq'::regclass)",
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_campus_map",
+      "name": "tenant_id",
+      "position": 2,
+      "type": "integer",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_campus_map",
+      "name": "nivel",
+      "position": 3,
+      "type": "character varying(50)",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_campus_map",
+      "name": "campus_id",
+      "position": 4,
+      "type": "integer",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_students",
+      "name": "id",
+      "position": 1,
+      "type": "integer",
+      "not_null": true,
+      "default_value": "nextval('firebase_students_id_seq'::regclass)",
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_students",
+      "name": "tenant_id",
+      "position": 2,
+      "type": "integer",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_students",
+      "name": "firebase_uid",
+      "position": 3,
+      "type": "character varying(128)",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_students",
+      "name": "student_id",
+      "position": 4,
+      "type": "integer",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_students",
+      "name": "created_at",
+      "position": 5,
+      "type": "timestamp with time zone",
+      "not_null": true,
+      "default_value": "now()",
       "identity_kind": "",
       "generated_kind": "",
       "collation": null
@@ -10480,6 +10744,18 @@
     },
     {
       "schema_name": "public",
+      "table_name": "tenants",
+      "name": "firebase_id_escuela",
+      "position": 7,
+      "type": "character varying(64)",
+      "not_null": false,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
       "table_name": "users",
       "name": "id",
       "position": 1,
@@ -11840,6 +12116,76 @@
     },
     {
       "schema_name": "public",
+      "table_name": "external_identities",
+      "name": "external_identities_exactly_one_target",
+      "type": "c",
+      "definition": "CHECK (((user_id IS NOT NULL) <> (guardian_id IS NOT NULL)))",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "external_identities",
+      "name": "external_identities_guardian_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (guardian_id) REFERENCES guardians(id) ON DELETE CASCADE",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "external_identities",
+      "name": "external_identities_linked_by_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (linked_by) REFERENCES users(id) ON DELETE SET NULL",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "external_identities",
+      "name": "external_identities_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "external_identities",
+      "name": "external_identities_provider_subject_key",
+      "type": "u",
+      "definition": "UNIQUE (provider, subject)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "external_identities",
+      "name": "external_identities_tenant_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "external_identities",
+      "name": "external_identities_user_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
       "table_name": "families",
       "name": "families_archived_by_fkey",
       "type": "f",
@@ -12064,6 +12410,96 @@
       "name": "financial_events_tenant_id_fkey",
       "type": "f",
       "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_campus_map",
+      "name": "firebase_campus_map_campus_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (campus_id) REFERENCES campuses(id) ON DELETE CASCADE",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_campus_map",
+      "name": "firebase_campus_map_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_campus_map",
+      "name": "firebase_campus_map_tenant_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_campus_map",
+      "name": "firebase_campus_map_tenant_nivel_key",
+      "type": "u",
+      "definition": "UNIQUE (tenant_id, nivel)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_students",
+      "name": "firebase_students_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_students",
+      "name": "firebase_students_student_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_students",
+      "name": "firebase_students_student_key",
+      "type": "u",
+      "definition": "UNIQUE (student_id)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_students",
+      "name": "firebase_students_tenant_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_students",
+      "name": "firebase_students_tenant_uid_key",
+      "type": "u",
+      "definition": "UNIQUE (tenant_id, firebase_uid)",
       "validated": true,
       "deferrable": false,
       "deferred": false
@@ -13261,6 +13697,16 @@
     {
       "schema_name": "public",
       "table_name": "tenants",
+      "name": "tenants_firebase_id_escuela_key",
+      "type": "u",
+      "definition": "UNIQUE (firebase_id_escuela)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "tenants",
       "name": "tenants_pkey",
       "type": "p",
       "definition": "PRIMARY KEY (id)",
@@ -13744,6 +14190,36 @@
     },
     {
       "schema_name": "public",
+      "table_name": "external_identities",
+      "name": "external_identities_pkey",
+      "definition": "CREATE UNIQUE INDEX external_identities_pkey ON public.external_identities USING btree (id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "external_identities",
+      "name": "external_identities_provider_guardian_key",
+      "definition": "CREATE UNIQUE INDEX external_identities_provider_guardian_key ON public.external_identities USING btree (provider, guardian_id) WHERE (guardian_id IS NOT NULL)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "external_identities",
+      "name": "external_identities_provider_subject_key",
+      "definition": "CREATE UNIQUE INDEX external_identities_provider_subject_key ON public.external_identities USING btree (provider, subject)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "external_identities",
+      "name": "external_identities_provider_user_key",
+      "definition": "CREATE UNIQUE INDEX external_identities_provider_user_key ON public.external_identities USING btree (provider, user_id) WHERE (user_id IS NOT NULL)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "external_identities",
+      "name": "idx_external_identities_tenant",
+      "definition": "CREATE INDEX idx_external_identities_tenant ON public.external_identities USING btree (tenant_id)"
+    },
+    {
+      "schema_name": "public",
       "table_name": "families",
       "name": "families_pkey",
       "definition": "CREATE UNIQUE INDEX families_pkey ON public.families USING btree (id)"
@@ -13843,6 +14319,36 @@
       "table_name": "financial_events",
       "name": "financial_events_pkey",
       "definition": "CREATE UNIQUE INDEX financial_events_pkey ON public.financial_events USING btree (id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_campus_map",
+      "name": "firebase_campus_map_pkey",
+      "definition": "CREATE UNIQUE INDEX firebase_campus_map_pkey ON public.firebase_campus_map USING btree (id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_campus_map",
+      "name": "firebase_campus_map_tenant_nivel_key",
+      "definition": "CREATE UNIQUE INDEX firebase_campus_map_tenant_nivel_key ON public.firebase_campus_map USING btree (tenant_id, nivel)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_students",
+      "name": "firebase_students_pkey",
+      "definition": "CREATE UNIQUE INDEX firebase_students_pkey ON public.firebase_students USING btree (id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_students",
+      "name": "firebase_students_student_key",
+      "definition": "CREATE UNIQUE INDEX firebase_students_student_key ON public.firebase_students USING btree (student_id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_students",
+      "name": "firebase_students_tenant_uid_key",
+      "definition": "CREATE UNIQUE INDEX firebase_students_tenant_uid_key ON public.firebase_students USING btree (tenant_id, firebase_uid)"
     },
     {
       "schema_name": "public",
@@ -14201,6 +14707,12 @@
     {
       "schema_name": "public",
       "table_name": "tenants",
+      "name": "tenants_firebase_id_escuela_key",
+      "definition": "CREATE UNIQUE INDEX tenants_firebase_id_escuela_key ON public.tenants USING btree (firebase_id_escuela)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "tenants",
       "name": "tenants_pkey",
       "definition": "CREATE UNIQUE INDEX tenants_pkey ON public.tenants USING btree (id)"
     },
@@ -14458,6 +14970,17 @@
     },
     {
       "schema_name": "public",
+      "name": "external_identities_id_seq",
+      "type": "integer",
+      "seqstart": "1",
+      "seqincrement": "1",
+      "seqmax": "2147483647",
+      "seqmin": "1",
+      "seqcache": "1",
+      "seqcycle": false
+    },
+    {
+      "schema_name": "public",
       "name": "families_id_seq",
       "type": "integer",
       "seqstart": "1",
@@ -14492,6 +15015,28 @@
     {
       "schema_name": "public",
       "name": "financial_events_id_seq",
+      "type": "integer",
+      "seqstart": "1",
+      "seqincrement": "1",
+      "seqmax": "2147483647",
+      "seqmin": "1",
+      "seqcache": "1",
+      "seqcycle": false
+    },
+    {
+      "schema_name": "public",
+      "name": "firebase_campus_map_id_seq",
+      "type": "integer",
+      "seqstart": "1",
+      "seqincrement": "1",
+      "seqmax": "2147483647",
+      "seqmin": "1",
+      "seqcache": "1",
+      "seqcycle": false
+    },
+    {
+      "schema_name": "public",
+      "name": "firebase_students_id_seq",
       "type": "integer",
       "seqstart": "1",
       "seqincrement": "1",

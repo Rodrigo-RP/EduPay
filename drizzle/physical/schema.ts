@@ -1417,7 +1417,11 @@ export const tenants = pgTable("tenants", {
 	cfdiPacId: varchar("cfdi_pac_id", { length: 255 }),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
 	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),
-});
+	// idEscuela de la escuela en Firebase (Dashboard-Refereence). Une el inicio de sesión único con el tenant.
+	firebaseIdEscuela: varchar("firebase_id_escuela", { length: 64 }),
+}, (table) => [
+	unique("tenants_firebase_id_escuela_key").on(table.firebaseIdEscuela),
+]);
 
 export const institutionalCredentials = pgTable("institutional_credentials", {
 	id: serial().primaryKey().notNull(),
@@ -1689,4 +1693,86 @@ export const studentGuardian = pgTable("student_guardian", {
 			name: "student_guardian_student_id_students_id_fk"
 		}).onDelete("cascade"),
 	primaryKey({ columns: [table.studentId, table.guardianId], name: "student_guardian_student_id_guardian_id_pk"}),
+]);
+
+// Identidades externas (Firebase) vinculadas a un usuario de personal o a un tutor de EduPay.
+// La llave es el uid de Firebase Auth. Un uid pertenece a una sola persona de EduPay y viceversa.
+export const externalIdentities = pgTable("external_identities", {
+	id: serial().primaryKey().notNull(),
+	provider: varchar({ length: 32 }).default('firebase').notNull(),
+	subject: varchar({ length: 128 }).notNull(),
+	tenantId: integer("tenant_id").notNull(),
+	userId: integer("user_id"),
+	guardianId: integer("guardian_id"),
+	linkedBy: integer("linked_by"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	lastLoginAt: timestamp("last_login_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	unique("external_identities_provider_subject_key").on(table.provider, table.subject),
+	uniqueIndex("external_identities_provider_user_key").using("btree", table.provider.asc().nullsLast().op("text_ops"), table.userId.asc().nullsLast().op("int4_ops")).where(sql`(user_id IS NOT NULL)`),
+	uniqueIndex("external_identities_provider_guardian_key").using("btree", table.provider.asc().nullsLast().op("text_ops"), table.guardianId.asc().nullsLast().op("int4_ops")).where(sql`(guardian_id IS NOT NULL)`),
+	index("idx_external_identities_tenant").using("btree", table.tenantId.asc().nullsLast().op("int4_ops")),
+	foreignKey({
+			columns: [table.tenantId],
+			foreignColumns: [tenants.id],
+			name: "external_identities_tenant_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "external_identities_user_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.guardianId],
+			foreignColumns: [guardians.id],
+			name: "external_identities_guardian_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.linkedBy],
+			foreignColumns: [users.id],
+			name: "external_identities_linked_by_fkey"
+		}).onDelete("set null"),
+	check("external_identities_exactly_one_target", sql`(user_id IS NOT NULL) <> (guardian_id IS NOT NULL)`),
+]);
+
+// uid de Firebase de un alumno ↔ alumno de EduPay (lo llena la sincronización del puente).
+export const firebaseStudents = pgTable("firebase_students", {
+	id: serial().primaryKey().notNull(),
+	tenantId: integer("tenant_id").notNull(),
+	firebaseUid: varchar("firebase_uid", { length: 128 }).notNull(),
+	studentId: integer("student_id").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	unique("firebase_students_tenant_uid_key").on(table.tenantId, table.firebaseUid),
+	unique("firebase_students_student_key").on(table.studentId),
+	foreignKey({
+			columns: [table.tenantId],
+			foreignColumns: [tenants.id],
+			name: "firebase_students_tenant_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.studentId],
+			foreignColumns: [students.id],
+			name: "firebase_students_student_id_fkey"
+		}).onDelete("cascade"),
+]);
+
+// Nivel escolar de Firebase → campus de EduPay, por escuela. Lo mantiene la escuela.
+export const firebaseCampusMap = pgTable("firebase_campus_map", {
+	id: serial().primaryKey().notNull(),
+	tenantId: integer("tenant_id").notNull(),
+	nivel: varchar({ length: 50 }).notNull(),
+	campusId: integer("campus_id").notNull(),
+}, (table) => [
+	unique("firebase_campus_map_tenant_nivel_key").on(table.tenantId, table.nivel),
+	foreignKey({
+			columns: [table.tenantId],
+			foreignColumns: [tenants.id],
+			name: "firebase_campus_map_tenant_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.campusId],
+			foreignColumns: [campuses.id],
+			name: "firebase_campus_map_campus_id_fkey"
+		}).onDelete("cascade"),
 ]);

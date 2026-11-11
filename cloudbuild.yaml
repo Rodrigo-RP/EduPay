@@ -1,0 +1,29 @@
+# Construye la imagen de EduPay en Google Cloud Build y la sube a Artifact Registry.
+#
+# Uso (desde la raíz del repo):
+#   gcloud builds submit --config cloudbuild.yaml --substitutions=_STRIPE_PK=pk_test_xxxxxxxx
+#
+# _STRIPE_PK es la clave PUBLICABLE de Stripe (pk_...): no es un secreto, pero queda incrustada
+# en el cliente al compilar, así que cambiarla exige volver a construir y desplegar.
+# Nunca pases aquí la clave secreta (sk_...): irá en Secret Manager como STRIPE_SECRET_KEY.
+
+substitutions:
+  _REGION: us-central1
+  _REPO: edupay
+  _STRIPE_PK: ""
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --build-arg
+      - VITE_STRIPE_PUBLISHABLE_KEY=${_STRIPE_PK}
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/app:$BUILD_ID
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/app:latest
+      - .
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/app:$BUILD_ID
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/app:latest

@@ -37,3 +37,16 @@ export function compareSchemaCatalog(expected: SchemaCatalog, actual: SchemaCata
   return [...new Set([...Object.keys(expected), ...Object.keys(actual)])]
     .filter(key => JSON.stringify(expected[key]) !== JSON.stringify(actual[key]));
 }
+
+/**
+ * PostgreSQL 18 guarda cada NOT NULL también como fila de pg_constraint (contype 'n').
+ * El catálogo de referencia se generó en PG16, donde esas filas no existen. Esta función
+ * descarta únicamente esas filas y solo en PG18 o superior: las columnas siguen
+ * comparando attnotnull sin cambios y en PG16 no se relaja nada.
+ */
+export async function withoutPg18NotNullConstraints(reader: Reader, catalog: SchemaCatalog): Promise<SchemaCatalog> {
+  const rows = (await reader.query("SHOW server_version_num")).rows as Array<{ server_version_num: string }>;
+  const versionNum = Number(rows[0]?.server_version_num);
+  if (!(versionNum >= 180000)) throw new Error("--pg18-not-null solo aplica a PostgreSQL 18 o superior");
+  return { ...catalog, constraints: (catalog.constraints as Array<{ type: string }>).filter(row => row.type !== "n") };
+}

@@ -114,7 +114,7 @@ jobs:
           createdb -h 127.0.0.1 -U ci_test edupay_drizzle_compat_ci
           export DATABASE_URL=postgresql://ci_test@127.0.0.1:5432/edupay_drizzle_compat_ci
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "COMMENT ON DATABASE edupay_drizzle_compat_ci IS 'edupay:test';"
-          npx tsx scripts/verify-drizzle-migrator-compat.ts "$legacy/node_modules/drizzle-orm"
+          npx tsx scripts/verify-drizzle-migrator-compat.ts "$legacy/node_modules/drizzle-orm" $SCHEMA_EXACT_FLAGS
           dropdb -h 127.0.0.1 -U ci_test edupay_drizzle_compat_ci
 
       - name: Probar guardas y bootstrap sin conexiones reales

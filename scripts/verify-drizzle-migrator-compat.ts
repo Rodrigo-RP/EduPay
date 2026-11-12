@@ -8,7 +8,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { z } from "zod/v4";
 import { assertNonProductionEnvironment, assertTestDatabase, DATABASE_MARKER_SQL } from "../server/lib/database-safety";
-import { CATALOG_QUERIES, readSchemaCatalog, compareSchemaCatalog } from "./lib/schema-catalog";
+import { CATALOG_QUERIES, readSchemaCatalog, compareSchemaCatalog, withoutPg18NotNullConstraints } from "./lib/schema-catalog";
 
 assertNonProductionEnvironment();
 assert.equal(process.env.APP_ENV, "test", "Esta verificación exige APP_ENV=test");
@@ -17,6 +17,12 @@ assert.ok(["postgres:", "postgresql:"].includes(destination.protocol));
 assert.ok(["127.0.0.1", "localhost", "[::1]"].includes(destination.hostname));
 assert.match(destination.pathname, /^\/edupay_drizzle_[a-z0-9_]+$/);
 const legacyDirectory = path.resolve(process.argv[2] || "");
+// En PG18 se ignoran solo las filas NOT NULL de pg_constraint (ver scripts/lib/schema-catalog.ts).
+const ignoreNotNullConstraints = process.argv.includes("--pg18-not-null");
+const readCatalog = async (reader: Pool) => {
+  const catalog = await readSchemaCatalog(reader);
+  return ignoreNotNullConstraints ? withoutPg18NotNullConstraints(reader, catalog) : catalog;
+};
 z.object({ version: z.literal("0.39.3") }).parse(
   JSON.parse(await fs.readFile(path.join(legacyDirectory, "package.json"), "utf8")),
 );
@@ -64,7 +70,7 @@ try {
   for (const [category, sql] of Object.entries(CATALOG_QUERIES)) {
     console.log(`[schema:query:${category}] ${sql}`);
   }
-  const oldCatalog = await readSchemaCatalog(pool);
+  const oldCatalog = await readCatalog(pool);
   assert.deepEqual(compareSchemaCatalog(expectedCatalog, oldCatalog), []);
 
   const submitted: string[] = [];
@@ -73,7 +79,7 @@ try {
   const after = await pool.query<{ id: number; hash: string; created_at: string }>(ledgerSQL);
   console.log(ledgerSQL, JSON.stringify(after.rows));
   assert.deepEqual(after.rows, before.rows, "Se modificó el ledger anterior");
-  const afterCatalog = await readSchemaCatalog(pool);
+  const afterCatalog = await readCatalog(pool);
   assert.deepEqual(compareSchemaCatalog(expectedCatalog, afterCatalog), []);
   assert.deepEqual(afterCatalog, oldCatalog, "El migrador nuevo modificó la estructura");
   assert.ok(submitted.length > 0, "Debe haber evidencia SQL de la consulta del ledger");

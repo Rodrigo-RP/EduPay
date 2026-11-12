@@ -14,6 +14,7 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:migrate:prod": "tsx scripts/migrate-prod.ts",
     "db:migrate:prod:verify": "tsx scripts/verify-migrate-prod.ts",
+    "db:verify:prod": "tsx scripts/verify-prod-readonly.ts",
     "db:baseline:mark": "tsx scripts/mark-baseline.ts",
     "db:snapshot": "tsx scripts/schema-snapshot.ts",
     "db:verify-baseline": "tsx scripts/verify-schema-snapshot.ts",

@@ -49,19 +49,60 @@ confirmados, los hashes de respaldo y la cola de auditoría permanecen en la bas
 Antes de admitir varias instancias se necesita estado pendiente y límites
 compartidos, además de coordinación de revocaciones de WebSocket.
 
-### Las migraciones nunca se corren en producción
+### Las migraciones en producción: un solo camino autorizado
 
 **No ejecutes `npm run db:migrate`, `db:baseline:mark`, `db:push`, SQL de
 migraciones ni `scripts/post-merge.sh` sobre producción.** Tampoco agregues
-esos comandos al build o al arranque.
+ningún comando de migración al build, a la imagen ni al arranque. El servidor
+nunca crea ni cambia tablas.
 
-Replit aplica la estructura al publicar. `db:migrate` y `db:baseline:mark`
-rechazan `APP_ENV=production` o `NODE_ENV=production`, antes de importar el
-pool o ejecutar SQL. Esto también vale cuando la base de producción todavía
-no tiene tablas. Si falta una tabla en producción, se revisa la estructura de
-desarrollo y se vuelve a publicar; no se intenta repararla desde el arranque.
-En desarrollo/CI ambos comandos exigen además entorno explícito `development`
-o `test` y el marcador físico `edupay:test`, antes de cualquier escritura.
+`db:migrate` y `db:baseline:mark` rechazan `APP_ENV=production` o
+`NODE_ENV=production`, antes de importar el pool o ejecutar SQL. En
+desarrollo/CI exigen además entorno explícito `development` o `test` y el
+marcador físico `edupay:test`, antes de cualquier escritura.
+
+**El único camino para aplicar la estructura en producción (Cloud SQL) es
+`npm run db:migrate:prod`**, ejecutado a mano desde una máquina autorizada a
+través del proxy de Cloud SQL (`127.0.0.1`). No corre dentro de Cloud Run.
+Usa el mismo migrador y el mismo historial (`drizzle.__drizzle_migrations`)
+que el resto del proyecto, con estas protecciones, todas anteriores a cualquier
+DDL:
+
+1. **Simulacro por defecto.** Sin `--apply` solo lee: muestra la versión del
+   servidor, la base, el usuario y las migraciones pendientes.
+2. **`APP_ENV=production` explícito** y sin `ALLOW_DEMO_SEED=true`.
+3. **Solo el proxy local.** El servidor debe ser `127.0.0.1`, `localhost` o un
+   socket Unix; cualquier otro se rechaza antes de conectar.
+4. **Confirmación.** `--apply` exige `--confirm=<nombre exacto de la base>`.
+5. **Sin marcador de pruebas.** Una base marcada `edupay:test` o `edupay:demo`
+   se rechaza.
+6. **Historial coherente.** Se rechaza una base con tablas y sin historial, o
+   con una línea base distinta.
+7. **Candado de concurrencia** (`pg_advisory_lock`): una sola ejecución a la vez.
+
+Si una migración falla, todas las pendientes se deshacen (una sola
+transacción) y el mismo comando se puede repetir tras corregir la causa. No hay
+migraciones inversas: **antes de aplicar, crea un respaldo a pedido**
+(`gcloud sql backups create --instance=<instancia>`).
+
+```
+# Simulacro (solo lectura)
+APP_ENV=production DATABASE_URL=<url del proxy> npm run db:migrate:prod
+# Aplicar
+APP_ENV=production DATABASE_URL=<url del proxy> npm run db:migrate:prod -- --apply --confirm=<base>
+```
+
+El usuario de la aplicación debe poder crear objetos en la base. En
+PostgreSQL 15 o posterior, el dueño de la base (por ejemplo `postgres`) debe
+ejecutar antes `GRANT ALL ON DATABASE <base> TO <usuario>;` y, conectado a esa
+base, `GRANT ALL ON SCHEMA public TO <usuario>;`. Así las tablas quedan a
+nombre del usuario de la aplicación.
+
+Las protecciones se comprueban con `npm run db:migrate:prod:verify` contra un
+PostgreSQL desechable (`VERIFY_ADMIN_URL`) y con las pruebas de
+`server/safety-tests/migration-production.test.ts`. Nunca apuntes
+`VERIFY_ADMIN_URL` a una base real. Si falta una tabla en producción, no se
+intenta repararla desde el arranque: se corre `db:migrate:prod`.
 
 `Apply changes` no es el procedimiento de integración de este proyecto:
 su hook instala dependencias, corre migraciones de desarrollo y recompila.

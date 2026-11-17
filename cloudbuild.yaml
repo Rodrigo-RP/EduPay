@@ -13,6 +13,16 @@ substitutions:
   _STRIPE_PK: ""
 
 steps:
+  # Falla rápido y con un mensaje claro si la clave publicable no llegó: Vite la exige al compilar.
+  - name: bash
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        case "${_STRIPE_PK}" in
+          pk_test_?*|pk_live_?*) echo "Clave publicable recibida." ;;
+          *) echo "ERROR: _STRIPE_PK vacía o inválida. Usa --substitutions=_STRIPE_PK=pk_test_..." >&2; exit 1 ;;
+        esac
   - name: gcr.io/cloud-builders/docker
     args:
       - build

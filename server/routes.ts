@@ -45,6 +45,7 @@ import { registerEmailWebhookRuntime } from "./lib/email/webhook-runtime";
 
 import { financialRequestValidation } from "./lib/financial-request-validation";
 import { registerBootstrapRoute } from "./routes/bootstrap";
+import { registerSsoRoutes } from "./routes/sso";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // ── Trust proxy (Replit reverse proxy) ──────────────────────────────────────
@@ -85,6 +86,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/auth/login",          rateLimits.auth);    // 10/15min — endpoint público
   app.use("/api/auth/guardian-login", rateLimits.auth);    // 10/15min — endpoint público
   app.use("/api/auth/magic",          rateLimits.auth);    // 10/15min — endpoint público
+  app.use("/api/auth/sso/exchange",   rateLimits.auth);    // 10/15min — canje de la aserción (la elegibilidad es de servidor a servidor)
   app.use("/api/admin",               authenticateToken, rateLimits.apiAuth); // 300/5min — JWT primero
   app.use("/api/super-admin",         authenticateToken, rateLimits.apiAuth); // 300/5min — JWT primero
   app.use("/api/security",            rateLimits.api);     // 50/5min
@@ -96,6 +98,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ── Montar módulos de dominio (en orden lógico de dependencia) ────────────────
   registerAuthRoutes(app);
+  registerSsoRoutes(app);
   registerUserRoutes(app);
   registerAdminRoutes(app);
   registerChargesRoutes(app);

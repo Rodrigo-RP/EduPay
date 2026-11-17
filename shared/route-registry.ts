@@ -98,6 +98,7 @@ export const APP_ROUTES: AppRoute[] = [
   { path: "/demo-setup",              label: "Demo Setup",               keywords: [], assistantExcluded: true },
   { path: "/profile",                 label: "Profile (alias)",           keywords: [], assistantExcluded: true },
   { path: "/pagar/:token",            label: "Pago con Liga",             keywords: [], assistantExcluded: true },
+  { path: "/sso",                     label: "Entrada desde el Dashboard (SSO)", keywords: [], assistantExcluded: true },
 ];
 
 // ── Helpers de conveniencia ────────────────────────────────────────────────────

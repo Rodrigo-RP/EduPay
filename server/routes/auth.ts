@@ -87,6 +87,8 @@ export function registerAuthRoutes(app: Express): void {
       
       try {
         const decoded = jwt.verify(token, JWT_SECRET) as any;
+        // Una sesión de SSO no se renueva: hay que volver a entrar desde el Dashboard, así una baja allá corta el acceso.
+        if (decoded?.sso === true) return res.status(401).json({ message: "Tu sesión terminó. Vuelve a entrar desde el Dashboard.", code: "SSO_REAUTH_REQUIRED" });
 
         // Verificar que la contraseña no cambió después de que se emitió el token (#138).
         const isGuardian = decoded.type === 'guardian';
@@ -124,6 +126,7 @@ export function registerAuthRoutes(app: Express): void {
         // lanza de nuevo y se rechaza con 401 — sin ningún camino alterno (fix bypass).
         try {
           const decoded = jwt.verify(token, JWT_SECRET, { ignoreExpiration: true }) as any;
+          if (decoded?.sso === true) return res.status(401).json({ message: "Tu sesión terminó. Vuelve a entrar desde el Dashboard.", code: "SSO_REAUTH_REQUIRED" });
 
           // Verificar que la contraseña no cambió después de que se emitió el token (#138).
           const isGuardian = decoded.type === 'guardian';

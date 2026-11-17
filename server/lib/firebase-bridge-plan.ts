@@ -156,7 +156,11 @@ export type WarningKey =
   | "vinculosLocalesAusentesEnPuente"
   | "alumnosLocalesAusentesEnPuente"
   | "correoDeTutorCambio"
-  | "alumnosNuevosEnBaja";
+  | "alumnosNuevosEnBaja"
+  | "telefonoOmitidoPorLargo";
+
+/** guardians.celular y guardians.telefono_casa_oficina son varchar(20). */
+export const PHONE_MAX_LENGTH = 20;
 
 export interface SyncPlan {
   tenantId: number;
@@ -187,6 +191,7 @@ const emptySkips = (): Record<SkipReason, number> => ({
 
 const emptyWarnings = (): Record<WarningKey, number> => ({
   vinculosLocalesAusentesEnPuente: 0, alumnosLocalesAusentesEnPuente: 0, correoDeTutorCambio: 0, alumnosNuevosEnBaja: 0,
+  telefonoOmitidoPorLargo: 0,
 });
 
 export function planFirebaseSync(payload: BridgePayload, local: LocalState): SyncPlan {
@@ -327,10 +332,17 @@ export function planFirebaseSync(payload: BridgePayload, local: LocalState): Syn
     const campusId = firstLink ? acceptedStudents.get(firstLink.studentUid)!.campusId : null;
     if (campusId === null) continue;
     const nombre = fullName(t);
+    // Un teléfono que no cabe (p. ej. dos números en un solo campo) no debe tumbar toda la importación:
+    // se omite ese dato, se cuenta en el reporte y el tutor se crea igual.
+    const phone = (value: string | null | undefined): string | null => {
+      const v = orNull(value);
+      if (v !== null && v.length > PHONE_MAX_LENGTH) { warnings.telefonoOmitidoPorLargo++; return null; }
+      return v;
+    };
     guardianCreates.push({
       uid, nombres: clean(t.nombre) || nombre, apellido_paterno: orNull(t.primerApellido), apellido_materno: orNull(t.segundoApellido),
-      nombre_completo: nombre || clean(t.email), email: clean(t.email).toLowerCase(), celular: orNull(t.telefono),
-      telefono_casa_oficina: orNull(t.telefonoCasa), campus_id: campusId,
+      nombre_completo: nombre || clean(t.email), email: clean(t.email).toLowerCase(), celular: phone(t.telefono),
+      telefono_casa_oficina: phone(t.telefonoCasa), campus_id: campusId,
     });
   }
 

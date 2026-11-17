@@ -40,6 +40,20 @@ describe("Plan de sincronización Firebase → EduPay (sin base ni red)", () => 
     expect(JSON.stringify(plan)).not.toContain("es_responsable_pago");
   });
 
+  it("un teléfono de más de 20 caracteres no tumba la importación: se omite el dato y se cuenta", () => {
+    const largo = "442 123 4567 / 442 765 4321 ext. 12"; // 35 caracteres: no cabe en varchar(20)
+    const plan = planFirebaseSync(
+      payload({ tutores: [tutor("t1", { telefono: largo, telefonoCasa: "4421112222" })] }),
+      local(),
+    );
+    expect(plan.guardianCreates).toHaveLength(1);
+    expect(plan.guardianCreates[0].celular).toBeNull();
+    expect(plan.guardianCreates[0].telefono_casa_oficina).toBe("4421112222");
+    expect(plan.report.warnings.telefonoOmitidoPorLargo).toBe(1);
+    const maximo = plan.guardianCreates.flatMap((g) => [g.celular, g.telefono_casa_oficina]).filter(Boolean) as string[];
+    expect(maximo.every((v) => v.length <= 20)).toBe(true);
+  });
+
   it("solo acepta el rol 'Padre de familia'; Padre/Madre y otros quedan fuera", () => {
     const plan = planFirebaseSync(payload({ tutores: [tutor("t1", { rol: "Padre/Madre" })] }), local());
     expect(plan.guardianCreates).toHaveLength(0);

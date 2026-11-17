@@ -301,6 +301,14 @@ export const firebase_campus_map = pgTable("firebase_campus_map", {
   campus_id: integer("campus_id").references(() => campuses.id, { onDelete: "cascade" }).notNull(),
 });
 
+// SSO ASSERTIONS USED — jti de cada aserción del Dashboard ya canjeada (uso único). El índice por expires_at
+// vive en el manifiesto físico (drizzle/physical/schema.ts) y en la migración 0009.
+export const sso_assertions_used = pgTable("sso_assertions_used", {
+  jti:        varchar("jti", { length: 128 }).primaryKey(),
+  expires_at: timestamp("expires_at", { withTimezone: true }).notNull(),
+  used_at:    timestamp("used_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // PAYMENT CONCEPTS
 export const concepts = pgTable("concepts", {
   id: serial("id").primaryKey(),

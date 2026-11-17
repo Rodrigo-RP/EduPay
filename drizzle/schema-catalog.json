@@ -986,6 +986,14 @@
     },
     {
       "schema_name": "public",
+      "name": "sso_assertions_used",
+      "kind": "r",
+      "rls": false,
+      "force_rls": false,
+      "reloptions": null
+    },
+    {
+      "schema_name": "public",
       "name": "student_guardian",
       "kind": "r",
       "rls": false,
@@ -10192,6 +10200,42 @@
     },
     {
       "schema_name": "public",
+      "table_name": "sso_assertions_used",
+      "name": "jti",
+      "position": 1,
+      "type": "character varying(128)",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "sso_assertions_used",
+      "name": "expires_at",
+      "position": 2,
+      "type": "timestamp with time zone",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "sso_assertions_used",
+      "name": "used_at",
+      "position": 3,
+      "type": "timestamp with time zone",
+      "not_null": true,
+      "default_value": "now()",
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
       "table_name": "student_guardian",
       "name": "student_id",
       "position": 1,
@@ -13616,6 +13660,16 @@
     },
     {
       "schema_name": "public",
+      "table_name": "sso_assertions_used",
+      "name": "sso_assertions_used_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (jti)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
       "table_name": "student_guardian",
       "name": "student_guardian_guardian_id_guardians_id_fk",
       "type": "f",
@@ -14679,6 +14733,18 @@
       "table_name": "security_events",
       "name": "security_events_pkey",
       "definition": "CREATE UNIQUE INDEX security_events_pkey ON public.security_events USING btree (id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "sso_assertions_used",
+      "name": "idx_sso_assertions_used_expires",
+      "definition": "CREATE INDEX idx_sso_assertions_used_expires ON public.sso_assertions_used USING btree (expires_at)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "sso_assertions_used",
+      "name": "sso_assertions_used_pkey",
+      "definition": "CREATE UNIQUE INDEX sso_assertions_used_pkey ON public.sso_assertions_used USING btree (jti)"
     },
     {
       "schema_name": "public",

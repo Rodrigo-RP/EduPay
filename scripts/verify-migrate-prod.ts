@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
+import fs from "node:fs";
 import { Client } from "pg";
 import { PROD_MIGRATION_LOCK_KEY } from "../server/lib/migration-production";
 
@@ -11,6 +12,8 @@ import { PROD_MIGRATION_LOCK_KEY } from "../server/lib/migration-production";
  *
  * El usuario necesita permiso para crear bases y roles (superusuario del contenedor).
  */
+// Total de migraciones del diario: no se escribe a mano para no romper este verificador en cada migración nueva.
+const TOTAL: number = JSON.parse(fs.readFileSync("drizzle/migrations/meta/_journal.json", "utf8")).entries.length;
 const adminRaw = process.env.VERIFY_ADMIN_URL;
 if (!adminRaw) throw new Error("VERIFY_ADMIN_URL es obligatoria (servidor desechable en 127.0.0.1).");
 const adminUrl = new URL(adminRaw);
@@ -72,19 +75,19 @@ try {
   // U4 · simulacro: no escribe nada.
   { const db = await newDatabase("u4");
     const r = run(db, []);
-    check("U4", r.status === 0 && r.out.includes("Simulacro") && r.out.includes("Pendientes (9)")
+    check("U4", r.status === 0 && r.out.includes("Simulacro") && r.out.includes(`Pendientes (${TOTAL})`)
       && (await publicTables(db)) === 0 && (await hasDrizzleSchema(db)) === 0,
-      "el simulacro lista 9 pendientes y no crea tablas ni el esquema drizzle"); }
+      `el simulacro lista ${TOTAL} pendientes y no crea tablas ni el esquema drizzle`); }
 
   // U1 · base vacía, U2 · repetir.
   { const db = await newDatabase("u1");
     const r1 = run(db, ["--apply", `--confirm=${db}`]);
     const tables = await count(db, "SELECT COUNT(*)::int AS n FROM pg_tables WHERE schemaname='public' AND tablename IN ('external_identities','firebase_students','firebase_campus_map')");
-    check("U1", r1.status === 0 && (await ledgerRows(db)) === 9 && tables === 3 && (await publicTables(db)) > 50,
-      `aplica las 9 migraciones (${await publicTables(db)} tablas, historial ${await ledgerRows(db)})`);
+    check("U1", r1.status === 0 && (await ledgerRows(db)) === TOTAL && tables === 3 && (await publicTables(db)) > 50,
+      `aplica las ${TOTAL} migraciones (${await publicTables(db)} tablas, historial ${await ledgerRows(db)})`);
     const r2 = run(db, ["--apply", `--confirm=${db}`]);
-    check("U2", r2.status === 0 && r2.out.includes("Pendientes: ninguna") && (await ledgerRows(db)) === 9,
-      "repetir no cambia nada: 0 pendientes, historial sigue en 9"); }
+    check("U2", r2.status === 0 && r2.out.includes("Pendientes: ninguna") && (await ledgerRows(db)) === TOTAL,
+      `repetir no cambia nada: 0 pendientes, historial sigue en ${TOTAL}`); }
 
   // U5 · tablas sin historial.
   { const db = await newDatabase("u5", c => c.query("CREATE TABLE sobrante (id int)").then(() => undefined));
@@ -124,7 +127,7 @@ try {
       `una migración falla: todo se deshace (${tras.tablas} tablas, ${tras.historial} filas de historial)`);
     await admin(db, c => c.query("DROP VIEW public.firebase_campus_map").then(() => undefined));
     const r2 = run(db, ["--apply", `--confirm=${db}`]);
-    check("U10b", r2.status === 0 && (await ledgerRows(db)) === 9, "tras corregir la causa, el mismo comando termina bien"); }
+    check("U10b", r2.status === 0 && (await ledgerRows(db)) === TOTAL, "tras corregir la causa, el mismo comando termina bien"); }
 
   // U11 · concurrencia.
   { const db = await newDatabase("u11");
@@ -148,7 +151,7 @@ try {
     });
     const con = run(db, ["--apply", `--confirm=${db}`], role, rolePassword);
     const duenos = await admin(db, async c => (await c.query("SELECT DISTINCT tableowner FROM pg_tables WHERE schemaname='public'")).rows.map(r => r.tableowner));
-    check("U12b", con.status === 0 && duenos.length === 1 && duenos[0] === role && (await ledgerRows(db)) === 9,
+    check("U12b", con.status === 0 && duenos.length === 1 && duenos[0] === role && (await ledgerRows(db)) === TOTAL,
       "con GRANT sobre la base y sobre public: aplica y el usuario queda dueño de las tablas"); }
 } finally {
   for (const name of created) {

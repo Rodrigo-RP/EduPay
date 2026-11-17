@@ -1776,3 +1776,12 @@ export const firebaseCampusMap = pgTable("firebase_campus_map", {
 			name: "firebase_campus_map_campus_id_fkey"
 		}).onDelete("cascade"),
 ]);
+
+// Aserciones de SSO ya canjeadas: el jti se inserta con ON CONFLICT DO NOTHING para que cada una valga una sola vez.
+export const ssoAssertionsUsed = pgTable("sso_assertions_used", {
+	jti: varchar({ length: 128 }).primaryKey().notNull(),
+	expiresAt: timestamp("expires_at", { withTimezone: true, mode: 'string' }).notNull(),
+	usedAt: timestamp("used_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_sso_assertions_used_expires").using("btree", table.expiresAt.asc().nullsLast().op("timestamptz_ops")),
+]);

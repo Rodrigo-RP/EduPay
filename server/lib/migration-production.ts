@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 /**
  * Guardas de `npm run db:migrate:prod`: el único camino autorizado para aplicar
  * la estructura en una base de producción (Cloud SQL). Son funciones puras:
@@ -134,6 +136,18 @@ export function assertLedgerCompatible(state: LedgerState): void {
       "Baseline adoption required: el ledger está vacío para una base poblada. No se ejecutó DDL.",
     );
   }
+}
+
+/**
+ * Hashes aceptables para una migración ya registrada. Drizzle guarda el SHA-256 de los bytes del archivo, y el
+ * mismo texto da otro hash con fin de línea LF (Linux, Cloud Shell, CI) que con CRLF (Windows con autocrlf).
+ * El historial de producción se registró desde Windows (CRLF); la guarda debe funcionar desde cualquiera de los dos.
+ */
+export function acceptableMigrationHashes(content: Buffer | string): string[] {
+  const text = typeof content === "string" ? content : content.toString("utf8");
+  const lf = text.replace(/\r\n/g, "\n");
+  const crlf = lf.replace(/\n/g, "\r\n");
+  return Array.from(new Set([lf, crlf].map(variant => createHash("sha256").update(variant).digest("hex"))));
 }
 
 export type JournalEntry = { tag: string; when: number };

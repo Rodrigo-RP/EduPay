@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
+import fs from "node:fs";
 import {
   ProdMigrationError,
+  acceptableMigrationHashes,
   assertApplyConfirmation,
   assertLedgerCompatible,
   assertLocalTarget,
@@ -153,5 +155,23 @@ describe("db:migrate:prod · el script se niega antes de conectar", () => {
   });
   it("el error es un ProdMigrationError identificable", () => {
     expect(new ProdMigrationError("x").name).toBe("ProdMigrationError");
+  });
+});
+
+describe("db:migrate:prod · hash del baseline con LF o CRLF", () => {
+  // Hash real del baseline en el historial de producción (registrado desde Windows, con CRLF). No es un secreto.
+  const PROD_BASELINE_HASH = "882941b9f54c582382ef0a2479027b6938d0386010f8c4d711c5f7a4a8552cca";
+  const baselineFile = () => fs.readFileSync(path.resolve(__dirname, "../../drizzle/migrations/0000_baseline.sql"));
+
+  it("el baseline del repo coincide con producción tanto si el archivo está con LF como con CRLF", () => {
+    const text = baselineFile().toString("utf8").replace(/\r\n/g, "\n");
+    expect(acceptableMigrationHashes(text)).toContain(PROD_BASELINE_HASH);
+    expect(acceptableMigrationHashes(text.replace(/\n/g, "\r\n"))).toContain(PROD_BASELINE_HASH);
+    expect(acceptableMigrationHashes(baselineFile())).toContain(PROD_BASELINE_HASH);
+  });
+  it("devuelve dos hashes distintos (LF y CRLF) y nunca el de un texto distinto", () => {
+    expect(acceptableMigrationHashes("a\nb\n")).toHaveLength(2);
+    expect(acceptableMigrationHashes("a\nb\n")).not.toContain(PROD_BASELINE_HASH);
+    expect(acceptableMigrationHashes("a\nb\n")).toEqual(acceptableMigrationHashes("a\r\nb\r\n"));
   });
 });

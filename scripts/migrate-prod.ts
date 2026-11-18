@@ -1,5 +1,4 @@
 import path from "node:path";
-import crypto from "node:crypto";
 import fs from "node:fs";
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -7,6 +6,7 @@ import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { DATABASE_MARKER_SQL } from "../server/lib/database-safety";
 import {
   PROD_MIGRATION_LOCK_KEY,
+  acceptableMigrationHashes,
   assertApplyConfirmation,
   assertLedgerCompatible,
   assertLocalTarget,
@@ -47,10 +47,8 @@ async function main(): Promise<void> {
   if (!baseline?.tag.includes("baseline")) {
     throw new ProdMigrationError("La primera migración debe ser el baseline");
   }
-  const baselineHash = crypto
-    .createHash("sha256")
-    .update(fs.readFileSync(path.join(migrationFolder, `${baseline.tag}.sql`)))
-    .digest("hex");
+  // Acepta el hash con LF o con CRLF: el historial se registró desde Windows y esto también corre desde Linux.
+  const baselineHashes = acceptableMigrationHashes(fs.readFileSync(path.join(migrationFolder, `${baseline.tag}.sql`)));
 
   const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 2 });
   try {
@@ -73,10 +71,10 @@ async function main(): Promise<void> {
     if (ledgerExists) {
       const ledger = (await pool.query(
         `SELECT COUNT(*)::int AS count,
-                COUNT(*) FILTER (WHERE hash = $1 AND created_at = $2)::int AS baseline_count,
+                COUNT(*) FILTER (WHERE hash = ANY($1::text[]) AND created_at = $2)::int AS baseline_count,
                 MAX(created_at) AS last_applied
            FROM "drizzle"."__drizzle_migrations"`,
-        [baselineHash, baseline.when],
+        [baselineHashes, baseline.when],
       )).rows[0];
       ledgerCount = Number(ledger.count);
       baselineCount = Number(ledger.baseline_count);

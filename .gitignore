@@ -19,3 +19,6 @@ attached_assets/
 
 # Registros locales de seguridad y auditoría (en producción solo van a consola)
 server/logs/
+
+# Registros que genera el servidor al correr (no son codigo)
+logs/

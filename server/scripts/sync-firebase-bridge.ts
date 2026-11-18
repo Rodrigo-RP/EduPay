@@ -1,5 +1,5 @@
 /**
- * Sincroniza alumnos, tutores y vínculos desde el puente del Dashboard (Firebase) hacia Neon.
+ * Sincroniza alumnos, tutores y vínculos desde el puente del Dashboard (Firebase) hacia la base de EduPay (PostgreSQL; producción es Cloud SQL PG18).
  *
  *   npm run sync:firebase-bridge -- --tenant=<id>                          dry-run: solo SELECT, imprime el reporte
  *   npm run sync:firebase-bridge -- --tenant=<id> --apply --confirm-tenant=<id>   escribe (una transacción)

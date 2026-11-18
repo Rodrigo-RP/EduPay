@@ -5,7 +5,7 @@ import { generateKeyPairSync, createVerify } from "node:crypto";
 vi.mock("../audit-retry", () => ({ enqueueAuditLog: vi.fn() }));
 vi.mock("../db", () => ({ pool: { query: vi.fn() } }));
 
-import { planFirebaseSync, studentKey, type BridgePayload, type LocalState } from "../lib/firebase-bridge-plan";
+import { planFirebaseSync, studentKey, normalizeCct, type BridgePayload, type LocalState } from "../lib/firebase-bridge-plan";
 import { runFirebaseSync } from "../lib/firebase-bridge-sync";
 import { fetchBridgePayload, idTokenFromServiceAccount, parseServiceAccountKey, BridgeError } from "../lib/firebase-bridge-client";
 
@@ -25,7 +25,7 @@ const payload = (over: Partial<Record<keyof BridgePayload, unknown>> = {}): Brid
 } as BridgePayload);
 const local = (over: Partial<LocalState> = {}): LocalState => ({
   tenantId: 8, firebaseIdEscuela: SCHOOL, campusByNivel: new Map([["primaria", 3], ["secundaria", 4]]),
-  studentByUid: new Map(), guardianByUid: new Map(), existingLinks: new Set(), unlinkedStudentKeys: new Set(), unlinkedGuardianEmails: new Set(), ...over,
+  studentByUid: new Map(), guardianByUid: new Map(), existingLinks: new Set(), unlinkedStudentKeys: new Set(), unlinkedGuardianEmails: new Set(), staffByUid: new Map(), ...over,
 });
 
 describe("Plan de sincronización Firebase → EduPay (sin base ni red)", () => {
@@ -252,5 +252,80 @@ describe("Cliente del puente", () => {
     await expect(fetchBridgePayload({ url: "https://f.example/fn", fetchImpl: bad as any, getIdToken: async () => "T" })).rejects.toMatchObject({ code: "http" });
     const weird = vi.fn(async () => okJson({ alumnos: "nope" }) as any);
     await expect(fetchBridgePayload({ url: "https://f.example/fn", fetchImpl: weird as any, getIdToken: async () => "T" })).rejects.toBeInstanceOf(BridgeError);
+  });
+});
+
+const personal = (uid: string, over: Record<string, unknown> = {}) => ({
+  uid, estado: "activo", rol: "Administrativo", idEscuela: SCHOOL, nombre: `Per${uid}`, primerApellido: "Gómez", segundoApellido: null,
+  email: `${uid}@escuela.mx`, registroSep: [{ clave: "CCT 22PPR0186I", nivel: "Primaria" }], ...over,
+});
+
+describe("Personal del Dashboard como candidato (sin dar acceso)", () => {
+  it("un payload sin `personal` sigue siendo válido y no genera candidatos", () => {
+    const plan = planFirebaseSync(payload(), local());
+    expect(plan.staffUpserts).toEqual([]);
+    expect(plan.report.staffToCreate).toBe(0);
+  });
+
+  it("propone candidatos con la clave de centro normalizada y el rol del Dashboard solo como referencia", () => {
+    const plan = planFirebaseSync(payload({ personal: [personal("p1"), personal("p2", { rol: "Director" })] }), local());
+    expect(plan.staffUpserts.map((s) => s.uid)).toEqual(["p1", "p2"]);
+    expect(plan.staffUpserts[0]).toMatchObject({ rol_dashboard: "Administrativo", email: "p1@escuela.mx", isNew: true, registro_sep: [{ clave: "22PPR0186I", nivel: "primaria" }] });
+    expect(plan.report.staffToCreate).toBe(2);
+    // Nunca crea usuarios, vínculos ni toca a los tutores por culpa del personal.
+    expect(plan.guardianCreates).toHaveLength(1);
+  });
+
+  it("no repite candidatos sin cambios y detecta los que cambiaron", () => {
+    const same = { nombreCompleto: "Perp1 Gómez", email: "p1@escuela.mx", rolDashboard: "Administrativo", registroSep: [{ clave: "22PPR0186I", nivel: "primaria" }], estado: "activo" };
+    const plan = planFirebaseSync(payload({ personal: [personal("p1"), personal("p2")] }), local({ staffByUid: new Map([["p1", same], ["p2", { ...same, rolDashboard: "Maestro" }]]) }));
+    expect(plan.staffUpserts.map((s) => [s.uid, s.isNew])).toEqual([["p2", false]]);
+    expect(plan.report.staffToUpdate).toBe(1);
+  });
+
+  it("omite al personal de otra escuela, sin nombre, o que ya es tutor (un uid = una persona)", () => {
+    const plan = planFirebaseSync(
+      payload({ personal: [personal("p1", { idEscuela: "OTRA" }), personal("p2", { nombre: null, primerApellido: null, email: null }), personal("t1")] }),
+      local(),
+    );
+    expect(plan.staffUpserts).toEqual([]);
+    expect(plan.report.skipped.personal_sin_nombre).toBe(1);
+    expect(plan.report.skipped.personal_es_tutor).toBe(1);
+    expect(plan.report.skipped.escuela_no_habilitada).toBeGreaterThanOrEqual(1);
+  });
+
+  it("avisa de candidatos locales que ya no vienen en el puente, sin borrarlos", () => {
+    const plan = planFirebaseSync(payload({ personal: [] }), local({ staffByUid: new Map([["gone", { nombreCompleto: "X", email: null, rolDashboard: null, registroSep: [], estado: "activo" }]]) }));
+    expect(plan.report.warnings.personalLocalAusenteEnPuente).toBe(1);
+  });
+
+  it("apply: guarda candidatos con upsert y no inserta en users ni en external_identities para ellos", async () => {
+    const { db, calls } = fakeDb();
+    await runFirebaseSync({ db, tenantId: 8, payload: payload({ personal: [personal("p1")] }), apply: true });
+    const staff = calls.filter((c) => c.startsWith("INSERT INTO firebase_staff_candidates"));
+    expect(staff).toHaveLength(1);
+    expect(staff[0]).toContain("ON CONFLICT (tenant_id, firebase_uid) DO UPDATE");
+    expect(calls.some((c) => c.startsWith("INSERT INTO users"))).toBe(false);
+    // Solo la identidad del tutor; ninguna para el personal.
+    expect(calls.filter((c) => c.startsWith("INSERT INTO external_identities"))).toHaveLength(1);
+  });
+
+  it("dry-run no escribe candidatos", async () => {
+    const { db, calls } = fakeDb();
+    const res = await runFirebaseSync({ db, tenantId: 8, payload: payload({ personal: [personal("p1")] }), apply: false });
+    expect(res.report.staffToCreate).toBe(1);
+    expect(calls.some((c) => /^(INSERT|UPDATE|DELETE)/.test(c))).toBe(false);
+  });
+});
+
+describe("normalizeCct", () => {
+  it("quita el prefijo, espacios y corrige la O por 0 donde va un dígito", () => {
+    expect(normalizeCct("CCT 22PPR0186I")).toBe("22PPR0186I");
+    expect(normalizeCct("22ppr0l86i")).toBeNull();
+    expect(normalizeCct("2OPPR01B6I")).toBeNull();
+    expect(normalizeCct("22 PPR 018 6I")).toBe("22PPR0186I");
+    expect(normalizeCct("2O-PPR-O186-I")).toBe("20PPR0186I");
+    expect(normalizeCct(null)).toBeNull();
+    expect(normalizeCct("abc")).toBeNull();
   });
 });

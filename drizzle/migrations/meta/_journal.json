@@ -71,6 +71,13 @@
       "when": 1794943063796,
       "tag": "0009_sso_assertions_used",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795018721127,
+      "tag": "0010_firebase_staff_candidates",
+      "breakpoints": true
     }
   ]
 }

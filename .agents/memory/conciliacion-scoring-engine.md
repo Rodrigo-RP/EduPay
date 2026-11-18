@@ -30,9 +30,10 @@ description: Decisiones de diseño, deudas técnicas y patrones del motor de sco
 
 Decisión implícita: el patrón del archivo usa prefijo `_` para helpers internos. No se discutió con el usuario. Si se necesita desde un worker externo, exportar explícitamente.
 
-## Neon + psql
+## Scripts de una sola vez contra la base
 
-Neon usa WebSocket (driver serverless). `psql` con protocolo estándar falla con "endpoint disabled" aunque el servidor esté corriendo. Aplicar migraciones via:
+(Nota histórica: esto se escribió cuando la base de desarrollo era Neon con su driver WebSocket. Desde el 11-nov-2026 producción es Cloud SQL PG18 y `server/db.ts` usa el driver estándar `pg`; `psql` y el proxy de Cloud SQL funcionan normal. Nunca correr estos scripts contra producción: las migraciones de producción van solo por `npm run db:migrate:prod`.)
+Para un script de desarrollo contra una base de pruebas:
 ```typescript
 // server/scripts/nombre.ts
 import { pool } from "../db.js";

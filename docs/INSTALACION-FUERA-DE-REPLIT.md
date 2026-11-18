@@ -51,5 +51,8 @@ Genera su configuración efímera y omite las pruebas de servicios reales
 cuando no están habilitadas; un CI verde no valida cobros ni mensajes reales.
 
 Los archivos `.github/ci/neon-config.mjs` y `postgres-bridge.mjs` permiten al
-controlador Neon conectarse al PostgreSQL local del runner. Son exclusivos
-del CI: no configurarlos para una instalación normal ni para una base externa.
+controlador `@neondatabase/serverless` conectarse al PostgreSQL local del runner.
+Solo hacen falta porque algunas pruebas heredadas todavía importan ese controlador;
+el servidor ya usa el driver estándar `pg` (`server/db.ts`). Son exclusivos del CI:
+no configurarlos para una instalación normal ni para una base externa. Producción es
+Cloud SQL PG18 (docs/DESPLIEGUE-CLOUD-RUN.md); el CI prueba contra PostgreSQL 16 y 18.

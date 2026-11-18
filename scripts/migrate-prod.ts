@@ -28,7 +28,7 @@ import {
  *     npm run db:migrate:prod                          # simulacro
  *   ... npm run db:migrate:prod -- --apply --confirm=edupay
  *
- * No imprime nunca la cadena de conexión. Ver docs/PUBLICACION.md, sección 1.
+ * No imprime nunca la cadena de conexión. Ver docs/DESPLIEGUE-CLOUD-RUN.md.
  */
 const log = (message: string) => console.log(`[db:migrate:prod] ${message}`);
 

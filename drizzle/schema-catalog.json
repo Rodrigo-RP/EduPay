@@ -490,6 +490,22 @@
     },
     {
       "schema_name": "public",
+      "name": "firebase_staff_candidates",
+      "kind": "r",
+      "rls": false,
+      "force_rls": false,
+      "reloptions": null
+    },
+    {
+      "schema_name": "public",
+      "name": "firebase_staff_candidates_id_seq",
+      "kind": "S",
+      "rls": false,
+      "force_rls": false,
+      "reloptions": null
+    },
+    {
+      "schema_name": "public",
       "name": "firebase_students",
       "kind": "r",
       "rls": false,
@@ -5586,6 +5602,126 @@
       "type": "integer",
       "not_null": true,
       "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_staff_candidates",
+      "name": "id",
+      "position": 1,
+      "type": "integer",
+      "not_null": true,
+      "default_value": "nextval('firebase_staff_candidates_id_seq'::regclass)",
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_staff_candidates",
+      "name": "tenant_id",
+      "position": 2,
+      "type": "integer",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_staff_candidates",
+      "name": "firebase_uid",
+      "position": 3,
+      "type": "character varying(128)",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_staff_candidates",
+      "name": "nombre_completo",
+      "position": 4,
+      "type": "character varying(255)",
+      "not_null": true,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_staff_candidates",
+      "name": "email",
+      "position": 5,
+      "type": "character varying(255)",
+      "not_null": false,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_staff_candidates",
+      "name": "rol_dashboard",
+      "position": 6,
+      "type": "character varying(64)",
+      "not_null": false,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_staff_candidates",
+      "name": "registro_sep",
+      "position": 7,
+      "type": "jsonb",
+      "not_null": true,
+      "default_value": "'[]'::jsonb",
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_staff_candidates",
+      "name": "estado",
+      "position": 8,
+      "type": "character varying(16)",
+      "not_null": true,
+      "default_value": "'activo'::character varying",
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_staff_candidates",
+      "name": "synced_at",
+      "position": 9,
+      "type": "timestamp with time zone",
+      "not_null": true,
+      "default_value": "now()",
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": null
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_staff_candidates",
+      "name": "created_at",
+      "position": 10,
+      "type": "timestamp with time zone",
+      "not_null": true,
+      "default_value": "now()",
       "identity_kind": "",
       "generated_kind": "",
       "collation": null
@@ -12500,6 +12636,36 @@
     },
     {
       "schema_name": "public",
+      "table_name": "firebase_staff_candidates",
+      "name": "firebase_staff_candidates_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_staff_candidates",
+      "name": "firebase_staff_candidates_tenant_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_staff_candidates",
+      "name": "firebase_staff_candidates_tenant_uid_key",
+      "type": "u",
+      "definition": "UNIQUE (tenant_id, firebase_uid)",
+      "validated": true,
+      "deferrable": false,
+      "deferred": false
+    },
+    {
+      "schema_name": "public",
       "table_name": "firebase_students",
       "name": "firebase_students_pkey",
       "type": "p",
@@ -14388,6 +14554,18 @@
     },
     {
       "schema_name": "public",
+      "table_name": "firebase_staff_candidates",
+      "name": "firebase_staff_candidates_pkey",
+      "definition": "CREATE UNIQUE INDEX firebase_staff_candidates_pkey ON public.firebase_staff_candidates USING btree (id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "firebase_staff_candidates",
+      "name": "firebase_staff_candidates_tenant_uid_key",
+      "definition": "CREATE UNIQUE INDEX firebase_staff_candidates_tenant_uid_key ON public.firebase_staff_candidates USING btree (tenant_id, firebase_uid)"
+    },
+    {
+      "schema_name": "public",
       "table_name": "firebase_students",
       "name": "firebase_students_pkey",
       "definition": "CREATE UNIQUE INDEX firebase_students_pkey ON public.firebase_students USING btree (id)"
@@ -15092,6 +15270,17 @@
     {
       "schema_name": "public",
       "name": "firebase_campus_map_id_seq",
+      "type": "integer",
+      "seqstart": "1",
+      "seqincrement": "1",
+      "seqmax": "2147483647",
+      "seqmin": "1",
+      "seqcache": "1",
+      "seqcycle": false
+    },
+    {
+      "schema_name": "public",
+      "name": "firebase_staff_candidates_id_seq",
       "type": "integer",
       "seqstart": "1",
       "seqincrement": "1",

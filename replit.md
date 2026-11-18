@@ -3,12 +3,14 @@
 ## Resumen
 
 EduPay es una plataforma web para gestionar cargos, cobranza y pagos escolares, con portales administrativos y para tutores.
-Está en desarrollo, con un piloto planeado en el Instituto JFR. No tiene base de producción, según lo declarado por el responsable del proyecto; esto no se infiere del estado de publicación de Replit.
-No es un ERP ni un LMS. No debe describirse como lista para producción ni como una plataforma completamente auditada.
+Se está llevando a producción en el Instituto JFR. **Desde el 11-nov-2026 la base de producción es Cloud SQL para PostgreSQL 18** y la aplicación corre en Cloud Run (ver `docs/DESPLIEGUE-CLOUD-RUN.md`). Neon, Replit y `heliumdb` ya no son el destino de producción. El despliegue avanza a la par que los ajustes finales.
+No es un ERP ni un LMS. No debe describirse como completamente auditada ni como probada con pagos reales mientras Stripe y el acceso público no estén configurados.
 
 ## Estado verificado
 
-Última evidencia de ejecución: 27 de octubre de 2026, código `f84a9fb`.
+**Producción (18-nov-2026, ver `docs/DESPLIEGUE-CLOUD-RUN.md`):** Cloud SQL PG18 con las migraciones 0000 a 0009 aplicadas y los datos del puente del Dashboard cargados; la 0010 (personal del Dashboard) está generada y sin aplicar. El servicio de Cloud Run es privado y su revisión es anterior al SSO. Stripe está sin clave real y el RFC es provisional. Los identificadores de la nube están en `datos-google-cloud.local.md` (no versionado; el repo es público).
+
+**Pruebas (evidencia anterior, 27 de octubre de 2026, código `f84a9fb`, en la base de pruebas de Replit; no describe producción):**
 
 - `DATABASE_URL` se verificó como la base de pruebas `heliumdb`, con comentario físico `edupay:test`. Ese resultado identifica la conexión de esa verificación, no otras conexiones ni destinos futuros.
 - Unitarias: 1333 aprobadas, 1 omitida y 0 fallos; 140 archivos aprobados y 1 omitido.
@@ -33,7 +35,7 @@ No es un ERP ni un LMS. No debe describirse como lista para producción ni como 
 - **Backend:** Node.js, TypeScript y Express; `server/index.ts` crea la aplicación y `server/routes.ts` registra las rutas.
 - **Acceso:** existen autenticación JWT, comparación de hashes bcrypt y comprobaciones mediante `hasPermissionForUser`. Esto no equivale a demostrar que todas las rutas y alias tengan aislamiento correcto.
 - **Límites de peticiones:** `server/routes.ts` monta `express-rate-limit` para login, rutas administrativas y pago de tutores. Esto no equivale a un WAF ni a cobertura universal de endpoints.
-- **Base:** PostgreSQL mediante `@neondatabase/serverless` y Drizzle ORM. `server/db.ts` consume `DATABASE_URL`; `shared/schema.ts` es el modelo de aplicación.
+- **Base:** PostgreSQL (producción: Cloud SQL PG18; el CI prueba PG16 y PG18) mediante el driver estándar `pg` y Drizzle ORM. `server/db.ts` consume `DATABASE_URL` (en Cloud Run, por socket `/cloudsql/...`); `shared/schema.ts` es el modelo de aplicación. `@neondatabase/serverless` solo queda en unas pruebas heredadas y en la configuración del CI.
 - **Migraciones:** `drizzle.config.ts` usa `drizzle/physical/schema.ts` y `drizzle/migrations/`. `db:generate` genera archivos y `db:migrate` aplica las migraciones versionadas.
 - **`db:push` está bloqueado:** invoca `scripts/reject-db-push.ts`, que termina con error.
 - **Post-merge:** `.replit` apunta a `scripts/post-merge.sh`; ese script contiene instalación, migración y build. No usar “Apply changes” como sustituto de una integración Git autorizada.
@@ -44,7 +46,7 @@ Clasificación al revisar el código y la existencia de Secrets el 27 de octubre
 
 | Servicio | Estado y alcance comprobado |
 |---|---|
-| PostgreSQL / Neon | Implementado y configurado para pruebas mediante `DATABASE_URL`; identidad y marcador documentados arriba. |
+| PostgreSQL / Cloud SQL | Producción: Cloud SQL PG18 (11-nov-2026). Las pruebas usan PostgreSQL desechable marcado `edupay:test`. Neon y la base administrada de Replit ya no son destino. |
 | Stripe / Stripe Connect | Implementado; Secrets de API y webhook presentes y clave pública de prueba declarada. Rutas de Connect y verificación de firma existentes. Configuración operativa por campus y cobros reales no verificados aquí. |
 | SPEI mediante Stripe | Implementado sobre PaymentIntents y webhook de Stripe. No es una conexión directa con STP. No se verificó una transferencia bancaria real en esta revisión. |
 | Facturapi | Adaptador implementado y Secret presente. Sólo permite Test Secret Key y organización `sandbox`; Live y multi-RFC no están habilitados. No se validó la clave ni un timbrado real aquí. |
@@ -69,10 +71,11 @@ En correo, `aceptado` sólo se registra tras aceptación del proveedor; `entrega
 
 ## Entornos
 
+- **Producción:** `APP_ENV=production`; la base de Cloud SQL **no lleva marcador** y las suites, seeds y `db:migrate` la rechazan a propósito. Las migraciones de producción van solo por `npm run db:migrate:prod` (simulacro por defecto; con autorización y respaldo previo, `--apply`). Detalle en `docs/DESPLIEGUE-CLOUD-RUN.md`.
 - `APP_ENV` es independiente de `NODE_ENV`. Las guardas de escritura exigen `development` o `test` y el marcador físico correspondiente; el nombre de la base por sí solo no autoriza nada.
 - `DATABASE_MARKER_SQL`, en `server/lib/database-safety.ts`, lee el comentario PostgreSQL. Las pruebas requieren `edupay:test`; los seeds admiten `edupay:test` o `edupay:demo`. Nunca crear el marcador automáticamente para desbloquear una operación.
 - `.replit` define `APP_ENV=development` y `ALLOW_DEMO_SEED=true` únicamente en `[userenv.development]`. No llevar esa habilitación a `shared` ni a publicación. El seed exige además sus guardas y una autorización de ejecución.
-- La aplicación usa `DATABASE_URL`. El CI configura esa variable con su PostgreSQL 16 desechable, no con una conexión compartida ni con Secrets de bases externas.
+- La aplicación usa `DATABASE_URL`. El CI configura esa variable con un PostgreSQL desechable (16 y 18), no con una conexión compartida ni con Secrets de bases externas.
 - Los Secrets se administran por el mecanismo de Secrets del proyecto; su existencia no acredita validez, modo de operación o configuración por campus.
 
 ## Cuentas de prueba

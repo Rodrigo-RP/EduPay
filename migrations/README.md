@@ -43,7 +43,7 @@ volver a ejecutar DDL.
 
 `0002_physical_index_snapshot_alignment.sql` también es metadata-only: corrige
 en el snapshot las operator classes que `drizzle-kit pull` asignó a columnas
-equivocadas. Neon y el baseline ya contienen los índices correctos.
+equivocadas. La base de referencia (antes Neon, hoy Cloud SQL PG18) y el baseline ya contienen los índices correctos.
 
 Para cambios nuevos:
 

@@ -11,7 +11,7 @@ import type { Pool } from "pg";
 import { enqueueAuditLog, type AuditLogPayload } from "../audit-retry";
 import {
   planFirebaseSync, studentKey,
-  type BridgePayload, type LocalState, type LocalStudent, type SyncPlan, type SyncReport,
+  type BridgePayload, type LocalState, type LocalStaffCandidate, type LocalStudent, type SyncPlan, type SyncReport,
 } from "./firebase-bridge-plan";
 
 interface Queryable { query(text: string, values?: unknown[]): Promise<{ rows: any[]; rowCount?: number | null }> }
@@ -21,7 +21,7 @@ export async function loadLocalState(db: Queryable, tenantId: number): Promise<L
   const tenant = (await db.query(`SELECT id, firebase_id_escuela FROM tenants WHERE id = $1`, [tenantId])).rows[0];
   if (!tenant) throw new Error(`No existe la escuela (tenant) ${tenantId}.`);
 
-  const [campus, students, guardians, links, unlinkedStudents, unlinkedGuardians] = await Promise.all([
+  const [campus, students, guardians, links, unlinkedStudents, unlinkedGuardians, staff] = await Promise.all([
     db.query(`SELECT nivel, campus_id FROM firebase_campus_map WHERE tenant_id = $1`, [tenantId]),
     db.query(
       `SELECT fs.firebase_uid, s.id, s.campus_id, s.nivel_escolar, s.grado, s.grupo, s.turno, s.status,
@@ -45,6 +45,9 @@ export async function loadLocalState(db: Queryable, tenantId: number): Promise<L
          FROM guardians g
         WHERE g.tenant_id = $1
           AND NOT EXISTS (SELECT 1 FROM external_identities ei WHERE ei.guardian_id = g.id AND ei.provider = 'firebase')`, [tenantId]),
+    db.query(
+      `SELECT firebase_uid, nombre_completo, email, rol_dashboard, registro_sep, estado
+         FROM firebase_staff_candidates WHERE tenant_id = $1`, [tenantId]),
   ]);
 
   return {
@@ -60,6 +63,10 @@ export async function loadLocalState(db: Queryable, tenantId: number): Promise<L
     existingLinks: new Set(links.rows.map((r) => `${Number(r.student_id)}:${Number(r.guardian_id)}`)),
     unlinkedStudentKeys: new Set(unlinkedStudents.rows.map((r) => studentKey(String(r.nombre_completo ?? ""), r.campus_id == null ? null : Number(r.campus_id)))),
     unlinkedGuardianEmails: new Set(unlinkedGuardians.rows.map((r) => String(r.email ?? "")).filter(Boolean)),
+    staffByUid: new Map(staff.rows.map((r): [string, LocalStaffCandidate] => [String(r.firebase_uid), {
+      nombreCompleto: String(r.nombre_completo ?? ""), email: r.email ?? null, rolDashboard: r.rol_dashboard ?? null,
+      registroSep: Array.isArray(r.registro_sep) ? r.registro_sep : [], estado: String(r.estado ?? "activo"),
+    }])),
   };
 }
 
@@ -126,6 +133,18 @@ async function executePlan(client: Queryable, plan: SyncPlan, local: LocalState)
     // El responsable de pago nace con el valor por defecto de la tabla y nunca se reescribe aquí.
     await client.query(`INSERT INTO student_guardian (student_id, guardian_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [sid, gid]);
   }
+
+  // Candidatos de personal: solo se guardan o se actualizan. Nunca se crean usuarios ni vínculos desde la sincronización.
+  for (const c of plan.staffUpserts) {
+    await client.query(
+      `INSERT INTO firebase_staff_candidates (tenant_id, firebase_uid, nombre_completo, email, rol_dashboard, registro_sep, estado, synced_at)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, now())
+       ON CONFLICT (tenant_id, firebase_uid) DO UPDATE
+         SET nombre_completo = EXCLUDED.nombre_completo, email = EXCLUDED.email, rol_dashboard = EXCLUDED.rol_dashboard,
+             registro_sep = EXCLUDED.registro_sep, estado = EXCLUDED.estado, synced_at = now()`,
+      [tenantId, c.uid, c.nombre_completo, c.email, c.rol_dashboard, JSON.stringify(c.registro_sep), c.estado],
+    );
+  }
 }
 
 export interface RunSyncOptions {
@@ -166,7 +185,7 @@ export async function runFirebaseSync({ db, tenantId, payload, apply }: RunSyncO
 
   const audit: AuditLogPayload = {
     tenant_id: tenantId, user_id: null, action: "firebase_bridge.sync", entity_type: "tenant", entity_id: tenantId,
-    metadata: { generadoEn: report.generadoEn, creados: { alumnos: report.studentsToCreate, tutores: report.guardiansToCreate, vinculos: report.linksToCreate, familias: report.familiesToCreate }, actualizados: report.studentsToUpdate, omitidos: report.skipped, avisos: report.warnings },
+    metadata: { generadoEn: report.generadoEn, creados: { alumnos: report.studentsToCreate, tutores: report.guardiansToCreate, vinculos: report.linksToCreate, familias: report.familiesToCreate, personal: report.staffToCreate }, actualizados: report.studentsToUpdate, personalActualizado: report.staffToUpdate, omitidos: report.skipped, avisos: report.warnings },
   };
   const auditClient = await db.connect();
   try {

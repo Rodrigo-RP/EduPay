@@ -39,6 +39,20 @@ export interface BridgeTutor {
   telefonoCasa: string | null;
 }
 
+/** Personal del Dashboard. Solo se propone como candidato; nunca recibe acceso ni rol desde aquí. */
+export interface BridgeStaff {
+  uid: string;
+  estado: "activo" | "baja";
+  /** Rol del Dashboard (Director, Coordinador, Administrativo…): solo referencia. */
+  rol: string | null;
+  idEscuela: string | null;
+  nombre: string | null;
+  primerApellido: string | null;
+  segundoApellido: string | null;
+  email: string | null;
+  registroSep: Array<{ clave: string | null; nivel: string | null }> | null;
+}
+
 export interface BridgeLink {
   tutorUid: string;
   alumnoUid: string;
@@ -52,6 +66,8 @@ export interface BridgePayload {
   alumnos: BridgeStudent[];
   tutores: BridgeTutor[];
   vinculos: BridgeLink[];
+  /** Opcional: un Dashboard que aún no envía personal no rompe la sincronización. */
+  personal?: BridgeStaff[];
 }
 
 export interface LocalStudent {
@@ -81,6 +97,26 @@ export interface LocalState {
   unlinkedStudentKeys: ReadonlySet<string>;
   /** Correos (minúsculas) de tutores locales sin identidad de Firebase (para no duplicar altas manuales). */
   unlinkedGuardianEmails: ReadonlySet<string>;
+  /** uid → candidato de personal ya guardado (`firebase_staff_candidates`). */
+  staffByUid: ReadonlyMap<string, LocalStaffCandidate>;
+}
+
+export interface LocalStaffCandidate {
+  nombreCompleto: string;
+  email: string | null;
+  rolDashboard: string | null;
+  registroSep: Array<{ clave: string; nivel: string | null }>;
+  estado: string;
+}
+
+export interface StaffCandidateUpsert {
+  uid: string;
+  nombre_completo: string;
+  email: string | null;
+  rol_dashboard: string | null;
+  registro_sep: Array<{ clave: string; nivel: string | null }>;
+  estado: "activo" | "baja";
+  isNew: boolean;
 }
 
 export interface StudentCreate {
@@ -134,6 +170,8 @@ export interface SyncReport {
   linksToCreate: number;
   familiesToCreate: number;
   alumnosConVariosTutores: number;
+  staffToCreate: number;
+  staffToUpdate: number;
   skipped: Record<SkipReason, number>;
   /** Cosas que alguien debe revisar; nunca se corrigen solas. */
   warnings: Record<WarningKey, number>;
@@ -150,9 +188,12 @@ export type SkipReason =
   | "tutor_posible_duplicado"
   | "tutor_sin_alumnos_validos"
   | "vinculo_no_declarado_por_tutor"
-  | "vinculo_sin_alumno_o_tutor";
+  | "vinculo_sin_alumno_o_tutor"
+  | "personal_sin_nombre"
+  | "personal_es_tutor";
 
 export type WarningKey =
+  | "personalLocalAusenteEnPuente"
   | "vinculosLocalesAusentesEnPuente"
   | "alumnosLocalesAusentesEnPuente"
   | "correoDeTutorCambio"
@@ -170,6 +211,8 @@ export interface SyncPlan {
   families: NewFamily[];
   /** Alumno y tutor por uid; se resuelven a ids al aplicar. */
   links: Array<{ studentUid: string; guardianUid: string }>;
+  /** Altas y cambios de candidatos de personal. Nunca crean usuarios ni vínculos. */
+  staffUpserts: StaffCandidateUpsert[];
   report: SyncReport;
 }
 
@@ -186,28 +229,45 @@ export const studentKey = (nombreCompleto: string, campusId: number | null): str
 const emptySkips = (): Record<SkipReason, number> => ({
   escuela_no_habilitada: 0, alumno_sin_escuela: 0, alumno_sin_nombre: 0, nivel_sin_campus: 0, alumno_posible_duplicado: 0,
   tutor_rol_no_permitido: 0, tutor_sin_correo: 0, tutor_posible_duplicado: 0, tutor_sin_alumnos_validos: 0,
-  vinculo_no_declarado_por_tutor: 0, vinculo_sin_alumno_o_tutor: 0,
+  vinculo_no_declarado_por_tutor: 0, vinculo_sin_alumno_o_tutor: 0, personal_sin_nombre: 0, personal_es_tutor: 0,
 });
 
 const emptyWarnings = (): Record<WarningKey, number> => ({
   vinculosLocalesAusentesEnPuente: 0, alumnosLocalesAusentesEnPuente: 0, correoDeTutorCambio: 0, alumnosNuevosEnBaja: 0,
-  telefonoOmitidoPorLargo: 0,
+  telefonoOmitidoPorLargo: 0, personalLocalAusenteEnPuente: 0,
 });
+
+/**
+ * Clave de centro de trabajo (CCT) normalizada: sin prefijo "CCT", espacios ni signos, en mayúsculas y con la O
+ * escrita como 0 donde el formato exige dígito (22PPR0186I = 2 dígitos, 3 letras, 4 dígitos, 1 letra).
+ * Devuelve null si no tiene la forma de una clave.
+ */
+export function normalizeCct(raw: string | null | undefined): string | null {
+  const s = clean(raw).toUpperCase().replace(/^CCT/, "").replace(/[^A-Z0-9]/g, "");
+  if (s.length !== 10) return null;
+  const digit = (c: string) => (c === "O" ? "0" : c);
+  const out = digit(s[0]) + digit(s[1]) + s.slice(2, 5) + s.slice(5, 9).split("").map(digit).join("") + s[9];
+  return /^\d{2}[A-Z]{3}\d{4}[A-Z]$/.test(out) ? out : null;
+}
+
+const sameRegistro = (a: Array<{ clave: string; nivel: string | null }>, b: Array<{ clave: string; nivel: string | null }>) =>
+  JSON.stringify(a) === JSON.stringify(b);
 
 export function planFirebaseSync(payload: BridgePayload, local: LocalState): SyncPlan {
   const skipped = emptySkips();
   const warnings = emptyWarnings();
   const empty = (): SyncPlan => ({
-    tenantId: local.tenantId, studentCreates: [], studentUpdates: [], guardianCreates: [], families: [], links: [],
+    tenantId: local.tenantId, studentCreates: [], studentUpdates: [], guardianCreates: [], families: [], links: [], staffUpserts: [],
     report: {
       generadoEn: payload.generadoEn, studentsToCreate: 0, studentsToUpdate: 0, studentsBaja: 0, guardiansToCreate: 0,
-      linksToCreate: 0, familiesToCreate: 0, alumnosConVariosTutores: 0, skipped, warnings,
+      linksToCreate: 0, familiesToCreate: 0, alumnosConVariosTutores: 0, staffToCreate: 0, staffToUpdate: 0, skipped, warnings,
     },
   });
 
+  const staff = payload.personal ?? [];
   const school = clean(local.firebaseIdEscuela);
   if (!school || !payload.escuelas.includes(school)) {
-    skipped.escuela_no_habilitada = payload.alumnos.length + payload.tutores.length;
+    skipped.escuela_no_habilitada = payload.alumnos.length + payload.tutores.length + staff.length;
     return empty();
   }
 
@@ -368,8 +428,35 @@ export function planFirebaseSync(payload: BridgePayload, local: LocalState): Syn
     if (linkedStudentIds.has(sid) && linkedGuardianIds.has(gid) && !wanted.has(key)) warnings.vinculosLocalesAusentesEnPuente++;
   }
 
+  // 8. Personal: candidatos para que un superadministrador les asigne rol. No crea usuarios ni vínculos y no usa
+  //    el rol del Dashboard para decidir nada. Un uid que ya es tutor no puede ser también personal (un uid = una persona).
+  const staffUpserts: StaffCandidateUpsert[] = [];
+  const staffSeen = new Set<string>();
+  for (const p of [...staff].sort((a, b) => a.uid.localeCompare(b.uid))) {
+    if (staffSeen.has(p.uid)) continue;
+    staffSeen.add(p.uid);
+    if (clean(p.idEscuela) !== school) { skipped.escuela_no_habilitada++; continue; }
+    if (local.guardianByUid.has(p.uid) || acceptedTutors.has(p.uid)) { skipped.personal_es_tutor++; continue; }
+    const nombre = fullName(p) || clean(p.email);
+    if (!nombre) { skipped.personal_sin_nombre++; continue; }
+    const registro = (p.registroSep ?? []).flatMap((r) => {
+      const clave = normalizeCct(r.clave);
+      return clave ? [{ clave, nivel: orNull(r.nivel)?.toLowerCase() ?? null }] : [];
+    });
+    const next = {
+      uid: p.uid, nombre_completo: nombre, email: orNull(p.email)?.toLowerCase() ?? null, rol_dashboard: orNull(p.rol),
+      registro_sep: registro, estado: p.estado,
+    };
+    const cur = local.staffByUid.get(p.uid);
+    if (!cur) { staffUpserts.push({ ...next, isNew: true }); continue; }
+    const changed = cur.nombreCompleto !== next.nombre_completo || cur.email !== next.email || cur.rolDashboard !== next.rol_dashboard
+      || cur.estado !== next.estado || !sameRegistro(cur.registroSep, next.registro_sep);
+    if (changed) staffUpserts.push({ ...next, isNew: false });
+  }
+  for (const uid of Array.from(local.staffByUid.keys())) if (!staffSeen.has(uid)) warnings.personalLocalAusenteEnPuente++;
+
   return {
-    tenantId: local.tenantId, studentCreates, studentUpdates, guardianCreates, families, links: newLinks,
+    tenantId: local.tenantId, studentCreates, studentUpdates, guardianCreates, families, links: newLinks, staffUpserts,
     report: {
       generadoEn: payload.generadoEn,
       studentsToCreate: studentCreates.length,
@@ -379,6 +466,8 @@ export function planFirebaseSync(payload: BridgePayload, local: LocalState): Syn
       linksToCreate: newLinks.length,
       familiesToCreate: families.length,
       alumnosConVariosTutores: Array.from(tutorsPerStudent.values()).filter((n) => n > 1).length,
+      staffToCreate: staffUpserts.filter((s) => s.isNew).length,
+      staffToUpdate: staffUpserts.filter((s) => !s.isNew).length,
       skipped, warnings,
     },
   };

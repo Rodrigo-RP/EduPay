@@ -292,6 +292,23 @@ export const firebase_students = pgTable("firebase_students", {
   created_at:   timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// FIREBASE STAFF CANDIDATES — personal del Dashboard (uid de Firebase) que la sincronización del puente propone
+// como candidato a usuario de EduPay. NO da acceso: solo un superadministrador lo convierte en usuario y vínculo
+// (POST /api/super-admin/staff-candidates/:id/assign). `rol_dashboard` es solo referencia; nunca decide el rol de EduPay.
+export const firebase_staff_candidates = pgTable("firebase_staff_candidates", {
+  id:             serial("id").primaryKey(),
+  tenant_id:      integer("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  firebase_uid:   varchar("firebase_uid", { length: 128 }).notNull(),
+  nombre_completo: varchar("nombre_completo", { length: 255 }).notNull(),
+  email:          varchar("email", { length: 255 }),
+  rol_dashboard:  varchar("rol_dashboard", { length: 64 }),
+  // [{ clave: "22PPR0186I", nivel: "primaria" }] — registroSep de Firebase con la clave normalizada.
+  registro_sep:   jsonb("registro_sep").default([]).notNull(),
+  estado:         varchar("estado", { length: 16 }).default("activo").notNull(),
+  synced_at:      timestamp("synced_at", { withTimezone: true }).defaultNow().notNull(),
+  created_at:     timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // FIREBASE CAMPUS MAP — nivel escolar de Firebase → campus de EduPay, por escuela. Lo mantiene la escuela;
 // `claveCentro` no se usa porque no es confiable (docs/HANDOFF-puente-dashboard-edupay.md §5).
 export const firebase_campus_map = pgTable("firebase_campus_map", {

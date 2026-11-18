@@ -1,5 +1,11 @@
 # Publicar EduPay por primera vez
 
+> **OBSOLETO desde el 11-nov-2026.** Esta guía describe la publicación en Replit
+> (Reserved VM, base administrada de Replit y `heliumdb`). La producción de EduPay
+> es ahora **Cloud Run + Cloud SQL PostgreSQL 18**. Guía vigente:
+> [`docs/DESPLIEGUE-CLOUD-RUN.md`](DESPLIEGUE-CLOUD-RUN.md). Lo demás de este
+> archivo se conserva como registro histórico y no debe seguirse.
+
 Esta guía prepara una publicación futura. No significa que ya se publicó ni
 autoriza al agente a entrar a la base de producción.
 

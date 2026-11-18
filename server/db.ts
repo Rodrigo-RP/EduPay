@@ -8,8 +8,8 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Driver estándar de PostgreSQL (TCP o socket Unix). Sirve igual para Neon,
-// Cloud SQL (`?host=/cloudsql/PROYECTO:REGION:INSTANCIA`) y el PostgreSQL del CI.
+// Driver estándar de PostgreSQL (TCP o socket Unix). Producción es Cloud SQL PG18
+// (`?host=/cloudsql/PROYECTO:REGION:INSTANCIA` desde Cloud Run); el CI usa PostgreSQL 16 y 18.
 // POOL_MAX limita las conexiones por instancia; Cloud SQL tiene su propio tope.
 const poolMax = Number.parseInt(process.env.POOL_MAX ?? "", 10);
 

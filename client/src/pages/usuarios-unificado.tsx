@@ -17,6 +17,7 @@ import { USER_ROLES, PERMISSIONS, hasPermission, getUserPermissions, getRoleDisp
 import { canEditUser, getEditableRoles, ROLE_HIERARCHY } from "@shared/permissions";
 import { useAuth } from "@/hooks/use-auth";
 import TwoFactorResetButton from "@/components/two-factor-reset-button";
+import StaffCandidatesPanel from "@/components/staff-candidates-panel";
 
 export default function UsuariosUnificado() {
   const { toast } = useToast();
@@ -436,6 +437,9 @@ export default function UsuariosUnificado() {
           Nuevo Usuario
         </Button>
       </div>
+
+      {/* Personal del Dashboard: solo el superadministrador asigna acceso y rol */}
+      {(currentUser?.role === "super_admin" || (currentUser as any)?.is_super_admin === true) && <StaffCandidatesPanel />}
 
       {/* Filtros y búsqueda */}
       <Card>

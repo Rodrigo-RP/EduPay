@@ -7,7 +7,7 @@ No inferir que JFR carece de producción porque Replit no tenga una base publica
 Puede existir una base externa; comparar destinos configurados no confirma cuál
 es la base real. Un nombre JFR en fixtures tampoco es evidencia suficiente.
 
-**Why:** La consulta administrada de producción no cubre bases Neon externas.
+**Why:** La consulta administrada de producción no cubre bases externas (antes Neon; desde el 11-nov-2026 la producción es Cloud SQL PG18, ver docs/DESPLIEGUE-CLOUD-RUN.md).
 Confundir esa ausencia con inexistencia de producción llevó a sugerir publicar
 sin haber identificado primero la base correcta.
 

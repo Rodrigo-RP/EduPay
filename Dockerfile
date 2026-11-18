@@ -1,4 +1,4 @@
-# EduPay para Cloud Run: un solo proceso Node.js (ver docs/PUBLICACION.md).
+# EduPay para Cloud Run: un solo proceso Node.js (ver docs/DESPLIEGUE-CLOUD-RUN.md).
 # La imagen no contiene secretos ni ejecuta migraciones, seeds ni DDL.
 
 FROM node:22-slim AS build

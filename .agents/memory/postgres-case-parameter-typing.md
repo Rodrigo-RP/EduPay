@@ -1,6 +1,6 @@
 ---
 name: PostgreSQL CASE parameter typing
-description: Casteos explícitos para parámetros reutilizados dentro de expresiones CASE en PostgreSQL mediante Neon.
+description: Casteos explícitos para parámetros reutilizados dentro de expresiones CASE en PostgreSQL (descubierto en Neon; vale igual para Cloud SQL).
 ---
 
 Cuando un parámetro de una consulta parametrizada se reutilice en un `CASE` junto con una columna tipada, se debe declarar su tipo explícitamente en cada contexto sensible (por ejemplo, `::varchar` o `::integer`).

@@ -83,7 +83,8 @@ app.use(express.urlencoded({ extended: false, limit: '10mb' }));
   server.listen({
     port,
     host: "0.0.0.0",
-    reusePort: true,
+    // SO_REUSEPORT no existe en Windows (ENOTSUP); en Linux (Cloud Run, CI) se conserva.
+    reusePort: process.platform !== "win32",
   }, () => {
     log(`serving on port ${port}`);
     log(`WebSocket server ready for real-time updates`);

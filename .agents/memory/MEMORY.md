@@ -42,8 +42,8 @@
 - [RPT-04 Admisiones](rpt04-admisiones.md) — ADMISSIONS.READ (no REPORTS.READ); monto_descuento de charges.beca_aplicada; ciclo reutiliza mismo $N en EXISTS y LATERAL; tests ADM y STC migrados.
 - [RPT-05 Consejo](rpt05-consejo.md) — FINANCIAL.READ; R7 (con :campusId) nunca usado por frontend; mes 0-indexed en Select → +1 para fecha_desde/fecha_hasta; por_nivel ahora real (no []).
 - [RPT-06 Contable](rpt06-contable.md) — FISCAL.READ; R9 ignoraba ?periodo en SQL (bug corregido); auxiliar_contable puede READ pero NO EXPORT; botón IntegracionContadores migrado a exportarContable() con blob-download.
-- [RPT-07 Antigüedad Saldos](rpt07-antiguedad-saldos.md) — REPORTS.READ; 6 buckets inclusivos; sin filtro fecha (buckets = estado actual); no reutilizar $N con tipos distintos en Neon.
-- [Conciliacion scoring engine](conciliacion-scoring-engine.md) — applyReconciliation (export); score=100 vs 90-99 branching; cola revisión = query sobre bank_transactions.confianza_pct+conciliado_at; Neon usa WebSocket, psql falla con "endpoint disabled".
+- [RPT-07 Antigüedad Saldos](rpt07-antiguedad-saldos.md) — REPORTS.READ; 6 buckets inclusivos; sin filtro fecha (buckets = estado actual); no reutilizar $N con tipos distintos en PostgreSQL.
+- [Conciliacion scoring engine](conciliacion-scoring-engine.md) — applyReconciliation (export); score=100 vs 90-99 branching; cola revisión = query sobre bank_transactions.confianza_pct+conciliado_at; nota histórica sobre Neon (producción ya es Cloud SQL PG18; db.ts usa pg).
 - [Bank transactions importar blindaje](bank-tx-importar.md) — guard PAYMENTS.PROCESS; dedup mig-016 UNIQUE parcial (referencia IS NOT NULL); tenant_id desde JWT; rowCount===1 para contador real; skipped vs failed distintos.
 - [Rate limit acumulado entre runs de Vitest](rate-limit-vitest-runs.md) — el rate limiter del servidor (300 req/5min) acumula entre runs consecutivos sin reinicio; solución: WorkflowsRestart antes de cada npx vitest run completo.
 - [Admin rate-limit isolation](admin-rate-limit-isolation.md) — validar JWT antes del limiter y aislar el bucket por tenant/usuario evita que proxies o sesiones vencidas bloqueen el panel.
@@ -52,14 +52,14 @@
 - [IEDU validators & CURP](iedu-curp-validators.md) — CURP_RE oficial SAT, path ../lib/validators, prefijos canónicos de test, CHECK constraint TEAT% para rollback tests.
 - [Assistant N4/N5 suggest pattern](assistant-n4-n5-suggest.md) — detectSuggestTrigger(msg) Forma A en assistant-knowledge; resolveSuggestContext(trigger,ctx) async en assistant-actions; normalize() elimina $ y comas → extraer nombre y monto del msg ORIGINAL antes de normalize.
 - [Beca+condonación asistente](beca-condonacion-assistant.md) — asignar_beca usa doble-pasada (post-porcentaje vs pre-porcentaje); condonar_saldo requiere inputs_required en SuggestActionSignal; GitHub push via execSync con x-access-token en función impure.
-- [NIT Narrative Insights](nit-narrative-insights.md) — generateNarrativeInsights: NI-03 usa SQL idéntico a fetchRiesgoData + computeRiesgoScore; resumen de RPT-08 usa count_alumnos (no count); $N con tipos distintos en Neon fuerza índice separado.
+- [NIT Narrative Insights](nit-narrative-insights.md) — generateNarrativeInsights: NI-03 usa SQL idéntico a fetchRiesgoData + computeRiesgoScore; resumen de RPT-08 usa count_alumnos (no count); $N con tipos distintos en PostgreSQL fuerza índice separado.
 - [Portal Padres E2E lessons](portal-padres-e2e-lessons.md) — apiRequest devuelve Response no JSON; seed necesita tenant_id en guardians+charges; paymentHistory ordena ASC no DESC.
 - [Facturación infraestructura](facturacion-infra.md) — campus_invoicing_config (mig-019); InvoicingProvider interfaz; factory get-invoicing-provider; timbrar-lote → 503 honesto sin proveedor; adaptador facturapi pendiente.
 - [Liquidación SPEI](spei-settlement.md) — SPEI es asíncrono: un Intent pendiente nunca acredita cargos; sólo el webhook firmado e idempotente liquida el ledger.
 - [Schema drift reglas](schema-drift-rules.md) — patrón de alineación Drizzle↔DB; tablas huérfanas conocidas; columnas/CHECKs no declarados históricos ya corregidos.
 - [Audit log patterns](audit-log-patterns.md) — logAuditEvent(client,opts) propagates errors; student ops use BEGIN/COMMIT; payments use FOR UPDATE; storage.createStudent uses separate Drizzle connection (use raw SQL for transactions).
 - [Scholarship dashboard definition](scholarship-dashboard.md) — panel y asistente cuentan beneficiarios distintos, activos y con beca vigente del campus actual.
-- [PostgreSQL CASE parameter typing](postgres-case-parameter-typing.md) — al reutilizar parámetros SQL en CASE con Neon, castear cada uso evita inferencias text/varchar incompatibles.
+- [PostgreSQL CASE parameter typing](postgres-case-parameter-typing.md) — al reutilizar parámetros SQL en CASE en PostgreSQL, castear cada uso evita inferencias text/varchar incompatibles.
 - [Anthropic strict tool schemas](anthropic-strict-tool-schemas.md) — Anthropic strict tools rechaza límites numéricos JSON Schema; validar rangos en el dispatcher.
 - [Assistant conversation memory](assistant-conversation-memory.md) — El contexto canónico de Claude vive sólo en servidor y se invalida al cambiar sesión o acceso efectivo.
 - [Assistant figure associations](assistant-figure-associations.md) — En resúmenes financieros, validar cada cifra junto con su indicador antes de aceptar texto de un LLM.

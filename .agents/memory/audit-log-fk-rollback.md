@@ -26,7 +26,7 @@ Si `audit_log.user_id` tiene FK → `users.id` (aplicada a nivel PostgreSQL real
 
 1. El INSERT falla → la conexión pg entra en **estado abortado**.
 2. `.catch(() => {})` captura el error JavaScript, pero el estado pg sigue abortado.
-3. `await client.query('COMMIT')` en una conexión abortada → PostgreSQL ejecuta ROLLBACK silenciosamente sin lanzar error JavaScript en esta versión de `@neondatabase/serverless`.
+3. `await client.query('COMMIT')` en una conexión abortada → PostgreSQL ejecuta ROLLBACK silenciosamente sin lanzar error JavaScript en esta versión de `@neondatabase/serverless` (driver anterior; el servidor ahora usa `pg`, pero esa conducta de PostgreSQL con COMMIT en transacción abortada sigue siendo la causa: no confiar en que COMMIT falle).
 4. El servidor responde **HTTP 200** con el body de éxito.
 5. El UPDATE principal (`estado_conciliacion = 'ignorado'`) **fue revertido** — la DB sigue en 'pendiente'.
 

@@ -28,7 +28,7 @@ fecha_desde="2026-08-01" → start="2026-07-01", end="2026-07-31".
 - Reemplazó: mora_anterior: Math.max(0, 100-tasaCobro+3) → real computation
 - Devuelve tasa_cobro_anterior (interno); el GET handler la extrae con destructuring antes de res.json()
 
-## Test gotcha: Neon tipos inconsistentes
+## Test gotcha: PostgreSQL tipos inconsistentes (visto en Neon; aplica a cualquier PostgreSQL)
 
 INSERT INTO payments VALUES ($1,$2,'...',$3,'exitoso',$3::date) → error "inconsistent types deduced for parameter $3".
 **Fix:** usar índice separado para fecha_pago y created_at aunque el valor sea el mismo: ($3, $4::date) con params [..., prevMid, prevMid].

@@ -42,8 +42,8 @@ EduPay **nunca** persiste bytes de `.cer`/`.key` en DB. Solo guarda el `organiza
 
 **How to apply:** Mantener esta restricción mientras se prepara la integración de producción. Para multi-RFC/Live se necesitan User Keys para alta/configuración, una clave aislada por organización y datos fiscales completos del receptor; no quitar el guard de sandbox como atajo.
 
-## Neon: aplicar migraciones fuera de tests
-- `neon()` (cliente HTTP) falla con "The endpoint has been disabled" si no hay conexión activa
-- Usar `npx tsx /tmp/migrate.ts` importando `pool` desde `server/db.ts` — usa WebSocket y funciona
+## Migraciones fuera de tests (nota histórica sobre Neon)
+- Era una limitación del cliente HTTP de Neon (`neon()`); ya no aplica: el servidor usa el driver `pg` y producción es Cloud SQL PG18 (desde 11-nov-2026).
+- Las migraciones de producción van solo por `npm run db:migrate:prod` (simulacro por defecto, `--apply --confirm=<base>` para escribir, con autorización); en pruebas, `npm run db:migrate` contra una base marcada `edupay:test`.
 
 **Why:** La interfaz y factory son el contrato estable; el adaptador concreto puede añadirse sin tocar fiscal.ts ni los tests CIC.

@@ -57,4 +57,4 @@ Porcentajes redondeados a 2 decimales; la suma puede desviar ±0.1 por redondeo 
 
 ## Fixture de test — gotcha
 
-Usar JS para calcular `fecha_emision` (30 días antes del vencimiento). NO usar `$4::date - INTERVAL '30 days'` cuando `$4` ya se usa como string (ciclo) — Neon lanza "inconsistent types deduced for parameter".
+Usar JS para calcular `fecha_emision` (30 días antes del vencimiento). NO usar `$4::date - INTERVAL '30 days'` cuando `$4` ya se usa como string (ciclo) — PostgreSQL lanza "inconsistent types deduced for parameter" (visto en Neon).

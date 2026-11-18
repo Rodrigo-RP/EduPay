@@ -1757,6 +1757,27 @@ export const firebaseStudents = pgTable("firebase_students", {
 		}).onDelete("cascade"),
 ]);
 
+// Personal del Dashboard propuesto como candidato a usuario de EduPay. No da acceso: lo asigna un superadministrador.
+export const firebaseStaffCandidates = pgTable("firebase_staff_candidates", {
+	id: serial().primaryKey().notNull(),
+	tenantId: integer("tenant_id").notNull(),
+	firebaseUid: varchar("firebase_uid", { length: 128 }).notNull(),
+	nombreCompleto: varchar("nombre_completo", { length: 255 }).notNull(),
+	email: varchar({ length: 255 }),
+	rolDashboard: varchar("rol_dashboard", { length: 64 }),
+	registroSep: jsonb("registro_sep").default([]).notNull(),
+	estado: varchar({ length: 16 }).default('activo').notNull(),
+	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	unique("firebase_staff_candidates_tenant_uid_key").on(table.tenantId, table.firebaseUid),
+	foreignKey({
+			columns: [table.tenantId],
+			foreignColumns: [tenants.id],
+			name: "firebase_staff_candidates_tenant_id_fkey"
+		}).onDelete("cascade"),
+]);
+
 // Nivel escolar de Firebase → campus de EduPay, por escuela. Lo mantiene la escuela.
 export const firebaseCampusMap = pgTable("firebase_campus_map", {
 	id: serial().primaryKey().notNull(),

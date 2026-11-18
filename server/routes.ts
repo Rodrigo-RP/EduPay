@@ -46,6 +46,7 @@ import { registerEmailWebhookRuntime } from "./lib/email/webhook-runtime";
 import { financialRequestValidation } from "./lib/financial-request-validation";
 import { registerBootstrapRoute } from "./routes/bootstrap";
 import { registerSsoRoutes } from "./routes/sso";
+import { registerStaffCandidateRoutes } from "./routes/staff-candidates";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // ── Trust proxy (Replit reverse proxy) ──────────────────────────────────────
@@ -99,6 +100,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Montar módulos de dominio (en orden lógico de dependencia) ────────────────
   registerAuthRoutes(app);
   registerSsoRoutes(app);
+  registerStaffCandidateRoutes(app);
   registerUserRoutes(app);
   registerAdminRoutes(app);
   registerChargesRoutes(app);

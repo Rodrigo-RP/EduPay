@@ -44,3 +44,35 @@ describe("arranque seguro de producción", () => {
     expect(Object.keys(result.metafile?.inputs ?? {}).filter(file => file.split("/").includes("test-support"))).toEqual([]);
   });
 });
+
+describe("arranque de producción · motivo del fallo de conexión (sin datos sensibles)", () => {
+  const fails = (error: unknown) => validateProductionStartup(env(), async () => { throw error; });
+
+  it.each([
+    [Object.assign(new Error("password authentication failed for user \"edupay_app\""), { code: "28P01" }), "28P01"],
+    [Object.assign(new Error("connect ECONNREFUSED 10.1.2.3:5432"), { code: "ECONNREFUSED" }), "ECONNREFUSED"],
+    [Object.assign(new Error("database \"x\" does not exist"), { code: "3D000" }), "3D000"],
+  ])("incluye el código del error %#", async (error, code) => {
+    await expect(fails(error)).rejects.toThrow(code);
+  });
+
+  it("detecta una contraseña vacía (el cliente nunca la envía)", async () => {
+    await expect(fails(new Error("SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string"))).rejects.toThrow(/contraseña de DATABASE_URL está vacía/);
+  });
+
+  it("nunca filtra la cadena de conexión, el usuario ni el mensaje original", async () => {
+    const secret = "postgresql://edupay_app:SuperClave123@10.9.8.7/edupay";
+    const error = Object.assign(new Error("connect failed for " + secret), { code: "ECONNREFUSED" });
+    const thrown = await fails(error).catch(e => String(e.message));
+    expect(thrown).not.toContain("SuperClave123");
+    expect(thrown).not.toContain("10.9.8.7");
+    expect(thrown).not.toContain("edupay_app");
+    expect(thrown).toContain("no se pudo verificar el marcador");
+  });
+
+  it("ignora códigos con formato raro y no falla con errores que no son Error", async () => {
+    await expect(fails(Object.assign(new Error("x"), { code: "<script>alert(1)</script>" }))).rejects.toThrow(/causa no identificada/);
+    await expect(fails("texto suelto")).rejects.toThrow(/causa no identificada/);
+    await expect(fails(null)).rejects.toThrow(/causa no identificada/);
+  });
+});

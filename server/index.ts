@@ -7,7 +7,8 @@ async function main() {
 // Primero guardas, después módulos de aplicación, workers y servidor.
 // Los imports dinámicos impiden que un import estático con efectos se adelante.
 await validateProductionStartup(process.env, async () => {
-  const reader = new Pool({ connectionString: process.env.DATABASE_URL });
+  // El tiempo de espera evita que un arranque fallido se quede colgado esperando a la base.
+  const reader = new Pool({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 10_000 });
   try {
     const result = await reader.query(DATABASE_MARKER_SQL);
     return result.rows[0]?.environment_marker;
@@ -92,5 +93,6 @@ app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 }
 void main().catch(error => {
   console.error(error instanceof ProductionStartupError ? error.message : "No se pudo iniciar EduPay. Revisa la configuración y el esquema de la base.");
-  process.exitCode = 1;
+  // Termina de inmediato: una conexión abierta mantendría vivo el proceso y Cloud Run tardaría en declarar el fallo.
+  process.exit(1);
 });

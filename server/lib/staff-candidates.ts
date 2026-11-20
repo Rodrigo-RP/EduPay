@@ -29,6 +29,7 @@ export interface StaffCandidateRow {
   nombre_completo: string;
   email: string | null;
   rol_dashboard: string | null;
+  departamento: string | null;
   registro_sep: Array<{ clave: string; nivel: string | null }>;
   estado: string;
   synced_at: string;
@@ -41,7 +42,7 @@ export interface StaffCandidateRow {
 export async function listStaffCandidates(db: Queryable, tenantId?: number): Promise<StaffCandidateRow[]> {
   const filter = tenantId ? "WHERE c.tenant_id = $1" : "";
   const rows = (await db.query(
-    `SELECT c.id, c.tenant_id, c.firebase_uid, c.nombre_completo, c.email, c.rol_dashboard, c.registro_sep, c.estado, c.synced_at,
+    `SELECT c.id, c.tenant_id, c.firebase_uid, c.nombre_completo, c.email, c.rol_dashboard, c.departamento, c.registro_sep, c.estado, c.synced_at,
             u.id AS user_id, u.role AS user_role, u.campus_id AS user_campus_id, u.is_active AS user_is_active,
             u.custom_permissions AS user_custom_permissions
        FROM firebase_staff_candidates c
@@ -64,7 +65,7 @@ export async function listStaffCandidates(db: Queryable, tenantId?: number): Pro
     }
     return {
       id: Number(r.id), tenant_id: Number(r.tenant_id), firebase_uid: String(r.firebase_uid), nombre_completo: String(r.nombre_completo),
-      email: r.email ?? null, rol_dashboard: r.rol_dashboard ?? null, registro_sep: registro, estado: String(r.estado),
+      email: r.email ?? null, rol_dashboard: r.rol_dashboard ?? null, departamento: r.departamento ?? null, registro_sep: registro, estado: String(r.estado),
       synced_at: new Date(r.synced_at).toISOString(), campus_sugeridos: Array.from(sugeridos).sort((a, b) => a - b),
       usuario: r.user_id == null ? null : {
         id: Number(r.user_id), role: String(r.user_role), campus_id: r.user_campus_id == null ? null : Number(r.user_campus_id),

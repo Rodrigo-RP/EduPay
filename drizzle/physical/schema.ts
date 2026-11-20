@@ -1765,6 +1765,7 @@ export const firebaseStaffCandidates = pgTable("firebase_staff_candidates", {
 	nombreCompleto: varchar("nombre_completo", { length: 255 }).notNull(),
 	email: varchar({ length: 255 }),
 	rolDashboard: varchar("rol_dashboard", { length: 64 }),
+		departamento: varchar({ length: 128 }),
 	registroSep: jsonb("registro_sep").default([]).notNull(),
 	estado: varchar({ length: 16 }).default('activo').notNull(),
 	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),

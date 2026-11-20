@@ -128,7 +128,7 @@ describe("Listado", () => {
   it("sugiere campus por nivel de registroSep y marca al que ya tiene usuario", async () => {
     const query = vi.fn(async (sql: string) => {
       if (/FROM firebase_staff_candidates/.test(sql)) return { rows: [
-        { id: 1, tenant_id: 7, firebase_uid: "u1", nombre_completo: "Ana", email: null, rol_dashboard: "Director", estado: "activo", synced_at: "2026-11-18T00:00:00Z",
+        { id: 1, tenant_id: 7, firebase_uid: "u1", nombre_completo: "Ana", email: null, rol_dashboard: "Director", departamento: "Director General", estado: "activo", synced_at: "2026-11-18T00:00:00Z",
           registro_sep: [{ clave: "22PPR0186I", nivel: "Primaria" }], user_id: 50, user_role: "administrador_campus", user_campus_id: 3, user_is_active: true, user_custom_permissions: null },
         { id: 2, tenant_id: 7, firebase_uid: "u2", nombre_completo: "Beto", email: "b@e.mx", rol_dashboard: "Maestro", estado: "activo", synced_at: "2026-11-18T00:00:00Z",
           registro_sep: [], user_id: null },

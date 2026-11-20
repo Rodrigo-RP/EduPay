@@ -45,6 +45,8 @@ export interface BridgeStaff {
   estado: "activo" | "baja";
   /** Rol del Dashboard (Director, Coordinador, Administrativo…): solo referencia. */
   rol: string | null;
+  /** Departamento ("Director General" es el departamento de un Director, no un rol). Opcional: solo referencia. */
+  departamento?: string | null;
   idEscuela: string | null;
   nombre: string | null;
   primerApellido: string | null;
@@ -105,6 +107,7 @@ export interface LocalStaffCandidate {
   nombreCompleto: string;
   email: string | null;
   rolDashboard: string | null;
+  departamento: string | null;
   registroSep: Array<{ clave: string; nivel: string | null }>;
   estado: string;
 }
@@ -114,6 +117,7 @@ export interface StaffCandidateUpsert {
   nombre_completo: string;
   email: string | null;
   rol_dashboard: string | null;
+  departamento: string | null;
   registro_sep: Array<{ clave: string; nivel: string | null }>;
   estado: "activo" | "baja";
   isNew: boolean;
@@ -445,12 +449,13 @@ export function planFirebaseSync(payload: BridgePayload, local: LocalState): Syn
     });
     const next = {
       uid: p.uid, nombre_completo: nombre, email: orNull(p.email)?.toLowerCase() ?? null, rol_dashboard: orNull(p.rol),
+      departamento: orNull(p.departamento),
       registro_sep: registro, estado: p.estado,
     };
     const cur = local.staffByUid.get(p.uid);
     if (!cur) { staffUpserts.push({ ...next, isNew: true }); continue; }
     const changed = cur.nombreCompleto !== next.nombre_completo || cur.email !== next.email || cur.rolDashboard !== next.rol_dashboard
-      || cur.estado !== next.estado || !sameRegistro(cur.registroSep, next.registro_sep);
+      || cur.departamento !== next.departamento || cur.estado !== next.estado || !sameRegistro(cur.registroSep, next.registro_sep);
     if (changed) staffUpserts.push({ ...next, isNew: false });
   }
   for (const uid of Array.from(local.staffByUid.keys())) if (!staffSeen.has(uid)) warnings.personalLocalAusenteEnPuente++;

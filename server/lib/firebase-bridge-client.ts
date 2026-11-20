@@ -82,7 +82,8 @@ const payloadSchema = z.object({
   }).passthrough()),
   // Opcional: un Dashboard que todavía no envía personal sigue siendo válido.
   personal: z.array(z.object({
-    uid: z.string().min(1), estado: z.enum(["activo", "baja"]), rol: nullableText, idEscuela: nullableText, nombre: nullableText,
+    uid: z.string().min(1), estado: z.enum(["activo", "baja"]), rol: nullableText, departamento: nullableText.optional(),
+    idEscuela: nullableText, nombre: nullableText,
     primerApellido: nullableText, segundoApellido: nullableText, email: nullableText,
     registroSep: z.array(z.object({ clave: nullableText, nivel: nullableText }).passthrough()).nullish().transform((v) => v ?? null),
   }).passthrough()).optional(),

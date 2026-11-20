@@ -1,0 +1,1 @@
+ALTER TABLE "firebase_staff_candidates" ADD COLUMN "departamento" varchar(128);

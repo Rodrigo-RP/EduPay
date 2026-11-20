@@ -19,6 +19,7 @@ interface Candidate {
   nombre_completo: string;
   email: string | null;
   rol_dashboard: string | null;
+  departamento: string | null;
   registro_sep: Array<{ clave: string; nivel: string | null }>;
   estado: string;
   campus_sugeridos: number[];
@@ -84,7 +85,7 @@ export default function StaffCandidatesPanel() {
   }
 
   const term = filter.trim().toLowerCase();
-  const shown = candidates.filter((c) => !term || `${c.nombre_completo} ${c.email ?? ""} ${c.rol_dashboard ?? ""}`.toLowerCase().includes(term));
+  const shown = candidates.filter((c) => !term || `${c.nombre_completo} ${c.email ?? ""} ${c.rol_dashboard ?? ""} ${c.departamento ?? ""}`.toLowerCase().includes(term));
   const baseline = role ? new Set(DEFAULT_ROLE_PERMISSIONS[role as UserRole] ?? []) : new Set<string>();
   const needsEmail = !!target && !target.email;
   const canSubmit = !!role && !!campusId && (!needsEmail || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) && !assign.isPending;
@@ -99,7 +100,7 @@ export default function StaffCandidatesPanel() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Input placeholder="Buscar por nombre, correo o rol del Dashboard" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Buscar personal" />
+        <Input placeholder="Buscar por nombre, correo, rol o departamento" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Buscar personal" />
         {isLoading && <p className="text-sm text-slate-500">Cargando…</p>}
         {isError && <p className="text-sm text-red-600">No se pudo cargar la lista de personal.</p>}
         {!isLoading && !isError && candidates.length === 0 && (
@@ -113,6 +114,7 @@ export default function StaffCandidatesPanel() {
                 <p className="text-sm text-slate-600">{c.email ?? "Sin correo en el Dashboard"}</p>
                 <div className="mt-1 flex flex-wrap gap-1">
                   {c.rol_dashboard && <Badge variant="outline">Dashboard: {c.rol_dashboard}</Badge>}
+                  {c.departamento && <Badge variant="outline">Departamento: {c.departamento}</Badge>}
                   {c.estado !== "activo" && <Badge variant="destructive">De baja en el Dashboard</Badge>}
                   {c.usuario && <Badge>{getRoleDisplayName(c.usuario.role as UserRole)}{c.usuario.is_active ? "" : " (desactivado)"}</Badge>}
                   {c.usuario && c.usuario.custom_permissions.length > 0 && <Badge variant="secondary">+{c.usuario.custom_permissions.length} permisos</Badge>}
@@ -136,7 +138,7 @@ export default function StaffCandidatesPanel() {
           <DialogHeader>
             <DialogTitle>Asignar acceso a {target?.nombre_completo}</DialogTitle>
             <DialogDescription>
-              Se creará su usuario de EduPay y entrará solo por el botón del Dashboard. Rol en el Dashboard: {target?.rol_dashboard ?? "—"}.
+              Se creará su usuario de EduPay y entrará solo por el botón del Dashboard. Rol en el Dashboard: {target?.rol_dashboard ?? "—"}{target?.departamento ? ` · Departamento: ${target.departamento}` : ""}.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">

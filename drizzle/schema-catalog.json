@@ -5728,6 +5728,18 @@
     },
     {
       "schema_name": "public",
+      "table_name": "firebase_staff_candidates",
+      "name": "departamento",
+      "position": 11,
+      "type": "character varying(128)",
+      "not_null": false,
+      "default_value": null,
+      "identity_kind": "",
+      "generated_kind": "",
+      "collation": "default"
+    },
+    {
+      "schema_name": "public",
       "table_name": "firebase_students",
       "name": "id",
       "position": 1,

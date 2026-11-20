@@ -302,6 +302,8 @@ export const firebase_staff_candidates = pgTable("firebase_staff_candidates", {
   nombre_completo: varchar("nombre_completo", { length: 255 }).notNull(),
   email:          varchar("email", { length: 255 }),
   rol_dashboard:  varchar("rol_dashboard", { length: 64 }),
+  // Departamento en el Dashboard ("Director General" no es un rol: es el departamento de un Director). Solo referencia.
+  departamento:   varchar("departamento", { length: 128 }),
   // [{ clave: "22PPR0186I", nivel: "primaria" }] — registroSep de Firebase con la clave normalizada.
   registro_sep:   jsonb("registro_sep").default([]).notNull(),
   estado:         varchar("estado", { length: 16 }).default("activo").notNull(),

@@ -46,7 +46,7 @@ export async function loadLocalState(db: Queryable, tenantId: number): Promise<L
         WHERE g.tenant_id = $1
           AND NOT EXISTS (SELECT 1 FROM external_identities ei WHERE ei.guardian_id = g.id AND ei.provider = 'firebase')`, [tenantId]),
     db.query(
-      `SELECT firebase_uid, nombre_completo, email, rol_dashboard, registro_sep, estado
+      `SELECT firebase_uid, nombre_completo, email, rol_dashboard, departamento, registro_sep, estado
          FROM firebase_staff_candidates WHERE tenant_id = $1`, [tenantId]),
   ]);
 
@@ -65,6 +65,7 @@ export async function loadLocalState(db: Queryable, tenantId: number): Promise<L
     unlinkedGuardianEmails: new Set(unlinkedGuardians.rows.map((r) => String(r.email ?? "")).filter(Boolean)),
     staffByUid: new Map(staff.rows.map((r): [string, LocalStaffCandidate] => [String(r.firebase_uid), {
       nombreCompleto: String(r.nombre_completo ?? ""), email: r.email ?? null, rolDashboard: r.rol_dashboard ?? null,
+      departamento: r.departamento ?? null,
       registroSep: Array.isArray(r.registro_sep) ? r.registro_sep : [], estado: String(r.estado ?? "activo"),
     }])),
   };
@@ -137,12 +138,13 @@ async function executePlan(client: Queryable, plan: SyncPlan, local: LocalState)
   // Candidatos de personal: solo se guardan o se actualizan. Nunca se crean usuarios ni vínculos desde la sincronización.
   for (const c of plan.staffUpserts) {
     await client.query(
-      `INSERT INTO firebase_staff_candidates (tenant_id, firebase_uid, nombre_completo, email, rol_dashboard, registro_sep, estado, synced_at)
-       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, now())
+      `INSERT INTO firebase_staff_candidates (tenant_id, firebase_uid, nombre_completo, email, rol_dashboard, departamento, registro_sep, estado, synced_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, now())
        ON CONFLICT (tenant_id, firebase_uid) DO UPDATE
          SET nombre_completo = EXCLUDED.nombre_completo, email = EXCLUDED.email, rol_dashboard = EXCLUDED.rol_dashboard,
+             departamento = EXCLUDED.departamento,
              registro_sep = EXCLUDED.registro_sep, estado = EXCLUDED.estado, synced_at = now()`,
-      [tenantId, c.uid, c.nombre_completo, c.email, c.rol_dashboard, JSON.stringify(c.registro_sep), c.estado],
+      [tenantId, c.uid, c.nombre_completo, c.email, c.rol_dashboard, c.departamento, JSON.stringify(c.registro_sep), c.estado],
     );
   }
 }

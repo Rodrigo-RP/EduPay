@@ -277,7 +277,7 @@ describe("Personal del Dashboard como candidato (sin dar acceso)", () => {
   });
 
   it("no repite candidatos sin cambios y detecta los que cambiaron", () => {
-    const same = { nombreCompleto: "Perp1 Gómez", email: "p1@escuela.mx", rolDashboard: "Administrativo", registroSep: [{ clave: "22PPR0186I", nivel: "primaria" }], estado: "activo" };
+    const same = { nombreCompleto: "Perp1 Gómez", email: "p1@escuela.mx", rolDashboard: "Administrativo", departamento: null, registroSep: [{ clave: "22PPR0186I", nivel: "primaria" }], estado: "activo" };
     const plan = planFirebaseSync(payload({ personal: [personal("p1"), personal("p2")] }), local({ staffByUid: new Map([["p1", same], ["p2", { ...same, rolDashboard: "Maestro" }]]) }));
     expect(plan.staffUpserts.map((s) => [s.uid, s.isNew])).toEqual([["p2", false]]);
     expect(plan.report.staffToUpdate).toBe(1);
@@ -295,8 +295,24 @@ describe("Personal del Dashboard como candidato (sin dar acceso)", () => {
   });
 
   it("avisa de candidatos locales que ya no vienen en el puente, sin borrarlos", () => {
-    const plan = planFirebaseSync(payload({ personal: [] }), local({ staffByUid: new Map([["gone", { nombreCompleto: "X", email: null, rolDashboard: null, registroSep: [], estado: "activo" }]]) }));
+    const plan = planFirebaseSync(payload({ personal: [] }), local({ staffByUid: new Map([["gone", { nombreCompleto: "X", email: null, rolDashboard: null, departamento: null, registroSep: [], estado: "activo" }]]) }));
     expect(plan.report.warnings.personalLocalAusenteEnPuente).toBe(1);
+  });
+
+  it("guarda el departamento (Director General) y detecta cuando cambia", () => {
+    const dg = personal("p1", { rol: "Director", departamento: "Director General" });
+    const first = planFirebaseSync(payload({ personal: [dg] }), local());
+    expect(first.staffUpserts[0]).toMatchObject({ rol_dashboard: "Director", departamento: "Director General", isNew: true });
+    const stored = { nombreCompleto: "Perp1 Gómez", email: "p1@escuela.mx", rolDashboard: "Director", departamento: "Contabilidad", registroSep: [{ clave: "22PPR0186I", nivel: "primaria" }], estado: "activo" };
+    const changed = planFirebaseSync(payload({ personal: [dg] }), local({ staffByUid: new Map([["p1", stored]]) }));
+    expect(changed.staffUpserts.map((s) => [s.uid, s.isNew, s.departamento])).toEqual([["p1", false, "Director General"]]);
+    const unchanged = planFirebaseSync(payload({ personal: [dg] }), local({ staffByUid: new Map([["p1", { ...stored, departamento: "Director General" }]]) }));
+    expect(unchanged.staffUpserts).toEqual([]);
+  });
+
+  it("un Dashboard anterior sin `departamento` sigue siendo válido (queda en null)", () => {
+    const plan = planFirebaseSync(payload({ personal: [personal("p1")] }), local());
+    expect(plan.staffUpserts[0].departamento).toBeNull();
   });
 
   it("apply: guarda candidatos con upsert y no inserta en users ni en external_identities para ellos", async () => {

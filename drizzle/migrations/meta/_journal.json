@@ -78,6 +78,13 @@
       "when": 1795018721127,
       "tag": "0010_firebase_staff_candidates",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795188808163,
+      "tag": "0011_firebase_staff_departamento",
+      "breakpoints": true
     }
   ]
 }

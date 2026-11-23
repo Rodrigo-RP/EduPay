@@ -41,10 +41,13 @@
 - **Local:** un PostgreSQL desechable (por ejemplo, un contenedor de Docker) marcado `edupay:test`. Nunca la base de producción.
 - Las pruebas aisladas (`npm run test:safety`) no necesitan base real, pero sí variables ficticias (`DATABASE_URL` falsa, `STRIPE_SECRET_KEY` de prueba). En Windows, ejecutar Vitest desde una ruta con la letra de unidad en mayúscula (`C:/...`), o `vi.mock` no coincide.
 
-## Estado (18-nov-2026)
-- Migraciones aplicadas en producción: 0000 a 0009. La **0010** (`firebase_staff_candidates`, personal del Dashboard) está generada y **sin aplicar**.
-- El servicio sigue en la revisión que se desplegó antes del SSO; falta construir y desplegar la imagen actual.
-- Datos del puente ya cargados (alumnos, tutores, familias, vínculos). Falta: acceso público (Propietario), Stripe real, RFC real del Instituto, y el lado Dashboard del SSO y del personal (`docs/PUENTE-PERSONAL-DASHBOARD.md`).
+## Estado (20-nov-2026)
+- Migraciones aplicadas en producción: **0000 a 0011** (12 en el historial; la 0011 agrega `departamento` a `firebase_staff_candidates`). Verificado con `db:verify:prod`: estructura idéntica al catálogo.
+- El servicio y el Job `edupay-sync-puente` usan la imagen construida el 20-nov con la clave publicable de **prueba** de Stripe. El servicio es **público** (`allUsers` con `run.invoker`) desde el 20-nov.
+- El puente Dashboard → EduPay funciona en lectura: el simulacro del Job trae 23 candidatos de personal. **La sincronización de datos nueva (`--apply`) no se aplica todavía**; se aplica justo antes de probar el flujo completo con SSO.
+- Pendiente: llave `sk_test_` y webhook de Stripe (los pagos de prueba aún fallan), RFC real del Instituto, SSO (fase B, ver `docs/PUENTE-PERSONAL-DASHBOARD.md`), asignar accesos del personal desde el panel.
+- Respaldo automático diario de Cloud SQL activo (13:00 UTC). Antes de cada migración o `--apply` se toma además un respaldo manual.
+- En Cloud Shell, para migrar o verificar, instalar los cuatro paquetes **juntos** (`npm install --no-save --no-package-lock drizzle-orm@0.45.4 pg@8.23.1 tsx@4.23.15 zod@4.6.7` en `~`); instalar uno solo borra los demás. Un Editor no puede leer secretos: la clave de `edupay_app` se teclea con `read -rs`.
 
 ## Lo que ya no aplica (no usar como guía)
 - Publicación en Replit (Reserved VM, `deploymentTarget`, base administrada de Replit) y `docs/PUBLICACION.md`.

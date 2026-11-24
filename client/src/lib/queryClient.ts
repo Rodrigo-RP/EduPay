@@ -1,10 +1,17 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { redirectGuardianToLogin } from "./guardian-session";
+import { isSsoToken, endSsoSession } from "./sso-session";
 
 async function notifyInvalidSession(res: Response, requestToken: string | null) {
   if (typeof window === "undefined") return;
   // Una respuesta de la sesión anterior no invalida la que acaba de entrar.
   if (localStorage.getItem("auth_token") !== requestToken) return;
+  // Sesión iniciada desde el Dashboard que ya no sirve (venció por inactividad, tope, baja): se regresa al Dashboard.
+  if (isSsoToken(requestToken) && (res.status === 401 || res.status === 403)) {
+    const body = await res.clone().json().catch(() => null) as { code?: string; message?: string } | null;
+    const sessionGone = res.status === 401 || body?.message === "Token inválido";
+    if (sessionGone) { void endSsoSession(); return; }
+  }
   if (localStorage.getItem("auth_type") === "guardian" && (res.status === 401 || res.status === 403)) {
     redirectGuardianToLogin();
     window.dispatchEvent(new Event("auth:invalid-session"));
@@ -93,6 +100,8 @@ export const getQueryFn: <T>(options: {
 
     if (res.status === 401) {
       await notifyInvalidSession(res, token);
+      // Sesión del Dashboard: `endSsoSession` ya limpia y regresa al Dashboard; no competir con otra redirección.
+      if (isSsoToken(token)) return null;
       // Session expired or invalid — clear and redirect to login.
       // NEVER auto-reauthenticate: doing so with stored credentials is a
       // privilege-escalation risk (e.g. a guardian JWT expiring could silently

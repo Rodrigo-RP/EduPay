@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { GraduationCap, Loader2, AlertCircle, CheckCircle, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { markSsoActivity } from "@/lib/sso-session";
 
 type Phase = "loading" | "totp" | "success" | "error";
 
@@ -75,6 +76,7 @@ export default function SsoCallback() {
         localStorage.setItem("auth_token", data.token);
         localStorage.setItem("auth_type", data.kind === "guardian" ? "guardian" : "user");
         localStorage.setItem("auth_user", JSON.stringify(data.kind === "guardian" ? data.guardian : data.user));
+        markSsoActivity();
         setPhase("success");
         // Recarga completa para que AuthProvider (montado en la raíz) relea localStorage.
         setTimeout(() => { window.location.href = data.kind === "guardian" ? "/portal-3clics" : "/"; }, 600);

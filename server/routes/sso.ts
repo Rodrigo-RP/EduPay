@@ -1,17 +1,19 @@
 import type { Express, Response } from "express";
 import { pool } from "../db";
 import { MODULES, ACTIONS } from "@shared/permissions";
-import { authenticateToken, requireSuperAdmin, hasPermissionForUser } from "./shared";
+import jwt from "jsonwebtoken";
+import { authenticateToken, requireSuperAdmin, hasPermissionForUser, JWT_SECRET } from "./shared";
 import { auditLogger } from "../audit-retry";
 import { loadSsoConfig, type SsoConfig } from "../lib/sso/config";
 import { SsoError, verifySsoAssertion, type SsoErrorCode } from "../lib/sso/assertion";
-import { checkEligibility, exchangeAssertion, linkExternalIdentity, unlinkExternalIdentity, writeAudit } from "../lib/sso/service";
+import { checkEligibility, exchangeAssertion, renewSsoSession, linkExternalIdentity, unlinkExternalIdentity, writeAudit } from "../lib/sso/service";
 
 const HTTP_STATUS: Record<SsoErrorCode, number> = {
   not_configured: 503,
   invalid_assertion: 401,
   replayed: 401,
   invalid_totp: 401,
+  session_ended: 401,
   school_not_enabled: 403,
   not_linked: 403,
   tenant_mismatch: 403,
@@ -42,7 +44,7 @@ function sendSsoError(res: Response, err: unknown, context: string): Response {
 export function registerSsoRoutes(app: Express, env: NodeJS.ProcessEnv = process.env): void {
   let cached: { key: string; result: ReturnType<typeof loadSsoConfig> } | null = null;
   const getConfig = () => {
-    const key = [env.SSO_ENABLED, env.SSO_PUBLIC_KEY, env.SSO_ISSUER, env.SSO_AUDIENCE, env.SSO_SESSION_TTL_MINUTES, env.SSO_ASSERTION_MAX_AGE_SECONDS].join("|");
+    const key = [env.SSO_ENABLED, env.SSO_PUBLIC_KEY, env.SSO_ISSUER, env.SSO_AUDIENCE, env.SSO_SESSION_TTL_MINUTES, env.SSO_IDLE_MINUTES, env.SSO_ASSERTION_MAX_AGE_SECONDS].join("|");
     if (!cached || cached.key !== key) cached = { key, result: loadSsoConfig(env) };
     return cached.result;
   };
@@ -81,6 +83,31 @@ export function registerSsoRoutes(app: Express, env: NodeJS.ProcessEnv = process
       return res.json({ ...session, expires_in: expiresInSeconds });
     } catch (err) {
       return sendSsoError(res, err, "exchange");
+    }
+  });
+
+  // ── Renovación de una sesión SSO con uso ──────────────────────────────────────────────────────
+  // El cliente la pide mientras la persona usa EduPay. Solo renueva un token que NO ha vencido: pasada la
+  // ventana de inactividad el token vence solo y no hay forma de revivirlo; hay que entrar desde el Dashboard.
+  // Nunca pasa del tope absoluto de la sesión (ver `renewSsoSession`).
+  app.post("/api/auth/sso/renew", async (req, res) => {
+    const cfg = requireConfig(res);
+    if (!cfg) return;
+    res.set("Cache-Control", "no-store");
+    try {
+      const header = String(req.headers.authorization ?? "");
+      const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+      let decoded: any;
+      try {
+        decoded = jwt.verify(token, JWT_SECRET);
+      } catch {
+        throw new SsoError("session_ended", "Tu sesión terminó. Vuelve a entrar desde el Dashboard.");
+      }
+      if (decoded?.sso !== true) throw new SsoError("invalid_request", "Esta sesión no se inició desde el Dashboard.");
+      const { token: renewed, expiresInSeconds } = await renewSsoSession(decoded, cfg);
+      return res.json({ token: renewed, expires_in: expiresInSeconds });
+    } catch (err) {
+      return sendSsoError(res, err, "renew");
     }
   });
 

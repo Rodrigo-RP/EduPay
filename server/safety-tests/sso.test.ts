@@ -19,6 +19,10 @@ vi.mock("../db", () => ({
       if (state.failDb) throw new Error("db down");
       const s = sql.replace(/\s+/g, " ").trim();
       if (/FROM tenants WHERE firebase_id_escuela/.test(s)) return { rows: state.tenants.filter(t => t.firebase_id_escuela === p[0]).map(t => ({ id: t.id })) };
+      // Renovación de sesión: busca la identidad por persona (no por uid). Va antes de la búsqueda por uid.
+      if (/FROM external_identities WHERE provider = \$1 AND user_id = \$2/.test(s)) return { rows: state.identities.filter(i => i.provider === p[0] && i.user_id === p[1]) };
+      if (/FROM external_identities WHERE provider = \$1 AND guardian_id = \$2/.test(s)) return { rows: state.identities.filter(i => i.provider === p[0] && i.guardian_id === p[1]) };
+      if (/SELECT id, email, role, campus_id, tenant_id, is_active, is_super_admin, password_changed_at FROM users WHERE id = \$1/.test(s)) return { rows: state.users.filter(u => u.id === p[0]) };
       if (/FROM external_identities WHERE provider/.test(s)) return { rows: state.identities.filter(i => i.provider === p[0] && i.subject === p[1]) };
       if (/SELECT tenant_id, is_super_admin, role FROM users/.test(s)) return { rows: state.users.filter(u => u.id === p[0]) };
       if (/SELECT tenant_id FROM guardians/.test(s)) return { rows: state.guardians.filter(g => g.id === p[0]) };
@@ -61,7 +65,8 @@ vi.mock("../lib/totp-service", () => ({
 
 import { loadSsoConfig } from "../lib/sso/config";
 import { verifySsoAssertion, SsoError } from "../lib/sso/assertion";
-import { exchangeAssertion, linkExternalIdentity } from "../lib/sso/service";
+import { exchangeAssertion, renewSsoSession, linkExternalIdentity } from "../lib/sso/service";
+import { ssoTokenSeconds } from "../lib/sso/session";
 import { registerSsoRoutes } from "../routes/sso";
 
 const ec = generateKeyPairSync("ec", { namedCurve: "P-256" });
@@ -216,6 +221,137 @@ describe("Canje de la aserción por una sesión", () => {
   it("un fallo de la base no deja pasar a nadie", async () => {
     state.failDb = true;
     await expect(exchangeAssertion(claimsOf(), CFG)).rejects.toThrow("db down");
+  });
+});
+
+describe("Sesión con inactividad de 1 h y tope absoluto", () => {
+  const CAP_CFG = (() => {
+    const r = loadSsoConfig({ ...ENV, SSO_SESSION_TTL_MINUTES: "240", SSO_IDLE_MINUTES: "60" } as NodeJS.ProcessEnv);
+    if (!r.ok) throw new Error("config de prueba inválida");
+    return r.config;
+  })();
+  const SECRET = "j".repeat(48);
+  const NOW = () => Math.floor(Date.now() / 1000);
+  const staffToken = (over: Record<string, unknown> = {}, expiresIn = 3600) =>
+    jwt.sign({ id: 11, type: "user", sso: true, role: "administrador_general", twofa_verified: false, password_version: 0, session_started_at: NOW(), ...over }, SECRET, { expiresIn });
+  const guardianToken = (over: Record<string, unknown> = {}) =>
+    jwt.sign({ id: 21, type: "guardian", sso: true, password_version: 0, session_started_at: NOW(), ...over }, SECRET, { expiresIn: 3600 });
+
+  it("la configuración trae 60 min de inactividad por defecto y los acota", () => {
+    const d = loadSsoConfig(ENV);
+    expect(d.ok && d.config.idleMinutes).toBe(60);
+    const lo = loadSsoConfig({ ...ENV, SSO_IDLE_MINUTES: "1" } as NodeJS.ProcessEnv);
+    const hi = loadSsoConfig({ ...ENV, SSO_IDLE_MINUTES: "9999" } as NodeJS.ProcessEnv);
+    expect(lo.ok && lo.config.idleMinutes).toBe(5);
+    expect(hi.ok && hi.config.idleMinutes).toBe(240);
+  });
+
+  it("cada token vive la ventana de inactividad y nunca pasa del tope", () => {
+    const now = 1_000_000;
+    expect(ssoTokenSeconds("user", now, CAP_CFG, now)).toBe(3600);
+    expect(ssoTokenSeconds("user", now - 3 * 3600, CAP_CFG, now)).toBe(3600);
+    // Faltan 10 min para las 4 h: el token se acorta al tope.
+    expect(ssoTokenSeconds("user", now - (240 - 10) * 60, CAP_CFG, now)).toBe(600);
+    // Tope alcanzado o pasado: no se renueva.
+    expect(ssoTokenSeconds("user", now - 240 * 60, CAP_CFG, now)).toBe(0);
+    expect(ssoTokenSeconds("guardian", now - 5 * 3600, CAP_CFG, now)).toBe(0);
+    // Un inicio de sesión del futuro no sirve.
+    expect(ssoTokenSeconds("user", now + 3600, CAP_CFG, now)).toBe(0);
+  });
+
+  it("el canje entrega un token de 1 h, no de 4", async () => {
+    const out: any = await exchangeAssertion(claimsOf({ sub: "uidAdmin" }), CAP_CFG);
+    const c: any = jwt.decode(out.token);
+    expect(c.exp - c.iat).toBe(3600);
+    expect(out.expiresInSeconds).toBe(3600);
+  });
+
+  it("renueva al personal conservando el inicio de sesión y el 2FA verificado", async () => {
+    const startedAt = NOW() - 1800;
+    const out = await renewSsoSession(jwt.decode(staffToken({ id: 12, twofa_verified: true, session_started_at: startedAt })) as any, CAP_CFG);
+    const c: any = jwt.decode(out.token);
+    expect(c).toMatchObject({ id: 12, sso: true, type: "user", twofa_verified: true, session_started_at: startedAt });
+    expect(out.expiresInSeconds).toBe(3600);
+  });
+
+  it("al renovar relee el rol de la base: un cambio de rol aplica sin volver a entrar", async () => {
+    state.users.find(u => u.id === 11).role = "contador_general";
+    const out = await renewSsoSession(jwt.decode(staffToken()) as any, CAP_CFG);
+    expect((jwt.decode(out.token) as any).role).toBe("contador_general");
+  });
+
+  it("al acercarse el tope el token se acorta; en el tope ya no se renueva", async () => {
+    const near = await renewSsoSession(jwt.decode(staffToken({ session_started_at: NOW() - (240 - 5) * 60 })) as any, CAP_CFG);
+    expect(near.expiresInSeconds).toBeGreaterThan(0);
+    expect(near.expiresInSeconds).toBeLessThanOrEqual(300);
+    await expect(renewSsoSession(jwt.decode(staffToken({ session_started_at: NOW() - 241 * 60 })) as any, CAP_CFG))
+      .rejects.toMatchObject({ code: "session_ended" });
+  });
+
+  it("no renueva a una cuenta desactivada, desvinculada ni con la contraseña cambiada", async () => {
+    await expect(renewSsoSession(jwt.decode(staffToken({ id: 13 })) as any, CAP_CFG)).rejects.toMatchObject({ code: "account_disabled" });
+    state.identities = state.identities.filter(i => i.user_id !== 11);
+    await expect(renewSsoSession(jwt.decode(staffToken()) as any, CAP_CFG)).rejects.toMatchObject({ code: "not_linked" });
+    state.users.find(u => u.id === 12).password_changed_at = new Date(Date.now() + 1000).toISOString();
+    await expect(renewSsoSession(jwt.decode(staffToken({ id: 12 })) as any, CAP_CFG)).rejects.toMatchObject({ code: "session_ended" });
+  });
+
+  it("no renueva al personal de otra escuela", async () => {
+    await expect(renewSsoSession(jwt.decode(staffToken({ id: 14 })) as any, CAP_CFG)).rejects.toMatchObject({ code: "tenant_mismatch" });
+  });
+
+  it("renueva a un tutor con familia activa y lo suspende sin ella", async () => {
+    const out = await renewSsoSession(jwt.decode(guardianToken()) as any, CAP_CFG);
+    expect(jwt.decode(out.token)).toMatchObject({ id: 21, type: "guardian", sso: true });
+    expect(out.expiresInSeconds).toBeLessThanOrEqual(3600);
+    state.activeFamily = false;
+    await expect(renewSsoSession(jwt.decode(guardianToken()) as any, CAP_CFG)).rejects.toMatchObject({ code: "no_active_family" });
+  });
+
+  describe("ruta POST /api/auth/sso/renew", () => {
+    let server: import("node:http").Server;
+    let offServer: import("node:http").Server;
+    let base = "";
+    let offBase = "";
+    const boot = (env: NodeJS.ProcessEnv) => new Promise<{ s: import("node:http").Server; url: string }>((resolve) => {
+      const app = express(); app.use(express.json()); registerSsoRoutes(app, env);
+      const s = app.listen(0, "127.0.0.1", () => resolve({ s, url: `http://127.0.0.1:${(s.address() as AddressInfo).port}` }));
+    });
+    beforeAll(async () => {
+      const a = await boot({ ...ENV, SSO_SESSION_TTL_MINUTES: "240" } as NodeJS.ProcessEnv); server = a.s; base = a.url;
+      const b = await boot({} as NodeJS.ProcessEnv); offServer = b.s; offBase = b.url;
+    });
+    afterAll(async () => { await new Promise(r => server.close(r)); await new Promise(r => offServer.close(r)); });
+    const renew = (url: string, token?: string) => fetch(`${url}/api/auth/sso/renew`, { method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : {} });
+
+    it("renueva con un token vigente", async () => {
+      const r = await renew(base, staffToken());
+      expect(r.status).toBe(200);
+      expect(r.headers.get("cache-control")).toBe("no-store");
+      const body = await r.json();
+      expect(body.expires_in).toBe(3600);
+      expect(jwt.decode(body.token)).toMatchObject({ sso: true, id: 11 });
+    });
+    it("un token vencido (inactividad) no se revive", async () => {
+      const r = await renew(base, staffToken({}, -30));
+      expect(r.status).toBe(401);
+      expect((await r.json()).code).toBe("SSO_SESSION_ENDED");
+    });
+    it("sin token, con token ajeno o de una sesión que no es de SSO", async () => {
+      expect((await renew(base)).status).toBe(401);
+      expect((await renew(base, jwt.sign({ id: 11, sso: true }, "otra-clave-distinta-de-48-caracteres-o-mas-xxxx", { expiresIn: 60 }))).status).toBe(401);
+      const normal = await renew(base, jwt.sign({ id: 11, type: "user", session_started_at: NOW() }, SECRET, { expiresIn: 60 }));
+      expect(normal.status).toBe(400);
+      expect((await normal.json()).code).toBe("SSO_INVALID_REQUEST");
+    });
+    it("pasado el tope absoluto responde 401 y pide entrar de nuevo", async () => {
+      const r = await renew(base, staffToken({ session_started_at: NOW() - 250 * 60 }));
+      expect(r.status).toBe(401);
+      expect((await r.json()).code).toBe("SSO_SESSION_ENDED");
+    });
+    it("apagado el SSO responde 503", async () => {
+      expect((await renew(offBase, staffToken())).status).toBe(503);
+    });
   });
 });
 

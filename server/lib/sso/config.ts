@@ -11,7 +11,8 @@ import { createPublicKey } from "node:crypto";
  *   SSO_PUBLIC_KEY              llave pública ES256 (P-256) en PEM; acepta "\n" escapados
  *   SSO_ISSUER                  `iss` esperado (p. ej. "dashboard-refereence")
  *   SSO_AUDIENCE                `aud` esperado (por defecto "edupay")
- *   SSO_SESSION_TTL_MINUTES     vigencia de la sesión de EduPay (5 a 240, por defecto 60)
+ *   SSO_SESSION_TTL_MINUTES     TOPE ABSOLUTO de la sesión de EduPay desde la entrada (5 a 240, por defecto 60)
+ *   SSO_IDLE_MINUTES            inactividad máxima: cada token vale esto y solo se renueva con uso (5 a 240, por defecto 60)
  *   SSO_ASSERTION_MAX_AGE_SECONDS  vida máxima de una aserción, exp - iat (10 a 300, por defecto 120)
  *   SSO_DASHBOARD_URL           URL https del Dashboard, solo para el botón "Volver al Dashboard" (opcional)
  */
@@ -20,6 +21,8 @@ export interface SsoConfig {
   issuer: string;
   audience: string;
   sessionTtlMinutes: number;
+  /** Vida de cada token de sesión: pasado este tiempo sin renovarse, la sesión termina. */
+  idleMinutes: number;
   assertionMaxAgeSeconds: number;
   /** URL del Dashboard para el botón "Volver al Dashboard"; null si no se configuró o no es https. */
   dashboardUrl: string | null;
@@ -71,6 +74,7 @@ export function loadSsoConfig(env: NodeJS.ProcessEnv = process.env): SsoConfigRe
       issuer,
       audience: (env.SSO_AUDIENCE ?? "edupay").trim() || "edupay",
       sessionTtlMinutes: clampInt(env.SSO_SESSION_TTL_MINUTES, 60, 5, 240),
+      idleMinutes: clampInt(env.SSO_IDLE_MINUTES, 60, 5, 240),
       assertionMaxAgeSeconds: clampInt(env.SSO_ASSERTION_MAX_AGE_SECONDS, 120, 10, 300),
       dashboardUrl: safeUrl(env.SSO_DASHBOARD_URL),
     },

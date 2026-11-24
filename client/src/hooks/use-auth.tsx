@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import { redirectGuardianToLogin } from "@/lib/guardian-session";
+import { isSsoSession, endSsoSession, startSsoSessionKeeper, clearSsoActivity } from "@/lib/sso-session";
 
 interface User {
   id: number;
@@ -48,6 +49,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const clearInvalidSession = () => {
+      // Una sesión iniciada desde el Dashboard que termina (inactividad, tope, baja) regresa al Dashboard.
+      if (isSsoSession()) {
+        setUser(null);
+        setGuardian(null);
+        void endSsoSession();
+        return;
+      }
       if (localStorage.getItem("auth_type") === "guardian") redirectGuardianToLogin();
       localStorage.removeItem("auth_token");
       localStorage.removeItem("auth_type");
@@ -57,6 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     window.addEventListener("auth:invalid-session", clearInvalidSession);
+    // Vigila la inactividad (1 h) y renueva el token mientras haya uso; no hace nada si no es una sesión SSO.
+    const stopSsoKeeper = startSsoSessionKeeper();
 
     // Check for existing token on mount
     const token = localStorage.getItem("auth_token");
@@ -85,7 +95,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     }
 
-    return () => window.removeEventListener("auth:invalid-session", clearInvalidSession);
+    return () => {
+      window.removeEventListener("auth:invalid-session", clearInvalidSession);
+      stopSsoKeeper();
+    };
   }, []);
 
   const login = async (email: string, password: string, totp_code?: string) => {
@@ -142,6 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    clearSsoActivity();
     localStorage.removeItem("auth_token");
     localStorage.removeItem("auth_type");
     localStorage.removeItem("auth_user");

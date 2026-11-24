@@ -3,12 +3,11 @@ import { pool } from "../../db";
 import { JWT_SECRET } from "../../routes/shared";
 import { enqueueAuditLog, auditLogger, type AuditLogPayload } from "../../audit-retry";
 import { guardianHasActiveFamily } from "../family-access";
-import { passwordVersion } from "../session-version";
-import { STAFF_SESSION_SECONDS } from "../staff-session";
-import { GUARDIAN_TOKEN_SECONDS } from "../guardian-session-limits";
+import { passwordVersion, isSessionInvalidated } from "../session-version";
 import { validTotp, consumeBackupCode } from "../totp-service";
 import { SsoError, FIREBASE_UID_RE, type SsoClaims } from "./assertion";
 import type { SsoConfig } from "./config";
+import { ssoTokenSeconds } from "./session";
 
 const PROVIDER = "firebase";
 
@@ -152,14 +151,14 @@ export async function exchangeAssertion(
     .catch((err) => auditLogger.warn("sso.last_login_update_failed", { identity_id: resolved.identityId, error: String(err) }));
 
   const sessionStartedAt = Math.floor(Date.now() / 1000);
-  const ssoSeconds = cfg.sessionTtlMinutes * 60;
 
   if (resolved.kind === "user") {
     const u = resolved.user;
     // Misma forma de claims que `signStaffSession` (staff-session.ts) más `sso: true`: el middleware exige
     // password_version y session_started_at, y solo da acceso a datos de negocio con twofa_verified.
-    // La sesión nunca excede el tope del personal.
-    const expiresInSeconds = Math.min(ssoSeconds, STAFF_SESSION_SECONDS);
+    // Cada token dura lo que tolera la inactividad y se renueva con uso (ver `renewSsoSession`);
+    // el tope absoluto desde la entrada lo da `session_started_at`.
+    const expiresInSeconds = ssoTokenSeconds("user", sessionStartedAt, cfg, sessionStartedAt);
     const token = jwt.sign(
       { id: u.id, email: u.email, role: u.role, campus_id: u.campus_id, tenant_id: u.tenant_id, is_super_admin: u.is_super_admin, type: "user", sso: true,
         password_version: passwordVersion(u.password_changed_at ? new Date(u.password_changed_at) : null),
@@ -178,7 +177,7 @@ export async function exchangeAssertion(
   }
 
   const g = resolved.guardian;
-  const expiresInSeconds = Math.min(ssoSeconds, GUARDIAN_TOKEN_SECONDS);
+  const expiresInSeconds = ssoTokenSeconds("guardian", sessionStartedAt, cfg, sessionStartedAt);
   const token = jwt.sign(
     { id: g.id, email: g.email, tenant_id: g.tenant_id, campus_id: g.campus_id, type: "guardian", sso: true,
       password_version: passwordVersion(g.password_changed_at), session_started_at: sessionStartedAt },
@@ -191,6 +190,77 @@ export async function exchangeAssertion(
   });
   const { password_changed_at: _omit, ...guardianPublic } = g;
   return { requiresTotp: false, token, expiresInSeconds, kind: "guardian", guardian: guardianPublic };
+}
+
+/**
+ * Renueva una sesión SSO que sigue vigente: el token todavía no vence, es decir, hubo uso dentro de la
+ * ventana de inactividad. Un token vencido nunca llega aquí (el endpoint lo rechaza), así que la
+ * inactividad cierra la sesión sin que el cliente tenga que cooperar.
+ *
+ * Reglas de cada renovación:
+ *  - nunca pasa del tope absoluto contado desde la entrada (`session_started_at`);
+ *  - la identidad sigue vinculada y la cuenta sigue activa (quitar el acceso en EduPay corta la sesión);
+ *  - el rol, el campus y la escuela se releen de la base, así un cambio de rol aplica en la siguiente renovación;
+ *  - el 2FA ya verificado se conserva (no se vuelve a pedir dentro de la misma sesión).
+ */
+export async function renewSsoSession(
+  decoded: Record<string, any>,
+  cfg: SsoConfig,
+): Promise<{ token: string; expiresInSeconds: number }> {
+  const kind = decoded?.type === "guardian" ? "guardian" : "user";
+  const startedAt = Number(decoded?.session_started_at);
+  const expiresInSeconds = ssoTokenSeconds(kind, startedAt, cfg);
+  if (expiresInSeconds <= 0) throw new SsoError("session_ended", "Tu sesión terminó. Vuelve a entrar desde el Dashboard.");
+
+  const ident = (await pool.query(
+    kind === "user"
+      ? `SELECT id, tenant_id FROM external_identities WHERE provider = $1 AND user_id = $2 LIMIT 1`
+      : `SELECT id, tenant_id FROM external_identities WHERE provider = $1 AND guardian_id = $2 LIMIT 1`,
+    [PROVIDER, decoded.id],
+  )).rows[0] as any;
+  if (!ident) throw new SsoError("not_linked", "Tu cuenta ya no está vinculada a EduPay.");
+
+  if (kind === "user") {
+    const u = (await pool.query(
+      `SELECT id, email, role, campus_id, tenant_id, is_active, is_super_admin, password_changed_at
+         FROM users WHERE id = $1 LIMIT 1`,
+      [decoded.id],
+    )).rows[0] as any;
+    if (!u || u.is_active === false) throw new SsoError("account_disabled", "Tu cuenta está desactivada. Contacta al administrador de tu escuela.");
+    if (isSessionInvalidated(decoded.password_version, u.password_changed_at ?? null)) {
+      throw new SsoError("session_ended", "Tu sesión terminó. Vuelve a entrar desde el Dashboard.");
+    }
+    const isPlatformAdmin = Boolean(u.is_super_admin || u.role === "super_admin");
+    if (!isPlatformAdmin && Number(u.tenant_id) !== Number(ident.tenant_id)) throw new SsoError("tenant_mismatch", "Tu cuenta pertenece a otra escuela.");
+    const token = jwt.sign(
+      { id: u.id, email: u.email, role: u.role, campus_id: u.campus_id, tenant_id: u.tenant_id, is_super_admin: isPlatformAdmin, type: "user", sso: true,
+        password_version: passwordVersion(u.password_changed_at ? new Date(u.password_changed_at) : null),
+        twofa_verified: decoded.twofa_verified === true, session_started_at: startedAt },
+      JWT_SECRET,
+      { expiresIn: expiresInSeconds },
+    );
+    return { token, expiresInSeconds };
+  }
+
+  const g = (await pool.query(
+    `SELECT id, email, nombre_completo, tenant_id, campus_id, password_changed_at FROM guardians WHERE id = $1 LIMIT 1`,
+    [decoded.id],
+  )).rows[0] as any;
+  if (!g) throw new SsoError("not_linked", "Tu cuenta ya no está vinculada a EduPay.");
+  if (Number(g.tenant_id) !== Number(ident.tenant_id)) throw new SsoError("tenant_mismatch", "Tu cuenta pertenece a otra escuela.");
+  if (isSessionInvalidated(decoded.password_version, g.password_changed_at ?? null)) {
+    throw new SsoError("session_ended", "Tu sesión terminó. Vuelve a entrar desde el Dashboard.");
+  }
+  if (!(await guardianHasActiveFamily(Number(g.id), Number(g.tenant_id)))) {
+    throw new SsoError("no_active_family", "Tu acceso está suspendido porque no perteneces a una familia activa.");
+  }
+  const token = jwt.sign(
+    { id: g.id, email: g.email, tenant_id: g.tenant_id, campus_id: g.campus_id, type: "guardian", sso: true,
+      password_version: passwordVersion(g.password_changed_at), session_started_at: startedAt },
+    JWT_SECRET,
+    { expiresIn: expiresInSeconds },
+  );
+  return { token, expiresInSeconds };
 }
 
 // ── Vincular / desvincular identidades (lo hace un administrador de EduPay) ─────────────────────

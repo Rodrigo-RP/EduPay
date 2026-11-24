@@ -14,6 +14,7 @@ export type SsoErrorCode =
   | "forbidden_role"
   | "no_active_family"
   | "invalid_totp"
+  | "session_ended"
   | "already_linked"
   | "invalid_request";
 

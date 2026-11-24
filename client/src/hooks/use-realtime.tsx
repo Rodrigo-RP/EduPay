@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './use-auth';
 import { useToast } from './use-toast';
+import { isSsoSession, recoverRealtimeAfterExpiry } from '@/lib/sso-session';
 
 interface RealTimeMessage {
   type: 'user_update' | 'student_update' | 'family_update' | 'payment_update' | 'report_update' | 'system_notification' | 'auth_success' | 'auth_error' | 'error' | 'pong';
@@ -119,6 +120,14 @@ export function useRealTime(options: UseRealTimeOptions = {}) {
 
         onDisconnect?.();
         if (event.code === 4001) {
+          // Sesión del Dashboard: el servidor cierra la conexión cuando vence el token con el que se abrió,
+          // aunque la sesión se haya renovado con uso. Se renueva y se reconecta; si ya no hay sesión, se cierra.
+          if (isSsoSession()) {
+            void recoverRealtimeAfterExpiry().then((outcome) => {
+              if (outcome === "reconnect") connect();
+            });
+            return;
+          }
           window.dispatchEvent(new Event("auth:invalid-session"));
           return;
         }

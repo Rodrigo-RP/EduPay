@@ -17,7 +17,7 @@
 
 ## Variables de entorno obligatorias (nombres, no valores)
 - Arranque de producción (`server/lib/production-startup.ts`): `APP_ENV=production`, `NODE_ENV=production`, `DATABASE_URL`, `SESSION_SECRET`, `JWT_SECRET`, `TOTP_ENCRYPTION_KEY`, `STRIPE_SECRET_KEY`. `ALLOW_DEMO_SEED=true` impide el arranque. El arranque se bloquea si la base tiene marcador `edupay:test` o `edupay:demo`.
-- SSO (`server/lib/sso/config.ts`): `SSO_ENABLED`, `SSO_PUBLIC_KEY`, `SSO_ISSUER`, `SSO_AUDIENCE`, `SSO_SESSION_TTL_MINUTES` (decidido: **240**), `SSO_ASSERTION_MAX_AGE_SECONDS` (60 s). Apagado por defecto.
+- SSO (`server/lib/sso/config.ts`): `SSO_ENABLED`, `SSO_PUBLIC_KEY`, `SSO_ISSUER`, `SSO_AUDIENCE`, `SSO_SESSION_TTL_MINUTES` (decidido: **240**; es el **tope absoluto** de la sesión desde la entrada), `SSO_IDLE_MINUTES` (por defecto **60**; vida de cada token y por tanto la inactividad tolerada), `SSO_ASSERTION_MAX_AGE_SECONDS` (60 s). Apagado por defecto. Con uso, el cliente renueva el token en `POST /api/auth/sso/renew`; sin uso durante 1 h la sesión termina y se regresa al Dashboard; a las 4 h desde la entrada hay que volver a entrar desde el Dashboard, con o sin uso.
 - Puente: `EDUPAY_BRIDGE_URL`; `EDUPAY_BRIDGE_SA_KEY` solo si se corre fuera de Google Cloud (en Cloud Run se usa la identidad del servicio).
 - Stripe: `STRIPE_WEBHOOK_SECRET` (se monta cuando el servicio sea público).
 
@@ -44,8 +44,14 @@
 ## Estado (20-nov-2026)
 - Migraciones aplicadas en producción: **0000 a 0011** (12 en el historial; la 0011 agrega `departamento` a `firebase_staff_candidates`). Verificado con `db:verify:prod`: estructura idéntica al catálogo.
 - El servicio y el Job `edupay-sync-puente` usan la imagen construida el 20-nov con la clave publicable de **prueba** de Stripe. El servicio es **público** (`allUsers` con `run.invoker`) desde el 20-nov.
-- El puente Dashboard → EduPay funciona en lectura: el simulacro del Job trae 23 candidatos de personal. **La sincronización de datos nueva (`--apply`) no se aplica todavía**; se aplica justo antes de probar el flujo completo con SSO.
-- Pendiente: llave `sk_test_` y webhook de Stripe (los pagos de prueba aún fallan), RFC real del Instituto, SSO (fase B, ver `docs/PUENTE-PERSONAL-DASHBOARD.md`), asignar accesos del personal desde el panel.
+- El puente Dashboard → EduPay funciona en lectura: el simulacro del Job trae 23 candidatos de personal. Las sincronizaciones con `--apply` en producción han sido dos: la de la carga inicial (17-nov) y la del 23-nov (con respaldo manual previo y un segundo simulacro posterior con todo en 0).
+
+## Estado (23-nov-2026)
+- **Sincronización `--apply` aplicada el 23-nov** (23 candidatos de personal, 1 alumno nuevo, 2 alumnos actualizados, 2 tutores y 6 vínculos), con respaldo manual previo. Un simulacro posterior no encontró nada pendiente.
+- **SSO activado** en el servicio (revisión `edupay-00009`): `/api/auth/sso/config` responde `enabled:true`. La llave pública se carga como variable de entorno `SSO_PUBLIC_KEY` (no es secreta). Que la llave privada del Dashboard corresponda a esa pública se confirma al aceptarse la primera aserción real.
+- Las funciones `edupayElegibilidad` y `edupayAcceso` del Dashboard se redesplegaron el 23-nov apuntando a la URL de EduPay.
+- El login propio de EduPay (`/api/auth/login`, `/api/auth/guardian-login`, enlaces mágicos) sigue abierto. Cerrarlo (`SSO_ONLY`) es una etapa posterior, tras probar el SSO de punta a punta.
+- Pendiente: clave `sk_test_` guardada (versión 2) pero falta el secreto del webhook de Stripe y montarlo en el servicio; RFC real del Instituto; asignar accesos del personal en el panel (superadmin); botón del Dashboard en producción (hosting).
 - Respaldo automático diario de Cloud SQL activo (13:00 UTC). Antes de cada migración o `--apply` se toma además un respaldo manual.
 - En Cloud Shell, para migrar o verificar, instalar los cuatro paquetes **juntos** (`npm install --no-save --no-package-lock drizzle-orm@0.45.4 pg@8.23.1 tsx@4.23.15 zod@4.6.7` en `~`); instalar uno solo borra los demás. Un Editor no puede leer secretos: la clave de `edupay_app` se teclea con `read -rs`.
 

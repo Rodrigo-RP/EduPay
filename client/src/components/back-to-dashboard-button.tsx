@@ -1,18 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
 import { LayoutDashboard } from "lucide-react";
-import { fetchDashboardUrl } from "@/lib/dashboard-link";
+import { fetchDashboardUrl, storedDashboardUrl } from "@/lib/dashboard-link";
 
 /**
- * Botón para volver al Dashboard. Lo ven todos los usuarios (personal y tutores) y solo cuando el SSO está activo
- * y el servidor informa la URL del Dashboard. No cierra la sesión de EduPay: solo navega; la sesión por inactividad sigue su curso.
+ * Botón para volver al Dashboard. Lo ven todos los usuarios y solo cuando se conoce la URL del Dashboard.
+ * No cierra la sesión de EduPay: solo navega; la sesión por inactividad sigue su curso.
+ *
+ * `allowFetch`: el personal puede consultar `/api/auth/sso/config`. El portal de tutores NO (solo puede llamar a
+ * `/api/guardian/*`), así que allí se usa la URL guardada al entrar por SSO.
  */
-export default function BackToDashboardButton({ className = "" }: { className?: string }) {
-  const { data: url } = useQuery<string | null>({
+export default function BackToDashboardButton({ className = "", allowFetch = false }: { className?: string; allowFetch?: boolean }) {
+  const { data: fetched } = useQuery<string | null>({
     queryKey: ["dashboard-link"],
     queryFn: fetchDashboardUrl,
+    enabled: allowFetch && !storedDashboardUrl(),
     staleTime: Infinity,
     retry: false,
   });
+  const url = storedDashboardUrl() ?? fetched ?? null;
   if (!url) return null;
   return (
     <a

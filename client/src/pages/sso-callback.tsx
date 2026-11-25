@@ -12,6 +12,7 @@ import { GraduationCap, Loader2, AlertCircle, CheckCircle, ShieldCheck } from "l
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { markSsoActivity } from "@/lib/sso-session";
+import { rememberDashboardUrl } from "@/lib/dashboard-link";
 
 type Phase = "loading" | "totp" | "success" | "error";
 
@@ -77,6 +78,8 @@ export default function SsoCallback() {
         localStorage.setItem("auth_type", data.kind === "guardian" ? "guardian" : "user");
         localStorage.setItem("auth_user", JSON.stringify(data.kind === "guardian" ? data.guardian : data.user));
         markSsoActivity();
+        // Para el botón "Dashboard" del portal de tutores, que no puede consultar esta configuración por sí mismo.
+        try { rememberDashboardUrl(await (await fetch("/api/auth/sso/config", { cache: "no-store" })).json()); } catch { /* el botón no aparece */ }
         setPhase("success");
         // Recarga completa para que AuthProvider (montado en la raíz) relea localStorage.
         setTimeout(() => { window.location.href = data.kind === "guardian" ? "/portal-3clics" : "/"; }, 600);

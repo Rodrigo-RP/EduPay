@@ -98,7 +98,7 @@ export default function Header() {
           </>}
 
           {/* Botón del Asistente EduPay */}
-          <BackToDashboardButton />
+          <BackToDashboardButton allowFetch />
 
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('assistant:toggle'))}

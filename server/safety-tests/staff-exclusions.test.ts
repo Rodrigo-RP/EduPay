@@ -16,12 +16,20 @@ describe("Departamentos de personal excluidos de 'Personal del Dashboard'", () =
     expect(isStaffExcludedFromCandidates("administrativo", "Recepción")).toBe(true);
   });
 
+  it("un Director con departamento Director de Área también se excluye (Director General y demás Directores no)", () => {
+    expect(isStaffExcludedFromCandidates("Director", "Director de Área")).toBe(true);
+    expect(isStaffExcludedFromCandidates("director", "director de area")).toBe(true);
+  });
+
   it("no excluye otros departamentos, otros roles ni datos vacíos", () => {
     expect(isStaffExcludedFromCandidates("Administrativo", "Contabilidad")).toBe(false);
     expect(isStaffExcludedFromCandidates("Administrativo", "Admisiones")).toBe(false); // Admisiones sí se muestra
     expect(isStaffExcludedFromCandidates("Administrativo", "Admisión")).toBe(false);
     expect(isStaffExcludedFromCandidates("Administrativo", "Director General")).toBe(false);
     expect(isStaffExcludedFromCandidates("Director", "Recepción")).toBe(false);
+    expect(isStaffExcludedFromCandidates("Director", "Director General")).toBe(false);
+    expect(isStaffExcludedFromCandidates("Director", "Sistemas")).toBe(false);
+    expect(isStaffExcludedFromCandidates("Maestro", "Director de Área")).toBe(false);
     expect(isStaffExcludedFromCandidates("Administrativo", null)).toBe(false);
     expect(isStaffExcludedFromCandidates(null, "Limpieza")).toBe(false);
     expect(isStaffExcludedFromCandidates("Administrativo", "Limpiezas")).toBe(false);
@@ -44,9 +52,10 @@ describe("Sincronización: los departamentos excluidos no se vuelven candidatos"
     const plan = planFirebaseSync(payload([
       person("a", { departamento: "Recepción" }), person("b", { departamento: "Mantenimiento" }), person("c", { departamento: "Director de Área" }),
       person("d"), person("e", { rol: "Director", departamento: "Recepción" }),
+      person("f", { rol: "Director", departamento: "Director de Área" }), person("g", { rol: "Director", departamento: "Director General" }),
     ]), local());
-    expect(plan.report.skipped.personal_departamento_excluido).toBe(3);
-    expect(plan.staffUpserts.map((s) => s.uid).sort()).toEqual(["d", "e"]);
+    expect(plan.report.skipped.personal_departamento_excluido).toBe(4);
+    expect(plan.staffUpserts.map((s) => s.uid).sort()).toEqual(["d", "e", "g"]);
   });
 
   it("una baja de alguien con departamento excluido y usuario vinculado SÍ desactiva al usuario", () => {

@@ -6,12 +6,12 @@
 const norm = (v: string | null | undefined): string =>
   (typeof v === "string" ? v : "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 
-const ROL_AFECTADO = "administrativo";
-
-const DEPARTAMENTOS_EXCLUIDOS: ReadonlySet<string> = new Set(
-  ["Recepción", "Limpieza", "Responsable Limpieza", "Vigilancia", "Director de Área", "Mantenimiento", "Sistemas"].map(norm),
-);
+/** Departamentos excluidos por rol del Dashboard (Karla, 25-nov-2026). Director de Área se excluye con ambos roles. */
+const EXCLUIDOS_POR_ROL: ReadonlyMap<string, ReadonlySet<string>> = new Map([
+  ["administrativo", new Set(["Recepción", "Limpieza", "Responsable Limpieza", "Vigilancia", "Director de Área", "Mantenimiento", "Sistemas"].map(norm))],
+  ["director", new Set(["Director de Área"].map(norm))],
+]);
 
 export function isStaffExcludedFromCandidates(rolDashboard: string | null | undefined, departamento: string | null | undefined): boolean {
-  return norm(rolDashboard) === ROL_AFECTADO && DEPARTAMENTOS_EXCLUIDOS.has(norm(departamento));
+  return EXCLUIDOS_POR_ROL.get(norm(rolDashboard))?.has(norm(departamento)) ?? false;
 }

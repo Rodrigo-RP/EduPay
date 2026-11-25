@@ -14,6 +14,7 @@ import bcrypt from "bcrypt";
 import type { Pool } from "pg";
 import { USER_ROLES, PERMISSIONS } from "@shared/user-roles";
 import { SsoError } from "./sso/assertion";
+import { isStaffExcludedFromCandidates } from "./staff-exclusions";
 
 export interface Queryable { query(text: string, values?: unknown[]): Promise<{ rows: any[]; rowCount?: number | null }> }
 export type StaffDb = Pick<Pool, "connect" | "query">;
@@ -56,7 +57,8 @@ export async function listStaffCandidates(db: Queryable, tenantId?: number): Pro
   const maps = (await db.query(`SELECT tenant_id, nivel, campus_id FROM firebase_campus_map ${tenantId ? "WHERE tenant_id = $1" : ""}`, tenantId ? [tenantId] : [])).rows;
   const campusByNivel = new Map(maps.map((m) => [`${m.tenant_id}:${String(m.nivel).trim().toLowerCase()}`, Number(m.campus_id)]));
 
-  return rows.map((r): StaffCandidateRow => {
+  // Los departamentos excluidos no se muestran, salvo que ya tengan un usuario vinculado (para poder quitarle el acceso).
+  return rows.filter((r) => r.user_id != null || !isStaffExcludedFromCandidates(r.rol_dashboard, r.departamento)).map((r): StaffCandidateRow => {
     const registro = Array.isArray(r.registro_sep) ? r.registro_sep : [];
     const sugeridos = new Set<number>();
     for (const reg of registro) {
@@ -99,10 +101,13 @@ export async function assignStaffCandidate(db: StaffDb, input: AssignInput): Pro
   try {
     await client.query("BEGIN");
     const cand = (await client.query(
-      `SELECT id, tenant_id, firebase_uid, nombre_completo, email, estado FROM firebase_staff_candidates WHERE id = $1 FOR UPDATE`,
+      `SELECT id, tenant_id, firebase_uid, nombre_completo, email, estado, rol_dashboard, departamento FROM firebase_staff_candidates WHERE id = $1 FOR UPDATE`,
       [candidateId],
     )).rows[0];
     if (!cand) throw new SsoError("invalid_request", "El candidato no existe.");
+    if (isStaffExcludedFromCandidates(cand.rol_dashboard, cand.departamento)) {
+      throw new SsoError("invalid_request", "Este departamento no tiene acceso a EduPay.");
+    }
     if (cand.estado !== "activo") throw new SsoError("invalid_request", "La persona está de baja en el Dashboard.");
     const tenantId = Number(cand.tenant_id);
 

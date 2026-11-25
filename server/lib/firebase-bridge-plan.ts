@@ -12,6 +12,7 @@
  *  - El saldo de Firebase no existe en la proyección y no se copia.
  */
 import { PARENT_ROLE } from "./firebase-parent-match";
+import { isStaffExcludedFromCandidates } from "./staff-exclusions";
 
 export interface BridgeStudent {
   uid: string;
@@ -254,7 +255,8 @@ export type SkipReason =
   | "vinculo_sin_alumno_o_tutor"
   | "personal_sin_nombre"
   | "personal_es_tutor"
-  | "personal_baja_sin_registro_local";
+  | "personal_baja_sin_registro_local"
+  | "personal_departamento_excluido";
 
 export type WarningKey =
   | "personalLocalAusenteEnPuente"
@@ -297,7 +299,7 @@ export const studentKey = (nombreCompleto: string, campusId: number | null): str
 const emptySkips = (): Record<SkipReason, number> => ({
   escuela_no_habilitada: 0, alumno_sin_escuela: 0, alumno_sin_nombre: 0, nivel_sin_campus: 0, alumno_posible_duplicado: 0,
   tutor_rol_no_permitido: 0, tutor_sin_correo: 0, tutor_posible_duplicado: 0, tutor_sin_alumnos_validos: 0,
-  vinculo_no_declarado_por_tutor: 0, vinculo_sin_alumno_o_tutor: 0, personal_sin_nombre: 0, personal_es_tutor: 0, personal_baja_sin_registro_local: 0,
+  vinculo_no_declarado_por_tutor: 0, vinculo_sin_alumno_o_tutor: 0, personal_sin_nombre: 0, personal_es_tutor: 0, personal_baja_sin_registro_local: 0, personal_departamento_excluido: 0,
 });
 
 const emptyWarnings = (): Record<WarningKey, number> => ({
@@ -519,6 +521,8 @@ export function planFirebaseSync(payload: BridgePayload, local: LocalState): Syn
       }
     }
     if (local.guardianByUid.has(p.uid) || acceptedTutors.has(p.uid)) { skipped.personal_es_tutor++; continue; }
+    // Administrativo de apoyo u operación (Recepción, Limpieza, etc.): no se propone como candidato. La baja ya se evaluó arriba.
+    if (isStaffExcludedFromCandidates(p.rol, p.departamento)) { skipped.personal_departamento_excluido++; continue; }
     const nombre = fullName(p) || clean(p.email);
     if (!nombre) { skipped.personal_sin_nombre++; continue; }
     const registro = (p.registroSep ?? []).flatMap((r) => {

@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
+import BackToDashboardButton from "@/components/back-to-dashboard-button";
 import {
   CreditCard,
   Smartphone,
@@ -893,6 +894,7 @@ function PortalPadres3ClicsInner() {
       <div className="max-w-md mx-auto px-4 py-6">
         {/* Header */}
         <div className="mb-6">
+          <div className="flex justify-end mb-2"><BackToDashboardButton /></div>
           <h1 className="text-2xl font-bold text-slate-900">Mi Portal de Pagos</h1>
           <p className="text-slate-500 text-sm" data-testid="guardian-institution-name">
             {institution?.nombre_legal || (institutionError ? "No pudimos cargar el nombre de tu escuela." : "Consultando nombre de tu escuela…")}

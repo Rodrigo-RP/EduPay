@@ -6,6 +6,7 @@ import { useAcademicFilter, generateCiclosList, getCurrentCiclo } from "@/hooks/
 import { Calendar, GraduationCap, User, Settings, CalendarDays, BotMessageSquare } from "lucide-react";
 import { useLocation } from "wouter";
 import GlobalSearch from "@/components/GlobalSearch";
+import BackToDashboardButton from "@/components/back-to-dashboard-button";
 
 const PERIODOS = [
   { value: "hoy",    label: "Hoy"         },
@@ -97,6 +98,8 @@ export default function Header() {
           </>}
 
           {/* Botón del Asistente EduPay */}
+          <BackToDashboardButton />
+
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('assistant:toggle'))}
             className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-medium transition-all shadow-sm"

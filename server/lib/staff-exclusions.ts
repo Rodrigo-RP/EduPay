@@ -9,7 +9,7 @@ const norm = (v: string | null | undefined): string =>
 const ROL_AFECTADO = "administrativo";
 
 const DEPARTAMENTOS_EXCLUIDOS: ReadonlySet<string> = new Set(
-  ["Recepción", "Limpieza", "Responsable Limpieza", "Vigilancia", "Director de Área", "Mantenimiento"].map(norm),
+  ["Recepción", "Limpieza", "Responsable Limpieza", "Vigilancia", "Director de Área", "Mantenimiento", "Sistemas"].map(norm),
 );
 
 export function isStaffExcludedFromCandidates(rolDashboard: string | null | undefined, departamento: string | null | undefined): boolean {

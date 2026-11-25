@@ -10,7 +10,7 @@ import { SsoError } from "../lib/sso/assertion";
 
 describe("Departamentos de personal excluidos de 'Personal del Dashboard'", () => {
   it("solo aplica a rol Administrativo y a los seis departamentos acordados (sin importar acentos, mayúsculas ni espacios)", () => {
-    for (const d of ["Recepción", "recepcion", "Limpieza", "  Responsable   Limpieza ", "VIGILANCIA", "Director de Área", "director de area", "Mantenimiento"]) {
+    for (const d of ["Recepción", "recepcion", "Limpieza", "  Responsable   Limpieza ", "VIGILANCIA", "Director de Área", "director de area", "Mantenimiento", "Sistemas", "SISTEMAS"]) {
       expect(isStaffExcludedFromCandidates("Administrativo", d), d).toBe(true);
     }
     expect(isStaffExcludedFromCandidates("administrativo", "Recepción")).toBe(true);
@@ -18,6 +18,8 @@ describe("Departamentos de personal excluidos de 'Personal del Dashboard'", () =
 
   it("no excluye otros departamentos, otros roles ni datos vacíos", () => {
     expect(isStaffExcludedFromCandidates("Administrativo", "Contabilidad")).toBe(false);
+    expect(isStaffExcludedFromCandidates("Administrativo", "Admisiones")).toBe(false); // Admisiones sí se muestra
+    expect(isStaffExcludedFromCandidates("Administrativo", "Admisión")).toBe(false);
     expect(isStaffExcludedFromCandidates("Administrativo", "Director General")).toBe(false);
     expect(isStaffExcludedFromCandidates("Director", "Recepción")).toBe(false);
     expect(isStaffExcludedFromCandidates("Administrativo", null)).toBe(false);

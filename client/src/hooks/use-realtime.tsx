@@ -3,9 +3,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './use-auth';
 import { useToast } from './use-toast';
 import { isSsoSession, recoverRealtimeAfterExpiry } from '@/lib/sso-session';
+import { createDataChangedHandler, refreshActiveData } from '@/lib/data-changed';
 
 interface RealTimeMessage {
-  type: 'user_update' | 'student_update' | 'family_update' | 'payment_update' | 'report_update' | 'system_notification' | 'auth_success' | 'auth_error' | 'error' | 'pong';
+  type: 'user_update' | 'student_update' | 'family_update' | 'payment_update' | 'report_update' | 'system_notification' | 'data_changed' | 'auth_success' | 'auth_error' | 'error' | 'pong';
   action?: 'create' | 'update' | 'delete' | 'export';
   data?: any;
   metadata?: {
@@ -41,6 +42,10 @@ export function useRealTime(options: UseRealTimeOptions = {}) {
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttempts = useRef(0);
+  // Aviso genérico de cambios: recarga las consultas activas (agrupa ráfagas). Tras una desconexión se recarga todo al volver.
+  const dataChanged = useRef<ReturnType<typeof createDataChangedHandler> | null>(null);
+  if (!dataChanged.current) dataChanged.current = createDataChangedHandler(queryClient);
+  const needsResync = useRef(false);
   const maxReconnectAttempts = 5;
   const lastConnectionAttempt = useRef<number>(0);
   const minConnectionInterval = 1000; // Minimum 1 second between connection attempts
@@ -112,6 +117,7 @@ export function useRealTime(options: UseRealTimeOptions = {}) {
         console.log('🔌 WebSocket desconectado:', event.code, event.reason);
         setIsConnected(false);
         setConnectionStatus('disconnected');
+        needsResync.current = true; // se pudieron perder avisos mientras estuvo caída
         
         if (heartbeatIntervalRef.current) {
           clearInterval(heartbeatIntervalRef.current);
@@ -186,6 +192,7 @@ export function useRealTime(options: UseRealTimeOptions = {}) {
     switch (message.type) {
       case 'auth_success':
         console.log('✅ Autenticación exitosa');
+        if (needsResync.current) { needsResync.current = false; void refreshActiveData(queryClient); }
         // Suscribirse a actualizaciones del campus
         wsRef.current?.send(JSON.stringify({
           type: 'subscribe_campus'
@@ -305,6 +312,10 @@ export function useRealTime(options: UseRealTimeOptions = {}) {
             variant: message.data.variant || "default",
           });
         }
+        break;
+
+      case 'data_changed':
+        dataChanged.current?.notify();
         break;
 
       case 'pong':

@@ -11,6 +11,7 @@
  */
 import type { Pool } from "pg";
 import { enqueueAuditLog, type AuditLogPayload } from "../audit-retry";
+import { publishDataChange } from "./realtime-bus";
 import {
   planFirebaseSync, studentKey,
   type BridgePayload, type LocalState, type LocalStaffCandidate, type LocalLinkedUser, type LocalStudent, type SyncGuards, type SyncPlan, type SyncReport,
@@ -249,6 +250,15 @@ export async function runFirebaseSync({ db, tenantId, payload, apply, allowMassC
     }
   } finally {
     auditClient.release();
+  }
+  // Avisa a los navegadores abiertos (por LISTEN/NOTIFY, desde este proceso hacia el servicio) solo si la corrida cambió algo.
+  const changed = Object.entries(report as unknown as Record<string, unknown>)
+    .some(([key, value]) => /To(Create|Update|Deactivate)$/.test(key) && typeof value === "number" && value > 0);
+  if (changed) {
+    try {
+      const noticeClient = await db.connect();
+      try { await publishDataChange(noticeClient, { tenantId, source: "sync" }); } finally { noticeClient.release(); }
+    } catch { /* el aviso es opcional: los datos ya están confirmados */ }
   }
   return { applied: true, report };
 }

@@ -222,10 +222,14 @@ function PortalPadres3ClicsInner() {
   const { data: dashboardData, isLoading } = useQuery<any>({
     queryKey: ["/api/guardian/dashboard"],
   });
+  // El cargo del enlace se preselecciona UNA sola vez: si los datos se refrescan, no se pisa lo que el tutor ya eligió.
+  const deepLinkApplied = useRef(false);
   useEffect(() => {
+    if (deepLinkApplied.current) return;
     const requested = Number(new URLSearchParams(window.location.search).get("cargo"));
     if (Number.isSafeInteger(requested) && requested > 0 &&
         dashboardData?.pendingCharges?.some((charge: { id: number }) => charge.id === requested)) {
+      deepLinkApplied.current = true;
       setSelectedCharges([requested]);
     }
   }, [dashboardData]);

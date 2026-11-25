@@ -51,6 +51,13 @@ app.use("/api/notifications/webhooks/resend", resendWebhookRateLimit(), express.
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
+// Tras cualquier escritura exitosa de la API se publica un aviso genérico de cambio (LISTEN/NOTIFY, sin datos).
+{
+  const { pool: noticePool } = await import("./db");
+  const { dataChangeMiddleware, createCoalescedPublisher } = await import("./lib/realtime-bus");
+  app.use("/api", dataChangeMiddleware(createCoalescedPublisher(noticePool)));
+}
+
   // ── Verificar cola migrada antes de iniciar su worker ──────────────────
   await initAuditRetryQueue();
   startAuditRetryWorker();
@@ -60,6 +67,11 @@ app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
   // Initialize WebSocket manager
   wsManager.initialize(server);
+
+  // Aviso de cambios en vivo entre instancias: cada instancia escucha el canal y avisa a sus navegadores conectados.
+  const { pool: realtimePool } = await import("./db");
+  const { startRealtimeListener } = await import("./lib/realtime-bus");
+  startRealtimeListener(realtimePool, (change) => wsManager.broadcastDataChanged(change.tenantId));
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

@@ -46,7 +46,10 @@ export default function Configuracion() {
     queryFn: async () => {
       const response = await apiRequest('/api/institutional-info');
       return response.json();
-    }
+    },
+    // El formulario se rellena desde estos datos: no recargarlos al volver a la pestaña para no pisar lo que se está editando.
+    refetchOnWindowFocus: false,
+    meta: { realtime: false }, // tampoco se recarga por avisos de cambios en vivo
   });
 
   // Cargar datos cuando se obtienen de la API

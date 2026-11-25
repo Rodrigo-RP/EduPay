@@ -297,6 +297,21 @@ class WebSocketManager {
     }
   }
 
+  /**
+   * Aviso genérico de cambio (llega por LISTEN/NOTIFY desde cualquier instancia o proceso). No lleva datos: el navegador
+   * recarga sus consultas activas. `tenantId` null = todas las escuelas. Solo recibe quien tiene sesión de esa escuela.
+   */
+  public broadcastDataChanged(tenantId: number | null) {
+    const payload = JSON.stringify({ type: "data_changed", metadata: { timestamp: new Date().toISOString() } });
+    this.clients.forEach((sockets) => {
+      sockets.forEach((socket) => {
+        if (socket.readyState !== WebSocket.OPEN || !socket.user) return;
+        if (tenantId !== null && Number(socket.user.tenant_id) !== tenantId) return;
+        try { socket.send(payload); } catch { /* el barrido de conexiones la retira */ }
+      });
+    });
+  }
+
   public broadcastToUser(message: RealTimeMessage, userId: number) {
     this.sendToUsers(message, [userId]);
   }

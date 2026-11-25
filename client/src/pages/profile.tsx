@@ -92,6 +92,9 @@ export default function Profile() {
   const { data: profileData, isLoading } = useQuery({
     queryKey: [profileEndpoint],
     enabled: !!(user || guardian),
+    // El formulario se rellena desde estos datos: no recargarlos al volver a la pestaña para no pisar lo que se está editando.
+    refetchOnWindowFocus: false,
+    meta: { realtime: false }, // tampoco se recarga por avisos de cambios en vivo
   });
 
   // Fetch institutional credentials for admin users

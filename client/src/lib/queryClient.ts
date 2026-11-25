@@ -122,13 +122,18 @@ export const getQueryFn: <T>(options: {
     return await res.json();
   };
 
+export const QUERY_STALE_MS = 30_000;
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
-      refetchOnWindowFocus: false,
-      staleTime: Infinity,
+      // Los datos se consideran frescos 30 s; pasado ese tiempo se recargan al montar la pantalla o al volver a la pestaña.
+      // Antes (staleTime infinito, sin recarga al enfocar) los cambios de otras personas no se veían hasta recargar la página.
+      // Las consultas que rellenan un formulario desactivan `refetchOnWindowFocus` para no pisar lo que se está editando.
+      refetchOnWindowFocus: true,
+      staleTime: QUERY_STALE_MS,
       retry: false,
     },
     mutations: {

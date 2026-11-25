@@ -20,6 +20,22 @@ export function registerStaffSocket(userId: number, socket: WebSocket, expiresAt
   return true;
 }
 
+/**
+ * Cierra las conexiones en vivo de quien dejó de estar activo. Una baja puede decidirla otro proceso (la sincronización
+ * con el Dashboard corre en un Job aparte y no alcanza estos sockets), así que el servicio revisa cada tanto a quienes
+ * tienen una conexión abierta. `findInactive` devuelve, de los ids dados, los que ya no están activos.
+ */
+export async function closeInactiveStaffSockets(findInactive: (userIds: number[]) => Promise<number[]>): Promise<number> {
+  const connected = Array.from(sockets.keys());
+  if (!connected.length) return 0;
+  const inactive = await findInactive(connected);
+  for (const userId of inactive) {
+    sockets.get(userId)?.forEach(socket => socket.close(4001, "Sesión terminada"));
+    sockets.delete(userId);
+  }
+  return inactive.length;
+}
+
 /** Invocar sólo después de persistir el cambio de contraseña o restablecimiento. */
 export function revokeStaffRealtime(userId: number): void {
   generations.set(userId, staffRealtimeGeneration(userId) + 1);

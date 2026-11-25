@@ -101,6 +101,61 @@ export interface LocalState {
   unlinkedGuardianEmails: ReadonlySet<string>;
   /** uid → candidato de personal ya guardado (`firebase_staff_candidates`). */
   staffByUid: ReadonlyMap<string, LocalStaffCandidate>;
+  /**
+   * uid → usuario de EduPay vinculado a esa persona (`external_identities.user_id`). Sirve para desactivar al usuario
+   * cuando el Dashboard declara EXPLÍCITAMENTE la baja. Opcional: sin él, la sincronización no desactiva a nadie.
+   */
+  linkedStaffUsers?: ReadonlyMap<string, LocalLinkedUser>;
+}
+
+export interface LocalLinkedUser {
+  userId: number;
+  role: string;
+  isActive: boolean;
+  isSuperAdmin: boolean;
+}
+
+/** Usuario de EduPay que se desactivará porque el Dashboard declaró la baja o la cuenta deshabilitada. */
+export interface UserDeactivation {
+  uid: string;
+  userId: number;
+  role: string;
+  motivo: "baja_en_dashboard";
+}
+
+/**
+ * Límites por corrida contra un Dashboard que devuelva datos anómalos. Si se superan, la corrida automática se aborta
+ * y la aplica una persona (`--allow-mass-changes`). Más de `max(MIN, ratio × base)` cambios supera el límite.
+ */
+export const GUARD_MIN_STUDENTS_BAJA = 5;
+export const GUARD_STUDENTS_BAJA_RATIO = 0.1;
+export const GUARD_MIN_USERS_DEACTIVATED = 2;
+export const GUARD_USERS_DEACTIVATED_RATIO = 0.2;
+
+export interface SyncGuards {
+  ok: boolean;
+  violations: string[];
+  studentsToBaja: number;
+  studentsBajaLimit: number;
+  usersToDeactivate: number;
+  usersDeactivationLimit: number;
+}
+
+export function evaluateGuards(input: { studentsToBaja: number; activeStudents: number; usersToDeactivate: number; activeLinkedUsers: number }): SyncGuards {
+  const studentsBajaLimit = Math.max(GUARD_MIN_STUDENTS_BAJA, Math.ceil(GUARD_STUDENTS_BAJA_RATIO * input.activeStudents));
+  const usersDeactivationLimit = Math.max(GUARD_MIN_USERS_DEACTIVATED, Math.ceil(GUARD_USERS_DEACTIVATED_RATIO * input.activeLinkedUsers));
+  const violations: string[] = [];
+  if (input.studentsToBaja > studentsBajaLimit) {
+    violations.push(`${input.studentsToBaja} alumnos pasarían a baja en una sola corrida (límite ${studentsBajaLimit}).`);
+  }
+  if (input.usersToDeactivate > usersDeactivationLimit) {
+    violations.push(`${input.usersToDeactivate} usuarios se desactivarían en una sola corrida (límite ${usersDeactivationLimit}).`);
+  }
+  return {
+    ok: violations.length === 0, violations,
+    studentsToBaja: input.studentsToBaja, studentsBajaLimit,
+    usersToDeactivate: input.usersToDeactivate, usersDeactivationLimit,
+  };
 }
 
 export interface LocalStaffCandidate {
@@ -176,6 +231,10 @@ export interface SyncReport {
   alumnosConVariosTutores: number;
   staffToCreate: number;
   staffToUpdate: number;
+  /** Usuarios de EduPay que se desactivan por una baja o cuenta deshabilitada declarada por el Dashboard. */
+  usersToDeactivate: number;
+  /** Límites por corrida; si `guards.ok` es falso, una corrida automática se aborta. */
+  guards: SyncGuards;
   skipped: Record<SkipReason, number>;
   /** Cosas que alguien debe revisar; nunca se corrigen solas. */
   warnings: Record<WarningKey, number>;
@@ -194,7 +253,8 @@ export type SkipReason =
   | "vinculo_no_declarado_por_tutor"
   | "vinculo_sin_alumno_o_tutor"
   | "personal_sin_nombre"
-  | "personal_es_tutor";
+  | "personal_es_tutor"
+  | "personal_baja_sin_registro_local";
 
 export type WarningKey =
   | "personalLocalAusenteEnPuente"
@@ -202,7 +262,9 @@ export type WarningKey =
   | "alumnosLocalesAusentesEnPuente"
   | "correoDeTutorCambio"
   | "alumnosNuevosEnBaja"
-  | "telefonoOmitidoPorLargo";
+  | "telefonoOmitidoPorLargo"
+  /** Un superadministrador de la plataforma figura de baja en el Dashboard: nunca se desactiva solo; lo decide una persona. */
+  | "superadminEnBajaEnDashboard";
 
 /** guardians.celular y guardians.telefono_casa_oficina son varchar(20). */
 export const PHONE_MAX_LENGTH = 20;
@@ -217,6 +279,8 @@ export interface SyncPlan {
   links: Array<{ studentUid: string; guardianUid: string }>;
   /** Altas y cambios de candidatos de personal. Nunca crean usuarios ni vínculos. */
   staffUpserts: StaffCandidateUpsert[];
+  /** Usuarios de EduPay a desactivar por baja explícita en el Dashboard (nunca superadmins, nunca por ausencia). */
+  userDeactivations: UserDeactivation[];
   report: SyncReport;
 }
 
@@ -233,12 +297,12 @@ export const studentKey = (nombreCompleto: string, campusId: number | null): str
 const emptySkips = (): Record<SkipReason, number> => ({
   escuela_no_habilitada: 0, alumno_sin_escuela: 0, alumno_sin_nombre: 0, nivel_sin_campus: 0, alumno_posible_duplicado: 0,
   tutor_rol_no_permitido: 0, tutor_sin_correo: 0, tutor_posible_duplicado: 0, tutor_sin_alumnos_validos: 0,
-  vinculo_no_declarado_por_tutor: 0, vinculo_sin_alumno_o_tutor: 0, personal_sin_nombre: 0, personal_es_tutor: 0,
+  vinculo_no_declarado_por_tutor: 0, vinculo_sin_alumno_o_tutor: 0, personal_sin_nombre: 0, personal_es_tutor: 0, personal_baja_sin_registro_local: 0,
 });
 
 const emptyWarnings = (): Record<WarningKey, number> => ({
   vinculosLocalesAusentesEnPuente: 0, alumnosLocalesAusentesEnPuente: 0, correoDeTutorCambio: 0, alumnosNuevosEnBaja: 0,
-  telefonoOmitidoPorLargo: 0, personalLocalAusenteEnPuente: 0,
+  telefonoOmitidoPorLargo: 0, personalLocalAusenteEnPuente: 0, superadminEnBajaEnDashboard: 0,
 });
 
 /**
@@ -262,9 +326,12 @@ export function planFirebaseSync(payload: BridgePayload, local: LocalState): Syn
   const warnings = emptyWarnings();
   const empty = (): SyncPlan => ({
     tenantId: local.tenantId, studentCreates: [], studentUpdates: [], guardianCreates: [], families: [], links: [], staffUpserts: [],
+    userDeactivations: [],
     report: {
       generadoEn: payload.generadoEn, studentsToCreate: 0, studentsToUpdate: 0, studentsBaja: 0, guardiansToCreate: 0,
-      linksToCreate: 0, familiesToCreate: 0, alumnosConVariosTutores: 0, staffToCreate: 0, staffToUpdate: 0, skipped, warnings,
+      linksToCreate: 0, familiesToCreate: 0, alumnosConVariosTutores: 0, staffToCreate: 0, staffToUpdate: 0, usersToDeactivate: 0,
+      guards: evaluateGuards({ studentsToBaja: 0, activeStudents: 0, usersToDeactivate: 0, activeLinkedUsers: 0 }),
+      skipped, warnings,
     },
   });
 
@@ -435,11 +502,22 @@ export function planFirebaseSync(payload: BridgePayload, local: LocalState): Syn
   // 8. Personal: candidatos para que un superadministrador les asigne rol. No crea usuarios ni vínculos y no usa
   //    el rol del Dashboard para decidir nada. Un uid que ya es tutor no puede ser también personal (un uid = una persona).
   const staffUpserts: StaffCandidateUpsert[] = [];
+  const userDeactivations: UserDeactivation[] = [];
   const staffSeen = new Set<string>();
   for (const p of [...staff].sort((a, b) => a.uid.localeCompare(b.uid))) {
     if (staffSeen.has(p.uid)) continue;
     staffSeen.add(p.uid);
     if (clean(p.idEscuela) !== school) { skipped.escuela_no_habilitada++; continue; }
+    // Baja o cuenta deshabilitada DECLARADA por el Dashboard (`estado: "baja"`): se desactiva al usuario de EduPay vinculado.
+    // Solo ante esa señal explícita: que una persona falte en la lista no desactiva a nadie (el Dashboard omite personal
+    // activo con datos incompletos). Un superadministrador de la plataforma nunca se desactiva solo.
+    if (p.estado === "baja") {
+      const linked = local.linkedStaffUsers?.get(p.uid);
+      if (linked?.isActive) {
+        if (linked.isSuperAdmin || linked.role === "super_admin") warnings.superadminEnBajaEnDashboard++;
+        else userDeactivations.push({ uid: p.uid, userId: linked.userId, role: linked.role, motivo: "baja_en_dashboard" });
+      }
+    }
     if (local.guardianByUid.has(p.uid) || acceptedTutors.has(p.uid)) { skipped.personal_es_tutor++; continue; }
     const nombre = fullName(p) || clean(p.email);
     if (!nombre) { skipped.personal_sin_nombre++; continue; }
@@ -453,15 +531,26 @@ export function planFirebaseSync(payload: BridgePayload, local: LocalState): Syn
       registro_sep: registro, estado: p.estado,
     };
     const cur = local.staffByUid.get(p.uid);
-    if (!cur) { staffUpserts.push({ ...next, isNew: true }); continue; }
+    if (!cur) {
+      // `bajas` del Dashboard guarda el histórico completo: una baja sin registro local no crea candidato nuevo.
+      if (p.estado === "baja") { skipped.personal_baja_sin_registro_local++; continue; }
+      staffUpserts.push({ ...next, isNew: true });
+      continue;
+    }
     const changed = cur.nombreCompleto !== next.nombre_completo || cur.email !== next.email || cur.rolDashboard !== next.rol_dashboard
       || cur.departamento !== next.departamento || cur.estado !== next.estado || !sameRegistro(cur.registroSep, next.registro_sep);
     if (changed) staffUpserts.push({ ...next, isNew: false });
   }
   for (const uid of Array.from(local.staffByUid.keys())) if (!staffSeen.has(uid)) warnings.personalLocalAusenteEnPuente++;
 
+  // 9. Límites por corrida: solo cuentan las TRANSICIONES activo → baja de alumnos existentes (no las altas) y las desactivaciones.
+  const studentsToBaja = studentUpdates.filter((u) => u.fields.status === "baja").length;
+  const activeStudents = Array.from(local.studentByUid.values()).filter((s) => s.status === "activo").length;
+  const activeLinkedUsers = Array.from(local.linkedStaffUsers?.values() ?? []).filter((u) => u.isActive).length;
+  const guards = evaluateGuards({ studentsToBaja, activeStudents, usersToDeactivate: userDeactivations.length, activeLinkedUsers });
+
   return {
-    tenantId: local.tenantId, studentCreates, studentUpdates, guardianCreates, families, links: newLinks, staffUpserts,
+    tenantId: local.tenantId, studentCreates, studentUpdates, guardianCreates, families, links: newLinks, staffUpserts, userDeactivations,
     report: {
       generadoEn: payload.generadoEn,
       studentsToCreate: studentCreates.length,
@@ -473,6 +562,8 @@ export function planFirebaseSync(payload: BridgePayload, local: LocalState): Syn
       alumnosConVariosTutores: Array.from(tutorsPerStudent.values()).filter((n) => n > 1).length,
       staffToCreate: staffUpserts.filter((s) => s.isNew).length,
       staffToUpdate: staffUpserts.filter((s) => !s.isNew).length,
+      usersToDeactivate: userDeactivations.length,
+      guards,
       skipped, warnings,
     },
   };

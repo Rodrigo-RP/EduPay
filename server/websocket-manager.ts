@@ -1,13 +1,13 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import { Server } from 'http';
 import jwt from 'jsonwebtoken';
-import { db } from './db';
+import { db, pool } from './db';
 import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { JWT_SECRET } from './routes/shared';
 import { isSessionInvalidated } from './lib/session-version';
 import { staffSessionExpired, STAFF_SESSION_SECONDS } from "./lib/staff-session";
-import { registerStaffSocket, staffRealtimeGeneration } from "./lib/staff-realtime";
+import { registerStaffSocket, staffRealtimeGeneration, closeInactiveStaffSockets } from "./lib/staff-realtime";
 
 interface AuthenticatedSocket extends WebSocket {
   user?: {
@@ -116,6 +116,16 @@ class WebSocketManager {
         ws.ping();
       });
     }, 30000); // Cada 30 segundos
+
+    // Quien se desactiva (p. ej. baja declarada por el Dashboard en la sincronización, que corre en otro proceso)
+    // pierde también sus conexiones en vivo: el servicio revisa a quienes tienen una abierta.
+    const inactiveSweep = setInterval(() => {
+      closeInactiveStaffSockets(async (ids) => {
+        const res = await pool.query(`SELECT id FROM users WHERE id = ANY($1::int[]) AND is_active = false`, [ids]);
+        return res.rows.map((r: { id: number }) => Number(r.id));
+      }).catch((error) => console.error('❌ Error revisando usuarios desactivados con conexión abierta:', error));
+    }, 30000);
+    inactiveSweep.unref();
 
     console.log('✅ WebSocket Manager inicializado');
   }

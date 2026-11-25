@@ -2,17 +2,32 @@
  * Sincronización Firebase → EduPay: lee el estado local, arma el plan (`firebase-bridge-plan.ts`) y, solo si se
  * pide aplicar, lo ejecuta en UNA transacción. Dry-run por defecto: solo SELECT.
  *
- * Garantías: un candado por escuela serializa las corridas y el plan se calcula DENTRO de la transacción (con el
- * candado ya tomado); nunca borra; nunca modifica un vínculo alumno-tutor existente (ahí vive la decisión de la
- * escuela sobre el responsable de pago); no toca cargos, pagos ni becas. La auditoría va después del COMMIT y, si
- * falla, a la cola de reintentos (ADR-001).
+ * Garantías: un candado por escuela serializa las corridas (si ya hay otra en curso, ésta se OMITE, no espera) y el
+ * plan se calcula DENTRO de la transacción (con el candado ya tomado); nunca borra; nunca modifica un vínculo
+ * alumno-tutor existente (ahí vive la decisión de la escuela sobre el responsable de pago); no toca cargos, pagos ni
+ * becas. Lo único que hace sobre usuarios es DESACTIVAR (`is_active = false`) a quien el Dashboard declara de baja,
+ * nunca a un superadministrador. Si una corrida supera los límites de cambios masivos, se aborta sin escribir nada
+ * (salvo `allowMassChanges`). La auditoría va después del COMMIT y, si falla, a la cola de reintentos (ADR-001).
  */
 import type { Pool } from "pg";
 import { enqueueAuditLog, type AuditLogPayload } from "../audit-retry";
 import {
   planFirebaseSync, studentKey,
-  type BridgePayload, type LocalState, type LocalStaffCandidate, type LocalStudent, type SyncPlan, type SyncReport,
+  type BridgePayload, type LocalState, type LocalStaffCandidate, type LocalLinkedUser, type LocalStudent, type SyncGuards, type SyncPlan, type SyncReport,
 } from "./firebase-bridge-plan";
+
+/** La corrida supera los límites de cambios masivos: no se escribió nada. Hay que revisar y aplicar a mano. */
+export class SyncGuardError extends Error {
+  constructor(public readonly guards: SyncGuards) {
+    super(`Sincronización abortada por límites de seguridad: ${guards.violations.join(" ")}`);
+    this.name = "SyncGuardError";
+  }
+}
+
+/** Otra sincronización de la misma escuela está en curso: esta corrida se omite. */
+export class SyncBusyError extends Error {
+  constructor() { super("Otra sincronización de esta escuela está en curso; se omite esta corrida."); this.name = "SyncBusyError"; }
+}
 
 interface Queryable { query(text: string, values?: unknown[]): Promise<{ rows: any[]; rowCount?: number | null }> }
 export type BridgeDb = Pick<Pool, "connect">;
@@ -21,7 +36,7 @@ export async function loadLocalState(db: Queryable, tenantId: number): Promise<L
   const tenant = (await db.query(`SELECT id, firebase_id_escuela FROM tenants WHERE id = $1`, [tenantId])).rows[0];
   if (!tenant) throw new Error(`No existe la escuela (tenant) ${tenantId}.`);
 
-  const [campus, students, guardians, links, unlinkedStudents, unlinkedGuardians, staff] = await Promise.all([
+  const [campus, students, guardians, links, unlinkedStudents, unlinkedGuardians, staff, linkedUsers] = await Promise.all([
     db.query(`SELECT nivel, campus_id FROM firebase_campus_map WHERE tenant_id = $1`, [tenantId]),
     db.query(
       `SELECT fs.firebase_uid, s.id, s.campus_id, s.nivel_escolar, s.grado, s.grupo, s.turno, s.status,
@@ -48,6 +63,10 @@ export async function loadLocalState(db: Queryable, tenantId: number): Promise<L
     db.query(
       `SELECT firebase_uid, nombre_completo, email, rol_dashboard, departamento, registro_sep, estado
          FROM firebase_staff_candidates WHERE tenant_id = $1`, [tenantId]),
+    db.query(
+      `SELECT ei.subject, u.id, u.role, u.is_active, u.is_super_admin
+         FROM external_identities ei JOIN users u ON u.id = ei.user_id
+        WHERE ei.tenant_id = $1 AND ei.provider = 'firebase' AND ei.user_id IS NOT NULL`, [tenantId]),
   ]);
 
   return {
@@ -67,6 +86,9 @@ export async function loadLocalState(db: Queryable, tenantId: number): Promise<L
       nombreCompleto: String(r.nombre_completo ?? ""), email: r.email ?? null, rolDashboard: r.rol_dashboard ?? null,
       departamento: r.departamento ?? null,
       registroSep: Array.isArray(r.registro_sep) ? r.registro_sep : [], estado: String(r.estado ?? "activo"),
+    }])),
+    linkedStaffUsers: new Map(linkedUsers.rows.map((r): [string, LocalLinkedUser] => [String(r.subject), {
+      userId: Number(r.id), role: String(r.role ?? ""), isActive: r.is_active !== false, isSuperAdmin: r.is_super_admin === true,
     }])),
   };
 }
@@ -147,6 +169,17 @@ async function executePlan(client: Queryable, plan: SyncPlan, local: LocalState)
       [tenantId, c.uid, c.nombre_completo, c.email, c.rol_dashboard, c.departamento, JSON.stringify(c.registro_sep), c.estado],
     );
   }
+
+  // Baja o cuenta deshabilitada declarada por el Dashboard: el usuario queda inactivo. Con eso cada petición de su
+  // sesión abierta recibe 401, su inicio de sesión (contraseña o SSO) se rechaza y sus conexiones en vivo se cierran.
+  // El vínculo con su uid se conserva: reactivarlo es decisión de un superadmin. Nunca a un superadmin de plataforma.
+  for (const d of plan.userDeactivations) {
+    await client.query(
+      `UPDATE users SET is_active = false, updated_at = now()
+        WHERE id = $1 AND is_active IS DISTINCT FROM false AND COALESCE(is_super_admin, false) = false AND role <> 'super_admin'`,
+      [d.userId],
+    );
+  }
 }
 
 export interface RunSyncOptions {
@@ -154,14 +187,17 @@ export interface RunSyncOptions {
   tenantId: number;
   payload: BridgePayload;
   apply: boolean;
+  /** Solo para una corrida manual y revisada: permite superar los límites de cambios masivos. */
+  allowMassChanges?: boolean;
 }
 
 export interface RunSyncResult { applied: boolean; report: SyncReport }
 
-export async function runFirebaseSync({ db, tenantId, payload, apply }: RunSyncOptions): Promise<RunSyncResult> {
+export async function runFirebaseSync({ db, tenantId, payload, apply, allowMassChanges = false }: RunSyncOptions): Promise<RunSyncResult> {
   const client = await db.connect();
   let committed = false;
   let report: SyncReport;
+  let deactivations: SyncPlan["userDeactivations"] = [];
   try {
     if (!apply) {
       await client.query("BEGIN READ ONLY");
@@ -171,13 +207,18 @@ export async function runFirebaseSync({ db, tenantId, payload, apply }: RunSyncO
       return { applied: false, report };
     }
     await client.query("BEGIN");
-    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`firebase-bridge:${tenantId}`]);
+    // Con una corrida cada pocos minutos, esperar el candado acumularía corridas: si está ocupado, se omite esta.
+    const lock = await client.query(`SELECT pg_try_advisory_xact_lock(hashtext($1)) AS locked`, [`firebase-bridge:${tenantId}`]);
+    if (lock.rows[0]?.locked === false) throw new SyncBusyError();
     const local = await loadLocalState(client, tenantId);
     const plan = planFirebaseSync(payload, local);
+    // Límites de cambios masivos: ante un Dashboard con datos anómalos no se escribe nada (el ROLLBACK lo hace el catch).
+    if (!plan.report.guards.ok && !allowMassChanges) throw new SyncGuardError(plan.report.guards);
     await executePlan(client, plan, local);
     await client.query("COMMIT");
     committed = true;
     report = plan.report;
+    deactivations = plan.userDeactivations;
   } catch (err) {
     if (!committed) await client.query("ROLLBACK").catch(() => {});
     throw err;
@@ -185,18 +226,27 @@ export async function runFirebaseSync({ db, tenantId, payload, apply }: RunSyncO
     client.release();
   }
 
-  const audit: AuditLogPayload = {
+  const audits: AuditLogPayload[] = [{
     tenant_id: tenantId, user_id: null, action: "firebase_bridge.sync", entity_type: "tenant", entity_id: tenantId,
-    metadata: { generadoEn: report.generadoEn, creados: { alumnos: report.studentsToCreate, tutores: report.guardiansToCreate, vinculos: report.linksToCreate, familias: report.familiesToCreate, personal: report.staffToCreate }, actualizados: report.studentsToUpdate, personalActualizado: report.staffToUpdate, omitidos: report.skipped, avisos: report.warnings },
-  };
+    metadata: { generadoEn: report.generadoEn, creados: { alumnos: report.studentsToCreate, tutores: report.guardiansToCreate, vinculos: report.linksToCreate, familias: report.familiesToCreate, personal: report.staffToCreate }, actualizados: report.studentsToUpdate, personalActualizado: report.staffToUpdate, usuariosDesactivados: report.usersToDeactivate, omitidos: report.skipped, avisos: report.warnings, masivoPermitido: allowMassChanges || undefined },
+  },
+  // Una entrada por usuario desactivado: quién (uid y rol), por qué y que la decisión vino del Dashboard.
+  ...deactivations.map((d): AuditLogPayload => ({
+    tenant_id: tenantId, user_id: null, action: "user.deactivated_by_dashboard", entity_type: "user", entity_id: d.userId,
+    metadata: { uid: d.uid, rol: d.role, motivo: d.motivo, origen: "firebase_bridge.sync" },
+  }))];
   const auditClient = await db.connect();
   try {
-    await auditClient.query(
-      `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata) VALUES ($1, $2, $3, $4, $5, $6)`,
-      [audit.tenant_id, audit.user_id, audit.action, audit.entity_type, audit.entity_id, JSON.stringify(audit.metadata)],
-    );
-  } catch (err) {
-    enqueueAuditLog(audit, err);
+    for (const audit of audits) {
+      try {
+        await auditClient.query(
+          `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata) VALUES ($1, $2, $3, $4, $5, $6)`,
+          [audit.tenant_id, audit.user_id, audit.action, audit.entity_type, audit.entity_id, JSON.stringify(audit.metadata)],
+        );
+      } catch (err) {
+        enqueueAuditLog(audit, err);
+      }
+    }
   } finally {
     auditClient.release();
   }

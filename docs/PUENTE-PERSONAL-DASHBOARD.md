@@ -46,6 +46,15 @@ Un arreglo nuevo `personal` en la respuesta, junto a `alumnos`, `tutores` y `vin
 4. La persona entra por el botón del Dashboard. Su rol viaja en el token: un cambio de rol aplica al vencer la sesión.
 5. "Quitar acceso" desvincula el `uid`, desactiva al usuario y cierra sus sesiones. No lo borra.
 
+## Bajas del personal (24-nov-2026; lado EduPay construido, apagado hasta que el Dashboard envíe `estado: "baja"`)
+- Si el Dashboard declara **explícitamente** a una persona del personal con `estado: "baja"` (movida a `bajas` o con la cuenta deshabilitada), la sincronización desactiva al usuario de EduPay vinculado a su `uid` (`is_active = false`): se cortan sus peticiones, su inicio de sesión (contraseña o SSO) y sus conexiones en vivo. El vínculo se conserva; reactivar lo decide un superadmin desde Usuarios.
+- Nunca por ausencia en la lista (el Dashboard omite al personal activo con datos incompletos) y **nunca a un superadmin de la plataforma** (se reporta en `warnings.superadminEnBajaEnDashboard`).
+- Límites por corrida: si pasarían a baja más de max(5, 10 %) de los alumnos o se desactivarían más de max(2, 20 %) de los usuarios vinculados, la corrida se **aborta sin escribir** (`[sync:abortado]`, código de salida 1) y solo una persona la aplica con `--allow-mass-changes`. Si hay otra corrida en curso, ésta se omite (`[sync:omitida]`).
+- Cada desactivación queda en la auditoría (`user.deactivated_by_dashboard`).
+- Una baja de alguien sin candidato local **no crea candidato** (la colección `bajas` del Dashboard es histórica): se cuenta en `skipped.personal_baja_sin_registro_local`. Una baja con candidato existente lo actualiza a `baja`.
+- Decisión (25-nov-2026): la baja **desactiva sin borrar**; reactivar es **manual por un superadmin** (reactivar en el Dashboard no reactiva en EduPay). Un borrado definitivo en el Dashboard solo llega como baja si el Dashboard deja un registro mínimo (uid, escuela, `estado: "baja"`); la ausencia nunca desactiva.
+- Programación prevista: Cloud Scheduler más el Job cada 3 minutos, primero solo en simulacro y después con `--apply` cuando la revisión salga limpia.
+
 ## Pendientes
 - La migración 0010 ya está aplicada en Cloud SQL. La 0011 (`departamento`) se aplica con respaldo previo y autorización de Karla, **antes** de desplegar la imagen que la usa.
 - `drizzle/schema-catalog.json` ya incluye la 0011 (verificado con `verify-schema-exact` en PG16 y PG18).

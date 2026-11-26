@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { GraduationCap, Loader2, AlertCircle, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { redirectWhenLoginDisabled } from "@/lib/sso-only";
 
 type State = "loading" | "success" | "expired" | "error";
 
@@ -22,6 +23,7 @@ export default function MagicLinkRedirect() {
       .then(async (res) => {
         const data = await res.json();
         if (!res.ok) {
+          if (await redirectWhenLoginDisabled(data)) return;
           if (res.status === 410) { setState("expired"); setMessage(data.message); }
           else { setState("error"); setMessage(data.message || "Error desconocido"); }
           return;

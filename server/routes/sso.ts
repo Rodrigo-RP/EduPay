@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import { authenticateToken, requireSuperAdmin, hasPermissionForUser, JWT_SECRET } from "./shared";
 import { auditLogger } from "../audit-retry";
 import { loadSsoConfig, type SsoConfig } from "../lib/sso/config";
+import { isSsoOnly, isEmergencyLoginEnabled, assertSsoOnlyStartup } from "../lib/sso-only";
 import { SsoError, verifySsoAssertion, type SsoErrorCode } from "../lib/sso/assertion";
 import { checkEligibility, exchangeAssertion, renewSsoSession, linkExternalIdentity, unlinkExternalIdentity, writeAudit } from "../lib/sso/service";
 
@@ -49,6 +50,9 @@ export function registerSsoRoutes(app: Express, env: NodeJS.ProcessEnv = process
     return cached.result;
   };
 
+  // Con SSO_ONLY encendido y un SSO inutilizable el servicio no arranca (evita dejar a todos sin acceso).
+  assertSsoOnlyStartup(env);
+
   const boot = getConfig();
   if (!boot.ok && boot.reason === "misconfigured") {
     auditLogger.error("sso.misconfigured", { detail: boot.detail });
@@ -65,7 +69,13 @@ export function registerSsoRoutes(app: Express, env: NodeJS.ProcessEnv = process
   app.get("/api/auth/sso/config", (_req, res) => {
     const result = getConfig();
     res.set("Cache-Control", "no-store");
-    res.json({ enabled: result.ok, dashboard_url: result.ok ? result.config.dashboardUrl : null });
+    // `sso_only` solo se anuncia con un SSO válido: así la pantalla nunca manda a la gente a un Dashboard inexistente.
+    res.json({
+      enabled: result.ok,
+      dashboard_url: result.ok ? result.config.dashboardUrl : null,
+      sso_only: result.ok && isSsoOnly(env),
+      emergency_login: result.ok && isEmergencyLoginEnabled(env),
+    });
   });
 
   // ── Canje de la aserción por una sesión de EduPay ─────────────────────────────────────────────

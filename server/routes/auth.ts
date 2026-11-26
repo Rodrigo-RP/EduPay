@@ -8,6 +8,8 @@ import { users } from "@shared/schema";
 import { storage } from "../storage";
 import { guardianHasActiveFamily } from "../lib/family-access";
 import { registerTwoFactorRoutes } from "./two-factor";
+import { isSsoOnly, isEmergencyLoginEnabled, canUseEmergencyLogin, ssoOnlyGate, LOGIN_DISABLED_MESSAGE } from "../lib/sso-only";
+import { auditLogger, enqueueAuditLog } from "../audit-retry";
 import { validTotp, consumeBackupCode } from "../lib/totp-service";
 import { signStaffSession, staffSessionExpired, STAFF_SESSION_SECONDS } from "../lib/staff-session";
 import { GUARDIAN_TOKEN_SECONDS, guardianSessionExpired, guardianSessionStart, guardianTokenSeconds } from "../lib/guardian-session-limits";
@@ -34,8 +36,17 @@ export function registerAuthRoutes(app: Express): void {
         return res.status(400).json({ message: "Email and password required" });
       }
 
+      // SSO_ONLY: sin acceso de emergencia habilitado, esta ruta está cerrada.
+      if (isSsoOnly() && !isEmergencyLoginEnabled()) {
+        return res.status(403).json({ code: "LOGIN_DISABLED", message: LOGIN_DISABLED_MESSAGE });
+      }
+
       const user = await storage.getUserByEmail(email);
       if (!user || user.is_active === false || !await bcrypt.compare(password, user.password_hash)) {
+        return res.status(401).json({ message: "Credenciales inválidas" });
+      }
+      // SSO_ONLY: la contraseña solo vale para un superadministrador con TOTP. A los demás se les responde como a una credencial inválida.
+      if (isSsoOnly() && !canUseEmergencyLogin(user as any)) {
         return res.status(401).json({ message: "Credenciales inválidas" });
       }
       const { requiresPasswordChange } = await loadUserAuthData(user.id);
@@ -54,6 +65,18 @@ export function registerAuthRoutes(app: Express): void {
       }
 
       const token = signStaffSession(user, JWT_SECRET, !!user.twofa_secret);
+
+      if (isSsoOnly()) {
+        // Acceso de emergencia usado: queda en el registro del servicio y, si el usuario tiene escuela, en la auditoría.
+        auditLogger.warn("auth.emergency_login", { user_id: user.id });
+        if (Number.isInteger(Number(user.tenant_id)) && Number(user.tenant_id) > 0) {
+          const audit = { tenant_id: Number(user.tenant_id), user_id: user.id, action: "auth.emergency_login", entity_type: "user", entity_id: user.id, metadata: { motivo: "SSO_ONLY", ip: req.ip ?? null } };
+          pool.query(
+            `INSERT INTO audit_log (tenant_id, user_id, action, entity_type, entity_id, metadata) VALUES ($1, $2, $3, $4, $5, $6)`,
+            [audit.tenant_id, audit.user_id, audit.action, audit.entity_type, audit.entity_id, JSON.stringify(audit.metadata)],
+          ).catch((err) => enqueueAuditLog(audit, err));
+        }
+      }
 
       res.json({ token, user: { id: user.id, email: user.email, name: user.name ?? "", role: user.role, campus_id: user.campus_id, tenant_id: user.tenant_id, requires_password_change: requiresPasswordChange, requires_twofa_setup: !user.twofa_secret } });
     } catch (error: any) {
@@ -171,7 +194,7 @@ export function registerAuthRoutes(app: Express): void {
   });
 
   // Guardian login
-  app.post("/api/auth/guardian-login", async (req, res) => {
+  app.post("/api/auth/guardian-login", ssoOnlyGate(), async (req, res) => {
     try {
       const { email, password } = req.body;
       
@@ -212,7 +235,7 @@ export function registerAuthRoutes(app: Express): void {
   // ── POST /api/admin/magic-link ─────────────────────────────────────────────
   // Genera una liga mágica de acceso para un tutor (72 h, máx 3 usos).
   // Requiere autenticación de administrador (type==="user", no guardian JWT).
-  app.post("/api/admin/magic-link", authenticateToken, async (req: any, res) => {
+  app.post("/api/admin/magic-link", ssoOnlyGate(), authenticateToken, async (req: any, res) => {
     try {
       const user      = req.user;
       const tenantId  = user?.tenant_id;
@@ -298,7 +321,7 @@ export function registerAuthRoutes(app: Express): void {
   // ── GET /api/auth/magic/:token ─────────────────────────────────────────────
   // Canjea una liga mágica; devuelve JWT de tutor (4 h) si el token es válido.
   // Ruta PÚBLICA — no requiere autenticación previa.
-  app.get("/api/auth/magic/:token", async (req, res) => {
+  app.get("/api/auth/magic/:token", ssoOnlyGate(), async (req, res) => {
     try {
       const rawToken = req.params.token;
 
@@ -399,7 +422,7 @@ export function registerAuthRoutes(app: Express): void {
   // ── GET /api/admin/magic-link/history/:guardianId ─────────────────────────
   // Historial de ligas generadas para un tutor (auditoría).
   // Solo usuarios del panel admin — bloquear JWTs de tutores.
-  app.get("/api/admin/magic-link/history/:guardianId", authenticateToken, async (req: any, res) => {
+  app.get("/api/admin/magic-link/history/:guardianId", ssoOnlyGate(), authenticateToken, async (req: any, res) => {
     try {
       const ROLES_MAGIC_ISSUE = ['administrador_general','administrador_campus','super_admin',
                                    'caja','auxiliar_caja','asistente','admisiones'];

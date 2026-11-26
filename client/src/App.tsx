@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -9,6 +9,8 @@ import { AcademicFilterProvider } from "@/hooks/use-academic-filter";
 import { InstitutionProvider } from "@/hooks/use-institution";
 import { RealTimeProvider } from "@/components/RealTimeProvider";
 import { GraduationCap } from "lucide-react";
+import LoginGate from "@/components/login-gate";
+import { EMERGENCY_PATH } from "@/lib/sso-only";
 import Header from "@/components/layout/header";
 import Sidebar from "@/components/layout/sidebar";
 import ParentPortal from "@/pages/parent-portal";
@@ -67,6 +69,7 @@ import RequiredTwoFactor from "@/components/required-two-factor";
 
 function AuthenticatedRoutes() {
   const { user, guardian, isLoading } = useAuth();
+  const [location] = useLocation();
 
   if (isLoading) {
     return (
@@ -77,8 +80,11 @@ function AuthenticatedRoutes() {
   }
 
   if (!user && !guardian) {
-    return <Login />;
+    // Con SSO_ONLY no hay inicio de sesión propio: se manda al Dashboard (salvo el acceso de emergencia).
+    return <LoginGate><Login /></LoginGate>;
   }
+  // Tras el acceso de emergencia, salir de su ruta.
+  if (location === EMERGENCY_PATH) return <Redirect to="/" />;
   if (user?.requires_password_change) return <InitialPasswordChange />;
   if (user?.requires_twofa_setup) return <RequiredTwoFactor />;
 

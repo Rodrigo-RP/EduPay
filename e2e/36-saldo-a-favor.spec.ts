@@ -97,7 +97,8 @@ test("saldo familiar: dos confirmaciones, propuesta de $500 y aplicación explí
 });
 
 async function loginFixtureGuardian(page: Page) {
-  await page.goto("/");
+  // Entrada real del tutor: solo sirve para tener un origen donde guardar la sesión (no abre la pantalla de personal).
+  await page.goto("/acceso-padres");
   const login = await page.request.post("/api/auth/guardian-login", {
     data: { email: guardianEmail, password: ADMIN_PASSWORD },
   });

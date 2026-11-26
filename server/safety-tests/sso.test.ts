@@ -400,9 +400,9 @@ describe("Rutas del SSO", () => {
   const post = (url: string, body: unknown, headers: Record<string, string> = {}) =>
     fetch(url, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
 
-  it("la configuración pública solo dice si está habilitado", async () => {
-    expect(await (await fetch(`${base}/api/auth/sso/config`)).json()).toEqual({ enabled: true, dashboard_url: null });
-    expect(await (await fetch(`${disabledBase}/api/auth/sso/config`)).json()).toEqual({ enabled: false, dashboard_url: null });
+  it("la configuración pública solo dice si está habilitado, a dónde volver y si el acceso directo está cerrado (sin llaves ni emisor)", async () => {
+    expect(await (await fetch(`${base}/api/auth/sso/config`)).json()).toEqual({ enabled: true, dashboard_url: null, sso_only: false, emergency_login: false });
+    expect(await (await fetch(`${disabledBase}/api/auth/sso/config`)).json()).toEqual({ enabled: false, dashboard_url: null, sso_only: false, emergency_login: false });
   });
   it("apagado, el canje responde 503", async () => {
     const r = await post(`${disabledBase}/api/auth/sso/exchange`, { assertion: assertion() });

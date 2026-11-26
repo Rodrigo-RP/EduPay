@@ -7,7 +7,7 @@
  */
 export const DASHBOARD_URL_KEY = "sso_dashboard_url";
 
-function httpUrl(value: unknown): string | null {
+export function httpUrl(value: unknown): string | null {
   if (typeof value !== "string") return null;
   try {
     const url = new URL(value);

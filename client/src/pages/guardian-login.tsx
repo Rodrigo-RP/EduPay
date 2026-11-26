@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { GUARDIAN_SESSION_MESSAGE } from "@/lib/guardian-session";
+import { redirectWhenLoginDisabled } from "@/lib/sso-only";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,7 +24,8 @@ export default function GuardianLogin() {
       await guardianLogin(email, password);
       sessionStorage.removeItem(GUARDIAN_SESSION_MESSAGE);
       setLocation("/");
-    } catch {
+    } catch (error) {
+      if (await redirectWhenLoginDisabled((error as Error)?.message)) return;
       setMessage("No pudimos iniciar sesión. Revisa tu correo y contraseña o comunícate con la escuela.");
     } finally { setPending(false); }
   }

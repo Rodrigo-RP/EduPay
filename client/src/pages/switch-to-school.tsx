@@ -9,7 +9,7 @@ export default function SwitchToSchool() {
     const switchToSchoolAdmin = async () => {
       try {
         // Logout completo para limpiar estado
-        logout();
+        logout({ redirectToDashboard: false });
         
         // Esperar un momento para que se limpie el estado
         await new Promise(resolve => setTimeout(resolve, 500));

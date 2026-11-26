@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { apiRequest } from "@/lib/queryClient";
 import { redirectGuardianToLogin } from "@/lib/guardian-session";
 import { isSsoSession, endSsoSession, startSsoSessionKeeper, clearSsoActivity } from "@/lib/sso-session";
+import { storedDashboardUrl, fetchDashboardUrl } from "@/lib/dashboard-link";
 
 interface User {
   id: number;
@@ -29,7 +30,11 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string, totp_code?: string) => Promise<void>;
   guardianLogin: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  /**
+   * Cierra la sesión y regresa al Dashboard (si se conoce su URL). `{ redirectToDashboard: false }` solo para flujos internos que
+   * reinician sesión. Acepta `unknown` porque también se usa directamente como manejador de clic (recibe el evento).
+   */
+  logout: (options?: unknown) => void;
   completeTwofa: (token: string) => void;
 }
 
@@ -154,13 +159,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = () => {
+  // `logout` también se usa como manejador de clic (recibe el evento): solo `redirectToDashboard === false` evita la redirección.
+  const logout = (options?: unknown) => {
+    const redirect = (options as { redirectToDashboard?: unknown } | null | undefined)?.redirectToDashboard !== false;
+    const dashboardUrl = redirect ? storedDashboardUrl() : null;
     clearSsoActivity();
     localStorage.removeItem("auth_token");
     localStorage.removeItem("auth_type");
     localStorage.removeItem("auth_user");
+    // Cerrar sesión siempre regresa al Dashboard, sin pasar por la pantalla de inicio de sesión de EduPay.
+    if (dashboardUrl) { window.location.assign(dashboardUrl); return; }
     setUser(null);
     setGuardian(null);
+    // Sin URL guardada (la sesión no entró por el Dashboard): se consulta la configuración y, si hay Dashboard, se va allá.
+    if (redirect) void fetchDashboardUrl().then((url) => { if (url) window.location.assign(url); }).catch(() => {});
   };
 
   return (

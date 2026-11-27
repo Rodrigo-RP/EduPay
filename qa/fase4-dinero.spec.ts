@@ -189,7 +189,15 @@ test.describe("C-43 cobro en efectivo en caja", () => {
 
 // ───────────────────────── C-07 / C-02 emisión de cargos ─────────────────────────
 test.describe("C-07 y C-02 emisión de cargos", () => {
+  // Contrato desde P3: cada nivel se emite con su concepto de colegiatura, por lo que cada concepto necesita su fecha de vencimiento configurada.
+  const configurarVencimientos = async () => {
+    await db.query(`INSERT INTO payment_due_dates (campus_id, tenant_id, concepto, concept_id, dia_vencimiento, mes_aplicacion, activo)
+      SELECT c.campus_id, c.tenant_id, c.nombre, c.id, 10, 'todos', true FROM concepts c
+       WHERE c.campus_id = 1 AND c.tipo = 'colegiatura' AND c.periodicidad = 'mensual'
+         AND NOT EXISTS (SELECT 1 FROM payment_due_dates d WHERE d.concept_id = c.id AND d.activo)`);
+  };
   test("generar-mensual: asistente 403; repetir para el mismo periodo no debe duplicar cargos", async ({ request }) => {
+    await configurarVencimientos();
     expect((await request.post("/api/admin/cargos/generar-mensual", { headers: h("as"), data: { periodo: "2026-12" }, failOnStatusCode: false })).status()).toBe(403);
     const total = async () => (await db.query("SELECT count(*)::int AS n FROM charges ch JOIN students s ON s.id=ch.student_id WHERE s.campus_id=1")).rows[0].n;
     const antes = await total();
@@ -199,10 +207,15 @@ test.describe("C-07 y C-02 emisión de cargos", () => {
     const b = await request.post("/api/admin/cargos/generar-mensual", { headers: h("ac"), data: { periodo: "2026-12", ciclo_escolar: "2026-2027" }, failOnStatusCode: false });
     const tras2 = await total();
     nota(`cargos: antes=${antes}, tras la 1a=${tras1}, tras la 2a=${tras2} (segunda ${b.status()})`);
-    if (a.status() < 300) expect.soft(tras2 - tras1, "la segunda ejecución del mismo periodo no debe crear cargos").toBe(0);
-    else expect(a.status(), "debe poder generarse con la configuración del seed").toBeLessThan(300);
+    expect(a.status(), "debe poder generarse con los vencimientos configurados").toBeLessThan(300);
+    expect(tras2 - tras1, "la segunda ejecución del mismo periodo no debe crear cargos").toBe(0);
+    expect((await body(b)).ya_existian, "la respuesta informa cuántos ya existían").toBeGreaterThan(0);
+    const dup = (await db.query("SELECT count(*)::int AS n FROM (SELECT student_id, concept_id, periodo FROM charges WHERE periodo = '2026-12' AND estado <> 'cancelado' GROUP BY 1,2,3 HAVING count(*) > 1) x")).rows[0].n;
+    expect(dup, "no debe haber dos cargos del mismo alumno, concepto y periodo").toBe(0);
   });
-  test("generar-mensual: usa un solo concepto para todos los alumnos, sin distinguir nivel", async ({ request }) => {
+  test("generar-mensual: cada nivel se emite con su concepto; sin nivel o sin concepto se omite y se informa", async ({ request }) => {
+    await configurarVencimientos();
+    const sinNivel = await alumno(request, "ac", { nivel_escolar: "", grado: "3°" });
     const antes = (await db.query("SELECT COALESCE(max(id),0) AS m FROM charges")).rows[0].m;
     const g = await request.post("/api/admin/cargos/generar-mensual", { headers: h("ag"), data: { periodo: "2027-01", ciclo_escolar: "2026-2027" }, failOnStatusCode: false });
     nota(`generar-mensual 2027-01 como AG: ${g.status()} ${(await g.text()).slice(0, 140)}`);
@@ -213,7 +226,22 @@ test.describe("C-07 y C-02 emisión de cargos", () => {
         GROUP BY 1,2,3 ORDER BY 2`, [antes])).rows;
     nota(`distribución de la última emisión: ${JSON.stringify(r)}`);
     const conceptos = new Set(r.map((x: any) => x.concepto));
-    expect.soft(conceptos.size, "cada nivel debería emitirse con su concepto de colegiatura").toBeGreaterThan(1);
+    expect(conceptos.size, "cada nivel debería emitirse con su concepto de colegiatura").toBeGreaterThan(1);
+    for (const x of r) expect(x.concepto.toLowerCase(), `el alumno de ${x.nivel} recibió "${x.concepto}"`).toContain(x.nivel.toLowerCase().replace("kinder", "kinder"));
+    expect((await db.query("SELECT count(*)::int AS n FROM charges WHERE student_id=$1", [sinNivel])).rows[0].n, "el alumno sin nivel no se cobra como Primaria").toBe(0);
+    expect(((await body(g)).alumnos_omitidos ?? []).map((x: any) => x.student_id), "se informa quién se omitió").toContain(sinNivel);
+  });
+  test("generar-mensual: si a un nivel le falta su fecha de vencimiento, se rechaza completo y no crea nada", async ({ request }) => {
+    await configurarVencimientos();
+    await db.query("UPDATE payment_due_dates SET activo=false WHERE concept_id = (SELECT id FROM concepts WHERE campus_id=1 AND nombre ILIKE '%Secundaria%' AND tipo='colegiatura' LIMIT 1)");
+    try {
+      const antes = (await db.query("SELECT count(*)::int AS n FROM charges")).rows[0].n;
+      const g = await request.post("/api/admin/cargos/generar-mensual", { headers: h("ag"), data: { periodo: "2027-02", ciclo_escolar: "2026-2027" }, failOnStatusCode: false });
+      expect(g.status()).toBe(422);
+      expect((await db.query("SELECT count(*)::int AS n FROM charges")).rows[0].n, "no debe quedar a medias").toBe(antes);
+    } finally {
+      await db.query("UPDATE payment_due_dates SET activo=true WHERE concept_id = (SELECT id FROM concepts WHERE campus_id=1 AND nombre ILIKE '%Secundaria%' AND tipo='colegiatura' LIMIT 1)");
+    }
   });
   test("charges/generate: la vista previa no escribe y el asistente no debe poder usarla (Q-09)", async ({ request }) => {
     const a = await alumno(request);
@@ -225,6 +253,16 @@ test.describe("C-07 y C-02 emisión de cargos", () => {
     const as = await request.post("/api/charges/generate", { headers: h("as"), data: datos, failOnStatusCode: false });
     nota(`AS dry_run: ${as.status()} ${(await as.text()).slice(0, 200)}`);
     expect.soft(as.status(), "el asistente no tiene charges.create").toBe(403);
+  });
+  test("charges/generate: repetir la emisión de un concepto mensual para el mismo periodo no duplica (Q-37)", async ({ request }) => {
+    const a = await alumno(request);
+    const datos = { concepto: "Colegiatura Mensual Primaria", tipo_generacion: "colegiatura", nivel_academico: "todos", student_id: a, fecha_emision: "2026-12-01", periodo: "2026-12", ciclo_escolar: "2026-2027" };
+    const r1 = await request.post("/api/charges/generate", { headers: h("ac"), data: datos, failOnStatusCode: false });
+    const r2 = await request.post("/api/charges/generate", { headers: h("ac"), data: datos, failOnStatusCode: false });
+    nota(`primera ${r1.status()}, segunda ${r2.status()} ${(await r2.text()).slice(0, 160)}`);
+    expect(r1.status()).toBe(201);
+    expect((await db.query("SELECT count(*)::int AS n FROM charges WHERE student_id=$1 AND periodo='2026-12'", [a])).rows[0].n).toBe(1);
+    expect((await body(r2)).ya_existian).toBe(1);
   });
   test("charges/generate real (sin dry_run): el asistente no debe poder crear cargos (Q-09)", async ({ request }) => {
     const a = await alumno(request);

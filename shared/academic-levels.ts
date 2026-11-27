@@ -138,3 +138,21 @@ export const NIVEL_NAMES: Record<NivelAcademico, string> = {
   SECUNDARIA: 'Secundaria',
   BACHILLERATO: 'Bachillerato'
 };
+
+/**
+ * Nivel del alumno a partir de `students.nivel_escolar` (texto libre o ya normalizado).
+ *
+ * A diferencia de `getAcademicLevel(grado)`, no adivina: devuelve `null` cuando el campo está
+ * vacío o no se reconoce, para que quien emite cargos omita al alumno y lo avise en lugar de
+ * cobrarle como PRIMARIA por omisión (Q-33). Mismos patrones que la migración 017.
+ */
+export function levelFromNivelEscolar(nivelEscolar: string | null | undefined): NivelAcademico | null {
+  if (!nivelEscolar) return null;
+  const text = nivelEscolar.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  if (!text) return null;
+  if (/preescolar|kinder|jardin|inicial/.test(text)) return 'KINDER';
+  if (/primaria/.test(text)) return 'PRIMARIA';
+  if (/secundaria/.test(text)) return 'SECUNDARIA';
+  if (/bachillerato|preparatoria|prepa|medio superior|cch/.test(text)) return 'BACHILLERATO';
+  return null;
+}

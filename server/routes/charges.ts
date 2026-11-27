@@ -9,7 +9,9 @@ import { authenticateToken, requireAuth, checkCampusTenant, upload, hasPermissio
 import { MODULES, ACTIONS } from "@shared/permissions";
 import { students, guardians, student_guardian, charges, payments, concepts, scholarships, payment_due_dates, payment_surcharge_rules, invoices } from "@shared/schema";
 import { insertChargeSchema } from "@shared/schema";
-import { getAcademicLevel } from "@shared/academic-levels";
+import { levelFromNivelEscolar } from "@shared/academic-levels";
+import { chargePeriodKey, isPeriodDuplicate, studentsWithPeriodCharge } from "../lib/charge-period";
+import { colegiaturaConceptForLevel } from "../lib/monthly-concept";
 import { wsManager } from "../websocket-manager";
 import { z } from "zod/v4";
 import { resolveEffectiveScholarship } from "../lib/scholarship-engine";
@@ -217,23 +219,62 @@ export function registerChargesRoutes(app: Express): void {
       }
       const campusId = req.user.campus_id;
       const { periodo, ciclo_escolar } = req.body;
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(periodo ?? ""))) {
+        return res.status(400).json({ message: "El periodo debe tener el formato AAAA-MM" });
+      }
       const students = await storage.getStudentsByCampus(campusId);
       const concepts = await storage.getConceptsByCampus(campusId);
       const activeStudents = students.filter((s: any) => s.status === 'activo');
       if (activeStudents.length === 0) return res.status(400).json({ message: "No hay alumnos activos en este campus" });
-      const concept = concepts.find((c: any) => c.nombre?.toLowerCase().includes('colegiatura')) || concepts[0];
-      if (!concept) return res.status(400).json({ message: "No hay conceptos configurados" });
+      if (!concepts.some((c: any) => c.nombre?.toLowerCase().includes('colegiatura'))) {
+        return res.status(400).json({ message: "No hay un concepto de colegiatura configurado" });
+      }
       const fechaEmision = schoolDate();
-      const resolvedDueDate = await resolveConfiguredDueDate(pool, {
-        tenantId: req.user.tenant_id,
-        campusId: Number(campusId),
-        conceptId: Number(concept.id),
-        issueDate: fechaEmision,
-        billingPeriod: { kind: "monthly", month: periodo },
-      });
-      let created = 0;
-      const monthlyUser = (req as any).user;
+      // Q-38: cada alumno recibe la colegiatura de su nivel (students.nivel_escolar). Sin nivel reconocible,
+      // o sin concepto para ese nivel, se omite y se informa; nunca se le cobra el concepto de otro nivel.
+      const skipped: Array<{ student_id: number; student_name: string; motivo: "sin_nivel" | "sin_concepto_nivel" }> = [];
+      const plan: Array<{ student: any; concept: any }> = [];
       for (const student of activeStudents) {
+        const level = levelFromNivelEscolar((student as any).nivel_escolar);
+        const concept = colegiaturaConceptForLevel(concepts as any[], level);
+        if (!concept) {
+          skipped.push({
+            student_id: student.id,
+            student_name: (student as any).nombre_completo || "Alumno sin nombre",
+            motivo: level ? "sin_concepto_nivel" : "sin_nivel",
+          });
+          continue;
+        }
+        plan.push({ student, concept });
+      }
+      if (plan.length === 0) {
+        return res.status(422).json({
+          message: "Ningún alumno activo tiene nivel y concepto de colegiatura para emitir",
+          omitidos: skipped.length,
+          alumnos_omitidos: skipped,
+        });
+      }
+      // Se resuelve el vencimiento de todos los conceptos antes de crear nada: si a un nivel le falta su fecha
+      // configurada, la emisión se rechaza completa y no queda a medias.
+      const dueDates = new Map<number, string>();
+      const alreadyIssued = new Map<number, Set<number>>();
+      for (const concept of Array.from(new Map(plan.map((p) => [p.concept.id, p.concept])).values())) {
+        const resolved = await resolveConfiguredDueDate(pool, {
+          tenantId: req.user.tenant_id,
+          campusId: Number(campusId),
+          conceptId: Number(concept.id),
+          issueDate: fechaEmision,
+          billingPeriod: { kind: "monthly", month: periodo },
+        });
+        dueDates.set(concept.id, resolved.dueDate);
+        alreadyIssued.set(concept.id, await studentsWithPeriodCharge(pool, Number(concept.id), periodo));
+      }
+      let created = 0;
+      let alreadyExisted = 0;
+      const monthlyUser = (req as any).user;
+      for (const { student, concept } of plan) {
+        // Q-37: un solo cargo por alumno, concepto y periodo; repetir la emisión no duplica.
+        if (alreadyIssued.get(concept.id)!.has(Number(student.id))) { alreadyExisted++; continue; }
         const scholarship = await resolveEffectiveScholarship(pool, {
           studentId: Number(student.id),
           campusId: Number(campusId),
@@ -241,21 +282,34 @@ export function registerChargesRoutes(app: Express): void {
           chargeDate: fechaEmision,
           conceptType: concept.tipo,
         });
-        await storage.createCharge({
-          student_id: student.id,
-          concept_id: concept.id,
-          tenant_id: monthlyUser?.tenant_id ?? (student as any).tenant_id,
-          ciclo_escolar: ciclo_escolar || schoolDate().slice(0, 4),
-          fecha_emision: fechaEmision,
-          fecha_vencimiento: resolvedDueDate.dueDate,
-          monto_base_centavos: concept.monto_centavos || 450000,
-          beca_aplicada: scholarship.effectivePercentage.toFixed(2),
-          recargo_aplicado_centavos: 0,
-          estado: 'pendiente'
-        });
-        created++;
+        try {
+          await storage.createCharge({
+            student_id: student.id,
+            concept_id: concept.id,
+            tenant_id: monthlyUser?.tenant_id ?? (student as any).tenant_id,
+            ciclo_escolar: ciclo_escolar || schoolDate().slice(0, 4),
+            fecha_emision: fechaEmision,
+            fecha_vencimiento: dueDates.get(concept.id)!,
+            monto_base_centavos: concept.monto_centavos || 450000,
+            beca_aplicada: scholarship.effectivePercentage.toFixed(2),
+            recargo_aplicado_centavos: 0,
+            estado: 'pendiente',
+            periodo,
+          });
+          created++;
+        } catch (insertError: any) {
+          if (!isPeriodDuplicate(insertError)) throw insertError;
+          alreadyExisted++;
+        }
       }
-      res.json({ message: `${created} cargos mensuales generados`, cargos_creados: created, periodo });
+      res.json({
+        message: `${created} cargos mensuales generados`,
+        cargos_creados: created,
+        ya_existian: alreadyExisted,
+        omitidos: skipped.length,
+        alumnos_omitidos: skipped,
+        periodo,
+      });
     } catch (error: any) {
       if (sendDueDateResolutionError(res, error)) return;
       res.status(500).json({ message: "Error generando cargos" });
@@ -486,10 +540,24 @@ export function registerChargesRoutes(app: Express): void {
       const students = await storage.getStudentsByCampus(campusId);
       const summary: Array<{ student_id: number; student_name: string; grade: string; academic_level: string; amount: number }> = [];
       const skippedWithoutPrice: Array<{ student_id: number; student_name: string; academic_level: string }> = [];
+      const skippedWithoutLevel: Array<{ student_id: number; student_name: string; nivel_escolar: string | null }> = [];
+      // Q-33: un solo cargo por alumno, concepto y periodo (ciclo escolar para conceptos únicos).
+      const periodo = chargePeriodKey(concept.periodicidad, { ...req.body, ciclo_escolar: schoolYear }, issueDate, { uniquePerCycle: true });
+      const alreadyIssued = periodo ? await studentsWithPeriodCharge(pool, Number(concept.id), periodo) : new Set<number>();
+      let alreadyExisted = 0;
 
       for (const student of students) {
         if (student.status !== "activo") continue;
-        const academicLevel = getAcademicLevel(student.grado);
+        // Q-33: el nivel sale de nivel_escolar; sin nivel reconocible se omite, no se cobra como Primaria.
+        const academicLevel = levelFromNivelEscolar((student as any).nivel_escolar);
+        if (!academicLevel) {
+          skippedWithoutLevel.push({
+            student_id: student.id,
+            student_name: student.nombre_completo || "Alumno sin nombre",
+            nivel_escolar: (student as any).nivel_escolar ?? null,
+          });
+          continue;
+        }
         const amount = pricesByLevel[academicLevel] || 0;
         if (amount <= 0) {
           skippedWithoutPrice.push({
@@ -499,6 +567,7 @@ export function registerChargesRoutes(app: Express): void {
           });
           continue;
         }
+        if (alreadyIssued.has(Number(student.id))) { alreadyExisted++; continue; }
         const scholarship = await resolveEffectiveScholarship(pool, {
           studentId: Number(student.id),
           campusId,
@@ -506,18 +575,26 @@ export function registerChargesRoutes(app: Express): void {
           chargeDate: fecha_emision || today,
           conceptType: concept.tipo,
         });
-        const charge = await storage.createCharge({
-          student_id: student.id,
-          concept_id: concept.id,
-          tenant_id: tenantId,
-          ciclo_escolar: schoolYear,
-          fecha_emision: fecha_emision || today,
-          fecha_vencimiento: dueDate,
-          monto_base_centavos: amount,
-          beca_aplicada: scholarship.effectivePercentage.toFixed(2),
-          recargo_aplicado_centavos: 0,
-          estado: "pendiente",
-        });
+        let charge: any;
+        try {
+          charge = await storage.createCharge({
+            student_id: student.id,
+            concept_id: concept.id,
+            tenant_id: tenantId,
+            ciclo_escolar: schoolYear,
+            fecha_emision: fecha_emision || today,
+            fecha_vencimiento: dueDate,
+            monto_base_centavos: amount,
+            beca_aplicada: scholarship.effectivePercentage.toFixed(2),
+            recargo_aplicado_centavos: 0,
+            estado: "pendiente",
+            periodo,
+          });
+        } catch (insertError: any) {
+          if (!isPeriodDuplicate(insertError)) throw insertError;
+          alreadyExisted++;
+          continue;
+        }
         if (scholarship.scholarshipId && scholarship.effectivePercentage > 0) {
           await pool.query(
             `INSERT INTO charge_scholarship_applications
@@ -540,9 +617,12 @@ export function registerChargesRoutes(app: Express): void {
         message: `Se aplicaron ${summary.length} cargos con precios por nivel`,
         charges_created: summary.length,
         skipped_without_price: skippedWithoutPrice.length,
+        skipped_without_level: skippedWithoutLevel.length,
+        already_existed: alreadyExisted,
         product_name: product.nombre,
         summary,
         skipped: skippedWithoutPrice,
+        skipped_level: skippedWithoutLevel,
       });
     } catch (error: any) {
       if (sendDueDateResolutionError(res, error)) return;

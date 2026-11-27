@@ -13,7 +13,8 @@ import { authenticateToken, requireAuth, requireSuperAdmin, authenticateGuardian
 import { MODULES, ACTIONS } from "@shared/permissions";
 import { students, guardians, student_guardian, charges, payments, concepts, scholarships, invoices, payment_due_dates, payment_due_date_periods, payment_surcharge_rules, families, family_students, payment_applications, payment_events, institutional_credentials, institutional_info } from "@shared/schema";
 import { insertPaymentSchema, insertChargeSchema } from "@shared/schema";
-import { getAcademicLevel } from "@shared/academic-levels";
+import { levelFromNivelEscolar } from "@shared/academic-levels";
+import { chargePeriodKey, isPeriodDuplicate, studentsWithPeriodCharge } from "../lib/charge-period";
 import { wsManager } from "../websocket-manager";
 import { seedAdmissionsData } from "../seed-admissions-data";
 import * as XLSX from "xlsx";
@@ -627,6 +628,10 @@ export async function registerGuardianRoutes(
   // GENERATE CHARGES - ENDPOINT PARA GENERAR CARGOS CON CONFIGURACIÓN FLEXIBLE
   app.post("/api/charges/generate", authenticateToken, async (req: any, res: any) => {
     try {
+      // Misma guarda que generar-mensual y cargos extraordinarios (Q-09, Q-39): la vista previa también la exige.
+      if (!hasPermissionForUser(req.user, MODULES.CHARGES, ACTIONS.CREATE)) {
+        return res.status(403).json({ message: "Sin permisos para generar cargos" });
+      }
       const {
         concepto,
         tipo_generacion,
@@ -753,7 +758,7 @@ export async function registerGuardianRoutes(
       } else if (nivel_academico && String(nivel_academico).toLowerCase() !== "todos") {
         const requestedAcademicLevel = String(nivel_academico).toUpperCase();
         targetStudents = targetStudents.filter((student: any) => {
-          return getAcademicLevel(student.grado) === requestedAcademicLevel;
+          return levelFromNivelEscolar(student.nivel_escolar) === requestedAcademicLevel;
         });
       }
 
@@ -779,14 +784,29 @@ export async function registerGuardianRoutes(
         });
       }
 
+      // Q-33/Q-37: un solo cargo por alumno, concepto y periodo (solo conceptos periódicos; los extraordinarios se repiten).
+      const esExtraordinario = ["extra", "extraordinario"].includes(String(concept?.tipo ?? "").toLowerCase());
+      const periodo = concept && !esExtraordinario
+        ? chargePeriodKey(concept.periodicidad, { ...req.body, ciclo_escolar: ciclo_escolar ?? "" }, issueDate)
+        : null;
+      const alreadyIssued = periodo && concept?.id ? await studentsWithPeriodCharge(pool, Number(concept.id), periodo) : new Set<number>();
+      const skippedWithoutLevel: any[] = [];
+      let alreadyExisted = 0;
+
       for (const student of targetStudents) {
-        const academicLevel = getAcademicLevel((student as any).grado);
+        // El nivel sale de nivel_escolar; solo hace falta para el precio del catálogo. Sin nivel se omite, no se cobra como Primaria.
+        const academicLevel = levelFromNivelEscolar((student as any).nivel_escolar);
+        if (productForPricing && !academicLevel) {
+          skippedWithoutLevel.push({ student_id: student.id, student_name: (student as any).nombre_completo, nivel_escolar: (student as any).nivel_escolar ?? null });
+          continue;
+        }
+        if (alreadyIssued.has(Number(student.id))) { alreadyExisted++; continue; }
 
         // Monto base
         // Si hay product_id, el precio del catálogo gana siempre; monto_manual se ignora.
         let baseAmount: number;
         if (productForPricing) {
-          const nivelCol = `precio_${academicLevel.toLowerCase()}`;
+          const nivelCol = `precio_${String(academicLevel).toLowerCase()}`;
           const precio = Number(productForPricing[nivelCol] ?? 0);
           if (!precio || precio <= 0) {
             return res.status(422).json({
@@ -800,10 +820,6 @@ export async function registerGuardianRoutes(
           baseAmount = monto_manual
             ? centavos(monto_manual)
             : concept?.monto_centavos ?? 0;
-          if (concept && !monto_manual) {
-            const levelPrice = (concept as any)[`monto_${academicLevel}`];
-            if (levelPrice && levelPrice > 0) baseAmount = levelPrice;
-          }
         }
 
         // Beca real — precisión a 2 decimales para no perder centavos
@@ -848,7 +864,9 @@ export async function registerGuardianRoutes(
         });
 
         if (!isDryRun) {
-          const charge = await storage.createCharge({
+          let charge: any;
+          try {
+          charge = await storage.createCharge({
             student_id:                student.id,
             concept_id:                concept?.id ?? null,
             tenant_id:                 userTenantId ?? (student as any).tenant_id,
@@ -860,7 +878,14 @@ export async function registerGuardianRoutes(
             recargo_aplicado_centavos: lateFee,
             estado:                    "pendiente",
             es_adeudo_migrado:         esAdeudoMigrado,
+            periodo,
           });
+          } catch (insertError: any) {
+            if (!isPeriodDuplicate(insertError)) throw insertError;
+            alreadyExisted++;
+            chargesSummary.pop();
+            continue;
+          }
           if (scholarship?.scholarshipId && discountPct > 0) {
             await pool.query(
               `INSERT INTO charge_scholarship_applications
@@ -893,6 +918,8 @@ export async function registerGuardianRoutes(
       const response: any = {
         dry_run: isDryRun,
         total_alumnos:  chargesSummary.length,
+        ya_existian:    alreadyExisted,
+        omitidos_sin_nivel: skippedWithoutLevel,
         total_centavos: totalCentavos,
         alumnos_con_beca: conBeca,
         concepto:       concepto || descripcion || "Cargo manual",

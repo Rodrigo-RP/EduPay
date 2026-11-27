@@ -6,6 +6,8 @@
  * CGP-03  product_id con precio 0 para el nivel del alumno → 422
  * CGP-04  product_id de otro campus → 403
  * CGP-05  product_id + monto_manual juntos → precio del catálogo gana (monto_manual ignorado, verificado en DB)
+ *
+ * Desde P3 (Q-33) el nivel del alumno sale de students.nivel_escolar y no del texto de grado; las fixtures lo declaran.
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -117,16 +119,16 @@ beforeAll(async () => {
   // Alumnos activos en campus principal
   const sK = await pool.query(
     `INSERT INTO students (campus_id, tenant_id, nombres, apellido_paterno, nombre_completo,
-       grado, status)
-     VALUES ($1,$2,'Alumno','Kinder CGP','Alumno Kinder CGP','K2','activo') RETURNING id`,
+       nivel_escolar, grado, status)
+     VALUES ($1,$2,'Alumno','Kinder CGP','Alumno Kinder CGP','Kinder','K2','activo') RETURNING id`,
     [campusId, tenantId],
   );
   studentKinderId = (sK.rows[0] as any).id;
 
   const sP = await pool.query(
     `INSERT INTO students (campus_id, tenant_id, nombres, apellido_paterno, nombre_completo,
-       grado, status)
-     VALUES ($1,$2,'Alumno','Primaria CGP','Alumno Primaria CGP','3° PRIMARIA','activo') RETURNING id`,
+       nivel_escolar, grado, status)
+     VALUES ($1,$2,'Alumno','Primaria CGP','Alumno Primaria CGP','Primaria','3° PRIMARIA','activo') RETURNING id`,
     [campusId, tenantId],
   );
   studentPrimariaId = (sP.rows[0] as any).id;
@@ -250,8 +252,8 @@ describe("Tarea #128 — POST /api/charges/generate con product_id", () => {
     // Alumno de SECUNDARIA — grado '1° SECUNDARIA'
     const sRow = await pool.query(
       `INSERT INTO students (campus_id, tenant_id, nombres, apellido_paterno, nombre_completo,
-         grado, status)
-       VALUES ($1,$2,'Alumno','Secundaria CGP','Alumno Secundaria CGP','1° SECUNDARIA','activo')
+         nivel_escolar, grado, status)
+       VALUES ($1,$2,'Alumno','Secundaria CGP','Alumno Secundaria CGP','Secundaria','1° SECUNDARIA','activo')
        RETURNING id`,
       [campusId, tenantId],
     );
@@ -290,8 +292,8 @@ describe("Tarea #128 — POST /api/charges/generate con product_id", () => {
     // Alumno de BACHILLERATO — grado '2° BACHILLERATO'
     const sRow = await pool.query(
       `INSERT INTO students (campus_id, tenant_id, nombres, apellido_paterno, nombre_completo,
-         grado, status)
-       VALUES ($1,$2,'Alumno','Bachillerato CGP','Alumno Bachillerato CGP','2° BACHILLERATO','activo')
+         nivel_escolar, grado, status)
+       VALUES ($1,$2,'Alumno','Bachillerato CGP','Alumno Bachillerato CGP','Bachillerato','2° BACHILLERATO','activo')
        RETURNING id`,
       [campusId, tenantId],
     );

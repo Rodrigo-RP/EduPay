@@ -1,0 +1,2 @@
+ALTER TABLE "charges" ADD COLUMN "periodo" varchar(40);--> statement-breakpoint
+CREATE UNIQUE INDEX "charges_student_concept_periodo_unique" ON "charges" USING btree ("student_id" int4_ops,"concept_id" int4_ops,"periodo" text_ops) WHERE ((periodo IS NOT NULL) AND ((estado)::text <> 'cancelado'::text));

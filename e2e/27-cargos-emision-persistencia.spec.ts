@@ -67,8 +67,8 @@ test.describe("Cargos y Emisión — persistencia real", () => {
 
     const student = await db.query(
       `INSERT INTO students
-         (tenant_id, campus_id, nombres, apellido_paterno, nombre_completo, id_referencia, grado, grupo, status)
-       VALUES ($1,$2,'Alumno','Emisión',$3,$4,'3° PRIMARIA','E2E','activo')
+         (tenant_id, campus_id, nombres, apellido_paterno, nombre_completo, id_referencia, nivel_escolar, grado, grupo, status)
+       VALUES ($1,$2,'Alumno','Emisión',$3,$4,'Primaria','3° PRIMARIA','E2E','activo')
        RETURNING id`,
       [tenantId, campusId, studentName, `E2E-EMISION-${suffix}`],
     );

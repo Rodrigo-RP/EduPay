@@ -440,6 +440,9 @@ export const charges = pgTable("charges", {
   estado: varchar("estado", { length: 50 }).default("pendiente"), // 'pendiente', 'pagado', 'parcial', 'cancelado'
   // ADR-002: FK nullable al plan de pago que generó este cargo (cuotas de plan)
   plan_id: integer("plan_id"),
+  // Migración 0012: clave de periodo de la emisión en lote (mensual "YYYY-MM"; otros "<ciclo>|<clave>").
+  // Único por (alumno, concepto, periodo) mientras el cargo no esté cancelado; NULL = sin regla (extraordinarios).
+  periodo: varchar("periodo", { length: 40 }),
   // Migración 010: bandera de adeudo heredado de sistema anterior.
   // Independiente del concept_id — el mismo concepto real (colegiatura, inscripción)
   // puede usarse para CFDI mientras la exención de recargo sigue activa.

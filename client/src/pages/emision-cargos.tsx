@@ -31,10 +31,13 @@ export default function EmisionCargos() {
     const generarCargosMensuales = useMutation({
       mutationFn: async (data: any) =>
         (await apiRequest("/api/admin/cargos/generar-mensual", { method: "POST", body: JSON.stringify(data) })).json(),
-      onSuccess: () => {
+      onSuccess: (result: any) => {
+        const partes = [`${result?.cargos_creados ?? 0} cargos generados`];
+        if (result?.ya_existian) partes.push(`${result.ya_existian} ya existían para ese periodo`);
+        if (result?.omitidos) partes.push(`${result.omitidos} alumnos omitidos por falta de nivel o de concepto de su nivel`);
         toast({
           title: "Cargos generados",
-          description: "Los cargos mensuales se generaron correctamente"
+          description: partes.join("; ")
         });
         queryClient.invalidateQueries({ queryKey: ["/api/admin/cargos"] });
         queryClient.invalidateQueries({ queryKey: ["/api/admin/cargos/estadisticas", selectedPeriod] });

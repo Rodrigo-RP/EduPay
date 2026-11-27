@@ -102,6 +102,33 @@ Detalle original del paquete:
 
 ### P3. Emisión de cargos
 
+**Estado: implementado el 27-nov-2026, pendiente de tu commit.** Decisiones de Karla: la clave de unicidad es alumno + concepto + periodo, y el nivel sale de `nivel_escolar` (sin nivel, se omite y se avisa).
+
+Qué cambió:
+- **Migración nueva `drizzle/migrations/0012_cargos_periodo_unico.sql`** (con snapshot y journal; también `shared/schema.ts` y `drizzle/physical/schema.ts`): columna `charges.periodo` (nullable) e índice único parcial `charges_student_concept_periodo_unique` sobre (alumno, concepto, periodo) para cargos no cancelados con periodo. Las filas existentes quedan con `periodo` NULL, así que el índice no puede fallar al crearse. **Solo se aplicó en la base desechable de QA; no en Cloud SQL.**
+- **Q-37:** `generar-mensual` y `charges/generate` guardan el periodo (mensual `AAAA-MM`; cuatrimestral, semestral y anual `ciclo|clave`) y no duplican; responden `ya_existian`. Un cargo cancelado libera el periodo. Los extraordinarios no llevan periodo y pueden repetirse. El índice cubre la carrera entre dos solicitudes simultáneas.
+- **Q-38:** `generar-mensual` elige la colegiatura por nivel con el nombre del concepto ("Colegiatura Mensual Primaria"). Alumno sin nivel reconocible o nivel sin concepto: se omite y la respuesta lo lista (`alumnos_omitidos`). Si ningún concepto de colegiatura nombra un nivel, el primero aplica a todos, como antes. Se resuelven los vencimientos de todos los conceptos antes de crear nada: si a un nivel le falta su fecha configurada, responde 422 y no queda nada a medias.
+- **Q-33:** `desde-catalogo` y `charges/generate` (precio de catálogo y filtro `nivel_academico`) usan `students.nivel_escolar` (`levelFromNivelEscolar`, mismos patrones que la migración 017) y no el texto de `grado`; sin nivel se omiten (`skipped_without_level`, `omitidos_sin_nivel`) y no se cobran como Primaria. `desde-catalogo` es único por ciclo escolar y responde `already_existed`.
+- **Q-09 y Q-39:** `charges/generate` exige `charges.create` (vista previa incluida).
+- Pantalla de emisión: el aviso muestra creados, ya existentes y omitidos.
+
+Cambios de contrato que conviene saber:
+- `generar-mensual` ahora exige `periodo` con formato `AAAA-MM` (400 si falta) y responde 400 si no hay ningún concepto de colegiatura (antes tomaba el primer concepto cualquiera).
+- **Cada concepto de colegiatura por nivel necesita su fecha de vencimiento configurada.** Antes se usaba un solo concepto; ahora, si falta la de un nivel, la emisión completa se rechaza.
+- Tres suites existentes creaban alumnos solo con `grado`: `server/tests/charges-generate-product-id.test.ts`, `e2e/27-cargos-emision-persistencia.spec.ts` y `e2e/28-asignacion-precios-real.spec.ts`. Les agregué `nivel_escolar` a las fixtures; las aserciones no cambiaron. Y en `qa/fase4-dinero.spec.ts` reescribí las pruebas de `generar-mensual` al contrato nuevo (configuran los vencimientos de cada nivel y verifican omitidos y rechazo completo).
+
+Verificación: `server/tests/charge-emission.test.ts` (6 pruebas: nivel, concepto por nivel, clave de periodo e índice) pasa. `qa/fase4-dinero` y `qa/fase3-datos`: pasan los casos de `generar-mensual`, `charges/generate`, B-30 y asignación de precios. e2e 27 y 28: 3 de 3. `npm run check` (tsc) y `check:migration-policy` sin errores. Suite de seguridad: 52 archivos y 1349 pruebas. `server/tests` completo: 1519 pasan; las únicas fallas son los 2 archivos que no cargan sin `DATABASE_URL` en mi shell (los mismos de P2; no los reejecuté con la variable).
+
+Pendiente o no verificado de P3:
+- **No sé qué trae `nivel_escolar` en los 669 alumnos de producción.** Si hay alumnos con el campo vacío, la primera emisión los omitirá (y lo dirá). La consulta de solo lectura (`SELECT nivel_escolar, count(*) FROM students GROUP BY 1`) no se corrió ni está autorizada.
+- **Los conceptos de producción pueden no llevar el nivel en el nombre.** Si tienen una sola colegiatura, aplica a todos; si tienen varias sin nivel en el nombre, se usa la primera (comportamiento anterior). Conviene revisarlo antes de emitir.
+- **Migración 0012 sin aplicar en Cloud SQL**; requiere tu visto bueno y el job de migración.
+- La asignación de precios sigue creando concepto "unica" con el precio máximo como `monto_centavos` (sin cambio).
+- Q-33 (c) queda cubierto solo para conceptos únicos por ciclo y periódicos; `charges/generate` con producto de catálogo no deduplica.
+- No revisé la pantalla de asignación de precios a mano.
+
+Detalle original del paquete:
+
 | | |
 |---|---|
 | Defectos | Q-37 (`generar-mensual` duplica al repetir el periodo), Q-38 (cobra el concepto de Primaria a todos los niveles), Q-33 (asignación de precios: nivel por texto de `grado` y duplicación), Q-39 y Q-09 (`charges/generate` sin permiso de módulo: el asistente crea cargos) |

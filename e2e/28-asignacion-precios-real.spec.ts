@@ -70,10 +70,10 @@ test.describe("Asignación de precios — catálogo persistente", () => {
 
     const students = await db.query(
       `INSERT INTO students
-         (tenant_id, campus_id, nombres, apellido_paterno, nombre_completo, id_referencia, grado, grupo, status)
+         (tenant_id, campus_id, nombres, apellido_paterno, nombre_completo, id_referencia, nivel_escolar, grado, grupo, status)
        VALUES
-         ($1,$2,'Alumna','Primaria',$3,$4,'3° PRIMARIA','E2E','activo'),
-         ($1,$2,'Alumno','Secundaria',$5,$6,'1° SECUNDARIA','E2E','activo')
+         ($1,$2,'Alumna','Primaria',$3,$4,'Primaria','3° PRIMARIA','E2E','activo'),
+         ($1,$2,'Alumno','Secundaria',$5,$6,'Secundaria','1° SECUNDARIA','E2E','activo')
        RETURNING id, nombre_completo`,
       [
         tenantId, campusId,

@@ -85,6 +85,13 @@
       "when": 1795188808163,
       "tag": "0011_firebase_staff_departamento",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795802573575,
+      "tag": "0012_cargos_periodo_unico",
+      "breakpoints": true
     }
   ]
 }

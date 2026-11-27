@@ -360,7 +360,9 @@ export const charges = pgTable("charges", {
 	descripcion: text(),
 	manualOverride: boolean("manual_override").default(false).notNull(),
 	manualOverrideReason: text("manual_override_reason"),
+	periodo: varchar({ length: 40 }),
 }, (table) => [
+	uniqueIndex("charges_student_concept_periodo_unique").using("btree", table.studentId.asc().nullsLast().op("int4_ops"), table.conceptId.asc().nullsLast().op("int4_ops"), table.periodo.asc().nullsLast().op("text_ops")).where(sql`((periodo IS NOT NULL) AND ((estado)::text <> 'cancelado'::text))`),
 	foreignKey({
 			columns: [table.conceptId],
 			foreignColumns: [concepts.id],

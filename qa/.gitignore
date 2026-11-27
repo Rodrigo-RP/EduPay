@@ -1,0 +1,6 @@
+# Claves efímeras de la corrida y resultados generados: no se versionan.
+.env.qa.sh
+resultados*.json
+matriz-fase2*.json
+matriz-fase2*.md
+test-results/

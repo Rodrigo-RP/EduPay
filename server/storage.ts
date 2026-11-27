@@ -185,10 +185,14 @@ export interface IStorage {
   getPendingApprovalsForApprover(userId: number): Promise<PendingApproval[]>;
   getPendingApprovalsByRequester(userId: number): Promise<PendingApproval[]>;
   getPendingApprovalById(id: number): Promise<PendingApproval | undefined>;
-  updateApprovalStatus(id: number, status: string, approvedBy?: number, notes?: string): Promise<void>;
+  /** Registra la decisión solo si la solicitud sigue 'pending'. Devuelve false si ya estaba decidida (no actualiza nada). */
+  updateApprovalStatus(id: number, status: string, approvedBy?: number, notes?: string): Promise<boolean>;
+  /** Devuelve una solicitud a 'pending' cuando el cambio aprobado no pudo ejecutarse. */
+  reopenApproval(id: number): Promise<void>;
   createApprovalNotification(notification: InsertApprovalNotification): Promise<ApprovalNotification>;
   getNotificationsByUser(userId: number): Promise<ApprovalNotification[]>;
-  markNotificationAsRead(id: number): Promise<void>;
+  /** Marca como leída solo si la notificación es de ese destinatario. Devuelve false si no existe o es de otra persona. */
+  markNotificationAsRead(id: number, recipientId: number): Promise<boolean>;
   createApprovalWorkflowLog(log: InsertApprovalWorkflowLog): Promise<ApprovalWorkflowLog>;
   getWorkflowLogsByApproval(approvalId: number): Promise<ApprovalWorkflowLog[]>;
   checkUserCanApprove(userId: number, actionType: string): Promise<boolean>;
@@ -1155,15 +1159,26 @@ export class DatabaseStorage implements IStorage {
     return approval || undefined;
   }
 
-  async updateApprovalStatus(id: number, status: string, approvedBy?: number, notes?: string): Promise<void> {
-    await db
+  async updateApprovalStatus(id: number, status: string, approvedBy?: number, notes?: string): Promise<boolean> {
+    // La condición status='pending' es lo que impide decidir dos veces (aprobar tras rechazar, o dos aprobaciones
+    // simultáneas): solo una de las dos actualizaciones encuentra la fila todavía pendiente.
+    const updated = await db
       .update(pending_approvals)
-      .set({ 
-        status, 
+      .set({
+        status,
         approved_by: approvedBy,
         approval_notes: notes,
         updated_at: new Date()
       })
+      .where(and(eq(pending_approvals.id, id), eq(pending_approvals.status, "pending")))
+      .returning({ id: pending_approvals.id });
+    return updated.length > 0;
+  }
+
+  async reopenApproval(id: number): Promise<void> {
+    await db
+      .update(pending_approvals)
+      .set({ status: "pending", approved_by: null, approval_notes: null, updated_at: new Date() })
       .where(eq(pending_approvals.id, id));
   }
 
@@ -1182,11 +1197,13 @@ export class DatabaseStorage implements IStorage {
     return notifications;
   }
 
-  async markNotificationAsRead(id: number): Promise<void> {
-    await db
+  async markNotificationAsRead(id: number, recipientId: number): Promise<boolean> {
+    const updated = await db
       .update(approval_notifications)
       .set({ is_read: true, read_at: new Date() })
-      .where(eq(approval_notifications.id, id));
+      .where(and(eq(approval_notifications.id, id), eq(approval_notifications.recipient_id, recipientId)))
+      .returning({ id: approval_notifications.id });
+    return updated.length > 0;
   }
 
   async createApprovalWorkflowLog(log: InsertApprovalWorkflowLog): Promise<ApprovalWorkflowLog> {

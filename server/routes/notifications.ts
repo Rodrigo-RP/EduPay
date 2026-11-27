@@ -11,6 +11,13 @@ import { z } from "zod/v4";
 import { registerEmailRuntime } from "../lib/email/runtime";
 import type { EmailDatabase } from "../lib/email/repository";
 
+/** Error de negocio al ejecutar un cambio aprobado (por ejemplo, borrar un cargo con pagos). Lleva el código HTTP a responder. */
+class ApprovalExecutionError extends Error {
+  constructor(message: string, readonly status: number = 409) {
+    super(message);
+  }
+}
+
 export function registerNotificationRoutes(app: Express): void {
   registerEmailRuntime(app, pool as unknown as EmailDatabase, authenticateToken,
     (user, action) => hasPermissionForUser(user, MODULES.RECEIVABLES, action));
@@ -536,8 +543,16 @@ export function registerNotificationRoutes(app: Express): void {
         return res.status(403).json({ message: "No tienes permisos para aprobar este tipo de acción" });
       }
 
-      // Update the approval status
-      await storage.updateApprovalStatus(approval_id, decision, user.id, notes);
+      // Una solicitud se decide una sola vez. La actualización es condicional (status = 'pending'), así que dos
+      // decisiones simultáneas, o aprobar una solicitud ya rechazada, no pasan.
+      const yaDecidida = { message: "Esta solicitud ya fue decidida", code: "APPROVAL_ALREADY_DECIDED" };
+      if (approval.status !== 'pending') {
+        return res.status(409).json(yaDecidida);
+      }
+      const decided = await storage.updateApprovalStatus(approval_id, decision, user.id, notes);
+      if (!decided) {
+        return res.status(409).json(yaDecidida);
+      }
 
       // If approved, execute the actual changes
       if (decision === 'approved') {
@@ -552,12 +567,20 @@ export function registerNotificationRoutes(app: Express): void {
           });
         } catch (executeError: any) {
           console.error('Error ejecutando cambio aprobado:', executeError);
-          // Log the execution error but don't fail the approval
+          // El cambio no se aplicó: la solicitud vuelve a quedar pendiente y no se responde éxito.
+          await storage.reopenApproval(approval_id);
           await storage.createApprovalWorkflowLog({
             approval_id,
             action: 'execution_failed',
             user_id: user.id,
             notes: `Error ejecutando cambio: ${executeError.message}`
+          });
+          if (executeError instanceof ApprovalExecutionError) {
+            return res.status(executeError.status).json({ message: executeError.message, code: "APPROVAL_EXECUTION_FAILED" });
+          }
+          return res.status(500).json({
+            message: "No se pudo aplicar el cambio aprobado; la solicitud sigue pendiente",
+            code: "APPROVAL_EXECUTION_FAILED",
           });
         }
       }
@@ -592,8 +615,24 @@ export function registerNotificationRoutes(app: Express): void {
   // Get approval workflow logs
   app.get("/api/approvals/logs/:approvalId", authenticateToken, async (req, res) => {
     try {
-      const { approvalId } = req.params;
-      const logs = await storage.getWorkflowLogsByApproval(parseInt(approvalId));
+      const user = (req as any).user;
+      const approvalId = Number(req.params.approvalId);
+      if (!Number.isSafeInteger(approvalId) || approvalId <= 0) {
+        return res.status(400).json({ message: "Identificador de solicitud inválido" });
+      }
+      const approval = await storage.getPendingApprovalById(approvalId);
+      if (!approval) {
+        return res.status(404).json({ message: "Solicitud de aprobación no encontrada" });
+      }
+      // Misma regla que el historial: super_admin ve todo; la administración general, su escuela;
+      // cualquier otro rol, solo las solicitudes que él mismo hizo (y siempre dentro de su escuela).
+      const isSuper = user.role === 'super_admin';
+      const isGlobalAdmin = isSuper || user.role === 'administrador_general';
+      const sameTenant = approval.tenant_id !== null && Number(approval.tenant_id) === Number(user.tenant_id);
+      if (!isSuper && (!sameTenant || (!isGlobalAdmin && Number(approval.requested_by) !== Number(user.id)))) {
+        return res.status(403).json({ message: "No tienes acceso a esta solicitud" });
+      }
+      const logs = await storage.getWorkflowLogsByApproval(approvalId);
       res.json(logs);
     } catch (error: any) {
       res.status(500).json({ message: "Error obteniendo logs de aprobación" });
@@ -617,8 +656,15 @@ export function registerNotificationRoutes(app: Express): void {
   // Mark notification as read
   app.post("/api/approvals/notifications/:id/read", authenticateToken, async (req, res) => {
     try {
-      const { id } = req.params;
-      await storage.markNotificationAsRead(parseInt(id));
+      const notificationId = Number(req.params.id);
+      if (!Number.isSafeInteger(notificationId) || notificationId <= 0) {
+        return res.status(400).json({ message: "Identificador de notificación inválido" });
+      }
+      // Solo la persona destinataria puede marcarla como leída.
+      const updated = await storage.markNotificationAsRead(notificationId, (req as any).user.id);
+      if (!updated) {
+        return res.status(404).json({ message: "Notificación no encontrada" });
+      }
       res.json({ message: "Notificación marcada como leída" });
     } catch (error: any) {
       res.status(500).json({ message: "Error marcando notificación como leída" });
@@ -685,6 +731,15 @@ export function registerNotificationRoutes(app: Express): void {
 
       case 'delete_charge':
         if (entity_type === 'charge' && entity_id) {
+          // Un cargo con pagos o aplicaciones no se borra: el borrado arrastraría su historial de cobro.
+          const conPagos = await pool.query(
+            `SELECT (EXISTS (SELECT 1 FROM payments WHERE charge_id = $1)
+                  OR EXISTS (SELECT 1 FROM payment_applications WHERE charge_id = $1)) AS tiene`,
+            [entity_id],
+          );
+          if (conPagos.rows[0]?.tiene) {
+            throw new ApprovalExecutionError("No se puede eliminar un cargo con pagos registrados; cancélalo en lugar de borrarlo");
+          }
           // Delete the charge
           await db.delete(charges)
             .where(eq(charges.id, entity_id));

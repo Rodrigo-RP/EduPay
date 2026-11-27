@@ -10,6 +10,7 @@ import { SCHOOL_TODAY_SQL } from "@shared/school-date";
 import { pool } from "../db";
 import { enqueueAuditLog, type AuditLogPayload } from "../audit-retry";
 import { settleStripeCardPaymentIntent, type StripePaymentIntentResult } from "./stripe-card-settlement";
+import { chargeBalance } from "../../shared/charge-balance";
 
 /** Entrada común para la respuesta del SDK y el webhook firmado. SPEI conserva su ledger pendiente. */
 export async function settleConfirmedStripePaymentIntent(
@@ -88,7 +89,7 @@ export async function settleStripeSpeiPaymentIntent(
       }
 
       const chargeResult = await client.query(
-        `SELECT id, monto_base_centavos, recargo_aplicado_centavos, estado
+        `SELECT id, monto_base_centavos, beca_aplicada, recargo_aplicado_centavos, estado
            FROM charges
           WHERE id = $1 AND tenant_id = $2
           FOR UPDATE`,
@@ -101,6 +102,7 @@ export async function settleStripeSpeiPaymentIntent(
       const charge = chargeResult.rows[0] as {
         id: number;
         monto_base_centavos: string | number;
+        beca_aplicada: string | number | null;
         recargo_aplicado_centavos: string | number | null;
         estado: string;
       };
@@ -114,10 +116,11 @@ export async function settleStripeSpeiPaymentIntent(
           WHERE charge_id = $1`,
         [charge.id],
       );
-      const saldoPendiente =
-        Number(charge.monto_base_centavos) +
-        Number(charge.recargo_aplicado_centavos || 0) -
-        Number((balanceResult.rows[0] as { ya_pagado: string | number }).ya_pagado);
+      // Mismo saldo que la tarjeta y que la intención de pago: monto menos beca, más recargo, menos lo aplicado.
+      const saldoPendiente = chargeBalance({
+        ...charge,
+        ya_pagado: (balanceResult.rows[0] as { ya_pagado: string | number }).ya_pagado,
+      }).pendiente_centavos;
       const amount = Number(payment.monto_centavos);
 
       if (saldoPendiente !== amount || amount <= 0) {

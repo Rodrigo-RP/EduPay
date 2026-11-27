@@ -54,8 +54,8 @@ const estado = async (id: number) => (await db.query("SELECT estado, monto_base_
 const pagos = async (id: number) => (await db.query("SELECT count(*)::int AS n, COALESCE(sum(monto_centavos),0)::bigint AS total FROM payments WHERE charge_id=$1", [id])).rows[0];
 const manual = (request: APIRequestContext, rol: string, studentId: number, chargeId: number, monto: number, key = llave()) =>
   request.post("/api/payments/manual", { headers: h(rol), data: { student_id: studentId, charge_id: chargeId, amount_centavos: monto, idempotency_key: key, recibido_por: "QA" }, failOnStatusCode: false });
-const efectivo = (request: APIRequestContext, rol: string, studentId: number, chargeId: number | undefined, montoPesos: any) =>
-  request.post("/api/caja/pago-efectivo", { headers: h(rol), data: { estudiante_id: studentId, charge_id: chargeId, monto: montoPesos, recibido_por: "QA" }, failOnStatusCode: false });
+const efectivo = (request: APIRequestContext, rol: string, studentId: number, chargeId: number | undefined, montoPesos: any, llave?: string) =>
+  request.post("/api/caja/pago-efectivo", { headers: h(rol), data: { estudiante_id: studentId, charge_id: chargeId, monto: montoPesos, recibido_por: "QA", ...(llave ? { idempotency_key: llave } : {}) }, failOnStatusCode: false });
 
 // ───────────────────────── C-10 beca y recargo en cada canal de cobro ─────────────────────────
 test.describe("C-10 beca y recargo en el saldo de cada canal", () => {
@@ -152,12 +152,24 @@ test.describe("C-43 cobro en efectivo en caja", () => {
     }
     expect((await pagos(c)).n, "ningún monto inválido debe registrar un pago").toBe(0);
   });
-  test("doble envío del mismo cobro: se registra dos veces (no hay llave de idempotencia)", async ({ request }) => {
+  // Contrato desde P2: la interfaz de caja envía una llave de idempotencia por cobro; con la misma llave un doble clic o un
+  // reintento repite la operación. Sin llave (clientes de API antiguos) cada petición sigue siendo un cobro nuevo.
+  test("doble envío del mismo cobro con la misma llave: se registra una sola vez", async ({ request }) => {
     const a = await alumno(request); const c = await cargo(a, { monto: 100000 });
-    await Promise.all([efectivo(request, "ac", a, c, 100), efectivo(request, "ac", a, c, 100)]);
+    const llave = `qa-caja-${uniq()}-0000000000`;
+    await Promise.all([efectivo(request, "ac", a, c, 100, llave), efectivo(request, "ac", a, c, 100, llave)]);
     const p = await pagos(c);
-    nota(`dos solicitudes idénticas y simultáneas dejaron ${p.n} pagos`);
+    nota(`dos solicitudes idénticas y simultáneas con la misma llave dejaron ${p.n} pagos`);
     expect.soft(p.n, "un doble clic no debería cobrar dos veces").toBe(1);
+  });
+  test("la misma llave con otro monto se rechaza (409) y sin llave cada petición es un cobro nuevo", async ({ request }) => {
+    const a = await alumno(request); const c = await cargo(a, { monto: 100000 });
+    const llave = `qa-caja-${uniq()}-0000000000`;
+    expect((await efectivo(request, "ac", a, c, 100, llave)).status()).toBe(200);
+    expect((await efectivo(request, "ac", a, c, 200, llave)).status(), "llave reutilizada con otro monto").toBe(409);
+    const c2 = await cargo(a, { monto: 100000 });
+    await efectivo(request, "ac", a, c2, 100); await efectivo(request, "ac", a, c2, 100);
+    expect((await pagos(c2)).n, "sin llave, dos cobros").toBe(2);
   });
   test("permisos y alcance: asistente y admisiones 403; alumno de otro campus o escuela no se cobra", async ({ request }) => {
     const a = await alumno(request); const c = await cargo(a);

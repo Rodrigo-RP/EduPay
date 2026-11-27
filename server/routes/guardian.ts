@@ -262,22 +262,20 @@ export async function registerGuardianRoutes(
         }
 
         const balance = await pool.query(
-          `SELECT c.monto_base_centavos, c.recargo_aplicado_centavos,
+          `SELECT c.monto_base_centavos, c.beca_aplicada, c.recargo_aplicado_centavos, c.estado,
                   COALESCE(SUM(pa.amount_centavos), 0)::bigint AS ya_pagado
              FROM charges c
              LEFT JOIN payment_applications pa ON pa.charge_id = c.id
             WHERE c.id = $1 AND c.tenant_id = $2
-            GROUP BY c.monto_base_centavos, c.recargo_aplicado_centavos`,
+            GROUP BY c.id`,
           [chargeId, tenantId],
         );
         if (!balance.rows.length) {
           return res.status(404).json({ message: `Cargo ${chargeId} no encontrado` });
         }
         const row = balance.rows[0] as any;
-        const amount =
-          Number(row.monto_base_centavos) +
-          Number(row.recargo_aplicado_centavos || 0) -
-          Number(row.ya_pagado);
+        // Mismo saldo que la tarjeta: monto menos beca, más recargo, menos lo ya aplicado.
+        const amount = chargeBalance(row).pendiente_centavos;
         if (amount <= 0) {
           return res.status(409).json({ message: `El cargo ${chargeId} ya no tiene saldo pendiente` });
         }
@@ -371,7 +369,7 @@ export async function registerGuardianRoutes(
         const persistedAmounts: Array<{ chargeId: number; amount: number }> = [];
         for (const requested of [...requestedCharges].sort((a, b) => a.id - b.id)) {
           const locked = await client.query(
-            `SELECT id, monto_base_centavos, recargo_aplicado_centavos, estado
+            `SELECT id, monto_base_centavos, beca_aplicada, recargo_aplicado_centavos, estado
                FROM charges
               WHERE id = $1 AND tenant_id = $2
               FOR UPDATE`,
@@ -390,10 +388,10 @@ export async function registerGuardianRoutes(
               WHERE charge_id = $1`,
             [requested.id],
           );
-          const actualAmount =
-            Number(row.monto_base_centavos) +
-            Number(row.recargo_aplicado_centavos || 0) -
-            Number((applied.rows[0] as { ya_pagado: string | number }).ya_pagado);
+          const actualAmount = chargeBalance({
+            ...row,
+            ya_pagado: (applied.rows[0] as { ya_pagado: string | number }).ya_pagado,
+          }).pendiente_centavos;
           if (actualAmount !== requested.amount || actualAmount <= 0) {
             throw new Error(`El saldo del cargo ${requested.id} cambió; inicia el pago nuevamente`);
           }

@@ -11,6 +11,7 @@ import { students, guardians, charges, payments, concepts, invoices, families, f
 import { enqueueAuditLog } from "../audit-retry";
 import { z } from "zod/v4";
 import jwt from "jsonwebtoken";
+import { chargeBalance } from "../../shared/charge-balance";
 
 // ── ADR-002: Helpers para planes de pago integrados al ledger ─────────────────
 
@@ -75,7 +76,7 @@ export function registerMiscRoutes(app: Express): void {
         `SELECT s.id AS student_id, s.nombre_completo AS student_name,
                 s.grado AS student_grade, s.id_referencia AS student_reference,
                 c.id AS charge_id, c.concept_id, co.nombre AS concept_name,
-                c.monto_base_centavos, c.recargo_aplicado_centavos,
+                c.monto_base_centavos, c.beca_aplicada, c.recargo_aplicado_centavos, c.estado,
                 COALESCE(SUM(pa.amount_centavos), 0)::bigint AS paid_centavos
            FROM students s
            JOIN charges c ON c.student_id = s.id
@@ -86,7 +87,8 @@ export function registerMiscRoutes(app: Express): void {
             AND c.tenant_id = $1
             AND c.estado IN ('pendiente', 'parcial')
           GROUP BY s.id, c.id, co.id
-         HAVING c.monto_base_centavos + COALESCE(c.recargo_aplicado_centavos, 0)
+         HAVING ROUND(c.monto_base_centavos * (1 - COALESCE(c.beca_aplicada, 0)::numeric / 100))
+              + COALESCE(c.recargo_aplicado_centavos, 0)
               - COALESCE(SUM(pa.amount_centavos), 0) > 0
           ORDER BY s.nombre_completo, c.fecha_vencimiento, c.id`,
         [tenantId, campusId],
@@ -108,10 +110,8 @@ export function registerMiscRoutes(app: Express): void {
           student_id: Number(row.student_id),
           concept_id: Number(row.concept_id),
           concept_name: row.concept_name,
-          saldo_centavos:
-            Number(row.monto_base_centavos) +
-            Number(row.recargo_aplicado_centavos || 0) -
-            Number(row.paid_centavos || 0),
+          // Mismo saldo que la tarjeta: monto menos beca, más recargo, menos lo ya aplicado.
+          saldo_centavos: chargeBalance({ ...row, ya_pagado: row.paid_centavos }).pendiente_centavos,
         })),
       });
     } catch (error: any) {
@@ -227,10 +227,12 @@ export function registerMiscRoutes(app: Express): void {
             });
           }
 
-          // Calcular saldo real bajo el lock (monto base + recargo - aplicaciones).
+          // Calcular saldo real bajo el lock (monto menos beca + recargo - aplicaciones): el convenio
+          // reestructura lo que de verdad se debe, no el monto bruto.
           const saldoRes = await client.query(`
           SELECT c.id, c.student_id, c.estado,
-                 c.monto_base_centavos + COALESCE(c.recargo_aplicado_centavos, 0)
+                 ROUND(c.monto_base_centavos * (1 - COALESCE(c.beca_aplicada, 0)::numeric / 100))
+                   + COALESCE(c.recargo_aplicado_centavos, 0)
                    - COALESCE(SUM(pa.amount_centavos), 0) AS saldo_pendiente_centavos
           FROM charges c
           LEFT JOIN payment_applications pa ON pa.charge_id = c.id

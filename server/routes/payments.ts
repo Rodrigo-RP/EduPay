@@ -19,6 +19,8 @@ import { financialImportPreflight } from "../lib/financial-import";
 import { centavos, percentage } from "../lib/financial-input";
 import { z } from "zod/v4";
 import { integerWithExistingLimits } from "../../shared/zod-compat";
+import { chargeBalance } from "../../shared/charge-balance";
+import { CashClosedError, assertCashDayOpen, lockCashDay } from "../lib/cash-closure";
 
 export function registerPaymentRoutes(app: Express): void {
   app.get("/api/payments/manual-options", authenticateToken, async (req: any, res) => {
@@ -43,7 +45,9 @@ export function registerPaymentRoutes(app: Express): void {
            c.concept_id,
            co.nombre AS concept_name,
            c.monto_base_centavos,
+           c.beca_aplicada,
            c.recargo_aplicado_centavos,
+           c.estado,
            COALESCE(SUM(pa.amount_centavos), 0)::bigint AS paid_centavos
          FROM students s
          JOIN charges c ON c.student_id = s.id
@@ -53,7 +57,8 @@ export function registerPaymentRoutes(app: Express): void {
            AND c.tenant_id = $2
            AND c.estado NOT IN ('pagado', 'cancelado')
          GROUP BY s.id, c.id, co.id
-         HAVING c.monto_base_centavos + COALESCE(c.recargo_aplicado_centavos, 0)
+         HAVING ROUND(c.monto_base_centavos * (1 - COALESCE(c.beca_aplicada, 0)::numeric / 100))
+              + COALESCE(c.recargo_aplicado_centavos, 0)
               - COALESCE(SUM(pa.amount_centavos), 0) > 0
          ORDER BY s.nombre_completo, c.fecha_vencimiento, c.id`,
         [campusId, tenantId],
@@ -76,10 +81,8 @@ export function registerPaymentRoutes(app: Express): void {
           student_id: row.student_id,
           concept_id: row.concept_id,
           concept_name: row.concept_name,
-          saldo_centavos:
-            Number(row.monto_base_centavos) +
-            Number(row.recargo_aplicado_centavos || 0) -
-            Number(row.paid_centavos || 0),
+          // Mismo saldo que la tarjeta: monto menos beca, más recargo, menos lo ya aplicado.
+          saldo_centavos: chargeBalance({ ...row, ya_pagado: row.paid_centavos }).pendiente_centavos,
         })),
       });
     } catch (error: any) {
@@ -145,15 +148,20 @@ export function registerPaymentRoutes(app: Express): void {
     });
     try {
       await client.query("BEGIN");
+      // Mismo candado que el cierre de caja: un cobro y un corte no se cruzan.
+      await lockCashDay(client, tenantId, campusId);
 
       const existing = await findExistingManualPayment();
       if (existing.rows.length) {
         await client.query("COMMIT");
         return respondWithExistingPayment(existing.rows[0]);
       }
+      // La repetición de un pago ya registrado se responde arriba aunque el día ya esté cerrado;
+      // un pago nuevo no entra después del corte.
+      await assertCashDayOpen(client, tenantId, campusId);
 
       const locked = await client.query(
-        `SELECT c.id, c.student_id, c.monto_base_centavos, c.recargo_aplicado_centavos,
+        `SELECT c.id, c.student_id, c.monto_base_centavos, c.beca_aplicada, c.recargo_aplicado_centavos,
                 c.estado, s.nombre_completo AS student_name, s.grado AS student_grade,
                 s.id_referencia AS student_reference, co.nombre AS concept_name
            FROM charges c
@@ -179,10 +187,8 @@ export function registerPaymentRoutes(app: Express): void {
           WHERE charge_id = $1`,
         [charge_id],
       );
-      const balance =
-        Number(charge.monto_base_centavos) +
-        Number(charge.recargo_aplicado_centavos || 0) -
-        Number(applied.rows[0].paid_centavos || 0);
+      // Mismo saldo que la tarjeta: monto menos beca, más recargo, menos lo ya aplicado.
+      const balance = chargeBalance({ ...charge, ya_pagado: applied.rows[0].paid_centavos }).pendiente_centavos;
       if (balance <= 0) {
         await client.query("ROLLBACK");
         return res.status(409).json({ message: "El cargo ya tiene saldo cero" });
@@ -234,6 +240,9 @@ export function registerPaymentRoutes(app: Express): void {
       });
     } catch (error: any) {
       await client.query("ROLLBACK").catch(() => undefined);
+      if (error instanceof CashClosedError) {
+        return res.status(error.status).json({ message: error.message, code: error.code });
+      }
       if (error?.code === "23505") {
         const concurrentPayment = await findExistingManualPayment();
         if (concurrentPayment.rows.length) {

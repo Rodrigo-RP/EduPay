@@ -14,6 +14,8 @@ import { wsManager } from "../websocket-manager";
 import { z } from "zod/v4";
 import { resolveEffectiveScholarship } from "../lib/scholarship-engine";
 import { applyMonthlySurcharges } from "../lib/surcharge-accrual";
+import { chargeBalance } from "../../shared/charge-balance";
+import { CashClosedError, assertCashDayOpen } from "../lib/cash-closure";
 import {
   billingPeriodForConcept,
   DueDateResolutionError,
@@ -567,11 +569,13 @@ export function registerChargesRoutes(app: Express): void {
       let saldo = 0;
       try {
         await client.query("BEGIN");
+        // No se registran cobros después del corte de caja del día (mismo candado que cerrar-dia).
+        await assertCashDayOpen(client, Number(tenantId), Number(campusId));
 
         // El cargo y su saldo se leen bajo el mismo lock que protege la escritura.
         // Así dos pagos manuales concurrentes no pueden cobrar el mismo saldo.
         const chargeRes = await client.query(
-          `SELECT c.id, c.monto_base_centavos, c.recargo_aplicado_centavos,
+          `SELECT c.id, c.monto_base_centavos, c.beca_aplicada, c.recargo_aplicado_centavos,
                   c.estado, c.student_id, c.plan_id
              FROM charges c
              JOIN students s ON s.id = c.student_id
@@ -603,9 +607,8 @@ export function registerChargesRoutes(app: Express): void {
           [chargeId]
         );
         const aplicado = Number((saldoRes.rows as any[])[0].aplicado);
-        saldo = Number(charge.monto_base_centavos)
-          + Number(charge.recargo_aplicado_centavos || 0)
-          - aplicado;
+        // Mismo saldo que la tarjeta: monto menos beca, más recargo, menos lo ya aplicado.
+        saldo = chargeBalance({ ...charge, ya_pagado: aplicado }).pendiente_centavos;
 
         if (saldo <= 0) {
           await client.query("ROLLBACK");
@@ -672,6 +675,9 @@ export function registerChargesRoutes(app: Express): void {
 
       res.json({ message: "Cargo marcado como pagado correctamente", payment_id: paymentId!, saldo_pagado_centavos: saldo });
     } catch (error: any) {
+      if (error instanceof CashClosedError) {
+        return res.status(error.status).json({ message: error.message, code: error.code });
+      }
       res.status(500).json({ message: "Error interno del servidor" });
     }
   });

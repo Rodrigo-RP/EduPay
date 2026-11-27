@@ -41,6 +41,29 @@ Este documento ordena qué corregir primero. **No cambia código.** Cada correcc
 
 ### P1. Un solo cálculo de saldo en todos los canales de cobro
 
+**Estado: implementado el 27-nov-2026, pendiente de tu commit.** Decisión 1 confirmada por Karla: la beca aplica en todos los canales de cobro. Seis archivos (`payments.ts`, `conciliacion.ts`, `charges.ts`, `guardian.ts`, `misc.ts` y `lib/stripe-spei-settlement.ts`) y una prueba nueva, `server/tests/charge-balance-channels.test.ts` (7 pruebas).
+
+Ahora usan el mismo saldo que la tarjeta (`chargeBalance`: monto menos beca, más recargo, menos lo aplicado):
+- **Pago manual:** el listado de opciones y el registro (Q-34). Pagar el neto de un cargo con beca lo liquida; un segundo pago o un monto mayor al saldo se rechaza.
+- **Cobro en efectivo:** el saldo ahora incluye beca y recargo (Q-34 y Q-35).
+- **`pagar-manual`:** registra el neto y no el bruto.
+- **SPEI:** el monto de la intención de pago y la validación al liquidarla (sin Stripe no se pudo ejercer; ver pendientes).
+- **Convenios:** la lista de cargos reestructurables y la creación del convenio parten del saldo neto. Las cuotas que genera un convenio nacen sin beca (ya son montos netos), por lo que la cancelación del plan no necesitó cambio.
+
+Verificación:
+- Las 7 pruebas nuevas **fallan con el código anterior** (por ejemplo, saldo 110000 en lugar de 60000, o un 201 donde debía haber 409) y pasan con el nuevo.
+- `server/tests` completo: 163 archivos y 1511 pruebas pasan (1 omitida, como antes). Suite de seguridad: 52 archivos y 1349 pruebas. `tsc` sin errores.
+- En `qa/fase4-dinero` las fallas bajaron de 16 a 11: los 4 casos de beca y recargo (C-10) pasan; las 11 restantes son de P2, P3, P4 y P6.
+
+Pendiente o no verificado de P1:
+- **SPEI (intención y liquidación)** se cambió y se leyó, pero no se ejerció en ejecución porque depende de Stripe; solo la compilación y las pruebas existentes lo cubren.
+- **Transferencias SPEI ya creadas con monto bruto** antes de este cambio no coincidirían con el saldo neto al liquidarse y fallarían con un error claro. Según Karla no hay pagos en producción, así que no debería haber ninguna.
+- **El recargo se sigue calculando sobre el monto base** (`surcharge-accrual.ts`), no sobre el neto de beca. No lo cambié porque no es un canal de cobro y es otra decisión: ¿el recargo debe calcularse sobre el monto con beca o sin ella?
+- **Los reportes** (P8) aún dan cifras distintas entre sí; P1 es la base para unificarlas, pero no las corrige.
+- **Interfaz:** no revisé las pantallas de pago manual ni de caja con montos netos.
+
+Detalle original del paquete:
+
 | | |
 |---|---|
 | Defectos | Q-34 (beca ignorada en pago manual y efectivo), Q-35 (el efectivo ignora el recargo) |
@@ -52,6 +75,21 @@ Este documento ordena qué corregir primero. **No cambia código.** Cada correcc
 | Dependencias | Ninguna. Es la base de P8: sin un saldo único, las cifras de los reportes no pueden coincidir |
 
 ### P2. Idempotencia y cierre de caja
+
+**Estado: implementado el 27-nov-2026, pendiente de tu commit.** Decisión 2 confirmada por Karla: se bloquean los cobros posteriores al corte (sin reapertura). Archivos: `server/lib/cash-closure.ts` (nuevo), `routes/payments.ts`, `routes/charges.ts`, `routes/conciliacion.ts`, `client/src/pages/caja-conciliacion.tsx`, prueba `server/tests/cash-close-integrity.test.ts` (6 pruebas) y `qa/fase4-dinero.spec.ts` (doble envío ahora con llave).
+
+- **Q-36:** `pago-efectivo` acepta `idempotency_key` (100 caracteres como máximo, mal formada responde 400). Misma llave y mismos datos repite la respuesta (`idempotent: true`); misma llave con otro monto responde 409. La pantalla de caja envía una llave por cobro. **La llave es opcional** por compatibilidad: sin ella cada petición sigue siendo un cobro nuevo.
+- **Q-43:** `cerrar-dia` rechaza fechas futuras (400).
+- **Q-44:** efectivo, pago manual y `pagar-manual` responden 409 `CAJA_CERRADA` si el campus ya cerró el día escolar. Comparten el candado `pg_advisory_xact_lock` con `cerrar-dia`, así que un cobro y el corte no se cruzan. Repetir un cobro ya registrado (misma llave) sigue respondiendo 200. El corte de un campus no bloquea a otro.
+
+Verificación: 6 pruebas nuevas pasan contra el servidor actualizado (antes, con el servidor viejo, fallaron 5 de 6). `server/tests`: 1513 pasan; 2 archivos (`report-exporter-database-date`, `reportes-financiero-fecha-pago`) no cargan porque en mi shell faltaba `DATABASE_URL` (entorno, no código; no los reejecuté con la variable). Seguridad: 52 archivos y 1349 pruebas. `tsc` sin errores. e2e de caja, planes de pago y pago manual (09, 10, 23, 24, 27): 16 de 16. `qa/fase4-dinero`: 26 pasan y 8 fallan, todas de otros paquetes (P3 emisión, P4 recargos y convenios, C-H10 y Q-15); los casos C-45 y de doble envío pasan.
+
+Pendiente o no verificado de P2:
+- **Conciliación bancaria y Stripe (tarjeta y SPEI) pueden crear pagos tras el corte**: no los bloqueé (el dinero ya entró). Si el corte debe incluirlos, es decisión aparte.
+- **Sin llave no hay protección** contra doble envío; clientes que no sean la pantalla de caja (app móvil, scripts) deberían enviarla.
+- No probé la pantalla de caja a mano en navegador; solo los e2e 24 y 10.
+
+Detalle original del paquete:
 
 | | |
 |---|---|

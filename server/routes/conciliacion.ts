@@ -18,6 +18,8 @@ import { registerFamilyCreditRoutes } from "./family-credits";
 import { registerCreditRefundRoutes, refundExceptions } from "./credit-refunds";
 import { cashRefundOutflows } from "../lib/refund-cash";
 import { familyCreditExceptions } from "../lib/family-credit-service";
+import { chargeBalance } from "../../shared/charge-balance";
+import { CashClosedError, assertCashDayOpen, lockCashDay } from "../lib/cash-closure";
 
 function fechaCiudadDeMexico(): string {
   return schoolDate();
@@ -682,6 +684,46 @@ export function registerConciliacionRoutes(app: Express): void {
       }
       const montoOperador = pesosToCentavos(monto);
 
+      // Llave de idempotencia opcional: la interfaz de caja la envía en cada cobro, de modo que un doble clic o un
+      // reintento de red repite la misma operación y no cobra dos veces. Sin llave, cada petición es un cobro nuevo.
+      const rawKey = (req.body as any)?.idempotency_key;
+      let referenciaLlave: string | null = null;
+      if (rawKey !== undefined && rawKey !== null && rawKey !== "") {
+        if (typeof rawKey !== "string" || !/^[A-Za-z0-9._:-]{16,100}$/.test(rawKey)) {
+          return res.status(400).json({ message: "idempotency_key inválida: usa de 16 a 100 caracteres (letras, números, punto, guion, guion bajo o dos puntos)" });
+        }
+        referenciaLlave = `caja:${rawKey}`;
+      }
+      /** Si la llave ya registró un cobro, responde ese mismo resultado (200) o 409 si la llave es de otra operación. */
+      const responderRepeticion = async (db: { query: (t: string, p?: unknown[]) => Promise<{ rows: any[] }> }) => {
+        const prev = (await db.query(
+          `SELECT p.id, p.monto_centavos, p.charge_id, c.student_id, c.estado,
+                  COALESCE((SELECT SUM(pa.amount_centavos) FROM payment_applications pa WHERE pa.payment_id = p.id), 0) AS aplicado
+             FROM payments p JOIN charges c ON c.id = p.charge_id
+            WHERE p.tenant_id = $1 AND p.referencia_pasarela = $2`,
+          [tenantIdCaja, referenciaLlave],
+        )).rows[0];
+        if (!prev) return null;
+        if (Number(prev.student_id) !== Number(estudiante_id) || Number(prev.monto_centavos) !== montoOperador ||
+            (chargeIdOverride && Number(prev.charge_id) !== Number(chargeIdOverride))) {
+          return res.status(409).json({ message: "La clave de cobro ya se usó en otra operación", payment_id: null, monto_centavos: montoOperador });
+        }
+        const aplicado = Number(prev.aplicado);
+        return res.json({
+          message: `Pago en efectivo ya registrado (${prev.estado})`,
+          payment_id: prev.id,
+          monto_aplicado_centavos: aplicado,
+          monto_centavos: Number(prev.monto_centavos),
+          excedente_centavos: Number(prev.monto_centavos) - aplicado,
+          charge_nuevo_estado: prev.estado,
+          idempotent: true,
+        });
+      };
+      if (referenciaLlave) {
+        const repetido = await responderRepeticion(pool as any);
+        if (repetido) return repetido;
+      }
+
       let chargeId: number | undefined;
       if (chargeIdOverride) {
         // Cargo explícito: verificar que pertenezca al alumno y campus correctos
@@ -720,10 +762,19 @@ export function registerConciliacionRoutes(app: Express): void {
       let newEstado!: string;
       try {
         await client.query("BEGIN");
+        // Mismo candado que el cierre de caja: un cobro y un corte no se cruzan.
+        await lockCashDay(client, Number(tenantIdCaja), Number(campusId));
+        // Con el candado tomado, una repetición simultánea ya ve el cobro de la primera petición.
+        if (referenciaLlave) {
+          const repetido = await responderRepeticion(client as any);
+          if (repetido) { await client.query("COMMIT"); return repetido; }
+        }
+        // Un cobro nuevo no entra después del corte de caja del día.
+        await assertCashDayOpen(client, Number(tenantIdCaja), Number(campusId));
 
         // Lock del cargo — serializa doble cobro concurrente
         const lockRes = await client.query(
-          `SELECT id, monto_base_centavos, estado
+          `SELECT id, monto_base_centavos, beca_aplicada, recargo_aplicado_centavos, estado
            FROM charges WHERE id = $1 AND tenant_id = $2 FOR UPDATE`,
           [chargeId, tenantIdCaja]
         );
@@ -745,7 +796,8 @@ export function registerConciliacionRoutes(app: Express): void {
           [chargeId]
         );
         const yaPagado = Number((saldoRes.rows as any[])[0].ya_pagado);
-        const saldoPendiente = Number(locked.monto_base_centavos) - yaPagado;
+        // Mismo saldo que la tarjeta: monto menos beca, más recargo, menos lo ya aplicado.
+        const saldoPendiente = chargeBalance({ ...locked, ya_pagado: yaPagado }).pendiente_centavos;
 
         if (saldoPendiente <= 0) {
           await client.query("ROLLBACK");
@@ -757,7 +809,7 @@ export function registerConciliacionRoutes(app: Express): void {
         const excedente = montoOperador - montoAplicado; // 0 si no sobra nada
         newEstado = montoAplicado >= saldoPendiente ? "pagado" : "parcial";
 
-        const referencia = `CAJA-${Date.now()}`;
+        const referencia = referenciaLlave ?? `CAJA-${Date.now()}`;
         // El payment registra el MONTO TOTAL COBRADO (efectivo recibido en caja)
         // — importante para cuadre de caja. La payment_application aplica solo
         // lo que cubre el cargo.
@@ -847,6 +899,9 @@ export function registerConciliacionRoutes(app: Express): void {
         charge_nuevo_estado:     newEstado,
       });
     } catch (error: any) {
+      if (error instanceof CashClosedError) {
+        return res.status(error.status).json({ message: error.message, code: error.code, payment_id: null });
+      }
       res.status(500).json({ message: "Error interno del servidor" });
     }
   });
@@ -1157,6 +1212,10 @@ export function registerConciliacionRoutes(app: Express): void {
     }
     if (!esFechaIsoValida(fecha)) {
       return res.status(400).json({ message: "La fecha de cierre no es válida" });
+    }
+    // El corte es irreversible: no se puede cerrar un día que todavía no ocurre.
+    if (fecha > schoolDate()) {
+      return res.status(400).json({ message: "No se puede cerrar la caja de una fecha futura" });
     }
     if (!Number.isSafeInteger(efectivoCapturado) || efectivoCapturado < 0) {
       return res.status(400).json({ message: "Captura un importe de efectivo válido, en centavos" });

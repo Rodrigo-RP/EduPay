@@ -1,6 +1,6 @@
 import { schoolDate, SCHOOL_TIME_ZONE } from "@shared/school-date";
 // Módulo 4: Caja y conciliación - Pagos manual, control bancario, conciliación automática
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -192,6 +192,9 @@ export default function CajaConciliacion() {
       observaciones: ""
     });
     const fechaPagos = schoolDate();
+    // Llave de idempotencia del cobro en curso: un doble clic o un reintento tras un fallo de red repite la misma
+    // operación en el servidor y no cobra dos veces. Se renueva al cambiar los datos o al registrarse el cobro.
+    const pagoKey = useRef<{ firma: string; llave: string } | null>(null);
     const { data: manualOptions } = useQuery<ManualPaymentOptions>({
       queryKey: ["/api/payments/manual-options"],
       staleTime: 0,
@@ -607,8 +610,15 @@ export default function CajaConciliacion() {
         return;
       }
 
+      const firma = [pagoForm.estudiante_id, pagoForm.concepto_id, pagoForm.monto].join("|");
+      if (!pagoKey.current || pagoKey.current.firma !== firma) {
+        const aleatorio = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        pagoKey.current = { firma, llave: `caja-${aleatorio}` };
+      }
+
       registrarPagoEfectivo.mutate({
         ...pagoForm,
+        idempotency_key: pagoKey.current.llave,
         charge_id: Number(pagoForm.concepto_id),
       });
     };
@@ -647,6 +657,7 @@ export default function CajaConciliacion() {
           title: "Pago registrado",
           description: "El pago fue confirmado y el comprobante está listo.",
         });
+        pagoKey.current = null; // el cobro quedó registrado: el siguiente cobro es una operación nueva
         setPagoForm({
           estudiante_id: "",
           concepto_id: "",
